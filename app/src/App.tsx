@@ -14,6 +14,7 @@ import { Profile, HandHistory, PropBet, Support } from './pages/Extras';
 import { Admin } from './pages/Admin';
 import { MyPage } from './pages/MyPage';
 import { Ocean, GGCare } from './pages/Ocean';
+import { Honeymoon } from './pages/Honeymoon';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
   const desktop = typeof window !== 'undefined' && !!(window as any).ggDesktop;
@@ -91,6 +92,7 @@ export default function App() {
       case 'my-page': return <MyPage />;
       case 'ocean': return <Ocean />;
       case 'ggcare': return <GGCare />;
+      case 'honeymoon': return <Honeymoon />;
       case 'support': return <Support />;
       case 'hand-history': return <HandHistory />;
       case 'propbet': return <PropBet />;

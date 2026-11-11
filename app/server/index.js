@@ -728,6 +728,32 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, gems: fresh.gems, balance: fresh.balance, play_chips: fresh.play_chips, tickets: fresh.tickets });
     }
 
+    // ---------- honeymoon ----------
+    if (p === '/api/honeymoon' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const day = 'honey-' + new Date().toISOString().slice(0, 10);
+      const welcome = db.prepare("SELECT 1 FROM daily_claims WHERE user_id = ? AND day = 'honey-welcome'").get(u.id);
+      const daily = db.prepare('SELECT 1 FROM daily_claims WHERE user_id = ? AND day = ?').get(u.id, day);
+      return json(res, 200, {
+        welcome: { claimed: !!welcome, amount: 500 },
+        daily: { claimed: !!daily, amount: 100 },
+        missions: true,
+      });
+    }
+    if (p === '/api/honeymoon/claim' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      const step = String(b.step || '');
+      const day = step === 'welcome' ? 'honey-welcome' : 'honey-' + new Date().toISOString().slice(0, 10);
+      if (!['welcome', 'daily'].includes(step)) return json(res, 400, { error: 'unknown step' });
+      const already = db.prepare('SELECT 1 FROM daily_claims WHERE user_id = ? AND day = ?').get(u.id, day);
+      if (already) return json(res, 400, { error: 'Already claimed' });
+      const amount = step === 'welcome' ? 500 : 100;
+      db.prepare('INSERT INTO daily_claims (user_id,day,amount) VALUES (?,?,?)').run(u.id, day, amount);
+      const after = addTransaction(u.id, 'honeymoon', amount, step === 'welcome' ? 'Honeymoon welcome bonus' : 'Honeymoon daily gift');
+      return json(res, 200, { ok: true, amount, balance: after });
+    }
+
     // ---------- gg care ----------
     if (p === '/api/ggcare' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;

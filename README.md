@@ -137,6 +137,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for 
 - **My Page** hub (overview, My Promo, weekly missions, transactions, tickets, messages, leaderboard, verification, security).
 - **Ocean Rewards**: gem balance, eight ocean ranks (Clownfish → Whale), gem store with instant redemptions and a gem activity ledger.
 - **GG Care**: bad-beat jackpot status, qualifying hand, daily care bonus and how-it-works.
+- **Honeymoon**: new-player package with a one-time welcome bonus, daily gift and starter mission path.
 - **Fish Buffet ranks** (Plankton → Killer Whale) with multipliers and reward history.
 - Pop any table out into its own window for multi-tabling.
 - Profile with stats, nickname change, avatar picker.

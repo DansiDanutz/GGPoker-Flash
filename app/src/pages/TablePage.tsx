@@ -35,6 +35,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [chat, setChat] = useState<{ nick: string; message: string }[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
+  const [emoteFx, setEmoteFx] = useState<{ userId: number; nick: string; emote: string; key: number } | null>(null);
+  const emoteTimer = useRef<number | null>(null);
   const [fx, setFx] = useState<{ id: number; seat: number; amount: number }[]>([]);
   const [winFx, setWinFx] = useState<{ id: number; amount: number; nick: string } | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -209,7 +211,10 @@ export function TablePage({ tableId }: { tableId: string }) {
     } else if (evt.type === 'chat') {
       setChat((prev) => [...prev.slice(-30), { nick: evt.nick, message: evt.message }]);
     } else if (evt.type === 'emote') {
-      toast({ kind: 'info', title: evt.nick, body: evt.emote });
+      setEmoteFx({ userId: evt.userId, nick: evt.nick, emote: evt.emote, key: Date.now() });
+      sound.play('bubble', { volume: .55 });
+      if (emoteTimer.current) window.clearTimeout(emoteTimer.current);
+      emoteTimer.current = window.setTimeout(() => setEmoteFx(null), 2300);
     }
   };
 
@@ -473,6 +478,9 @@ export function TablePage({ tableId }: { tableId: string }) {
             )}
             {p.folded && <div className="action-badge fold">Fold</div>}
             {p.allIn && <div className="action-badge" style={{ color: '#ffd98a' }}>ALL IN</div>}
+            {emoteFx && emoteFx.userId === (p as any).id && (
+              <div key={emoteFx.key} className="emote-bubble" title={emoteFx.nick}>{emoteFx.emote}</div>
+            )}
           </div>
         );
       })}
@@ -513,7 +521,15 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
           <div className="emote-row">
             {emotes.map((e) => (
-              <button key={e} onClick={() => send({ type: 'emote', emote: e })}>{e}</button>
+              <button key={e} onClick={() => {
+                send({ type: 'emote', emote: e });
+                if (user) {
+                  setEmoteFx({ userId: user.id, nick: user.nick, emote: e, key: Date.now() });
+                  sound.play('bubble', { volume: .5 });
+                  if (emoteTimer.current) window.clearTimeout(emoteTimer.current);
+                  emoteTimer.current = window.setTimeout(() => setEmoteFx(null), 2300);
+                }
+              }}>{e}</button>
             ))}
           </div>
           <form
