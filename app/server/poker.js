@@ -1,4 +1,7 @@
 // Texas Hold'em / Omaha / Short Deck poker engine used by the local GGPoker clone.
+import { randomInt } from 'node:crypto';
+
+const cryptoRng = () => randomInt(0, 2 ** 32) / 2 ** 32;
 export const SUITS = ['s', 'h', 'd', 'c'];
 export const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
 export const SUIT_GLYPH = { s: '♠', h: '♥', d: '♦', c: '♣' };
@@ -15,7 +18,7 @@ export function makeDeck(shortDeck = false) {
   return deck;
 }
 
-export function shuffle(deck, rng = Math.random) {
+export function shuffle(deck, rng = cryptoRng) {
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];

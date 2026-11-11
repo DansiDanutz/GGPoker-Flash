@@ -347,13 +347,19 @@ export function setSetting(key, value) {
 }
 
 export function addTransaction(userId, kind, amount, memo, currency = 'USD') {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   const col = currency === 'PLAY' ? 'play_chips' : currency === 'TICKET' ? 'tickets' : currency === 'GEM' ? 'gems' : 'balance';
-  db.prepare(`UPDATE users SET ${col} = ${col} + ? WHERE id = ?`).run(amount, userId);
-  const after = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId).v;
-  db.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo) VALUES (?,?,?,?,?,?)')
-    .run(userId, kind, currency, amount, after, memo || '');
-  return after;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare(`UPDATE users SET ${col} = ${col} + ? WHERE id = ?`).run(amount, userId);
+    const after = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId).v;
+    db.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo) VALUES (?,?,?,?,?,?)')
+      .run(userId, kind, currency, amount, after, memo || '');
+    db.exec('COMMIT');
+    return after;
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+    throw err;
+  }
 }
 
 export function newSession(userId, device = '') {

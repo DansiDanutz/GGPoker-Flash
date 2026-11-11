@@ -6,6 +6,17 @@ const fs = require('node:fs');
 
 
 const ROOT = path.join(__dirname, '..');
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  });
+}
 app.setName('DanGG.ro');
 app.setPath('userData', require('node:path').join(app.getPath('appData'), 'GGPoker Clone'));
 try { require('node:fs').mkdirSync(app.getPath('userData'), { recursive: true }); } catch {}
@@ -14,7 +25,9 @@ const DEV = process.env.GGPOKER_DEV === '1';
 const PORT = Number(process.env.GGPOKER_PORT || 5198);
 const URL = DEV ? 'http://localhost:5199' : `http://127.0.0.1:${PORT}`;
 
-app.commandLine.appendSwitch('remote-debugging-port', '9333');
+if (DEV || process.env.GGPOKER_CDP === '1') {
+  app.commandLine.appendSwitch('remote-debugging-port', '9333');
+}
 
 let win = null;
 let serverProc = null;

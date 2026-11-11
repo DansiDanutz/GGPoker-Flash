@@ -28,7 +28,17 @@ function json(res, code, obj) {
 
 async function readBody(req) {
   const chunks = [];
-  for await (const c of req) chunks.push(c);
+  let size = 0;
+  const MAX = 8 * 1024 * 1024;
+  for await (const c of req) {
+    size += c.length;
+    if (size > MAX) {
+      const err = new Error('Request body too large');
+      err.status = 413;
+      throw err;
+    }
+    chunks.push(c);
+  }
   if (!chunks.length) return {};
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return {}; }
 }
@@ -1187,6 +1197,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404, { 'content-type': 'text/plain' });
     res.end('Not found');
   } catch (err) {
+    if (err && err.status) return json(res, err.status, { error: err.message });
     console.error('api error', p, err);
     json(res, 500, { error: 'internal error', detail: String(err && err.message) });
   }

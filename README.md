@@ -241,6 +241,19 @@ Deliberate approximations in this local build:
 
 The public repository contains code only. GGPoker artwork, fonts and audio are generated locally from the installed client with `tools/setup_assets.sh` and the asset tools, and are not redistributed.
 
+## Design and review (EGM)
+
+The project uses Google's Elephant-Goldfish Model (EGM) via the `dsh-egm`
+plugin. The design-of-record is
+[docs/designs/dangro-clone.md](docs/designs/dangro-clone.md); the fresh-context
+Goldfish reviews and the consolidated disposition are in
+[docs/designs/reviews/](docs/designs/reviews/).
+
+The review changed the code: `addTransaction` is now a single SQLite
+transaction, the deck shuffle uses `node:crypto`, the app enforces a single
+instance, CDP is gated to dev, request bodies are capped, and 11 committed
+`node:test` cases cover the engine and ledger (`cd app && pnpm test`).
+
 ## Notes / scope
 
 - This is a faithful **functional** clone: layout, art, audio, tab structure, game flow and
