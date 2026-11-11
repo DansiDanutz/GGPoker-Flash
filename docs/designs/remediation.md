@@ -1,7 +1,7 @@
 # DanGG.ro Remediation — Bounded Ratchets
 
 *   **Author:** Dan Semenescu
-*   **Status:** Proposed
+*   **Status:** Phases 1–3 implemented; Phase 4 open
 *   **Date:** 2026-11-11
 *   **Supersedes:** the first remediation draft and its review.
 *   **Design of record:** [dangro-clone.md](dangro-clone.md)
@@ -26,6 +26,23 @@ WebSocket version protocol, a disconnect state machine, a security programme
 and two modules to fix a local single-user play-money app. This version keeps
 four ratchets and one defect, adds one table, and records the bounds we accept
 instead of building around them.
+
+## Implementation status
+
+*   **Phase 1 — ledger sessions and crash refund:** implemented. `transactions`
+    has `session_id` and `reference`; buy-in, rebuy, cash-out and session close
+    write the session id; startup refunds open sessions exactly once.
+*   **Phase 2 — per-user claims:** implemented. `player_claims` backs daily,
+    GG Care, Honeymoon and missions; mission progress is per user.
+*   **Phase 3 — port ownership and testability:** implemented. The server prints
+    `LISTENING <port>`, supports `PORT=0`, and the Electron parent waits for the
+    line; `ledger-session`, `claims` and `http` tests were added.
+*   **Phase 4 — maintenance:** open. Lobby synthetic labelling, rake fallback
+    removal, `resetpw` audit, display-only money cleanup, blackjack fresh
+    balance, and the design-of-record update are not done.
+*   **Verification:** `cd app && pnpm test` → 18 passed. The packaged app was
+    relaunched, `/api/lobby` returned 200, and a live join/leave produced one
+    `buyin` and one `cashout` with the same session id and `in:`/`out:` refs.
 
 ## The Problem
 

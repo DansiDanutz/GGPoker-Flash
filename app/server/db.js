@@ -203,6 +203,29 @@ function init() {
 
   try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE transactions ADD COLUMN reference TEXT'); } catch { /* already exists */ }
+  db.exec("DROP INDEX IF EXISTS idx_transactions_reference");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_reference ON transactions(user_id, reference)");
+  db.exec(`CREATE TABLE IF NOT EXISTS player_claims (
+    user_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    period_key TEXT NOT NULL,
+    progress INTEGER NOT NULL DEFAULT 0,
+    claimed INTEGER NOT NULL DEFAULT 0,
+    amount INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, kind, period_key)
+  )`);
+  db.prepare(`INSERT OR IGNORE INTO player_claims (user_id, kind, period_key, progress, claimed, amount)
+    SELECT user_id,
+      CASE WHEN day = 'honey-welcome' OR day LIKE 'honey-%' THEN 'honeymoon'
+           WHEN day LIKE 'care-%' THEN 'ggcare' ELSE 'daily' END,
+      CASE WHEN day = 'honey-welcome' THEN 'welcome'
+           WHEN day LIKE 'honey-%' THEN substr(day, 7)
+           WHEN day LIKE 'care-%' THEN substr(day, 6) ELSE day END,
+      0, 1, amount
+    FROM daily_claims`).run();
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
   ensureSeries();
@@ -346,20 +369,101 @@ export function setSetting(key, value) {
     .run(key, JSON.stringify(value));
 }
 
-export function addTransaction(userId, kind, amount, memo, currency = 'USD') {
+export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', opts = {}) {
+  const { sessionId = null, reference = null, onDuplicate = 'throw' } = opts;
   const col = currency === 'PLAY' ? 'play_chips' : currency === 'TICKET' ? 'tickets' : currency === 'GEM' ? 'gems' : 'balance';
   db.exec('BEGIN IMMEDIATE');
   try {
+    const row = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId);
+    if (!row) throw new Error('user not found');
+    if (reference) {
+      const predicted = row.v + amount;
+      const sql = onDuplicate === 'skip'
+        ? `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(user_id,reference) DO NOTHING`
+        : `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference) VALUES (?,?,?,?,?,?,?,?)`;
+      const info = db.prepare(sql).run(userId, kind, currency, amount, predicted, memo || '', sessionId, reference);
+      if (info.changes === 0) {
+        db.exec('COMMIT');
+        return { applied: false, balance: row.v };
+      }
+      db.prepare(`UPDATE users SET ${col} = ? WHERE id = ?`).run(predicted, userId);
+      db.exec('COMMIT');
+      return { applied: true, balance: predicted };
+    }
     db.prepare(`UPDATE users SET ${col} = ${col} + ? WHERE id = ?`).run(amount, userId);
     const after = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId).v;
-    db.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo) VALUES (?,?,?,?,?,?)')
-      .run(userId, kind, currency, amount, after, memo || '');
+    db.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id) VALUES (?,?,?,?,?,?,?)')
+      .run(userId, kind, currency, amount, after, memo || '', sessionId);
     db.exec('COMMIT');
-    return after;
+    return { applied: true, balance: after };
   } catch (err) {
     try { db.exec('ROLLBACK'); } catch { /* ignore */ }
     throw err;
   }
+}
+
+export function addTransaction(userId, kind, amount, memo, currency = 'USD') {
+  return addTransactionEx(userId, kind, amount, memo, currency).balance;
+}
+
+export function openSessions() {
+  return db.prepare(`SELECT t.user_id, t.session_id,
+      -SUM(CASE WHEN t.kind IN ('buyin','rebuy') THEN t.amount ELSE 0 END) AS chips_in
+    FROM transactions t
+    WHERE t.session_id IS NOT NULL
+    GROUP BY t.user_id, t.session_id
+    HAVING SUM(CASE WHEN t.reference LIKE 'out:%' OR t.reference LIKE 'refund:%' THEN 1 ELSE 0 END) = 0
+       AND -SUM(CASE WHEN t.kind IN ('buyin','rebuy') THEN t.amount ELSE 0 END) > 0`).all();
+}
+
+export function refundOpenSessions() {
+  let refunded = 0;
+  for (const s of openSessions()) {
+    try {
+      const tableId = String(s.session_id).split(':')[0] || 'table';
+      addTransactionEx(s.user_id, 'buyin_refund', s.chips_in, `Crash refund ${tableId}`, 'USD', {
+        sessionId: s.session_id, reference: `refund:${s.session_id}`, onDuplicate: 'skip',
+      });
+      refunded++;
+    } catch (e) {
+      console.error('refund session failed', s.session_id, e && e.message);
+    }
+  }
+  return refunded;
+}
+
+export function getClaim(userId, kind, periodKey) {
+  return db.prepare('SELECT * FROM player_claims WHERE user_id = ? AND kind = ? AND period_key = ?').get(userId, kind, periodKey);
+}
+
+export function claimReward(userId, kind, periodKey, amount, currency = 'USD', memo = '') {
+  db.prepare(`INSERT INTO player_claims (user_id, kind, period_key, progress, claimed, amount)
+    VALUES (?,?,?,0,0,0) ON CONFLICT(user_id, kind, period_key) DO NOTHING`).run(userId, kind, periodKey);
+  const row = getClaim(userId, kind, periodKey);
+  if (row.claimed) return { claimed: false, amount: row.amount };
+  const award = addTransactionEx(userId, kind, amount, memo || `${kind} reward`, currency, {
+    reference: `claim:${kind}:${periodKey}`, onDuplicate: 'skip',
+  });
+  db.prepare(`UPDATE player_claims SET claimed = 1, amount = ?, updated_at = datetime('now')
+    WHERE user_id = ? AND kind = ? AND period_key = ?`).run(amount, userId, kind, periodKey);
+  return { claimed: true, amount, balance: award.balance, reapplied: !award.applied };
+}
+
+export function bumpMission(userId, missionId, delta = 1) {
+  const m = db.prepare('SELECT goal FROM missions WHERE id = ?').get(missionId);
+  if (!m) return;
+  db.prepare(`INSERT INTO player_claims (user_id, kind, period_key, progress, claimed, amount)
+    VALUES (?, 'mission', ?, 0, 0, 0) ON CONFLICT(user_id, kind, period_key) DO NOTHING`).run(userId, missionId);
+  db.prepare(`UPDATE player_claims SET progress = MIN(?, progress + ?), updated_at = datetime('now')
+    WHERE user_id = ? AND kind = 'mission' AND period_key = ?`).run(m.goal, delta, userId, missionId);
+}
+
+export function setMissionDone(userId, missionId) {
+  const m = db.prepare('SELECT goal FROM missions WHERE id = ?').get(missionId);
+  if (!m) return;
+  db.prepare(`INSERT INTO player_claims (user_id, kind, period_key, progress, claimed, amount)
+    VALUES (?, 'mission', ?, ?, 0, 0)
+    ON CONFLICT(user_id, kind, period_key) DO UPDATE SET progress = excluded.progress, updated_at = datetime('now')`).run(userId, missionId, m.goal);
 }
 
 export function newSession(userId, device = '') {

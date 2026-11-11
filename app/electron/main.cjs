@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, shell, dialog } = require('electron');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const http = require('node:http');
@@ -32,20 +32,30 @@ if (DEV || process.env.GGPOKER_CDP === '1') {
 let win = null;
 let serverProc = null;
 
-function waitForServer(timeoutMs = 20000) {
-  const start = Date.now();
+function waitForListening(child, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
-    const tick = () => {
-      const req = http.get(`http://127.0.0.1:${PORT}/api/lobby`, (res) => {
-        res.resume();
-        resolve();
-      });
-      req.on('error', () => {
-        if (Date.now() - start > timeoutMs) reject(new Error('server did not start'));
-        else setTimeout(tick, 250);
-      });
+    let buffer = '';
+    let settled = false;
+    const cleanup = () => {
+      child.stdout.off('data', onData);
+      child.off('exit', onExit);
+      clearTimeout(timer);
     };
-    tick();
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      fn(value);
+    };
+    const onData = (chunk) => {
+      buffer += String(chunk);
+      const match = buffer.match(/LISTENING (\d+)/);
+      if (match) finish(resolve, Number(match[1]));
+    };
+    const onExit = (code) => finish(reject, new Error(`server exited before listening (code ${code})`));
+    const timer = setTimeout(() => finish(reject, new Error('server did not report a listening port')), timeoutMs);
+    child.stdout.on('data', onData);
+    child.once('exit', onExit);
   });
 }
 
@@ -64,7 +74,12 @@ async function startServer() {
   });
   serverProc.stdout.on('data', (d) => console.log('[server]', String(d).trim()));
   serverProc.stderr.on('data', (d) => console.error('[server]', String(d).trim()));
-  await waitForServer();
+  try {
+    await waitForListening(serverProc);
+  } catch (e) {
+    try { serverProc.kill(); } catch { /* ignore */ }
+    throw e;
+  }
 }
 
 function createWindow() {
@@ -130,6 +145,9 @@ app.whenReady().then(async () => {
     await startServer();
   } catch (e) {
     console.error('Failed to start local server', e);
+    dialog.showErrorBox('DanGG.ro could not start', `The local server failed to start.\n\nData: ${app.getPath('userData')}\n\n${e && e.message ? e.message : e}`);
+    app.quit();
+    return;
   }
   if (process.platform === 'darwin') {
     Menu.setApplicationMenu(Menu.buildFromTemplate([

@@ -2,10 +2,11 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import {
-  db, DATA_DIR, hashPassword, checkPassword, addTransaction, newSession, userByToken,
-  publicUser, getSetting, setSetting,
+  db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, newSession, userByToken,
+  publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone,
 } from './db.js';
 import { PokerTable, botName } from './table.js';
 import { makeDeck, shuffle, cardStr } from './poker.js';
@@ -213,13 +214,9 @@ function getLiveTable(id) {
       // mission progress for humans
       for (const s of table.seats) {
         if (!s.player || s.player.isBot) continue;
-        db.prepare(`UPDATE missions SET progress = MIN(goal, progress + 1) WHERE id = 'daily-hands' AND claimed = 0`).run();
-        if (winner && winner.id === s.player.id) {
-          db.prepare(`UPDATE missions SET progress = MIN(goal, progress + 1) WHERE id = 'daily-win' AND claimed = 0`).run();
-        }
-        if (table.board.length >= 3) {
-          db.prepare(`UPDATE missions SET progress = MIN(goal, progress + 1) WHERE id = 'daily-flop' AND claimed = 0`).run();
-        }
+        bumpMission(s.player.id, 'daily-hands');
+        if (winner && winner.id === s.player.id) bumpMission(s.player.id, 'daily-win');
+        if (table.board.length >= 3) bumpMission(s.player.id, 'daily-flop');
       }
     },
   });
@@ -232,6 +229,7 @@ function getLiveTable(id) {
       if (entry.clients.size === 0) {
         if (!entry.emptySince) entry.emptySince = Date.now();
         else if (Date.now() - entry.emptySince > 45000) {
+          for (const p of table.humans()) cashOutSeat(table, p.id, 'Table idle close');
           clearInterval(entry.timer);
           LIVE_TABLES.delete(id);
         }
@@ -273,10 +271,36 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   const stack = Number(buyin) || table.cfg.min_buyin;
   if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
   if (user.balance < stack) return { ok: false, error: 'not enough balance' };
-  addTransaction(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`);
+  const sessionId = `${table.cfg.id}:${randomUUID()}`;
+  addTransactionEx(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`, 'USD', {
+    sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
+  });
   const res = table.sit({ id: user.id, nick: user.nick, avatar: user.avatar }, seatIndex ?? null, stack);
-  if (!res.ok) { addTransaction(user.id, 'refund', stack, 'Buy-in refund'); return res; }
+  if (!res.ok) {
+    addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
+      sessionId, reference: `refund:${sessionId}`, onDuplicate: 'skip',
+    });
+    return res;
+  }
+  const seat = table.seatOf(user.id);
+  if (seat && seat.player) seat.player.sessionId = sessionId;
   return res;
+}
+
+function cashOutSeat(table, userId, reason) {
+  const seat = table.seatOf(userId);
+  if (!seat || !seat.player) return;
+  const stack = seat.player.stack;
+  const sessionId = seat.player.sessionId;
+  table.stand(userId);
+  if (table.tournament) return;
+  if (sessionId) {
+    addTransactionEx(userId, stack > 0 ? 'cashout' : 'session_close', stack, reason, 'USD', {
+      sessionId, reference: `out:${sessionId}`, onDuplicate: 'skip',
+    });
+  } else if (stack > 0) {
+    addTransaction(userId, 'cashout', stack, reason);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -392,7 +416,7 @@ const server = http.createServer(async (req, res) => {
       addTransaction(u.id, 'tourney_buyin', -total, `Registration ${t.name}`);
       db.prepare('INSERT INTO tourney_regs (tournament_id,user_id) VALUES (?,?)').run(id, u.id);
       db.prepare('UPDATE tournaments SET entrants = entrants + 1 WHERE id = ?').run(id);
-      db.prepare(`UPDATE missions SET progress = goal WHERE id = 'daily-tourney' AND claimed = 0`).run();
+      setMissionDone(u.id, 'daily-tourney');
       return json(res, 200, { ok: true });
     }
 
@@ -488,7 +512,10 @@ const server = http.createServer(async (req, res) => {
     // ---------- missions / rewards ----------
     if (p === '/api/missions') {
       const u = requireUser(req, res); if (!u) return;
-      return json(res, 200, { missions: db.prepare('SELECT * FROM missions WHERE active = 1 ORDER BY sort').all() });
+      const defs = db.prepare('SELECT * FROM missions WHERE active = 1 ORDER BY sort').all();
+      const claims = db.prepare("SELECT * FROM player_claims WHERE user_id = ? AND kind = 'mission'").all(u.id);
+      const byId = new Map(claims.map((c) => [c.period_key, c]));
+      return json(res, 200, { missions: defs.map((m) => ({ ...m, progress: byId.get(m.id)?.progress || 0, claimed: byId.get(m.id)?.claimed || 0 })) });
     }
 
     if (p.startsWith('/api/missions/') && p.endsWith('/claim') && req.method === 'POST') {
@@ -496,11 +523,12 @@ const server = http.createServer(async (req, res) => {
       const id = p.split('/')[3];
       const m = db.prepare('SELECT * FROM missions WHERE id = ?').get(id);
       if (!m) return json(res, 404, { error: 'not found' });
-      if (m.claimed) return json(res, 400, { error: 'Already claimed' });
-      if (m.progress < m.goal) return json(res, 400, { error: 'Mission not complete' });
-      db.prepare('UPDATE missions SET claimed = 1 WHERE id = ?').run(id);
-      const after = addTransaction(u.id, 'claim', m.reward, `Mission: ${m.title}`, m.reward_kind);
-      return json(res, 200, { ok: true, balance: after, reward: m.reward, kind: m.reward_kind });
+      const c = getClaim(u.id, 'mission', id);
+      if (c?.claimed) return json(res, 400, { error: 'Already claimed' });
+      if (!c || c.progress < m.goal) return json(res, 400, { error: 'Mission not complete' });
+      const award = claimReward(u.id, 'mission', id, m.reward, m.reward_kind, `Mission: ${m.title}`);
+      if (!award.claimed) return json(res, 400, { error: 'Already claimed' });
+      return json(res, 200, { ok: true, balance: award.balance, reward: m.reward, kind: m.reward_kind });
     }
 
     if (p === '/api/leaderboard') {
@@ -511,19 +539,19 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/rewards/daily' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const day = new Date().toISOString().slice(0, 10);
-      const already = db.prepare('SELECT * FROM daily_claims WHERE user_id = ? AND day = ?').get(u.id, day);
-      if (already) return json(res, 400, { error: 'Daily freebie already claimed today', amount: already.amount });
+      const already = getClaim(u.id, 'daily', day);
+      if (already?.claimed) return json(res, 400, { error: 'Daily freebie already claimed today', amount: already.amount });
       const amount = 500 + Math.floor(Math.random() * 20) * 250;
-      db.prepare('INSERT INTO daily_claims (user_id,day,amount) VALUES (?,?,?)').run(u.id, day, amount);
-      const after = addTransaction(u.id, 'daily', amount, 'Daily freebie');
-      return json(res, 200, { ok: true, amount, balance: after });
+      const award = claimReward(u.id, 'daily', day, amount, 'USD', 'Daily freebie');
+      if (!award.claimed) return json(res, 400, { error: 'Daily freebie already claimed today', amount: award.amount });
+      return json(res, 200, { ok: true, amount, balance: award.balance });
     }
 
     if (p === '/api/rewards/daily') {
       const u = requireUser(req, res); if (!u) return;
       const day = new Date().toISOString().slice(0, 10);
-      const already = db.prepare('SELECT * FROM daily_claims WHERE user_id = ? AND day = ?').get(u.id, day);
-      return json(res, 200, { claimed: !!already, amount: already?.amount || 0 });
+      const already = getClaim(u.id, 'daily', day);
+      return json(res, 200, { claimed: !!already?.claimed, amount: already?.amount || 0 });
     }
 
     if (p === '/api/rewards/spin' && req.method === 'POST') {
@@ -844,12 +872,12 @@ const server = http.createServer(async (req, res) => {
     // ---------- honeymoon ----------
     if (p === '/api/honeymoon' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
-      const day = 'honey-' + new Date().toISOString().slice(0, 10);
-      const welcome = db.prepare("SELECT 1 FROM daily_claims WHERE user_id = ? AND day = 'honey-welcome'").get(u.id);
-      const daily = db.prepare('SELECT 1 FROM daily_claims WHERE user_id = ? AND day = ?').get(u.id, day);
+      const day = new Date().toISOString().slice(0, 10);
+      const welcome = getClaim(u.id, 'honeymoon', 'welcome');
+      const daily = getClaim(u.id, 'honeymoon', day);
       return json(res, 200, {
-        welcome: { claimed: !!welcome, amount: 500 },
-        daily: { claimed: !!daily, amount: 100 },
+        welcome: { claimed: !!welcome?.claimed, amount: 500 },
+        daily: { claimed: !!daily?.claimed, amount: 100 },
         missions: true,
       });
     }
@@ -857,32 +885,27 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       const b = await readBody(req);
       const step = String(b.step || '');
-      const day = step === 'welcome' ? 'honey-welcome' : 'honey-' + new Date().toISOString().slice(0, 10);
       if (!['welcome', 'daily'].includes(step)) return json(res, 400, { error: 'unknown step' });
-      const already = db.prepare('SELECT 1 FROM daily_claims WHERE user_id = ? AND day = ?').get(u.id, day);
-      if (already) return json(res, 400, { error: 'Already claimed' });
+      const period = step === 'welcome' ? 'welcome' : new Date().toISOString().slice(0, 10);
       const amount = step === 'welcome' ? 500 : 100;
-      db.prepare('INSERT INTO daily_claims (user_id,day,amount) VALUES (?,?,?)').run(u.id, day, amount);
-      const after = addTransaction(u.id, 'honeymoon', amount, step === 'welcome' ? 'Honeymoon welcome bonus' : 'Honeymoon daily gift');
-      return json(res, 200, { ok: true, amount, balance: after });
+      const award = claimReward(u.id, 'honeymoon', period, amount, 'USD', step === 'welcome' ? 'Honeymoon welcome bonus' : 'Honeymoon daily gift');
+      if (!award.claimed) return json(res, 400, { error: 'Already claimed' });
+      return json(res, 200, { ok: true, amount, balance: award.balance });
     }
 
     // ---------- gg care ----------
     if (p === '/api/ggcare' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
-      const day = 'care-' + new Date().toISOString().slice(0, 10);
-      const claimed = db.prepare('SELECT amount FROM daily_claims WHERE user_id = ? AND day = ?').get(u.id, day);
-      return json(res, 200, { jackpot: getSetting('jackpot', 199026635), claimed: !!claimed, amount: claimed?.amount || 0 });
+      const day = new Date().toISOString().slice(0, 10);
+      const claimed = getClaim(u.id, 'ggcare', day);
+      return json(res, 200, { jackpot: getSetting('jackpot', 199026635), claimed: !!claimed?.claimed, amount: claimed?.amount || 0 });
     }
     if (p === '/api/ggcare/claim' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
-      const day = 'care-' + new Date().toISOString().slice(0, 10);
-      const already = db.prepare('SELECT 1 FROM daily_claims WHERE user_id = ? AND day = ?').get(u.id, day);
-      if (already) return json(res, 400, { error: 'Already claimed today' });
-      const amount = 500;
-      db.prepare('INSERT INTO daily_claims (user_id,day,amount) VALUES (?,?,?)').run(u.id, day, amount);
-      const after = addTransaction(u.id, 'ggcare', amount, 'GG Care daily bonus');
-      return json(res, 200, { ok: true, amount, balance: after });
+      const day = new Date().toISOString().slice(0, 10);
+      const award = claimReward(u.id, 'ggcare', day, 500, 'USD', 'GG Care daily bonus');
+      if (!award.claimed) return json(res, 400, { error: 'Already claimed today' });
+      return json(res, 200, { ok: true, amount: award.amount, balance: award.balance });
     }
 
     // ---------- brand assets ----------
@@ -1158,12 +1181,7 @@ const server = http.createServer(async (req, res) => {
       const entry = LIVE_TABLES.get(id);
       if (!entry) return json(res, 404, { error: 'not running' });
       for (const s of [...entry.table.seats]) {
-        if (s.player && !s.player.isBot) {
-          const stack = s.player.stack;
-          const uid = s.player.id;
-          entry.table.stand(uid);
-          if (stack > 0 && !entry.table.tournament) addTransaction(uid, 'cashout', stack, `Table closed by admin`);
-        }
+        if (s.player && !s.player.isBot) cashOutSeat(entry.table, s.player.id, `Table closed by admin`);
       }
       clearInterval(entry.timer);
       LIVE_TABLES.delete(id);
@@ -1309,11 +1327,9 @@ wss.on('connection', (ws, req) => {
         entry.clients.delete(ws);
         ws.tables.delete(msg.tableId);
         const table = entry.table;
-        const seat = table.seatOf(ws.userId);
-        if (seat) {
-          const stack = seat.player.stack;
-          const res = table.stand(ws.userId);
-          if (stack > 0 && !table.tournament) addTransaction(ws.userId, 'cashout', stack, `Cash-out ${table.cfg.name}`);
+        const hadSeat = !!table.seatOf(ws.userId);
+        if (hadSeat) {
+          cashOutSeat(table, ws.userId, `Cash-out ${table.cfg.name}`);
           notifyWaitlist(msg.tableId);
         } else {
           waitlistLeave(msg.tableId, ws.userId);
@@ -1349,7 +1365,12 @@ wss.on('connection', (ws, req) => {
       if (amount < table.cfg.min_buyin || amount > table.cfg.max_buyin) return ws.send(JSON.stringify({ type: 'error', error: 'invalid amount' }));
       const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
       if (!u || u.balance < amount) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
-      addTransaction(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`);
+      if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
+      const sessionId = seat.player.sessionId;
+      seat.player.rebuyCount = (seat.player.rebuyCount || 0) + 1;
+      addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
+        sessionId, reference: `in:${sessionId}:r${seat.player.rebuyCount}`, onDuplicate: 'skip',
+      });
       seat.player.stack += amount;
       broadcastState(table);
       return;
@@ -1406,9 +1427,7 @@ wss.on('connection', (ws, req) => {
       const seat = table.seatOf(ws.userId);
       if (seat) {
         seat.player.disconnected = true;
-        const stack = seat.player.stack;
-        table.stand(ws.userId);
-        if (stack > 0 && !table.tournament) addTransaction(ws.userId, 'cashout', stack, `Cash-out ${table.cfg.name}`);
+        cashOutSeat(table, ws.userId, `Cash-out ${table.cfg.name}`);
         notifyWaitlist(id);
       } else {
         waitlistLeave(id, ws.userId);
@@ -1418,6 +1437,10 @@ wss.on('connection', (ws, req) => {
   });
 });
 
+const refunded = refundOpenSessions();
+if (refunded) console.log(`refunded ${refunded} open table session(s)`);
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`GGPoker clone server: http://127.0.0.1:${PORT}`);
+  const port = server.address().port;
+  console.log(`LISTENING ${port}`);
+  console.log(`GGPoker clone server: http://127.0.0.1:${port}`);
 });
