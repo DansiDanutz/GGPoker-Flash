@@ -237,8 +237,10 @@ function getLiveTable(id) {
           const u = db.prepare('SELECT id, elo FROM users WHERE id = ? AND deleted_at IS NULL').get(p.id);
           if (!u) continue;
           const won = winners.some((w) => Number(w.id) === Number(p.id));
-          const next = Math.max(0, Number(u.elo ?? 1000) + (won ? 8 : -5));
+          const before = Number(u.elo ?? 1000);
+          const next = Math.max(0, before + (won ? 8 : -5));
           db.prepare('UPDATE users SET elo = ? WHERE id = ?').run(next, u.id);
+          db.prepare('INSERT INTO elo_history (user_id,hand_id,delta,before,after) VALUES (?,?,?,?,?)').run(u.id, h.handId || null, next - before, before, next);
         }
         if (h.game === 'rush' && Math.random() < 0.12) {
           const humans = (h.players || []).filter((p) => p && p.id && !p.isBot && db.prepare('SELECT 1 FROM users WHERE id = ?').get(p.id));
@@ -837,7 +839,8 @@ const server = http.createServer(async (req, res) => {
       const u = userByToken(tokenFrom(req));
       const rows = db.prepare('SELECT id,nick,avatar,vip_level,elo FROM users WHERE deleted_at IS NULL AND banned = 0 ORDER BY elo DESC, nick LIMIT 50').all();
       const rank = u ? rows.findIndex((r) => r.id === u.id) + 1 : 0;
-      return json(res, 200, { leaders: rows, me: u ? { ...publicUser(u), rank: rank || null } : null });
+      const history = u ? db.prepare('SELECT delta, before, after, created_at FROM elo_history WHERE user_id = ? ORDER BY id DESC LIMIT 12').all(u.id) : [];
+      return json(res, 200, { leaders: rows, me: u ? { ...publicUser(u), rank: rank || null, history } : null });
     }
 
     if (p === '/api/leaderboard') {

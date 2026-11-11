@@ -86,6 +86,15 @@ function init() {
     hero_cards TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS elo_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    hand_id TEXT,
+    delta INTEGER NOT NULL,
+    before INTEGER NOT NULL,
+    after INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
   CREATE TABLE IF NOT EXISTS notification_reads (
     user_id INTEGER NOT NULL,
     item_key TEXT NOT NULL,

@@ -96,7 +96,15 @@ export function Elo() {
             </table>
           </div>
           <div className="card">
-            <div className="panel-title">How ELO works</div>
+            <div className="panel-title">Recent rating changes</div>
+            {(data.me?.history || []).length ? (data.me.history as any[]).map((h, i) => (
+              <div key={i} className="kv elo-history-row">
+                <span>{h.created_at?.slice(5, 16)}</span>
+                <b style={{ color: h.delta >= 0 ? '#9fd8b0' : '#e08b8b' }}>{h.delta >= 0 ? '+' : ''}{h.delta}</b>
+                <span className="muted small">{h.before} → {h.after}</span>
+              </div>
+            )) : <p className="muted small">No settled hands yet. Play a cash hand to start your history.</p>}
+            <div className="panel-title" style={{ marginTop: 16 }}>How ELO works</div>
             <p className="muted small" style={{ lineHeight: 1.6 }}>
               Every completed cash-table hand settles a small rating change. Winners gain <b style={{ color: '#9fd8b0' }}>+8</b>, everyone else loses <b style={{ color: '#e08b8b' }}>−5</b>, floored at zero. Tournament and bot-only hands do not count.
             </p>

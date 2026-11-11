@@ -86,7 +86,7 @@ not a source to copy blindly.
 - Tournament search now filters by event name or format.
 - ELO rating:
   - persisted per-user rating with win/loss settlement on completed cash hands;
-  - divisions, ladder and current rank page;
+  - divisions, ladder, current rank and recent rating-change history;
   - ELO Challenge creates a private heads-up table with an invitable link.
 - Table player profiles:
   - click a seat to see public avatar, VIP, country, hands/wins/biggest pot and presence;

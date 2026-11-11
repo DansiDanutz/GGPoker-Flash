@@ -876,7 +876,7 @@ export class PokerTable {
     const hero = this.humans()[0];
     if (this.hooks.onHandSave) {
       this.hooks.onHandSave({
-        handNo: this.handNo, tableId: this.cfg.id, tableName: this.cfg.name, game: this.cfg.game,
+        handId: this.handId, handNo: this.handNo, tableId: this.cfg.id, tableName: this.cfg.name, game: this.cfg.game,
         players, board: this.board.map(cardStr), pot: summary.pot, result: summary,
         heroCards: hero ? hero.cards.map(cardStr).join(' ') : '',
         actions: this.log || [],
