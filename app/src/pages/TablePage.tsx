@@ -176,6 +176,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         setWaitlistPos(msg.position || 1);
         setObserving(true);
         toast({ kind: 'info', title: 'Waitlist', body: `You are #${msg.position || 1} in line. We will hold the next seat for you.` });
+      } else if (msg.type === 'rush_queued') {
+        toast({ kind: 'info', title: 'Rush queue', body: 'Waiting for the next open Rush seat — you are sitting out meanwhile.' });
       } else if (msg.type === 'rush_move') {
         toast({ kind: 'info', title: 'Rush & Cash', body: 'New table, same stack.' });
         navigate(`/table/${msg.tableId}?buyin=${msg.stack || 0}`);

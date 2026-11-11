@@ -69,7 +69,8 @@ not a source to copy blindly.
 - Rush lobby hero:
   - live player/pool counts;
   - Cash Drop chance;
-  - Rush transfers choose the least-occupied matching pool.
+  - Rush transfers choose the least-occupied matching pool;
+  - when no seat is open, the player waits sitting out and is transferred by a queue flush as soon as a seat opens.
   - quick-fold explanation replacing the generic promo carousel on the Rush tab.
 - Rush Cash Drop:
   - 12% chance after a Rush hand;

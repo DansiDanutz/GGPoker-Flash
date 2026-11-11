@@ -179,6 +179,7 @@ function sitesStats() {
 
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
 const WAITLISTS = new Map(); // tableId -> [{ userId, nick, since }]
+const RUSH_WAITING = new Map(); // userId -> { user, stack, bb, fromTable, since }
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
 const CRASH_ROUNDS = new Map(); // roundId -> crash round
@@ -383,7 +384,15 @@ function moveRushPlayers(table) {
       const occupied = candidate ? candidate.occupiedSeats().length : 0;
       if (candidate && occupied < candidate.cfg.seats && occupied < targetCount) { target = candidate; targetCount = occupied; }
     }
-    if (!target) { seat.player.rushQueued = false; continue; }
+    if (!target) {
+      RUSH_WAITING.set(p.id, { user, stack, bb: table.bb, fromTable: table.cfg.id, since: Date.now() });
+      seat.player.rushQueued = true;
+      seat.player.sittingOut = true;
+      const entry = LIVE_TABLES.get(table.cfg.id);
+      if (entry) for (const client of entry.clients) if (client.userId === p.id && client.readyState === 1) client.send(JSON.stringify({ type: 'rush_queued' }));
+      continue;
+    }
+    RUSH_WAITING.delete(p.id);
     cashOutSeat(table, p.id, 'Rush transfer');
     const res = seatHuman(target, user, Math.min(stack, target.cfg.max_buyin), null);
     if (!res.ok) { seat.player && (seat.player.rushQueued = false); continue; }
@@ -396,6 +405,33 @@ function moveRushPlayers(table) {
       }
     }
     broadcastState(target);
+  }
+}
+
+function flushRushQueue() {
+  for (const [userId, wait] of [...RUSH_WAITING]) {
+    const fromEntry = LIVE_TABLES.get(wait.fromTable);
+    if (!fromEntry) { RUSH_WAITING.delete(userId); continue; }
+    const fromTable = fromEntry.table;
+    const oldSeat = fromTable.seatOf(userId);
+    if (!oldSeat?.player) { RUSH_WAITING.delete(userId); continue; }
+    if (!['ended', 'idle'].includes(fromTable.street)) continue;
+    let target = null, targetCount = Infinity;
+    const rows = db.prepare("SELECT id FROM tables WHERE game = 'rush' AND enabled = 1 AND bb = ?").all(wait.bb);
+    for (const row of rows) {
+      if (row.id === fromTable.cfg.id) continue;
+      const candidate = getLiveTable(row.id);
+      const occupied = candidate ? candidate.occupiedSeats().length : 0;
+      if (candidate && occupied < candidate.cfg.seats && occupied < targetCount) { target = candidate; targetCount = occupied; }
+    }
+    if (!target) continue;
+    cashOutSeat(fromTable, userId, 'Rush queue transfer');
+    const res = seatHuman(target, wait.user, Math.min(wait.stack, target.cfg.max_buyin), null);
+    if (!res.ok) { RUSH_WAITING.delete(userId); continue; }
+    RUSH_WAITING.delete(userId);
+    for (const client of fromEntry.clients) if (client.userId === userId && client.readyState === 1) {
+      client.send(JSON.stringify({ type: 'rush_move', tableId: target.cfg.id, stack: Math.min(wait.stack, target.cfg.max_buyin) }));
+    }
   }
 }
 
@@ -2118,6 +2154,8 @@ wss.on('connection', (ws, req) => {
     }
   });
 });
+
+setInterval(flushRushQueue, 900).unref();
 
 // Scheduled tournaments move out of registration on their own start time.
 setInterval(() => {
