@@ -63,3 +63,24 @@ export function readStackMode(): StackMode {
   const v = localStorage.getItem('ggpoker.stackMode');
   return v === 'bb' || v === 'both' ? v : 'chips';
 }
+
+
+export type HotkeyMap = { fold: string; check: string; raise: string; allin: string };
+export const DEFAULT_HOTKEYS: HotkeyMap = { fold: 'F1', check: 'F2', raise: 'F3', allin: 'F4' };
+
+export function normalizeHotkey(key: string): string {
+  if (key === ' ' || key === 'Spacebar') return 'Space';
+  if (key.length === 1) return key.toUpperCase();
+  return key;
+}
+
+export function readHotkeys(): HotkeyMap {
+  try {
+    const raw = JSON.parse(localStorage.getItem('ggpoker.hotkeysMap') || '{}');
+    const out = { ...DEFAULT_HOTKEYS };
+    for (const k of Object.keys(out) as (keyof HotkeyMap)[]) {
+      if (typeof raw[k] === 'string' && raw[k].length <= 12) out[k] = raw[k];
+    }
+    return out;
+  } catch { return { ...DEFAULT_HOTKEYS }; }
+}

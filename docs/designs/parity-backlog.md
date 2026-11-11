@@ -83,6 +83,10 @@ not a source to copy blindly.
   - animation speed applied through `--deal-speed`;
   - existing three action layouts retained.
 
+- Native hotkey remapping:
+  - Fold, Check/Call, Raise and All-in bindings are captured from the keyboard;
+  - bindings persist locally and table hints use the selected keys;
+  - inputs/textareas are excluded from table hotkeys.
 - Multi-table windows: Settings can open joined tables in new Electron windows, and the buy-in modal exposes **New window**; auto buy-in respects the same setting.
 - Tournament search now filters by event name or format.
 - ELO rating:

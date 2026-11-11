@@ -4,7 +4,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { SwfEffect } from '../components/SwfEffect';
-import { betLabel, betTarget, readBetPrefs, readCardBack, readDealSpeed, readStackMode, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, readBetPrefs, readCardBack, readDealSpeed, readStackMode, readHotkeys, normalizeHotkey, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
@@ -87,6 +87,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [showHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
   const [hotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
   const [hotkeysOn] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
+  const [hotkeyMap] = useState(readHotkeys);
   const [dealSpeed] = useState(readDealSpeed);
   const [betPrefs] = useState(readBetPrefs);
   const [timeBankSeconds] = useState(() => Math.max(5, Math.min(60, Number(localStorage.getItem('ggpoker.timeBank') || 10))));
@@ -410,16 +411,19 @@ export function TablePage({ tableId }: { tableId: string }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
       if (e.key === 'Escape') { setMenuOpen(false); setConfirmLeave(false); return; }
       if (!hotkeysOn || !myTurn) return;
-      if (e.key === 'F1') { e.preventDefault(); act('fold'); }
-      else if (e.key === 'F2') { e.preventDefault(); act(toCall > 0 ? 'call' : 'check'); }
-      else if (e.key === 'F3') { e.preventDefault(); act(raiseTo >= maxTo ? 'allin' : 'raise', raiseTo); }
-      else if (e.key === 'F4') { e.preventDefault(); act('allin'); }
+      const key = normalizeHotkey(e.key);
+      if (key === hotkeyMap.fold) { e.preventDefault(); act('fold'); }
+      else if (key === hotkeyMap.check) { e.preventDefault(); act(toCall > 0 ? 'call' : 'check'); }
+      else if (key === hotkeyMap.raise) { e.preventDefault(); act(raiseTo >= maxTo ? 'allin' : 'raise', raiseTo); }
+      else if (key === hotkeyMap.allin) { e.preventDefault(); act('allin'); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [hotkeysOn, myTurn, toCall, raiseTo, maxTo, act]);
+  }, [hotkeysOn, hotkeyMap, myTurn, toCall, raiseTo, maxTo, act]);
 
   const seatPosOf = (seat: number): [number, number] => {
     const n = stateRef.current?.seats || 6;
@@ -828,7 +832,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <div className="action-row" style={{ color: '#9a9a9a', fontSize: 11.5 }}>
           <span>{myTurn ? 'Your turn — choose an action' : state ? (state.actor ? 'Waiting for opponents…' : state.street === 'ended' ? 'Hand complete' : 'Dealing…') : 'Connecting…'}</span>
           <div className="grow" />
-          {hotkeyHints && <span>F1 Fold · F2 Check/Call · F3 Raise · F4 All-in</span>}
+          {hotkeyHints && <span>{hotkeyMap.fold} Fold · {hotkeyMap.check} Check/Call · {hotkeyMap.raise} Raise · {hotkeyMap.allin} All-in</span>}
           {hotkeyHints && <span>·</span>}
           <span>Hand #{state?.handNo ?? 0}</span>
           <span>·</span>

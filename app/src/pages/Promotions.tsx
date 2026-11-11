@@ -5,7 +5,7 @@ import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { useI18n } from '../lib/i18n';
-import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, betLabel, readBetPrefs, readCardBack, readStackMode, type BetPrefs, type StackMode } from '../lib/tablePrefs';
+import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, DEFAULT_HOTKEYS, betLabel, readBetPrefs, readCardBack, readHotkeys, readStackMode, normalizeHotkey, type BetPrefs, type HotkeyMap, type StackMode } from '../lib/tablePrefs';
 
 export function Promotions() {
   const { toast, navigate } = useApp();
@@ -84,6 +84,8 @@ export function Settings() {
   const [betting, setBetting] = useState<BetPrefs>(() => readBetPrefs());
   const [showHand, setShowHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
   const [hotkeyHints, setHotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
+  const [hotkeyMap, setHotkeyMap] = useState<HotkeyMap>(readHotkeys);
+  const [capturingKey, setCapturingKey] = useState<keyof HotkeyMap | null>(null);
   const [hotkeys, setHotkeys] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
   const [dealSpeed, setDealSpeed] = useState(() => Number(localStorage.getItem('ggpoker.dealSpeed') || 3));
   const [cardBack, setCardBack] = useState(readCardBack());
@@ -103,6 +105,21 @@ export function Settings() {
   const [fourColor, setFourColor] = useState(localStorage.getItem('ggpoker.fourcolor') === '1');
   const [autoMuck, setAutoMuck] = useState(localStorage.getItem('ggpoker.automuck') !== '0');
   const [runItTwice, setRunItTwice] = useState(localStorage.getItem('ggpoker.rit') === '1');
+
+  useEffect(() => {
+    if (!capturingKey) return;
+    const onKey = (event: KeyboardEvent) => {
+      event.preventDefault();
+      if (event.key === 'Escape') { setCapturingKey(null); return; }
+      const key = normalizeHotkey(event.key);
+      const next = { ...hotkeyMap, [capturingKey]: key };
+      setHotkeyMap(next);
+      localStorage.setItem('ggpoker.hotkeysMap', JSON.stringify(next));
+      setCapturingKey(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [capturingKey, hotkeyMap]);
 
   const persist = (key: string, value: string) => {
     localStorage.setItem(key, value);
@@ -269,6 +286,14 @@ export function Settings() {
                 <label className="switch-row"><span>Show hand strength</span><input type="checkbox" checked={showHand} onChange={(e) => { setShowHand(e.target.checked); persist('ggpoker.showHand', e.target.checked ? '1' : '0'); }} /></label>
                 <label className="switch-row"><span>Enable table hotkeys</span><input type="checkbox" checked={hotkeys} onChange={(e) => { setHotkeys(e.target.checked); persist('ggpoker.hotkeys', e.target.checked ? '1' : '0'); }} /></label>
                 <label className="switch-row"><span>Show keyboard hints</span><input type="checkbox" checked={hotkeyHints} onChange={(e) => { setHotkeyHints(e.target.checked); persist('ggpoker.hotkeyHints', e.target.checked ? '1' : '0'); }} /></label>
+                <div className="admin-label" style={{ marginTop: 12 }}>Hotkey bindings</div>
+                {([['fold', 'Fold'], ['check', 'Check / Call'], ['raise', 'Raise'], ['allin', 'All-in']] as const).map(([action, label]) => (
+                  <div key={action} className="kv">
+                    <span>{label}</span>
+                    <button className="hotkey-binding" onClick={() => setCapturingKey(action)}>{capturingKey === action ? 'Press a key…' : hotkeyMap[action]}</button>
+                  </div>
+                ))}
+                <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => { setHotkeyMap({ ...DEFAULT_HOTKEYS }); localStorage.removeItem('ggpoker.hotkeysMap'); }}>Reset defaults</button>
                 <div className="admin-label" style={{ marginTop: 14 }}>Dealer animation speed</div>
                 <input type="range" min={1} max={5} value={dealSpeed} style={{ width: '100%' }}
                   onChange={(e) => { const v = Number(e.target.value); setDealSpeed(v); persist('ggpoker.dealSpeed', String(v)); }} />
