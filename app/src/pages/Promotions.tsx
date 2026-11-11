@@ -4,6 +4,7 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
+import { useI18n } from '../lib/i18n';
 
 export function Promotions() {
   const { toast, navigate } = useApp();
@@ -74,9 +75,9 @@ const THEMES = ['Green', 'Black', 'Red', 'Navy', 'Purple', 'Gray', 'Brown', 'Cob
 
 export function Settings() {
   const { user, refreshUser, toast, soundOn, toggleSound, animations, setAnimations } = useApp();
+  const { lang, setLang, languages } = useI18n();
   const [tab, setTab] = useState('general');
   const [nick, setNick] = useState(user?.nick || '');
-  const [lang, setLang] = useState(localStorage.getItem('ggpoker.lang') || 'English');
   const [theme, setTheme] = useState(localStorage.getItem('ggpoker.theme') || 'Green');
   const [volume, setVolume] = useState(Number(localStorage.getItem('ggpoker.volume') || 70));
   const [timeBank, setTimeBank] = useState(30);
@@ -108,8 +109,8 @@ export function Settings() {
           <div className="grid g2">
             <div className="card">
               <div className="panel-title">Language</div>
-              <select className="admin-select" style={{ width: '100%' }} value={lang} onChange={(e) => { setLang(e.target.value); persist('ggpoker.lang', e.target.value); }}>
-                {LANGS.map((l) => <option key={l}>{l}</option>)}
+              <select className="admin-select" style={{ width: '100%' }} value={lang} onChange={(e) => { setLang(e.target.value); }}>
+                {languages.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
               </select>
               <div className="panel-title" style={{ marginTop: 18 }}>Animations</div>
               <label className="switch-row">

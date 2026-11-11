@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
+import { useI18n } from '../lib/i18n';
 
 export function Icon({ name, size = 17 }: { name: string; size?: number }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'currentColor' } as const;
@@ -38,6 +39,8 @@ export function Icon({ name, size = 17 }: { name: string; size?: number }) {
 
 export function TitleBar({ online, onOpenChat, onOpenSettings, onOpenNotifications, unread = 0 }: { online: number; onOpenChat?: () => void; onOpenSettings?: () => void; onOpenNotifications?: () => void; unread?: number }) {
   const { navigate, soundOn, toggleSound } = useApp();
+  const { lang, setLang, languages } = useI18n();
+  const [langOpen, setLangOpen] = useState(false);
   return (
     <div className="titlebar">
       <div className="traffic">
@@ -70,11 +73,27 @@ export function TitleBar({ online, onOpenChat, onOpenSettings, onOpenNotificatio
         <button className="title-icon" title={soundOn ? 'Sound on' : 'Sound off'} onClick={toggleSound} style={{ color: soundOn ? '#9fd8b0' : '#777' }}>
           {soundOn ? '🔊' : '🔇'}
         </button>
-        <span className="lang-chip">EN</span>
+        <button className="lang-chip" onClick={() => setLangOpen(true)} title="Language">{lang.toUpperCase()}</button>
         <button className="title-icon" title="Settings" onClick={() => { onOpenSettings?.(); navigate('/settings'); }}>
           <Icon name="gear" />
         </button>
       </div>
+      {langOpen && (
+        <div className="modal-backdrop" style={{ position: 'fixed' }} onClick={() => setLangOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Language</h3><button className="title-icon" onClick={() => setLangOpen(false)}>✕</button></div>
+            <div className="modal-body">
+              <div className="lang-grid">
+                {languages.map((l) => (
+                  <button key={l.code} className={'lang-option' + (l.code === lang ? ' on' : '')} onClick={() => { setLang(l.code); sound.play('click', { volume: .4 }); setLangOpen(false); }}>
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -777,3 +777,12 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .fav-star { color: #3a3a3a; font-size: 12px; line-height: 1; padding: 0 2px; }
 .fav-star.on { color: #e7b64b; }
 .fav-star:hover { color: #e7b64b; }
+.lang-chip { cursor: pointer; }
+.lang-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.lang-option { height: 38px; border-radius: 5px; background: #1d1d1d; border: 1px solid #333; color: #ccc; font-size: 12.5px; }
+.lang-option:hover { background: #2a2a2a; }
+.lang-option.on { border-color: #b21f2d; background: #2e1518; color: #fff; }
+.topnav button { flex: 0 0 auto; white-space: nowrap; }
+.view-toggle button { white-space: nowrap; }
+.rail-btn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-head > div { white-space: nowrap; }
