@@ -66,6 +66,7 @@ not a source to copy blindly.
   - add friend or open a direct message from the profile;
   - self hides friend/message and links to My Page.
 - Direct messages between local accounts:
+  - global unread polling and title-bar badge;
   - inbox threads with unread counts;
   - message history and send endpoint;
   - friend **Message** opens the conversation;

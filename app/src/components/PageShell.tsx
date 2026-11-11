@@ -8,10 +8,10 @@ export function PageShell({ activeTop, children, subnav }: {
   children: React.ReactNode;
   subnav?: React.ReactNode;
 }) {
-  const { user, meta } = useApp();
+  const { user, meta, dmUnread } = useApp();
   return (
     <>
-      <TitleBar online={meta.online} unread={user ? 1 : 0} />
+      <TitleBar online={meta.online} unread={user ? dmUnread : 0} />
       <AppHeader online={meta.online} jackpot={meta.jackpot} user={user} activeTop={activeTop} />
       {subnav}
       <div className="app-content">{children}</div>
