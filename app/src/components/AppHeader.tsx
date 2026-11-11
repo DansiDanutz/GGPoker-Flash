@@ -2,6 +2,7 @@ import React from 'react';
 import { useApp } from '../lib/store';
 import { money, User } from '../lib/api';
 import { sound } from '../lib/sound';
+import { Avatar } from './Avatar';
 
 export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { online: number; jackpot: number; user: User | null; activeTop?: string }) {
   const { navigate, brand } = useApp();
@@ -28,7 +29,7 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
       <div className="account-block" onClick={() => go('/my-page')}>
         <div className="avatar-ring">
           <div className="inner">
-            {user?.avatar ? <img src={user.avatar} alt="" /> : <div className="avatar-fallback">{(user?.nick || 'G')[0].toUpperCase()}</div>}
+            <Avatar name={user?.nick || 'Guest'} src={user?.avatar} size={54} />
           </div>
           <span className="vip-badge">{user?.vip_level ?? 1}</span>
         </div>

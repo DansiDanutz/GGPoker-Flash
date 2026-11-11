@@ -111,8 +111,11 @@ official card back are already in use.
   separators (`141, 276, 410, 545, 680, 815, 949, 1084`): Home, All-in or Fold,
   Rush & Cash, Hold'em, PLO, Short Deck, Spin & Gold and Mystery Battle Royale
   now fit without clipped labels or an over-wide Home highlight.
-- On phones the filter bar wraps into two rows (three selects + full-width
-  search) instead of clipping the search field.
+- On phones the filter bar wraps into two rows (three selects, then search +
+  favorites) instead of clipping the search field.
+- The header avatar now uses the shared `Avatar` gradient/initials component, so
+  a missing upload still renders a finished profile mark instead of a flat
+  letter.
 - Verified by resizing the packaged app to **1000×720**, **1200×830**, 
   **1440×900**, and a phone viewport of **390×844**; lobby, room and cashier
   screenshots are in `research/screens/deliverable/mobile_*.png` and
