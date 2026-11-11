@@ -53,6 +53,15 @@ test('host tables, private tournaments, bonuses and direct messages', async () =
     r = await fetch(`${base}/api/tournaments/${tourney.id}`);
     assert.equal((await r.json()).tournament.name, 'Feature Freezeout');
 
+    r = await fetch(`${base}/api/games/crash`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ action: 'start', bet: 100 }) });
+    const crash = await r.json();
+    assert.equal(r.status, 200);
+    assert.ok(crash.roundId);
+    r = await fetch(`${base}/api/games/crash`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ action: 'status', roundId: crash.roundId }) });
+    assert.equal(r.status, 200);
+    r = await fetch(`${base}/api/games/crash`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ action: 'cashout', roundId: crash.roundId }) });
+    assert.equal(r.status, 200);
+
     r = await fetch(`${base}/api/notifications`, { headers: H(u.token) });
     const notices = await r.json();
     assert.equal(notices.unread, 1);

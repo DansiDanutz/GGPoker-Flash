@@ -122,6 +122,11 @@ not a source to copy blindly.
   - message history and send endpoint;
   - friend **Message** opens the conversation;
   - account-wide chat mute applies to direct messages.
+- Crash casino game:
+  - server-generated crash point, hidden until the round ends;
+  - live multiplier, cash-out endpoint with ledger settlement;
+  - recent-round history and mobile layout;
+  - API integration test covering start, status and cashout.
 - Cashier transactions:
   - searchable history with category filters;
   - client-side CSV export of the filtered set.

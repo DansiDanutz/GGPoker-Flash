@@ -181,6 +181,7 @@ const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
 const WAITLISTS = new Map(); // tableId -> [{ userId, nick, since }]
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
+const CRASH_ROUNDS = new Map(); // roundId -> crash round
 
 function eloGame(game) {
   if (game === 'omaha5' || game === 'omaha6') return 'omaha';
@@ -941,6 +942,52 @@ const server = http.createServer(async (req, res) => {
 
 
     // ---------- casino games ----------
+    if (p === '/api/games/crash' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      const now = Date.now();
+      if (b.action === 'start') {
+        const bet = Math.round(Number(b.bet));
+        if (!Number.isFinite(bet) || bet < 100 || bet > 500000) return json(res, 400, { error: 'Bet must be between $1 and $5,000' });
+        const fresh = db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id);
+        if (!fresh || fresh.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
+        for (const [id, r] of CRASH_ROUNDS) {
+          if (r.userId === u.id && r.status === 'live' && now - r.startedAt < r.duration) return json(res, 409, { error: 'Finish the current round first' });
+          if (r.userId === u.id && (r.status !== 'live' || now - r.startedAt > 120000)) CRASH_ROUNDS.delete(id);
+        }
+        const crash = Math.min(50, Math.max(1.01, 1 / (1 - Math.random())));
+        const duration = Math.max(900, Math.log(crash) * 1800);
+        const round = { id: randomUUID(), userId: u.id, bet, crash, duration, startedAt: now, status: 'live' };
+        CRASH_ROUNDS.set(round.id, round);
+        addTransaction(u.id, 'crash_bet', -bet, `Crash bet ${bet / 100}`, 'USD');
+        return json(res, 200, { roundId: round.id, startedAt: now, bet, serverNow: now });
+      }
+      if (b.action === 'status') {
+        const r = CRASH_ROUNDS.get(String(b.roundId || ''));
+        if (!r || r.userId !== u.id) return json(res, 404, { error: 'Round not found' });
+        const elapsed = now - r.startedAt;
+        const crashed = r.status === 'crashed' || elapsed >= r.duration;
+        if (crashed) r.status = 'crashed';
+        return json(res, 200, { roundId: r.id, elapsed, multiplier: Number(Math.exp(elapsed / 1800).toFixed(2)), crashed, crash: crashed ? Number(r.crash.toFixed(2)) : null, status: r.status });
+      }
+      if (b.action === 'cashout') {
+        const r = CRASH_ROUNDS.get(String(b.roundId || ''));
+        if (!r || r.userId !== u.id) return json(res, 404, { error: 'Round not found' });
+        if (r.status !== 'live') return json(res, 409, { error: 'Round already finished' });
+        const elapsed = now - r.startedAt;
+        const current = Math.exp(elapsed / 1800);
+        if (current >= r.crash) {
+          r.status = 'crashed';
+          return json(res, 200, { ok: true, won: false, crash: Number(r.crash.toFixed(2)), multiplier: Number(r.crash.toFixed(2)) });
+        }
+        r.status = 'cashed';
+        const payout = Math.max(0, Math.round(r.bet * current));
+        addTransaction(u.id, 'crash_win', payout, `Crash cashout ${current.toFixed(2)}x`, 'USD');
+        return json(res, 200, { ok: true, won: true, multiplier: Number(current.toFixed(2)), payout, crash: Number(r.crash.toFixed(2)) });
+      }
+      return json(res, 400, { error: 'Unknown action' });
+    }
+
     if (p === '/api/games/slot' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);

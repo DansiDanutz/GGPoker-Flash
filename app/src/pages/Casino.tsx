@@ -293,11 +293,131 @@ export function Blackjack() {
   );
 }
 
+export function Crash({ onTab }: { onTab?: (key: string) => void }) {
+  const { user, refreshUser, toast, navigate } = useApp();
+  const [bet, setBet] = useState(500);
+  const [roundId, setRoundId] = useState<string | null>(null);
+  const [startedAt, setStartedAt] = useState(0);
+  const [phase, setPhase] = useState<'idle' | 'live' | 'cashed' | 'crashed'>('idle');
+  const [multiplier, setMultiplier] = useState(1);
+  const [crashAt, setCrashAt] = useState<number | null>(null);
+  const [history, setHistory] = useState<{ m: number; won: boolean }[]>([]);
+  const [busy, setBusy] = useState(false);
+  const pollRef = useRef<number | null>(null);
+
+  const post = async (body: any) => {
+    const r = await fetch('/api/games/crash', {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  };
+
+  const start = async () => {
+    if (!user) { navigate('/login'); return; }
+    if (busy || phase === 'live') return;
+    setBusy(true);
+    try {
+      const r = await post({ action: 'start', bet });
+      setRoundId(r.roundId); setStartedAt(r.startedAt);
+      setMultiplier(1); setCrashAt(null); setPhase('live');
+      sound.play('deal', { volume: .5 }); await refreshUser();
+    } catch (e: any) { toast({ kind: 'error', title: 'Crash', body: e.message }); }
+    finally { setBusy(false); }
+  };
+
+  const cashout = async () => {
+    if (!roundId || phase !== 'live' || busy) return;
+    setBusy(true);
+    try {
+      const r = await post({ action: 'cashout', roundId });
+      if (r.won) {
+        setMultiplier(r.multiplier); setPhase('cashed'); setCrashAt(r.crash);
+        setHistory((h) => [{ m: r.multiplier, won: true }, ...h].slice(0, 8));
+        sound.play('win'); toast({ kind: 'reward', title: 'Cashed out', body: `${r.multiplier.toFixed(2)}x · ${money(r.payout)}` });
+        await refreshUser();
+      } else {
+        setMultiplier(r.crash); setCrashAt(r.crash); setPhase('crashed');
+        setHistory((h) => [{ m: r.crash, won: false }, ...h].slice(0, 8));
+        sound.play('fold', { volume: .6 });
+      }
+    } catch (e: any) { toast({ kind: 'error', title: 'Cashout failed', body: e.message }); }
+    finally { setBusy(false); }
+  };
+
+  useEffect(() => {
+    if (phase !== 'live' || !roundId) return;
+    const timer = window.setInterval(() => setMultiplier(Math.exp((Date.now() - startedAt) / 1800)), 80);
+    return () => window.clearInterval(timer);
+  }, [phase, roundId, startedAt]);
+
+  useEffect(() => {
+    if (phase !== 'live' || !roundId) return;
+    const poll = window.setInterval(async () => {
+      try {
+        const r = await post({ action: 'status', roundId });
+        if (r.crashed) {
+          setPhase('crashed'); setMultiplier(r.crash); setCrashAt(r.crash);
+          setHistory((h) => [{ m: r.crash, won: false }, ...h].slice(0, 8));
+          sound.play('fold', { volume: .6 });
+        } else {
+          setMultiplier(r.multiplier);
+        }
+      } catch { /* ignore transient poll */ }
+    }, 300);
+    pollRef.current = poll;
+    return () => { window.clearInterval(poll); pollRef.current = null; };
+  }, [phase, roundId, startedAt]);
+
+  return (
+    <PageShell activeTop="casino" subnav={<SubNav items={[{ key: 'lobby', label: 'Lobby' }, { key: 'roulette', label: 'Roulette' }, { key: 'blackjack', label: 'Blackjack' }, { key: 'crash', label: 'Crash' }]} active="crash" onChange={(k) => onTab?.(k)} />}>
+      <div className="page">
+        <h1 className="page-title">Crash</h1>
+        <p className="page-sub">Ride the multiplier · cash out before the crash</p>
+        <div className="crash-table">
+          <div className={'crash-stage ' + phase}>
+            <div className="crash-grid" />
+            <div className="crash-multiplier">{multiplier.toFixed(2)}<small>x</small></div>
+            <div className="crash-label">
+              {phase === 'idle' && 'Place a bet to launch'}
+              {phase === 'live' && `Potential ${money(Math.round(bet * multiplier))}`}
+              {phase === 'cashed' && `Cashed out at ${multiplier.toFixed(2)}x`}
+              {phase === 'crashed' && `Crashed at ${crashAt?.toFixed(2)}x`}
+            </div>
+          </div>
+          <div className="crash-controls">
+            <div className="between"><span className="muted small">Bet</span><b className="gold">{money(bet)}</b></div>
+            <input type="range" min={100} max={10000} step={100} value={bet} onChange={(e) => setBet(Number(e.target.value))} disabled={phase === 'live'} />
+            <div className="row" style={{ gap: 6 }}>
+              {[100, 500, 1000, 5000].map((v) => <button key={v} className="btn btn-ghost btn-sm" disabled={phase === 'live'} onClick={() => setBet(v)}>{money(v)}</button>)}
+            </div>
+            {phase === 'live' ? (
+              <button className="btn btn-gold" style={{ width: '100%', height: 46, fontSize: 15 }} disabled={busy} onClick={cashout}>Cash out {money(Math.round(bet * multiplier))}</button>
+            ) : (
+              <button className="btn btn-red" style={{ width: '100%', height: 46, fontSize: 15 }} disabled={busy || !user} onClick={start}>{phase === 'idle' ? 'Start round' : 'Play again'}</button>
+            )}
+            <div className="muted small" style={{ textAlign: 'center' }}>Balance {money(user?.balance ?? 0)}</div>
+          </div>
+        </div>
+        {!!history.length && (
+          <div className="card" style={{ marginTop: 14 }}>
+            <div className="panel-title">Recent rounds</div>
+            <div className="row">{history.map((h, i) => <span key={i} className={'crash-chip' + (h.won ? ' win' : '')}>{h.m.toFixed(2)}x</span>)}</div>
+          </div>
+        )}
+      </div>
+    </PageShell>
+  );
+}
+
 export function Casino() {
   const [tab, setTab] = useState('lobby');
   const games = [
     { key: 'roulette', name: 'Roulette', emoji: '🎡', desc: 'European wheel' },
     { key: 'blackjack', name: 'Blackjack', emoji: '🃏', desc: 'Classic 21' },
+    { key: 'crash', name: 'Crash', emoji: '📈', desc: 'Cash out before it crashes' },
     { key: 'baccarat', name: 'Baccarat', emoji: '🀄', desc: 'Player vs Banker' },
     { key: 'dragontiger', name: 'Dragon Tiger', emoji: '🐉', desc: 'Fast card duel' },
     { key: 'sicbo', name: 'Sic Bo', emoji: '🎲', desc: 'Three dice' },
@@ -305,11 +425,12 @@ export function Casino() {
   ];
   if (tab === 'roulette') return <Roulette />;
   if (tab === 'blackjack') return <Blackjack />;
+  if (tab === 'crash') return <Crash onTab={setTab} />;
   if (tab === 'baccarat') return <Baccarat />;
   if (tab === 'dragontiger') return <DragonTiger />;
   if (tab === 'sicbo') return <SicBo />;
   return (
-    <PageShell activeTop="casino" subnav={<SubNav items={[{ key: 'lobby', label: 'Lobby' }, { key: 'roulette', label: 'Roulette' }, { key: 'blackjack', label: 'Blackjack' }, { key: 'baccarat', label: 'Baccarat' }, { key: 'dragontiger', label: 'Dragon Tiger' }, { key: 'sicbo', label: 'Sic Bo' }]} active={tab} onChange={setTab} />}>
+    <PageShell activeTop="casino" subnav={<SubNav items={[{ key: 'lobby', label: 'Lobby' }, { key: 'roulette', label: 'Roulette' }, { key: 'blackjack', label: 'Blackjack' }, { key: 'crash', label: 'Crash' }, { key: 'baccarat', label: 'Baccarat' }, { key: 'dragontiger', label: 'Dragon Tiger' }, { key: 'sicbo', label: 'Sic Bo' }]} active={tab} onChange={setTab} />}>
       <div className="page">
         <h1 className="page-title">Casino</h1>
         <p className="page-sub">Play-money table games · instant play</p>
