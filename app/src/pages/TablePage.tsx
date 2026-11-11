@@ -123,6 +123,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     } else if (evt.type === 'street') {
       sound.play('flop', { volume: .7 });
     } else if (evt.type === 'win') {
+      setAllInFx(false);
       sound.play('win', { volume: .9 });
       setTimeout(() => sound.play('gather', { volume: .6 }), 450);
       const heroId = stateRef.current?.players.find((p) => p.isMe)?.id;
@@ -292,7 +293,12 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {state && state.street === 'ended' && state.result?.winners?.length ? (
           <div style={{ color: '#ffe0a0', fontSize: 12.5, background: 'rgba(0,0,0,.45)', padding: '3px 10px', borderRadius: 10 }}>
-            {state.result.winners.map((w: any) => `${w.nick} wins ${chip(w.amount)}${w.hand ? ` · ${w.hand}` : ''}`).join('   ·   ')}
+            {Object.values(state.result.winners.reduce((acc: any, w: any) => {
+              const key = String(w.id ?? w.nick);
+              if (!acc[key]) acc[key] = { ...w, amount: 0 };
+              acc[key].amount += w.amount || 0;
+              return acc;
+            }, {})).map((w: any) => `${w.nick} wins ${chip(w.amount)}${w.hand ? ` · ${w.hand}` : ''}`).join('   ·   ')}
           </div>
         ) : null}
       </div>
