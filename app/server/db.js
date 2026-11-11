@@ -161,6 +161,12 @@ function init() {
     data TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS friends (
+    user_id INTEGER NOT NULL,
+    friend_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, friend_id)
+  );
   CREATE TABLE IF NOT EXISTS player_notes (
     user_id INTEGER NOT NULL,
     target TEXT NOT NULL,

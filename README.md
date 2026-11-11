@@ -101,6 +101,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for 
 - Rake (5%, capped) on cash-game pots; tournament and Spin & Gold pots are rake-free.
 - **Spectate a table** (Open), take a seat from the rail, rebuy/add chips between hands and toggle auto-rebuy.
 - **Private player notes** (per player, colour-coded; written at the table and managed from My Page, stored locally in SQLite).
+- **Friends list**: add players by nickname, see who is currently seated at a table, message or remove them.
 - Four-colour deck option and an animation toggle; cards fly from the dealer and chips travel to the pot/winner.
 - **All-in flash**, hand-strength indicator (`Two Pair · AK suited`), win overlay, chip animations,
   hotkeys (F1 fold, F2 check/call, F3 raise, F4 all-in),

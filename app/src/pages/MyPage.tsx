@@ -13,6 +13,7 @@ const TABS = [
   { key: 'tickets', label: 'Tickets' },
   { key: 'messages', label: 'Messages' },
   { key: 'notes', label: 'Player notes' },
+  { key: 'friends', label: 'Friends' },
   { key: 'leaders', label: 'Leaderboard' },
   { key: 'verify', label: 'Verify ID' },
   { key: 'security', label: 'Security' },
@@ -34,6 +35,8 @@ export function MyPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [noteEdit, setNoteEdit] = useState<any>(null);
+  const [friends, setFriends] = useState<any[]>([]);
+  const [friendNick, setFriendNick] = useState('');
 
   useEffect(() => {
     api.missions().then((r) => setMissions(r.missions)).catch(() => {});
@@ -41,6 +44,7 @@ export function MyPage() {
     api.leaderboard().then((r) => setLeaders(r.leaders)).catch(() => {});
     fetch('/api/chat').then((r) => r.json()).then((d) => setMessages((d.messages || []).slice(-20))).catch(() => {});
     fetch('/api/notes', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setNotes(d.notes || [])).catch(() => {});
+    fetch('/api/friends', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setFriends(d.friends || [])).catch(() => {});
   }, []);
 
   const claim = async (m: any) => {
@@ -194,6 +198,45 @@ export function MyPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {tab === 'friends' && (
+          <>
+            <div className="between" style={{ marginBottom: 10 }}>
+              <p className="muted small" style={{ margin: 0 }}>Players you follow. Add someone by nickname to see when they are at a table.</p>
+              <div className="row">
+                <input className="admin-input" placeholder="Nickname" value={friendNick} onChange={(e) => setFriendNick(e.target.value)} style={{ width: 170 }} />
+                <button className="btn btn-red btn-sm" disabled={!friendNick.trim()} onClick={async () => {
+                  try {
+                    await fetch('/api/friends', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ nick: friendNick }) });
+                    const r = await fetch('/api/friends', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((x) => x.json());
+                    setFriends(r.friends || []); setFriendNick('');
+                  } catch { /* ignore */ }
+                }}>Add friend</button>
+              </div>
+            </div>
+            <div className="grid g3">
+              {friends.map((f) => (
+                <div key={f.id} className="card">
+                  <div className="row">
+                    <Avatar name={f.nick} src={f.avatar} size={40} />
+                    <div>
+                      <div className="row"><b style={{ color: '#eee' }}>{f.nick}</b><span style={{ width: 7, height: 7, borderRadius: '50%', background: f.online ? '#48d17a' : '#555', display: 'inline-block' }} /></div>
+                      <div className="muted small">VIP {f.vip_level} · {f.online ? 'At a table' : 'Offline'}</div>
+                    </div>
+                  </div>
+                  <div className="row" style={{ marginTop: 10 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setTab('messages')}>Message</button>
+                    <button className="btn btn-ghost btn-sm" onClick={async () => {
+                      await fetch(`/api/friends/${f.id}`, { method: 'DELETE', headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } });
+                      setFriends((prev) => prev.filter((x) => x.id !== f.id));
+                    }}>Remove</button>
+                  </div>
+                </div>
+              ))}
+              {!friends.length && <div className="empty-state" style={{ gridColumn: 'span 3' }}>No friends yet. Add a player by nickname.</div>}
+            </div>
+          </>
         )}
 
         {tab === 'notes' && (

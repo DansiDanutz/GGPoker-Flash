@@ -660,6 +660,35 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { won, payout, stake, balance: after, market: body.market });
     }
 
+    // ---------- friends ----------
+    if (p === '/api/friends' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const rows = db.prepare(`SELECT f.friend_id AS id, u.nick, u.avatar, u.vip_level, u.login, f.created_at
+        FROM friends f JOIN users u ON u.id = f.friend_id WHERE f.user_id = ? ORDER BY u.nick`).all(u.id);
+      const online = (id) => {
+        for (const e of LIVE_TABLES.values()) if (e.table.seats.some((s2) => s2.player && s2.player.id === id)) return true;
+        return false;
+      };
+      return json(res, 200, { friends: rows.map((r) => ({ ...r, online: online(r.id) })) });
+    }
+    if (p === '/api/friends' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      const nick = String(b.nick || '').trim();
+      if (!nick) return json(res, 400, { error: 'Enter a nickname' });
+      const target = db.prepare('SELECT * FROM users WHERE lower(nick) = lower(?) OR lower(login) = lower(?)').get(nick, nick);
+      if (!target) return json(res, 404, { error: 'Player not found' });
+      if (target.id === u.id) return json(res, 400, { error: 'That is you' });
+      db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?,?)').run(u.id, target.id);
+      return json(res, 200, { ok: true, nick: target.nick });
+    }
+    if (p.startsWith('/api/friends/') && req.method === 'DELETE') {
+      const u = requireUser(req, res); if (!u) return;
+      const id = Number(p.split('/')[3]);
+      db.prepare('DELETE FROM friends WHERE user_id = ? AND friend_id = ?').run(u.id, id);
+      return json(res, 200, { ok: true });
+    }
+
     // ---------- ocean rewards ----------
     const OCEAN_LEVELS = [
       { name: 'Clownfish', min: 0, rank: 0 }, { name: 'Shrimp', min: 500, rank: 1 },
