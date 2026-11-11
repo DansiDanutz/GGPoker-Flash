@@ -255,7 +255,7 @@ export function Settings() {
             </div>
             <div className="panel-title" style={{ marginTop: 18 }}>Card front</div>
             <div className="card-front-grid">
-              {([['official', 'Official'], ['official-four', 'Official 4-colour'], ['classic', 'CSS classic'], ['jumbo', 'Jumbo index'], ['minimal', 'Minimal']] as const).map(([id, label]) => (
+              {([['official', 'Official'], ['official-classic-four', 'Classic 4c'], ['official-four', '4-colour'], ['official-gold', 'Gold'], ['official-filled', 'Filled'], ['official-two', 'Two-colour'], ['classic', 'CSS classic'], ['jumbo', 'Jumbo'], ['minimal', 'Minimal']] as const).map(([id, label]) => (
                 <button key={id} className={'card-front-choice' + (cardFront === id ? ' on' : '')} onClick={() => { setCardFront(id); persist('ggpoker.cardFront', id); if (id === 'official-four') { setFourColor(true); persist('ggpoker.fourcolor', '1'); } }}>
                   <span className={'mini-card front-' + id}><i>A</i><b>♠</b></span><b>{label}</b>
                 </button>

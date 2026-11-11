@@ -551,3 +551,7 @@ body.electron .app-window::before { display: none; }
 .back-skin-red-plain .pcard.back, .back-skin-red-plain .back-preview { background-image: url('/assets/cards/backs/red-plain.png'); }
 .pcard.back { background-size: 100% 100%; background-position: center; }
 .back-preview { background-size: 100% 100%; background-position: center; }
+.pcard.art-face.art-official-classic-four { background-image: url('/assets/cards/faces_classic_four.png'); }
+.pcard.art-face.art-official-gold { background-image: url('/assets/cards/faces_gold.png'); }
+.pcard.art-face.art-official-filled { background-image: url('/assets/cards/faces_filled.png'); }
+.pcard.art-face.art-official-two { background-image: url('/assets/cards/faces_two.png'); }

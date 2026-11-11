@@ -19,7 +19,7 @@ export function PlayingCard({ card, size = 'normal', dim = false, dealt = false,
   const suit = card[1];
   const red = suit === 'h' || suit === 'd';
   const front = typeof localStorage !== 'undefined' ? (localStorage.getItem('ggpoker.cardFront') || 'official') : 'official';
-  const official = front === 'official' || front === 'official-four';
+  const official = front.startsWith('official');
   const artStyle = official ? { ...style, '--col': RANK_INDEX[card[0]] ?? 0, '--row': SUIT_INDEX[suit] ?? 0 } as React.CSSProperties : style;
   return (
     <div style={artStyle} aria-label={`${rank} of ${SUIT[suit]}`} className={`pcard s-${suit}${red ? ' red' : ''}${size === 'mini' ? ' mini' : ''}${dim ? ' dim' : ''}${dealt ? ' dealt' : ''}${flip ? ' flip' : ''}${official ? ' art-face art-' + front : ''}`}>
