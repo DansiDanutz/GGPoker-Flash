@@ -20,8 +20,9 @@ if [ ! -d "$APP" ]; then
   $PB -c "Set :CFBundleIconFile AppIcon.icns" "$APP/Contents/Info.plist"
   $PB -c "Set :CFBundleVersion 1" "$APP/Contents/Info.plist"
   mkdir -p "$APP/Contents/Resources/app"
-  cp "$ROOT/research/brand/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns" 2>/dev/null || true
 fi
+cp "$ROOT/research/brand/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon.icns" "$APP/Contents/Info.plist" 2>/dev/null || true
 APPR="$APP/Contents/Resources/app"
 rm -rf "$APPR/dist" "$APPR/public" "$APPR/server" "$APPR/electron"
 cp -R "$ROOT/app/dist" "$ROOT/app/public" "$ROOT/app/server" "$ROOT/app/electron" "$APPR/"

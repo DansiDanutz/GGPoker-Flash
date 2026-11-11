@@ -145,6 +145,10 @@ official card back are already in use.
 - Replaced the previous wordmark with the supplied premium DanGG wordmark.
 - It is used in the header, login, and as the fallback chrome logo.
 - `crop_chrome.py` no longer overwrites the brand logo when regenerating chrome.
+- The splash, login, header and favicon all use a cache-busted brand URL, so a
+  fresh launch does not reuse the previous cached wordmark.
+- The macOS app icon is generated from the same wordmark (dark emerald tile,
+  gold border) and refreshed on every `package_app.sh` run.
 
 ## Limits
 

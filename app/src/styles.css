@@ -654,7 +654,7 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 /* splash */
 .splash { flex: 1; display: grid; place-items: center; background: radial-gradient(800px 500px at 50% 40%, #1c1712 0%, #0c0b0a 65%, #060606 100%); }
 .splash-inner { text-align: center; width: 560px; }
-.splash-logo { width: 340px; height: auto; object-fit: contain; filter: drop-shadow(0 10px 40px rgba(0,0,0,.8)); }
+.splash-logo { width: 390px; height: auto; object-fit: contain; filter: drop-shadow(0 10px 40px rgba(0,0,0,.8)); }
 .splash-tagline { color: #c9a86a; font-size: 11px; letter-spacing: 6px; margin-top: 14px; }
 .splash-bar { height: 4px; background: #2a2a2a; border-radius: 2px; margin: 34px auto 12px; width: 320px; overflow: hidden; }
 .splash-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #8a5d16, #f3d27a, #8a5d16); animation: splashLoad 1.9s ease-in-out forwards; box-shadow: 0 0 12px rgba(240,200,110,.6); }
