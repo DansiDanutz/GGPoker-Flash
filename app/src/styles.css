@@ -122,7 +122,7 @@ a { color: inherit; text-decoration: none; }
   border-bottom: 1px solid #0b0b0b;
   position: relative; z-index: 20;
 }
-.brand-logo { width: 216px; height: 48px; object-fit: contain; object-position: left center; flex: 0 0 216px; cursor: pointer; }
+.brand-logo { width: 180px; height: 52px; object-fit: contain; object-position: left center; flex: 0 0 180px; cursor: pointer; }
 .topnav {
   height: 38px; display: flex; align-items: center; gap: 2px;
   background: #0d0d0d; border: 1px solid #2e2e2e; border-radius: 20px; padding: 3px;

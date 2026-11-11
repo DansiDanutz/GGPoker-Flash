@@ -140,6 +140,12 @@ official card back are already in use.
 - Tablet widths use the 980/1120 desktop rules (side preview hidden, table
   columns collapsed) rather than the phone card layout.
 
+## Brand wordmark
+
+- Replaced the previous wordmark with the supplied premium DanGG wordmark.
+- It is used in the header, login, and as the fallback chrome logo.
+- `crop_chrome.py` no longer overwrites the brand logo when regenerating chrome.
+
 ## Limits
 
 - The room is still a CSS/2D composition over the decoded room texture, not the Stage3D scene.
