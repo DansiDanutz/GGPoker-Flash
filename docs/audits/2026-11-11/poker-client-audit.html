@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DanGG.ro poker client audit — 2026-11-11</title>
+<style>
+  :root {
+    --bg: #f6f4ef; --surface: #ffffff; --ink: #1b1d1f; --muted: #5d6368; --line: #dcd8cf;
+    --felt: #14532d; --felt-soft: #e4efe7; --gold: #8a6412;
+    --crit: #a11226; --crit-bg: #fbe6e9; --high: #a34a00; --high-bg: #fdebd9;
+    --med: #6a5a00; --med-bg: #f8f1c9; --low: #2f5d8a; --low-bg: #e3edf7;
+    --ok: #17663a; --ok-bg: #dff2e6; --open: #5b2a86; --open-bg: #efe4f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101312; --surface: #181c1b; --ink: #e9ebe8; --muted: #a0a8a4; --line: #2b3230;
+      --felt: #7fd3a0; --felt-soft: #16261d; --gold: #e0b95a;
+      --crit: #ff8f9d; --crit-bg: #3a1319; --high: #ffb27a; --high-bg: #3a2210;
+      --med: #e8d86a; --med-bg: #2f2a0c; --low: #9cc4ee; --low-bg: #142534;
+      --ok: #86dba6; --ok-bg: #12301f; --open: #cfa8f2; --open-bg: #2a1a3a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 "Iowan Old Style", "Palatino Linotype", Georgia, serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 20px 80px; }
+  h1 { font-size: clamp(1.7rem, 1.2rem + 2vw, 2.5rem); line-height: 1.15; margin: 0 0 6px; letter-spacing: -.01em; }
+  h2 { font-size: 1.25rem; margin: 44px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--felt); }
+  h3 { font-size: 1rem; margin: 26px 0 8px; font-family: ui-sans-serif, system-ui, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  p { margin: 0 0 12px; max-width: 72ch; }
+  code { font: 12.5px/1.4 ui-monospace, "SF Mono", Menlo, monospace; background: var(--felt-soft); padding: 1px 5px; border-radius: 3px; }
+  .meta { color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; }
+  .verdict { margin: 22px 0; padding: 16px 18px; background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--gold); border-radius: 4px; }
+  .verdict strong { color: var(--gold); font-family: ui-sans-serif, system-ui, sans-serif; letter-spacing: .04em; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 18px 0; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+  .tile b { display: block; font: 700 1.7rem/1.1 ui-sans-serif, system-ui, sans-serif; }
+  .tile span { font: 12px ui-sans-serif, system-ui, sans-serif; color: var(--muted); }
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); background: var(--felt-soft); }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-weight: 700; }
+  .sev, .st { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 11px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+  .sev.c { color: var(--crit); background: var(--crit-bg); } .sev.h { color: var(--high); background: var(--high-bg); }
+  .sev.m { color: var(--med); background: var(--med-bg); } .sev.l { color: var(--low); background: var(--low-bg); }
+  .st.fixed { color: var(--ok); background: var(--ok-bg); } .st.open { color: var(--open); background: var(--open-bg); }
+  .ev { color: var(--muted); display: block; margin-top: 3px; }
+  ul { margin: 0 0 12px; padding-left: 20px; max-width: 76ch; }
+  li { margin-bottom: 5px; }
+  pre { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; overflow-x: auto; font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
+</style>
+</head>
+<body>
+<main>
+  <p class="meta">Audit report · DanGG.ro local poker client · branch <code>claude/poker-client-audit-85d30f</code> (base <code>65f6637</code>) · 11 November 2026</p>
+  <h1>Poker client audit: engine, server, desktop shell and table UI</h1>
+
+  <div class="verdict">
+    <p><strong>VERDICT — FIXED IN THE WORKING TREE, NOT YET COMMITTED OR PACKAGED.</strong></p>
+    <p>The audit found 8 critical and 16 high-severity defects. All 24 are fixed and covered by tests. The suite went from 18 to 67 passing tests, the TypeScript check is clean and the production build succeeds. The fixed build was exercised in a browser against a throwaway database.</p>
+    <p>Two things are not done. The changes are uncommitted, so the installed <code>~/Applications/DanGG.ro.app</code> still runs the old code. The Electron shell changes were syntax-checked but never launched, because the installed app was running and holds the single-instance lock and port 5198.</p>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><b>53</b><span>findings in total</span></div>
+    <div class="tile"><b>43</b><span>fixed and verified</span></div>
+    <div class="tile"><b>10</b><span>open (1 high, 4 medium, 5 low)</span></div>
+    <div class="tile"><b>18 → 67</b><span>passing tests</span></div>
+    <div class="tile"><b>67%</b><span>line coverage (target 80%)</span></div>
+  </div>
+
+  <h2>Scope and method</h2>
+  <p>Every line of the poker engine (<code>poker.js</code>, <code>table.js</code>), the HTTP and WebSocket server (<code>index.js</code>, <code>db.js</code>), the Electron shell and the table page was read. The lobby, cashier, rewards, casino and admin pages were checked only where they call an endpoint that changed. Each defect was reproduced by reasoning from the source or by a failing test before it was fixed, and each fix has a test or a measurement recorded below.</p>
+  <p>The clone's artwork is generated locally and is not in this checkout, so the browser check ran without images. Layout fidelity to the original client was not assessed.</p>
+
+  <h2>Fixed: critical</h2>
+  <div class="scroll"><table>
+    <tr><th>ID</th><th>Finding</th><th>Fix and evidence</th><th>Status</th></tr>
+    <tr><td class="id">C-1</td><td><span class="sev c">CRITICAL</span> Slots paid back about 207 times the stake per spin. A wild on the first reel matched every symbol on all ten lines, and each line win was paid on the whole stake instead of a tenth of it.</td><td>New <code>server/slots.js</code>: wilds substitute for the line symbol, wins are paid per line, paytable retuned.<span class="ev">Simulation of the old code: 207.0. New code, 6 million spins: 0.960. Test: <code>slots.test.js</code>.</span></td><td><span class="st fixed">FIXED</span></td></tr>
+    <tr><td class="id">C-2</td><td><span class="sev c">CRITICAL</span> Pressing All-in with fewer chips than the bet to call <em>lowered</em> the current bet to the short stack. Players who had already put in more could then never match it, and the hand looped on checks forever.</td><td><code>table.js act()</code> now treats an all-in at or below the bet as a call.<span class="ev">Test: "an all-in below the current bet is a call and never lowers the bet".</span></td><td><span class="st fixed">FIXED</span></td></tr>
+    <tr><td class="id">C-3</td><td><span class="sev c">CRITICAL</span> Leaving a table mid-hand destroyed chips. The leaver's bets vanished with the seat; when a heads-up opponent left while it was not their turn the pot was awarded to nobody; when the actor left the hand was resolved and saved twice.</td><td><code>stand()</code> keeps the leaver's chips in the pot as dead money and resolves the hand once through one <code>progress()</code> routine.<span class="ev">Three tests, plus simulations of 60 hands per game type with random departures asserting no chip is lost or created.</span></td><td><span class="st fixed">FIXED</span></td></tr>
+    <tr><td class="id">C-4</td><td><span class="sev c">CRITICAL</span> <code>GET /api/hands</code> returned the last 60 hands of <em>every</em> player, with all hole cards, including hands that were folded and never shown.</td><td>New <code>server/hand-history.js</code> returns only hands the caller sat in and blanks cards that were not shown at showdown.<span class="ev">Test: "hand history only shows a player their own hands and cards that were shown".</span></td><td><span class="st fixed">FIXED</span></td></tr>
+    <tr><td class="id">C-5</td><td><span class="sev c">CRITICAL</span> The Fish Buffet wheel had no cost and no limit: every call paid a prize averaging about $180.</td><td>One spin per player per day through the existing idempotent claim ledger.<span class="ev">Test: second spin returns 400.</span></td><td><span class="st fixed">FIXED</span></td></tr>
+    <tr><td class="id">C-6</td><td><span class="sev c">CRITICAL</span> One tournament registration gave unlimited stacks. After busting or leaving, a player could call <code>/play</code> again, or simply join the tournament table over the WebSocket without registering at all, and receive a fresh starting stack. A finished tournament could be replayed for half the guaranteed pool each time.</td><td>A registration is consumed on bust, leave or win; the socket only seats players that <code>/play</code> seated; finished tournaments are closed; freerolls also need a registration.<span class="ev">Test: "a tournament entry buys one stack: leaving consumes it".</span></td><td><span class="st fixed">FIXED</span></td></tr>
+    <tr><td class="id">C-7</td><td><span class="sev c">CRITICAL</span> The blackjack deal response included <code>dealerHidden</code>, the dealer's face-down card. A second deal could also silently replace a live hand.</td><td>Field removed; the client renders the placeholder; a second deal is refused while a hand is live.<span class="ev">Test: "blackjack never sends the dealer hole card before the hand is over".</span></td><td><span class="st fixed">FIXED</span></td></tr>
+    <tr><td class="id">C-8</td><td><span class="sev c">CRITICAL</span> Quitting the app killed the server, and the next start refunded each seated player's full buy-in. A player could lose a stack, quit, and get the money back.</td><td>The server handles SIGTERM and SIGINT by cashing every seat out at its real stack; Electron now sends SIGTERM. The buy-in refund remains only for a hard crash.<span class="ev">Test: "a clean shutdown settles seats at their real stack, not a buy-in refund".</span></td><td><span class="st fixed">FIXED</span></td></tr>
+  </table></div>
+
+  <h2>Fixed: high</h2>
+  <div class="scroll"><table>
+    <tr><th>ID</th><th>Finding</th><th>Fix and evidence</th></tr>
+    <tr><td class="id">H-1</td><td>Pre-flop action started with the small blind (the big blind when heads-up) instead of the player left of the big blind.</td><td>Action order derives from the big blind seat. Two tests cover four-handed and heads-up play.</td></tr>
+    <tr><td class="id">H-2</td><td>Uncalled bets were never returned, so they were raked. Hands that ended before the flop were raked too.</td><td><code>returnUncalledBet()</code> runs before bets are collected; "no flop, no drop". Two tests.</td></tr>
+    <tr><td class="id">H-3</td><td>An all-in smaller than a full raise reopened the betting for players who had already acted.</td><td>Those players may only call or fold. One test for the short all-in, one for a full raise.</td></tr>
+    <tr><td class="id">H-4</td><td>A player with chips left was asked to check or bet on every street against opponents who were all in.</td><td>The board now runs out. Test: "a player with chips left is not asked to act against all-in opponents".</td></tr>
+    <tr><td class="id">H-5</td><td>Short Deck used full-deck rankings: a full house beat a flush and A-6-7-8-9 was not a straight, on the server, in bot equity and in the client's hand label.</td><td>Short-deck scoring in <code>poker.js</code> and <code>eval.ts</code>. Three tests, including a table hand won by a flush over a full house.</td></tr>
+    <tr><td class="id">H-6</td><td>PLO had no pot limit, PLO5 dealt four cards, opponents' Omaha hands showed two card backs, and bots valued an Omaha hand from its first two cards with Hold'em rules.</td><td>Pot-limit ceiling enforced server-side and sent to the client; five-card deal; bot equity uses the 2+3 rule on all hole cards. Three tests.</td></tr>
+    <tr><td class="id">H-7</td><td>All-in or Fold offered no decision. Every player was flagged all-in without their chips going in, so each hand was a showdown for the blinds.</td><td>Real shove-or-fold: a call is only legal facing a shove, raises must be all-in, the board runs out once shoves are settled. Two tests.</td></tr>
+    <tr><td class="id">H-8</td><td>Sic Bo paid 12 for every middle total. Totals 10 and 11 hit one roll in eight, a 150% return.</td><td>Per-total payout table with every return below 100%.</td></tr>
+    <tr><td class="id">H-9</td><td>New accounts received the opening balance twice: once in the insert and again in the welcome ledger entry.</td><td>The account starts at zero and the ledger entry carries the balance. Test asserts balance equals the single ledger row.</td></tr>
+    <tr><td class="id">H-10</td><td>Any dropped connection cashed the player out immediately, and forfeited a tournament. Closing a popped-out table window, or the original window, did the same.</td><td>The seat is held for 60 seconds and survives a reconnect; a leave is ignored while another window of the same player is on the table. Two tests.</td></tr>
+    <tr><td class="id">H-11</td><td>The local server accepted any <code>Host</code> and WebSocket <code>Origin</code>. A web page could reach it through DNS rebinding and try the documented default admin password.</td><td>Requests with a non-loopback Host get 403; sockets from a non-local Origin are refused; failed logins are throttled at 10 per 10 minutes. Two tests.</td></tr>
+    <tr><td class="id">H-12</td><td>Bots filled tables completely, so a third human was wait-listed behind bots that never leave.</td><td>A human now takes a bot's seat. Test seats four humans at one table.</td></tr>
+    <tr><td class="id">H-13</td><td>Electron: the close, minimise and maximise buttons of a popped-out table acted on the main window; renderer sandbox was off; any URL scheme was passed to the operating system; nothing blocked navigation away from the app.</td><td>Controls act on the sending window; <code>sandbox: true</code>; only http and https open externally; navigation guard; permission requests denied. <strong>Not launched — see verification.</strong></td></tr>
+    <tr><td class="id">H-14</td><td>A rebuy of up to the table maximum was accepted on top of any stack, and was refused between hands because <code>inHand</code> stayed set after a hand ended.</td><td>A top-up must leave the stack within the table's buy-in limits and is allowed once the player's hand is over. The dialog and auto-rebuy follow the same rule.</td></tr>
+    <tr><td class="id">H-15</td><td>Admin credit and "set balance" accepted non-numeric values and wrote <code>NaN</code> into balances and the ledger. Table definitions were unvalidated (100 seats, small blind above big blind).</td><td>New <code>server/validate.js</code>. Test: "admin money actions reject non-numeric and overdraft amounts".</td></tr>
+    <tr><td class="id">H-16</td><td>The deal sound replayed on every state broadcast (about twice a second) throughout pre-flop, because the socket handler compared against stale state.</td><td>The last dealt hand is tracked in a ref.</td></tr>
+  </table></div>
+
+  <h2>Fixed: medium and low</h2>
+  <ul>
+    <li><strong>Table could stall on an absent player.</strong> Two consecutive timeouts now sit the player out; elimination formats deal sitting-out players in and fold them, so nobody can freeze a tournament. A live hand with no actor heals itself on the next tick.</li>
+    <li><strong>Opening hand was dealt heads-up</strong> to the human and the first bot while the remaining bots were still being seated.</li>
+    <li><strong>Pot button used the wrong formula</strong> (<code>pot × f + bet</code>). It now calls first, then raises by the fraction of the resulting pot.</li>
+    <li><strong>Login matched a nickname as well as an account ID</strong>, and nicknames were not unique, so a look-alike nickname could shadow an account or impersonate a player in chat. Nicknames are unique, validated and cannot equal another account's ID.</li>
+    <li><strong>Password comparison was not constant-time</strong>; minimum length was 4. Now <code>timingSafeEqual</code> and 6.</li>
+    <li><strong>Static file serving</strong> accepted sibling-prefix paths (<code>dist-old/…</code> passed the <code>startsWith(dist)</code> check) and threw a 500 on malformed escapes.</li>
+    <li><strong>Server errors echoed the exception message</strong> to the client.</li>
+    <li><strong>No security headers.</strong> Added <code>nosniff</code>, <code>X-Frame-Options</code>, <code>Referrer-Policy</code> and a Content-Security-Policy on the HTML shell. The built app ran under the policy with no violations.</li>
+    <li><strong>Casino bets with an unknown type lost the stake silently.</strong> Roulette, baccarat, dragon-tiger, sic bo and prop bets now reject them. Roulette gained the column bets the README already listed.</li>
+    <li><strong>Baccarat player and banker bets lost on a tie</strong>; they now push.</li>
+    <li><strong>Banning a player</strong> left their sessions and seat alive. A password reset by an admin left sessions alive and defaulted to a known password. Deleting a user left orphaned sessions and no audit entry.</li>
+    <li><strong>Maintenance flag was never enforced.</strong> Non-admins can no longer take a seat while it is on.</li>
+    <li><strong>XP and VIP points never changed</strong>, so the "Earn 500 VIP points" mission could not progress. Hands now award XP, and raked hands award a point.</li>
+    <li><strong>Chat and emotes were unbounded.</strong> Rate-limited; emotes capped at four characters; socket frames capped at 16 KB; settings blobs capped at 64 KB.</li>
+    <li><strong>Unregistering</strong> did not decrement the entrant count; registration ignored status and capacity.</li>
+    <li><strong>Mission progress</strong> was credited to seated players who were not dealt into the hand.</li>
+    <li><strong>Database:</strong> expired sessions are purged at start; indexes added for per-user ledger and session lookups.</li>
+    <li><strong>Table UI:</strong> the blinds pill showed "1/1" for a $0.50/$1 table; the turn timer assumed 15 seconds and the local clock; the bet box could not enter half-dollar amounts on micro-stakes tables; the sit-out toggle was local state that drifted from the server; tournament observers were offered a "Take a seat" button that could not work.</li>
+    <li><strong><code>.gitignore</code></strong> ignored the <code>node_modules</code> directory but not a symlink of that name.</li>
+  </ul>
+
+  <h2>Improvements added</h2>
+  <ul>
+    <li><strong>Pre-actions.</strong> Check/Fold, Check and Call can be queued while waiting. A queued call is cancelled if the price changes.</li>
+    <li><strong>Sizing presets.</strong> 2.5x, 3x and 4x the big blind for an unopened pot; 33%, 50%, 75% and pot after that; a Max button at pot-limit tables.</li>
+    <li><strong>Pot odds</strong> beside the Call button: the price and the win rate needed to break even.</li>
+    <li><strong>Reconnect.</strong> Players who drop show as "Reconnecting" and return to the same seat and stack.</li>
+    <li><strong>"I'm back" banner</strong> when sitting out, and an "away" badge on other players.</li>
+    <li><strong>Pure, tested modules</strong> for bet maths (<code>src/game/betting.ts</code>), slots, validation, request security and hand-history projection, instead of more code in the 1,400-line server file.</li>
+  </ul>
+
+  <h2>Open findings</h2>
+  <div class="scroll"><table>
+    <tr><th>ID</th><th>Severity</th><th>Finding</th><th>What it needs</th></tr>
+    <tr><td class="id">O-1</td><td><span class="sev h">HIGH</span></td><td>The project reproduces a commercial client's name, layout and extracted artwork. The repository keeps the artwork out of version control, but any distributed build carries it. This audit did not extend that side of the product.</td><td>Owner decision: keep it strictly local, or replace the branding and assets before sharing a build.</td></tr>
+    <tr><td class="id">O-2</td><td><span class="sev m">MEDIUM</span></td><td>Line coverage is 67%, below the 80% target. The engine and money modules are at 92–100%; <code>index.js</code> is at 34% and is now 1,643 lines, twice the 800-line ceiling.</td><td>Split <code>index.js</code> into route modules (auth, cashier, casino, admin, sockets) and test each.</td></tr>
+    <tr><td class="id">O-3</td><td><span class="sev m">MEDIUM</span></td><td>Seeded accounts with documented passwords (including the admin) exist in every database. The server binds to loopback only, and logins are now throttled.</td><td>Force a password change on first admin login before the server is ever exposed beyond this machine.</td></tr>
+    <tr><td class="id">O-4</td><td><span class="sev m">MEDIUM</span></td><td>The session token lives in <code>localStorage</code> and is sent in the WebSocket URL.</td><td>Move to an HttpOnly cookie and authenticate the socket in its first message.</td></tr>
+    <tr><td class="id">O-5</td><td><span class="sev m">MEDIUM</span></td><td>A tournament is one six-seat table against bots that pays 50/30/20% of the full guaranteed pool, so one entry can return hundreds of buy-ins. Lobby player counts and averages are synthetic.</td><td>Scale the prize pool to the seats actually in play, or build multi-table tournaments.</td></tr>
+    <tr><td class="id">O-6</td><td><span class="sev l">LOW</span></td><td>Electron changes (sandbox, per-window controls, navigation guard, SIGTERM on quit) were not launched.</td><td>Quit the installed app, run <code>pnpm desktop</code>, pop a table out and close it.</td></tr>
+    <tr><td class="id">O-7</td><td><span class="sev l">LOW</span></td><td>Blackjack hands live in memory, so a crash mid-hand loses the stake. Baccarat uses a simplified third-card rule. No split or double.</td><td>Persist the open hand; implement the standard drawing table.</td></tr>
+    <tr><td class="id">O-8</td><td><span class="sev l">LOW</span></td><td>Poker rules still simplified: no dead button or missed-blind posting for new players, the run-it-twice setting does nothing, one bot strategy for all stakes, odd chips go by seat order.</td><td>Implement as wanted; none affects chip conservation.</td></tr>
+    <tr><td class="id">O-9</td><td><span class="sev l">LOW</span></td><td>No lint configuration, no browser end-to-end suite, one 500 kB+ JavaScript chunk. The UI check in this audit was manual.</td><td>Add ESLint and a Playwright smoke test of login, sit, act and leave.</td></tr>
+    <tr><td class="id">O-10</td><td><span class="sev l">LOW</span></td><td>An untracked <code>.claude/launch.json</code> created for the browser check remains in the worktree; a safety hook blocked its removal.</td><td>Delete it by hand.</td></tr>
+  </table></div>
+
+  <h2>Verification</h2>
+  <pre>cd app
+pnpm test                 # 67 pass, 0 fail (was 18)
+./node_modules/.bin/tsc --noEmit -p .    # no errors
+pnpm build                # built; chunk-size warning only
+node --test --experimental-test-coverage server/*.test.js
+  poker.js 100.0%  betting.ts 100.0%  hand-history.js 100.0%  slots.js 98.5%
+  db.js 97.8%  security.js 97.8%  validate.js 93.4%  table.js 91.7%
+  eval.ts 88.1%  index.js 33.7%  all files 67.2%</pre>
+  <h3>Checked in a browser</h3>
+  <ul>
+    <li>Production build served by the fixed server on port 5310 with an empty database in a temporary directory. The installed app and its database were not touched.</li>
+    <li>Login; a $0.50/$1 Hold'em table; a PLO table showing four hole cards, the pot-limit label and a Max button.</li>
+    <li>Pot odds read "3.0:1 · need 25%" facing a half-blind call into $1.50, and "1.5:1 · need 40%" facing $10 into $15.</li>
+    <li>Letting the timer run out twice produced the sitting-out banner. Reloading the page returned to the same seat with the $200 stack and no second buy-in. "I'm back" dealt the player in, a call registered, and the pre-action row appeared while waiting.</li>
+    <li>No Content-Security-Policy violations or script errors in the console. The only errors were 404s for the artwork that is not in this checkout.</li>
+  </ul>
+  <h3>Not verified</h3>
+  <ul>
+    <li>The Electron shell (O-6) and the packaged app.</li>
+    <li>Tournament and Spin &amp; Gold play to completion in the UI. Their engine paths are covered by tests only.</li>
+    <li>Two humans at one table in the UI. Covered by socket tests only.</li>
+    <li>Pages other than the table: lobby, cashier, rewards, casino and admin were not clicked through.</li>
+  </ul>
+
+  <h2>Files changed</h2>
+  <p>Nothing is committed. New: <code>server/slots.js</code>, <code>security.js</code>, <code>validate.js</code>, <code>hand-history.js</code>, <code>test-helpers.js</code>, five test files, <code>src/game/betting.ts</code>. Modified: <code>server/table.js</code>, <code>poker.js</code>, <code>index.js</code>, <code>db.js</code>, <code>electron/main.cjs</code>, <code>src/pages/TablePage.tsx</code>, <code>Casino.tsx</code>, <code>Rewards.tsx</code>, <code>src/game/eval.ts</code>, <code>styles.css</code>, <code>README.md</code>, <code>.gitignore</code>.</p>
+  <p>Two behaviour changes players will notice: passwords for new accounts need six characters, and the Fish Buffet wheel is once a day.</p>
+</main>
+</body>
+</html>

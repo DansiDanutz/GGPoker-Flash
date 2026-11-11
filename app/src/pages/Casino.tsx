@@ -141,6 +141,7 @@ export function Roulette() {
   const outside: [string, string, number][] = [
     ['red', 'Red', 2], ['black', 'Black', 2], ['even', 'Even', 2], ['odd', 'Odd', 2],
     ['low', '1-18', 2], ['high', '19-36', 2], ['dozen1', '1st 12', 3], ['dozen2', '2nd 12', 3], ['dozen3', '3rd 12', 3],
+    ['column1', 'Column 1', 3], ['column2', 'Column 2', 3], ['column3', 'Column 3', 3],
   ];
 
   return (
@@ -227,7 +228,7 @@ export function Blackjack() {
     try {
       const res = await post({ action: 'deal', bet });
       if (res.error) throw new Error(res.error);
-      setPlayer(res.player); setDealer(res.dealerHidden); setPhase('playing'); setMsg(res.blackjack ? 'Blackjack!' : '');
+      setPlayer(res.player); setDealer(res.dealer); setPhase('playing'); setMsg(res.blackjack ? 'Blackjack!' : '');
       sound.play('deal');
       await refreshUser();
     } catch (e: any) { toast({ kind: 'error', title: 'Blackjack', body: e.message }); }

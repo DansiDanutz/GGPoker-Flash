@@ -41,8 +41,14 @@ function combinations(arr, k) {
   return out;
 }
 
+// Short Deck (6+) ranks a flush above a full house because flushes are rarer
+// with nine cards per suit, and its lowest straight is A-6-7-8-9.
+const SHORT_DECK_FLUSH = 6;
+const SHORT_DECK_FULL_HOUSE = 5;
+const SHORT_DECK_WHEEL_HIGH = 9;
+
 // Returns a comparable array: [category, ...kickers]
-export function score5(cards) {
+export function score5(cards, shortDeck = false) {
   const vs = cards.map((c) => c.v).sort((a, b) => b - a);
   const suits = cards.map((c) => c.s);
   const flush = suits.every((s) => s === suits[0]);
@@ -50,7 +56,8 @@ export function score5(cards) {
   let straightHigh = 0;
   if (uniq.length === 5) {
     if (uniq[0] - uniq[4] === 4) straightHigh = uniq[0];
-    else if (uniq[0] === 14 && uniq[1] === 5) straightHigh = 5;
+    else if (!shortDeck && uniq[0] === 14 && uniq[1] === 5) straightHigh = 5;
+    else if (shortDeck && uniq[0] === 14 && uniq[1] === SHORT_DECK_WHEEL_HIGH && uniq[4] === 6) straightHigh = SHORT_DECK_WHEEL_HIGH;
   }
   const counts = new Map();
   for (const v of vs) counts.set(v, (counts.get(v) || 0) + 1);
@@ -58,8 +65,8 @@ export function score5(cards) {
   const [g0, g1] = groups;
   if (flush && straightHigh) return [8, straightHigh];
   if (g0[1] === 4) return [7, g0[0], g1[0]];
-  if (g0[1] === 3 && g1[1] === 2) return [6, g0[0], g1[0]];
-  if (flush) return [5, ...vs];
+  if (g0[1] === 3 && g1[1] === 2) return [shortDeck ? SHORT_DECK_FULL_HOUSE : 6, g0[0], g1[0]];
+  if (flush) return [shortDeck ? SHORT_DECK_FLUSH : 5, ...vs];
   if (straightHigh) return [4, straightHigh];
   if (g0[1] === 3) return [3, g0[0], ...groups.filter((g) => g[1] === 1).map((g) => g[0])];
   if (g0[1] === 2 && g1[1] === 2) {
@@ -82,26 +89,26 @@ export function compareScores(a, b) {
 
 const CAT_NAMES = ['High Card', 'One Pair', 'Two Pair', 'Three of a Kind', 'Straight', 'Flush', 'Full House', 'Four of a Kind', 'Straight Flush'];
 
-export function handName(score) {
+export function handName(score, shortDeck = false) {
   const cat = score[0];
   if (cat === 8 && score[1] === 14) return 'Royal Flush';
-  if (cat === 4) return 'Straight';
-  if (cat === 5) return 'Flush';
+  if (shortDeck && cat === SHORT_DECK_FLUSH) return 'Flush';
+  if (shortDeck && cat === SHORT_DECK_FULL_HOUSE) return 'Full House';
   return CAT_NAMES[cat] || 'High Card';
 }
 
-export function bestHoldem(hole, board) {
+export function bestHoldem(hole, board, shortDeck = false) {
   const all = [...hole, ...board];
   let best = null;
   let bestCards = null;
   for (const combo of combinations(all, 5)) {
-    const sc = score5(combo);
+    const sc = score5(combo, shortDeck);
     if (!best || compareScores(sc, best) > 0) {
       best = sc;
       bestCards = combo;
     }
   }
-  return { score: best, cards: bestCards, name: handName(best) };
+  return { score: best, cards: bestCards, name: handName(best, shortDeck) };
 }
 
 export function bestOmaha(hole, board) {
@@ -124,21 +131,25 @@ export function cardStr(c) { return c.r + c.s; }
 export function formatCards(cards) { return cards.map(cardStr).join(' '); }
 
 // Monte-Carlo equity for a bot decision. Returns 0..1.
-export function estimateEquity(hole, board, opponents, shortDeck = false, iterations = 240) {
+// `omaha` switches to the 2+3 rule and deals opponents as many hole cards as the hero holds.
+export function estimateEquity(hole, board, opponents, shortDeck = false, iterations = 240, omaha = false) {
   const known = new Set([...hole, ...board].map(cardStr));
   const baseDeck = makeDeck(shortDeck).filter((c) => !known.has(cardStr(c)));
+  const evaluate = omaha ? (h, b) => bestOmaha(h, b) : (h, b) => bestHoldem(h, b, shortDeck);
+  const holeCount = omaha ? hole.length : 2;
   let wins = 0, ties = 0;
   for (let it = 0; it < iterations; it++) {
     const deck = shuffle([...baseDeck], seededRandom(it * 7919 + 13 + board.length * 31));
     let idx = 0;
     const fullBoard = [...board];
     while (fullBoard.length < 5) fullBoard.push(deck[idx++]);
-    const mine = bestHoldem(hole, fullBoard);
+    const mine = evaluate(hole, fullBoard);
     let best = mine;
     let tie = false;
     for (let o = 0; o < opponents; o++) {
-      const oh = [deck[idx++], deck[idx++]];
-      const sc = bestHoldem(oh, fullBoard);
+      const oh = deck.slice(idx, idx + holeCount);
+      idx += holeCount;
+      const sc = evaluate(oh, fullBoard);
       const cmp = compareScores(sc.score, best.score);
       if (cmp > 0) { best = sc; tie = false; }
       else if (cmp === 0) tie = true;

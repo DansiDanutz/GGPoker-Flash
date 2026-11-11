@@ -1,31 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-
-const root = path.resolve(import.meta.dirname, '..');
-
-function startServer() {
-  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'dangro-http-'));
-  const child = spawn(process.execPath, ['server/index.js'], {
-    cwd: root,
-    env: { ...process.env, PORT: '0', GGPOKER_DATA: data },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  return new Promise((resolve, reject) => {
-    let out = '';
-    const timer = setTimeout(() => { child.kill(); reject(new Error('timeout')); }, 15000);
-    child.stdout.on('data', (d) => {
-      out += String(d);
-      const m = out.match(/LISTENING (\d+)/);
-      if (m) { clearTimeout(timer); resolve({ child, port: Number(m[1]) }); }
-    });
-    child.stderr.on('data', (d) => process.stderr.write(d));
-    child.once('exit', (code) => { clearTimeout(timer); reject(new Error(`exit ${code}`)); });
-  });
-}
+import { startServer } from './test-helpers.js';
 
 test('server binds an ephemeral port and serves the API', async () => {
   const { child, port } = await startServer();

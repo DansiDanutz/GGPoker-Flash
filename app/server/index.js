@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomInt } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import {
   db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, newSession, userByToken,
@@ -10,6 +10,12 @@ import {
 } from './db.js';
 import { PokerTable, botName } from './table.js';
 import { makeDeck, shuffle, cardStr } from './poker.js';
+import {
+  isLocalHost, isLocalOrigin, resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
+} from './security.js';
+import { toInt, cleanNick, parseTableConfig } from './validate.js';
+import { handForViewer } from './hand-history.js';
+import { spinSlots } from './slots.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -17,13 +23,26 @@ const APP_DIR = path.join(__dirname, '..');
 const DIST = path.join(APP_DIR, 'dist');
 const PUBLIC = path.join(APP_DIR, 'public');
 
+// How long a seat is held for a player whose connection dropped before they are cashed out.
+const DISCONNECT_GRACE_MS = Number(process.env.GGPOKER_DISCONNECT_GRACE_MS || 60_000);
+const HAND_HISTORY_LIMIT = 60;
+const HAND_HISTORY_SCAN = 400;
+const MAX_BET = 1_000_000;
+const MIN_BET = 10;
+// Sic Bo total bets, stake included. A flat 12x on every middle total paid out more than it took in.
+const SICBO_TOTAL_PAYS = Object.freeze({
+  4: 61, 17: 61, 5: 31, 16: 31, 6: 18, 15: 18, 7: 13, 14: 13, 8: 9, 13: 9, 9: 7, 12: 7, 10: 7, 11: 7,
+});
+const loginLimiter = createRateLimiter({ limit: 10, windowMs: 10 * 60_000 });
+const chatLimiter = createRateLimiter({ limit: 6, windowMs: 5_000 });
+
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
 /* ------------------------------------------------------------------ */
 
 function json(res, code, obj) {
   const body = JSON.stringify(obj);
-  res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+  res.writeHead(code, { ...SECURITY_HEADERS, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
   res.end(body);
 }
 
@@ -76,6 +95,8 @@ function serveFile(res, file) {
   const ext = path.extname(file).toLowerCase();
   const stat = fs.statSync(file);
   res.writeHead(200, {
+    ...SECURITY_HEADERS,
+    ...(ext === '.html' ? { 'content-security-policy': HTML_CSP } : {}),
     'content-type': MIME[ext] || 'application/octet-stream',
     'content-length': stat.size,
     'cache-control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
@@ -200,21 +221,26 @@ function getLiveTable(id) {
         table.emit({ type: 'tourney_payout', ...p });
       } catch (e) { console.error('tourney payout', e); }
     },
+    onTournamentBust: (table, p) => {
+      try { consumeTournamentEntry(table, p.id); } catch (e) { console.error('tourney bust', e); }
+    },
     onTournamentEnd: (table, winner) => {
       try {
         const tid = table.cfg.tournamentId;
         if (tid) {
           db.prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?").run(tid);
+          db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ?').run(tid);
         }
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(winner.id);
         if (u) addTransaction(u.id, 'tourney_win', winner.prize, `Tournament win: ${table.cfg.name}`);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize}`);
       } catch (e) { console.error('tournament end', e); }
     },
-    onHandComplete: ({ table, winner }) => {
-      // mission progress for humans
+    onHandComplete: ({ table, winner, summary }) => {
+      rewardHandPlayed(table, summary);
+      // mission progress for humans who were dealt in
       for (const s of table.seats) {
-        if (!s.player || s.player.isBot) continue;
+        if (!s.player || s.player.isBot || !s.player.inHand) continue;
         bumpMission(s.player.id, 'daily-hands');
         if (winner && winner.id === s.player.id) bumpMission(s.player.id, 'daily-win');
         if (table.board.length >= 3) bumpMission(s.player.id, 'daily-flop');
@@ -227,12 +253,11 @@ function getLiveTable(id) {
     try {
       table.tick();
       if (Date.now() - entry.lastBroadcast > 450) broadcastState(table);
+      sweepDisconnected(entry);
       if (entry.clients.size === 0) {
         if (!entry.emptySince) entry.emptySince = Date.now();
-        else if (Date.now() - entry.emptySince > 45000) {
-          for (const p of table.humans()) cashOutSeat(table, p.id, 'Table idle close');
-          clearInterval(entry.timer);
-          LIVE_TABLES.delete(id);
+        else if (Date.now() - entry.emptySince > Math.max(45000, DISCONNECT_GRACE_MS)) {
+          closeLiveTable(id, 'Table idle close');
         }
       } else {
         entry.emptySince = null;
@@ -269,14 +294,16 @@ function broadcastState(table) {
 function seatHuman(table, user, buyin, seatIndex = null) {
   const existing = table.seatOf(user.id);
   if (existing) return { ok: true, seat: existing.index };
-  const stack = Number(buyin) || table.cfg.min_buyin;
+  const stack = toInt(buyin) ?? table.cfg.min_buyin;
   if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
   if (user.balance < stack) return { ok: false, error: 'not enough balance' };
+  const wantedSeat = toInt(seatIndex, { min: 0, max: table.cfg.seats - 1 });
+  if (!makeRoomForHuman(table, wantedSeat)) return { ok: false, error: 'table full' };
   const sessionId = `${table.cfg.id}:${randomUUID()}`;
   addTransactionEx(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`, 'USD', {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
   });
-  const res = table.sit({ id: user.id, nick: user.nick, avatar: user.avatar }, seatIndex ?? null, stack);
+  const res = table.sit({ id: user.id, nick: user.nick, avatar: user.avatar }, wantedSeat, stack);
   if (!res.ok) {
     addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
       sessionId, reference: `refund:${sessionId}`, onDuplicate: 'skip',
@@ -288,13 +315,35 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   return res;
 }
 
+// Bots only fill empty chairs: a human always takes priority over one.
+function makeRoomForHuman(table, wantedSeat) {
+  const target = wantedSeat != null ? table.seats[wantedSeat] : null;
+  if (target && !target.player) return true;
+  if (target && target.player && !target.player.isBot) return table.seats.some((s) => !s.player) || evictBot(table);
+  if (target && target.player && target.player.isBot) { table.stand(target.player.id); return true; }
+  if (table.seats.some((s) => !s.player)) return true;
+  return evictBot(table);
+}
+
+function evictBot(table) {
+  const bots = table.occupiedSeats().filter((s) => s.player.isBot);
+  if (!bots.length) return false;
+  const idle = bots.find((s) => !table.handInProgress() || !s.player.inHand || s.player.folded);
+  table.stand((idle || bots[0]).player.id);
+  return true;
+}
+
 function cashOutSeat(table, userId, reason) {
   const seat = table.seatOf(userId);
   if (!seat || !seat.player) return;
-  const stack = seat.player.stack;
   const sessionId = seat.player.sessionId;
-  table.stand(userId);
-  if (table.tournament) return;
+  // stand() folds a live hand first, so the returned stack is what the player really keeps.
+  const { stack } = table.stand(userId);
+  if (table.tournament) {
+    // Leaving a tournament forfeits the entry; it cannot be re-used for a fresh stack.
+    consumeTournamentEntry(table, userId);
+    return;
+  }
   if (sessionId) {
     addTransactionEx(userId, stack > 0 ? 'cashout' : 'session_close', stack, reason, 'USD', {
       sessionId, reference: `out:${sessionId}`, onDuplicate: 'skip',
@@ -304,11 +353,60 @@ function cashOutSeat(table, userId, reason) {
   }
 }
 
+function consumeTournamentEntry(table, userId) {
+  const tid = table.cfg.tournamentId;
+  if (!tid) return;
+  db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').run(tid, userId);
+}
+
+function hasLiveSocket(entry, userId, except = null) {
+  for (const client of entry.clients) {
+    if (client !== except && client.userId === userId && client.readyState === 1) return true;
+  }
+  return false;
+}
+
+// Cash out players whose connection has been gone longer than the grace period.
+function sweepDisconnected(entry) {
+  const table = entry.table;
+  const now = Date.now();
+  for (const p of table.humans()) {
+    if (!p.disconnectedAt) continue;
+    if (hasLiveSocket(entry, p.id)) { p.disconnectedAt = 0; p.disconnected = false; continue; }
+    if (now - p.disconnectedAt < DISCONNECT_GRACE_MS) continue;
+    cashOutSeat(table, p.id, `Disconnected from ${table.cfg.name}`);
+    notifyWaitlist(table.cfg.id);
+  }
+}
+
+function closeLiveTable(id, reason) {
+  const entry = LIVE_TABLES.get(id);
+  if (!entry) return;
+  for (const p of entry.table.humans()) cashOutSeat(entry.table, p.id, reason);
+  clearInterval(entry.timer);
+  LIVE_TABLES.delete(id);
+}
+
+function rewardHandPlayed(table, summary) {
+  const raked = (summary?.rake || 0) > 0;
+  for (const s of table.seats) {
+    const p = s.player;
+    if (!p || p.isBot || !p.inHand) continue;
+    const points = raked && p.totalBet > 0 ? 1 : 0;
+    db.prepare('UPDATE users SET xp = xp + 1, vip_points = vip_points + ? WHERE id = ?').run(points, p.id);
+    if (points) bumpMission(p.id, 'weekly-vip', points);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* HTTP API                                                            */
 /* ------------------------------------------------------------------ */
 
 const server = http.createServer(async (req, res) => {
+  if (!isLocalHost(req.headers.host)) {
+    res.writeHead(403, { 'content-type': 'text/plain' });
+    return res.end('Forbidden');
+  }
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname;
 
@@ -316,8 +414,16 @@ const server = http.createServer(async (req, res) => {
     // ---------- auth ----------
     if (p === '/api/auth/login' && req.method === 'POST') {
       const body = await readBody(req);
-      const user = db.prepare('SELECT * FROM users WHERE lower(login) = lower(?) OR lower(nick) = lower(?)').get(body.login || '', body.login || '');
-      if (!user || !checkPassword(body.password || '', user.password)) return json(res, 400, { error: 'Invalid account ID or password' });
+      const loginKey = String(body.login || '').trim().toLowerCase();
+      if (loginLimiter.isBlocked(loginKey)) return json(res, 429, { error: 'Too many failed attempts. Try again in a few minutes.' });
+      // Exact account ID wins over a nickname match so a look-alike nickname cannot shadow an account.
+      const user = db.prepare('SELECT * FROM users WHERE lower(login) = ?').get(loginKey)
+        || db.prepare('SELECT * FROM users WHERE lower(nick) = ?').get(loginKey);
+      if (!user || !checkPassword(body.password || '', user.password)) {
+        loginLimiter.record(loginKey);
+        return json(res, 400, { error: 'Invalid account ID or password' });
+      }
+      loginLimiter.reset(loginKey);
       if (user.banned) return json(res, 403, { error: 'This account is locked. Contact support.' });
       db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
       const token = newSession(user.id, req.headers['user-agent'] || '');
@@ -327,15 +433,19 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/auth/register' && req.method === 'POST') {
       const body = await readBody(req);
       const login = String(body.login || '').trim();
-      const nick = String(body.nick || login).trim();
-      if (login.length < 3) return json(res, 400, { error: 'Account ID must be at least 3 characters' });
-      if ((body.password || '').length < 4) return json(res, 400, { error: 'Password must be at least 4 characters' });
-      if (db.prepare('SELECT id FROM users WHERE lower(login)=lower(?)').get(login)) return json(res, 400, { error: 'Account already exists' });
+      const nick = cleanNick(body.nick || login);
+      if (!/^[A-Za-z0-9_.\-]{3,24}$/.test(login)) return json(res, 400, { error: 'Account ID must be 3-24 letters, digits, dots, dashes or underscores' });
+      if (!nick) return json(res, 400, { error: 'Nickname must be 2-20 letters, digits, spaces, dots, dashes or underscores' });
+      if (String(body.password || '').length < 6) return json(res, 400, { error: 'Password must be at least 6 characters' });
+      if (identityTaken(login) || identityTaken(nick)) return json(res, 400, { error: 'That account ID or nickname is already taken' });
       const start = getSetting('default_balance', 5000) + getSetting('welcome_bonus', 100000);
       db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
-        .run(login, nick, hashPassword(body.password), body.email || '', start, 5);
-      const user = db.prepare('SELECT * FROM users WHERE login = ?').get(login);
-      addTransaction(user.id, 'welcome', start, 'Welcome bonus');
+        .run(login, nick, hashPassword(String(body.password)), String(body.email || '').slice(0, 120), 0, 5);
+      const created = db.prepare('SELECT id FROM users WHERE login = ?').get(login);
+      // The account starts at zero and the ledger entry carries the whole opening balance,
+      // so the balance and the ledger agree (it used to be credited twice).
+      addTransaction(created.id, 'welcome', start, 'Welcome bonus');
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
       const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
     }
@@ -356,8 +466,10 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/me/settings' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
+      const serialized = JSON.stringify(body || {});
+      if (serialized.length > 64 * 1024) return json(res, 413, { error: 'Settings too large' });
       db.prepare(`INSERT INTO user_settings (user_id,json) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET json=excluded.json`)
-        .run(u.id, JSON.stringify(body || {}));
+        .run(u.id, serialized);
       return json(res, 200, { ok: true });
     }
 
@@ -371,8 +483,9 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/me/nick' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
-      const nick = String(body.nick || '').trim().slice(0, 20);
-      if (nick.length < 2) return json(res, 400, { error: 'Nickname too short' });
+      const nick = cleanNick(body.nick);
+      if (!nick) return json(res, 400, { error: 'Nickname must be 2-20 letters, digits, spaces, dots, dashes or underscores' });
+      if (identityTaken(nick, u.id)) return json(res, 400, { error: 'That nickname is already taken' });
       db.prepare('UPDATE users SET nick = ? WHERE id = ?').run(nick, u.id);
       return json(res, 200, { ok: true, nick });
     }
@@ -412,9 +525,11 @@ const server = http.createServer(async (req, res) => {
       if (!t) return json(res, 404, { error: 'not found' });
       const already = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       if (already) return json(res, 400, { error: 'Already registered' });
+      if (!t.enabled || !['registering', 'running'].includes(t.status)) return json(res, 400, { error: 'Registration is closed' });
+      if (t.entrants >= t.max_players) return json(res, 400, { error: 'Tournament is full' });
       const total = t.buyin + t.fee;
       if (u.balance < total) return json(res, 400, { error: 'Insufficient balance' });
-      addTransaction(u.id, 'tourney_buyin', -total, `Registration ${t.name}`);
+      if (total > 0) addTransaction(u.id, 'tourney_buyin', -total, `Registration ${t.name}`);
       db.prepare('INSERT INTO tourney_regs (tournament_id,user_id) VALUES (?,?)').run(id, u.id);
       db.prepare('UPDATE tournaments SET entrants = entrants + 1 WHERE id = ?').run(id);
       setMissionDone(u.id, 'daily-tourney');
@@ -427,9 +542,12 @@ const server = http.createServer(async (req, res) => {
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id);
       if (!t) return json(res, 404, { error: 'not found' });
       const reg = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
-      if (!reg && t.buyin > 0) return json(res, 400, { error: 'Register first' });
       const tableId = `tourney-${id}`;
       const existing = LIVE_TABLES.get(tableId);
+      const alreadySeated = !!existing?.table.seatOf(u.id);
+      if (t.status === 'completed' && !alreadySeated) return json(res, 400, { error: 'This tournament has finished' });
+      // One registration buys exactly one stack; it is consumed when the player busts, leaves or wins.
+      if (!reg && !alreadySeated) return json(res, 400, { error: 'Register first' });
       if (existing && existing.table.tournament && existing.table.tournament.winner) {
         clearInterval(existing.timer);
         LIVE_TABLES.delete(tableId);
@@ -467,8 +585,10 @@ const server = http.createServer(async (req, res) => {
       const already = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       if (!already || !t) return json(res, 400, { error: 'Not registered' });
       if (t.status !== 'registering') return json(res, 400, { error: 'Unregistration is closed' });
-      addTransaction(u.id, 'tourney_refund', t.buyin + t.fee, `Unregistration ${t.name}`);
+      if (LIVE_TABLES.get(`tourney-${id}`)?.table.seatOf(u.id)) return json(res, 400, { error: 'You are already playing this tournament' });
+      if (t.buyin + t.fee > 0) addTransaction(u.id, 'tourney_refund', t.buyin + t.fee, `Unregistration ${t.name}`);
       db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').run(id, u.id);
+      db.prepare('UPDATE tournaments SET entrants = MAX(0, entrants - 1) WHERE id = ?').run(id);
       return json(res, 200, { ok: true });
     }
 
@@ -482,32 +602,28 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/cashier/deposit' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
-      const amount = Math.round(Number(body.amount || 0));
-      if (amount <= 0 || amount > 100000000) return json(res, 400, { error: 'Invalid amount' });
-      const after = addTransaction(u.id, 'deposit', amount, body.method || 'Instant bank transfer');
+      const amount = toInt(body.amount, { min: 1, max: 100000000 });
+      if (amount === null) return json(res, 400, { error: 'Invalid amount' });
+      const after = addTransaction(u.id, 'deposit', amount, String(body.method || 'Instant bank transfer').slice(0, 60));
       return json(res, 200, { ok: true, balance: after });
     }
 
     if (p === '/api/cashier/withdraw' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
-      const amount = Math.round(Number(body.amount || 0));
-      if (amount <= 0 || amount > u.balance) return json(res, 400, { error: 'Invalid amount' });
-      const after = addTransaction(u.id, 'withdraw', -amount, body.method || 'Bank transfer');
+      const amount = toInt(body.amount, { min: 1, max: u.balance });
+      if (amount === null) return json(res, 400, { error: 'Invalid amount' });
+      const after = addTransaction(u.id, 'withdraw', -amount, String(body.method || 'Bank transfer').slice(0, 60));
       return json(res, 200, { ok: true, balance: after });
     }
 
     // ---------- hand history ----------
     if (p === '/api/hands') {
       const u = requireUser(req, res); if (!u) return;
-      const rows = db.prepare('SELECT * FROM hands ORDER BY id DESC LIMIT 60').all();
-      return json(res, 200, {
-        hands: rows.map((h) => ({
-          id: h.id, handNo: h.hand_no, tableId: h.table_id, tableName: h.table_name, game: h.game,
-          board: h.board, pot: h.pot, result: JSON.parse(h.result || '{}'), players: JSON.parse(h.players || '[]'),
-          heroCards: h.hero_cards, actions: JSON.parse(h.actions || '[]'), created_at: h.created_at,
-        })),
-      });
+      // Only hands the player sat in, and only the cards they were entitled to see.
+      const rows = db.prepare('SELECT * FROM hands ORDER BY id DESC LIMIT ?').all(HAND_HISTORY_SCAN);
+      const hands = rows.map((h) => handForViewer(h, u.id)).filter(Boolean).slice(0, HAND_HISTORY_LIMIT);
+      return json(res, 200, { hands });
     }
 
     // ---------- missions / rewards ----------
@@ -558,10 +674,14 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/rewards/spin' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const prizes = [0, 500, 1000, 2500, 5000, 10000, 25000, 100000];
-      const idx = Math.floor(Math.random() * prizes.length);
+      // One free spin per day: an unlimited wheel was an unlimited source of chips.
+      const day = new Date().toISOString().slice(0, 10);
+      if (getClaim(u.id, 'fishbuffet', day)?.claimed) return json(res, 400, { error: 'You already used today\'s spin. Come back tomorrow.' });
+      const idx = randomInt(prizes.length);
       const amount = prizes[idx];
-      if (amount) addTransaction(u.id, 'fishbuffet', amount, 'Fish Buffet wheel');
-      return json(res, 200, { index: idx, amount, prizes });
+      const award = claimReward(u.id, 'fishbuffet', day, amount, 'USD', 'Fish Buffet wheel');
+      if (!award.claimed) return json(res, 400, { error: 'You already used today\'s spin. Come back tomorrow.' });
+      return json(res, 200, { index: idx, amount, prizes, balance: award.balance });
     }
 
 
@@ -569,38 +689,9 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/games/slot' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
-      const bet = Math.max(10, Math.min(1000000, Math.round(Number(body.bet) || 100)));
+      const bet = parseBet(body.bet);
       if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
-      const symbols = ['cherry', 'lemon', 'bell', 'star', 'diamond', 'seven', 'clover', 'wild'];
-      const weights = [26, 24, 18, 12, 9, 6, 4, 1];
-      const pick = () => {
-        const total = weights.reduce((a, b) => a + b, 0);
-        let r = Math.random() * total;
-        for (let i = 0; i < symbols.length; i++) { r -= weights[i]; if (r <= 0) return symbols[i]; }
-        return symbols[0];
-      };
-      const grid = Array.from({ length: 5 }, () => Array.from({ length: 3 }, pick));
-      const lines = [];
-      const pay = { cherry: 4, lemon: 5, bell: 8, star: 12, diamond: 20, seven: 50, clover: 7, wild: 100 };
-      const lineDefs = [
-        [1,1,1,1,1],[0,0,0,0,0],[2,2,2,2,2],[0,1,2,1,0],[2,1,0,1,2],
-        [0,0,1,2,2],[2,2,1,0,0],[0,1,0,1,0],[2,1,2,1,2],[1,0,1,2,1],
-      ];
-      let win = 0;
-      for (const def of lineDefs) {
-        const first = grid[0][def[0]];
-        let count = 1;
-        for (let i = 1; i < 5; i++) {
-          const sym = grid[i][def[i]];
-          if (sym === first || sym === 'wild' || first === 'wild') count++;
-          else break;
-        }
-        if (count >= 3) {
-          const mult = (pay[first] || 5) * (count === 3 ? 1 : count === 4 ? 4 : 20);
-          win += Math.round(bet * mult);
-          lines.push({ line: lineDefs.indexOf(def), symbols: def.map((r, i) => grid[i][r]), count, amount: Math.round(bet * mult) });
-        }
-      }
+      const { grid, lines, win } = spinSlots(bet);
       const after = addTransaction(u.id, 'slots', win - bet, `Slots ${win ? 'win ' + win : 'spin'}`, 'USD');
       return json(res, 200, { grid, lines, win, bet, balance: after });
     }
@@ -608,12 +699,16 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/games/roulette' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
-      const bet = Math.max(10, Math.min(1000000, Math.round(Number(body.bet) || 100)));
+      const bet = parseBet(body.bet);
       if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
-      const number = Math.floor(Math.random() * 37);
+      const kind = String(body.kind || 'red');
+      const ROULETTE_KINDS = ['red', 'black', 'even', 'odd', 'low', 'high', 'dozen1', 'dozen2', 'dozen3', 'column1', 'column2', 'column3', 'number'];
+      if (!ROULETTE_KINDS.includes(kind)) return json(res, 400, { error: 'Unknown bet type' });
+      const pickedNumber = kind === 'number' ? toInt(body.value, { min: 0, max: 36 }) : null;
+      if (kind === 'number' && pickedNumber === null) return json(res, 400, { error: 'Pick a number from 0 to 36' });
+      const number = randomInt(37);
       const reds = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
       let payout = 0;
-      const kind = String(body.kind || 'red');
       switch (kind) {
         case 'red': if (number !== 0 && reds.has(number)) payout = bet * 2; break;
         case 'black': if (number !== 0 && !reds.has(number)) payout = bet * 2; break;
@@ -624,7 +719,10 @@ const server = http.createServer(async (req, res) => {
         case 'dozen1': if (number >= 1 && number <= 12) payout = bet * 3; break;
         case 'dozen2': if (number >= 13 && number <= 24) payout = bet * 3; break;
         case 'dozen3': if (number >= 25 && number <= 36) payout = bet * 3; break;
-        case 'number': if (number === Number(body.value)) payout = bet * 36; break;
+        case 'column1': if (number !== 0 && number % 3 === 1) payout = bet * 3; break;
+        case 'column2': if (number !== 0 && number % 3 === 2) payout = bet * 3; break;
+        case 'column3': if (number !== 0 && number % 3 === 0) payout = bet * 3; break;
+        case 'number': if (number === pickedNumber) payout = bet * 36; break;
         default: break;
       }
       const after = addTransaction(u.id, 'roulette', payout - bet, `Roulette ${number}`, 'USD');
@@ -642,7 +740,8 @@ const server = http.createServer(async (req, res) => {
         return sum;
       };
       if (action === 'deal') {
-        const bet = Math.max(10, Math.min(1000000, Math.round(Number(body.bet) || 100)));
+        if (BJ_HANDS.has(u.id)) return json(res, 400, { error: 'Finish your current hand first' });
+        const bet = parseBet(body.bet);
         if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
         const after = addTransaction(u.id, 'blackjack', -bet, 'Blackjack bet');
         const deck = shuffle(makeDeck(false));
@@ -650,7 +749,7 @@ const server = http.createServer(async (req, res) => {
         const dealer = [deck.pop(), deck.pop()];
         BJ_HANDS.set(u.id, { deck, player, dealer, bet });
         return json(res, 200, {
-          player: player.map(cardStr), dealer: [cardStr(dealer[0]), '??'], dealerHidden: dealer.map(cardStr),
+          player: player.map(cardStr), dealer: [cardStr(dealer[0]), '??'],
           playerTotal: bjValue(player), balance: after, bet, blackjack: bjValue(player) === 21,
         });
       }
@@ -686,8 +785,14 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
       const game = String(body.game || 'baccarat');
-      const bet = Math.max(10, Math.min(1000000, Math.round(Number(body.bet) || 100)));
+      const bet = parseBet(body.bet);
       const pick = String(body.pick || '');
+      const PICKS = {
+        baccarat: /^(player|banker|tie)$/, dragontiger: /^(dragon|tiger|tie)$/,
+        sicbo: /^(big|small|triple|anytie|total(?:[4-9]|1[0-7]))$/,
+      };
+      if (!PICKS[game]) return json(res, 400, { error: 'unknown game' });
+      if (!PICKS[game].test(pick)) return json(res, 400, { error: 'Choose a valid bet' });
       if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
       const deck = shuffle(makeDeck(false));
       const rank = (c) => c.v;
@@ -701,7 +806,8 @@ const server = http.createServer(async (req, res) => {
         if (pt <= 5) { p1.push(deck.pop()); pt = tot(p1); }
         if (bt <= 5) { b1.push(deck.pop()); bt = tot(b1); }
         const winner = pt > bt ? 'player' : bt > pt ? 'banker' : 'tie';
-        if (pick === winner) payout = bet * (winner === 'tie' ? 8 : winner === 'banker' ? 1.95 : 2);
+        if (pick === winner) payout = bet * (winner === 'tie' ? 9 : winner === 'banker' ? 1.95 : 2);
+        else if (winner === 'tie') payout = bet; // player/banker bets push on a tie
         result = { player: p1.map(cardStr), banker: b1.map(cardStr), playerTotal: pt, bankerTotal: bt, winner };
       } else if (game === 'dragontiger') {
         const d = [deck.pop()];
@@ -711,14 +817,14 @@ const server = http.createServer(async (req, res) => {
         if (pick === winner) payout = bet * (winner === 'tie' ? 8 : 2);
         result = { dragon: d.map(cardStr), tiger: t.map(cardStr), winner, dragonRank: dv, tigerRank: tv };
       } else if (game === 'sicbo') {
-        const dice = [1, 2, 3].map(() => 1 + Math.floor(Math.random() * 6));
+        const dice = [1, 2, 3].map(() => 1 + randomInt(6));
         const sum = dice.reduce((a, b) => a + b, 0);
         const triple = dice[0] === dice[1] && dice[1] === dice[2];
         if (pick === 'big' && sum >= 11 && sum <= 17 && !triple) payout = bet * 2;
         else if (pick === 'small' && sum >= 4 && sum <= 10 && !triple) payout = bet * 2;
         else if (pick === 'triple' && triple) payout = bet * 30;
         else if (pick === 'anytie' && triple) payout = bet * 8;
-        else if (pick.startsWith('total') && Number(pick.slice(5)) === sum) payout = bet * (sum === 4 || sum === 17 ? 60 : sum === 5 || sum === 16 ? 30 : 12);
+        else if (pick.startsWith('total') && Number(pick.slice(5)) === sum) payout = bet * SICBO_TOTAL_PAYS[sum];
         result = { dice, sum, triple };
       } else {
         return json(res, 400, { error: 'unknown game' });
@@ -731,7 +837,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/games/propbet' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
-      const stake = Math.max(10, Math.min(1000000, Math.round(Number(body.stake) || 100)));
+      const stake = parseBet(body.stake);
       if (u.balance < stake) return json(res, 400, { error: 'Insufficient balance' });
       const markets = {
         coinflip: { win: Math.random() < 0.5, mult: 1.96 },
@@ -740,7 +846,8 @@ const server = http.createServer(async (req, res) => {
         any_flush: { win: Math.random() < 0.18, mult: 5.1 },
         player_wins: { win: Math.random() < 0.48, mult: 2.0 },
       };
-      const m = markets[body.market] || markets.coinflip;
+      if (!Object.hasOwn(markets, String(body.market))) return json(res, 400, { error: 'Unknown market' });
+      const m = markets[body.market];
       const won = m.win;
       const payout = won ? Math.round(stake * m.mult) : 0;
       const after = addTransaction(u.id, 'propbet', payout - stake, `Prop bet ${body.market} ${won ? 'won' : 'lost'}`, 'USD');
@@ -772,7 +879,7 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       const b = await readBody(req);
       if (!checkPassword(b.current || '', u.password)) return json(res, 400, { error: 'Current password is incorrect' });
-      if (String(b.next || '').length < 4) return json(res, 400, { error: 'New password must be at least 4 characters' });
+      if (String(b.next || '').length < 6) return json(res, 400, { error: 'New password must be at least 6 characters' });
       db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(b.next), u.id);
       db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(u.id, tokenFrom(req));
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'password_changed', '');
@@ -972,6 +1079,8 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const msg = String(body.message || '').slice(0, 300);
       if (!msg.trim()) return json(res, 400, { error: 'empty' });
+      if (chatLimiter.isBlocked(`lobby:${u.id}`)) return json(res, 429, { error: 'You are sending messages too quickly' });
+      chatLimiter.record(`lobby:${u.id}`);
       db.prepare('INSERT INTO chat_messages (user_id,nick,channel,message) VALUES (?,?,?,?)').run(u.id, u.nick, 'lobby', msg);
       return json(res, 200, { ok: true });
     }
@@ -1061,7 +1170,10 @@ const server = http.createServer(async (req, res) => {
       const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       if (!target) return json(res, 404, { error: 'not found' });
       if (body.action === 'credit') {
-        const after = addTransaction(id, 'admin', Math.round(body.amount || 0), `Admin credit by ${a.login}`);
+        const amount = toInt(body.amount, { min: -1e12, max: 1e12 });
+        if (amount === null || amount === 0) return json(res, 400, { error: 'Enter a whole, non-zero amount' });
+        if (target.balance + amount < 0) return json(res, 400, { error: 'Debit exceeds the balance' });
+        const after = addTransaction(id, 'admin', amount, `Admin credit by ${a.login}`);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'credit', `user ${id} ${body.amount}`);
         return json(res, 200, { ok: true, balance: after });
       }
@@ -1069,28 +1181,44 @@ const server = http.createServer(async (req, res) => {
         const currency = { balance: 'USD', play_chips: 'PLAY', tickets: 'TICKET', gems: 'GEM' };
         for (const [field, cur] of Object.entries(currency)) {
           if (body[field] == null) continue;
-          const next = Math.round(Number(body[field]));
+          const next = toInt(body[field], { min: 0, max: 1e13 });
+          if (next === null) return json(res, 400, { error: `Invalid value for ${field}` });
           const delta = next - Number(target[field] || 0);
           if (delta !== 0) addTransaction(id, 'admin_set', delta, `Admin set ${field} by ${a.login}`, cur);
         }
         for (const field of ['xp', 'vip_level', 'vip_points']) {
-          if (body[field] != null) db.prepare(`UPDATE users SET ${field} = ? WHERE id = ?`).run(Math.round(Number(body[field])), id);
+          if (body[field] == null) continue;
+          const next = toInt(body[field], { min: 0, max: 1e12 });
+          if (next === null) return json(res, 400, { error: `Invalid value for ${field}` });
+          db.prepare(`UPDATE users SET ${field} = ? WHERE id = ?`).run(next, id);
         }
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'set', `user ${id} ${JSON.stringify(body)}`);
         return json(res, 200, { ok: true });
       }
       if (body.action === 'ban' || body.action === 'unban') {
+        if (body.action === 'ban' && target.id === a.id) return json(res, 400, { error: 'You cannot ban yourself' });
         db.prepare('UPDATE users SET banned = ? WHERE id = ?').run(body.action === 'ban' ? 1 : 0, id);
+        if (body.action === 'ban') {
+          db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+          removeFromLiveTables(id, 'Account locked');
+        }
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, body.action, `user ${id}`);
         return json(res, 200, { ok: true });
       }
       if (body.action === 'resetpw') {
-        db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(String(body.password || 'ggpoker')), id);
+        if (String(body.password || '').length < 6) return json(res, 400, { error: 'Password must be at least 6 characters' });
+        db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(String(body.password)), id);
+        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'resetpw', `user ${id}`);
         return json(res, 200, { ok: true });
       }
       if (body.action === 'delete' && !target.is_admin) {
+        removeFromLiveTables(id, 'Account closed');
+        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+        db.prepare('DELETE FROM tourney_regs WHERE user_id = ?').run(id);
+        db.prepare('DELETE FROM friends WHERE user_id = ? OR friend_id = ?').run(id, id);
         db.prepare('DELETE FROM users WHERE id = ?').run(id);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'delete_user', `user ${id} ${target.login}`);
         return json(res, 200, { ok: true });
       }
       return json(res, 400, { error: 'unknown action' });
@@ -1103,15 +1231,17 @@ const server = http.createServer(async (req, res) => {
         db.prepare('DELETE FROM tables WHERE id = ?').run(b.id);
         return json(res, 200, { ok: true });
       }
-      const id = b.id || `custom-${Date.now()}`;
+      const parsed = parseTableConfig(b);
+      if (!parsed.ok) return json(res, 400, { error: parsed.error });
+      const t = parsed.value;
+      const id = String(b.id || `custom-${Date.now()}`).slice(0, 60);
       db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET name=excluded.name, game=excluded.game, category=excluded.category,
         sb=excluded.sb, bb=excluded.bb, ante=excluded.ante, min_buyin=excluded.min_buyin, max_buyin=excluded.max_buyin,
         seats=excluded.seats, speed=excluded.speed, featured=excluded.featured, enabled=excluded.enabled`)
-        .run(id, b.name || 'New Table', b.game || 'holdem', b.category || 'Gold', Number(b.sb) || 100, Number(b.bb) || 200,
-          Number(b.ante) || 0, Number(b.min_buyin) || 2000, Number(b.max_buyin) || 20000, Number(b.seats) || 6,
-          b.speed || 'Normal', b.featured ? 1 : 0, b.enabled === false ? 0 : 1, Number(b.sort) || 999);
+        .run(id, t.name, t.game, t.category, t.sb, t.bb, t.ante, t.min_buyin, t.max_buyin, t.seats, t.speed, t.featured, t.enabled, t.sort);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'save_table', id);
       return json(res, 200, { ok: true, id });
     }
 
@@ -1183,11 +1313,7 @@ const server = http.createServer(async (req, res) => {
       const id = p.split('/')[4];
       const entry = LIVE_TABLES.get(id);
       if (!entry) return json(res, 404, { error: 'not running' });
-      for (const s of [...entry.table.seats]) {
-        if (s.player && !s.player.isBot) cashOutSeat(entry.table, s.player.id, `Table closed by admin`);
-      }
-      clearInterval(entry.timer);
-      LIVE_TABLES.delete(id);
+      closeLiveTable(id, 'Table closed by admin');
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'close_table', id);
       return json(res, 200, { ok: true });
     }
@@ -1222,23 +1348,25 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/admin/chat' && req.method === 'POST') {
       const a = requireAdmin(req, res); if (!a) return;
       const b = await readBody(req);
-      db.prepare('INSERT INTO chat_messages (user_id,nick,channel,message) VALUES (?,?,?,?)').run(a.id, a.nick, b.channel || 'lobby', String(b.message || ''));
+      const announcement = String(b.message || '').slice(0, 500);
+      if (!announcement.trim()) return json(res, 400, { error: 'empty' });
+      db.prepare('INSERT INTO chat_messages (user_id,nick,channel,message) VALUES (?,?,?,?)').run(a.id, a.nick, String(b.channel || 'lobby').slice(0, 30), announcement);
       return json(res, 200, { ok: true });
     }
 
     /* ---------------- static ---------------- */
     if (p.startsWith('/api/')) return json(res, 404, { error: 'not found' });
 
+    const isFile = (candidate) => !!candidate && fs.existsSync(candidate) && fs.statSync(candidate).isFile();
     let file = null;
     if (p.startsWith('/assets/')) {
-      const rel = decodeURIComponent(p.replace('/assets/', ''));
       for (const base of [path.join(PUBLIC, 'assets'), path.join(DIST, 'assets')]) {
-        const cand = path.join(base, rel);
-        if (cand.startsWith(base) && fs.existsSync(cand) && fs.statSync(cand).isFile()) { file = cand; break; }
+        const cand = resolveInside(base, p.slice('/assets/'.length));
+        if (isFile(cand)) { file = cand; break; }
       }
     } else if (fs.existsSync(DIST)) {
-      const cand = path.join(DIST, p === '/' ? 'index.html' : decodeURIComponent(p));
-      if (cand.startsWith(DIST) && fs.existsSync(cand) && fs.statSync(cand).isFile()) file = cand;
+      const cand = resolveInside(DIST, p === '/' ? 'index.html' : p.slice(1));
+      if (isFile(cand)) file = cand;
       else if (!path.extname(p)) file = path.join(DIST, 'index.html');
     }
     if (!file && fs.existsSync(path.join(PUBLIC, 'index.html'))) file = path.join(PUBLIC, 'index.html');
@@ -1248,7 +1376,7 @@ const server = http.createServer(async (req, res) => {
   } catch (err) {
     if (err && err.status) return json(res, err.status, { error: err.message });
     console.error('api error', p, err);
-    json(res, 500, { error: 'internal error', detail: String(err && err.message) });
+    json(res, 500, { error: 'internal error' });
   }
 });
 
@@ -1256,12 +1384,18 @@ const server = http.createServer(async (req, res) => {
 /* WebSocket                                                           */
 /* ------------------------------------------------------------------ */
 
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({
+  server,
+  path: '/ws',
+  maxPayload: 16 * 1024,
+  verifyClient: ({ req, origin }) => isLocalHost(req.headers.host) && isLocalOrigin(origin),
+});
 
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, 'http://localhost');
   const token = url.searchParams.get('token');
   const user = userByToken(token);
+  if (user && user.banned) { ws.close(4003, 'account locked'); return; }
   ws.userId = user ? user.id : null;
   ws.nick = user ? user.nick : 'Guest';
   ws.tables = new Set();
@@ -1293,8 +1427,25 @@ wss.on('connection', (ws, req) => {
         broadcastState(table);
         return;
       }
-      if (!table.seatOf(u.id)) {
-        if (!table.tournament && table.occupiedSeats().length >= table.cfg.seats) {
+      const seated = table.seatOf(u.id);
+      if (seated) {
+        // Reconnect (or a second window): the seat and stack are still here.
+        seated.player.disconnected = false;
+        seated.player.disconnectedAt = 0;
+      } else {
+        if (table.tournament) {
+          // Tournament seats are only handed out by /play, which checks the registration.
+          entry.clients.add(ws);
+          ws.tables.add(msg.tableId);
+          ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true }));
+          broadcastState(table);
+          return;
+        }
+        if (getSetting('maintenance', false) && !u.is_admin) {
+          return ws.send(JSON.stringify({ type: 'error', error: 'Tables are closed for maintenance' }));
+        }
+        const hasRoom = table.occupiedSeats().some((s) => s.player.isBot) || table.occupiedSeats().length < table.cfg.seats;
+        if (!hasRoom) {
           const pos = waitlistJoin(msg.tableId, u.id, u.nick);
           entry.clients.add(ws);
           ws.tables.add(msg.tableId);
@@ -1303,20 +1454,15 @@ wss.on('connection', (ws, req) => {
           broadcastState(table);
           return;
         }
-        if (table.tournament) {
-          table.sit({ id: u.id, nick: u.nick, avatar: u.avatar }, null, table.cfg.min_buyin);
-        } else {
-          let res = seatHuman(table, u, Number(msg.buyin) || table.cfg.min_buyin, msg.seat);
-          if (!res.ok && msg.seat != null) res = seatHuman(table, u, Number(msg.buyin) || table.cfg.min_buyin, null);
-          if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
-        }
+        const buyin = toInt(msg.buyin) || table.cfg.min_buyin;
+        let res = seatHuman(table, u, buyin, msg.seat);
+        if (!res.ok && msg.seat != null) res = seatHuman(table, u, buyin, null);
+        if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
         waitlistLeave(msg.tableId, u.id);
       }
-      // fill the table with bots
-      const humans = table.humans().length;
-      const target = table.cfg.seats;
-      const botsNeeded = Math.max(0, target - table.occupiedSeats().length - 0);
-      table.fillBots(Math.min(botsNeeded, Math.max(3, Math.ceil(target / 2))));
+      // fill part of the table with bots, always leaving the choice of seats to humans
+      const botsNeeded = Math.max(0, table.cfg.seats - table.occupiedSeats().length);
+      if (!table.tournament) table.fillBots(Math.min(botsNeeded, Math.max(3, Math.ceil(table.cfg.seats / 2))));
       entry.clients.add(ws);
       ws.tables.add(msg.tableId);
       table.maybeStart();
@@ -1331,10 +1477,11 @@ wss.on('connection', (ws, req) => {
         ws.tables.delete(msg.tableId);
         const table = entry.table;
         const hadSeat = !!table.seatOf(ws.userId);
-        if (hadSeat) {
+        // Another window of the same player may still be showing this table.
+        if (hadSeat && !hasLiveSocket(entry, ws.userId)) {
           cashOutSeat(table, ws.userId, `Cash-out ${table.cfg.name}`);
           notifyWaitlist(msg.tableId);
-        } else {
+        } else if (!hadSeat) {
           waitlistLeave(msg.tableId, ws.userId);
         }
         broadcastState(table);
@@ -1363,9 +1510,14 @@ wss.on('connection', (ws, req) => {
       const table = entry.table;
       const seat = table.seatOf(ws.userId);
       if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
-      if (seat.player.inHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
-      const amount = Math.round(Number(msg.amount) || 0);
-      if (amount < table.cfg.min_buyin || amount > table.cfg.max_buyin) return ws.send(JSON.stringify({ type: 'error', error: 'invalid amount' }));
+      if (table.tournament || table.spin) return ws.send(JSON.stringify({ type: 'error', error: 'Rebuys are not available here' }));
+      const inLiveHand = table.handInProgress() && seat.player.inHand && !seat.player.folded;
+      if (inLiveHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
+      const amount = toInt(msg.amount, { min: 1 });
+      const stackAfter = seat.player.stack + (amount || 0);
+      if (amount === null || stackAfter < table.cfg.min_buyin || stackAfter > table.cfg.max_buyin) {
+        return ws.send(JSON.stringify({ type: 'error', error: 'Top-up must bring your stack within the table buy-in limits' }));
+      }
       const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
       if (!u || u.balance < amount) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
       if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
@@ -1384,7 +1536,7 @@ wss.on('connection', (ws, req) => {
       const seat = entry.table.seatOf(ws.userId);
       if (seat) {
         seat.player.sittingOut = !!msg.value;
-        if (msg.value && entry.table.actor === ws.userId) entry.table.act(ws.userId, 'fold');
+        if (!msg.value) { seat.player.missedTurns = 0; entry.table.maybeStart(); }
         broadcastState(entry.table);
       }
       return;
@@ -1406,7 +1558,9 @@ wss.on('connection', (ws, req) => {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
       const text = String(msg.message || '').slice(0, 200);
-      if (!text.trim()) return;
+      if (!text.trim() || !ws.userId) return;
+      if (chatLimiter.isBlocked(`ws:${ws.userId}`)) return ws.send(JSON.stringify({ type: 'error', error: 'You are sending messages too quickly' }));
+      chatLimiter.record(`ws:${ws.userId}`);
       const evt = { type: 'chat', nick: ws.nick, userId: ws.userId, message: text, at: Date.now() };
       for (const client of entry.clients) if (client.readyState === 1) client.send(JSON.stringify({ type: 'event', event: evt }));
       return;
@@ -1414,7 +1568,10 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'emote') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
-      const evt = { type: 'emote', nick: ws.nick, userId: ws.userId, emote: msg.emote, at: Date.now() };
+      const emote = [...String(msg.emote || '')].slice(0, 4).join('');
+      if (!emote || !ws.userId || chatLimiter.isBlocked(`ws:${ws.userId}`)) return;
+      chatLimiter.record(`ws:${ws.userId}`);
+      const evt = { type: 'emote', nick: ws.nick, userId: ws.userId, emote, at: Date.now() };
       for (const client of entry.clients) if (client.readyState === 1) client.send(JSON.stringify({ type: 'event', event: evt }));
       return;
     }
@@ -1429,9 +1586,12 @@ wss.on('connection', (ws, req) => {
       const table = entry.table;
       const seat = table.seatOf(ws.userId);
       if (seat) {
-        seat.player.disconnected = true;
-        cashOutSeat(table, ws.userId, `Cash-out ${table.cfg.name}`);
-        notifyWaitlist(id);
+        // Hold the seat: a dropped connection is not a decision to leave. sweepDisconnected()
+        // cashes the player out if they have not come back within the grace period.
+        if (!hasLiveSocket(entry, ws.userId)) {
+          seat.player.disconnected = true;
+          seat.player.disconnectedAt = Date.now();
+        }
       } else {
         waitlistLeave(id, ws.userId);
       }
@@ -1439,6 +1599,40 @@ wss.on('connection', (ws, req) => {
     }
   });
 });
+
+function identityTaken(name, exceptUserId = 0) {
+  return !!db.prepare('SELECT 1 FROM users WHERE (lower(login) = lower(?) OR lower(nick) = lower(?)) AND id != ?').get(name, name, exceptUserId);
+}
+
+function parseBet(value) {
+  return Math.max(MIN_BET, Math.min(MAX_BET, toInt(value) ?? 100));
+}
+
+function removeFromLiveTables(userId, reason) {
+  for (const entry of LIVE_TABLES.values()) {
+    if (entry.table.seatOf(userId)) cashOutSeat(entry.table, userId, reason);
+  }
+  for (const client of wss.clients) if (client.userId === userId) client.close(4003, reason);
+}
+
+// A normal quit must settle every seat at its real stack; only a hard crash falls back to
+// the buy-in refund performed by refundOpenSessions() on the next start.
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  try {
+    for (const id of [...LIVE_TABLES.keys()]) closeLiveTable(id, 'Client closed');
+  } catch (e) {
+    console.error('shutdown cash-out failed', e);
+  }
+  console.log(`SHUTDOWN ${signal}`);
+  for (const client of wss.clients) client.terminate();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 1500).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 const refunded = refundOpenSessions();
 if (refunded) console.log(`refunded ${refunded} open table session(s)`);

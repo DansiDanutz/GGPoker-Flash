@@ -68,8 +68,12 @@ the Flipout banner uses a personal portrait in place of the GGPoker spokesperson
 | F1 | Fold |
 | F2 | Check / Call |
 | F3 | Raise (current slider amount) |
-| F4 | All-in |
+| F4 | All-in (pot-sized raise at pot-limit tables) |
 | Esc | Close menu / dialog |
+
+While waiting for your turn you can queue **Check / Fold**, **Check** or **Call** (a queued call is
+dropped if the price changes). On your turn the bar shows sizing presets (2.5x/3x/4x the big blind for an
+unopened pot, 33/50/75/100% of the pot otherwise) and the pot odds of a call.
 
 Table menu: sit out, rebuy, auto-rebuy, rabbit hunt, four-colour deck, animations, hand history, leave.
 Click any player's seat to open a private note.
@@ -253,6 +257,22 @@ The review changed the code: `addTransaction` is now a single SQLite
 transaction, the deck shuffle uses `node:crypto`, the app enforces a single
 instance, CDP is gated to dev, request bodies are capped, and 18 committed
 `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
+
+### 2026-11-11 full audit
+
+A full audit of the engine, server, desktop shell and table UI is recorded in
+[docs/audits/2026-11-11/poker-client-audit.html](docs/audits/2026-11-11/poker-client-audit.html).
+It fixed betting-order, all-in, side-pot and leave-table bugs in the engine, several ways to mint
+chips, a hand-history privacy leak and the local-server attack surface. The suite is now 67 tests
+(`cd app && pnpm test`), including chip-conservation simulations for every game type.
+
+Rules now enforced by the engine: action starts left of the big blind pre-flop; uncalled bets are
+returned and hands that end before the flop are not raked; a short all-in does not reopen betting;
+Short Deck ranks a flush above a full house and counts A-6-7-8-9 as a straight; PLO is pot-limit and
+PLO5 deals five cards; All-in or Fold really is shove-or-fold.
+
+A dropped connection keeps your seat for 60 seconds (`GGPOKER_DISCONNECT_GRACE_MS`); quitting the
+app cashes every seat out at its real stack.
 
 ## Notes / scope
 

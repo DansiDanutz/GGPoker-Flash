@@ -100,7 +100,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
   win.loadURL(URL);
@@ -109,7 +109,7 @@ function createWindow() {
   win.setAlwaysOnTop(true);
   win.focus();
   app.focus({ steal: true });
-  setTimeout(() => { win?.setAlwaysOnTop(false); console.log('bounds', win?.getBounds(), 'visible', win?.isVisible()); }, 1500);
+  setTimeout(() => { win?.setAlwaysOnTop(false); }, 1500);
   win.webContents.on('did-fail-load', (e, code, desc) => console.error('load failed', code, desc));
   win.webContents.on('render-process-gone', (e, d) => console.error('renderer gone', d));
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -120,25 +120,48 @@ function createWindow() {
           width: 1200, height: 961, minWidth: 980, minHeight: 720,
           frame: false, transparent: false, backgroundColor: '#0a0a0b',
           hasShadow: true, title: 'DanGG.ro',
-          webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: false },
+          webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
         },
       };
     }
-    shell.openExternal(url);
+    openExternalSafely(url);
     return { action: 'deny' };
   });
   if (process.env.GGPOKER_DEVTOOLS === '1') win.webContents.openDevTools({ mode: 'detach' });
   win.on('closed', () => { win = null; });
 }
 
-ipcMain.handle('win:close', () => { win?.close(); });
-ipcMain.handle('win:minimize', () => { win?.minimize(); });
-ipcMain.handle('win:maximize', () => {
-  if (!win) return;
-  if (win.isMaximized()) win.unmaximize();
-  else win.maximize();
+// Only real web links may leave the app; file:, javascript: and custom schemes are dropped.
+function openExternalSafely(url) {
+  try {
+    const { protocol } = new globalThis.URL(url);
+    if (protocol === 'https:' || protocol === 'http:') shell.openExternal(url);
+  } catch { /* not a URL */ }
+}
+
+// Window controls act on the window that sent them, so a popped-out table closes itself
+// rather than the lobby.
+const senderWindow = (event) => BrowserWindow.fromWebContents(event.sender);
+ipcMain.handle('win:close', (event) => { senderWindow(event)?.close(); });
+ipcMain.handle('win:minimize', (event) => { senderWindow(event)?.minimize(); });
+ipcMain.handle('win:maximize', (event) => {
+  const target = senderWindow(event);
+  if (!target) return;
+  if (target.isMaximized()) target.unmaximize();
+  else target.maximize();
 });
-ipcMain.handle('win:isMaximized', () => win?.isMaximized() ?? false);
+ipcMain.handle('win:isMaximized', (event) => senderWindow(event)?.isMaximized() ?? false);
+
+// The app only ever shows its own local server: block navigation anywhere else and deny
+// every permission request (camera, microphone, notifications…).
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('will-navigate', (event, target) => {
+    if (target.startsWith(URL)) return;
+    event.preventDefault();
+    openExternalSafely(target);
+  });
+  contents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+});
 
 app.whenReady().then(async () => {
   try {
@@ -171,8 +194,9 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// SIGTERM lets the server cash every seated player out at their real stack before it exits.
 app.on('before-quit', () => {
   if (serverProc) {
-    try { serverProc.kill(); } catch { /* ignore */ }
+    try { serverProc.kill('SIGTERM'); } catch { /* ignore */ }
   }
 });

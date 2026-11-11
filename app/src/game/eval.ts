@@ -9,7 +9,8 @@ export function parseCard(s: string): Card | null {
   return { r: s[0], s: s[1], v: RANKS.indexOf(s[0]) + 2 };
 }
 
-function score5(cards: Card[]): number[] {
+// Short Deck (6+): a flush outranks a full house and A-6-7-8-9 is the lowest straight.
+function score5(cards: Card[], shortDeck = false): number[] {
   const vs = cards.map((c) => c.v).sort((a, b) => b - a);
   const suits = cards.map((c) => c.s);
   const flush = suits.every((s) => s === suits[0]);
@@ -17,7 +18,8 @@ function score5(cards: Card[]): number[] {
   let straightHigh = 0;
   if (uniq.length === 5) {
     if (uniq[0] - uniq[4] === 4) straightHigh = uniq[0];
-    else if (uniq[0] === 14 && uniq[1] === 5) straightHigh = 5;
+    else if (!shortDeck && uniq[0] === 14 && uniq[1] === 5) straightHigh = 5;
+    else if (shortDeck && uniq[0] === 14 && uniq[1] === 9 && uniq[4] === 6) straightHigh = 9;
   }
   const counts = new Map<number, number>();
   for (const v of vs) counts.set(v, (counts.get(v) || 0) + 1);
@@ -25,8 +27,8 @@ function score5(cards: Card[]): number[] {
   const [g0, g1] = groups;
   if (flush && straightHigh) return [8, straightHigh];
   if (g0[1] === 4) return [7, g0[0], g1[0]];
-  if (g0[1] === 3 && g1[1] === 2) return [6, g0[0], g1[0]];
-  if (flush) return [5, ...vs];
+  if (g0[1] === 3 && g1[1] === 2) return [shortDeck ? 5 : 6, g0[0], g1[0]];
+  if (flush) return [shortDeck ? 6 : 5, ...vs];
   if (straightHigh) return [4, straightHigh];
   if (g0[1] === 3) return [3, g0[0], ...groups.filter((g) => g[1] === 1).map((g) => g[0])];
   if (g0[1] === 2 && g1[1] === 2) {
@@ -64,7 +66,7 @@ const NAMES: Record<number, string> = {
   4: 'Straight', 5: 'Flush', 6: 'Full House', 7: 'Four of a Kind', 8: 'Straight Flush',
 };
 
-export function bestHand(hole: string[], board: string[], omaha = false): { name: string; cat: number; best: string[] } | null {
+export function bestHand(hole: string[], board: string[], omaha = false, shortDeck = false): { name: string; cat: number; best: string[] } | null {
   const h = hole.map(parseCard).filter(Boolean) as Card[];
   const b = board.map(parseCard).filter(Boolean) as Card[];
   if (h.length < 2 || b.length < 3) return null;
@@ -78,11 +80,13 @@ export function bestHand(hole: string[], board: string[], omaha = false): { name
     if (all.length >= 5) for (const c of combos(all, 5)) candidates.push(c);
   }
   for (const c of candidates) {
-    const sc = score5(c);
+    const sc = score5(c, shortDeck);
     if (!best || compare(sc, best) > 0) { best = sc; bestCards = c; }
   }
   if (!best) return null;
   let name = NAMES[best[0]];
+  if (shortDeck && best[0] === 6) name = 'Flush';
+  if (shortDeck && best[0] === 5) name = 'Full House';
   if (best[0] === 8 && best[1] === 14) name = 'Royal Flush';
   return { name, cat: best[0], best: bestCards.map((c) => c.r + c.s) };
 }
