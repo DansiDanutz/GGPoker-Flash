@@ -52,3 +52,15 @@ test('duplicate reference is skipped, not credited', () => {
   assert.equal(second.applied, false);
   assert.equal(balance(), before + 1000);
 });
+
+
+test('a failing session does not abort the sweep', () => {
+  const before = balance();
+  addTransactionEx(user.id, 'buyin', -2000, 'buy-in', 'USD', { sessionId: 't4:s1', reference: 'in:t4:s1:1' });
+  db.prepare(`INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference)
+    VALUES (999999,'buyin','USD',-1000,0,'bad session','bad:s','in:bad:s:1')`).run();
+  assert.equal(refundOpenSessions(), 1);
+  assert.equal(balance(), before);
+  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference = 'refund:t4:s1'").get().c, 1);
+  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference = 'refund:bad:s'").get().c, 0);
+});

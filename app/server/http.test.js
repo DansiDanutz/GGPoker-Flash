@@ -43,6 +43,18 @@ test('server binds an ephemeral port and serves the API', async () => {
       body: JSON.stringify({ amount: 1000, method: 'card' }),
     }).then((r) => r.json());
     assert.equal(deposit.ok, true);
+    const first = await fetch(`http://127.0.0.1:${port}/api/cashier/deposit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}`, 'idempotency-key': 'test-key-1' },
+      body: JSON.stringify({ amount: 700, method: 'card' }),
+    }).then((r) => r.json());
+    const second = await fetch(`http://127.0.0.1:${port}/api/cashier/deposit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}`, 'idempotency-key': 'test-key-1' },
+      body: JSON.stringify({ amount: 700, method: 'card' }),
+    }).then((r) => r.json());
+    assert.equal(first.balance, second.balance);
+    assert.equal(second.replayed, true);
     const bad = await fetch(`http://127.0.0.1:${port}/api/admin/users/1`, {
       method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}` },
       body: JSON.stringify({ action: 'credit', amount: 1 }),

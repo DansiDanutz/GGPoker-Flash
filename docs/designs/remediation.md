@@ -42,7 +42,7 @@ instead of building around them.
     with a 300 default; `resetpw` writes an audit row; display-only money
     formatting is cleaned up; blackjack returns the settlement balance; the
     design-of-record is updated.
-*   **Verification:** `cd app && pnpm test` → 18 passed. The packaged app was
+*   **Verification:** `cd app && pnpm test` → 20 passed. The packaged app was
     relaunched, `/api/lobby` returned 200, and a live join/leave produced one
     `buyin` and one `cashout` with the same session id and `in:`/`out:` refs.
 
@@ -65,8 +65,9 @@ The review found eight items. Classified honestly:
 
 *   **R1 — A crash strands a cash buy-in.** The record accepts "one buy-in per
     seated player per crash".
-*   **R2 — Cashier movements are not replay-protected.** The record accepts a
-    double-click duplicating one movement.
+*   **R2 — Cashier movements were not replay-protected.** A retry could
+    duplicate a movement; the ratchet adds a client key and a unique ledger
+    reference.
 *   **R3 — A foreign process can occupy port 5198.** The record relies on the
     single-instance lock only.
 *   **R4 — Bots and Spin mint chips.** The record accepts play-money inflation.
@@ -94,11 +95,11 @@ The review found eight items. Classified honestly:
 
 ## Non-Goals
 
-*   Cashier replay protection. Accepted bound: a double-click can duplicate one
-    movement; the ledger still makes it attributable.
-*   A new sandbox/Origin/throttling programme. Accepted bound: this is a
-    loopback, single-user play-money app; any local process can read the token
-    and the database.
+*   Cashier replay protection is implemented: the client sends an
+    `Idempotency-Key`, the server stores `cashier:<kind>:<key>` on the ledger,
+    and a retry returns the original balance.
+*   A new Origin/Host/throttling programme. The renderer is sandboxed and carries
+    a CSP; a local process can still read the database, which is accepted.
 *   A WebSocket version/resync protocol. Full snapshots on `join_table` already
     replace state; the socket is ordered.
 *   A disconnect grace window. The current stand-and-cash-out on socket close
@@ -113,7 +114,7 @@ The review found eight items. Classified honestly:
 |---|---|---|
 | D1 | Session identity lives in `transactions`, not a new table. | The ledger is already the source of truth for money; a second lifecycle table would drift. |
 | D2 | Crash refunds `chips_in` (buy-in + rebuys). Losses are forgiven; winnings above `chips_in` are not paid. | It makes the player whole on money they put in, without needing stack snapshots. Bound: one stack of winnings can be lost on a crash. |
-| D3 | Cashier replay is accepted, not fixed. | No retry path; a double-click is the only trigger. The ledger still records the movement. |
+| D3 | Cashier replay is fixed with a client key and a unique ledger reference. | A double-click or retry returns the first movement; no new table is needed. |
 | D4 | One new table: `player_claims`. Daily, GG Care, Honeymoon and missions move to it; `daily_claims` is migrated and retired. | One table covers every claim and fixes the global-mission defect. |
 | D5 | The lobby keeps synthetic estimates, flagged in the API as `synthetic: true`; `running` and live seats are real. | Projecting from `LIVE_TABLES` would show 0 for 100 seeded tables. |
 | D6 | Bots and Spin mint play money. Bound: bots mint at most `bots × max_buyin` per table; Spin prizes are capped by the table multiplier. | Removing bots empties the tables; the inflation is part of the demo. |
@@ -318,6 +319,8 @@ no mission read touches the global `missions.progress`/`missions.claimed` flag.
 | G4 | Server binds port 0 and serves `/api/lobby` | `pnpm test` (`http.test.js`) |
 | G4 | Per-currency ledger reconciliation | `pnpm test` (`ledger.test.js`) |
 | G5 | Rake floor/cap, places 2/3, admin set continuity | `pnpm test` (`engine.test.js`, `ledger.test.js`) |
+| G5 | Cashier replay returns the first movement | `pnpm test` (`http.test.js`) |
+| G5 | Sandboxed renderer keeps the preload bridge | manual: `window.ggDesktop` present under `sandbox:true` |
 | G5 | 21 page routes render without console errors | manual/CDP with `GGPOKER_CDP=1` |
 | Build | `pnpm build`, `tsc --noEmit` | `cd app && pnpm build && pnpm exec tsc --noEmit` |
 | Package | Signature and relaunch | `./package_app.sh`; `codesign -dv --verbose=4` |
@@ -326,12 +329,13 @@ no mission read touches the global `missions.progress`/`missions.claimed` flag.
 
 *   **Refund fairness:** losses are forgiven and winnings above `chips_in` are
     lost. Bound: one stack per crash. This is a product choice, not a bug.
-*   **Cashier replay:** a double-click can duplicate one movement. Bound: one
-    duplicate per double-click; the ledger still records it.
+*   **Cashier replay:** protected by `Idempotency-Key` + `(user_id, reference)`;
+    the client reuses the key on retry and blocks double submits.
 *   **Bot/Spin inflation:** bounded per table by bot stacks and multiplier; not
     centrally monitored in this build.
-*   **Local threat model:** loopback is not a security boundary; the bearer
-    token and SQLite file are readable by any local process. Accepted.
+*   **Local threat model:** the renderer is sandboxed and a CSP is enforced;
+    loopback is still not a boundary and the SQLite file is readable by a local
+    process. Accepted.
 *   **Claims migration:** `player_claims` is one new table; a failed copy must
     leave `daily_claims` intact and be retryable.
 *   **No protocol version:** a client that reconnects receives a full snapshot
@@ -348,7 +352,7 @@ no mission read touches the global `missions.progress`/`missions.claimed` flag.
 | D3 | Blackjack trusted client | — | landed | manual/API |
 | D4 | False current-state text | — | 1 doc | review |
 | R1 | Crash strands buy-in | G1 | 1 | ledger-session.test.js |
-| R2 | Cashier replay | accepted | — | bound in Risks |
+| R2 | Cashier replay | G5 | 4 | http.test.js |
 | R3 | Port 5198 takeover | G3 | 3 | manual |
 | R4 | Bot/Spin minting | accepted | — | bound in Risks |
 

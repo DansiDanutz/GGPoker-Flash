@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
@@ -14,26 +14,33 @@ export function Cashier() {
   const [method, setMethod] = useState(METHODS[0]);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
+  const requestKey = useRef<string | null>(null);
+  const inFlight = useRef(false);
 
   const load = async () => {
     if (!user) return;
     try { setData(await api.cashier()); } catch (e: any) { toast({ kind: 'error', title: 'Cashier', body: e.message }); }
   };
   useEffect(() => { load(); }, [user]);
+  useEffect(() => { requestKey.current = null; }, [amount, method, mode]);
 
   const submit = async () => {
     if (!user) { navigate('/login'); return; }
+    if (inFlight.current) return;
+    inFlight.current = true;
+    if (!requestKey.current) requestKey.current = crypto.randomUUID();
     setBusy(true);
     try {
-      if (mode === 'deposit') await api.deposit(amount, method);
-      else await api.withdraw(amount, method);
+      if (mode === 'deposit') await api.deposit(amount, method, requestKey.current || undefined);
+      else await api.withdraw(amount, method, requestKey.current || undefined);
+      requestKey.current = null;
       sound.play('coin');
       toast({ kind: 'success', title: mode === 'deposit' ? 'Deposit complete' : 'Withdrawal requested', body: money(amount) });
       await load();
       await refreshUser();
     } catch (e: any) {
       toast({ kind: 'error', title: 'Transaction failed', body: e.message });
-    } finally { setBusy(false); }
+    } finally { inFlight.current = false; setBusy(false); }
   };
 
   const tx = data?.transactions || [];

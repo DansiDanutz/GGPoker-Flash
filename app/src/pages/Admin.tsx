@@ -91,7 +91,7 @@ export function Admin() {
     catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
   };
 
-  const quickCredit = (u: User, amount: number) => userAction(u.id, { action: 'credit', amount });
+  const quickCredit = (u: User, amount: number) => userAction(u.id, { action: 'credit', amount, reference: crypto.randomUUID() });
 
   if (!isAdmin) {
     return (

@@ -106,3 +106,22 @@ test('tournament winner receives half the prize pool exactly once and fires the 
   assert.equal(paid, 1);
   assert.equal(ends, 1);
 });
+
+
+test('places 2 and 3 are paid 30% and 20%, then the winner takes 50%', () => {
+  const p1 = player(1, 'Winner', 1000, 0, []);
+  const p2 = player(2, 'Second', 0, 0, []);
+  const p3 = player(3, 'Third', 0, 0, []);
+  const t = tableWith([p1, p2, p3], { seats: 3, tournament: { prizePool: 3000 } });
+  t.street = 'ended';
+  t.nextHandAt = 1;
+  const payouts = [];
+  let endPrize = 0;
+  t.hooks = {
+    onTournamentPayout: (_table, p) => payouts.push(p),
+    onTournamentEnd: (_table, w) => { endPrize = w.prize; },
+  };
+  t.tick(2);
+  assert.deepEqual(payouts.map((p) => [p.place, p.payout]), [[2, 900], [3, 600]]);
+  assert.equal(endPrize, 1500);
+});

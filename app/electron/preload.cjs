@@ -5,5 +5,5 @@ contextBridge.exposeInMainWorld('ggDesktop', {
   minimize: () => ipcRenderer.invoke('win:minimize'),
   maximize: () => ipcRenderer.invoke('win:maximize'),
   isMaximized: () => ipcRenderer.invoke('win:isMaximized'),
-  platform: process.platform,
+  platform: (typeof process !== 'undefined' && process.platform) || 'darwin',
 });

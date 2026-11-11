@@ -44,6 +44,16 @@ async function readBody(req) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return {}; }
 }
 
+function idempotentReference(req, body, prefix) {
+  const key = String(req.headers['idempotency-key'] || body?.idempotencyKey || body?.reference || '').trim();
+  return key ? `${prefix}:${key}` : null;
+}
+
+function transactionByReference(userId, reference) {
+  if (!reference) return null;
+  return db.prepare('SELECT * FROM transactions WHERE user_id = ? AND reference = ?').get(userId, reference);
+}
+
 function tokenFrom(req) {
   const h = req.headers.authorization;
   if (h && h.startsWith('Bearer ')) return h.slice(7);
@@ -484,17 +494,23 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const amount = Math.round(Number(body.amount || 0));
       if (amount <= 0 || amount > 100000000) return json(res, 400, { error: 'Invalid amount' });
-      const after = addTransaction(u.id, 'deposit', amount, body.method || 'Instant bank transfer');
-      return json(res, 200, { ok: true, balance: after });
+      const reference = idempotentReference(req, body, 'cashier:deposit');
+      const existing = transactionByReference(u.id, reference);
+      if (existing) return json(res, 200, { ok: true, balance: existing.balance_after, replayed: true });
+      const award = addTransactionEx(u.id, 'deposit', amount, body.method || 'Instant bank transfer', 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
+      return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
     }
 
     if (p === '/api/cashier/withdraw' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
       const amount = Math.round(Number(body.amount || 0));
+      const reference = idempotentReference(req, body, 'cashier:withdraw');
+      const existing = transactionByReference(u.id, reference);
+      if (existing) return json(res, 200, { ok: true, balance: existing.balance_after, replayed: true });
       if (amount <= 0 || amount > u.balance) return json(res, 400, { error: 'Invalid amount' });
-      const after = addTransaction(u.id, 'withdraw', -amount, body.method || 'Bank transfer');
-      return json(res, 200, { ok: true, balance: after });
+      const award = addTransactionEx(u.id, 'withdraw', -amount, body.method || 'Bank transfer', 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
+      return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
     }
 
     // ---------- hand history ----------
@@ -1061,9 +1077,12 @@ const server = http.createServer(async (req, res) => {
       const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       if (!target) return json(res, 404, { error: 'not found' });
       if (body.action === 'credit') {
-        const after = addTransaction(id, 'admin', Math.round(body.amount || 0), `Admin credit by ${a.login}`);
+        const reference = body.reference ? `admin:credit:${body.reference}` : null;
+        const existing = transactionByReference(id, reference);
+        if (existing) return json(res, 200, { ok: true, balance: existing.balance_after, replayed: true });
+        const award = addTransactionEx(id, 'admin', Math.round(body.amount || 0), `Admin credit by ${a.login}`, 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'credit', `user ${id} ${body.amount}`);
-        return json(res, 200, { ok: true, balance: after });
+        return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
       }
       if (body.action === 'set') {
         const currency = { balance: 'USD', play_chips: 'PLAY', tickets: 'TICKET', gems: 'GEM' };

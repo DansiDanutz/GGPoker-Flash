@@ -100,7 +100,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
   win.loadURL(URL);
@@ -120,7 +120,7 @@ function createWindow() {
           width: 1200, height: 961, minWidth: 980, minHeight: 720,
           frame: false, transparent: false, backgroundColor: '#0a0a0b',
           hasShadow: true, title: 'DanGG.ro',
-          webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: false },
+          webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
         },
       };
     }

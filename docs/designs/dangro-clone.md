@@ -65,7 +65,7 @@ justify new architecture.
     showdown and a persisted hand history.
 *   A cashier/ledger where every balance change is attributable in
     `transactions`, and period-based claims are single-claim per user per period.
-    Cashier movements are not replay-protected (see Money invariants).
+    Cashier movements are replay-protected by the client `Idempotency-Key` (see Money invariants).
 *   An admin console that can create and edit users, tables, tournaments,
     promotions, missions and settings, and can review the audit log.
 *   A documented reverse-engineering record and a local asset pipeline.
@@ -100,7 +100,7 @@ without a separate decision.
 **Decided:**
 
 *   **Testing seam**: `node:test` over the pure engine. Committed at
-    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `claims.test.js` and `http.test.js` (18 tests: deck,
+    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `claims.test.js` and `http.test.js` (20 tests: deck,
     hand ranking, Hold'em/Omaha selection, rake, side pots, uncontested pot,
     tournament payout, ledger atomicity/continuity/rollback, crash refunds,
     claims and the ephemeral-port server). Run with
@@ -353,8 +353,9 @@ one 10-second time bank per player per hand.
     replay-protected by an idempotency key; a retried request is a second
     movement. Period-based claims (daily, GG Care, Honeymoon, missions) are
     protected by `player_claims`, keyed `(user_id, kind, period_key)`, and awarded
-    with a unique `claim:<kind>:<period_key>` reference. Cashier movements remain
-    not replay-protected; a double-click can duplicate one movement.
+    with a unique `claim:<kind>:<period_key>` reference. Cashier movements accept
+    an `Idempotency-Key` and store `cashier:<kind>:<key>` on the ledger; a retry
+    returns the original balance.
 *   Rake is `floor(pot × rakePercent / 100)`, capped at the table's `rakeCap`
     (default 300), and is deducted from any pot that ends a hand, including an
     uncontested pot. Production injects the global `rake_percent` (default 5) and
@@ -483,8 +484,8 @@ the code has not been written.
     Hold'em/Omaha selection, rake floor/cap, side pots, uncontested pot and
     tournament payout; `app/server/ledger.test.js` covers ledger atomicity,
     continuity and rollback. Run with `pnpm test`.
-*   **Exit**: tests pass (18/18). Crash refunds, claims and the ephemeral-port
-    server are covered; fault injection of the sweep remains open.
+*   **Exit**: tests pass (20/20). Crash refunds, claims, cashier replay, places
+    2/3 and the ephemeral-port server are covered.
 
 ### Phase 2 — Trust-boundary hardening (implemented)
 
@@ -552,9 +553,10 @@ Additional checks:
 *   **UI flows**: table join/action, waitlist, time bank, admin branding upload,
     verification approval, session revoke.
 
-**Known gaps**: fault injection of the refund sweep and places 2/3 tournament
-payouts are not yet committed; WS state versioning and the local threat model
-remain open. Current runtime evidence comes from the committed tests, API
+**Known gaps**: WS state versioning, a full Origin policy, and fault injection
+of the refund sweep beyond a failing session remain open. The renderer is
+sandboxed and CSP-protected; the local database remains readable by a local
+process. Current runtime evidence comes from the committed tests, API
 checks and live join/leave runs. See [remediation.md](remediation.md) for the
 bounded remediation record.
 
