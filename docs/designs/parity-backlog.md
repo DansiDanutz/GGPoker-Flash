@@ -54,6 +54,11 @@ not a source to copy blindly.
   - animation speed applied through `--deal-speed`;
   - existing three action layouts retained.
 
+- Cashier bonuses are real, not toast-only:
+  - welcome once per account, reload once per ISO week, daily once per UTC day;
+  - persistent `bonus_claims` rows, idempotent ledger references and audit entries;
+  - the bonus cards show Claimed/Claim from the API.
+
 ## Still missing or partial
 
 - Auto buy-in from the lobby (Codex has this); the default percentage and

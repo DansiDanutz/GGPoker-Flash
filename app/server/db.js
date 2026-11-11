@@ -84,6 +84,13 @@ function init() {
     hero_cards TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS bonus_claims (
+    user_id INTEGER NOT NULL,
+    claim_key TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, claim_key)
+  );
   CREATE TABLE IF NOT EXISTS table_mutes (
     table_id TEXT NOT NULL,
     user_id INTEGER NOT NULL,

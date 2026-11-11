@@ -135,19 +135,27 @@ export function Cashier() {
 
         {tab === 'bonus' && (
           <div className="grid g3">
-            {[
-              ['Welcome bonus', '100% up to $1,000', 'Credited on first deposit'],
-              ['Reload bonus', '50% up to $500', 'Every Monday'],
-              ['Daily freebie', 'Daily prize box', 'Open once per day'],
-            ].map(([t, s, d]) => (
-              <div key={t} className="card" style={{ textAlign: 'center', padding: 22 }}>
+            {(data?.bonuses || [
+              { id: 'welcome', title: 'Welcome bonus', subtitle: 'One-time welcome credit', amount: 100000, claimed: false },
+              { id: 'reload', title: 'Weekly reload', subtitle: 'Once per week', amount: 50000, claimed: false },
+              { id: 'daily', title: 'Daily freebie', subtitle: 'Once per day', amount: 1000, claimed: false },
+            ]).map((b: any) => (
+              <div key={b.id} className="card" style={{ textAlign: 'center', padding: 22 }}>
                 <div style={{ fontSize: 34 }}>🎁</div>
-                <div style={{ fontWeight: 700, color: '#fff', marginTop: 8 }}>{t}</div>
-                <div className="gold" style={{ fontSize: 18, fontWeight: 800, margin: '6px 0' }}>{s}</div>
-                <div className="muted small">{d}</div>
-                <button className="btn btn-gold btn-sm" style={{ marginTop: 12 }} onClick={() => toast({ kind: 'reward', title: t, body: 'Bonus applied to your play balance.' })}>Claim</button>
+                <div style={{ fontWeight: 700, color: '#fff', marginTop: 8 }}>{b.title}</div>
+                <div className="gold" style={{ fontSize: 18, fontWeight: 800, margin: '6px 0' }}>{money(b.amount)}</div>
+                <div className="muted small">{b.subtitle}</div>
+                <button className={'btn btn-sm ' + (b.claimed ? 'btn-ghost' : 'btn-gold')} style={{ marginTop: 12 }} disabled={b.claimed || busy} onClick={async () => {
+                  try {
+                    const r = await api.claimBonus(b.id);
+                    sound.play('coin');
+                    toast({ kind: 'reward', title: b.title, body: `+${money(r.amount)} added to your play balance.` });
+                    await load(); await refreshUser();
+                  } catch (e: any) { toast({ kind: 'error', title: 'Bonus not applied', body: e.message }); }
+                }}>{b.claimed ? 'Claimed' : 'Claim'}</button>
               </div>
             ))}
+            <p className="muted small" style={{ gridColumn: '1 / -1' }}>Bonuses are local practice credits. Welcome is once per account, reload once per ISO week, daily once per UTC day.</p>
           </div>
         )}
       </div>

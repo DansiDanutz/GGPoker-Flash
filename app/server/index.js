@@ -648,10 +648,55 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------- cashier ----------
+    const isoWeekKey = (d = new Date()) => {
+      const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      const dayNum = (date.getUTCDay() + 6) % 7;
+      date.setUTCDate(date.getUTCDate() - dayNum + 3);
+      const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+      const firstDay = (firstThursday.getUTCDay() + 6) % 7;
+      firstThursday.setUTCDate(firstThursday.getUTCDate() - firstDay + 3);
+      const week = 1 + Math.round((date - firstThursday) / 604800000);
+      return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+    };
     if (p === '/api/cashier') {
       const u = requireUser(req, res); if (!u) return;
       const tx = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT 100').all(u.id);
-      return json(res, 200, { user: publicUser(u), transactions: tx });
+      const claimed = new Set(db.prepare('SELECT claim_key FROM bonus_claims WHERE user_id = ?').all(u.id).map((r) => r.claim_key));
+      const day = new Date().toISOString().slice(0, 10);
+      const weekKey = `reload:${isoWeekKey()}`;
+      const bonuses = [
+        { id: 'welcome', title: 'Welcome bonus', subtitle: 'One-time welcome credit', amount: 100000, claimed: claimed.has('welcome') },
+        { id: 'reload', title: 'Weekly reload', subtitle: 'Once per week', amount: 50000, claimed: claimed.has(weekKey) },
+        { id: 'daily', title: 'Daily freebie', subtitle: 'Once per day', amount: 1000, claimed: claimed.has(`daily:${day}`) },
+      ];
+      return json(res, 200, { user: publicUser(u), transactions: tx, bonuses });
+    }
+
+    if (p === '/api/cashier/bonus' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const body = await readBody(req);
+      const id = String(body.id || '');
+      const now = new Date();
+      const day = now.toISOString().slice(0, 10);
+      const weekKey = `reload:${isoWeekKey(now)}`;
+      const defs = {
+        welcome: { amount: 100000, key: 'welcome', label: 'Welcome bonus' },
+        reload: { amount: 50000, key: weekKey, label: 'Weekly reload' },
+        daily: { amount: 1000, key: `daily:${day}`, label: 'Daily freebie' },
+      };
+      const def = defs[id];
+      if (!def) return json(res, 400, { error: 'unknown bonus' });
+      const info = db.prepare('INSERT OR IGNORE INTO bonus_claims (user_id,claim_key,amount) VALUES (?,?,?)').run(u.id, def.key, def.amount);
+      if (info.changes === 0) return json(res, 409, { error: 'Bonus already claimed' });
+      try {
+        const award = addTransactionEx(u.id, 'bonus', def.amount, def.label, 'USD', { reference: `bonus:${u.id}:${def.key}`, onDuplicate: 'skip' });
+        if (!award.applied) { db.prepare('DELETE FROM bonus_claims WHERE user_id = ? AND claim_key = ?').run(u.id, def.key); return json(res, 409, { error: 'Bonus already claimed' }); }
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'bonus_claim', def.key);
+        return json(res, 200, { ok: true, amount: def.amount, balance: award.balance });
+      } catch (err) {
+        db.prepare('DELETE FROM bonus_claims WHERE user_id = ? AND claim_key = ?').run(u.id, def.key);
+        throw err;
+      }
     }
 
     if (p === '/api/cashier/deposit' && req.method === 'POST') {
