@@ -7,6 +7,7 @@ Local, play-money-only desktop clone. Server-authoritative; no real-money flows.
 - App: `~/Applications/DanGG.ro.app`
 - Local API/UI: `http://127.0.0.1:5198`
 - Tests: `cd app && pnpm test`
+- Read-only smoke: `cd app && pnpm smoke`
 - Build: `cd app && pnpm build`
 - Package/sign: `./package_app.sh`
 

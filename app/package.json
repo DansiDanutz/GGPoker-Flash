@@ -12,7 +12,8 @@
     "desktop": "electron electron/main.cjs",
     "test": "node --test server/*.test.js",
     "prebuild": "node ../tools/copy_ruffle.mjs",
-    "predev": "node ../tools/copy_ruffle.mjs"
+    "predev": "node ../tools/copy_ruffle.mjs",
+    "smoke": "node tools/smoke.mjs"
   },
   "dependencies": {
     "@ruffle-rs/ruffle": "^0.7.1",
