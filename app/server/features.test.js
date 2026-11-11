@@ -29,6 +29,10 @@ test('host tables, private tournaments, bonuses and direct messages', async () =
   const { child, port } = await startServer();
   try {
     const base = `http://127.0.0.1:${port}`;
+    const health = await fetch(`${base}/healthz`);
+    assert.equal(health.status, 200);
+    assert.equal((await health.json()).ok, true);
+
     const u = await login(port, 'DansiDanutz', 'ggpoker');
     const admin = await login(port, 'admin', 'admin123');
 
