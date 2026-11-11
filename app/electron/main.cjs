@@ -17,7 +17,7 @@ if (!gotSingleInstanceLock) {
     win.focus();
   });
 }
-app.setName('DanGG.ro');
+app.setName('DanGG');
 // GGPOKER_USER_DATA points a test or second instance at its own profile and database.
 app.setPath('userData', process.env.GGPOKER_USER_DATA || path.join(app.getPath('appData'), 'GGPoker Clone'));
 try { require('node:fs').mkdirSync(app.getPath('userData'), { recursive: true }); } catch {}
@@ -120,7 +120,7 @@ function createWindow() {
     resizable: true,
     show: true,
     center: true,
-    title: 'DanGG.ro',
+    title: 'DanGG',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -144,7 +144,7 @@ function createWindow() {
         overrideBrowserWindowOptions: {
           width: 1200, height: 961, minWidth: 360, minHeight: 640,
           frame: false, transparent: false, backgroundColor: '#0a0a0b',
-          hasShadow: true, title: 'DanGG.ro',
+          hasShadow: true, title: 'DanGG',
           webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
         },
       };
@@ -193,7 +193,7 @@ app.whenReady().then(async () => {
     await startServer();
   } catch (e) {
     console.error('Failed to start local server', e);
-    dialog.showErrorBox('DanGG.ro could not start', `The local server failed to start.\n\nData: ${app.getPath('userData')}\n\n${e && e.message ? e.message : e}`);
+    dialog.showErrorBox('DanGG could not start', `The local server failed to start.\n\nData: ${app.getPath('userData')}\n\n${e && e.message ? e.message : e}`);
     app.quit();
     return;
   }

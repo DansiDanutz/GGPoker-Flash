@@ -45,7 +45,7 @@ export function Login() {
         </div>
       </div>
       <div className="login-box">
-        <img className="brand-logo" src={brand.logo} alt="DanGG.ro" />
+        <img className="brand-logo" src={brand.logo} alt="DanGG" />
         <div className="tabs-line">
           <button className={mode === 'login' ? 'on' : ''} onClick={() => { setMode('login'); setErr(''); }}>Log in</button>
           <button className={mode === 'register' ? 'on' : ''} onClick={() => { setMode('register'); setErr(''); }}>Create account</button>

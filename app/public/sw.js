@@ -1,4 +1,4 @@
-/* DanGG.ro service worker — makes the phone client installable and keeps the
+/* DanGG service worker — makes the phone client installable and keeps the
    shell usable on a flaky connection. Navigation is network-first so a new
    deployment is picked up on the next launch; hashed build assets are
    cache-first because their URL changes with every build. */

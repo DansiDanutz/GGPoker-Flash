@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "DanGG.ro Poker",
-  "short_name": "DanGG.ro",
-  "description": "Play-money poker at DanGG.ro — full-screen tables, tournaments and rewards.",
+  "name": "DanGG Poker",
+  "short_name": "DanGG",
+  "description": "Play-money poker at DanGG — full-screen tables, tournaments and rewards.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "/#/",

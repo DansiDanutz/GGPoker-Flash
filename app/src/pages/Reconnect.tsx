@@ -13,9 +13,9 @@ export function Reconnect() {
   return (
     <div className="reconnect-screen">
       <div className="reconnect-card">
-        <img className="reconnect-logo" src={brand.logo} alt="DanGG.ro" />
+        <img className="reconnect-logo" src={brand.logo} alt="DanGG" />
         <p className="install-kicker">NO CONNECTION</p>
-        <h1 className="reconnect-title">Can&apos;t reach DanGG.ro</h1>
+        <h1 className="reconnect-title">Can&apos;t reach DanGG</h1>
         <p className="reconnect-sub">
           Your session is saved on this phone. Check your connection and try again —
           you will come straight back to the lobby.
