@@ -312,3 +312,22 @@ test('run it twice handles a multiway side pot and conserves chips', () => {
   const paid = t.result.winners.reduce((a, w) => a + w.amount, 0);
   assert.equal(paid, 665);
 });
+
+test('time bank extension is clamped and usable once per hand', () => {
+  const t = tableWith([player(1, 'A', 1000, 0, []), player(2, 'B', 1000, 0, [])]);
+  t.street = 'river';
+  t.actor = 1;
+  t.actionEndsAt = Date.now();
+  t.timeBankUsed = new Set();
+  const first = t.useTimeBank(1, 30);
+  assert.equal(first.ok, true);
+  assert.equal(first.seconds, 30);
+  assert.ok(first.endsAt >= Date.now() + 29000);
+  const second = t.useTimeBank(1, 30);
+  assert.equal(second.ok, false);
+  const clamped = tableWith([player(3, 'C', 1000, 0, []), player(4, 'D', 1000, 0, [])]);
+  clamped.actor = 3;
+  clamped.actionEndsAt = Date.now();
+  clamped.timeBankUsed = new Set();
+  assert.equal(clamped.useTimeBank(3, 999).seconds, 60);
+});

@@ -4,7 +4,7 @@ Audit date: 2026-11-11
 
 ## Verification
 
-- `server/features.test.js` covers private table create/list/mute/delete, private tournament create/detail/delete, cashier bonus idempotency and direct messages; the suite is now 42 tests.
+- `server/features.test.js` covers private table create/list/mute/delete, private tournament create/detail/delete, cashier bonus idempotency and direct messages; the suite is now 43 tests.
 
 ## Sources
 
