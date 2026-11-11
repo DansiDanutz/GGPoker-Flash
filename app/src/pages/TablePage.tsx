@@ -136,6 +136,27 @@ export function TablePage({ tableId }: { tableId: string }) {
     ws.onerror = () => { /* handled by close */ };
   }, [tableId, user]);
 
+  const pushStack = (to: [number, number]) => {
+    const el = tableRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const stack = document.createElement('div');
+    stack.className = 'push-stack';
+    stack.innerHTML = '<i></i><i></i><i></i><i></i>';
+    stack.style.left = `${r.width * 0.5}px`;
+    stack.style.top = `${r.height * 0.45}px`;
+    el.appendChild(stack);
+    const dx = (r.width * (to[0] - 50)) / 100;
+    const dy = (r.height * (to[1] - 45)) / 100;
+    stack.animate([
+      { transform: 'translate(-50%,-50%) scale(.7)', opacity: 0 },
+      { transform: `translate(calc(-50% + ${dx * 0.45}px), calc(-50% + ${dy * 0.45 - 34}px)) scale(1.08)`, opacity: 1, offset: 0.55 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.95)`, opacity: 1 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.8)`, opacity: 0 },
+    ], { duration: 900, easing: 'cubic-bezier(.22,.8,.3,1)' });
+    window.setTimeout(() => stack.remove(), 950);
+  };
+
   const flyChips = (from: [number, number], to: [number, number], count = 3, color = '#d9a83c') => {
     const el = tableRef.current;
     if (!el) return;
@@ -186,6 +207,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         if (pl) {
           const pos = seatPosOf(pl.seat);
           setTimeout(() => flyChips([50, 45], pos, 7), 220);
+          setTimeout(() => pushStack(pos), 160);
         }
       }
       sound.play('win', { volume: .9 });

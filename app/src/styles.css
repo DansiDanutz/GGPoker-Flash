@@ -808,3 +808,9 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .tb-btn { height: 44px; min-width: 92px; border-radius: 6px; background: #1b1b1b; border: 1px solid #3a3a3a; color: #ffd98a; font-size: 12px; font-weight: 700; margin-right: 6px; }
 .tb-btn:hover:not(:disabled) { background: #2a2311; border-color: #6b5320; }
 .tb-btn:disabled { color: #555; border-color: #262626; }
+.push-stack { position: absolute; z-index: 29; width: 36px; height: 32px; pointer-events: none; filter: drop-shadow(0 8px 10px rgba(0,0,0,.55)); }
+.push-stack i { position: absolute; left: 0; width: 36px; height: 11px; border-radius: 50%; background: radial-gradient(ellipse at 42% 30%, #fff3c4, #d9a83c 58%, #6b4a08 100%); border: 1px solid #4b3406; }
+.push-stack i:nth-child(1) { top: 0; }
+.push-stack i:nth-child(2) { top: 4px; filter: brightness(.94); }
+.push-stack i:nth-child(3) { top: 8px; filter: brightness(.88); }
+.push-stack i:nth-child(4) { top: 12px; filter: brightness(.8); }
