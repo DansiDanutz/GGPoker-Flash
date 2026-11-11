@@ -35,26 +35,27 @@ For a real 1,000-concurrent target, move the database to managed PostgreSQL and
 use Redis for sessions/queues/leader election; do not run 1,000 players on one
 SQLite writer.
 
-## Blocker: dangg.live is not currently resolving
+## DNS state
 
-Verified from the Mac Studio:
-
-```text
-dig dangg.live A        -> NXDOMAIN
-dig dangg.live NS       -> none
-whois                  -> no registered domain record
-```
-
-`dangg.live` must be registered and delegated at a registrar, then these records
-created:
+`dangg.live` is registered at **Namecheap** and currently parked:
 
 ```text
-A  dangg.live         <VM public IPv4>
-A  admin.dangg.live   <VM public IPv4>
-AAAA (optional)       <VM public IPv6>
+NS   dns1.registrar-servers.com / dns2.registrar-servers.com
+A    dangg.live -> 162.255.119.244 (parking page)
+MX   eforward*.registrar-servers.com
+SPF  v=spf1 include:spf.efwd.registrar-servers.com ~all
 ```
 
-Caddy will obtain certificates automatically once DNS resolves.
+Once the VM has a public IPv4, replace only the parking A record and add the
+admin host:
+
+```text
+A  dangg.live         <VM public IPv4>   TTL 300
+A  admin.dangg.live   <VM public IPv4>   TTL 300
+```
+
+Do not remove the MX/SPF records unless the domain's email is being retired.
+Caddy obtains certificates automatically once DNS resolves.
 
 ## DigitalOcean access blocker
 
