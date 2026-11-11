@@ -23,6 +23,12 @@ export function Promotions() {
     { title: 'Honeymoon Bonus', sub: 'New player welcome package', img: '/assets/ui/discover/Bg_Discover_Honeymoon.png', tag: 'Bonus' },
     { title: 'Weekly Freeroll', sub: 'Free entry, real prizes', img: '/assets/ui/discover/Bg_Discove_WeeklyFreeroll_EN.png', tag: 'Freeroll' },
     { title: 'After The Fold', sub: 'Win your share of $40,000 daily', img: '/assets/ui/discover/Bg_Discover_AoF.png', tag: 'All-in or Fold' },
+    { title: 'Daily Freebie', sub: 'A free gift every day', img: '/assets/ui/discover/Bg_Discover_DailyFreebie.png', tag: 'Gift' },
+    { title: 'Casino Bonus', sub: 'Weekly casino free spins', img: '/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png', tag: 'Casino' },
+    { title: 'Fish Buffet Platinum', sub: 'Higher ranks, bigger wheels', img: '/assets/ui/discover/Bg_Discover_Fishbuffet_Platinum.png', tag: 'Rewards' },
+    { title: 'Spin & Gold Leaderboard', sub: 'Weekly SNG race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_SpinNGold.png', tag: 'Leaderboard' },
+    { title: 'Rush & Cash Leaderboard', sub: 'Fast-fold race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_RushNCash_Holdem.png', tag: 'Leaderboard' },
+    { title: 'Short Deck Leaderboard', sub: 'Six-plus race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_ShortDeck.png', tag: 'Leaderboard' },
   ];
 
   return (

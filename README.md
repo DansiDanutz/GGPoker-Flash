@@ -128,7 +128,10 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for 
 - Daily freebie (once per day), GGPass level + XP bar, 10-step reward track,
   daily missions with progress and claims, Fish Buffet prize wheel (animated),
   leaderboards (top players by VIP points), VIP benefits.
-- Hand history for every hand with board, players, cards, pot, winners and a replay reveal.
+- Hand history for every hand with filters, board/action replay, players, cards, pot and winners.
+- **My Page** hub (overview, My Promo, weekly missions, transactions, tickets, messages, leaderboard, verification, security).
+- **Fish Buffet ranks** (Plankton → Killer Whale) with multipliers and reward history.
+- Pop any table out into its own window for multi-tabling.
 - Profile with stats, nickname change, avatar picker.
 
 ### Settings

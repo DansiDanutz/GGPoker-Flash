@@ -19,6 +19,7 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
   const [spin, setSpin] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [daily, setDaily] = useState<{ claimed: boolean; amount: number }>({ claimed: false, amount: 0 });
+  const [tx, setTx] = useState<any[]>([]);
   const [claiming, setClaiming] = useState(false);
 
   const load = async () => {
@@ -30,6 +31,7 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
   };
   useEffect(() => {
     load();
+    api.cashier().then((r) => setTx(r.transactions)).catch(() => {});
     fetch('/api/rewards/daily', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } })
       .then((r) => r.json()).then((d) => setDaily({ claimed: !!d.claimed, amount: d.amount || 0 })).catch(() => {});
   }, []);
@@ -84,7 +86,7 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
   const pct = Math.min(100, Math.round(((xp % levelXp) / levelXp) * 100));
 
   return (
-    <PageShell activeTop="poker" subnav={<SubNav items={[{ key: 'ggpass', label: 'GGPass' }, { key: 'missions', label: 'Daily missions' }, { key: 'wheel', label: 'Fish Buffet' }, { key: 'leaders', label: 'Leaderboard' }]} active={tab} onChange={setTab} />}>
+    <PageShell activeTop="poker" subnav={<SubNav items={[{ key: 'ggpass', label: 'GGPass' }, { key: 'missions', label: 'Daily missions' }, { key: 'wheel', label: 'Fish Buffet' }, { key: 'ranks', label: 'Fish ranks' }, { key: 'fishhistory', label: 'Fish history' }, { key: 'leaders', label: 'Leaderboard' }]} active={tab} onChange={setTab} />}>
       <div className="page">
         <h1 className="page-title">My Rewards</h1>
         <p className="page-sub">GGPass progress, daily missions, Fish Buffet wheel and leaderboards</p>
@@ -202,6 +204,48 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
                 {spinning ? 'Spinning…' : 'Spin the wheel'}
               </button>
             </div>
+          </div>
+        )}
+
+        {tab === 'ranks' && (
+          <div className="grid g3">
+            {[
+              ['Plankton', '1x', 'Entry level', 0], ['Shrimp', '1.1x', 'Play 500 hands', 500], ['Crab', '1.2x', 'Play 2,000 hands', 2000],
+              ['Octopus', '1.35x', 'Play 5,000 hands', 5000], ['Squid', '1.5x', 'Play 12,000 hands', 12000], ['Fish', '1.7x', 'Play 25,000 hands', 25000],
+              ['Dolphin', '2x', 'Play 50,000 hands', 50000], ['Shark', '2.5x', 'Play 100,000 hands', 100000], ['Orca', '3x', 'Play 250,000 hands', 250000],
+              ['Whale', '4x', 'Play 500,000 hands', 500000], ['Killer Whale', '5x', 'Play 1,000,000 hands', 1000000],
+            ].map(([name, mult, req, hands], i) => {
+              const current = i <= 2;
+              return (
+                <div key={name as string} className={'card' + (current ? ' reached' : '')} style={current ? { borderColor: '#6b5320', background: 'linear-gradient(140deg,#241f13,#1a1811)' } : undefined}>
+                  <div className="between">
+                    <b style={{ color: current ? '#ffe6a6' : '#cfcfcf' }}>{name as string}</b>
+                    <span className="tag gtd">{mult as string} rewards</span>
+                  </div>
+                  <div className="muted small" style={{ marginTop: 6 }}>{req as string}</div>
+                  <div className="progress" style={{ marginTop: 8 }}><i style={{ width: `${current ? 100 : 0}%` }} /></div>
+                  <div className="muted small" style={{ marginTop: 4 }}>{(hands as number).toLocaleString()} hands</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {tab === 'fishhistory' && (
+          <div className="card" style={{ padding: 0 }}>
+            <table className="admin-table">
+              <thead><tr><th>#</th><th>Type</th><th>Amount</th><th>Memo</th><th>Date</th></tr></thead>
+              <tbody>
+                {tx.filter((t) => ['fishbuffet', 'claim', 'daily', 'mission'].includes(t.kind)).map((t) => (
+                  <tr key={t.id}>
+                    <td>{t.id}</td><td style={{ textTransform: 'capitalize' }}>{t.kind}</td>
+                    <td style={{ color: t.amount >= 0 ? '#7fe0a0' : '#ff9a9a' }}>{t.amount >= 0 ? '+' : ''}{money(t.amount)}</td>
+                    <td className="muted">{t.memo}</td><td className="muted">{t.created_at}</td>
+                  </tr>
+                ))}
+                {!tx.length && <tr><td colSpan={5} className="empty-state">No Fish Buffet history yet.</td></tr>}
+              </tbody>
+            </table>
           </div>
         )}
 
