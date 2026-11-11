@@ -54,7 +54,7 @@ export function Login() {
         <form onSubmit={submit}>
           <div className="field">
             <label>Account ID or nickname</label>
-            <input value={loginId} onChange={(e) => setLoginId(e.target.value)} autoFocus placeholder="Your DanGG.ro ID" />
+            <input value={loginId} onChange={(e) => setLoginId(e.target.value)} autoFocus placeholder="Your DanGG.Live ID" />
           </div>
           {mode === 'register' && (
             <>
