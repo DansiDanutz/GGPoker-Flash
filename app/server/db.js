@@ -92,6 +92,7 @@ function init() {
     target_id INTEGER NOT NULL,
     reason TEXT NOT NULL,
     detail TEXT NOT NULL DEFAULT '',
+    hand_id TEXT,
     status TEXT NOT NULL DEFAULT 'open',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     resolved_at TEXT
@@ -270,6 +271,7 @@ function init() {
   try { db.exec('ALTER TABLE tables ADD COLUMN owner_id INTEGER'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tables ADD COLUMN private INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tables ADD COLUMN bomb_pot INTEGER DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE reports ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN chat_muted INTEGER DEFAULT 0'); } catch { /* already exists */ }

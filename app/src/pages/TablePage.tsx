@@ -21,7 +21,7 @@ type TableState = {
   button: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
-  players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean;
+  players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
   spin?: { multiplier: number; prize: number; winner: any } | null;
   tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null } | null;
   straddle?: boolean;
@@ -952,7 +952,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <button className="btn btn-dark" onClick={() => setReportOpen(false)}>Cancel</button>
               <button className="btn btn-red" disabled={reportBusy} onClick={async () => {
                 setReportBusy(true);
-                try { await api.reportPlayer(playerProfile.user.id, reportReason, reportDetail); setReportOpen(false); setReportDetail(''); toast({ kind: 'success', title: 'Report submitted', body: `Reported ${playerProfile.user.nick}` }); }
+                try { await api.reportPlayer(playerProfile.user.id, reportReason, reportDetail, state?.handId || undefined); setReportOpen(false); setReportDetail(''); toast({ kind: 'success', title: 'Report submitted', body: `Reported ${playerProfile.user.nick}` }); }
                 catch (e: any) { toast({ kind: 'error', title: 'Could not report', body: e.message }); }
                 finally { setReportBusy(false); }
               }}>Submit report</button>

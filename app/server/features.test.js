@@ -56,6 +56,12 @@ test('host tables, private tournaments, bonuses and direct messages', async () =
     r = await fetch(`${base}/api/cashier/bonus`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ id: 'daily' }) });
     assert.equal(r.status, before.claimed ? 409 : 200);
 
+    r = await fetch(`${base}/api/reports`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ targetId: 2, reason: 'Other', detail: 'test', handId: 'hand-test-1' }) });
+    assert.equal(r.status, 200);
+    r = await fetch(`${base}/api/admin/reports`, { headers: H(admin.token) });
+    const reports = await r.json();
+    assert.equal(reports.reports[0].hand_id, 'hand-test-1');
+
     r = await fetch(`${base}/api/elo`, { headers: H(u.token) });
     const elo = await r.json();
     assert.equal(r.status, 200);

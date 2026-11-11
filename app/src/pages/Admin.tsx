@@ -506,12 +506,13 @@ export function Admin() {
               </div>
               <div className="admin-card" style={{ padding: 0 }}>
                 <table className="admin-table">
-                  <thead><tr><th>#</th><th>Reporter</th><th>Target</th><th>Reason</th><th>Details</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+                  <thead><tr><th>#</th><th>Reporter</th><th>Target</th><th>Reason</th><th>Details</th><th>Hand</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
                   <tbody>
                     {reports.map((r) => (
                       <tr key={r.id}>
                         <td>{r.id}</td><td>{r.reporter_nick}</td><td><b>{r.target_nick}</b></td><td>{r.reason}</td>
                         <td className="muted" style={{ maxWidth: 260 }}>{r.detail}</td>
+                        <td className="muted small">{r.hand_id || '—'}</td>
                         <td><span className={'tag ' + (r.status === 'open' ? 'red' : r.status === 'resolved' ? 'live' : '')}>{r.status}</span></td>
                         <td className="muted">{r.created_at?.slice(0, 16)}</td>
                         <td><div className="row" style={{ gap: 3 }}>
@@ -520,7 +521,7 @@ export function Admin() {
                         </div></td>
                       </tr>
                     ))}
-                    {!reports.length && <tr><td colSpan={8}><div className="empty-state">No reports.</div></td></tr>}
+                    {!reports.length && <tr><td colSpan={9}><div className="empty-state">No reports.</div></td></tr>}
                   </tbody>
                 </table>
               </div>

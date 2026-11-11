@@ -846,7 +846,8 @@ const server = http.createServer(async (req, res) => {
       if (target.id === u.id) return json(res, 400, { error: 'You cannot report yourself' });
       const reason = String(b.reason || '').trim().slice(0, 60) || 'Other';
       const detail = String(b.detail || '').trim().slice(0, 500);
-      const info = db.prepare('INSERT INTO reports (reporter_id,target_id,reason,detail) VALUES (?,?,?,?)').run(u.id, target.id, reason, detail);
+      const handId = String(b.handId || '').slice(0, 80) || null;
+      const info = db.prepare('INSERT INTO reports (reporter_id,target_id,reason,detail,hand_id) VALUES (?,?,?,?,?)').run(u.id, target.id, reason, detail, handId);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'report', `target ${target.nick} (${target.id}) — ${reason}`);
       return json(res, 200, { ok: true, id: Number(info.lastInsertRowid) });
     }
