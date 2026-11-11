@@ -458,10 +458,10 @@ body.electron .app-window::before { display: none; }
 @media (max-width: 760px) { .cardback-grid { grid-template-columns: repeat(3, 1fr); } .bet-pref-grid { grid-template-columns: 1fr; } }
 
 /* card-back skins */
-.back-skin-gold .pcard.back, .back-skin-gold .back-preview { filter: hue-rotate(32deg) saturate(1.25) brightness(1.12); }
-.back-skin-ruby .pcard.back, .back-skin-ruby .back-preview { filter: hue-rotate(135deg) saturate(1.15) brightness(.92); }
-.back-skin-sapphire .pcard.back, .back-skin-sapphire .back-preview { filter: hue-rotate(178deg) saturate(1.05) brightness(.98); }
-.back-skin-amethyst .pcard.back, .back-skin-amethyst .back-preview { filter: hue-rotate(245deg) saturate(1.12) brightness(.95); }
+.back-skin-gold .pcard.back, .back-skin-gold .back-preview { filter: hue-rotate(265deg) saturate(1.55) brightness(1.22); }
+.back-skin-ruby .pcard.back, .back-skin-ruby .back-preview { filter: hue-rotate(220deg) saturate(1.35) brightness(1.05); }
+.back-skin-sapphire .pcard.back, .back-skin-sapphire .back-preview { filter: hue-rotate(70deg) saturate(1.25) brightness(1.08); }
+.back-skin-amethyst .pcard.back, .back-skin-amethyst .back-preview { filter: hue-rotate(140deg) saturate(1.15) brightness(.98); }
 .back-skin-noir .pcard.back, .back-skin-noir .back-preview { filter: grayscale(1) brightness(.82) contrast(1.05); }
 .cards-deal .pcard.dealt { animation-duration: var(--deal-speed, .42s); }
 .cards-flip .pcard.dealt { animation-duration: calc(var(--deal-speed, .42s) + .04s); }
@@ -493,5 +493,5 @@ body.electron .app-window::before { display: none; }
 .room-bg-choice span { width: 56px; height: 38px; border-radius: 5px; background-size: cover; background-position: center; flex: 0 0 auto; }
 .room-bg-choice.on { border-color: var(--gold); color: #f1dfb4; background: #211b0f; }
 .room-bg-dark .room-mark { background-image: url('/assets/tables/room_dark.png'); background-position: center 42%; background-size: cover; filter: brightness(1.1) contrast(1.05) saturate(.75); opacity: .95; }
-.room-bg-floor .room-mark { background-image: url('/assets/tables/room_floor.png'); background-position: center 55%; background-size: cover; filter: brightness(1.05) contrast(1.05) saturate(.8); opacity: .95; }
+.room-bg-floor .room-mark { background-image: url('/assets/tables/room_floor.png'); background-position: center 55%; background-size: cover; filter: brightness(1.28) contrast(1.05) saturate(.85); opacity: .95; }
 @media (max-width: 760px) { .room-bg-grid { grid-template-columns: 1fr 1fr; } }
