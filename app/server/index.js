@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import net from 'node:net';
 import { WebSocketServer } from 'ws';
 import {
   db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, newSession, userByToken,
@@ -20,16 +21,68 @@ function localPort() {
   return server.address()?.port || PORT;
 }
 
-function originAllowed(req) {
+function configuredHosts() {
   const port = localPort();
   const hosts = [`127.0.0.1:${port}`, `localhost:${port}`];
-  if (process.env.GGPOKER_DEV === '1') hosts.push('127.0.0.1:5199', 'localhost:5199');
+  const origins = hosts.map((h) => `http://${h}`);
+  if (process.env.GGPOKER_DEV === '1') {
+    hosts.push('127.0.0.1:5199', 'localhost:5199');
+    origins.push('http://127.0.0.1:5199', 'http://localhost:5199');
+  }
+  for (const raw of [process.env.GGPOKER_PUBLIC_ORIGIN, process.env.GGPOKER_ADMIN_ORIGIN]) {
+    if (!raw) continue;
+    try {
+      const u = new URL(raw);
+      hosts.push(u.host.toLowerCase());
+      origins.push(u.origin.toLowerCase());
+    } catch { /* ignore malformed config */ }
+  }
+  for (const raw of String(process.env.GGPOKER_ALLOWED_HOSTS || '').split(',')) {
+    const host = raw.trim().toLowerCase();
+    if (!host) continue;
+    hosts.push(host);
+    origins.push(`https://${host}`);
+  }
+  return { hosts: [...new Set(hosts)], origins: [...new Set(origins)] };
+}
+
+function originAllowed(req) {
+  const { hosts, origins } = configuredHosts();
   const host = String(req.headers.host || '').toLowerCase();
   if (!hosts.includes(host)) return false;
   const origin = req.headers.origin;
   if (!origin) return true;
-  const origins = hosts.map((h) => `http://${h}`);
   return origins.includes(String(origin).toLowerCase());
+}
+
+function requestIp(req) {
+  if (process.env.GGPOKER_TRUST_PROXY === '1') {
+    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    if (forwarded) return forwarded.replace(/^::ffff:/, '');
+  }
+  return String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+}
+
+function ipMatches(ip, rule) {
+  const clean = String(rule || '').trim();
+  if (!clean) return false;
+  if (clean === '*') return true;
+  if (clean === ip) return true;
+  if (!clean.includes('/')) return false;
+  const [base, bitsRaw] = clean.split('/');
+  if (net.isIP(ip) !== 4 || net.isIP(base) !== 4) return false;
+  const bits = Number(bitsRaw);
+  if (!Number.isInteger(bits) || bits < 0 || bits > 32) return false;
+  const toInt = (v) => v.split('.').reduce((n, part) => ((n << 8) + Number(part)) >>> 0, 0);
+  const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+  return (toInt(ip) & mask) === (toInt(base) & mask);
+}
+
+function adminNetworkAllowed(req) {
+  const rules = String(process.env.GGPOKER_ADMIN_ALLOW || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!rules.length) return true;
+  const ip = requestIp(req);
+  return rules.some((rule) => ipMatches(ip, rule));
 }
 const DIST = path.join(APP_DIR, 'dist');
 const PUBLIC = path.join(APP_DIR, 'public');
@@ -503,6 +556,7 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
+    if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
     // ---------- auth ----------
     if (p === '/api/auth/login' && req.method === 'POST') {
       const body = await readBody(req);

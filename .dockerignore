@@ -1,0 +1,12 @@
+.git
+.gitignore
+app/node_modules
+app/dist
+app/electron
+app/server/data
+app/public/ruffle
+app/public/assets/swf
+research
+docs
+*.log
+.DS_Store
