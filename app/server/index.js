@@ -123,6 +123,7 @@ function lobbyTables() {
       vpip: players ? 18 + (seed % 45) : 0,
       handsPerHour: 55 + (seed % 80),
       running: LIVE_TABLES.has(t.id),
+      synthetic: true,
     };
   });
 }
@@ -643,14 +644,14 @@ const server = http.createServer(async (req, res) => {
       if (action === 'deal') {
         const bet = Math.max(10, Math.min(1000000, Math.round(Number(body.bet) || 100)));
         if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
-        addTransaction(u.id, 'blackjack', -bet, 'Blackjack bet');
+        const after = addTransaction(u.id, 'blackjack', -bet, 'Blackjack bet');
         const deck = shuffle(makeDeck(false));
         const player = [deck.pop(), deck.pop()];
         const dealer = [deck.pop(), deck.pop()];
         BJ_HANDS.set(u.id, { deck, player, dealer, bet });
         return json(res, 200, {
           player: player.map(cardStr), dealer: [cardStr(dealer[0]), '??'], dealerHidden: dealer.map(cardStr),
-          playerTotal: bjValue(player), balance: u.balance - bet, bet, blackjack: bjValue(player) === 21,
+          playerTotal: bjValue(player), balance: after, bet, blackjack: bjValue(player) === 21,
         });
       }
       const hand = BJ_HANDS.get(u.id);
@@ -660,7 +661,8 @@ const server = http.createServer(async (req, res) => {
         const pv = bjValue(hand.player), dv = bjValue(hand.dealer);
         if (pv > 21) {
           BJ_HANDS.delete(u.id);
-          return json(res, 200, { player: hand.player.map(cardStr), dealer: hand.dealer.map(cardStr), playerTotal: pv, bust: true, payout: 0, balance: u.balance, done: true });
+          const fresh = db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id).balance;
+          return json(res, 200, { player: hand.player.map(cardStr), dealer: hand.dealer.map(cardStr), playerTotal: pv, bust: true, payout: 0, balance: fresh, done: true });
         }
         return json(res, 200, { player: hand.player.map(cardStr), playerTotal: pv, dealer: [cardStr(hand.dealer[0]), '??'], done: false });
       }
@@ -673,9 +675,9 @@ const server = http.createServer(async (req, res) => {
         if (pv > 21) { payout = 0; result = 'bust'; }
         else if (dv > 21 || pv > dv) { payout = natural ? Math.floor(hand.bet * 2.5) : hand.bet * 2; result = 'win'; }
         else if (pv === dv) { payout = hand.bet; result = 'push'; }
-        if (payout > 0) addTransaction(u.id, 'blackjack', payout, `Blackjack ${result}`);
+        const after = payout > 0 ? addTransaction(u.id, 'blackjack', payout, `Blackjack ${result}`) : db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id).balance;
         BJ_HANDS.delete(u.id);
-        return json(res, 200, { player: hand.player.map(cardStr), dealer: hand.dealer.map(cardStr), playerTotal: pv, dealerTotal: dv, payout, result, done: true, balance: u.balance - hand.bet + payout });
+        return json(res, 200, { player: hand.player.map(cardStr), dealer: hand.dealer.map(cardStr), playerTotal: pv, dealerTotal: dv, payout, result, done: true, balance: after });
       }
       return json(res, 400, { error: 'unknown action' });
     }
@@ -1084,6 +1086,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (body.action === 'resetpw') {
         db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(String(body.password || 'ggpoker')), id);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'resetpw', `user ${id}`);
         return json(res, 200, { ok: true });
       }
       if (body.action === 'delete' && !target.is_admin) {

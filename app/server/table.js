@@ -64,7 +64,7 @@ export class PokerTable {
     this.tournament = cfg.tournament || null;
     this.elimination = this.spin || !!this.tournament;
     this.rakePercent = cfg.rakePercent ?? 5;
-    this.rakeCap = cfg.rakeCap ?? 0;
+    this.rakeCap = cfg.rakeCap ?? 300;
     this.rake = 0;
     this.finished = [];
     if (this.spin) {
@@ -546,8 +546,7 @@ export class PokerTable {
   computeRake(pot) {
     if (this.tournament || this.spin) return 0;
     const raw = Math.floor((pot * this.rakePercent) / 100);
-    const cap = this.rakeCap || Math.round(this.bb * 3);
-    return Math.min(raw, cap);
+    return Math.min(raw, this.rakeCap);
   }
 
   finishByFold(winnerSeat) {

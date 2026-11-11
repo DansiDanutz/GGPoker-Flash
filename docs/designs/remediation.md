@@ -1,7 +1,7 @@
 # DanGG.ro Remediation — Bounded Ratchets
 
 *   **Author:** Dan Semenescu
-*   **Status:** Phases 1–3 implemented; Phase 4 open
+*   **Status:** Phases 1–4 implemented
 *   **Date:** 2026-11-11
 *   **Supersedes:** the first remediation draft and its review.
 *   **Design of record:** [dangro-clone.md](dangro-clone.md)
@@ -37,9 +37,11 @@ instead of building around them.
 *   **Phase 3 — port ownership and testability:** implemented. The server prints
     `LISTENING <port>`, supports `PORT=0`, and the Electron parent waits for the
     line; `ledger-session`, `claims` and `http` tests were added.
-*   **Phase 4 — maintenance:** open. Lobby synthetic labelling, rake fallback
-    removal, `resetpw` audit, display-only money cleanup, blackjack fresh
-    balance, and the design-of-record update are not done.
+*   **Phase 4 — maintenance:** implemented. Lobby rows carry `synthetic: true`
+    and the estimated columns are marked; the rake `3 × bb` fallback is removed
+    with a 300 default; `resetpw` writes an audit row; display-only money
+    formatting is cleaned up; blackjack returns the settlement balance; the
+    design-of-record is updated.
 *   **Verification:** `cd app && pnpm test` → 18 passed. The packaged app was
     relaunched, `/api/lobby` returned 200, and a live join/leave produced one
     `buyin` and one `cashout` with the same session id and `in:`/`out:` refs.

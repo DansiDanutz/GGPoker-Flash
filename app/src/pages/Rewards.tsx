@@ -53,7 +53,7 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
     try {
       const res = await api.claimMission(m.id);
       sound.play('mission');
-      toast({ kind: 'reward', title: 'Reward claimed', body: `+${m.reward_kind === 'TICKET' ? 'T$' : '$'}${(m.reward / 100).toFixed(2)}` });
+      toast({ kind: 'reward', title: 'Reward claimed', body: `+${m.reward_kind === 'TICKET' ? `T$${m.reward}` : money(m.reward)}` });
       await load(); await refreshUser();
     } catch (e: any) { toast({ kind: 'error', title: 'Cannot claim', body: e.message }); }
   };
@@ -162,7 +162,7 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
                 <div className="progress"><i style={{ width: `${Math.min(100, (m.progress / m.goal) * 100)}%` }} /></div>
                 <div className="between" style={{ marginTop: 6 }}>
                   <span className="muted small">{m.progress} / {m.goal}</span>
-                  <span className="gold small">{m.reward_kind === 'TICKET' ? `T$${m.reward / 100}` : money(m.reward)}</span>
+                  <span className="gold small">{m.reward_kind === 'TICKET' ? `T$${m.reward}` : money(m.reward)}</span>
                 </div>
                 <button
                   className={'btn btn-sm ' + (m.claimed ? 'btn-ghost' : 'btn-gold')}

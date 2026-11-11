@@ -54,9 +54,7 @@ function MiniTable({ table, players }: { table: LobbyTable | null; players: { na
 }
 
 function fmtStakes(t: LobbyTable) {
-  const sb = (t.sb / 100).toLocaleString('en-US', { maximumFractionDigits: 0 });
-  const bb = (t.bb / 100).toLocaleString('en-US', { maximumFractionDigits: 0 });
-  return `$${sb} / $${bb}`;
+  return `${money(t.sb, true)} / ${money(t.bb, true)}`;
 }
 
 export function Lobby() {
@@ -243,10 +241,10 @@ export function Lobby() {
               <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
               <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
               <div>Buy-in</div>
-              <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Players</div>
+              <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Players <i className="est-dot" title="Estimated demo value; not live" /></div>
               <div>Wait</div>
-              <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>AvgPot</div>
-              <div>VPIP%</div><div>H/hr</div>
+              <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>AvgPot <i className="est-dot" title="Estimated demo value; not live" /></div>
+              <div>VPIP% <i className="est-dot" title="Estimated demo value; not live" /></div><div>H/hr <i className="est-dot" title="Estimated demo value; not live" /></div>
             </div>
             <div className="list-scroll">
               {viewMode === 'group' ? (

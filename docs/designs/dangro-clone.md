@@ -100,9 +100,10 @@ without a separate decision.
 **Decided:**
 
 *   **Testing seam**: `node:test` over the pure engine. Committed at
-    `app/server/engine.test.js` and `app/server/ledger.test.js` (11 tests: deck,
+    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `claims.test.js` and `http.test.js` (18 tests: deck,
     hand ranking, Hold'em/Omaha selection, rake, side pots, uncontested pot,
-    tournament payout, ledger atomicity/continuity/rollback). Run with
+    tournament payout, ledger atomicity/continuity/rollback, crash refunds,
+    claims and the ephemeral-port server). Run with
     `pnpm test`; the invariant → test mapping is in the Verification Plan.
 *   **Table rendering**: CSS over the decoded room texture. Reopen only if a
     concrete perceptual gap is demonstrated.
@@ -117,8 +118,15 @@ without a separate decision.
     certificate, not the primary path.
 *   **Single instance**: `app.requestSingleInstanceLock()` focuses the existing
     window instead of starting a second server against the same database.
-*   **Ledger atomicity**: `addTransaction` wraps the balance update and ledger
-    insert in `BEGIN IMMEDIATE` / `COMMIT`, rolling back on failure.
+*   **Ledger atomicity**: `addTransactionEx` inserts the ledger row first when a
+    reference is present, predicts `balance_after`, applies the balance only
+    when the insert changed a row, and supports `onDuplicate: 'skip'`; all
+    writes stay in `BEGIN IMMEDIATE` / `COMMIT`.
+*   **Crash refunds**: a cash seat has a `session_id`; buy-in, rebuy, cash-out
+    and session close carry it. Startup refunds sessions with no `out:`/`refund:`
+    reference, for the sum of buy-in plus rebuys, exactly once.
+*   **Per-user claims**: `player_claims` backs daily, GG Care, Honeymoon and
+    missions; mission progress and claimed state are scoped to the user.
 
 **Risks:**
 
@@ -126,12 +134,13 @@ without a separate decision.
     `poker.js`. It is display-only today; a divergent tie-break would be a
     correctness bug. The server snapshot remains canonical.
 *   Lobby `players`, `avgPot`, `vpip`, `handsPerHour` and `online` are synthetic
-    projections (table-id hash + sine wave), while `running` is real. The
-    synthetic columns must remain cosmetic; any decision must use `LIVE_TABLES`.
+    projections (table-id hash + sine wave), while `running` is real. The API
+    marks table rows `synthetic: true`; the UI marks the estimated columns. Any
+    decision must use `LIVE_TABLES`.
 *   Blackjack is server-authoritative: the server holds the shoe, player and
     dealer, and computes hit/stand payouts. The client never sends an amount.
-*   Rake's `3 × bb` fallback is reachable only when `rake_cap` is 0; production
-    injects 300. The fallback is a test-only path.
+*   Rake's cap is the table's `rakeCap` (default 300); the old `3 × bb` fallback
+    was removed. Production injects the global `rake_cap` setting.
 *   The CDP port 9333 is a development affordance. It is now gated behind
     `GGPOKER_DEV=1` or `GGPOKER_CDP=1`; the packaged app does not open it by
     default.
@@ -140,9 +149,9 @@ without a separate decision.
     single-user local trade-off.
 *   `app/server/index.js` contains casino and reward domain logic that belongs
     beside the engine. New money/outcome logic must not be added inline.
-*   **Open**: a server crash mid-session drops seats and leaves the buy-in in
-    the ledger. The bound is one buy-in per seated player per crash; no silent
-    auto-restart is allowed. Startup reconciliation is not implemented.
+*   A server crash refunds `chips_in` (buy-in + rebuys) exactly once. Losses are
+    forgiven; winnings above `chips_in` are lost. Bound: one stack per crash.
+    There is no silent auto-restart.
 *   **Open**: `app/server/index.js` is a 1,384-line router plus domain logic; the
     placement rule is the intended boundary, not the current shape.
 
@@ -343,13 +352,13 @@ one 10-second time bank per player per hand.
 *   Deposits, withdrawals and admin credits are attributable but are **not**
     replay-protected by an idempotency key; a retried request is a second
     movement. Period-based claims (daily, GG Care, Honeymoon, missions) are
-    protected by a per-user period key such as `YYYY-MM-DD` or `care-YYYY-MM-DD`.
-*   Rake is `floor(pot × rakePercent / 100)`, capped at the table's `rakeCap` or
-    `3 × bb` when unset, and is deducted from any pot that ends a hand, including
-    an uncontested pot. Production injects the global `rake_percent` (default 5)
-    and `rake_cap` (default 300) settings into every live table, so the `3 × bb`
-    fallback applies only when the setting is null/0. Tournament and Spin hands
-    have zero rake.
+    protected by `player_claims`, keyed `(user_id, kind, period_key)`, and awarded
+    with a unique `claim:<kind>:<period_key>` reference. Cashier movements remain
+    not replay-protected; a double-click can duplicate one movement.
+*   Rake is `floor(pot × rakePercent / 100)`, capped at the table's `rakeCap`
+    (default 300), and is deducted from any pot that ends a hand, including an
+    uncontested pot. Production injects the global `rake_percent` (default 5) and
+    `rake_cap` (default 300) settings. Tournament and Spin hands have zero rake.
 
 ### Assets and localization
 
@@ -474,8 +483,8 @@ the code has not been written.
     Hold'em/Omaha selection, rake floor/cap, side pots, uncontested pot and
     tournament payout; `app/server/ledger.test.js` covers ledger atomicity,
     continuity and rollback. Run with `pnpm test`.
-*   **Exit**: tests pass (11/11). Fault-injection and restart reconciliation are
-    still open.
+*   **Exit**: tests pass (18/18). Crash refunds, claims and the ephemeral-port
+    server are covered; fault injection of the sweep remains open.
 
 ### Phase 2 — Trust-boundary hardening (implemented)
 
@@ -523,7 +532,7 @@ Run from the repository root unless stated. Preconditions: Node ≥ 22 (for
 | Deck integrity | 52 unique cards; 36 in Short Deck | `cd app && pnpm test` (`deck has 52 unique cards, short deck has 36`) |
 | Hand ranking | Royal > quads > full house > flush > straight > wheel | `pnpm test` (`hand ranking is ordered correctly`) |
 | Hold'em/Omaha selection | Best five; Omaha exactly 2 hole + 3 board | `pnpm test` (`bestHoldem...`, `bestOmaha...`) |
-| Rake floor/cap | 5% floor (1010 → 50); global `rake_cap` 300; custom cap 120; `3 × bb` only when cap 0 | `cd app && pnpm test` (`rake is floored...`) |
+| Rake floor/cap | 5% floor (1010 → 50); default cap 300; custom cap 120 | `cd app && pnpm test` (`rake is floored...`) |
 | Side-pot layering + chip conservation | 300/1000/300 contributions; awards 820/700/0 + rake 80 | `pnpm test` (`showdown builds side pots...`) |
 | Uncontested pot | 400 pot, rake 20, winner 380 | `pnpm test` (`uncontested pot...`) |
 | Tournament winner | Half the pool, credited once, hook once | `pnpm test` (`tournament winner...`); places 2/3 are **not yet tested** |
@@ -543,10 +552,11 @@ Additional checks:
 *   **UI flows**: table join/action, waitlist, time bank, admin branding upload,
     verification approval, session revoke.
 
-**Known gaps**: fault-injection and restart-reconciliation tests are not yet
-committed; places 2/3 tournament payouts, WS state versioning and the local
-threat model remain open. Current runtime evidence
-comes from the committed engine tests, API checks and CDP tours.
+**Known gaps**: fault injection of the refund sweep and places 2/3 tournament
+payouts are not yet committed; WS state versioning and the local threat model
+remain open. Current runtime evidence comes from the committed tests, API
+checks and live join/leave runs. See [remediation.md](remediation.md) for the
+bounded remediation record.
 
 ---
 

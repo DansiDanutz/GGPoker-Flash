@@ -32,6 +32,7 @@ test('server binds an ephemeral port and serves the API', async () => {
   try {
     const lobby = await fetch(`http://127.0.0.1:${port}/api/lobby`).then((r) => r.json());
     assert.ok(Array.isArray(lobby.tables));
+    assert.equal(lobby.tables[0].synthetic, true);
     const login = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ login: 'DansiDanutz', password: 'ggpoker' }),

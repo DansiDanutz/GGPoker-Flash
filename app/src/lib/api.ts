@@ -34,6 +34,7 @@ export type LobbyTable = {
   wait: number;
   avgPot: number;
   vpip: number;
+  synthetic?: boolean;
   handsPerHour: number;
   running: boolean;
 };

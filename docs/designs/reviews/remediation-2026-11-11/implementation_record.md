@@ -2,7 +2,7 @@
 
 *   **Date:** 2026-11-11
 *   **Design:** `docs/designs/remediation.md`
-*   **Status:** Phases 1–3 implemented; Phase 4 open.
+*   **Status:** Phases 1–4 implemented.
 
 ## Implemented
 
@@ -52,10 +52,21 @@
     *   `cashout 49000`, same session, ref `out:...`
 *   Mission progress row appeared for the played hand.
 
+### Phase 4 — maintenance
+
+*   Lobby table rows include `synthetic: true`; the Players/AvgPot/VPIP/H-Hr
+    headers carry an "estimated" dot; stakes use `money()`.
+*   Rake cap defaults to 300; the `3 × bb` fallback is removed; the engine test
+    still asserts the floor/cap.
+*   `resetpw` writes an audit row.
+*   Mission ticket rewards display `T$` units instead of dividing by 100.
+*   Blackjack deal/stand return the balance from the settlement call.
+*   `docs/designs/dangro-clone.md` updated for sessions, claims, port handshake,
+    synthetic lobby and the new test count.
+
 ## Remaining
 
-*   Phase 4: lobby `synthetic` label, rake fallback removal, `resetpw` audit,
-    display-only `money()` cleanup, blackjack fresh balance, design-of-record
-    update.
 *   Full re-review of the implemented diff has not been run; the targeted
     verification covered the six prior blockers.
+*   Fault injection of the refund sweep and places 2/3 tournament payouts remain
+    uncommitted tests.
