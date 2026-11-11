@@ -77,6 +77,7 @@ export const api = {
   setNick: (nick: string) => request<{ nick: string }>('/api/me/nick', { method: 'POST', body: JSON.stringify({ nick }) }),
   setAvatar: (avatar: string) => request('/api/me/avatar', { method: 'POST', body: JSON.stringify({ avatar }) }),
   lobby: () => request<any>('/api/lobby'),
+  brand: () => request<{ logo?: string; promo?: string }>('/api/brand'),
   tournaments: () => request<{ tournaments: any[]; registered: string[] }>('/api/tournaments'),
   registerTourney: (id: string) => request(`/api/tournaments/${id}/register`, { method: 'POST' }),
   unregisterTourney: (id: string) => request(`/api/tournaments/${id}/unregister`, { method: 'POST' }),
@@ -105,6 +106,8 @@ export const api = {
     audit: () => request<{ log: any[] }>('/api/admin/audit'),
     transactions: () => request<{ transactions: any[] }>('/api/admin/transactions'),
     chat: (message: string) => request('/api/admin/chat', { method: 'POST', body: JSON.stringify({ message }) }),
+    saveBrand: (slot: string, dataUrl: string) => request('/api/admin/brand', { method: 'POST', body: JSON.stringify({ slot, dataUrl }) }),
+    resetBrand: (slot: string) => request(`/api/admin/brand/${slot}`, { method: 'DELETE' }),
   },
 };
 

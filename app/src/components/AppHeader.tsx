@@ -4,14 +4,14 @@ import { money, User } from '../lib/api';
 import { sound } from '../lib/sound';
 
 export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { online: number; jackpot: number; user: User | null; activeTop?: string }) {
-  const { navigate } = useApp();
+  const { navigate, brand } = useApp();
   const go = (to: string) => { sound.play('click', { volume: .5 }); navigate(to); };
   const tab = (key: string, label: string, to: string) => (
     <button className={activeTop === key ? 'active' : ''} onClick={() => go(to)}>{label}</button>
   );
   return (
     <div className="app-header">
-      <img className="brand-logo" src="/assets/chrome/logo.png" alt="DanGG.ro" onClick={() => go('/')} />
+      <img className="brand-logo" src={brand.logo} alt="DanGG.ro" onClick={() => go('/')} />
       <nav className="topnav">
         {tab('poker', 'Poker', '/')}
         <span className="sep" />

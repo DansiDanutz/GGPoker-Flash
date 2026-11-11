@@ -60,7 +60,7 @@ function fmtStakes(t: LobbyTable) {
 }
 
 export function Lobby() {
-  const { user, navigate, toast, refreshUser, setOpeningTable } = useApp();
+  const { user, navigate, toast, refreshUser, setOpeningTable, brand } = useApp();
   const [data, setData] = useState<any>(null);
   const [gameTab, setGameTab] = useState('holdem');
   const [selected, setSelected] = useState<string | null>(null);
@@ -98,7 +98,6 @@ export function Lobby() {
     return () => { if (timer.current) window.clearInterval(timer.current); };
   }, []);
 
-  const PROMO_IMAGES = ['/assets/chrome/promo.png'];
 
   const tables: LobbyTable[] = useMemo(() => {
     if (!data) return [];
@@ -201,7 +200,7 @@ export function Lobby() {
       <div className="lobby-content">
         <div className="lobby-main">
           <div className="promo-wrap" onClick={() => { sound.play('click'); navigate('/promotions'); }}>
-            <img key={promoIdx} className="promo-img fade-in" src={PROMO_IMAGES[promoIdx]} alt="Promotion" />
+            <img className="promo-img" src={brand.promo} alt="Promotion" />
           </div>
           <div className="table-list">
             <div className="list-head">

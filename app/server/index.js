@@ -660,6 +660,43 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { won, payout, stake, balance: after, market: body.market });
     }
 
+    // ---------- brand assets ----------
+    if (p === '/api/brand') {
+      const rows = db.prepare('SELECT slot, updated_at FROM brand_assets').all();
+      const out = {};
+      for (const r of rows) out[r.slot] = `/api/brand/${r.slot}?v=${encodeURIComponent(r.updated_at)}`;
+      return json(res, 200, out);
+    }
+    if (p.startsWith('/api/brand/') && req.method === 'GET') {
+      const slot = p.split('/')[3];
+      const row = db.prepare('SELECT mime, data FROM brand_assets WHERE slot = ?').get(slot);
+      if (!row) return json(res, 404, { error: 'not set' });
+      res.writeHead(200, { 'content-type': row.mime, 'cache-control': 'public, max-age=31536000, immutable' });
+      return res.end(Buffer.from(row.data, 'base64'));
+    }
+    if (p === '/api/admin/brand' && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const b = await readBody(req);
+      const slot = String(b.slot || '');
+      if (!['logo', 'promo'].includes(slot)) return json(res, 400, { error: 'invalid slot' });
+      const m = String(b.dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp|gif));base64,(.+)$/);
+      if (!m) return json(res, 400, { error: 'invalid image' });
+      const bytes = Buffer.from(m[2], 'base64');
+      if (bytes.length > 3 * 1024 * 1024) return json(res, 400, { error: 'image too large (3 MB max)' });
+      db.prepare(`INSERT INTO brand_assets (slot,mime,data,updated_at) VALUES (?,?,?,datetime('now'))
+        ON CONFLICT(slot) DO UPDATE SET mime=excluded.mime, data=excluded.data, updated_at=datetime('now')`)
+        .run(slot, m[1], bytes.toString('base64'));
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'brand_upload', slot);
+      return json(res, 200, { ok: true, slot });
+    }
+    if (p.startsWith('/api/admin/brand/') && req.method === 'DELETE') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const slot = p.split('/')[4];
+      db.prepare('DELETE FROM brand_assets WHERE slot = ?').run(slot);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'brand_reset', slot);
+      return json(res, 200, { ok: true });
+    }
+
     // ---------- player notes ----------
     if (p === '/api/notes' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;

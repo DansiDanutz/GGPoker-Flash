@@ -155,6 +155,12 @@ function init() {
     message TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS brand_assets (
+    slot TEXT PRIMARY KEY,
+    mime TEXT NOT NULL,
+    data TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
   CREATE TABLE IF NOT EXISTS player_notes (
     user_id INTEGER NOT NULL,
     target TEXT NOT NULL,

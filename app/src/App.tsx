@@ -37,10 +37,11 @@ function ScaleStage({ children }: { children: React.ReactNode }) {
 }
 
 function Splash() {
+  const { brand } = useApp();
   return (
     <div className="splash">
       <div className="splash-inner">
-        <img className="splash-logo" src="/assets/chrome/logo.png" alt="DanGG.ro" />
+        <img className="splash-logo" src={brand.logo} alt="DanGG.ro" />
         <div className="splash-tagline">THE WORLD'S BIGGEST POKER ROOM</div>
         <div className="splash-bar"><i /></div>
         <div className="splash-status">Connecting to DanGG.ro…</div>

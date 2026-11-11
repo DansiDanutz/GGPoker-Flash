@@ -25,6 +25,8 @@ type AppState = {
   setOpeningTable: (v: string | null) => void;
   splashDone: boolean;
   meta: { online: number; jackpot: number };
+  brand: { logo: string; promo: string };
+  refreshBrand: () => Promise<void>;
 };
 
 const Ctx = createContext<AppState | null>(null);
@@ -44,6 +46,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [animations, setAnimations] = useState(() => localStorage.getItem('ggpoker.animations') !== '0');
   const [openingTable, setOpeningTable] = useState<string | null>(null);
   const [meta, setMeta] = useState({ online: 192203, jackpot: 199026635 });
+  const [brand, setBrand] = useState({ logo: '/assets/chrome/logo.png', promo: '/assets/chrome/promo.png' });
   const toastId = useRef(1);
 
   const navigate = useCallback((to: string) => {
@@ -87,6 +90,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const t = window.setTimeout(() => setSplashDone(true), 2100);
     return () => window.clearTimeout(t);
   }, []);
+
+  const refreshBrand = useCallback(async () => {
+    try {
+      const b = await api.brand();
+      setBrand({
+        logo: b.logo || '/assets/chrome/logo.png',
+        promo: b.promo || '/assets/chrome/promo.png',
+      });
+    } catch { /* keep defaults */ }
+  }, []);
+
+  useEffect(() => { refreshBrand(); }, [refreshBrand]);
 
   useEffect(() => {
     let alive = true;
@@ -145,8 +160,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     user, loading, route, navigate, login, register, logout, refreshUser, setUser,
     toasts, toast, dismissToast, soundOn, toggleSound, animations,
     setAnimations: (v: boolean) => { setAnimations(v); localStorage.setItem('ggpoker.animations', v ? '1' : '0'); },
-    openingTable, setOpeningTable, meta, splashDone,
-  }), [user, loading, route, navigate, login, register, logout, refreshUser, toasts, toast, dismissToast, soundOn, toggleSound, animations, openingTable, meta, splashDone]);
+    openingTable, setOpeningTable, meta, brand, refreshBrand, splashDone,
+  }), [user, loading, route, navigate, login, register, logout, refreshUser, toasts, toast, dismissToast, soundOn, toggleSound, animations, openingTable, meta, brand, refreshBrand, splashDone]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

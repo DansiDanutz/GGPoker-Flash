@@ -11,6 +11,7 @@ const SECTIONS = [
   { key: 'tables', label: 'Cash tables', icon: '🃏' },
   { key: 'tournaments', label: 'Tournaments', icon: '🏆' },
   { key: 'banners', label: 'Promotions', icon: '🎁' },
+  { key: 'branding', label: 'Branding', icon: '🎨' },
   { key: 'missions', label: 'Missions', icon: '📋' },
   { key: 'settings', label: 'Game settings', icon: '⚙️' },
   { key: 'transactions', label: 'Transactions', icon: '💳' },
@@ -23,7 +24,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function Admin() {
-  const { user, toast, meta } = useApp();
+  const { user, toast, meta, brand, refreshBrand } = useApp();
   const [section, setSection] = useState('dashboard');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -328,6 +329,54 @@ export function Admin() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </>
+          )}
+
+          {section === 'branding' && (
+            <>
+              <h2 className="admin-title">Branding</h2>
+              <p className="muted small" style={{ marginTop: -6, marginBottom: 14 }}>
+                Upload a replacement wordmark and lobby banner. Images are stored locally in the database and served
+                immediately to every window — no rebuild required.
+              </p>
+              <div className="grid g2">
+                {[
+                  { slot: 'logo', title: 'Wordmark / logo', hint: 'Transparent PNG recommended (about 216×48, white artwork).', url: brand.logo, bg: '#141414' },
+                  { slot: 'promo', title: 'Lobby banner', hint: 'Wide image, ideally 845×143. It is cropped to fit.', url: brand.promo, bg: '#2a1a0e' },
+                ].map((item) => (
+                  <div key={item.slot} className="admin-card">
+                    <div className="panel-title">{item.title}</div>
+                    <div style={{ height: item.slot === 'logo' ? 90 : 120, background: item.bg, borderRadius: 6, display: 'grid', placeItems: 'center', overflow: 'hidden', border: '1px solid #2a2c35' }}>
+                      <img src={item.url} alt="" style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }} />
+                    </div>
+                    <div className="muted small" style={{ margin: '8px 0' }}>{item.hint}</div>
+                    <div className="row">
+                      <label className="btn btn-red btn-sm" style={{ cursor: 'pointer' }}>
+                        Upload image
+                        <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          if (f.size > 3 * 1024 * 1024) { toast({ kind: 'error', title: 'Image too large', body: '3 MB maximum' }); return; }
+                          const reader = new FileReader();
+                          reader.onload = async () => {
+                            try {
+                              await api.admin.saveBrand(item.slot, String(reader.result));
+                              await refreshBrand();
+                              toast({ kind: 'success', title: 'Branding updated', body: item.title });
+                            } catch (err: any) { toast({ kind: 'error', title: 'Upload failed', body: err.message }); }
+                          };
+                          reader.readAsDataURL(f);
+                          e.currentTarget.value = '';
+                        }} />
+                      </label>
+                      <button className="btn btn-ghost btn-sm" onClick={async () => {
+                        try { await api.admin.resetBrand(item.slot); await refreshBrand(); toast({ kind: 'info', title: 'Reset to default', body: item.title }); }
+                        catch (err: any) { toast({ kind: 'error', title: 'Reset failed', body: err.message }); }
+                      }}>Reset to default</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </>
           )}

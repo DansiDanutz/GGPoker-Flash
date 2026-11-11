@@ -14,7 +14,7 @@ const FILTERS = [
 ];
 
 export function Tournaments() {
-  const { user, refreshUser, toast, navigate } = useApp();
+  const { user, refreshUser, toast, navigate, brand } = useApp();
   const [data, setData] = useState<any>(null);
   const [filter, setFilter] = useState('all');
   const [detail, setDetail] = useState<any>(null);
@@ -94,7 +94,7 @@ export function Tournaments() {
     <PageShell activeTop="tournaments" subnav={<SubNav items={FILTERS} active={filter} onChange={setFilter} />}>
       <div className="page">
         <div className="tourney-hero">
-          <div className="th-bg" />
+          <div className="th-bg" style={{ backgroundImage: `url(${brand.promo})` }} />
           <div className="th-content">
             <div className="th-kicker">TOURNAMENT SERIES</div>
             <h1>{featured?.name || 'Daily $100,000 Flipout'}</h1>

@@ -3,7 +3,7 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 
 export function Login() {
-  const { login, register, navigate, toast } = useApp();
+  const { login, register, navigate, toast, brand } = useApp();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
@@ -45,7 +45,7 @@ export function Login() {
         </div>
       </div>
       <div className="login-box">
-        <img className="brand-logo" src="/assets/chrome/logo.png" alt="DanGG.ro" />
+        <img className="brand-logo" src={brand.logo} alt="DanGG.ro" />
         <div className="tabs-line">
           <button className={mode === 'login' ? 'on' : ''} onClick={() => { setMode('login'); setErr(''); }}>Log in</button>
           <button className={mode === 'register' ? 'on' : ''} onClick={() => { setMode('register'); setErr(''); }}>Create account</button>
