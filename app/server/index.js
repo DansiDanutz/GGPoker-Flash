@@ -1261,6 +1261,45 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    if (p === '/api/messages' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const rows = db.prepare(`SELECT m.*, uf.nick AS from_nick, ut.nick AS to_nick
+        FROM direct_messages m JOIN users uf ON uf.id = m.from_id JOIN users ut ON ut.id = m.to_id
+        WHERE m.from_id = ? OR m.to_id = ? ORDER BY m.id DESC LIMIT 200`).all(u.id, u.id);
+      const threads = new Map();
+      for (const m of rows) {
+        const peer = m.from_id === u.id ? m.to_id : m.from_id;
+        const t = threads.get(peer) || { peer_id: peer, nick: m.from_id === u.id ? m.to_nick : m.from_nick, last: m.body, at: m.created_at, unread: 0 };
+        if (m.to_id === u.id && !m.read_at) t.unread++;
+        threads.set(peer, t);
+      }
+      return json(res, 200, { threads: [...threads.values()] });
+    }
+
+    if (p === '/api/messages' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      if (u.chat_muted) return json(res, 403, { error: 'Chat is muted' });
+      const body = await readBody(req);
+      const text = String(body.message || '').trim().slice(0, 500);
+      if (!text) return json(res, 400, { error: 'Message is empty' });
+      let peer = null;
+      if (body.peerId) peer = db.prepare('SELECT id,nick FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(Number(body.peerId));
+      else if (body.nick) peer = db.prepare('SELECT id,nick FROM users WHERE nick = ? COLLATE NOCASE AND deleted_at IS NULL AND banned = 0').get(String(body.nick));
+      if (!peer || peer.id === u.id) return json(res, 400, { error: 'Recipient not found' });
+      const info = db.prepare('INSERT INTO direct_messages (from_id,to_id,body) VALUES (?,?,?)').run(u.id, peer.id, text);
+      return json(res, 200, { ok: true, id: Number(info.lastInsertRowid), peer });
+    }
+
+    if (p.startsWith('/api/messages/') && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const peer = Number(p.split('/')[3]);
+      if (!peer) return json(res, 400, { error: 'invalid peer' });
+      db.prepare("UPDATE direct_messages SET read_at = datetime('now') WHERE from_id = ? AND to_id = ? AND read_at IS NULL").run(peer, u.id);
+      const rows = db.prepare(`SELECT m.*, uf.nick AS from_nick FROM direct_messages m JOIN users uf ON uf.id = m.from_id
+        WHERE (m.from_id = ? AND m.to_id = ?) OR (m.from_id = ? AND m.to_id = ?) ORDER BY m.id ASC LIMIT 200`).all(u.id, peer, peer, u.id);
+      return json(res, 200, { messages: rows });
+    }
+
     if (p === '/api/chat') {
       const rows = db.prepare(`SELECT * FROM chat_messages WHERE channel='lobby' ORDER BY id DESC LIMIT 50`).all().reverse();
       return json(res, 200, { messages: rows });

@@ -33,6 +33,11 @@ export function MyPage() {
   const [tx, setTx] = useState<any[]>([]);
   const [leaders, setLeaders] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [dms, setDms] = useState<any[]>([]);
+  const [dmPeer, setDmPeer] = useState<any>(null);
+  const [dmThread, setDmThread] = useState<any[]>([]);
+  const [dmText, setDmText] = useState('');
+  const [dmBusy, setDmBusy] = useState(false);
   const [notes, setNotes] = useState<any[]>([]);
   const [noteEdit, setNoteEdit] = useState<any>(null);
   const [friends, setFriends] = useState<any[]>([]);
@@ -49,11 +54,25 @@ export function MyPage() {
   const [pwdNew, setPwdNew] = useState('');
   const [pwdBusy, setPwdBusy] = useState(false);
 
+  const loadDms = async () => { try { const r = await api.messages(); setDms(r.threads || []); } catch { /* ignore */ } };
+  const openDm = async (peer: any) => {
+    setDmPeer(peer);
+    try { const r = await api.messageThread(peer.peer_id || peer.id); setDmThread(r.messages || []); await loadDms(); } catch { setDmThread([]); }
+  };
+  const sendDm = async () => {
+    if (!dmPeer || !dmText.trim() || dmBusy) return;
+    setDmBusy(true);
+    try { await api.sendMessage(dmPeer.peer_id || dmPeer.id, dmText.trim()); setDmText(''); const r = await api.messageThread(dmPeer.peer_id || dmPeer.id); setDmThread(r.messages || []); await loadDms(); }
+    catch (e: any) { toast({ kind: 'error', title: 'Message not sent', body: e.message }); }
+    finally { setDmBusy(false); }
+  };
+
   useEffect(() => {
     api.missions().then((r) => setMissions(r.missions)).catch(() => {});
     api.cashier().then((r) => setTx(r.transactions)).catch(() => {});
     api.leaderboard().then((r) => setLeaders(r.leaders)).catch(() => {});
     fetch('/api/chat').then((r) => r.json()).then((d) => setMessages((d.messages || []).slice(-20))).catch(() => {});
+    loadDms();
     fetch('/api/notes', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setNotes(d.notes || [])).catch(() => {});
     fetch('/api/friends', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setFriends(d.friends || [])).catch(() => {});
     fetch('/api/sessions', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setSessions(d.sessions || [])).catch(() => {});
@@ -198,18 +217,44 @@ export function MyPage() {
         )}
 
         {tab === 'messages' && (
-          <div className="card" style={{ padding: 0 }}>
-            {[
-              ['🎁', 'Daily freebie is ready', 'Open My Rewards to claim it.'],
-              ['🏆', 'Tournament reminder', 'Your registered event starts soon.'],
-              ['🐟', 'Fish Buffet spin available', 'Spin for up to 100,000x.'],
-              ...messages.map((m: any) => ['💬', `${m.nick} in lobby chat`, m.message]),
-            ].map(([i, t, b], idx) => (
-              <div key={idx} className="list-row" style={{ borderRadius: 0 }}>
-                <span style={{ fontSize: 20 }}>{i}</span>
-                <div style={{ flex: 1 }}><b style={{ fontSize: 13, color: '#eee' }}>{t}</b><div className="muted small">{b}</div></div>
-              </div>
-            ))}
+          <div className="grid g2" style={{ alignItems: 'start' }}>
+            <div className="card" style={{ padding: 0 }}>
+              <div className="panel-title" style={{ padding: '12px 12px 6px' }}>Direct messages</div>
+              {dms.map((d) => (
+                <div key={d.peer_id} className={'list-row dm-thread' + (dmPeer?.peer_id === d.peer_id ? ' on' : '')} onClick={() => openDm(d)} style={{ cursor: 'pointer' }}>
+                  <Avatar name={d.nick} size={30} />
+                  <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 12.5, color: '#eee' }}>{d.nick}</b><div className="muted small dm-last">{d.last}</div></div>
+                  {d.unread > 0 && <span className="dm-unread">{d.unread}</span>}
+                </div>
+              ))}
+              {!dms.length && <div className="empty-state">No direct messages. Open a friend to start one.</div>}
+              <div className="panel-title" style={{ padding: '12px 12px 6px', borderTop: '1px solid #242424' }}>Lobby feed</div>
+              {messages.slice(-8).map((m: any) => (
+                <div key={m.id} className="list-row" style={{ borderRadius: 0 }}>
+                  <span style={{ fontSize: 16 }}>💬</span>
+                  <div style={{ flex: 1 }}><b style={{ fontSize: 12, color: '#eee' }}>{m.nick}</b><div className="muted small">{m.message}</div></div>
+                </div>
+              ))}
+            </div>
+            <div className="card">
+              {dmPeer ? (<>
+                <div className="panel-title">Chat with {dmPeer.nick}</div>
+                <div className="dm-log">
+                  {dmThread.map((m) => (
+                    <div key={m.id} className={'dm-bubble' + (m.from_id === user?.id ? ' me' : '')}>
+                      <span>{m.body}</span><small>{m.created_at?.slice(11, 16)}</small>
+                    </div>
+                  ))}
+                  {!dmThread.length && <div className="muted small">No messages yet.</div>}
+                </div>
+                <form className="row" style={{ marginTop: 10 }} onSubmit={(e) => { e.preventDefault(); sendDm(); }}>
+                  <input className="admin-input" style={{ flex: 1 }} placeholder="Write a message…" value={dmText} onChange={(e) => setDmText(e.target.value)} maxLength={500} />
+                  <button className="btn btn-red btn-sm" disabled={dmBusy || !dmText.trim()} type="submit">Send</button>
+                </form>
+              </>) : (
+                <div className="empty-state">Select a conversation or message a friend.</div>
+              )}
+            </div>
           </div>
         )}
 
@@ -239,7 +284,7 @@ export function MyPage() {
                     </div>
                   </div>
                   <div className="row" style={{ marginTop: 10 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setTab('messages')}>Message</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => { setTab('messages'); openDm(f); }}>Message</button>
                     <button className="btn btn-ghost btn-sm" onClick={async () => {
                       await fetch(`/api/friends/${f.id}`, { method: 'DELETE', headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } });
                       setFriends((prev) => prev.filter((x) => x.id !== f.id));

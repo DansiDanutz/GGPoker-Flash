@@ -512,3 +512,11 @@ body.electron .app-window::before { display: none; }
 .emote-tray button { width: 38px; height: 38px; border-radius: 7px; font-size: 20px; background: rgba(255,255,255,.04); }
 .emote-tray button:hover { background: rgba(216,177,95,.14); }
 @media (max-width: 760px) { .emote-tray { right: 8px; top: 40px; } }
+.dm-thread.on { background: rgba(216,177,95,.08); }
+.dm-last { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-unread { min-width: 18px; height: 18px; border-radius: 9px; background: #b72f3c; color: #fff; font-size: 10px; display: grid; place-items: center; padding: 0 5px; }
+.dm-log { display: flex; flex-direction: column; gap: 6px; max-height: 330px; overflow-y: auto; padding: 4px 2px; }
+.dm-bubble { align-self: flex-start; max-width: 80%; background: #222; border: 1px solid #333; border-radius: 10px 10px 10px 3px; padding: 6px 9px; color: #e8e8e8; font-size: 12px; }
+.dm-bubble.me { align-self: flex-end; background: #2b2110; border-color: #6b5320; border-radius: 10px 10px 3px 10px; color: #f1dfb4; }
+.dm-bubble span { display: block; }
+.dm-bubble small { display: block; color: #7f8a83; font-size: 9px; text-align: right; margin-top: 2px; }

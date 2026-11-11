@@ -61,6 +61,11 @@ not a source to copy blindly.
 
 - Multi-table windows: Settings can open joined tables in new Electron windows, and the buy-in modal exposes **New window**; auto buy-in respects the same setting.
 - Tournament search now filters by event name or format.
+- Direct messages between local accounts:
+  - inbox threads with unread counts;
+  - message history and send endpoint;
+  - friend **Message** opens the conversation;
+  - account-wide chat mute applies to direct messages.
 - Cashier bonuses are real, not toast-only:
   - welcome once per account, reload once per ISO week, daily once per UTC day;
   - persistent `bonus_claims` rows, idempotent ledger references and audit entries;
