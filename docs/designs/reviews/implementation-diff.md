@@ -1,11 +1,11 @@
 # Implementation Diff — Remediation Phases 1–4 (final)
 
 Baseline: 320f00b
-Head: ab75928
+Head: 5dc97d5
 
 ```diff
 diff --git a/README.md b/README.md
-index 0cbf69d..6e5a31c 100644
+index 0cbf69d..faef923 100644
 --- a/README.md
 +++ b/README.md
 @@ -251,7 +251,7 @@ Goldfish reviews and the consolidated disposition are in
@@ -13,7 +13,7 @@ index 0cbf69d..6e5a31c 100644
  The review changed the code: `addTransaction` is now a single SQLite
  transaction, the deck shuffle uses `node:crypto`, the app enforces a single
 -instance, CDP is gated to dev, request bodies are capped, and 11 committed
-+instance, CDP is gated to dev, request bodies are capped, and 24 committed
++instance, CDP is gated to dev, request bodies are capped, and 26 committed
  `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
  
  ## Notes / scope
@@ -155,10 +155,10 @@ index 13cf770..ee80970 100644
  });
 diff --git a/app/server/claims.test.js b/app/server/claims.test.js
 new file mode 100644
-index 0000000..44efc5c
+index 0000000..d11a832
 --- /dev/null
 +++ b/app/server/claims.test.js
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,51 @@
 +import test from 'node:test';
 +import assert from 'node:assert/strict';
 +import fs from 'node:fs';
@@ -199,6 +199,16 @@ index 0000000..44efc5c
 +  assert.equal(a.claimed, true);
 +  assert.equal(b.claimed, false);
 +  assert.equal(getClaim(u1.id, 'daily', '2026-11-11').claimed, 1);
++});
++
++
++test('mission period rolls over daily and weekly', () => {
++  const a = missionPeriodKey('daily-hands', Date.UTC(2026, 10, 11));
++  const b = missionPeriodKey('daily-hands', Date.UTC(2026, 10, 12));
++  const w1 = missionPeriodKey('weekly-vip', Date.UTC(2026, 10, 11));
++  const w2 = missionPeriodKey('weekly-vip', Date.UTC(2026, 10, 18));
++  assert.notEqual(a, b);
++  assert.notEqual(w1, w2);
 +});
 diff --git a/app/server/db.js b/app/server/db.js
 index 51482ca..0c948f8 100644
@@ -367,10 +377,29 @@ index 51482ca..0c948f8 100644
    const token = randomUUID();
    const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
 diff --git a/app/server/engine.test.js b/app/server/engine.test.js
-index 0334242..951b382 100644
+index 0334242..dff2b9d 100644
 --- a/app/server/engine.test.js
 +++ b/app/server/engine.test.js
-@@ -106,3 +106,36 @@ test('tournament winner receives half the prize pool exactly once and fires the
+@@ -56,13 +56,17 @@ test('bestOmaha uses exactly two hole cards and three board cards', () => {
+   assert.notEqual(noFalseRoyal.name, 'Royal Flush');
+ });
+ 
+-test('rake is floored at 5% and capped at 3 big blinds', () => {
++test('rake is floored at 5% and capped by rakeCap (default 300)', () => {
+   const t = tableWith([player(1, 'A', 1000, 0, [])], { seats: 1 });
+   assert.equal(t.computeRake(1000), 50);
+   assert.equal(t.computeRake(1010), 50);
+   assert.equal(t.computeRake(10000), 300);
+   const capped = tableWith([player(1, 'A', 1000, 0, [])], { seats: 1, rakeCap: 120 });
+   assert.equal(capped.computeRake(10000), 120);
++  const high = tableWith([player(1, 'A', 1000, 0, [])], { seats: 1, bb: 2000 });
++  assert.equal(high.computeRake(100000), 300);
++  const zero = tableWith([player(1, 'A', 1000, 0, [])], { seats: 1, rakeCap: 0 });
++  assert.equal(zero.computeRake(10000), 300);
+ });
+ 
+ test('showdown builds side pots and conserves chips', () => {
+@@ -106,3 +110,50 @@ test('tournament winner receives half the prize pool exactly once and fires the
    assert.equal(paid, 1);
    assert.equal(ends, 1);
  });
@@ -406,6 +435,20 @@ index 0334242..951b382 100644
 +  t.hooks = { onSeatBusted: (_table, p) => busted.push(p.id), onHandComplete: () => {} };
 +  t.tick(2);
 +  assert.deepEqual(busted.sort(), [2, 3]);
++});
++
++
++test('a throwing onSeatBusted hook still clears the busted seat', () => {
++  const p1 = player(1, 'Winner', 1000, 0, []);
++  const p2 = player(2, 'Busted', 0, 0, []);
++  const p3 = player(3, 'Busted too', 0, 0, []);
++  const t = tableWith([p1, p2, p3], { seats: 3, game: 'spingold' });
++  t.street = 'ended';
++  t.nextHandAt = 1;
++  t.hooks = { onSeatBusted: () => { throw new Error('hook failed'); }, onHandComplete: () => {} };
++  t.tick(2);
++  assert.equal(t.seats[1].player, null);
++  assert.equal(t.seats[2].player, null);
 +});
 diff --git a/app/server/http.test.js b/app/server/http.test.js
 new file mode 100644
@@ -538,7 +581,7 @@ index 0000000..ac0d46d
 +  }
 +});
 diff --git a/app/server/index.js b/app/server/index.js
-index c5c6cff..90146d8 100644
+index c5c6cff..31005ca 100644
 --- a/app/server/index.js
 +++ b/app/server/index.js
 @@ -2,10 +2,11 @@ import http from 'node:http';
@@ -789,7 +832,7 @@ index c5c6cff..90146d8 100644
 -      return json(res, 200, { ok: true, amount, balance: after });
 +      const award = claimReward(u.id, 'daily', day, amount, 'USD', 'Daily freebie');
 +      if (!award.claimed) return json(res, 400, { error: 'Daily freebie already claimed today', amount: award.amount });
-+      return json(res, 200, { ok: true, amount, balance: award.balance });
++      return json(res, 200, { ok: true, amount: award.amount, balance: award.balance });
      }
  
      if (p === '/api/rewards/daily') {
@@ -906,12 +949,13 @@ index c5c6cff..90146d8 100644
      }
  
      // ---------- brand assets ----------
-@@ -1036,9 +1106,16 @@ const server = http.createServer(async (req, res) => {
+@@ -1036,9 +1106,17 @@ const server = http.createServer(async (req, res) => {
        const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
        if (!target) return json(res, 404, { error: 'not found' });
        if (body.action === 'credit') {
 -        const after = addTransaction(id, 'admin', Math.round(body.amount || 0), `Admin credit by ${a.login}`);
-+        const reference = body.reference ? `admin:credit:${body.reference}` : null;
++        if (!body.reference) return json(res, 400, { error: 'reference required' });
++        const reference = `admin:credit:${body.reference}`;
 +        const existing = transactionByReference(id, reference);
 +        if (existing) {
 +          if (existing.amount !== Math.round(body.amount || 0)) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
@@ -925,7 +969,7 @@ index c5c6cff..90146d8 100644
        }
        if (body.action === 'set') {
          const currency = { balance: 'USD', play_chips: 'PLAY', tickets: 'TICKET', gems: 'GEM' };
-@@ -1061,6 +1138,7 @@ const server = http.createServer(async (req, res) => {
+@@ -1061,6 +1139,7 @@ const server = http.createServer(async (req, res) => {
        }
        if (body.action === 'resetpw') {
          db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(String(body.password || 'ggpoker')), id);
@@ -933,7 +977,25 @@ index c5c6cff..90146d8 100644
          return json(res, 200, { ok: true });
        }
        if (body.action === 'delete' && !target.is_admin) {
-@@ -1149,7 +1227,12 @@ const server = http.createServer(async (req, res) => {
+@@ -1138,18 +1217,27 @@ const server = http.createServer(async (req, res) => {
+       const a = requireAdmin(req, res); if (!a) return;
+       const b = await readBody(req);
+       if (b.delete) { db.prepare('DELETE FROM missions WHERE id = ?').run(b.id); return json(res, 200, { ok: true }); }
+-      db.prepare(`INSERT INTO missions (id,title,description,goal,progress,reward,reward_kind,active,sort,claimed)
+-        VALUES (?,?,?,?,?,?,?,?,?,0)
++      if (b.reset) {
++        db.prepare("DELETE FROM player_claims WHERE kind = 'mission' AND period_key LIKE ?").run(`mission:${b.id}:%`);
++        return json(res, 200, { ok: true });
++      }
++      db.prepare(`INSERT INTO missions (id,title,description,goal,reward,reward_kind,active,sort)
++        VALUES (?,?,?,?,?,?,?,?)
+         ON CONFLICT(id) DO UPDATE SET title=excluded.title, description=excluded.description, goal=excluded.goal,
+         reward=excluded.reward, reward_kind=excluded.reward_kind, active=excluded.active, sort=excluded.sort`)
+         .run(b.id || `m${Date.now()}`, b.title || 'Mission', b.description || '', Number(b.goal) || 1,
+-          Number(b.progress) || 0, Number(b.reward) || 100, b.reward_kind || 'USD', b.active === false ? 0 : 1, Number(b.sort) || 0);
++          Number(b.reward) || 100, b.reward_kind || 'USD', b.active === false ? 0 : 1, Number(b.sort) || 0);
+       return json(res, 200, { ok: true });
+     }
  
      if (p === '/api/admin/missions') {
        const a = requireAdmin(req, res); if (!a) return;
@@ -947,7 +1009,7 @@ index c5c6cff..90146d8 100644
      }
  
      if (p.startsWith('/api/admin/live/') && p.endsWith('/close') && req.method === 'POST') {
-@@ -1158,12 +1241,7 @@ const server = http.createServer(async (req, res) => {
+@@ -1158,12 +1246,7 @@ const server = http.createServer(async (req, res) => {
        const entry = LIVE_TABLES.get(id);
        if (!entry) return json(res, 404, { error: 'not running' });
        for (const s of [...entry.table.seats]) {
@@ -961,7 +1023,7 @@ index c5c6cff..90146d8 100644
        }
        clearInterval(entry.timer);
        LIVE_TABLES.delete(id);
-@@ -1309,11 +1387,9 @@ wss.on('connection', (ws, req) => {
+@@ -1309,11 +1392,9 @@ wss.on('connection', (ws, req) => {
          entry.clients.delete(ws);
          ws.tables.delete(msg.tableId);
          const table = entry.table;
@@ -976,7 +1038,7 @@ index c5c6cff..90146d8 100644
            notifyWaitlist(msg.tableId);
          } else {
            waitlistLeave(msg.tableId, ws.userId);
-@@ -1345,11 +1421,18 @@ wss.on('connection', (ws, req) => {
+@@ -1345,11 +1426,19 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
        if (seat.player.inHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
@@ -988,15 +1050,16 @@ index c5c6cff..90146d8 100644
 -      addTransaction(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`);
 +      if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
 +      const sessionId = seat.player.sessionId;
-+      seat.player.rebuyCount = (seat.player.rebuyCount || 0) + 1;
++      const rebuyNo = (seat.player.rebuyCount || 0) + 1;
 +      const award = addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
-+        sessionId, reference: `in:${sessionId}:r${seat.player.rebuyCount}`, onDuplicate: 'skip',
++        sessionId, reference: `in:${sessionId}:r${rebuyNo}`, onDuplicate: 'skip',
 +      });
 +      if (!award.applied) return ws.send(JSON.stringify({ type: 'error', error: 'Rebuy already applied' }));
++      seat.player.rebuyCount = rebuyNo;
        seat.player.stack += amount;
        broadcastState(table);
        return;
-@@ -1406,9 +1489,7 @@ wss.on('connection', (ws, req) => {
+@@ -1406,9 +1495,7 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (seat) {
          seat.player.disconnected = true;
@@ -1007,7 +1070,7 @@ index c5c6cff..90146d8 100644
          notifyWaitlist(id);
        } else {
          waitlistLeave(id, ws.userId);
-@@ -1418,6 +1499,10 @@ wss.on('connection', (ws, req) => {
+@@ -1418,6 +1505,10 @@ wss.on('connection', (ws, req) => {
    });
  });
  
@@ -1118,7 +1181,7 @@ index 93fd58b..ea26c94 100644
 +  assert.equal(after.gems - before.gems, by.GEM);
 +});
 diff --git a/app/server/table.js b/app/server/table.js
-index fa07090..7b7874c 100644
+index fa07090..97c4bcc 100644
 --- a/app/server/table.js
 +++ b/app/server/table.js
 @@ -64,7 +64,7 @@ export class PokerTable {
@@ -1161,7 +1224,7 @@ index fa07090..7b7874c 100644
                  this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
                  if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
                }
-+              if (this.hooks.onSeatBusted) this.hooks.onSeatBusted(this, busted);
++              try { if (this.hooks.onSeatBusted) this.hooks.onSeatBusted(this, busted); } catch (e) { console.error('seat busted hook', e); }
                s.player = null;
                this.emit({ type: 'stand', seat: s.index });
              }
@@ -1189,7 +1252,7 @@ index 34cae72..9548d59 100644
    missions: () => request<{ missions: any[] }>('/api/missions'),
    claimMission: (id: string) => request<any>(`/api/missions/${id}/claim`, { method: 'POST' }),
 diff --git a/app/src/pages/Admin.tsx b/app/src/pages/Admin.tsx
-index 3487a64..5fef50e 100644
+index 3487a64..3222669 100644
 --- a/app/src/pages/Admin.tsx
 +++ b/app/src/pages/Admin.tsx
 @@ -1,4 +1,4 @@
@@ -1213,8 +1276,17 @@ index 3487a64..5fef50e 100644
  
    if (!isAdmin) {
      return (
+@@ -334,7 +340,7 @@ export function Admin() {
+                         <td>
+                           <div className="row" style={{ gap: 3 }}>
+                             <button className="btn btn-ghost btn-sm" onClick={() => { setEditing({ kind: 'mission' }); setLocal({ ...m, active: !!m.active }); }}>Edit</button>
+-                            <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.saveMission({ ...m, progress: 0, claimed: false }); loadAll(); }}>Reset</button>
++                            <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.saveMission({ id: m.id, reset: true }); loadAll(); }}>Reset</button>
+                           </div>
+                         </td>
+                       </tr>
 diff --git a/app/src/pages/Cashier.tsx b/app/src/pages/Cashier.tsx
-index 68ba28e..df7f310 100644
+index 68ba28e..7e130ed 100644
 --- a/app/src/pages/Cashier.tsx
 +++ b/app/src/pages/Cashier.tsx
 @@ -1,4 +1,4 @@
@@ -1248,11 +1320,11 @@ index 68ba28e..df7f310 100644
 +      if (!requestKey.current) requestKey.current = crypto.randomUUID();
 +      if (mode === 'deposit') await api.deposit(amount, method, requestKey.current || undefined);
 +      else await api.withdraw(amount, method, requestKey.current || undefined);
-+      requestKey.current = null;
        sound.play('coin');
        toast({ kind: 'success', title: mode === 'deposit' ? 'Deposit complete' : 'Withdrawal requested', body: money(amount) });
        await load();
        await refreshUser();
++      requestKey.current = null;
      } catch (e: any) {
        toast({ kind: 'error', title: 'Transaction failed', body: e.message });
 -    } finally { setBusy(false); }
