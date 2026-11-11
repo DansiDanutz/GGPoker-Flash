@@ -789,6 +789,34 @@ const server = http.createServer(async (req, res) => {
     }
 
     /* ---------------- admin ---------------- */
+    if (p.startsWith('/api/admin/export/') && req.method === 'GET') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const kind = p.split('/')[4];
+      const esc = (v) => {
+        const str = v == null ? '' : String(v);
+        return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+      };
+      const toCsv = (rows, cols) => [cols.join(','), ...rows.map((r) => cols.map((c) => esc(r[c])).join(','))].join('\n');
+      let csv = '';
+      if (kind === 'users') {
+        const rows = db.prepare('SELECT id, login, nick, email, balance, play_chips, tickets, gems, vip_level, is_admin, created_at FROM users ORDER BY id').all();
+        csv = toCsv(rows, ['id', 'login', 'nick', 'email', 'balance', 'play_chips', 'tickets', 'gems', 'vip_level', 'is_admin', 'created_at']);
+      } else if (kind === 'transactions') {
+        const rows = db.prepare('SELECT t.id, t.user_id, u.login, t.kind, t.amount, t.currency, t.memo, t.created_at FROM transactions t LEFT JOIN users u ON u.id = t.user_id ORDER BY t.id DESC LIMIT 5000').all();
+        csv = toCsv(rows, ['id', 'user_id', 'login', 'kind', 'amount', 'currency', 'memo', 'created_at']);
+      } else if (kind === 'hands') {
+        const rows = db.prepare('SELECT id, table_name, hand_no, board, pot, hero_cards, result, created_at FROM hands ORDER BY id DESC LIMIT 5000').all();
+        csv = toCsv(rows, ['id', 'table_name', 'hand_no', 'board', 'pot', 'hero_cards', 'result', 'created_at']);
+      } else if (kind === 'tournaments') {
+        const rows = db.prepare('SELECT id, name, format, buyin, fee, gtd, entrants, max_players, status, start_at FROM tournaments ORDER BY id').all();
+        csv = toCsv(rows, ['id', 'name', 'format', 'buyin', 'fee', 'gtd', 'entrants', 'max_players', 'status', 'start_at']);
+      } else {
+        return json(res, 400, { error: 'unknown export' });
+      }
+      res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="dangro-${kind}.csv"` });
+      return res.end('\uFEFF' + csv);
+    }
+
     if (p === '/api/admin/stats') {
       const a = requireAdmin(req, res); if (!a) return;
       const users = db.prepare('SELECT COUNT(*) c FROM users').get().c;

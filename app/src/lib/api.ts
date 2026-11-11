@@ -112,6 +112,15 @@ export const api = {
     chat: (message: string) => request('/api/admin/chat', { method: 'POST', body: JSON.stringify({ message }) }),
     saveBrand: (slot: string, dataUrl: string) => request('/api/admin/brand', { method: 'POST', body: JSON.stringify({ slot, dataUrl }) }),
     resetBrand: (slot: string) => request(`/api/admin/brand/${slot}`, { method: 'DELETE' }),
+    exportCsv: async (kind: string) => {
+      const r = await fetch(`/api/admin/export/${kind}`, { headers: { authorization: `Bearer ${getToken()}` } });
+      if (!r.ok) throw new Error('Export failed');
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `dangro-${kind}.csv`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    },
   },
 };
 

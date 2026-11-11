@@ -124,7 +124,14 @@ export function Admin() {
         <div className="admin-main">
           {section === 'dashboard' && (
             <>
-              <h2 className="admin-title">Dashboard</h2>
+              <div className="between">
+                <h2 className="admin-title" style={{ margin: 0 }}>Dashboard</h2>
+                <div className="row">
+                  {['users', 'transactions', 'hands', 'tournaments'].map((k) => (
+                    <button key={k} className="btn btn-ghost btn-sm" onClick={async () => { try { await api.admin.exportCsv(k); toast({ kind: 'success', title: 'Export ready', body: `${k}.csv` }); } catch (e: any) { toast({ kind: 'error', title: 'Export failed', body: e.message }); } }}>⤓ {k}</button>
+                  ))}
+                </div>
+              </div>
               <div className="stat-grid">
                 <div className="stat"><span>Users</span><b>{stats?.users ?? '—'}</b></div>
                 <div className="stat"><span>Hands played</span><b>{stats?.hands ?? '—'}</b></div>
@@ -176,7 +183,10 @@ export function Admin() {
             <>
               <div className="between" style={{ marginBottom: 10 }}>
                 <h2 className="admin-title" style={{ margin: 0 }}>Users</h2>
-                <input className="admin-input" placeholder="Search login or nickname…" value={q} onChange={(e) => setQ(e.target.value)} />
+                <div className="row">
+                  <button className="btn btn-ghost btn-sm" onClick={() => api.admin.exportCsv('users')}>⤓ CSV</button>
+                  <input className="admin-input" placeholder="Search login or nickname…" value={q} onChange={(e) => setQ(e.target.value)} />
+                </div>
               </div>
               <div className="admin-card" style={{ padding: 0 }}>
                 <table className="admin-table">
@@ -408,7 +418,10 @@ export function Admin() {
 
           {section === 'transactions' && (
             <>
-              <h2 className="admin-title">Transactions</h2>
+              <div className="between">
+                <h2 className="admin-title" style={{ margin: 0 }}>Transactions</h2>
+                <button className="btn btn-ghost btn-sm" onClick={() => api.admin.exportCsv('transactions')}>⤓ Export CSV</button>
+              </div>
               <div className="admin-card" style={{ padding: 0 }}>
                 <table className="admin-table">
                   <thead><tr><th>#</th><th>User</th><th>Type</th><th>Currency</th><th>Amount</th><th>Balance</th><th>Memo</th><th>Date</th></tr></thead>
