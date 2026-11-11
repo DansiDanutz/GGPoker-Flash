@@ -538,3 +538,16 @@ body.electron .app-window::before { display: none; }
 .pcard.art-face.art-official-four { background-image: url('/assets/cards/faces_four.png'); }
 .pcard.art-face .rank, .pcard.art-face .suit, .pcard.art-face .big-suit { display: none; }
 .pcard.art-face.mini { border-radius: 4px; }
+
+/* Native 122×162 card-back images. */
+.back-skin-red-pattern .pcard.back, .back-skin-red-pattern .back-preview { background-image: url('/assets/cards/backs/red-pattern.png'); }
+.back-skin-blue-pattern .pcard.back, .back-skin-blue-pattern .back-preview { background-image: url('/assets/cards/backs/blue-pattern.png'); }
+.back-skin-green-pattern .pcard.back, .back-skin-green-pattern .back-preview { background-image: url('/assets/cards/backs/green-pattern.png'); }
+.back-skin-black-pattern .pcard.back, .back-skin-black-pattern .back-preview { background-image: url('/assets/cards/backs/black-pattern.png'); }
+.back-skin-orange-pattern .pcard.back, .back-skin-orange-pattern .back-preview { background-image: url('/assets/cards/backs/orange-pattern.png'); }
+.back-skin-pink-pattern .pcard.back, .back-skin-pink-pattern .back-preview { background-image: url('/assets/cards/backs/pink-pattern.png'); }
+.back-skin-gray-pattern .pcard.back, .back-skin-gray-pattern .back-preview { background-image: url('/assets/cards/backs/gray-pattern.png'); }
+.back-skin-gg-gray .pcard.back, .back-skin-gg-gray .back-preview { background-image: url('/assets/cards/backs/gg-gray.png'); }
+.back-skin-red-plain .pcard.back, .back-skin-red-plain .back-preview { background-image: url('/assets/cards/backs/red-plain.png'); }
+.pcard.back { background-size: 100% 100%; background-position: center; }
+.back-preview { background-size: 100% 100%; background-position: center; }

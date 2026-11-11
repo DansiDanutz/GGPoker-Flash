@@ -29,7 +29,7 @@ not a source to copy blindly.
   - independent sound channels (SFX, voices, alerts, lobby music, ambience);
   - betting shortcuts: four pre-flop BB values and four post-flop percentages,
     persisted and previewed;
-  - six card-back skins and four card-front styles (classic, jumbo, minimal, four colour);
+  - nine native 122×162 card-back images plus official card-face sprites;
   - three official room backgrounds (featured room, dark room, stone floor);
   - stack display in chips, big blinds, or both (click a stack to cycle);
   - buy-in default as a percentage of table maximum;
