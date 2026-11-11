@@ -1318,14 +1318,17 @@ const server = http.createServer(async (req, res) => {
       const b = await readBody(req);
       if (b.delete) { db.prepare('DELETE FROM tournaments WHERE id = ?').run(b.id); return json(res, 200, { ok: true }); }
       const id = b.id || `t${Date.now()}`;
-      db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,format,enabled)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        ON CONFLICT(id) DO UPDATE SET name=excluded.name, buyin=excluded.buyin, fee=excluded.fee, gtd=excluded.gtd,
-        start_at=excluded.start_at, status=excluded.status, max_players=excluded.max_players, format=excluded.format, enabled=excluded.enabled`)
+      db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(id) DO UPDATE SET name=excluded.name, game=excluded.game, buyin=excluded.buyin, fee=excluded.fee, gtd=excluded.gtd,
+        start_at=excluded.start_at, status=excluded.status, max_players=excluded.max_players, entrants=excluded.entrants,
+        starting_stack=excluded.starting_stack, blind_speed=excluded.blind_speed, late_reg=excluded.late_reg,
+        format=excluded.format, mode=excluded.mode, bounty=excluded.bounty, ticket=excluded.ticket, enabled=excluded.enabled`)
         .run(id, b.name || 'New Tournament', b.game || 'holdem', Number(b.buyin) || 0, Number(b.fee) || 0,
           Number(b.gtd) || 0, b.start_at || new Date().toISOString(), b.status || 'registering',
           Number(b.max_players) || 1000, Number(b.entrants) || 0, Number(b.starting_stack) || 10000,
-          Number(b.blind_speed) || 8, b.format || 'NLH', b.enabled === false ? 0 : 1);
+          Number(b.blind_speed) || 8, Number(b.late_reg) || 90, b.format || 'NLH', b.mode || 'STANDARD',
+          Number(b.bounty) || 0, b.ticket || '', b.enabled === false ? 0 : 1);
       return json(res, 200, { ok: true, id });
     }
 
