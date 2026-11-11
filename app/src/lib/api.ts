@@ -30,6 +30,8 @@ export type LobbyTable = {
   seats: number;
   speed: string;
   featured: boolean;
+  private?: boolean;
+  owner_id?: number | null;
   players: number;
   wait: number;
   avgPot: number;
@@ -69,6 +71,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number }) =>
+    request<{ id: string }>('/api/tables/host', { method: 'POST', body: JSON.stringify(data) }),
   login: (login: string, password: string) =>
     request<{ token: string; user: User }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, password }) }),
   register: (data: { login: string; nick: string; password: string; email?: string }) =>

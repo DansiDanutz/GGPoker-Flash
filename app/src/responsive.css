@@ -495,3 +495,6 @@ body.electron .app-window::before { display: none; }
 .room-bg-dark .room-mark { background-image: url('/assets/tables/room_dark.png'); background-position: center 42%; background-size: cover; filter: brightness(1.1) contrast(1.05) saturate(.75); opacity: .95; }
 .room-bg-floor .room-mark { background-image: url('/assets/tables/room_floor.png'); background-position: center 55%; background-size: cover; filter: brightness(1.28) contrast(1.05) saturate(.85); opacity: .95; }
 @media (max-width: 760px) { .room-bg-grid { grid-template-columns: 1fr 1fr; } }
+.host-table-btn { height: 22px; padding: 0 9px; border-radius: 3px; background: rgba(216,177,95,.12); border: 1px solid rgba(216,177,95,.32); color: #f1d99f; font-size: 10.5px; white-space: nowrap; }
+.host-table-btn:hover { background: rgba(216,177,95,.22); }
+@media (max-width: 760px) { .host-table-btn { height: 28px; } }

@@ -66,7 +66,9 @@ function init() {
     featured INTEGER NOT NULL DEFAULT 0,
     enabled INTEGER NOT NULL DEFAULT 1,
     min_players INTEGER NOT NULL DEFAULT 2,
-    sort INTEGER NOT NULL DEFAULT 0
+    sort INTEGER NOT NULL DEFAULT 0,
+    owner_id INTEGER,
+    private INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS hands (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -206,6 +208,8 @@ function init() {
   `);
 
   try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tables ADD COLUMN owner_id INTEGER'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tables ADD COLUMN private INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE tournaments ADD COLUMN mode TEXT DEFAULT 'STANDARD'"); } catch { /* already exists */ }

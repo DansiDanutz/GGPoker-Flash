@@ -39,6 +39,11 @@ not a source to copy blindly.
   - dealer animation speed;
   - real password change and revoke-other-sessions;
   - email is read-only because no account-email mutation API exists.
+- Private home tables:
+  - player-created table with name, game, seats, blinds and buy-in range;
+  - owner visibility in the lobby, public isolation from `/api/tables`;
+  - private-table rows carry `owner_id` and `private` in SQLite;
+  - creation is audited and capped at eight tables per owner.
 - Table:
   - card-back skin from settings;
   - four configurable quick-bet buttons with pre/post-flop labels;

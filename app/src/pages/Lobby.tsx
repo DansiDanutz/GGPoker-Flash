@@ -72,6 +72,9 @@ export function Lobby() {
   const [buyinTable, setBuyinTable] = useState<LobbyTable | null>(null);
   const [buyin, setBuyin] = useState(0);
   const [seat, setSeat] = useState<number | null>(null);
+  const [hostOpen, setHostOpen] = useState(false);
+  const [hostBusy, setHostBusy] = useState(false);
+  const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000 });
   const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
   const [promoIdx, setPromoIdx] = useState(0);
   const [promoPaused, setPromoPaused] = useState(false);
@@ -182,6 +185,20 @@ export function Lobby() {
     navigate(`/table/${buyinTable.id}?buyin=${buyin}${seat != null ? `&seat=${seat}` : ''}`);
   };
 
+  const createHost = async () => {
+    if (hostBusy) return;
+    setHostBusy(true);
+    try {
+      const r = await api.hostTable({ ...hostForm, name: hostForm.name.trim() || `${user?.nick || 'My'} table` });
+      toast({ kind: 'success', title: 'Private table created', body: 'Share the table link or take a seat now.' });
+      setHostOpen(false);
+      await load();
+      navigate(`/table/${r.id}?buyin=${hostForm.min_buyin}`);
+    } catch (e: any) {
+      toast({ kind: 'error', title: 'Could not host table', body: e.message });
+    } finally { setHostBusy(false); }
+  };
+
   const loadChat = async () => {
     try {
       const r = await fetch('/api/chat');
@@ -280,6 +297,7 @@ export function Lobby() {
             </select>
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tables…" />
             <button className={'fav-toggle' + (favOnly ? ' on' : '')} onClick={() => setFavOnly((v) => !v)}>★ Favorites</button>
+            <button className="host-table-btn" onClick={() => setHostOpen(true)}>+ Host</button>
             <span className="filter-count">{tables.length} tables</span>
           </div>
           <div className="table-list" key={gameTab}>
@@ -479,6 +497,29 @@ export function Lobby() {
               <button className="btn btn-dark" onClick={() => setBuyinTable(null)}>Cancel</button>
               <button className="btn btn-red" onClick={confirmJoin}>Take a seat · {money(buyin)}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {hostOpen && (
+        <div className="modal-backdrop" onClick={() => setHostOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 540 }}>
+            <div className="modal-head"><h3>Host a private table</h3><button className="title-icon" onClick={() => setHostOpen(false)}>✕</button></div>
+            <div className="modal-body">
+              <p className="muted small" style={{ marginTop: 0 }}>Local play-money table. Only you and players with the table link can see it.</p>
+              <label className="admin-label">Table name</label>
+              <input className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} table`} value={hostForm.name} onChange={(e) => setHostForm({ ...hostForm, name: e.target.value })} maxLength={40} />
+              <div className="grid g2" style={{ marginTop: 10 }}>
+                <div><label className="admin-label">Game</label><select className="admin-select" style={{ width: '100%' }} value={hostForm.game} onChange={(e) => setHostForm({ ...hostForm, game: e.target.value })}><option value="holdem">No-limit Hold'em</option><option value="omaha">PLO 4</option><option value="omaha5">PLO 5</option><option value="omaha6">PLO 6</option><option value="shortdeck">Short Deck</option></select></div>
+                <div><label className="admin-label">Seats</label><input className="admin-input" type="number" min={2} max={9} value={hostForm.seats} onChange={(e) => setHostForm({ ...hostForm, seats: Number(e.target.value) })} /></div>
+                <div><label className="admin-label">Small blind (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.sb} onChange={(e) => setHostForm({ ...hostForm, sb: Number(e.target.value) })} /></div>
+                <div><label className="admin-label">Big blind (cents)</label><input className="admin-input" type="number" min={2} value={hostForm.bb} onChange={(e) => setHostForm({ ...hostForm, bb: Number(e.target.value) })} /></div>
+                <div><label className="admin-label">Min buy-in (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.min_buyin} onChange={(e) => setHostForm({ ...hostForm, min_buyin: Number(e.target.value) })} /></div>
+                <div><label className="admin-label">Max buy-in (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.max_buyin} onChange={(e) => setHostForm({ ...hostForm, max_buyin: Number(e.target.value) })} /></div>
+              </div>
+              <p className="muted small">Stakes are stored in cents. Example: 200/400 = $2/$4. Max buy-in must be at least the minimum.</p>
+            </div>
+            <div className="modal-foot"><button className="btn btn-dark" onClick={() => setHostOpen(false)}>Cancel</button><button className="btn btn-gold" disabled={hostBusy || hostForm.max_buyin < hostForm.min_buyin} onClick={createHost}>{hostBusy ? 'Creating…' : 'Create table'}</button></div>
           </div>
         </div>
       )}

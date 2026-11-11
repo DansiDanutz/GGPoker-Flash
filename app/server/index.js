@@ -145,8 +145,8 @@ function lobbyMissions(user) {
   });
 }
 
-function lobbyTables() {
-  const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 ORDER BY sort ASC').all();
+function lobbyTables(userId = null) {
+  const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(userId);
   return rows.map((t) => {
     const occ = occupancyFor(t);
     const seed = [...t.id].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -156,6 +156,7 @@ function lobbyTables() {
       id: t.id, name: t.name, game: t.game, category: t.category,
       sb: t.sb, bb: t.bb, ante: t.ante, min_buyin: t.min_buyin, max_buyin: t.max_buyin,
       seats: t.seats, speed: t.speed, featured: !!t.featured,
+      private: !!t.private, owner_id: t.owner_id || null,
       players, wait: occ.wait,
       avgPot: players ? avgPot : 0,
       vpip: players ? 18 + (seed % 45) : 0,
@@ -480,9 +481,9 @@ const server = http.createServer(async (req, res) => {
 
     // ---------- lobby ----------
     if (p === '/api/lobby') {
-      const tables = lobbyTables();
-      const banners = db.prepare('SELECT * FROM banners WHERE slot = ? AND enabled = 1 ORDER BY sort').all('home');
       const u = userByToken(tokenFrom(req));
+      const tables = lobbyTables(u?.id || null);
+      const banners = db.prepare('SELECT * FROM banners WHERE slot = ? AND enabled = 1 ORDER BY sort').all('home');
       return json(res, 200, {
         tables,
         banners,
@@ -500,6 +501,26 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/tables') {
       return json(res, 200, { tables: lobbyTables() });
+    }
+
+    if (p === '/api/tables/host' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      const count = db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id = ? AND private = 1').get(u.id).n;
+      if (count >= 8) return json(res, 400, { error: 'You already have 8 private tables' });
+      const game = ['holdem', 'omaha', 'omaha5', 'omaha6', 'shortdeck'].includes(b.game) ? b.game : 'holdem';
+      const sb = Math.max(1, Math.round(Number(b.sb) || 100));
+      const bb = Math.max(sb, Math.round(Number(b.bb) || sb * 2));
+      const minBuyin = Math.max(bb, Math.round(Number(b.min_buyin) || bb * 20));
+      const maxBuyin = Math.max(minBuyin, Math.round(Number(b.max_buyin) || minBuyin));
+      const seats = Math.max(2, Math.min(9, Math.round(Number(b.seats) || 6)));
+      const name = String(b.name || `${u.nick}'s table`).trim().slice(0, 40) || `${u.nick}'s table`;
+      const id = `home-${u.id}-${Date.now().toString(36)}`;
+      db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private)
+        VALUES (?,?,?,?,?,?,0,?,?,?, 'Normal',0,1,0,?,1)`)
+        .run(id, name, game, 'Private', sb, bb, minBuyin, maxBuyin, seats, u.id);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_table', id);
+      return json(res, 200, { ok: true, id });
     }
 
     // ---------- tournaments ----------
