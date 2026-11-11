@@ -116,6 +116,14 @@ official card back are already in use.
 - The header avatar now uses the shared `Avatar` gradient/initials component, so
   a missing upload still renders a finished profile mark instead of a flat
   letter.
+- The right rail was rebuilt as currency cards, a gold Cashier action and
+  chevron menu rows. Below 1120px it is replaced by the avatar-triggered account
+  drawer, so the rail no longer gets squeezed into a clipped 139px strip.
+- The account drawer carries the avatar, VIP, four balances, Cashier and the
+  full shortcut grid (Prop Bet, GG Left, My Promo, My Page, Missions, Leaders,
+  GGPass).
+- The bottom navigation appears through 1100px so tablet portrait still has
+  Lobby, Events, Cashier, Rewards and My Page.
 - Verified by resizing the packaged app to **1000×720**, **1200×830**, 
   **1440×900**, and a phone viewport of **390×844**; lobby, room and cashier
   screenshots are in `research/screens/deliverable/mobile_*.png` and
