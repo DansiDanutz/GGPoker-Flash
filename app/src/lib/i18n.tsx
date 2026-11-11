@@ -6,6 +6,12 @@ export const LANGS: { code: string; label: string }[] = [
   { code: 'fr', label: 'Français' }, { code: 'es', label: 'Español' }, { code: 'pt-br', label: 'Português' },
   { code: 'ru', label: 'Русский' }, { code: 'zh-cn', label: '中文' }, { code: 'ja', label: '日本語' },
   { code: 'ko', label: '한국어' }, { code: 'tr', label: 'Türkçe' }, { code: 'pl', label: 'Polski' },
+  { code: 'zh-tw', label: '繁體中文' }, { code: 'vi', label: 'Tiếng Việt' }, { code: 'id', label: 'Bahasa Indonesia' },
+  { code: 'th', label: 'ไทย' }, { code: 'sv', label: 'Svenska' }, { code: 'et', label: 'Eesti' },
+  { code: 'lv', label: 'Latviešu' }, { code: 'da', label: 'Dansk' }, { code: 'fi', label: 'Suomi' },
+  { code: 'cs', label: 'Čeština' }, { code: 'nl', label: 'Nederlands' }, { code: 'hu', label: 'Magyar' },
+  { code: 'uk-ua', label: 'Українська' }, { code: 'lt', label: 'Lietuvių' }, { code: 'ar', label: 'العربية' },
+  { code: 'bs-ba', label: 'Bosanski' }, { code: 'bg', label: 'Български' }, { code: 'el', label: 'Ελληνικά' },
 ];
 
 type Dict = Record<string, Record<string, string>>;
@@ -113,6 +119,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   // Initial translation + observe React updates.
   useEffect(() => {
     document.documentElement.lang = langRef.current;
+    document.documentElement.dir = langRef.current === 'ar' ? 'rtl' : 'ltr';
     scan(document.body);
     const timers = [120, 600, 1600, 3200, 6000].map((ms) => window.setTimeout(() => scan(document.body), ms));
     const obs = new MutationObserver(() => {
@@ -131,6 +138,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     setLangState(code);
     langRef.current = code;
     document.documentElement.lang = code;
+    document.documentElement.dir = code === 'ar' ? 'rtl' : 'ltr';
     // restore all translated nodes, then retranslate from scratch
     for (const [node, orig] of originals) {
       if (node.isConnected) node.nodeValue = orig;

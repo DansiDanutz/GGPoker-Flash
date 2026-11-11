@@ -17,6 +17,11 @@ LANGS = [
     ("en", "English"), ("ro", "Română"), ("de", "Deutsch"), ("fr", "Français"),
     ("es", "Español"), ("pt-br", "Português"), ("ru", "Русский"), ("zh-cn", "中文"),
     ("ja", "日本語"), ("ko", "한국어"), ("tr", "Türkçe"), ("pl", "Polski"),
+    ("zh-tw", "繁體中文"), ("vi", "Tiếng Việt"), ("id", "Bahasa Indonesia"), ("th", "ไทย"),
+    ("sv", "Svenska"), ("et", "Eesti"), ("lv", "Latviešu"), ("da", "Dansk"),
+    ("fi", "Suomi"), ("cs", "Čeština"), ("nl", "Nederlands"), ("hu", "Magyar"),
+    ("uk-ua", "Українська"), ("lt", "Lietuvių"), ("ar", "العربية"), ("bs-ba", "Bosanski"),
+    ("bg", "Български"), ("el", "Ελληνικά"),
 ]
 
 # Extra mappings for strings that are not exact matches but have an obvious original key.
