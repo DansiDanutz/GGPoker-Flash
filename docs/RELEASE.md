@@ -18,7 +18,7 @@ Local, play-money-only desktop clone. Server-authoritative; no real-money flows.
 
 ## Verified
 
-- 45/45 node tests.
+- 46/46 node tests.
 - Signed app with Developer ID (or ad-hoc fallback).
 - API lobby 200.
 - Desktop 1200×957 and mobile 390×844 acceptance screenshots.

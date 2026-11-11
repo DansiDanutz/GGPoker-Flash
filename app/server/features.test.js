@@ -103,3 +103,40 @@ test('host tables, private tournaments, bonuses and direct messages', async () =
     assert.equal(r.status, 200);
   } finally { child.kill(); }
 });
+
+test('SSE notification stream delivers a direct message event', async () => {
+  const { child, port } = await startServer();
+  const base = `http://127.0.0.1:${port}`;
+  const controller = new AbortController();
+  try {
+    const u = await login(port, 'DansiDanutz', 'ggpoker');
+    const admin = await login(port, 'admin', 'admin123');
+    const stream = await fetch(`${base}/api/notifications/stream?token=${encodeURIComponent(u.token)}`, { signal: controller.signal });
+    assert.equal(stream.status, 200);
+    const reader = stream.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const readEvent = (async () => {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) return buffer;
+        buffer += decoder.decode(value, { stream: true });
+        if (buffer.includes('"type":"dm"')) return buffer;
+      }
+    })();
+    await fetch(`${base}/api/messages`, {
+      method: 'POST',
+      headers: H(admin.token),
+      body: JSON.stringify({ peerId: u.user.id, message: 'SSE integration' }),
+    });
+    const result = await Promise.race([
+      readEvent,
+      new Promise((resolve) => setTimeout(() => resolve('timeout'), 5000)),
+    ]);
+    assert.notEqual(result, 'timeout');
+    assert.match(String(result), /"type":"dm"/);
+  } finally {
+    controller.abort();
+    child.kill();
+  }
+});
