@@ -84,6 +84,10 @@ not a source to copy blindly.
 
 - Multi-table windows: Settings can open joined tables in new Electron windows, and the buy-in modal exposes **New window**; auto buy-in respects the same setting.
 - Tournament search now filters by event name or format.
+- ELO rating:
+  - persisted per-user rating with win/loss settlement on completed cash hands;
+  - divisions, ladder and current rank page;
+  - ELO Challenge creates a private heads-up table with an invitable link.
 - Table player profiles:
   - click a seat to see public avatar, VIP, country, hands/wins/biggest pot and presence;
   - add friend or open a direct message from the profile;

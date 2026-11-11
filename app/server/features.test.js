@@ -56,6 +56,12 @@ test('host tables, private tournaments, bonuses and direct messages', async () =
     r = await fetch(`${base}/api/cashier/bonus`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ id: 'daily' }) });
     assert.equal(r.status, before.claimed ? 409 : 200);
 
+    r = await fetch(`${base}/api/elo`, { headers: H(u.token) });
+    const elo = await r.json();
+    assert.equal(r.status, 200);
+    assert.ok(Array.isArray(elo.leaders));
+    assert.equal(elo.me.elo, 1000);
+
     r = await fetch(`${base}/api/messages`, { method: 'POST', headers: H(admin.token), body: JSON.stringify({ peerId: u.user.id, message: 'Feature DM' }) });
     assert.equal(r.status, 200);
     r = await fetch(`${base}/api/messages`, { headers: H(u.token) });

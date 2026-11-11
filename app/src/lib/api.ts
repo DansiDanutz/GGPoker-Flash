@@ -11,6 +11,7 @@ export type User = {
   xp: number;
   vip_level: number;
   vip_points: number;
+  elo?: number;
   is_admin: boolean;
   banned: boolean;
   chat_muted?: boolean;
@@ -98,6 +99,7 @@ export const api = {
   unregisterTourney: (id: string) => request(`/api/tournaments/${id}/unregister`, { method: 'POST' }),
   cashier: () => request<any>('/api/cashier'),
   notifications: () => request<{ items: any[]; unread: number }>('/api/notifications'),
+  elo: () => request<{ leaders: any[]; me: any }>('/api/elo'),
   markNotificationsRead: (keys: string[]) => request<any>('/api/notifications/read', { method: 'POST', body: JSON.stringify({ keys }) }),
   messages: () => request<{ threads: any[] }>('/api/messages'),
   userProfile: (id: number) => request<any>(`/api/users/${id}/profile`),

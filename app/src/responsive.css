@@ -575,3 +575,20 @@ body.electron .app-window::before { display: none; }
 .rush-hero-stats span { color: #7f8d82; font-size: 9px; text-transform: uppercase; letter-spacing: .8px; }
 .promo-wrap.rush-hidden { display: none; }
 @media (max-width: 760px) { .rush-hero { height: 138px; flex-basis: 138px; margin: 8px 8px 0; } .rush-hero-copy { padding: 16px; max-width: 66%; } .rush-hero-copy b { font-size: 19px; } .rush-hero-stats { display: none; } }
+.elo-hero { display: flex; align-items: center; gap: 20px; padding: 18px; margin-top: 14px; border: 1px solid #2d2a22; border-radius: 12px; background: radial-gradient(circle at 10% 20%, rgba(216,177,95,.1), transparent 45%), #151515; flex-wrap: wrap; }
+.elo-ring { width: 108px; height: 108px; border-radius: 50%; border: 2px solid #e7bd68; display: grid; place-content: center; text-align: center; flex: 0 0 auto; box-shadow: inset 0 0 24px rgba(216,177,95,.08); }
+.elo-ring b { font-family: var(--head-font); font-size: 26px; line-height: 1; }
+.elo-ring span { color: #8b978f; font-size: 9px; letter-spacing: 2px; margin-top: 4px; }
+.elo-copy { flex: 1; min-width: 200px; }
+.elo-copy small { color: #b79a5d; font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px; }
+.elo-copy h2 { color: #f3eee0; font-size: 22px; margin: 2px 0; }
+.elo-copy p { color: #9aa69d; font-size: 11px; margin: 0 0 8px; }
+.elo-track { height: 5px; border-radius: 3px; background: #242424; overflow: hidden; max-width: 320px; }
+.elo-track i { display: block; height: 100%; border-radius: 3px; }
+.elo-kpis { display: flex; gap: 18px; text-align: right; }
+.elo-kpis b { display: block; color: #e9d9b1; font-family: var(--head-font); font-size: 18px; }
+.elo-kpis span { color: #7f8d82; font-size: 9px; text-transform: uppercase; letter-spacing: .7px; }
+.elo-challenge-banner { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; border-color: #6b5320; flex-wrap: wrap; }
+.elo-challenge-banner b { color: #ffd98a; }
+.elo-challenge-banner span { color: #aeb9b1; font-size: 12px; }
+@media (max-width: 760px) { .elo-hero { gap: 12px; } .elo-ring { width: 86px; height: 86px; } .elo-ring b { font-size: 21px; } .elo-kpis { width: 100%; justify-content: space-between; text-align: left; } }

@@ -8,6 +8,7 @@ import { TablePage } from './pages/TablePage';
 import { Tournaments } from './pages/Tournaments';
 import { Cashier } from './pages/Cashier';
 import { Rewards, Leaderboard } from './pages/Rewards';
+import { Elo } from './pages/Elo';
 import { Promotions, Settings } from './pages/Promotions';
 import { Slots, Casino } from './pages/Casino';
 import { Profile, HandHistory, PropBet, Support } from './pages/Extras';
@@ -76,6 +77,7 @@ export default function App() {
       case 'rewards': return <Rewards />;
       case 'missions': return <Rewards initialTab="missions" />;
       case 'leaderboard': return <Leaderboard />;
+      case 'elo': return <Elo />;
       case 'promotions': return <Promotions />;
       case 'settings': return <Settings />;
       case 'slots': return <Slots />;

@@ -231,6 +231,15 @@ function getLiveTable(id) {
           h.handNo, h.tableId, h.tableName, h.game, JSON.stringify(h.players),
           h.board.join(' '), h.pot, JSON.stringify(h.result), h.heroCards || '', JSON.stringify(h.actions || [])
         );
+        const winners = h.result?.winners || [];
+        for (const p of (h.players || [])) {
+          if (!p || !p.id) continue;
+          const u = db.prepare('SELECT id, elo FROM users WHERE id = ? AND deleted_at IS NULL').get(p.id);
+          if (!u) continue;
+          const won = winners.some((w) => Number(w.id) === Number(p.id));
+          const next = Math.max(0, Number(u.elo ?? 1000) + (won ? 8 : -5));
+          db.prepare('UPDATE users SET elo = ? WHERE id = ?').run(next, u.id);
+        }
         if (h.game === 'rush' && Math.random() < 0.12) {
           const humans = (h.players || []).filter((p) => p && p.id && !p.isBot && db.prepare('SELECT 1 FROM users WHERE id = ?').get(p.id));
           if (humans.length) {
@@ -822,6 +831,13 @@ const server = http.createServer(async (req, res) => {
       const award = claimReward(u.id, 'mission', period, m.reward, m.reward_kind, `Mission: ${m.title}`);
       if (!award.claimed) return json(res, 400, { error: 'Already claimed' });
       return json(res, 200, { ok: true, balance: award.balance, reward: m.reward, kind: m.reward_kind });
+    }
+
+    if (p === '/api/elo') {
+      const u = userByToken(tokenFrom(req));
+      const rows = db.prepare('SELECT id,nick,avatar,vip_level,elo FROM users WHERE deleted_at IS NULL AND banned = 0 ORDER BY elo DESC, nick LIMIT 50').all();
+      const rank = u ? rows.findIndex((r) => r.id === u.id) + 1 : 0;
+      return json(res, 200, { leaders: rows, me: u ? { ...publicUser(u), rank: rank || null } : null });
     }
 
     if (p === '/api/leaderboard') {

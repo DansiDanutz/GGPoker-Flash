@@ -319,8 +319,8 @@ export function Lobby() {
           <button className="ll-item" onClick={() => navigate('/rewards')}><span className="ll-mark" />Daily Challenge</button>
           <button className="ll-item" onClick={() => navigate('/leaderboard')}><span className="ll-mark" />Daily Leaderboard</button>
           <button className="ll-item" onClick={() => navigate('/tournaments')}><span className="ll-mark" />Millionaires Club</button>
-          <button className="ll-item" onClick={() => navigate('/leaderboard')}><span className="ll-mark" />ELO Rating</button>
-          <button className="ll-item" onClick={() => navigate('/leaderboard')}><span className="ll-mark" />ELO Challenge</button>
+          <button className="ll-item" onClick={() => navigate('/elo')}><span className="ll-mark" />ELO Rating</button>
+          <button className="ll-item" onClick={() => navigate('/elo?challenge=1')}><span className="ll-mark" />ELO Challenge</button>
           <button className="ll-item ll-live" onClick={() => navigate('/casino')}><span className="ll-live-dot" />LIVE</button>
           <button className="ll-item ll-play" onClick={() => setGameTab('holdem')}><span className="ll-mark" />Play Money</button>
         </aside>
