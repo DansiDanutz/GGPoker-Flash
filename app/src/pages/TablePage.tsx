@@ -54,6 +54,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [fourColor, setFourColor] = useState(() => localStorage.getItem('ggpoker.fourcolor') === '1');
   const [animOff, setAnimOff] = useState(() => localStorage.getItem('ggpoker.animations') === '0');
   const [observing, setObserving] = useState(false);
+  const [waitlistPos, setWaitlistPos] = useState(0);
   const [rebuyOpen, setRebuyOpen] = useState(false);
   const [rebuyAmount, setRebuyAmount] = useState(0);
   const [notes, setNotes] = useState<Record<string, { note: string; color: string }>>({});
@@ -115,7 +116,12 @@ export function TablePage({ tableId }: { tableId: string }) {
         everJoined.current = true;
         setMySeat(msg.seat);
         if (msg.observe) setObserving(true); else setObserving(false);
+        if (msg.waitlist) setWaitlistPos(msg.waitlist);
         setOpeningTable(null);
+      } else if (msg.type === 'waitlist') {
+        setWaitlistPos(msg.position || 1);
+        setObserving(true);
+        toast({ kind: 'info', title: 'Waitlist', body: `You are #${msg.position || 1} in line. We will hold the next seat for you.` });
       } else if (msg.type === 'event') {
         handleEvent(msg.event);
       } else if (msg.type === 'error') {
@@ -205,6 +211,9 @@ export function TablePage({ tableId }: { tableId: string }) {
       setTimeout(() => sound.play('fireworks', { volume: .7 }), 600);
     } else if (evt.type === 'rabbit') {
       setRabbit(evt.cards || []);
+    } else if (evt.type === 'waitlist_ready') {
+      sound.play('turn', { volume: .6 });
+      toast({ kind: 'success', title: 'Seat available', body: 'A seat just opened — click Take a seat.' });
     } else if (evt.type === 'timebank') {
       sound.play('timebank', { volume: .6 });
       toast({ kind: 'info', title: 'Time bank', body: '+10 seconds' });
@@ -579,8 +588,8 @@ export function TablePage({ tableId }: { tableId: string }) {
       {observing ? (
         <div className="action-bar">
           <div className="action-row">
-            <div style={{ flex: 1, color: '#cfcfcf', fontSize: 13 }}>You are observing this table. Take a seat to join the action.</div>
-            <button className="btn btn-red" onClick={sitIn}>Take a seat · {chip(state?.minBuyin)}</button>
+            <div style={{ flex: 1, color: '#cfcfcf', fontSize: 13 }}>{waitlistPos > 0 ? `You are #${waitlistPos} on the waitlist. We will hold the next open seat for you.` : 'You are observing this table. Take a seat to join the action.'}</div>
+            <button className={'btn ' + (waitlistPos > 0 ? 'btn-gold' : 'btn-red')} onClick={sitIn}>Take a seat · {chip(state?.minBuyin)}</button>
             <button className="btn btn-dark" onClick={() => setConfirmLeave(true)}>Leave</button>
           </div>
         </div>

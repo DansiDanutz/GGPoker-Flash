@@ -126,6 +126,32 @@ function sitesStats() {
 /* ------------------------------------------------------------------ */
 
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
+const WAITLISTS = new Map(); // tableId -> [{ userId, nick, since }]
+
+function waitlistJoin(tableId, userId, nick) {
+  const list = WAITLISTS.get(tableId) || [];
+  const existing = list.find((w) => w.userId === userId);
+  if (existing) return list.indexOf(existing) + 1;
+  list.push({ userId, nick, since: Date.now() });
+  WAITLISTS.set(tableId, list);
+  return list.length;
+}
+function waitlistLeave(tableId, userId) {
+  const list = WAITLISTS.get(tableId);
+  if (!list) return;
+  const next = list.filter((w) => w.userId !== userId);
+  if (next.length) WAITLISTS.set(tableId, next); else WAITLISTS.delete(tableId);
+}
+function notifyWaitlist(tableId) {
+  const list = WAITLISTS.get(tableId);
+  if (!list || !list.length) return;
+  const first = list[0];
+  for (const client of wss.clients) {
+    if (client.readyState !== 1 || client.userId !== first.userId) continue;
+    client.send(JSON.stringify({ type: 'event', event: { type: 'waitlist_ready', tableId, position: 1 } }));
+  }
+}
+
 const CUSTOM_CFG = new Map(); // tournament tables not stored in the cash-game table list
 
 function tableRow(id) {
@@ -1127,6 +1153,15 @@ wss.on('connection', (ws, req) => {
         return;
       }
       if (!table.seatOf(u.id)) {
+        if (!table.tournament && table.occupiedSeats().length >= table.cfg.seats) {
+          const pos = waitlistJoin(msg.tableId, u.id, u.nick);
+          entry.clients.add(ws);
+          ws.tables.add(msg.tableId);
+          ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true, waitlist: pos }));
+          ws.send(JSON.stringify({ type: 'waitlist', position: pos, tableId: msg.tableId }));
+          broadcastState(table);
+          return;
+        }
         if (table.tournament) {
           table.sit({ id: u.id, nick: u.nick, avatar: u.avatar }, null, table.cfg.min_buyin);
         } else {
@@ -1134,6 +1169,7 @@ wss.on('connection', (ws, req) => {
           if (!res.ok && msg.seat != null) res = seatHuman(table, u, Number(msg.buyin) || table.cfg.min_buyin, null);
           if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
         }
+        waitlistLeave(msg.tableId, u.id);
       }
       // fill the table with bots
       const humans = table.humans().length;
@@ -1158,6 +1194,9 @@ wss.on('connection', (ws, req) => {
           const stack = seat.player.stack;
           const res = table.stand(ws.userId);
           if (stack > 0 && !table.tournament) addTransaction(ws.userId, 'cashout', stack, `Cash-out ${table.cfg.name}`);
+          notifyWaitlist(msg.tableId);
+        } else {
+          waitlistLeave(msg.tableId, ws.userId);
         }
         broadcastState(table);
       }
@@ -1250,6 +1289,9 @@ wss.on('connection', (ws, req) => {
         const stack = seat.player.stack;
         table.stand(ws.userId);
         if (stack > 0 && !table.tournament) addTransaction(ws.userId, 'cashout', stack, `Cash-out ${table.cfg.name}`);
+        notifyWaitlist(id);
+      } else {
+        waitlistLeave(id, ws.userId);
       }
       broadcastState(table);
     }
