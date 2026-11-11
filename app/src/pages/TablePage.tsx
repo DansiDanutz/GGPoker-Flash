@@ -67,6 +67,14 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [noteColor, setNoteColor] = useState('yellow');
   const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
   const [autoMuck, setAutoMuck] = useState(() => localStorage.getItem('ggpoker.automuck') === '1');
+  const [buttonLayout, setButtonLayout] = useState<'bottom' | 'side' | 'float'>(() => {
+    const saved = localStorage.getItem('ggpoker.buttonLayout');
+    return saved === 'side' || saved === 'float' ? saved : 'bottom';
+  });
+  const chooseLayout = (layout: 'bottom' | 'side' | 'float') => {
+    setButtonLayout(layout);
+    localStorage.setItem('ggpoker.buttonLayout', layout);
+  };
   const [swfEffect, setSwfEffect] = useState<string | null>(null);
   const clearSwf = useCallback(() => setSwfEffect(null), []);
   const spinIntroSeen = useRef(false);
@@ -466,7 +474,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   if (!user) return null;
 
   return (
-    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''}`}>
+    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout}`}>
       <div className="table-topbar">
         <span className="name">{state?.name || 'Table'}</span>
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>
@@ -492,6 +500,12 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
           <button onClick={() => setSwfEffect('/assets/swf/chip_shuffle.swf')}>Official FX preview</button>
+          <div className="menu-section">Button layout</div>
+          <div className="layout-switch">
+            {([['bottom', 'Bottom bar'], ['side', 'Side panel'], ['float', 'Floating']] as const).map(([key, label]) => (
+              <button key={key} className={buttonLayout === key ? 'on' : ''} aria-pressed={buttonLayout === key} onClick={() => chooseLayout(key)}>{label}</button>
+            ))}
+          </div>
           <button onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Straddle</button>
           <button onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
           <button onClick={() => send({ type: 'option', tableId, runItTwice: !state?.runItTwice })}>{state?.runItTwice ? '✓ ' : ''}Run it twice</button>

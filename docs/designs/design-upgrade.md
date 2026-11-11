@@ -140,6 +140,19 @@ official card back are already in use.
 - Tablet widths use the 980/1120 desktop rules (side preview hidden, table
   columns collapsed) rather than the phone card layout.
 
+## Table action templates
+
+Three selectable locations for betting controls, persisted per device in
+`ggpoker.buttonLayout`:
+
+- **Bottom bar** — the original full-width tray under the felt.
+- **Side panel** — a compact vertical glass panel docked to the right of the
+  felt, with actions, quick-bet grid, slider and amount stacked.
+- **Floating** — a rounded, centred tray floating above the player seat.
+
+The table menu exposes them under **Button layout**. Phones always fall back to
+the safe bottom tray.
+
 ## Brand wordmark
 
 - Replaced the previous wordmark with the supplied premium DanGG wordmark.
