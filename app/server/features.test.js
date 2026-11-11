@@ -32,11 +32,13 @@ test('host tables, private tournaments, bonuses and direct messages', async () =
     const u = await login(port, 'DansiDanutz', 'ggpoker');
     const admin = await login(port, 'admin', 'admin123');
 
-    let r = await fetch(`${base}/api/tables/host`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ name: 'Feature Table', game: 'holdem', seats: 6, sb: 100, bb: 200, min_buyin: 4000, max_buyin: 20000 }) });
+    let r = await fetch(`${base}/api/tables/host`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ name: 'Feature Table', game: 'holdem', seats: 6, sb: 100, bb: 200, min_buyin: 4000, max_buyin: 20000, bombPot: true }) });
     const host = await r.json();
     assert.equal(r.status, 200);
     r = await fetch(`${base}/api/tables/host`, { headers: H(u.token) });
-    assert.equal((await r.json()).tables.some((t) => t.id === host.id), true);
+    const hosted = await r.json();
+    assert.equal(hosted.tables.some((t) => t.id === host.id), true);
+    assert.equal(hosted.tables.find((t) => t.id === host.id).bomb_pot, 1);
     const publicLobby = await (await fetch(`${base}/api/lobby`)).json();
     assert.equal(publicLobby.tables.some((t) => t.id === host.id), false);
 
@@ -50,6 +52,15 @@ test('host tables, private tournaments, bonuses and direct messages', async () =
     assert.equal(r.status, 200);
     r = await fetch(`${base}/api/tournaments/${tourney.id}`);
     assert.equal((await r.json()).tournament.name, 'Feature Freezeout');
+
+    r = await fetch(`${base}/api/notifications`, { headers: H(u.token) });
+    const notices = await r.json();
+    assert.equal(notices.unread, 1);
+    assert.equal(notices.items[0].kind, 'bonus');
+    r = await fetch(`${base}/api/notifications/read`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ keys: notices.items.map((i) => i.key) }) });
+    assert.equal(r.status, 200);
+    r = await fetch(`${base}/api/notifications`, { headers: H(u.token) });
+    assert.equal((await r.json()).unread, 0);
 
     r = await fetch(`${base}/api/cashier`, { headers: H(u.token) });
     const before = (await r.json()).bonuses.find((b) => b.id === 'daily');

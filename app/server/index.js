@@ -536,7 +536,7 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/tables/host' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
-      const rows = db.prepare('SELECT id,name,game,sb,bb,min_buyin,max_buyin,seats FROM tables WHERE owner_id = ? AND private = 1 AND enabled = 1 ORDER BY rowid DESC').all(u.id);
+      const rows = db.prepare('SELECT id,name,game,sb,bb,min_buyin,max_buyin,seats,bomb_pot FROM tables WHERE owner_id = ? AND private = 1 AND enabled = 1 ORDER BY rowid DESC').all(u.id);
       return json(res, 200, { tables: rows });
     }
 
