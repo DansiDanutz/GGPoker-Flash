@@ -631,3 +631,8 @@ body.electron .app-window::before { display: none; }
 .crash-chip { padding: 4px 9px; border-radius: 12px; background: #2a1b1b; color: #e08b8b; font-size: 11px; font-weight: 800; }
 .crash-chip.win { background: #1c2b20; color: #9fd8b0; }
 @media (max-width: 760px) { .crash-table { grid-template-columns: 1fr; } .crash-stage { min-height: 240px; } }
+
+/* Keep every settings/cashier/page tab reachable on narrow screens. */
+.subnav { overflow-x: auto; overflow-y: hidden; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.subnav::-webkit-scrollbar { display: none; }
+.subnav button { flex: 0 0 auto; }
