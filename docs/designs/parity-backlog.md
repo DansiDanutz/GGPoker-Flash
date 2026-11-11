@@ -43,6 +43,11 @@ not a source to copy blindly.
   - dealer animation speed;
   - real password change and revoke-other-sessions;
   - email is read-only because no account-email mutation API exists.
+- Bomb-pot cash tables:
+  - private host option; every seated player antes one big blind;
+  - action starts directly on the flop;
+  - table badge and server-authoritative `bomb_pot` config;
+  - no preflop betting round.
 - Private home tables:
   - player-created table with name, game, seats, blinds and buy-in range;
   - owner visibility in the lobby, public isolation from `/api/tables`;

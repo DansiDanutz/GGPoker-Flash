@@ -74,7 +74,7 @@ export function Lobby() {
   const [seat, setSeat] = useState<number | null>(null);
   const [hostOpen, setHostOpen] = useState(false);
   const [hostBusy, setHostBusy] = useState(false);
-  const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000 });
+  const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000, bombPot: false });
   const [myHosts, setMyHosts] = useState<any[]>([]);
   const [myTourneys, setMyTourneys] = useState<any[]>([]);
   const [hostKind, setHostKind] = useState<'cash' | 'tournament'>('cash');
@@ -604,6 +604,7 @@ export function Lobby() {
                   <div><label className="admin-label">Big blind (cents)</label><input className="admin-input" type="number" min={2} value={hostForm.bb} onChange={(e) => setHostForm({ ...hostForm, bb: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Min buy-in (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.min_buyin} onChange={(e) => setHostForm({ ...hostForm, min_buyin: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Max buy-in (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.max_buyin} onChange={(e) => setHostForm({ ...hostForm, max_buyin: Number(e.target.value) })} /></div>
+                  <label className="switch-row" style={{ gridColumn: '1 / -1' }}><span>Bomb pot — everyone antes, action starts on the flop</span><input type="checkbox" checked={hostForm.bombPot} onChange={(e) => setHostForm({ ...hostForm, bombPot: e.target.checked })} /></label>
                 </div>
                 <p className="muted small">Stakes are stored in cents. Example: 200/400 = $2/$4. Max buy-in must be at least the minimum.</p>
               </>)}

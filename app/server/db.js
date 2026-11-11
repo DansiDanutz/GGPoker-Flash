@@ -69,7 +69,8 @@ function init() {
     min_players INTEGER NOT NULL DEFAULT 2,
     sort INTEGER NOT NULL DEFAULT 0,
     owner_id INTEGER,
-    private INTEGER NOT NULL DEFAULT 0
+    private INTEGER NOT NULL DEFAULT 0,
+    bomb_pot INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS hands (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -132,7 +133,8 @@ function init() {
     banner TEXT DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1,
     owner_id INTEGER,
-    private INTEGER NOT NULL DEFAULT 0
+    private INTEGER NOT NULL DEFAULT 0,
+    bomb_pot INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS tourney_regs (
     tournament_id TEXT NOT NULL,
@@ -247,6 +249,7 @@ function init() {
   try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tables ADD COLUMN owner_id INTEGER'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tables ADD COLUMN private INTEGER DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tables ADD COLUMN bomb_pot INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN chat_muted INTEGER DEFAULT 0'); } catch { /* already exists */ }

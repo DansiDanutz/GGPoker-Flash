@@ -559,9 +559,9 @@ const server = http.createServer(async (req, res) => {
       const seats = Math.max(2, Math.min(9, Math.round(Number(b.seats) || 6)));
       const name = String(b.name || `${u.nick}'s table`).trim().slice(0, 40) || `${u.nick}'s table`;
       const id = `home-${u.id}-${Date.now().toString(36)}`;
-      db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private)
-        VALUES (?,?,?,?,?,?,0,?,?,?, 'Normal',0,1,0,?,1)`)
-        .run(id, name, game, 'Private', sb, bb, minBuyin, maxBuyin, seats, u.id);
+      db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
+        VALUES (?,?,?,?,?,?,0,?,?,?, 'Normal',0,1,0,?,1,?)`)
+        .run(id, name, game, 'Private', sb, bb, minBuyin, maxBuyin, seats, u.id, b.bombPot ? 1 : 0);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_table', id);
       return json(res, 200, { ok: true, id });
     }

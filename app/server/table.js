@@ -54,6 +54,8 @@ export class PokerTable {
     this.bb = cfg.bb;
     this.ante = cfg.ante || 0;
     this.shortDeck = cfg.game === 'shortdeck';
+    this.bomb = !!cfg.bomb_pot;
+    if (this.bomb && !this.ante) this.ante = this.bb;
     this.showdownDelay = 5000;
     this.botSpeed = Number(cfg.botSpeed || 900);
     this.aof = cfg.game === 'aof';
@@ -351,6 +353,17 @@ export class PokerTable {
       return;
     }
 
+    if (this.bomb) {
+      this.collectBets();
+      this.street = 'flop';
+      this.board.push(...this.dealStreet('flop'));
+      this.currentBet = 0;
+      this.minRaise = this.bb;
+      this.emit({ type: 'street', street: 'flop', board: this.board.map(cardStr), pot: this.pot });
+      const first = this.nextActionSeat(this.button);
+      this.setActor(first ? first.player.id : null);
+      return;
+    }
     const firstToAct = this.nextActionSeat(straddleSeat ? straddleSeat.index : this.button);
     this.setActor(firstToAct ? firstToAct.player.id : null);
   }
@@ -1035,6 +1048,7 @@ export class PokerTable {
       maxBuyin: this.cfg.max_buyin,
       ownerId: this.cfg.owner_id || null,
       private: !!this.cfg.private,
+      bombPot: !!this.bomb,
       button: this.button,
       handNo: this.handNo,
       street: this.street,
