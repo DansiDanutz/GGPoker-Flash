@@ -1163,6 +1163,14 @@ wss.on('connection', (ws, req) => {
       }
       return;
     }
+    if (msg.type === 'timebank') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const res = entry.table.useTimeBank(ws.userId);
+      if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      else broadcastState(entry.table);
+      return;
+    }
     if (msg.type === 'action') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;

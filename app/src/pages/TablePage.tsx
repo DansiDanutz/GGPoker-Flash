@@ -18,6 +18,7 @@ type TableState = {
   id: string; name: string; game: string; sb: number; bb: number; ante: number; seats: number;
   button: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
+  timeBankUsed?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number;
   spin?: { multiplier: number; prize: number; winner: any } | null;
   tournament?: { name: string; prizePool: number; level: number; winner: any } | null;
@@ -39,6 +40,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const emoteTimer = useRef<number | null>(null);
   const [chatFx, setChatFx] = useState<{ userId: number; nick: string; message: string; key: number } | null>(null);
   const chatFxTimer = useRef<number | null>(null);
+  const timerWarnRef = useRef<string>('');
   const [fx, setFx] = useState<{ id: number; seat: number; amount: number }[]>([]);
   const [winFx, setWinFx] = useState<{ id: number; amount: number; nick: string } | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -203,6 +205,9 @@ export function TablePage({ tableId }: { tableId: string }) {
       setTimeout(() => sound.play('fireworks', { volume: .7 }), 600);
     } else if (evt.type === 'rabbit') {
       setRabbit(evt.cards || []);
+    } else if (evt.type === 'timebank') {
+      sound.play('timebank', { volume: .6 });
+      toast({ kind: 'info', title: 'Time bank', body: '+10 seconds' });
     } else if (evt.type === 'blinds_up') {
       sound.play('turn', { volume: .5 });
     } else if (evt.type === 'turn') {
@@ -257,6 +262,7 @@ export function TablePage({ tableId }: { tableId: string }) {
 
   const me = state?.players.find((p) => p.isMe) || null;
   const myTurn = !!(state && me && state.actor === me.id);
+  const tbUsed = (state?.timeBankUsed || []).includes(Number(me?.id));
   const toCall = state && me ? Math.max(0, state.currentBet - (me.bet || 0)) : 0;
   const maxTo = me ? (me.bet || 0) + (me.stack || 0) : 0;
   const minTo = state ? Math.min(maxTo, Math.max(state.currentBet + state.minRaise, state.bb)) : 0;
@@ -273,6 +279,9 @@ export function TablePage({ tableId }: { tableId: string }) {
 
   const act = (action: string, amount = 0) => {
     if (!myTurn) return;
+    const voices: Record<string, string> = { fold: 'voiceFold', check: 'voiceCheck', call: 'voiceCall', raise: 'voiceRaise', bet: 'voiceBet', allin: 'voiceAllIn' };
+    const voice = voices[action];
+    if (voice) setTimeout(() => sound.play(voice as any, { volume: .6 }), 120);
     send({ type: 'action', action, amount });
   };
 
@@ -366,6 +375,16 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - now) / 15000)) : 0;
+  const myTurnNow = !!me?.isMe && state?.street !== 'ended';
+  useEffect(() => {
+    if (!state || !myTurnNow) { timerWarnRef.current = ''; return; }
+    const key = `${state.handNo}-${state.street}-${state.actor}`;
+    const remaining = state.actionEndsAt - now;
+    if (remaining > 0 && remaining <= 5200 && timerWarnRef.current !== key) {
+      timerWarnRef.current = key;
+      sound.play('winding', { volume: .55 });
+    }
+  }, [now, state?.handNo, state?.street, state?.actor, state?.actionEndsAt, myTurnNow]);
 
   const emotes = ['😂', '😎', '😭', '🔥', '👏', '🐟', '🤡', '💪', '🍀', '😱'];
 
@@ -571,6 +590,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}
         <div className="action-row">
+          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!myTurn || tbUsed} onClick={() => send({ type: 'timebank' })} title="Add 10 seconds once per hand">⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (
             <button className="act-btn act-check" disabled={!myTurn} onClick={() => act('check')}>Check</button>

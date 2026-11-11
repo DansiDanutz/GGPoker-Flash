@@ -33,6 +33,7 @@ export class PokerTable {
     this.minRaise = cfg.bb;
     this.actor = null;
     this.actionEndsAt = 0;
+    this.timeBankUsed = new Set();
     this.botActAt = 0;
     this.nextHandAt = 0;
     this.streetStartedAt = 0;
@@ -192,6 +193,7 @@ export class PokerTable {
   }
 
   startHand() {
+    this.timeBankUsed = new Set();
     const ready = this.occupiedSeats().filter((s) => s.player && s.player.stack > 0 && !s.player.sittingOut);
     if (this.spin && this.handNo > 0 && ready.length === 1) { this.awardSpinWinner(); return; }
     if (this.tournament && this.handNo > 0 && ready.length === 1) { this.awardTournamentWinner(); return; }
@@ -365,6 +367,17 @@ export class PokerTable {
       this.botActAt = 0;
     }
     this.emit({ type: 'turn', playerId, endsAt: this.actionEndsAt });
+  }
+
+  useTimeBank(playerId) {
+    const seat = this.seatOf(playerId);
+    if (!seat || !seat.player) return { ok: false, error: 'not seated' };
+    if (this.actor !== playerId) return { ok: false, error: 'not your turn' };
+    if (this.timeBankUsed.has(playerId)) return { ok: false, error: 'time bank already used' };
+    this.timeBankUsed.add(playerId);
+    this.actionEndsAt += 10000;
+    this.emit({ type: 'timebank', playerId, endsAt: this.actionEndsAt });
+    return { ok: true, endsAt: this.actionEndsAt };
   }
 
   toCall(player) {
@@ -808,6 +821,7 @@ export class PokerTable {
       minRaise: this.minRaise,
       actor: this.actor,
       actionEndsAt: this.actionEndsAt,
+      timeBankUsed: [...this.timeBankUsed],
       now,
       botActAt: this.botActAt,
       result: this.result,
