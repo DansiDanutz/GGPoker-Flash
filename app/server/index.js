@@ -169,6 +169,7 @@ const MIME = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
   '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
   '.ico': 'image/x-icon', '.wasm': 'application/wasm',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
 
 function serveFile(res, file) {
@@ -179,7 +180,8 @@ function serveFile(res, file) {
     ...(ext === '.html' ? { 'content-security-policy': HTML_CSP } : {}),
     'content-type': MIME[ext] || 'application/octet-stream',
     'content-length': stat.size,
-    'cache-control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
+    // The service worker must be revalidated so a deploy can replace it.
+    'cache-control': ext === '.html' || path.basename(file) === 'sw.js' ? 'no-cache' : 'public, max-age=3600',
   });
   fs.createReadStream(file).pipe(res);
 }

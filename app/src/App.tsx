@@ -17,6 +17,7 @@ import { MyPage } from './pages/MyPage';
 import { Ocean, GGCare } from './pages/Ocean';
 import { Honeymoon } from './pages/Honeymoon';
 import { MobileNav } from './components/MobileNav';
+import { InstallApp } from './pages/InstallApp';
 import { QuickMenu } from './components/QuickMenu';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
@@ -62,7 +63,7 @@ function ComingSoon({ title }: { title: string }) {
 }
 
 export default function App() {
-  const { route, toasts, dismissToast, loading, user, guest, splashDone, meta } = useApp();
+  const { route, toasts, dismissToast, loading, user, guest, splashDone, meta, installGate } = useApp();
 
   const page = useMemo(() => {
     const [path] = route.split('?');
@@ -108,6 +109,17 @@ export default function App() {
       <ScaleStage>
         <TitleBar online={meta.online} />
         <Login />
+      </ScaleStage>
+    );
+  }
+
+  // Right after a phone sign-up: install the app (or explicitly continue in
+  // the browser). Android gets the native install prompt, iOS the Home Screen
+  // steps.
+  if (installGate) {
+    return (
+      <ScaleStage>
+        <InstallApp />
       </ScaleStage>
     );
   }
