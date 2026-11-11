@@ -266,7 +266,7 @@ export function Admin() {
             <>
               <div className="between" style={{ marginBottom: 10 }}>
                 <h2 className="admin-title" style={{ margin: 0 }}>Tournaments</h2>
-                <button className="btn btn-red btn-sm" onClick={() => { setEditing({ kind: 'tourney' }); setLocal({ name: 'New Tournament', buyin: 1000, fee: 100, gtd: 10000, starting_stack: 10000, blind_speed: 8, entrants: 0, status: 'registering', format: 'NLH', start_at: new Date(Date.now() + 3600000).toISOString().slice(0, 16) }); }}>+ New tournament</button>
+                <button className="btn btn-red btn-sm" onClick={() => { setEditing({ kind: 'tourney' }); setLocal({ name: 'New Tournament', game: 'holdem', buyin: 1000, fee: 100, gtd: 10000, starting_stack: 10000, blind_speed: 8, late_reg: 90, mode: 'STANDARD', bounty: 0, ticket: '', entrants: 0, status: 'registering', format: 'NLH', start_at: new Date(Date.now() + 3600000).toISOString().slice(0, 16) }); }}>+ New tournament</button>
               </div>
               <div className="admin-card" style={{ padding: 0 }}>
                 <table className="admin-table">
@@ -555,12 +555,15 @@ export function Admin() {
               {editing.kind === 'tourney' && (
                 <div className="admin-form">
                   <Field label="Name"><input className="admin-input" value={local.name ?? ''} onChange={(e) => setLocal({ ...local, name: e.target.value })} /></Field>
-                  {['buyin', 'fee', 'gtd', 'entrants', 'starting_stack', 'blind_speed'].map((f) => (
-                    <Field key={f} label={f}><input className="admin-input" type="number" value={local[f] ?? 0} onChange={(e) => setLocal({ ...local, [f]: Number(e.target.value) })} /></Field>
+                  {['buyin', 'fee', 'gtd', 'entrants', 'starting_stack', 'blind_speed', 'late_reg', 'bounty'].map((f) => (
+                    <Field key={f} label={f.replace(/_/g, ' ')}><input className="admin-input" type="number" value={local[f] ?? 0} onChange={(e) => setLocal({ ...local, [f]: Number(e.target.value) })} /></Field>
                   ))}
                   <Field label="Start (local time)"><input className="admin-input" type="datetime-local" value={local.start_at ?? ''} onChange={(e) => setLocal({ ...local, start_at: e.target.value })} /></Field>
                   <Field label="Status"><select className="admin-select" value={local.status} onChange={(e) => setLocal({ ...local, status: e.target.value })}><option>registering</option><option>running</option><option>completed</option></select></Field>
                   <Field label="Format"><select className="admin-select" value={local.format} onChange={(e) => setLocal({ ...local, format: e.target.value })}><option>NLH</option><option>PLO</option><option>Short Deck</option></select></Field>
+                  <Field label="Game"><select className="admin-select" value={local.game || 'holdem'} onChange={(e) => setLocal({ ...local, game: e.target.value })}><option value="holdem">Hold'em</option><option value="omaha">PLO</option><option value="shortdeck">Short Deck</option></select></Field>
+                  <Field label="Mode"><select className="admin-select" value={local.mode || 'STANDARD'} onChange={(e) => setLocal({ ...local, mode: e.target.value })}><option>STANDARD</option><option>BOUNTY</option><option>MYSTERY</option><option>SATELLITE</option><option>FLIP</option></select></Field>
+                  <Field label="Ticket / target"><input className="admin-input" value={local.ticket ?? ''} onChange={(e) => setLocal({ ...local, ticket: e.target.value })} placeholder="Satellite target" /></Field>
                 </div>
               )}
               {editing.kind === 'banner' && (
