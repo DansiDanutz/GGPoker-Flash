@@ -1,0 +1,42 @@
+# DanGG.ro clone — release notes
+
+Local, play-money-only desktop clone. Server-authoritative; no real-money flows.
+
+## Run
+
+- App: `~/Applications/DanGG.ro.app`
+- Local API/UI: `http://127.0.0.1:5198`
+- Tests: `cd app && pnpm test`
+- Build: `cd app && pnpm build`
+- Package/sign: `./package_app.sh`
+
+## Accounts
+
+- `DansiDanutz` / `ggpoker`
+- `admin` / `admin123`
+- `guest` / not available
+
+## Verified
+
+- 45/45 node tests.
+- Signed app with Developer ID (or ad-hoc fallback).
+- API lobby 200.
+- Desktop 1200×957 and mobile 390×844 acceptance screenshots.
+- No page errors during lobby → ELO → My Page navigation.
+
+## Major surfaces
+
+Poker lobby, Rush & Cash, cash tables, private tables, bomb pot, tournaments,
+private tournaments, Spin & Gold, Battle Royale, slots, casino, rewards,
+missions, cashier, leaderboards, ELO, hand history, profile, social, DMs,
+friend requests, notifications, player reports, admin console, owner moderation.
+
+## Remaining
+
+- True multi-table tournament flights/balancing.
+- KKPoker-specific verification (not installed/exposed).
+- Push DMs/notifications (polling currently).
+- Complete native background catalogue.
+- Native hotkey remapping.
+- Per-variant Elo ladders.
+- Full animated admin hand replay.
