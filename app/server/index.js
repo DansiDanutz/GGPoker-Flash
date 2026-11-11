@@ -557,6 +557,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
+    if (p === '/healthz') return json(res, 200, { ok: true, service: 'dangro-game', time: new Date().toISOString() });
+
     // ---------- auth ----------
     if (p === '/api/auth/login' && req.method === 'POST') {
       const body = await readBody(req);
