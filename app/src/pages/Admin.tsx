@@ -79,6 +79,13 @@ export function Admin() {
 
   const filteredUsers = useMemo(() => users.filter((u) => !q || u.login.toLowerCase().includes(q.toLowerCase()) || u.nick.toLowerCase().includes(q.toLowerCase())), [users, q]);
 
+  const exportReports = () => {
+    const rows: any[][] = [['id', 'reporter', 'target', 'reason', 'detail', 'hand_id', 'status', 'created_at', 'resolved_at'], ...reports.map((r) => [r.id, r.reporter_nick, r.target_nick, r.reason, r.detail, r.hand_id, r.status, r.created_at, r.resolved_at])];
+    const csv = rows.map((row: any[]) => row.map((v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'dangro-player-reports.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
   const userAction = async (id: number, body: any) => {
     try {
       await api.admin.userAction(id, body);
@@ -518,7 +525,10 @@ export function Admin() {
             <>
               <div className="between">
                 <h2 className="admin-title" style={{ margin: 0 }}>Player reports</h2>
-                <button className="btn btn-ghost btn-sm" onClick={async () => { try { const d = await api.admin.reports(); setReports(d.reports || []); } catch { /* ignore */ } }}>Refresh</button>
+                <div className="row">
+                  <button className="btn btn-ghost btn-sm" onClick={exportReports} disabled={!reports.length}>Export CSV</button>
+                  <button className="btn btn-ghost btn-sm" onClick={async () => { try { const d = await api.admin.reports(); setReports(d.reports || []); } catch { /* ignore */ } }}>Refresh</button>
+                </div>
               </div>
               <div className="admin-card" style={{ padding: 0 }}>
                 <table className="admin-table">
