@@ -6,6 +6,7 @@
 set -euo pipefail
 
 : "${DO_SSH_KEY:?Set DO_SSH_KEY to the fingerprint from: doctl compute ssh-key list}"
+: "${ADMIN_SSH_CIDR:?Set ADMIN_SSH_CIDR to your Mac public IP(s), comma-separated, e.g. 81.196.119.151/32}"
 SIZE="${1:-s-8vcpu-16gb}"
 NAME="${DROPLET_NAME:-dangro-prod}"
 REGION="${DROPLET_REGION:-fra1}"
@@ -27,11 +28,14 @@ IP="$(doctl compute droplet list --tag-name dangro-prod --format PublicIPv4 --no
 [ -n "$IP" ] || { echo "No public IPv4 returned" >&2; exit 1; }
 echo "Droplet IP: $IP"
 
-echo "Creating cloud firewall (SSH restricted to current source is configured separately)…"
+SSH_RULES=""
+IFS=',' read -ra CIDRS <<< "$ADMIN_SSH_CIDR"
+for cidr in "${CIDRS[@]}"; do SSH_RULES+="protocol:tcp,ports:22,address:${cidr} "; done
+echo "Creating cloud firewall (SSH restricted to ADMIN_SSH_CIDR)…"
 doctl compute firewall create \
   --name dangro-prod-web \
   --tag-names dangro-prod \
-  --inbound-rules "protocol:tcp,ports:80,address:0.0.0.0/0,address:::/0 protocol:tcp,ports:443,address:0.0.0.0/0,address:::/0 protocol:tcp,ports:22,address:0.0.0.0/0,address:::/0" \
+  --inbound-rules "protocol:tcp,ports:80,address:0.0.0.0/0,address:::/0 protocol:tcp,ports:443,address:0.0.0.0/0,address:::/0 ${SSH_RULES}" \
   --outbound-rules "protocol:tcp,ports:all,address:0.0.0.0/0,address:::/0 protocol:udp,ports:all,address:0.0.0.0/0,address:::/0 protocol:icmp,address:0.0.0.0/0,address:::/0" \
   >/dev/null || true
 
@@ -53,6 +57,6 @@ Next steps:
        curl -I https://dangg.live
        curl -I https://admin.dangg.live
 
-Security: restrict port 22 in the DO firewall to the Mac Studio/Tailscale
-source addresses after provisioning.
+Security: port 22 is restricted to ADMIN_SSH_CIDR. Update the DO firewall if
+your Mac's public address changes; Tailscale remains the preferred admin path.
 NEXT
