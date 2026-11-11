@@ -1088,6 +1088,31 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------- friends ----------
+    if (p.startsWith('/api/users/') && p.endsWith('/profile') && req.method === 'GET') {
+      const viewer = requireUser(req, res); if (!viewer) return;
+      const id = Number(p.split('/')[3]);
+      const target = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(id);
+      if (!target) return json(res, 404, { error: 'not found' });
+      const hands = db.prepare('SELECT players, result, pot FROM hands WHERE table_id IS NOT NULL ORDER BY id DESC LIMIT 2000').all();
+      let played = 0, won = 0, biggest = 0;
+      for (const h of hands) {
+        let players = [];
+        try { players = JSON.parse(h.players || '[]'); } catch { continue; }
+        if (!Array.isArray(players) || !players.some((x) => Number(x.id) === id)) continue;
+        played++;
+        const wins = h.result?.winners || [];
+        if (wins.some((w) => Number(w.id) === id)) won++;
+        for (const w of wins) if (Number(w.id) === id) biggest = Math.max(biggest, Number(w.amount) || 0);
+      }
+      const friend = db.prepare('SELECT 1 FROM friends WHERE user_id = ? AND friend_id = ?').get(viewer.id, id);
+      return json(res, 200, {
+        user: { id: target.id, nick: target.nick, avatar: target.avatar, vip_level: target.vip_level, country: target.country, created_at: target.created_at },
+        stats: { played, won, biggest },
+        friend: !!friend,
+        online: [...LIVE_TABLES.values()].some((e) => e.table.seatOf(id)),
+      });
+    }
+
     if (p === '/api/friends' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
       const rows = db.prepare(`SELECT f.friend_id AS id, u.nick, u.avatar, u.vip_level, u.login, f.created_at

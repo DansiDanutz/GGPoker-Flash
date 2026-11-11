@@ -61,6 +61,10 @@ not a source to copy blindly.
 
 - Multi-table windows: Settings can open joined tables in new Electron windows, and the buy-in modal exposes **New window**; auto buy-in respects the same setting.
 - Tournament search now filters by event name or format.
+- Table player profiles:
+  - click a seat to see public avatar, VIP, country, hands/wins/biggest pot and presence;
+  - add friend or open a direct message from the profile;
+  - self hides friend/message and links to My Page.
 - Direct messages between local accounts:
   - inbox threads with unread counts;
   - message history and send endpoint;

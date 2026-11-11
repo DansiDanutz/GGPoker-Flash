@@ -68,6 +68,12 @@ export function MyPage() {
   };
 
   useEffect(() => {
+    const id = Number(new URLSearchParams(location.hash.split('?')[1] || '').get('dm') || 0);
+    if (!id) return;
+    api.userProfile(id).then((r) => openDm({ peer_id: r.user.id, nick: r.user.nick })).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     api.missions().then((r) => setMissions(r.missions)).catch(() => {});
     api.cashier().then((r) => setTx(r.transactions)).catch(() => {});
     api.leaderboard().then((r) => setLeaders(r.leaders)).catch(() => {});

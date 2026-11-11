@@ -520,3 +520,8 @@ body.electron .app-window::before { display: none; }
 .dm-bubble.me { align-self: flex-end; background: #2b2110; border-color: #6b5320; border-radius: 10px 10px 3px 10px; color: #f1dfb4; }
 .dm-bubble span { display: block; }
 .dm-bubble small { display: block; color: #7f8a83; font-size: 9px; text-align: right; margin-top: 2px; }
+.player-profile-card { display: flex; align-items: center; gap: 10px; padding: 9px; margin-bottom: 10px; border: 1px solid #2d2d2d; border-radius: 8px; background: #151515; flex-wrap: wrap; }
+.player-profile-card b { display: block; color: #f1eee4; font-size: 14px; }
+.player-profile-card span { display: block; color: #8b978f; font-size: 10px; margin-top: 2px; }
+.player-stats-row { display: flex; gap: 14px; padding: 6px 2px 10px; color: #8b978f; font-size: 10px; }
+.player-stats-row b { color: #e9d9b1; font-size: 12px; }

@@ -65,6 +65,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [rebuyAmount, setRebuyAmount] = useState(0);
   const [notes, setNotes] = useState<Record<string, { note: string; color: string }>>({});
   const [noteTarget, setNoteTarget] = useState<PlayerState | null>(null);
+  const [playerProfile, setPlayerProfile] = useState<any>(null);
+  const [friendAdded, setFriendAdded] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
   const [mutes, setMutes] = useState<number[]>([]);
   const [noteText, setNoteText] = useState('');
@@ -473,6 +475,8 @@ export function TablePage({ tableId }: { tableId: string }) {
 
   const openNote = (p: PlayerState) => {
     if (!p.nick) return;
+    setPlayerProfile(null); setFriendAdded(false);
+    if (p.id && !p.isBot) api.userProfile(Number(p.id)).then(setPlayerProfile).catch(() => {});
     const existing = notes[p.nick];
     setNoteTarget(p);
     setNoteText(existing?.note || '');
@@ -871,6 +875,26 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head"><h3>Note · {noteTarget.nick}</h3></div>
             <div className="modal-body">
+              {playerProfile?.user && (
+                <div className="player-profile-card">
+                  <Avatar name={playerProfile.user.nick} src={playerProfile.user.avatar} size={52} />
+                  <div>
+                    <b>{playerProfile.user.nick}</b>
+                    <span>VIP {playerProfile.user.vip_level} · {playerProfile.user.country || 'Local'} · {playerProfile.online ? 'At a table' : 'Offline'}</span>
+                  </div>
+                  <div className="row" style={{ marginLeft: 'auto' }}>
+                    {playerProfile.user.id === user?.id ? (
+                      <button className="btn btn-ghost btn-sm" onClick={() => { setNoteTarget(null); navigate('/my-page'); }}>My Page</button>
+                    ) : (<>
+                      <button className="btn btn-ghost btn-sm" disabled={friendAdded || playerProfile.friend} onClick={async () => { await api.addFriend(playerProfile.user.nick); setFriendAdded(true); toast({ kind: 'success', title: 'Friend added', body: playerProfile.user.nick }); }}>{playerProfile.friend || friendAdded ? 'Friend' : 'Add friend'}</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => { setNoteTarget(null); navigate(`/my-page?dm=${playerProfile.user.id}`); }}>Message</button>
+                    </>)}
+                  </div>
+                </div>
+              )}
+              {playerProfile?.stats && (
+                <div className="player-stats-row"><span><b>{playerProfile.stats.played}</b> hands</span><span><b>{playerProfile.stats.won}</b> wins</span><span><b>{chip(playerProfile.stats.biggest)}</b> biggest</span></div>
+              )}
               <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={4} placeholder="Notes are private and only visible to you…"
                 style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10, fontFamily: 'inherit' }} />
               <div className="row" style={{ marginTop: 10 }}>
