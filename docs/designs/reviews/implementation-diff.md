@@ -1,11 +1,11 @@
 # Implementation Diff — Remediation + Poker Parity (final)
 
 Baseline: 320f00b
-Head: e38c4b1
+Head: 9dd35b0
 
 ```diff
 diff --git a/README.md b/README.md
-index 0cbf69d..10be5e4 100644
+index 0cbf69d..2559c39 100644
 --- a/README.md
 +++ b/README.md
 @@ -83,7 +83,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for
@@ -40,7 +40,7 @@ index 0cbf69d..10be5e4 100644
  The review changed the code: `addTransaction` is now a single SQLite
  transaction, the deck shuffle uses `node:crypto`, the app enforces a single
 -instance, CDP is gated to dev, request bodies are capped, and 11 committed
-+instance, CDP is gated to dev, request bodies are capped, and 38 committed
++instance, CDP is gated to dev, request bodies are capped, and 39 committed
  `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
  
  ## Notes / scope
@@ -500,7 +500,7 @@ index 51482ca..eec61f7 100644
  }
  
 diff --git a/app/server/engine.test.js b/app/server/engine.test.js
-index 0334242..62f80bb 100644
+index 0334242..edfc0b6 100644
 --- a/app/server/engine.test.js
 +++ b/app/server/engine.test.js
 @@ -56,13 +56,17 @@ test('bestOmaha uses exactly two hole cards and three board cards', () => {
@@ -522,7 +522,7 @@ index 0334242..62f80bb 100644
  });
  
  test('showdown builds side pots and conserves chips', () => {
-@@ -106,3 +110,190 @@ test('tournament winner receives half the prize pool exactly once and fires the
+@@ -106,3 +110,205 @@ test('tournament winner receives half the prize pool exactly once and fires the
    assert.equal(paid, 1);
    assert.equal(ends, 1);
  });
@@ -712,6 +712,21 @@ index 0334242..62f80bb 100644
 +  t.act(actor, 'fold');
 +  const folded = [p1, p2].find((p) => p.folded);
 +  assert.equal(folded.rushQueued, true);
++});
++
++
++test('run it twice handles a multiway side pot and conserves chips', () => {
++  const p1 = player(1, 'Short', 1000, 100, ['As', 'Ks'].map(C));
++  const p2 = player(2, 'Big A', 1000, 300, ['Qd', 'Qc'].map(C));
++  const p3 = player(3, 'Big B', 1000, 300, ['7h', '8h'].map(C));
++  const t = tableWith([p1, p2, p3], { seats: 3 });
++  t.pot = 700;
++  t.deck = makeDeck(false);
++  t.runItTwice = true;
++  t.runoutTwice();
++  assert.equal(t.result.boards.length, 2);
++  const paid = t.result.winners.reduce((a, w) => a + w.amount, 0);
++  assert.equal(paid, 665);
 +});
 diff --git a/app/server/http.test.js b/app/server/http.test.js
 new file mode 100644
@@ -1750,7 +1765,7 @@ index 0000000..a776859
 +  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference LIKE 'refund:fault:%'").get().c, 1);
 +});
 diff --git a/app/server/table.js b/app/server/table.js
-index fa07090..00df109 100644
+index fa07090..190f5ed 100644
 --- a/app/server/table.js
 +++ b/app/server/table.js
 @@ -57,14 +57,20 @@ export class PokerTable {
@@ -1983,14 +1998,14 @@ index fa07090..00df109 100644
    }
  
    runout() {
-+    if (this.runItTwice && this.activePlayers().filter((s) => !s.player.folded).length === 2) {
++    if (this.runItTwice && this.activePlayers().filter((s) => !s.player.folded).length >= 2) {
 +      this.runoutTwice();
 +      return;
 +    }
      this.street = 'showdown';
      this.actor = null;
      while (this.board.length < 5) {
-@@ -508,6 +610,58 @@ export class PokerTable {
+@@ -508,6 +610,100 @@ export class PokerTable {
      this.doShowdown();
    }
  
@@ -1999,24 +2014,54 @@ index fa07090..00df109 100644
 +    this.actor = null;
 +    this.collectBets();
 +    const alive = this.activePlayers().filter((s) => !s.player.folded);
++    if (alive.length < 2) { this.doShowdown(); return; }
 +    const board1 = [];
 +    const board2 = [];
 +    while (board1.length < 5) board1.push(this.deck.pop());
 +    while (board2.length < 5) board2.push(this.deck.pop());
 +    const evaluate = (board) => alive.map((s) => {
-+      const best = this.omaha ? bestOmaha(s.player.cards, board) : bestHoldem(s.player.cards, board);
-+      return { seat: s.index, player: s.player, score: best.score, name: best.name, cards: best.cards };
++      const p = s.player;
++      const best = this.omaha ? bestOmaha(p.cards, board) : bestHoldem(p.cards, board);
++      return { seat: s.index, player: p, score: best.score, name: best.name, cards: best.cards };
 +    });
 +    const scored = [evaluate(board1), evaluate(board2)];
-+    const pot = this.pot;
-+    const rake = this.computeRake(pot);
++
++    const contributions = this.seats
++      .filter((s) => s.player && s.player.totalBet > 0)
++      .map((s) => ({ player: s.player, amount: s.player.totalBet, folded: s.player.folded }));
++    const levels = [...new Set(contributions.map((c) => c.amount))].sort((a, b) => a - b);
++    const pots = [];
++    let prev = 0;
++    for (const level of levels) {
++      let amount = 0;
++      for (const c of contributions) amount += Math.max(0, Math.min(c.amount, level) - prev);
++      const ids = contributions
++        .filter((c) => !c.folded && c.amount >= level)
++        .map((c) => c.player.id);
++      if (amount > 0 && ids.length) pots.push({ amount, ids });
++      prev = level;
++    }
++    const totalContrib = contributions.reduce((a, c) => a + c.amount, 0);
++    const potsTotal = pots.reduce((a, p) => a + p.amount, 0);
++    if (totalContrib > potsTotal) pots.push({ amount: totalContrib - potsTotal, ids: alive.map((s) => s.player.id) });
++    const rake = this.computeRake(this.pot);
 +    this.rake = rake;
-+    const prize = pot - rake;
++    let remain = rake;
++    for (const pot of pots) {
++      const take = Math.min(pot.amount, remain);
++      pot.amount -= take;
++      remain -= take;
++      if (remain <= 0) break;
++    }
++
 +    const results = [];
-+    const awardBoard = (sc, amount) => {
++    const award = (scoredBoard, amount, boardIndex, eligible) => {
++      if (amount <= 0 || !eligible.length) return;
++      const candidates = scoredBoard.filter((sc) => eligible.includes(sc.player.id));
++      if (!candidates.length) return;
 +      let best = null;
-+      for (const x of sc) if (!best || compareScores(x.score, best.score) > 0) best = x;
-+      const winners = sc.filter((x) => compareScores(x.score, best.score) === 0);
++      for (const sc of candidates) if (!best || compareScores(sc.score, best.score) > 0) best = sc;
++      const winners = candidates.filter((sc) => compareScores(sc.score, best.score) === 0);
 +      const share = Math.floor(amount / winners.length);
 +      let remainder = amount - share * winners.length;
 +      for (const w of winners) {
@@ -2025,16 +2070,28 @@ index fa07090..00df109 100644
 +        w.player.stack += amt;
 +        w.player.winAmount += amt;
 +        const prior = results.find((r) => r.id === w.player.id);
-+        if (prior) prior.amount += amt;
-+        else results.push({ id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt, hand: w.name, cards: w.cards.map(cardStr), pot });
++        if (prior) {
++          prior.amount += amt;
++          prior.boards = [...new Set([...(prior.boards || []), boardIndex])];
++        } else {
++          results.push({
++            id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt,
++            hand: w.name, cards: w.cards.map(cardStr), board: boardIndex, boards: [boardIndex],
++          });
++        }
 +      }
 +    };
-+    awardBoard(scored[0], Math.floor(prize / 2));
-+    awardBoard(scored[1], prize - Math.floor(prize / 2));
++
++    for (const pot of pots) {
++      const half = Math.floor(pot.amount / 2);
++      award(scored[0], half, 0, pot.ids);
++      award(scored[1], pot.amount - half, 1, pot.ids);
++    }
++
 +    this.board = board1;
 +    this.boards = [board1, board2];
 +    const summary = {
-+      pot, rake, board: board1.map(cardStr), boards: [board1.map(cardStr), board2.map(cardStr)],
++      pot: this.pot, rake, board: board1.map(cardStr), boards: [board1.map(cardStr), board2.map(cardStr)],
 +      winners: results, runItTwice: true, reason: 'showdown',
 +      hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
 +    };
@@ -2043,13 +2100,13 @@ index fa07090..00df109 100644
 +    this.nextHandAt = Date.now() + this.showdownDelay;
 +    this.emit({ type: 'win', ...summary });
 +    this.saveHand(summary);
-+    this.updateMissionProgress(results[0]);
++    this.updateMissionProgress(results[0] || null);
 +  }
 +
    collectBets() {
      for (const s of this.seats) {
        if (!s.player) continue;
-@@ -546,8 +700,7 @@ export class PokerTable {
+@@ -546,8 +742,7 @@ export class PokerTable {
    computeRake(pot) {
      if (this.tournament || this.spin) return 0;
      const raw = Math.floor((pot * this.rakePercent) / 100);
@@ -2059,7 +2116,7 @@ index fa07090..00df109 100644
    }
  
    finishByFold(winnerSeat) {
-@@ -567,6 +720,7 @@ export class PokerTable {
+@@ -567,6 +762,7 @@ export class PokerTable {
        board: this.board.map(cardStr),
        reason: 'fold',
      };
@@ -2067,7 +2124,7 @@ index fa07090..00df109 100644
      this.result = summary;
      this.street = 'ended';
      this.actor = null;
-@@ -579,7 +733,6 @@ export class PokerTable {
+@@ -579,7 +775,6 @@ export class PokerTable {
    doShowdown() {
      this.collectBets();
      const alive = this.activePlayers().filter((s) => !s.player.folded);
@@ -2075,7 +2132,7 @@ index fa07090..00df109 100644
      const scored = alive.map((s) => {
        const p = s.player;
        const best = this.omaha ? bestOmaha(p.cards, this.board) : bestHoldem(p.cards, this.board);
-@@ -689,7 +842,10 @@ export class PokerTable {
+@@ -689,7 +884,10 @@ export class PokerTable {
          this.nextHandAt = 0;
          // remove busted bots, rebuy bots so the table stays alive
          for (const s of this.seats) {
@@ -2087,7 +2144,7 @@ index fa07090..00df109 100644
          }
          if (this.elimination) {
            const aliveCount = this.occupiedSeats().filter((x) => x.player && x.player.stack > 0).length;
-@@ -707,6 +863,28 @@ export class PokerTable {
+@@ -707,6 +905,28 @@ export class PokerTable {
                  this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
                  if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
                }
@@ -2116,7 +2173,7 @@ index fa07090..00df109 100644
                s.player = null;
                this.emit({ type: 'stand', seat: s.index });
              }
-@@ -803,6 +981,8 @@ export class PokerTable {
+@@ -803,6 +1023,8 @@ export class PokerTable {
      const now = Date.now();
      return {
        id: this.cfg.id,
@@ -2125,7 +2182,7 @@ index fa07090..00df109 100644
        name: this.cfg.name,
        game: this.game,
        sb: this.sb,
-@@ -855,13 +1035,19 @@ export class PokerTable {
+@@ -855,13 +1077,19 @@ export class PokerTable {
        lastAction: this.lastAction,
        canStart: this.street === 'idle',
        spin: this.spin ? { multiplier: this.spinMultiplier, prize: this.spinPrize, winner: this.spinWinner } : null,
