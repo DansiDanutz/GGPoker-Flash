@@ -28,7 +28,7 @@ client. It is an Electron shell around a React renderer and a Node.js game
 server. The server owns all money and game outcomes; live table state (stacks,
 pots, timers) is held in the server process, while balances, hands and audit
 trails are persisted in SQLite. The renderer never decides an outcome. A single app bundle (`DanGG.ro.app`) starts
-the server on `127.0.0.1:5198` and opens a frameless 1200×961 window at that
+the server on `127.0.0.1:5198` and opens a frameless, resizable window (default 1200×961, minimum 360×640) at that
 address.
 
 The project also reverse-engineers the installed Adobe AIR client to recover

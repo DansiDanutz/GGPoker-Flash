@@ -6,6 +6,8 @@ import { useI18n } from '../lib/i18n';
 export function Icon({ name, size = 17 }: { name: string; size?: number }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'currentColor' } as const;
   switch (name) {
+    case 'home':
+      return <svg {...common}><path d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3l9-8z" /></svg>;
     case 'chat':
       return <svg {...common}><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" opacity=".9" /></svg>;
     case 'trophy':

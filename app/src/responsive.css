@@ -116,3 +116,159 @@ body.electron .app-window::before { display: none; }
   .tourney-row { grid-template-columns: 54px 1fr 68px 62px 70px; }
   .tourney-row.head > div:nth-child(5), .tourney-row > div:nth-child(5) { display: none; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Phone: a real mobile layout, not a squeezed desktop                 */
+/* ------------------------------------------------------------------ */
+.mobile-nav { display: none; }
+
+@media (max-width: 760px) {
+  .app-window { border-radius: 0; }
+  .titlebar { height: 34px; flex-basis: 34px; padding: 0 8px; gap: 8px; }
+  .titlebar .traffic { gap: 6px; }
+  .titlebar .traffic i, .titlebar .traffic button { width: 10px; height: 10px; }
+  .online-pill { font-size: 11px; }
+  .title-icons { gap: 0; }
+  .title-icons .title-icon:nth-child(n+3):not(:last-child) { display: none; }
+  .lang-chip { font-size: 10px; padding: 3px 5px; }
+  .app-header { height: 50px; flex-basis: 50px; padding: 0 10px; gap: 8px; }
+  .brand-logo { width: 124px; flex-basis: 124px; height: 38px; }
+  .topnav, .jackpot-banner { display: none; }
+  .account-block { right: 8px; top: 4px; height: 40px; }
+  .avatar-ring { width: 38px; height: 38px; }
+  .vip-badge { width: 16px; height: 16px; font-size: 8px; }
+  .game-tabs { height: 46px; flex-basis: 46px; }
+  .game-tab { height: 46px; min-width: 112px; }
+  .game-tab img { height: 46px; }
+  .game-tab .active-plate { font-size: 12px; inset: 4px 6px; }
+  .subnav { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .subnav::-webkit-scrollbar { display: none; }
+  .subnav button { white-space: nowrap; min-height: 36px; }
+  .app-content { padding-bottom: 62px; }
+  .mobile-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    height: 60px; padding-bottom: env(safe-area-inset-bottom, 0);
+    background: rgba(7, 12, 10, .97); border-top: 1px solid rgba(216, 177, 95, .2);
+    backdrop-filter: blur(16px); box-shadow: 0 -10px 30px rgba(0, 0, 0, .4);
+  }
+  .mobile-nav button {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    min-height: 52px; color: #8e9992; font-size: 9px; letter-spacing: .4px;
+  }
+  .mobile-nav button.on { color: var(--gold2); }
+  .mobile-nav button.on::before { content: ''; position: absolute; top: 0; width: 26px; height: 2px; background: var(--gold); box-shadow: 0 0 10px rgba(245, 221, 162, .5); }
+  .mobile-nav button svg { width: 21px; height: 21px; }
+
+  /* lobby */
+  .lobby-left, .lobby-side, .lobby-rail { display: none; }
+  .lobby-content { display: block; }
+  .promo-wrap { height: 122px; flex-basis: 122px; margin: 8px 8px 0; }
+  .promo-copy { left: 10px; bottom: 10px; max-width: 62%; }
+  .promo-copy b { font-size: 15px; }
+  .promo-copy span { font-size: 9.5px; }
+  .promo-cta { right: 10px; bottom: 9px; font-size: 9px; padding: 4px 8px; }
+  .promo-badge { left: 10px; top: 9px; font-size: 8px; }
+  .promo-arrow { display: none; }
+  .filter-bar {
+    margin: 7px 8px 6px; height: auto; min-height: 38px; padding: 6px 7px;
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-bar select { min-width: 104px; max-width: 120px; height: 28px; }
+  .filter-bar input { min-width: 130px; max-width: 150px; height: 28px; }
+  .filter-count { display: none; }
+  .table-list { margin: 0 8px 8px; }
+  .list-head { display: none; }
+  .table-row {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 3px 8px;
+    height: auto; min-height: 62px; padding: 8px 10px; border-radius: 8px; margin-bottom: 5px;
+  }
+  .table-row .name { grid-column: 1 / -1; padding-left: 4px; font-size: 13px; }
+  .table-row > div { padding: 0; text-align: left; font-size: 12px; }
+  .table-row > div:nth-child(2) { color: var(--gold2); font-weight: 700; }
+  .table-row > div:nth-child(3)::before { content: 'Buy-in '; color: #7f8a83; font-weight: 400; }
+  .table-row > div:nth-child(4) { grid-column: 2; }
+  .table-row > div:nth-child(4)::before { content: 'Players '; color: #7f8a83; }
+  .table-row > div:nth-child(5), .table-row > div:nth-child(6),
+  .table-row > div:nth-child(7), .table-row > div:nth-child(8) { display: none; }
+  .table-row.selected { box-shadow: inset 3px 0 0 var(--gold), 0 0 18px rgba(180, 45, 60, .18); }
+
+  /* generic pages */
+  .page { padding: 12px 12px calc(76px + env(safe-area-inset-bottom, 0)); }
+  .page-title { font-size: 19px; }
+  .g2, .g3, .g4, .stat-grid, .promo-grid, .theme-grid, .slot-row { grid-template-columns: 1fr; }
+  .card, .admin-card { border-radius: 9px; }
+  .modal { width: calc(100vw - 20px); max-height: 90vh; }
+  .tourney-row { grid-template-columns: 48px 1fr 66px; padding: 9px 8px; }
+  .tourney-row > div:nth-child(4), .tourney-row > div:nth-child(5),
+  .tourney-row > div:nth-child(6) { display: none; }
+  .tourney-row.head { display: none; }
+  .t-name b { font-size: 12px; }
+  .t-name small { font-size: 10px; }
+  .reward-track { overflow-x: auto; padding-bottom: 8px; }
+  .reward-node { flex-basis: 96px; }
+  .admin-shell { flex-direction: column; }
+  .admin-nav { width: 100%; flex: 0 0 auto; flex-direction: row; overflow-x: auto; padding: 6px; }
+  .admin-nav .brand { display: none; }
+  .admin-nav button { white-space: nowrap; padding: 8px 10px; }
+  .admin-main { padding: 10px 10px 80px; }
+  .login-box { width: 100%; flex: 1; padding: 24px 20px; }
+  .login-art { display: none; }
+  .login-box .brand-logo { width: 170px; height: 42px; }
+
+  /* room */
+  .table-topbar { height: 34px; padding: 0 6px; gap: 4px; font-size: 10px; }
+  .table-topbar .name { font-size: 11px; max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .table-topbar .pill { display: none; }
+  .table-topbar button { padding: 4px 5px; font-size: 10px; }
+  .felt { width: 94%; height: 48%; top: 45%; }
+  .table-center { top: 45%; width: 84%; }
+  .pot-label { font-size: 12px; padding: 3px 10px 3px 24px; }
+  .board { gap: 3px; }
+  .board .pcard { width: 44px; height: 62px; }
+  .board .pcard.mini { width: 28px; height: 40px; }
+  .seat { width: 88px; }
+  .seat .avatar-wrap { width: 46px; height: 46px; }
+  .seat .plate { min-width: 78px; padding: 2px 5px; }
+  .seat .plate .nm { max-width: 82px; font-size: 10px; }
+  .seat .plate .st { font-size: 10px; }
+  .seat .cards .pcard { width: 28px; height: 40px; }
+  .seat .action-badge { font-size: 9px; bottom: -19px; }
+  .action-bar { padding: 5px 6px 8px; gap: 4px; }
+  .action-row { flex-wrap: wrap; gap: 4px; }
+  .act-btn { min-width: 68px; height: 38px; font-size: 11.5px; padding: 0 7px; }
+  .bet-slider { min-width: 90px; }
+  .amount-input { width: 64px; height: 30px; }
+  .quick-bets { display: none; }
+  .turn-timer-bar { height: 2px; }
+  .table-menu { right: 6px; top: 36px; width: 210px; max-height: 64vh; overflow-y: auto; }
+  .chat-panel { width: 100% !important; }
+}
+
+@media (max-width: 420px) {
+  .brand-logo { width: 104px; flex-basis: 104px; }
+  .game-tab { min-width: 102px; }
+  .promo-wrap { height: 108px; flex-basis: 108px; }
+  .table-row { min-height: 58px; }
+  .seat { width: 80px; }
+  .seat .avatar-wrap { width: 40px; height: 40px; }
+  .seat .plate { min-width: 70px; }
+  .seat .plate .nm { max-width: 74px; }
+}
+
+@media (max-width: 760px) {
+  .tourney-hero { height: auto; min-height: 0; margin-bottom: 10px; }
+  .th-content { padding: 13px 14px 14px; }
+  .th-kicker { font-size: 9px; letter-spacing: 2px; }
+  .th-content h1 { font-size: 21px; line-height: 1.15; margin: 5px 0 10px; max-width: 72%; }
+  .th-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+  .th-meta span { font-size: 8.5px; letter-spacing: .7px; }
+  .th-meta b { font-size: 13px; }
+  .tourney-toolbar { gap: 6px; }
+  .tourney-toolbar .btn { height: 32px; font-size: 11px; padding: 0 9px; }
+  .series-bar { padding-bottom: 2px; scrollbar-width: none; }
+  .series-bar::-webkit-scrollbar { display: none; }
+  .seat { transform: translate(-50%, -50%) scale(.82); }
+  .seat:hover { transform: translate(-50%, -50%) scale(.82); }
+}

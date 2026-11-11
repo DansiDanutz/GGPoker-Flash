@@ -107,9 +107,21 @@ official card back are already in use.
   columns collapse from eight to six and then five; game tabs scroll.
 - Login stacks/hides art, admin tables scroll, tournament rows collapse,
   action rows wrap, and cards/tables scale down.
-- Verified by resizing the packaged app to **1000×720**, **1200×830** and
-  **1440×900**; lobby and room screenshots are in
-  `research/screens/deliverable/responsive_*.png`.
+- Verified by resizing the packaged app to **1000×720**, **1200×830**,
+  **1440×900**, and a phone viewport of **390×844**; lobby, room and cashier
+  screenshots are in `research/screens/deliverable/mobile_*.png` and
+  `responsive_*.png`.
+
+## Phone and tablet
+
+- The Electron window minimum is now **360×640**, not 980×720.
+- At ≤760px the UI switches to a phone layout: compact header, horizontally
+  scrolling game tabs, promo carousel, table cards instead of rows, a fixed
+  five-item bottom navigation, and a bottom-safe-area inset.
+- The room uses smaller seats, scaled felt, compact top bar and wrapping action
+  controls; the bottom navigation is hidden while seated.
+- Tablet widths use the 980/1120 desktop rules (side preview hidden, table
+  columns collapsed) rather than the phone card layout.
 
 ## Limits
 

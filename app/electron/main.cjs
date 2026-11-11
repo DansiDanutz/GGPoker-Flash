@@ -95,8 +95,8 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1200,
     height: 961,
-    minWidth: 980,
-    minHeight: 720,
+    minWidth: 360,
+    minHeight: 640,
     frame: false,
     transparent: false,
     backgroundColor: '#0a0a0b',
@@ -126,7 +126,7 @@ function createWindow() {
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
-          width: 1200, height: 961, minWidth: 980, minHeight: 720,
+          width: 1200, height: 961, minWidth: 360, minHeight: 640,
           frame: false, transparent: false, backgroundColor: '#0a0a0b',
           hasShadow: true, title: 'DanGG.ro',
           webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },

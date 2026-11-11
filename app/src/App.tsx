@@ -15,6 +15,7 @@ import { Admin } from './pages/Admin';
 import { MyPage } from './pages/MyPage';
 import { Ocean, GGCare } from './pages/Ocean';
 import { Honeymoon } from './pages/Honeymoon';
+import { MobileNav } from './components/MobileNav';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
   const desktop = typeof window !== 'undefined' && !!(window as any).ggDesktop;
@@ -112,6 +113,7 @@ export default function App() {
   return (
     <ScaleStage>
       {page}
+      <MobileNav />
       <div className="toasts">
         {toasts.map((t) => (
           <div key={t.id} className={'toast ' + t.kind} onClick={() => dismissToast(t.id)}>

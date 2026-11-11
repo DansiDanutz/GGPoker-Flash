@@ -17,7 +17,7 @@ sounds and interaction design, plus a full administration console.
 
 Open **`~/Applications/DanGG.ro.app`** (double-click), or run
 **`Launch DanGG.ro.command`** from this folder. The app starts its own local server
-(127.0.0.1:5198) and opens a frameless 1200×961 window with the client.
+(127.0.0.1:5198) and opens a frameless, resizable window (default 1200×961, minimum 360×640) with the client.
 
 If macOS quarantines the unsigned build, run once:
 
