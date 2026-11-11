@@ -40,6 +40,7 @@ function init() {
     vip_points INTEGER NOT NULL DEFAULT 0,
     is_admin INTEGER NOT NULL DEFAULT 0,
     banned INTEGER NOT NULL DEFAULT 0,
+    chat_muted INTEGER NOT NULL DEFAULT 0,
     country TEXT DEFAULT 'RO',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     last_login TEXT
@@ -212,6 +213,7 @@ function init() {
   try { db.exec('ALTER TABLE tables ADD COLUMN private INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE users ADD COLUMN chat_muted INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE tournaments ADD COLUMN mode TEXT DEFAULT 'STANDARD'"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tournaments ADD COLUMN bounty INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tournaments ADD COLUMN late_reg INTEGER DEFAULT 90'); } catch { /* already exists */ }
@@ -558,6 +560,6 @@ export function publicUser(u) {
     id: u.id, login: u.login, nick: u.nick, email: u.email, avatar: u.avatar,
     balance: u.balance, play_chips: u.play_chips, tickets: u.tickets, gems: u.gems,
     xp: u.xp, vip_level: u.vip_level, vip_points: u.vip_points, is_admin: !!u.is_admin,
-    banned: !!u.banned, country: u.country, created_at: u.created_at,
+    banned: !!u.banned, chat_muted: !!u.chat_muted, country: u.country, created_at: u.created_at,
   };
 }

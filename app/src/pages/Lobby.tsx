@@ -75,6 +75,7 @@ export function Lobby() {
   const [hostOpen, setHostOpen] = useState(false);
   const [hostBusy, setHostBusy] = useState(false);
   const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000 });
+  const [myHosts, setMyHosts] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
   const [promoIdx, setPromoIdx] = useState(0);
   const [promoPaused, setPromoPaused] = useState(false);
@@ -164,13 +165,35 @@ export function Lobby() {
     });
   };
 
+  const openHost = async () => {
+    setHostOpen(true);
+    try { const r = await api.hostTables(); setMyHosts(r.tables || []); } catch { setMyHosts([]); }
+  };
+
+  const copyHostLink = async (id: string) => {
+    const link = `${location.origin}/#/table/${id}?observe=1`;
+    try { await navigator.clipboard.writeText(link); toast({ kind: 'success', title: 'Invite link copied', body: link }); }
+    catch { toast({ kind: 'info', title: 'Copy this link', body: link }); }
+  };
+
+  const deleteHost = async (id: string) => {
+    if (!window.confirm('Delete this private table?')) return;
+    try { await api.deleteHostTable(id); setMyHosts((rows) => rows.filter((r) => r.id !== id)); toast({ kind: 'success', title: 'Private table deleted' }); await load(); }
+    catch (e: any) { toast({ kind: 'error', title: 'Cannot delete table', body: e.message }); }
+  };
+
   const openJoin = (t: LobbyTable) => {
     sound.play('click', { volume: .6 });
     setBuyinTable(t);
     const pct = Math.max(0, Math.min(100, Number(localStorage.getItem('ggpoker.buyinPct') || 0)));
     const preferred = pct > 0 ? Math.round((t.max_buyin * pct) / 100 / 100) * 100 : t.min_buyin;
-    setBuyin(Math.max(t.min_buyin, Math.min(t.max_buyin, preferred)));
+    const amount = Math.max(t.min_buyin, Math.min(t.max_buyin, preferred));
+    setBuyin(amount);
     setSeat(null);
+    if (localStorage.getItem('ggpoker.autoBuyin') === '1' && user && user.balance >= amount) {
+      setOpeningTable(t.id);
+      navigate(`/table/${t.id}?buyin=${amount}`);
+    }
   };
 
   const confirmJoin = async () => {
@@ -297,7 +320,7 @@ export function Lobby() {
             </select>
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tables…" />
             <button className={'fav-toggle' + (favOnly ? ' on' : '')} onClick={() => setFavOnly((v) => !v)}>★ Favorites</button>
-            <button className="host-table-btn" onClick={() => setHostOpen(true)}>+ Host</button>
+            <button className="host-table-btn" onClick={openHost}>+ Host</button>
             <span className="filter-count">{tables.length} tables</span>
           </div>
           <div className="table-list" key={gameTab}>
@@ -507,6 +530,19 @@ export function Lobby() {
             <div className="modal-head"><h3>Host a private table</h3><button className="title-icon" onClick={() => setHostOpen(false)}>✕</button></div>
             <div className="modal-body">
               <p className="muted small" style={{ marginTop: 0 }}>Local play-money table. Only you and players with the table link can see it.</p>
+              {myHosts.length > 0 && (
+                <div className="host-list">
+                  <div className="panel-title" style={{ marginBottom: 4 }}>Your private tables</div>
+                  {myHosts.map((t) => (
+                    <div key={t.id} className="host-row">
+                      <div><b>{t.name}</b><span>{t.game} · {t.seats}-max · {money(t.sb)}/{money(t.bb)}</span></div>
+                      <button className="btn btn-ghost btn-sm" onClick={() => copyHostLink(t.id)}>Copy invite</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => deleteHost(t.id)}>Delete</button>
+                    </div>
+                  ))}
+                  <div style={{ height: 10 }} />
+                </div>
+              )}
               <label className="admin-label">Table name</label>
               <input className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} table`} value={hostForm.name} onChange={(e) => setHostForm({ ...hostForm, name: e.target.value })} maxLength={40} />
               <div className="grid g2" style={{ marginTop: 10 }}>

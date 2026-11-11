@@ -503,6 +503,25 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { tables: lobbyTables() });
     }
 
+    if (p === '/api/tables/host' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const rows = db.prepare('SELECT id,name,game,sb,bb,min_buyin,max_buyin,seats FROM tables WHERE owner_id = ? AND private = 1 AND enabled = 1 ORDER BY rowid DESC').all(u.id);
+      return json(res, 200, { tables: rows });
+    }
+
+    if (p.startsWith('/api/tables/host/') && req.method === 'DELETE') {
+      const u = requireUser(req, res); if (!u) return;
+      const id = decodeURIComponent(p.slice('/api/tables/host/'.length));
+      const t = db.prepare('SELECT * FROM tables WHERE id = ? AND owner_id = ? AND private = 1').get(id, u.id);
+      if (!t) return json(res, 404, { error: 'not found' });
+      const live = LIVE_TABLES.get(id);
+      if (live && live.table.occupiedSeats().length) return json(res, 409, { error: 'Table has players — ask them to leave first' });
+      if (live) { clearInterval(live.timer); LIVE_TABLES.delete(id); CUSTOM_CFG.delete(id); }
+      db.prepare('DELETE FROM tables WHERE id = ?').run(id);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'delete_host_table', id);
+      return json(res, 200, { ok: true });
+    }
+
     if (p === '/api/tables/host' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const b = await readBody(req);
@@ -1118,6 +1137,7 @@ const server = http.createServer(async (req, res) => {
     // ---------- chat ----------
     if (p === '/api/chat' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
+      if (u.chat_muted) return json(res, 403, { error: 'Chat is muted' });
       const body = await readBody(req);
       const msg = String(body.message || '').slice(0, 300);
       if (!msg.trim()) return json(res, 400, { error: 'empty' });
@@ -1234,6 +1254,11 @@ const server = http.createServer(async (req, res) => {
           if (body[field] != null) db.prepare(`UPDATE users SET ${field} = ? WHERE id = ?`).run(Math.round(Number(body[field])), id);
         }
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'set', `user ${id} ${JSON.stringify(body)}`);
+        return json(res, 200, { ok: true });
+      }
+      if (body.action === 'mute' || body.action === 'unmute') {
+        db.prepare('UPDATE users SET chat_muted = ? WHERE id = ?').run(body.action === 'mute' ? 1 : 0, id);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, body.action, `user ${id}`);
         return json(res, 200, { ok: true });
       }
       if (body.action === 'ban' || body.action === 'unban') {
@@ -1618,6 +1643,8 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'chat') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
+      const chatter = db.prepare('SELECT chat_muted FROM users WHERE id = ?').get(ws.userId);
+      if (chatter?.chat_muted) return;
       const text = String(msg.message || '').slice(0, 200);
       if (!text.trim()) return;
       const evt = { type: 'chat', nick: ws.nick, userId: ws.userId, message: text, at: Date.now() };

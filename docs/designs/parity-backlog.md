@@ -43,7 +43,9 @@ not a source to copy blindly.
   - player-created table with name, game, seats, blinds and buy-in range;
   - owner visibility in the lobby, public isolation from `/api/tables`;
   - private-table rows carry `owner_id` and `private` in SQLite;
-  - creation is audited and capped at eight tables per owner.
+  - creation is audited and capped at eight tables per owner;
+  - owner table list, copy-invite link and delete action in the host modal;
+  - auto buy-in from the lobby Join action.
 - Table:
   - card-back skin from settings;
   - four configurable quick-bet buttons with pre/post-flop labels;

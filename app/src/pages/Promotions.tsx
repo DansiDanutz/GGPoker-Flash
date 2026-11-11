@@ -93,6 +93,7 @@ export function Settings() {
   const [channels, setChannels] = useState({ ...sound.channels });
   const [buyinPct, setBuyinPct] = useState(() => Number(localStorage.getItem('ggpoker.buyinPct') || 0));
   const [autoTopup, setAutoTopup] = useState(() => localStorage.getItem('ggpoker.autoTopup') === '1');
+  const [autoBuyin, setAutoBuyin] = useState(() => localStorage.getItem('ggpoker.autoBuyin') === '1');
   const [topupTrigger, setTopupTrigger] = useState(() => Number(localStorage.getItem('ggpoker.topupTrigger') || 25));
   const [topupTarget, setTopupTarget] = useState(() => Number(localStorage.getItem('ggpoker.topupTarget') || 100));
   const [currentPw, setCurrentPw] = useState('');
@@ -171,7 +172,8 @@ export function Settings() {
               <div className="between"><span className="muted small">Default buy-in (0% = table minimum)</span><b>{buyinPct}% of maximum</b></div>
               <input type="range" min={0} max={100} value={buyinPct} style={{ width: '100%' }}
                 onChange={(e) => { const v = Number(e.target.value); setBuyinPct(v); persist('ggpoker.buyinPct', String(v)); }} />
-              <label className="switch-row" style={{ marginTop: 8 }}><span>Auto top-up after a hand</span><input type="checkbox" checked={autoTopup} onChange={(e) => { setAutoTopup(e.target.checked); persist('ggpoker.autoTopup', e.target.checked ? '1' : '0'); }} /></label>
+              <label className="switch-row" style={{ marginTop: 8 }}><span>Auto buy-in from Join</span><input type="checkbox" checked={autoBuyin} onChange={(e) => { setAutoBuyin(e.target.checked); persist('ggpoker.autoBuyin', e.target.checked ? '1' : '0'); }} /></label>
+              <label className="switch-row"><span>Auto top-up after a hand</span><input type="checkbox" checked={autoTopup} onChange={(e) => { setAutoTopup(e.target.checked); persist('ggpoker.autoTopup', e.target.checked ? '1' : '0'); }} /></label>
               <div className="grid g2" style={{ marginTop: 6 }}>
                 <div>
                   <div className="between muted small"><span>Refill below</span><b>{topupTrigger}%</b></div>

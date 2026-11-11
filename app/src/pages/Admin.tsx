@@ -211,12 +211,13 @@ export function Admin() {
                         <td>{(u.play_chips).toLocaleString()}</td>
                         <td>T${u.tickets}</td>
                         <td>VIP {u.vip_level}</td>
-                        <td>{u.banned ? <span className="tag red">Banned</span> : <span className="tag live">Active</span>}</td>
+                        <td>{u.banned ? <span className="tag red">Banned</span> : u.chat_muted ? <span className="tag red">Chat muted</span> : <span className="tag live">Active</span>}</td>
                         <td>
                           <div className="row" style={{ gap: 3 }}>
                             <button className="btn btn-ghost btn-sm" onClick={() => quickCredit(u, 100000)}>+$1k</button>
                             <button className="btn btn-ghost btn-sm" onClick={() => quickCredit(u, -100000)}>-$1k</button>
                             <button className="btn btn-ghost btn-sm" onClick={() => setEditing({ kind: 'user', data: u })}>Edit</button>
+                            <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.userAction(u.id, { action: u.chat_muted ? 'unmute' : 'mute' }); loadAll(); toast({ kind: 'success', title: u.chat_muted ? 'Chat unmuted' : 'Chat muted', body: u.nick }); }}>{u.chat_muted ? 'Unmute' : 'Mute'}</button>
                           </div>
                         </td>
                       </tr>

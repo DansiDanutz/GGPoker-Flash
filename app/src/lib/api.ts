@@ -13,6 +13,7 @@ export type User = {
   vip_points: number;
   is_admin: boolean;
   banned: boolean;
+  chat_muted?: boolean;
   country: string;
   created_at: string;
 };
@@ -73,6 +74,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const api = {
   hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number }) =>
     request<{ id: string }>('/api/tables/host', { method: 'POST', body: JSON.stringify(data) }),
+  hostTables: () => request<{ tables: any[] }>('/api/tables/host'),
+  deleteHostTable: (id: string) => request<any>(`/api/tables/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   login: (login: string, password: string) =>
     request<{ token: string; user: User }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, password }) }),
   register: (data: { login: string; nick: string; password: string; email?: string }) =>
