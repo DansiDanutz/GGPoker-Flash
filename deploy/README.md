@@ -81,13 +81,21 @@ cd dangro/deploy
 cp .env.example .env
 # edit DOMAIN, GGPOKER_ADMIN_ALLOW and GGPOKER_ADMIN_PASSWORD
 # production refuses to seed with a password shorter than 16 characters
+# The official extracted assets are intentionally gitignored.
+# From the Mac Studio, copy them to the VM before building:
+#   rsync -az app/public/ root@<VM_IP>:/opt/dangro/app/public/
 docker compose up -d --build
 docker compose ps
+curl -fsS https://dangg.live/healthz
 curl -fsS https://dangg.live/api/lobby
 ```
 
-The game container is only exposed on the internal Compose network. Caddy owns
-80/443. Do not publish `5198`.
+The game container is only exposed on loopback for the SSH admin tunnel. Caddy
+owns 80/443. Do not publish `5198` publicly.
+
+The official card/table/audio assets are not in git. If the VM is built from a
+fresh clone, sync `app/public/` from the Mac before `docker compose build`;
+otherwise the app falls back to CSS/brand placeholders.
 
 ## Mac Studio admin — private SSH tunnel
 
