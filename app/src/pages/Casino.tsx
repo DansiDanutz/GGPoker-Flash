@@ -223,6 +223,18 @@ export function Blackjack() {
     body: JSON.stringify(body),
   }).then((r) => r.json());
 
+  // A hand left open by a reload or navigation is still live on the server: pick it back up.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    post({ action: 'state' }).then((res) => {
+      if (cancelled || !res.active) return;
+      setPlayer(res.player); setDealer(res.dealer); setBet(res.bet); setPhase('playing');
+      setMsg('Hand resumed');
+    }).catch(() => { /* the table simply starts idle */ });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   const deal = async () => {
     if (!user) { navigate('/login'); return; }
     try {

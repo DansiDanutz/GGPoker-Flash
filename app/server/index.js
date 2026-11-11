@@ -754,6 +754,14 @@ const server = http.createServer(async (req, res) => {
         });
       }
       const hand = BJ_HANDS.get(u.id);
+      if (action === 'state') {
+        // Lets the page resume a hand left open by a reload or navigation.
+        if (!hand) return json(res, 200, { active: false });
+        return json(res, 200, {
+          active: true, player: hand.player.map(cardStr), dealer: [cardStr(hand.dealer[0]), '??'],
+          playerTotal: bjValue(hand.player), bet: hand.bet,
+        });
+      }
       if (!hand) return json(res, 400, { error: 'No active hand' });
       if (action === 'hit') {
         hand.player.push(hand.deck.pop());

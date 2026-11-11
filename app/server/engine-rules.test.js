@@ -70,6 +70,19 @@ test('a short all-in does not reopen the betting for players who already acted',
   assert.equal(p(0).totalBet, 250);
 });
 
+test('short all-ins that add up to a full raise reopen the betting', () => {
+  // Button first: seat 3 is UTG, seats 1 and 2 are the blinds.
+  const { t } = deal([START, 250, 300, START]);
+  ok(t.act(4, 'raise', 200));
+  ok(t.act(1, 'fold'));
+  ok(t.act(2, 'allin')); // to 250: short
+  ok(t.act(3, 'allin')); // to 300: short again, but 100 more than the raiser last faced
+  assert.equal(t.currentBet, 300);
+  assert.equal(t.actor, 4);
+  ok(t.act(4, 'raise', 500)); // accepted; everyone else is all-in, so the board runs out
+  assert.equal(t.street, 'ended');
+});
+
 test('a full raise reopens the betting', () => {
   const { t } = deal([START, START, START]);
   ok(t.act(1, 'raise', 200));

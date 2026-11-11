@@ -91,9 +91,15 @@ test('blackjack never sends the dealer hole card before the hand is over', async
   assert.equal(res.data.dealer[1], '??');
   assert.ok(!JSON.stringify(res.data).includes(JSON.stringify(res.data.dealer[0]).repeat(2)));
   assert.equal((await srv.post('/api/games/blackjack', { token: player, body: { action: 'deal', bet: 100 } })).status, 400, 'cannot abandon a live hand');
+  const resumed = await srv.post('/api/games/blackjack', { token: player, body: { action: 'state' } });
+  assert.equal(resumed.data.active, true, 'a reloaded page can pick the hand back up');
+  assert.deepEqual(resumed.data.player, res.data.player);
+  assert.equal(resumed.data.dealer[1], '??');
+  assert.equal(resumed.data.bet, 100);
   const done = await srv.post('/api/games/blackjack', { token: player, body: { action: 'stand' } });
   assert.equal(done.data.done, true);
   assert.equal(done.data.dealer.includes('??'), false);
+  assert.equal((await srv.post('/api/games/blackjack', { token: player, body: { action: 'state' } })).data.active, false);
 });
 
 test('casino bets with unknown types are rejected instead of silently losing', async () => {

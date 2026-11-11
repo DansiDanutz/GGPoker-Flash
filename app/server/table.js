@@ -267,7 +267,6 @@ export class PokerTable {
       const p = s.player;
       if (!p) continue;
       p.inHand = this.isDealtIn(p);
-      p.raiseLocked = false;
       p.folded = !p.inHand;
       p.allIn = false;
       p.bet = 0;
@@ -408,6 +407,7 @@ export class PokerTable {
       if (call > 0) return { ok: false, error: 'cannot check' };
       p.lastAction = { action: 'Check', amount: 0 };
       p.acted = true;
+      p.actedAtBet = this.currentBet;
       this.log.push({ nick: p.nick, action: 'check', street: this.street });
       this.emit({ type: 'action', seat: seat.index, playerId, action: 'check' });
     } else if (action === 'call') {
@@ -416,6 +416,7 @@ export class PokerTable {
       if (p.stack === 0) p.allIn = true;
       p.lastAction = { action: 'Call', amount: paid };
       p.acted = true;
+      p.actedAtBet = this.currentBet;
       this.log.push({ nick: p.nick, action: 'call', amount: paid, street: this.street });
       this.emit({ type: 'action', seat: seat.index, playerId, action: 'call', amount: paid, allIn: p.allIn });
     } else if (['bet', 'raise', 'allin'].includes(action)) {
@@ -430,8 +431,10 @@ export class PokerTable {
       }
       const isAllIn = target === maxTarget;
       const raiseSize = target - this.currentBet;
-      if (p.raiseLocked) {
-        // Action was not reopened by a short all-in: this player may only call or fold.
+      // A player who already acted may only raise again once the bet has grown by a full raise
+      // since their last action; several short all-ins can add up to that.
+      const isRaiseLocked = p.acted && this.currentBet - (p.actedAtBet ?? 0) < this.minRaise;
+      if (isRaiseLocked) {
         if (action === 'allin') return this.act(playerId, 'call', 0, opts);
         return { ok: false, error: 'raise not allowed after a short all-in' };
       }
@@ -446,10 +449,11 @@ export class PokerTable {
       for (const s of this.seats) {
         const other = s.player;
         if (!other || !other.inHand || other.folded || other.allIn || other.id === p.id) continue;
-        if (isFullRaise) { other.acted = false; other.raiseLocked = false; }
-        else if (other.acted) other.raiseLocked = true;
+        // A short all-in leaves `acted` set: those players still owe a call, but see isRaiseLocked.
+        if (isFullRaise) other.acted = false;
       }
       p.acted = true;
+      p.actedAtBet = this.currentBet;
       this.lastAggressor = p.id;
       const label = previousBet === 0 ? 'Bet' : 'Raise';
       p.lastAction = { action: label, amount: target };
@@ -554,7 +558,7 @@ export class PokerTable {
     else if (this.street === 'turn') this.street = 'river';
     this.board.push(...this.dealStreet(this.street));
     for (const s of this.seats) {
-      if (s.player) { s.player.acted = false; s.player.raiseLocked = false; s.player.lastAction = null; }
+      if (s.player) { s.player.acted = false; s.player.lastAction = null; }
     }
     this.currentBet = 0;
     this.minRaise = this.bb;
