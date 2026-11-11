@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, shell, dialog, session } = require('e
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
+const { URL: NodeURL } = require('node:url');
 
 
 const ROOT = path.join(__dirname, '..');
@@ -37,7 +38,7 @@ let win = null;
 let serverProc = null;
 
 function buildCsp() {
-  const target = new URL(URL);
+  const target = new NodeURL(URL);
   const wsOrigin = `${target.protocol === 'https:' ? 'wss:' : 'ws:'}//${target.host}`;
   const connect = ["'self'", target.origin, wsOrigin];
   if (!REMOTE) {
