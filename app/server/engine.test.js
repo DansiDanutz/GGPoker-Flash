@@ -192,3 +192,68 @@ test('PLO5 and PLO6 deal five and six hole cards', () => {
   const t6 = tableWith([p1, p2], { seats: 2, game: 'omaha6' });
   assert.equal(t6.omahaHole, 6);
 });
+
+
+test('Flip & Go marks its first hand all-in', () => {
+  const p1 = player(1, 'A', 10000, 0, []);
+  const p2 = player(2, 'B', 10000, 0, []);
+  const t = tableWith([p1, p2], { seats: 2, tournament: { prizePool: 100000, mode: 'FLIP' } });
+  t.street = 'idle';
+  t.handNo = 0;
+  t.startHand();
+  assert.equal(t.handNo, 1);
+  assert.ok(t.street === 'ended' || t.street === 'showdown' || t.street === 'river');
+});
+
+test('Bounty and satellite tournament modes are wired', () => {
+  const p1 = player(1, 'Winner', 5000, 0, []);
+  const p2 = player(2, 'Busted', 0, 0, []);
+  const p3 = player(3, 'Third', 0, 0, []);
+  const t = tableWith([p1, p2, p3], { seats: 3, tournament: { prizePool: 10000, mode: 'BOUNTY', bounty: 500 } });
+  t.lastAggressor = 1;
+  t.street = 'ended';
+  t.nextHandAt = 1;
+  let paid = 0;
+  t.hooks = { onBounty: (_t, info) => { paid += info.amount; }, onTournamentPayout: () => {}, onTournamentEnd: () => {} };
+  t.tick(2);
+  assert.equal(paid, 1000);
+
+  const sat = tableWith([player(1, 'Seat', 100, 0, [])], { seats: 1, tournament: { prizePool: 0, mode: 'SATELLITE', ticket: 'Sunday Major' } });
+  let ticket = null;
+  sat.hooks = { onTournamentEnd: (table, w) => { ticket = w.ticket; } };
+  sat.awardTournamentWinner();
+  assert.equal(ticket, 'Sunday Major');
+  assert.equal(sat.tournament.winner.prize, 0);
+});
+
+
+test('All-in or Fold asks each player and only accepts all-in or fold', () => {
+  const p1 = player(1, 'A', 1000, 0, []);
+  const p2 = player(2, 'B', 1000, 0, []);
+  const t = tableWith([p1, p2], { seats: 2, game: 'aof' });
+  t.street = 'idle';
+  t.handNo = 0;
+  t.startHand();
+  assert.ok(t.actor);
+  const first = t.actor;
+  assert.equal(t.act(first, 'check').ok, false);
+  assert.equal(t.act(first, 'allin').ok, true);
+  const second = t.actor;
+  if (second) t.act(second, 'fold');
+  assert.ok(['showdown', 'ended', 'river'].includes(t.street));
+});
+
+
+test('straddle posts a third blind and opens action after it', () => {
+  const p1 = player(1, 'A', 10000, 0, []);
+  const p2 = player(2, 'B', 10000, 0, []);
+  const p3 = player(3, 'C', 10000, 0, []);
+  const t = tableWith([p1, p2, p3], { seats: 3, straddle: true });
+  t.street = 'idle';
+  t.handNo = 0;
+  t.startHand();
+  const straddler = [p1, p2, p3].find((p) => p.lastAction?.action === 'Straddle');
+  assert.ok(straddler);
+  assert.equal(straddler.totalBet, 200);
+  assert.ok(t.actor);
+});

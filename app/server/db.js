@@ -95,6 +95,9 @@ function init() {
     starting_stack INTEGER NOT NULL DEFAULT 10000,
     blind_speed INTEGER NOT NULL DEFAULT 8,
     format TEXT DEFAULT 'NLH',
+    mode TEXT DEFAULT 'STANDARD',
+    bounty INTEGER DEFAULT 0,
+    ticket TEXT DEFAULT '',
     banner TEXT DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1
   );
@@ -204,6 +207,12 @@ function init() {
   try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE tournaments ADD COLUMN mode TEXT DEFAULT 'STANDARD'"); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tournaments ADD COLUMN bounty INTEGER DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE tournaments ADD COLUMN ticket TEXT DEFAULT ''"); } catch { /* already exists */ }
+  db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND (mode IS NULL OR mode='STANDARD')");
+  db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND (mode IS NULL OR mode='STANDARD')");
+  db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND (mode IS NULL OR mode='STANDARD')");
   try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE transactions ADD COLUMN reference TEXT'); } catch { /* already exists */ }
   const refIndex = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_transactions_reference'").get();
@@ -246,6 +255,10 @@ function ensurePloVariants() {
         500, 1000, 0, 20000, 100000, 6, 'Normal', 0, sort++);
     }
   }
+  for (let i = 1; i <= 4; i++) {
+    ins.run(`spingold6-${i}`, `Spin & Gold 6-Max ${i}`, 'spingold', 'Spin',
+      500, 1000, 0, 30000, 30000, 6, 'Fast', 0, 950 + i);
+  }
 }
 
 function ensureSeries() {
@@ -258,6 +271,13 @@ function ensureSeries() {
       tins.run(id, name, buyin, fee, gtd * 100, new Date(Date.now() + hours * 3600_000).toISOString(), 300 + (gtd % 400), fmt);
     }
   }
+  if (!db.prepare("SELECT 1 FROM tournaments WHERE id = 'sat-sunday'").get()) {
+    tins.run('sat-sunday', '$1 Step to Sunday Major', 1000, 100, 0, new Date(Date.now() + 8 * 3600_000).toISOString(), 240, 'NLH');
+    db.prepare("UPDATE tournaments SET mode='SATELLITE', ticket='Sunday Major $250K' WHERE id='sat-sunday'").run();
+  }
+  db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND mode='STANDARD'");
+  db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND mode='STANDARD'");
+  db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND mode='STANDARD'");
 }
 
 function seed() {

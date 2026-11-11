@@ -30,24 +30,24 @@
 | PLO5 | Present, but previously dealt four hole cards; fixed to five. |
 | PLO6 | **Added** in this change: six hole cards, PLO filter and tables. |
 | Short Deck | Present. |
-| All-in or Fold | Present as a table game; the forced all-in/fold loop is not a full recreation. |
+| All-in or Fold | **Implemented**: each player chooses all-in or fold, with no postflop betting. |
 | Rush & Cash | Present as a fast table; not a true fast-fold pool. |
-| Spin & Gold | Present; 3-max, multipliers, prizes. 6-max and insurance are not implemented. |
+| Spin & Gold | Present; 3-max and **6-max** tables, multipliers, prizes. Insurance is not implemented. |
 | Mystery Battle Royale | Present as a tournament-style table; stage/mystery-bounty mechanics are not implemented. |
-| Flip & Go | Listed in the client vocabulary, but no tournament/table implementation. |
-| Bounty Hunters / Mystery Bounty | Not implemented. |
-| Satellites / tickets | Tickets exist as a currency; satellite qualification is not implemented. |
+| Flip & Go | **Implemented**: the first hand is all-in, survivors continue normally. |
+| Bounty Hunters / Mystery Bounty | **Implemented**: fixed and mystery bounty tiers, credited to the eliminator and shown in the table feed. |
+| Satellites / tickets | **Implemented**: a satellite tournament awards a ticket to its target event. |
 | Tournament late registration, payout table, series filters | Partial; clone MTT list is simpler. |
-| Lobby table preview, last jackpot, winner stats, pro column | Not implemented. |
+| Lobby table preview, last jackpot, winner stats, pro column | **Implemented**: preview, last jackpot, recent winners and a PRO badge on Rush tables. |
 | Table features | Chat, time bank, rabbit and hotkeys exist; run-it-twice, insurance, straddle, auto-muck and card squeeze are not confirmed/implemented. |
 
 ## Priority
 
-1.  **PLO5/PLO6 correctness** — done in this change.
-2.  **Tournament formats** — Flip & Go, Bounty Hunters, Mystery Bounty, satellites.
-3.  **Game loops** — true Rush & Cash fast-fold, true All-in or Fold, Spin & Gold 6-max/insurance.
-4.  **Table features** — run-it-twice, insurance, straddle, auto-muck, card squeeze, rabbit parity, hand history/notes.
-5.  **Lobby parity** — Table View preview, last jackpot, winners, pro column, MTT series/payout filters.
+1.  **PLO5/PLO6 correctness** — done.
+2.  **Tournament formats** — Flip & Go, Bounty Hunters, Mystery Bounty, satellites — done.
+3.  **Game loops** — true All-in or Fold and Spin & Gold 6-max — done. True Rush fast-fold and Spin insurance remain.
+4.  **Table features** — straddle done. Run-it-twice, insurance, auto-muck and card squeeze remain.
+5.  **Lobby parity** — Table View preview, last jackpot, winners and PRO badge done. Full MTT series/payout filters remain partial.
 
 The official client was not joined for a hand: the account had insufficient balance
 for the selected Hold'em table, and the audit deliberately avoided a real-money

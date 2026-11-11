@@ -160,6 +160,7 @@ function lobbyTables() {
       vpip: players ? 18 + (seed % 45) : 0,
       handsPerHour: 55 + (seed % 80),
       running: LIVE_TABLES.has(t.id),
+      pro: t.game === 'rush',
       synthetic: true,
     };
   });
@@ -244,13 +245,26 @@ function getLiveTable(id) {
           db.prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?").run(tid);
         }
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(winner.id);
-        if (u) addTransaction(u.id, 'tourney_win', winner.prize, `Tournament win: ${table.cfg.name}`);
-        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize}`);
+        if (u && table.tournament?.mode === 'SATELLITE') {
+          addTransaction(u.id, 'satellite_win', 1, `Satellite ticket: ${table.tournament.ticket || table.cfg.name}`, 'TICKET');
+        } else if (u && winner.prize > 0) {
+          addTransaction(u.id, 'tourney_win', winner.prize, `Tournament win: ${table.cfg.name}`);
+        }
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize || 0}`);
       } catch (e) { console.error('tournament end', e); }
     },
     onMint: (table, kind, amount) => {
       const key = kind === 'bot' ? 'mint_bot_total' : 'mint_spin_total';
       setSetting(key, (Number(getSetting(key, 0)) || 0) + Number(amount || 0));
+    },
+    onBounty: (table, info) => {
+      const winner = db.prepare('SELECT * FROM users WHERE id = ?').get(info.winnerId);
+      if (winner) {
+        addTransaction(winner.id, info.mystery ? 'mystery_bounty' : 'bounty', info.amount,
+          `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`);
+      }
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bounty',
+        `${table.cfg.name} ${info.winnerNick} ${info.amount} (${info.bustedNick})`);
     },
     onSeatBusted: (table, player) => {
       if (!table.spin) return;
@@ -436,6 +450,10 @@ const server = http.createServer(async (req, res) => {
         banners,
         online: sitesStats().online,
         jackpot: getSetting('jackpot', 199026635),
+        recentWinners: Array.from({ length: 5 }, (_, i) => ({
+          nick: botName((hashStr('winner' + i) + i) % 100),
+          amount: 500 + ((hashStr('amount' + i) + i * 733) % 9000),
+        })),
         user: publicUser(u),
         missions: lobbyMissions(u),
         settings: { site_name: getSetting('site_name', 'GGPoker'), maintenance: getSetting('maintenance', false) },
@@ -493,6 +511,8 @@ const server = http.createServer(async (req, res) => {
           tournament: {
             prizePool: Math.max(t.gtd, t.entrants * (t.buyin + t.fee)),
             level: 1, blindEvery: Math.max(5, t.blind_speed),
+            mode: t.mode || 'STANDARD', bounty: t.bounty || 0, ticket: t.ticket || '',
+            name: t.name,
           },
         });
       }
@@ -1430,6 +1450,16 @@ wss.on('connection', (ws, req) => {
       table.maybeStart();
       ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: table.seatOf(u.id)?.index ?? null }));
       broadcastState(table);
+      return;
+    }
+    if (msg.type === 'option') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      if (msg.straddle != null) {
+        const res = entry.table.setStraddle(!!msg.straddle);
+        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      }
+      broadcastState(entry.table);
       return;
     }
     if (msg.type === 'leave_table') {

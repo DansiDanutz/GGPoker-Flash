@@ -57,12 +57,17 @@ export class PokerTable {
     this.showdownDelay = 5000;
     this.botSpeed = Number(cfg.botSpeed || 900);
     this.aof = cfg.game === 'aof';
+    this.straddle = !!cfg.straddle;
     this.spin = cfg.game === 'spingold';
     this.spinMultiplier = null;
     this.spinPrize = 0;
     this.spinWinner = null;
     this.tournament = cfg.tournament || null;
     this.elimination = this.spin || !!this.tournament;
+    this.flip = this.tournament?.mode === 'FLIP';
+    this.bounty = Number(this.tournament?.bounty || 0);
+    this.mystery = this.tournament?.mode === 'MYSTERY';
+    this.satellite = this.tournament?.mode === 'SATELLITE';
     this.rakePercent = cfg.rakePercent ?? 5;
     this.rakeCap = Number(cfg.rakeCap) > 0 ? Number(cfg.rakeCap) : 300;
     this.rake = 0;
@@ -188,6 +193,14 @@ export class PokerTable {
   awardTournamentWinner() {
     const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
     if (!w || !w.player) return;
+    if (this.satellite) {
+      this.tournament.winner = { nick: w.player.nick, id: w.player.id, prize: 0, ticket: this.tournament.ticket };
+      this.emit({ type: 'tourney_win', nick: w.player.nick, id: w.player.id, prize: 0, ticket: this.tournament.ticket, tableName: this.cfg.name });
+      this.street = 'ended';
+      this.nextHandAt = 0;
+      if (this.hooks.onTournamentEnd) this.hooks.onTournamentEnd(this, this.tournament.winner);
+      return;
+    }
     const prize = Math.round((this.tournament.prizePool || 0) * 0.5);
     w.player.stack += prize;
     this.tournament.winner = { nick: w.player.nick, id: w.player.id, prize };
@@ -290,8 +303,16 @@ export class PokerTable {
     }
     this.postBlind(sbSeat, this.sb, 'SB');
     this.postBlind(bbSeat, this.bb, 'BB');
-    this.currentBet = this.bb;
-    this.minRaise = this.bb;
+    let straddleSeat = null;
+    if (this.straddle) {
+      const candidate = this.seats[(bbSeat.index + 1) % this.seats.length];
+      if (candidate?.player && candidate.player.inHand && candidate.player.stack > 0) {
+        straddleSeat = candidate;
+        this.postBlind(straddleSeat, this.bb * 2, 'Straddle');
+      }
+    }
+    this.currentBet = straddleSeat ? this.bb * 2 : this.bb;
+    this.minRaise = straddleSeat ? this.bb * 2 : this.bb;
 
     // deal
     const dealOrder = postOrder;
@@ -312,18 +333,21 @@ export class PokerTable {
 
     this.emit({ type: 'hand_start', handNo: this.handNo, button: this.button, sbSeat: sbSeat.index, bbSeat: bbSeat.index });
 
-    if (this.aof) {
-      // Every player is all-in or folds, no action rounds
-      for (const s of inHand) {
-        s.player.allIn = true;
-      }
-      this.pot = this.pot; // blinds already committed
+    if (this.flip && this.handNo === 1) {
+      for (const s of inHand) s.player.allIn = true;
       this.setActor(null);
       this.runout();
       return;
     }
 
-    const firstToAct = this.nextActionSeat(this.button);
+    if (this.aof) {
+      // Each player chooses all-in or fold; no postflop betting rounds.
+      const first = this.nextActionSeat(this.button);
+      this.setActor(first ? first.player.id : null);
+      return;
+    }
+
+    const firstToAct = this.nextActionSeat(straddleSeat ? straddleSeat.index : this.button);
     this.setActor(firstToAct ? firstToAct.player.id : null);
   }
 
@@ -358,6 +382,12 @@ export class PokerTable {
       if (s.player && s.player.inHand && !s.player.folded) return s;
     }
     return null;
+  }
+
+  setStraddle(value) {
+    if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };
+    this.straddle = !!value;
+    return { ok: true };
   }
 
   setActor(playerId) {
@@ -396,6 +426,36 @@ export class PokerTable {
     const p = seat.player;
     if (this.actor !== playerId) return { ok: false, error: 'not your turn' };
     if (p.folded || p.allIn) return { ok: false, error: 'cannot act' };
+
+    if (this.aof) {
+      if (action === 'fold') {
+        p.folded = true;
+        p.acted = true;
+        p.lastAction = { action: 'Fold', amount: 0 };
+        this.emit({ type: 'action', seat: seat.index, playerId, action: 'fold' });
+      } else if (action === 'allin') {
+        const paid = this.commit(p, p.stack);
+        p.allIn = true;
+        p.acted = true;
+        p.lastAction = { action: 'All-in', amount: p.bet };
+        this.lastAggressor = p.id;
+        this.emit({ type: 'action', seat: seat.index, playerId, action: 'allin', amount: p.bet, paid, allIn: true });
+      } else {
+        return { ok: false, error: 'all-in or fold only' };
+      }
+      const pending = this.seats.filter((x) => x.player && x.player.inHand && !x.player.folded && !x.player.allIn && !x.player.acted);
+      const live = this.seats.filter((x) => x.player && x.player.inHand && !x.player.folded);
+      if (live.length <= 1) {
+        this.setActor(null);
+        this.finishByFold();
+      } else if (!pending.length) {
+        this.setActor(null);
+        this.runout();
+      } else {
+        this.setActor(pending[0].player.id);
+      }
+      return { ok: true };
+    }
 
     const call = this.toCall(p);
     if (action === 'fold') {
@@ -713,6 +773,27 @@ export class PokerTable {
                 this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
                 if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
               }
+              if (this.bounty > 0 && (this.mystery || this.tournament.mode === 'BOUNTY')) {
+                const killerSeat = this.lastAggressor ? this.seatOf(this.lastAggressor) : null;
+                const killer = killerSeat?.player && killerSeat.player.stack > 0
+                  ? killerSeat.player
+                  : this.occupiedSeats().find((x) => x.player && x.player.stack > 0)?.player;
+                if (killer && killer.id !== busted.id) {
+                  const tiers = [0.1, 0.25, 0.5, 1, 2, 5, 10];
+                  const amount = this.mystery
+                    ? Math.round(this.bounty * tiers[Math.floor(Math.random() * tiers.length)])
+                    : this.bounty;
+                  this.hooks.onBounty?.(this, {
+                    winnerId: killer.id, winnerNick: killer.nick,
+                    bustedId: busted.id, bustedNick: busted.nick,
+                    amount, mystery: this.mystery,
+                  });
+                  this.emit({
+                    type: 'bounty', seat: s.index, winnerId: killer.id, winnerNick: killer.nick,
+                    bustedNick: busted.nick, amount, mystery: this.mystery,
+                  });
+                }
+              }
               try { if (this.hooks.onSeatBusted) this.hooks.onSeatBusted(this, busted); } catch (e) { console.error('seat busted hook', e); }
               s.player = null;
               this.emit({ type: 'stand', seat: s.index });
@@ -864,7 +945,8 @@ export class PokerTable {
       lastAction: this.lastAction,
       canStart: this.street === 'idle',
       spin: this.spin ? { multiplier: this.spinMultiplier, prize: this.spinPrize, winner: this.spinWinner } : null,
-      tournament: this.tournament ? { name: this.cfg.name, prizePool: this.tournament.prizePool, level: this.tournament.level || 1, winner: this.tournament.winner || null } : null,
+      straddle: this.straddle,
+      tournament: this.tournament ? { name: this.cfg.name, prizePool: this.tournament.prizePool, level: this.tournament.level || 1, mode: this.tournament.mode || 'STANDARD', bounty: this.tournament.bounty || 0, ticket: this.tournament.ticket || '', winner: this.tournament.winner || null } : null,
     };
   }
 

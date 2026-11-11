@@ -11,6 +11,8 @@ const SERIES = [
   { key: 'mystery', label: 'Mystery Bounty' },
   { key: 'spin', label: 'Spin & Gold' },
   { key: 'flip', label: 'Flip & Go' },
+  { key: 'bounty', label: 'Bounty Hunters' },
+  { key: 'sat', label: 'Satellites' },
 ];
 
 const SERIES_ART: Record<string, string> = {
@@ -51,7 +53,7 @@ export function Tournaments() {
     else if (filter === 'plo') l = l.filter((t: any) => t.format === 'PLO');
     else if (filter === 'holdem') l = l.filter((t: any) => t.format === 'NLH');
     if (series !== 'all') {
-      const needle: Record<string, string> = { wsop: 'WSOP', ggmasters: 'GGMasters', mystery: 'Mystery', spin: 'Spin', flip: 'Flip & Go' };
+      const needle: Record<string, string> = { wsop: 'WSOP', ggmasters: 'GGMasters', mystery: 'Mystery', spin: 'Spin', flip: 'Flip & Go', bounty: 'Bounty', sat: 'Satellite' };
       l = l.filter((t: any) => t.name.toLowerCase().includes(needle[series].toLowerCase()));
     }
     return l;
@@ -162,7 +164,7 @@ export function Tournaments() {
                   <span className={'chip-dot ' + (t.buyin >= 10000 ? 'diamond' : t.buyin >= 3000 ? 'platinum' : 'gold')} />
                   <div>
                     <b>{t.name}</b>
-                    <small>{t.format} · {t.starting_stack.toLocaleString()} chips · {t.blind_speed} min blinds</small>
+                    <small>{t.mode && t.mode !== 'STANDARD' ? `${t.mode} · ` : ''}{t.format} · {t.starting_stack.toLocaleString()} chips · {t.blind_speed} min blinds</small>
                   </div>
                 </div>
                 <div className="t-buyin">{t.buyin === 0 ? 'Freeroll' : money(t.buyin + t.fee)}</div>
@@ -212,6 +214,10 @@ export function Tournaments() {
                     <div className="kv"><span>Game</span><b>{detail.format}</b></div>
                     <div className="kv"><span>Start</span><b>{new Date(detail.start_at).toLocaleString('en-GB')}</b></div>
                     <div className="kv"><span>Late registration</span><b>Until level 12</b></div>
+                    {detail.mode && detail.mode !== 'STANDARD' && <div className="kv"><span>Format</span><b>{detail.mode}</b></div>}
+                    {detail.mode === 'BOUNTY' && <div className="kv"><span>Bounty</span><b className="gold">{money(detail.bounty || 0)}</b></div>}
+                    {detail.mode === 'MYSTERY' && <div className="kv"><span>Mystery bounty</span><b className="gold">up to {money((detail.bounty || 0) * 10)}</b></div>}
+                    {detail.mode === 'SATELLITE' && <div className="kv"><span>Ticket</span><b>{detail.ticket || 'Target event'}</b></div>}
                   </div>
                   <p className="muted small" style={{ marginTop: 14 }}>
                     Play-money tournament. Prizes are credited to your play balance. Blind levels increase every {detail.blind_speed} minutes;

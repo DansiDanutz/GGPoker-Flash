@@ -819,3 +819,5 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .series-chip:hover { border-color: #5a4a22; color: #e8d5a0; }
 .series-chip.on { background: #2b2110; border-color: #8a6a2a; color: #ffe1a0; }
 .est-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #6d5a2a; margin-left: 3px; vertical-align: middle; cursor: help; }
+.tag.pro { background: #2b3b2e; color: #9fe0a8; border: 1px solid #3e5a42; font-size: 9px; padding: 1px 4px; margin-left: 6px; }
+.mini-stats { padding: 8px 12px; border-top: 1px solid #2b2b2b; display: flex; flex-direction: column; gap: 4px; }

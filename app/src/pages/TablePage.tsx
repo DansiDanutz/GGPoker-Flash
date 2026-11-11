@@ -21,7 +21,8 @@ type TableState = {
   timeBankUsed?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number;
   spin?: { multiplier: number; prize: number; winner: any } | null;
-  tournament?: { name: string; prizePool: number; level: number; winner: any } | null;
+  tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string } | null;
+  straddle?: boolean;
 };
 
 const POS6 = [[50, 80], [12, 71], [16, 32], [50, 17], [84, 32], [88, 71]];
@@ -228,6 +229,9 @@ export function TablePage({ tableId }: { tableId: string }) {
         window.setTimeout(() => setWinFx(null), 2600);
       }
       if (Array.isArray(evt.cards)) sound.play('show', { volume: .5 });
+    } else if (evt.type === 'bounty') {
+      toast({ kind: 'reward', title: evt.mystery ? 'Mystery bounty' : 'Bounty', body: `${evt.winnerNick} wins ${money(evt.amount)} (${evt.bustedNick})` });
+      sound.play('coin');
     } else if (evt.type === 'tourney_payout') {
       toast({ kind: 'reward', title: `Finished #${evt.place}`, body: `${evt.nick} wins ${money(evt.payout)}` });
       sound.play('coin');
@@ -455,6 +459,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button onClick={() => { setRebuyAmount(state?.minBuyin || 0); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
+          <button onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Straddle</button>
           <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
           <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
           <button onClick={() => navigate('/hand-history')}>Hand history</button>
@@ -704,7 +709,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <div className="spin-overlay win">
           <div className="spin-title">TOURNAMENT WINNER</div>
           <div style={{ fontSize: 60, margin: '10px 0' }}>🏆</div>
-          <div className="spin-prize">{tourneyWin.nick} wins <b>{money(tourneyWin.prize)}</b></div>
+          <div className="spin-prize">{tourneyWin.nick} wins {tourneyWin.ticket ? <b>{tourneyWin.ticket} ticket</b> : <b>{money(tourneyWin.prize)}</b>}</div>
           <div className="spin-sub">{tourneyWin.tableName}</div>
           <button className="btn btn-gold" style={{ marginTop: 18 }} onClick={() => navigate('/')}>Back to lobby</button>
         </div>

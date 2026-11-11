@@ -270,6 +270,7 @@ export function Lobby() {
                     <button className={'fav-star' + (favs.includes(t.id) ? ' on' : '')} onClick={(e) => { e.stopPropagation(); toggleFav(t.id); }} title="Favourite">★</button>
                     <span className={'chip-dot ' + t.category.toLowerCase()} />
                     <span>{t.name}</span>
+                    {t.pro && <span className="tag pro">PRO</span>}
                   </div>
                   <div>{fmtStakes(t)}</div>
                   <div>{money(t.min_buyin, true)}</div>
@@ -300,6 +301,12 @@ export function Lobby() {
           <div className="mini-actions">
             <button className="btn btn-dark btn-block" onClick={() => { if (table) navigate(`/table/${table.id}?observe=1`); }}>Open</button>
             <button className="btn btn-red btn-block" onClick={() => { if (table) openJoin(table); }}>Join</button>
+          </div>
+          <div className="mini-stats">
+            <div className="between"><span className="muted small">Last jackpot</span><b className="gold">{money(data?.jackpot || 0)}</b></div>
+            {(data?.recentWinners || []).slice(0, 3).map((w: any, i: number) => (
+              <div key={i} className="between"><span className="muted small">{w.nick}</span><span className="small">{money(w.amount)}</span></div>
+            ))}
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ padding: '6px 8px', fontSize: 11, color: '#777', borderTop: '1px solid #222' }}>
