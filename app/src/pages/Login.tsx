@@ -40,7 +40,7 @@ export function Login() {
     <div className="login-screen">
       <div className="login-art">
         <div className="glow">
-          <h2>PLAY THE WORLD'S<br />BIGGEST POKER ROOM</h2>
+          <h2>Let's build the world's biggest poker room</h2>
           <p>Play money · Instant play · No risk</p>
         </div>
       </div>
