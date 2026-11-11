@@ -69,6 +69,10 @@ not a source to copy blindly.
   - click a seat to see public avatar, VIP, country, hands/wins/biggest pot and presence;
   - add friend or open a direct message from the profile;
   - self hides friend/message and links to My Page.
+- Notification center:
+  - unread DMs, pending friend requests, registered tournaments and daily bonus;
+  - global badge uses the derived notification count;
+  - each item deep-links to Cashier, My Page, Tournaments or Rewards.
 - Friend requests:
   - request instead of instant follow;
   - incoming Accept/Decline panel;

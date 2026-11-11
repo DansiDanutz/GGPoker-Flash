@@ -108,7 +108,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!user) { setDmUnread(0); return; }
     let stop = false;
     const poll = async () => {
-      try { const r = await api.messages(); if (!stop) setDmUnread((r.threads || []).reduce((n: number, t: any) => n + (Number(t.unread) || 0), 0)); } catch { /* ignore */ }
+      try { const r = await api.notifications(); if (!stop) setDmUnread(Number(r.unread) || 0); } catch { /* ignore */ }
     };
     poll();
     const timer = window.setInterval(poll, 15000);

@@ -95,6 +95,7 @@ export function Lobby() {
   const [chatMsgs, setChatMsgs] = useState<any[]>([]);
   const [chatText, setChatText] = useState('');
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifItems, setNotifItems] = useState<any[]>([]);
   const timer = useRef<number | null>(null);
 
   const load = async () => {
@@ -109,6 +110,11 @@ export function Lobby() {
       toast({ kind: 'error', title: 'Connection problem', body: e.message });
     } finally { setLoading(false); }
   };
+
+  useEffect(() => {
+    if (!notifOpen) return;
+    api.notifications().then((r) => setNotifItems(r.items || [])).catch(() => setNotifItems([]));
+  }, [notifOpen]);
 
   useEffect(() => {
     load();
@@ -464,21 +470,17 @@ export function Lobby() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head"><h3>Notifications</h3><button className="title-icon" onClick={() => setNotifOpen(false)}>✕</button></div>
             <div className="modal-body" style={{ padding: 0 }}>
-              {[
-                ['🎁', 'Daily freebie is ready', 'Open My Rewards to claim your daily gift.', '/rewards'],
-                ['🏆', 'Daily $100,000 Flipout starts soon', 'Register before late registration closes.', '/tournaments'],
-                ['🐟', 'Fish Buffet wheel available', 'Spin for up to 100,000x your buy-in.', '/rewards'],
-                ['💥', 'Bad Beat Jackpot just grew', 'The pool is now over $1.9M. Play your part.', '/'],
-              ].map(([icon, title, body, link]) => (
-                <div key={title as string} className="list-row" style={{ borderRadius: 0 }} onClick={() => { setNotifOpen(false); navigate(link as string); }}>
-                  <span style={{ fontSize: 20 }}>{icon}</span>
+              {notifItems.map((n: any, idx: number) => (
+                <div key={n.kind + idx} className="list-row" style={{ borderRadius: 0 }} onClick={() => { setNotifOpen(false); navigate(n.link || '/'); }}>
+                  <span style={{ fontSize: 20 }}>{n.icon}</span>
                   <div style={{ flex: 1 }}>
-                    <b style={{ color: '#eee', fontSize: 13 }}>{title}</b>
-                    <div className="muted small">{body}</div>
+                    <b style={{ color: '#eee', fontSize: 13 }}>{n.title}</b>
+                    <div className="muted small">{n.body}</div>
                   </div>
                   <span className="muted">›</span>
                 </div>
               ))}
+              {!notifItems.length && <div className="empty-state">You're all caught up.</div>}
             </div>
           </div>
         </div>

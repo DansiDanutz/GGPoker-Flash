@@ -97,6 +97,7 @@ export const api = {
   registerTourney: (id: string) => request(`/api/tournaments/${id}/register`, { method: 'POST' }),
   unregisterTourney: (id: string) => request(`/api/tournaments/${id}/unregister`, { method: 'POST' }),
   cashier: () => request<any>('/api/cashier'),
+  notifications: () => request<{ items: any[]; unread: number }>('/api/notifications'),
   messages: () => request<{ threads: any[] }>('/api/messages'),
   userProfile: (id: number) => request<any>(`/api/users/${id}/profile`),
   addFriend: (nick: string) => request<any>('/api/friends/requests', { method: 'POST', body: JSON.stringify({ nick }) }),

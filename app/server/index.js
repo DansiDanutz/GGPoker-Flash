@@ -1316,6 +1316,21 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    if (p === '/api/notifications' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const requests = db.prepare(`SELECT r.from_id AS id, u.nick FROM friend_requests r JOIN users u ON u.id = r.from_id WHERE r.to_id = ? AND r.status = 'pending' ORDER BY r.created_at DESC`).all(u.id);
+      const dm = db.prepare('SELECT COUNT(*) AS n FROM direct_messages WHERE to_id = ? AND read_at IS NULL').get(u.id).n;
+      const upcoming = db.prepare(`SELECT t.id, t.name, t.start_at FROM tourney_regs r JOIN tournaments t ON t.id = r.tournament_id
+        WHERE r.user_id = ? AND t.status = 'registering' AND t.start_at > datetime('now') ORDER BY t.start_at LIMIT 5`).all(u.id);
+      const dailyClaimed = db.prepare("SELECT 1 FROM bonus_claims WHERE user_id = ? AND claim_key = ?").get(u.id, `daily:${new Date().toISOString().slice(0, 10)}`);
+      const items = [];
+      for (const r of requests) items.push({ kind: 'friend', icon: '👥', title: `${r.nick} sent a friend request`, body: 'Open Friends to accept or decline.', link: '/my-page' });
+      if (dm > 0) items.push({ kind: 'dm', icon: '💬', title: `${dm} unread direct message${dm === 1 ? '' : 's'}`, body: 'Open Messages to reply.', link: '/my-page' });
+      for (const t of upcoming) items.push({ kind: 'tournament', icon: '🏆', title: t.name, body: `Starts ${new Date(t.start_at).toLocaleString('en-GB')}`, link: `/tournaments?id=${encodeURIComponent(t.id)}` });
+      if (!dailyClaimed) items.push({ kind: 'bonus', icon: '🎁', title: 'Daily freebie is ready', body: 'Claim it in the Cashier.', link: '/cashier' });
+      return json(res, 200, { items, unread: items.length });
+    }
+
     if (p === '/api/messages' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
       const rows = db.prepare(`SELECT m.*, uf.nick AS from_nick, ut.nick AS to_nick
