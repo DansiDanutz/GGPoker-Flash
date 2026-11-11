@@ -38,6 +38,23 @@ const DEFAULT_ACTION_TIME_MS = 15000;
 
 const POS6 = [[50, 80], [12, 71], [16, 32], [50, 17], [84, 32], [88, 71]];
 const POS9 = [[50, 84], [26, 81], [10, 64], [11, 40], [29, 22], [50, 17], [71, 22], [89, 40], [90, 64]];
+// Portrait phones lose the bottom of the screen to the action bar, so the two
+// lowest seats move up to keep the hero's avatar, cards and stack visible.
+const POS6_PHONE = [[50, 69], [12, 63], [16, 31], [50, 17], [84, 31], [88, 63]];
+const POS9_PHONE = [[50, 72], [26, 69], [10, 58], [11, 38], [29, 21], [50, 16], [71, 21], [89, 38], [90, 58]];
+
+function useNarrowScreen(maxWidth = 760) {
+  const query = `(max-width: ${maxWidth}px)`;
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setNarrow(mq.matches);
+    onChange();
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, [query]);
+  return narrow;
+}
 
 export function TablePage({ tableId }: { tableId: string }) {
   const { user, navigate, toast, setOpeningTable } = useApp();
@@ -475,7 +492,12 @@ export function TablePage({ tableId }: { tableId: string }) {
     return [p[0], p[1]];
   };
 
-  const layout = state ? (state.seats >= 7 ? POS9 : POS6) : POS6;
+  const narrowScreen = useNarrowScreen();
+  const layout = state
+    ? state.seats >= 7
+      ? (narrowScreen ? POS9_PHONE : POS9)
+      : (narrowScreen ? POS6_PHONE : POS6)
+    : POS6;
   const seatPos = (seat: number) => {
     const n = state?.seats || 6;
     const base = mySeatRef.current ?? 0;
@@ -595,7 +617,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <button onClick={() => setChatOpen((v) => !v)}>💬 Chat</button>
         <button onClick={() => setEmoteOpen((v) => !v)} title="Send a reaction">😀</button>
         <button onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
-        <button onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
+        <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
         <button onClick={() => setMenuOpen((v) => !v)}>Menu</button>
         <button onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
@@ -896,7 +918,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             {raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')} {chip(raiseTo)}
           </button>
         </div>
-        <div className="action-row" style={{ color: '#9a9a9a', fontSize: 11.5 }}>
+        <div className="action-row status-row" style={{ color: '#9a9a9a', fontSize: 11.5 }}>
           <span>{myTurn ? 'Your turn — choose an action' : state ? (state.actor ? 'Waiting for opponents…' : state.street === 'ended' ? 'Hand complete' : 'Dealing…') : 'Connecting…'}</span>
           <div className="grow" />
           {hotkeyHints && <span>{state?.potLimit ? 'Pot limit · ' : ''}{hotkeyMap.fold} Fold · {hotkeyMap.check} Check/Call · {hotkeyMap.raise} Raise · {hotkeyMap.allin} {state?.potLimit ? 'Pot' : 'All-in'}</span>}

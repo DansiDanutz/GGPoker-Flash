@@ -3,7 +3,7 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 
 export function Login() {
-  const { login, register, navigate, toast, brand } = useApp();
+  const { login, register, navigate, toast, brand, demoAccount, enterGuest } = useApp();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
@@ -77,11 +77,11 @@ export function Login() {
           </button>
         </form>
         <div className="auth-links">
-          <button onClick={seed}>Use demo account</button>
-          <button onClick={() => { localStorage.setItem('ggpoker.guest', '1'); navigate('/'); }}>Play as guest</button>
+          {demoAccount && <button onClick={seed}>Use demo account</button>}
+          <button onClick={() => { enterGuest(); navigate('/'); }}>Play as guest</button>
         </div>
         <div className="login-footer">
-          Demo account: <b>DansiDanutz</b> / <b>ggpoker</b> · Admin: <b>admin</b> / <b>admin123</b><br />
+          {demoAccount && <>Demo account: <b>DansiDanutz</b> / <b>ggpoker</b><br /></>}
           This is a local, offline play-money clone. No real money, deposits or cash value.
         </div>
       </div>

@@ -62,8 +62,7 @@ function ComingSoon({ title }: { title: string }) {
 }
 
 export default function App() {
-  const { route, toasts, dismissToast, loading, user, splashDone, meta } = useApp();
-  const guest = typeof window !== 'undefined' && localStorage.getItem('ggpoker.guest') === '1';
+  const { route, toasts, dismissToast, loading, user, guest, splashDone, meta } = useApp();
 
   const page = useMemo(() => {
     const [path] = route.split('?');

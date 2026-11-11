@@ -753,6 +753,10 @@ const server = http.createServer(async (req, res) => {
         })),
         user: publicUser(u),
         missions: lobbyMissions(u),
+        // The demo account only exists on installs that seeded it (local/dev or
+        // GGPOKER_SEED_DEMO). The login screen hides the demo shortcut when it is
+        // absent instead of advertising credentials the server will reject.
+        demoAccount: !!db.prepare('SELECT 1 FROM users WHERE login = ?').get('DansiDanutz'),
         settings: { site_name: getSetting('site_name', 'GGPoker'), maintenance: getSetting('maintenance', false) },
       });
     }
