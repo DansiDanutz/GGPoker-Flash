@@ -21,8 +21,13 @@ app.setPath('userData', require('node:path').join(app.getPath('appData'), 'GGPok
 try { require('node:fs').mkdirSync(app.getPath('userData'), { recursive: true }); } catch {}
 
 const DEV = process.env.GGPOKER_DEV === '1';
+const REMOTE_SERVER = String(process.env.GGPOKER_SERVER_URL || '').replace(/\/$/, '');
+const REMOTE = !DEV && !!REMOTE_SERVER;
+if (REMOTE && !/^https?:\/\//.test(REMOTE_SERVER)) {
+  throw new Error('GGPOKER_SERVER_URL must start with https:// (or http:// for local testing)');
+}
 const PORT = Number(process.env.GGPOKER_PORT || 5198);
-let URL = DEV ? 'http://localhost:5199' : `http://127.0.0.1:${PORT}`;
+let URL = REMOTE ? REMOTE_SERVER : (DEV ? 'http://localhost:5199' : `http://127.0.0.1:${PORT}`);
 
 if (DEV || process.env.GGPOKER_CDP === '1') {
   app.commandLine.appendSwitch('remote-debugging-port', '9333');
@@ -31,12 +36,21 @@ if (DEV || process.env.GGPOKER_CDP === '1') {
 let win = null;
 let serverProc = null;
 
-const CSP = "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*; font-src 'self' data:;";
+function buildCsp() {
+  const target = new URL(URL);
+  const wsOrigin = `${target.protocol === 'https:' ? 'wss:' : 'ws:'}//${target.host}`;
+  const connect = ["'self'", target.origin, wsOrigin];
+  if (!REMOTE) {
+    connect.push('http://127.0.0.1:*', 'ws://127.0.0.1:*', 'http://localhost:*', 'ws://localhost:*');
+  }
+  return `default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; connect-src ${connect.join(' ')}; font-src 'self' data:;`;
+}
 
 function installCsp() {
   if (DEV) return;
+  const csp = buildCsp();
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [CSP] } });
+    callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [csp] } });
   });
 }
 
@@ -68,7 +82,7 @@ function waitForListening(child, timeoutMs = 15000) {
 }
 
 async function startServer() {
-  if (DEV) return;
+  if (DEV || REMOTE) return;
   const dataDir = path.join(app.getPath('userData'), 'data');
   fs.mkdirSync(dataDir, { recursive: true });
   serverProc = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {

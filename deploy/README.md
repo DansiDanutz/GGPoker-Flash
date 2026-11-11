@@ -98,6 +98,23 @@ the admin account. Public players cannot call `/api/admin/*` even if they log in
 
 The player site is `https://dangg.live`.
 
+## Desktop client in remote mode
+
+The signed Electron app can use the VM instead of spawning a local server:
+
+```bash
+GGPOKER_SERVER_URL=https://dangg.live \
+  "$HOME/Applications/DanGG.ro.app/Contents/MacOS/GGPokerClone"
+```
+
+For a packaged app launched from Finder, create a small wrapper or launchd agent
+that sets `GGPOKER_SERVER_URL=https://dangg.live`. In remote mode the Electron
+process does not start or own a local game server and its CSP is limited to the
+configured HTTPS/WSS origin.
+
+The Mac Studio admin should use a browser at `https://admin.dangg.live` while
+connected to Tailscale; the admin API is IP-restricted independently.
+
 ## Backups
 
 The SQLite volume is `game-data`. Take a consistent backup before upgrades:
