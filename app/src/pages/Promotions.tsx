@@ -16,8 +16,9 @@ export function Promotions() {
 
   const promos = [
     { title: 'Daily $100,000 Flipout', sub: '#ThanksGG · every day', img: '/assets/ui/discover/Bg_Discover_Leaderboard_FlipNGo.png', tag: 'All-in' },
-    { title: 'Fish Buffet', sub: 'Spin the wheel, win up to 100,000x', img: '/assets/ui/discover/Bg_Discover_Fishbuffet.png', tag: 'Rewards' },
-    { title: 'GG Care', sub: 'Bad beat protection & daily prizes', img: '/assets/ui/discover/Bg_Discover_GGcare.png', tag: 'Cashback' },
+    { title: 'Fish Buffet', sub: 'Spin the wheel, win up to 100,000x', img: '/assets/ui/discover/Bg_Discover_Fishbuffet.png', tag: 'Rewards', link: '/rewards' },
+    { title: 'GG Care', sub: 'Bad beat protection & daily prizes', img: '/assets/ui/discover/Bg_Discover_GGcare.png', tag: 'Cashback', link: '/ggcare' },
+    { title: 'Ocean Rewards', sub: 'Collect gems, climb the reef', img: '/assets/ui/discover/D_Discover_OceanRewards_Whale.png', tag: 'Rewards', link: '/ocean' },
     { title: 'Hold’em Leaderboards', sub: '$50,000 weekly race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_Holdem.png', tag: 'Leaderboard' },
     { title: 'Mystery Battle Royale', sub: 'Bounty tournaments with hidden prizes', img: '/assets/ui/discover/Bg_Discover_Leaderboard_MysterBattleRoyal.png', tag: 'Tournament' },
     { title: 'Honeymoon Bonus', sub: 'New player welcome package', img: '/assets/ui/discover/Bg_Discover_Honeymoon.png', tag: 'Bonus' },
@@ -38,7 +39,7 @@ export function Promotions() {
         <p className="page-sub">All running offers, missions and giveaways</p>
         <div className="promo-grid">
           {promos.map((p) => (
-            <div key={p.title} className="promo-card" onClick={() => setDetail(p)}>
+            <div key={p.title} className="promo-card" onClick={() => { if ((p as any).link) navigate((p as any).link); else setDetail(p); }}>
               <img src={p.img} alt="" onError={(e) => { (e.target as HTMLImageElement).src = '/assets/chrome/promo.png'; }} />
               <div className="overlay">
                 <span className="tag gtd" style={{ alignSelf: 'flex-start', marginBottom: 4 }}>{p.tag}</span>

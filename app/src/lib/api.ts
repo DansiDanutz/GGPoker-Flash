@@ -88,6 +88,10 @@ export const api = {
   missions: () => request<{ missions: any[] }>('/api/missions'),
   claimMission: (id: string) => request<any>(`/api/missions/${id}/claim`, { method: 'POST' }),
   leaderboard: () => request<{ leaders: any[] }>('/api/leaderboard'),
+  ocean: () => request<any>('/api/ocean'),
+  buyOcean: (item: string) => request<any>('/api/ocean/buy', { method: 'POST', body: JSON.stringify({ item }) }),
+  ggcare: () => request<any>('/api/ggcare'),
+  claimCare: () => request<any>('/api/ggcare/claim', { method: 'POST' }),
   spin: () => request<any>('/api/rewards/spin', { method: 'POST' }),
   admin: {
     stats: () => request<any>('/api/admin/stats'),

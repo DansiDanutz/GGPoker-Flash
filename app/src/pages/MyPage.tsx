@@ -171,7 +171,7 @@ export function MyPage() {
               <div style={{ fontSize: 34 }}>💎</div>
               <div className="stat-big">{(user?.gems ?? 0).toLocaleString()}</div>
               <div className="muted small">Ocean gems</div>
-              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={() => navigate('/rewards')}>Open gem store</button>
+              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={() => navigate('/ocean')}>Open gem store</button>
             </div>
           </div>
         )}

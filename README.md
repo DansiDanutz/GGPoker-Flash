@@ -133,6 +133,8 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for 
   leaderboards (top players by VIP points), VIP benefits.
 - Hand history for every hand with filters, board/action replay, players, cards, pot and winners.
 - **My Page** hub (overview, My Promo, weekly missions, transactions, tickets, messages, leaderboard, verification, security).
+- **Ocean Rewards**: gem balance, eight ocean ranks (Clownfish → Whale), gem store with instant redemptions and a gem activity ledger.
+- **GG Care**: bad-beat jackpot status, qualifying hand, daily care bonus and how-it-works.
 - **Fish Buffet ranks** (Plankton → Killer Whale) with multipliers and reward history.
 - Pop any table out into its own window for multi-tabling.
 - Profile with stats, nickname change, avatar picker.
@@ -152,6 +154,7 @@ responsible-gaming limits and take-a-break screen.
 - **Missions**: create/edit/delete/reset, reward kinds (USD/P$/ticket/gem).
 - **Game settings**: every server-side constant (jackpot, online base, bot speed, rake, welcome bonus,
   default balance, maintenance flag).
+- **Branding**: upload a replacement wordmark and lobby banner (stored in SQLite, served instantly to every window) or reset to the defaults.
 - **Transactions** ledger, **Audit log**, and lobby **announcements**.
 
 ---

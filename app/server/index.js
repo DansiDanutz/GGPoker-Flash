@@ -660,6 +660,63 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { won, payout, stake, balance: after, market: body.market });
     }
 
+    // ---------- ocean rewards ----------
+    const OCEAN_LEVELS = [
+      { name: 'Clownfish', min: 0, rank: 0 }, { name: 'Shrimp', min: 500, rank: 1 },
+      { name: 'Crab', min: 1500, rank: 2 }, { name: 'Octopus', min: 3000, rank: 3 },
+      { name: 'Turtle', min: 6000, rank: 4 }, { name: 'Dolphin', min: 12000, rank: 5 },
+      { name: 'Shark', min: 25000, rank: 6 }, { name: 'Whale', min: 50000, rank: 7 },
+    ];
+    const OCEAN_ITEMS = [
+      { id: 'ticket5', name: 'T$5 Tournament Ticket', cost: 500, kind: 'TICKET', amount: 5, desc: 'One tournament ticket' },
+      { id: 'play100k', name: '100,000 Play Chips', cost: 800, kind: 'PLAY', amount: 100000, desc: 'Top up your P$ balance' },
+      { id: 'bonus25', name: '$25 Play Bonus', cost: 2000, kind: 'USD', amount: 2500, desc: 'Credited to your play balance' },
+      { id: 'ticket25', name: 'T$25 Ticket Pack', cost: 2200, kind: 'TICKET', amount: 25, desc: 'Five T$5 tickets' },
+      { id: 'bonus50', name: '$50 Play Bonus', cost: 3500, kind: 'USD', amount: 5000, desc: 'Credited to your play balance' },
+    ];
+    if (p === '/api/ocean' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      let lvl = OCEAN_LEVELS[0];
+      for (const l of OCEAN_LEVELS) if (u.gems >= l.min) lvl = l;
+      const idx = OCEAN_LEVELS.indexOf(lvl);
+      const next = OCEAN_LEVELS[idx + 1] || null;
+      const hist = db.prepare("SELECT * FROM transactions WHERE user_id = ? AND kind = 'ocean' ORDER BY id DESC LIMIT 20").all(u.id);
+      return json(res, 200, {
+        gems: u.gems, level: lvl, next,
+        progress: next ? Math.round(((u.gems - lvl.min) / (next.min - lvl.min)) * 100) : 100,
+        items: OCEAN_ITEMS, history: hist,
+      });
+    }
+    if (p === '/api/ocean/buy' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      const item = OCEAN_ITEMS.find((i) => i.id === b.item);
+      if (!item) return json(res, 400, { error: 'unknown item' });
+      if (u.gems < item.cost) return json(res, 400, { error: 'Not enough gems' });
+      addTransaction(u.id, 'ocean_spend', -item.cost, `Ocean store: ${item.name}`, 'GEM');
+      addTransaction(u.id, 'ocean', item.amount, `Ocean store: ${item.name}`, item.kind);
+      const fresh = db.prepare('SELECT * FROM users WHERE id = ?').get(u.id);
+      return json(res, 200, { ok: true, gems: fresh.gems, balance: fresh.balance, play_chips: fresh.play_chips, tickets: fresh.tickets });
+    }
+
+    // ---------- gg care ----------
+    if (p === '/api/ggcare' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const day = 'care-' + new Date().toISOString().slice(0, 10);
+      const claimed = db.prepare('SELECT amount FROM daily_claims WHERE user_id = ? AND day = ?').get(u.id, day);
+      return json(res, 200, { jackpot: getSetting('jackpot', 199026635), claimed: !!claimed, amount: claimed?.amount || 0 });
+    }
+    if (p === '/api/ggcare/claim' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const day = 'care-' + new Date().toISOString().slice(0, 10);
+      const already = db.prepare('SELECT 1 FROM daily_claims WHERE user_id = ? AND day = ?').get(u.id, day);
+      if (already) return json(res, 400, { error: 'Already claimed today' });
+      const amount = 500;
+      db.prepare('INSERT INTO daily_claims (user_id,day,amount) VALUES (?,?,?)').run(u.id, day, amount);
+      const after = addTransaction(u.id, 'ggcare', amount, 'GG Care daily bonus');
+      return json(res, 200, { ok: true, amount, balance: after });
+    }
+
     // ---------- brand assets ----------
     if (p === '/api/brand') {
       const rows = db.prepare('SELECT slot, updated_at FROM brand_assets').all();

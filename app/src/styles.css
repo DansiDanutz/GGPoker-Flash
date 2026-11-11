@@ -742,3 +742,27 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .seat-picker { display: flex; gap: 6px; flex-wrap: wrap; }
 .seat-pick { width: 42px; height: 34px; border-radius: 4px; background: #1d1d1d; border: 1px solid #383838; color: #bbb; font-size: 12px; }
 .seat-pick.on { background: linear-gradient(#c92433, #94121d); border-color: #e04b57; color: #fff; }
+
+/* ocean rewards */
+.ocean-hero { position: relative; height: 190px; border-radius: 9px; overflow: hidden; border: 1px solid #2a4a5a; }
+.ocean-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .85; }
+.ocean-hero-overlay { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4,14,22,.92), rgba(4,14,22,.35)); }
+.ocean-hero-content { position: relative; z-index: 2; padding: 20px 24px; }
+.ocean-hero-content h1 { font-family: var(--head-font); font-size: 30px; margin: 6px 0 14px; color: #dff6ff; }
+.ocean-gem { display: inline-flex; align-items: center; gap: 7px; background: rgba(0,0,0,.45); border: 1px solid rgba(120,220,255,.35); color: #cff2ff; border-radius: 16px; padding: 6px 14px; font-weight: 700; }
+.ocean-ranks { display: flex; gap: 6px; margin-top: 14px; overflow-x: auto; padding-bottom: 4px; }
+.ocean-rank { flex: 0 0 88px; border-radius: 7px; background: #1a1a1a; border: 1px solid #2a2a2a; padding: 8px; text-align: center; opacity: .55; }
+.ocean-rank.on { opacity: 1; border-color: #5ad0ff; box-shadow: 0 0 16px rgba(90,208,255,.25); }
+.ocean-rank.done { opacity: .85; border-color: #2f6f8a; }
+.ocean-rank img { width: 46px; height: 46px; object-fit: contain; display: block; margin: 0 auto 4px; }
+.ocean-rank span { font-size: 10.5px; color: #cfcfcf; }
+
+/* gg care */
+.care-hero { position: relative; height: 190px; border-radius: 9px; overflow: hidden; border: 1px solid #5a3a1a; }
+.care-hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.care-overlay { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(12,8,4,.94), rgba(12,8,4,.35)); }
+.care-content { position: relative; z-index: 2; padding: 20px 24px; }
+.care-content h1 { font-family: var(--head-font); font-size: 30px; margin: 6px 0 6px; color: #ffe6a6; }
+.care-content p { color: #d8c9a8; font-size: 13px; max-width: 420px; }
+.care-jackpot { margin-top: 14px; background: rgba(0,0,0,.45); border: 1px solid rgba(231,182,75,.4); display: inline-block; border-radius: 14px; padding: 6px 14px; color: #f0d9a8; }
+.care-jackpot b { color: #ffe6a6; font-size: 18px; margin-left: 6px; }
