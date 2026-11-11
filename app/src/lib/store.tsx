@@ -15,7 +15,7 @@ type AppState = {
   login: (login: string, pw: string) => Promise<void>;
   register: (data: { login: string; nick: string; password: string; email?: string }) => Promise<void>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: (attempts?: number) => Promise<void>;
   setUser: (u: User | null) => void;
   toasts: Toast[];
   toast: (t: Omit<Toast, 'id'>) => void;
@@ -32,6 +32,9 @@ type AppState = {
   installGate: boolean;
   finishInstall: () => void;
   dismissInstall: () => void;
+  authOffline: boolean;
+  firstLaunch: boolean;
+  dismissFirstLaunch: () => void;
   brand: { logo: string; promo: string };
   dmUnread: number;
   refreshBrand: () => Promise<void>;
@@ -50,6 +53,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [demoAccount, setDemoAccount] = useState(false);
   // Pending install from an earlier visit (account created but app not added).
   const [installGate, setInstallGate] = useState(() => installPending());
+  // True when the app started with a saved session but the server could not be
+  // reached; keeps the token instead of dumping the player on the login screen.
+  const [authOffline, setAuthOffline] = useState(false);
+  const [firstLaunch, setFirstLaunch] = useState(() => typeof window !== 'undefined'
+    && isStandalone()
+    && localStorage.getItem('ggpoker.welcomeSeen') !== '1');
   const [splashDone, setSplashDone] = useState(false);
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useState(currentRoute());
@@ -74,20 +83,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  const refreshUser = useCallback(async () => {
-    if (!getToken()) { setUser(null); return; }
-    try {
-      const res = await api.me();
-      setUser(res.user);
-    } catch {
-      setToken(null);
-      setUser(null);
+  const refreshUser = useCallback(async (attempts = 1) => {
+    if (!getToken()) { setUser(null); setAuthOffline(false); return; }
+    let lastError: any = null;
+    for (let attempt = 0; attempt < Math.max(1, attempts); attempt++) {
+      try {
+        const res = await api.me();
+        setUser(res.user);
+        setAuthOffline(false);
+        return;
+      } catch (error: any) {
+        lastError = error;
+        // A rejected session is a logout; a network hiccup is not.
+        if (error?.status === 401 || error?.status === 403) {
+          setToken(null);
+          setUser(null);
+          setAuthOffline(false);
+          return;
+        }
+        if (attempt < Math.max(1, attempts) - 1) {
+          await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 600 : 1600));
+        }
+      }
     }
+    // Keep the token: an installed app opening without a connection should show
+    // a retry screen, not the login form.
+    if (lastError) setAuthOffline(true);
   }, []);
 
   useEffect(() => {
     (async () => {
-      await refreshUser();
+      await refreshUser(3);
       setLoading(false);
     })();
   }, [refreshUser]);
@@ -191,6 +217,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     navigate('/');
   }, [navigate]);
 
+  const dismissFirstLaunch = useCallback(() => {
+    localStorage.setItem('ggpoker.welcomeSeen', '1');
+    setFirstLaunch(false);
+  }, []);
+
   // `appinstalled` (Android) or launching from the home-screen icon closes the
   // gate even if it was triggered outside this screen.
   useEffect(() => {
@@ -230,6 +261,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('ggpoker.guest');
     setGuest(false);
     setUser(null);
+    setAuthOffline(false);
     navigate('/');
   }, [navigate]);
 
@@ -245,8 +277,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     toasts, toast, dismissToast, soundOn, toggleSound, animations,
     setAnimations: (v: boolean) => { setAnimations(v); localStorage.setItem('ggpoker.animations', v ? '1' : '0'); },
     openingTable, setOpeningTable, meta, demoAccount, brand, refreshBrand, splashDone, dmUnread,
-    installGate, finishInstall, dismissInstall,
-  }), [user, guest, enterGuest, loading, route, navigate, login, register, logout, refreshUser, toasts, toast, dismissToast, soundOn, toggleSound, animations, openingTable, meta, demoAccount, brand, refreshBrand, splashDone, dmUnread, installGate, finishInstall, dismissInstall]);
+    installGate, finishInstall, dismissInstall, authOffline, firstLaunch, dismissFirstLaunch,
+  }), [user, guest, enterGuest, loading, route, navigate, login, register, logout, refreshUser, toasts, toast, dismissToast, soundOn, toggleSound, animations, openingTable, meta, demoAccount, brand, refreshBrand, splashDone, dmUnread, installGate, finishInstall, dismissInstall, authOffline, firstLaunch, dismissFirstLaunch]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
