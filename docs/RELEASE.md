@@ -39,4 +39,3 @@ friend requests, notifications, player reports, admin console, owner moderation.
 - Complete native background catalogue.
 - Native hotkey remapping.
 - Per-variant Elo ladders.
-- Full animated admin hand replay.

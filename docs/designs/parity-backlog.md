@@ -98,7 +98,7 @@ not a source to copy blindly.
 - Player reporting:
   - report from the table profile with reason and details;
   - persisted reports with optional hand ID, audit entries and admin resolve/dismiss workflow;
-  - admin **Hand** evidence viewer with board, hole cards, stacks, bets and wins.
+  - admin **Hand** evidence viewer with animated board reveal, hole cards, stacks, bets, wins and action timeline.
 - Table player profiles:
   - click a seat to see public avatar, VIP, country, hands/wins/biggest pot and presence;
   - add friend or open a direct message from the profile;
@@ -135,5 +135,4 @@ not a source to copy blindly.
 - Full native table-background catalogue beyond the five room choices.
 - Native hotkey remapping; F1–F4 are fixed with an enable toggle.
 - Elo is one ladder rather than separate ladders per game variant.
-- Full animated replay inside the admin report queue; the player-facing Hand History already has replay.
 - Exact native card geometry/anti-aliasing differences from the six official sprites.

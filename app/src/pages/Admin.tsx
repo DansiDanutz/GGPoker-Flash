@@ -41,6 +41,8 @@ export function Admin() {
   const [verifications, setVerifications] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [handView, setHandView] = useState<any>(null);
+  const [handReplay, setHandReplay] = useState(0);
+  const [handPlaying, setHandPlaying] = useState(false);
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<any>(null);
   const [local, setLocal] = useState<any>({});
@@ -62,6 +64,18 @@ export function Admin() {
   };
 
   useEffect(() => { loadAll(); }, [isAdmin]);
+
+  useEffect(() => {
+    if (!handView) return;
+    setHandReplay(0);
+    setHandPlaying(true);
+  }, [handView]);
+
+  useEffect(() => {
+    if (!handView || !handPlaying) return;
+    const timer = window.setInterval(() => setHandReplay((n) => (n >= 5 ? 5 : n + 1)), 650);
+    return () => window.clearInterval(timer);
+  }, [handView, handPlaying]);
 
   const filteredUsers = useMemo(() => users.filter((u) => !q || u.login.toLowerCase().includes(q.toLowerCase()) || u.nick.toLowerCase().includes(q.toLowerCase())), [users, q]);
 
@@ -567,8 +581,14 @@ export function Admin() {
             <div className="modal-body">
               <div className="muted small" style={{ marginBottom: 8 }}>{handView.table_name} · {handView.game} · pot {money(handView.pot)}</div>
               <div className="row" style={{ gap: 4, marginBottom: 12 }}>
-                {(handView.board || '').split(' ').filter(Boolean).map((c: string) => <PlayingCard key={c} card={c} size="mini" />)}
+                {(handView.board || '').split(' ').filter(Boolean).map((c: string, i: number) => <PlayingCard key={`${c}-${i}`} card={i < handReplay ? c : '??'} size="mini" />)}
                 {!(handView.board || '').trim() && <span className="muted small">No board</span>}
+              </div>
+              <div className="row" style={{ marginBottom: 12 }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setHandReplay(0); setHandPlaying(true); }}>Replay</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setHandPlaying((v) => !v)}>{handPlaying ? 'Pause' : 'Play'}</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setHandReplay(5)}>Show all</button>
+                <span className="muted small">Board {handReplay}/5</span>
               </div>
               <table className="admin-table">
                 <thead><tr><th>Player</th><th>Cards</th><th>Stack</th><th>Bet</th><th>Win</th></tr></thead>
@@ -582,6 +602,23 @@ export function Admin() {
                   ))}
                 </tbody>
               </table>
+              {!!(handView.actions || []).length && (
+                <>
+                  <div className="panel-title" style={{ marginTop: 16 }}>Action</div>
+                  <div className="hh-actions">
+                    {(handView.actions || []).map((a: any, i: number) => {
+                      const streetCount = a.street === 'preflop' ? 0 : a.street === 'flop' ? 3 : a.street === 'turn' ? 4 : 5;
+                      return (
+                        <div key={i} className={'hh-action' + (streetCount <= handReplay ? ' on' : '')}>
+                          <span className="hh-street">{a.street || 'preflop'}</span>
+                          <b>{a.nick}</b>
+                          <span>{a.action}{a.amount ? ` · ${money(a.amount)}` : ''}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
               <p className="muted small" style={{ marginTop: 10 }}>{(handView.actions || []).length} logged actions · {(handView.result?.reason || 'showdown')}</p>
             </div>
           </div>
