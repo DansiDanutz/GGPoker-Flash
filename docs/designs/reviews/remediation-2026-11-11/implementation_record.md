@@ -38,11 +38,11 @@
 *   Electron main waits for the `LISTENING` line, shows a blocking error and
     quits on failure, and skips the handshake when `GGPOKER_DEV=1`.
 *   Tests: `ledger-session.test.js` (5), `claims.test.js` (3), `http.test.js` (3),
-    `engine.test.js` places 2/3 and spin bust, plus the existing = **29 passing**.
+    `engine.test.js` places 2/3 and spin bust, plus the existing = **30 passing**.
 
 ## Verification
 
-*   `cd app && pnpm test` → 29 passed.
+*   `cd app && pnpm test` → 30 passed.
 *   `pnpm build` → success.
 *   Packaged and relaunched `DanGG.ro.app`; `/api/lobby` → 200.
 *   Production DB migrated: `transactions.session_id`, `transactions.reference`,

@@ -1170,6 +1170,11 @@ const server = http.createServer(async (req, res) => {
         db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
         db.prepare(`UPDATE users SET banned = 1, deleted_at = datetime('now'),
           login = ?, nick = ?, email = '' WHERE id = ?`).run(`deleted:${id}:${target.login}`, `Deleted ${id}`, id);
+        for (const client of wss.clients) {
+          if (client.userId === id) {
+            try { client.close(4001, 'account deleted'); } catch { /* ignore */ }
+          }
+        }
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'delete_user', `user ${id}`);
         return json(res, 200, { ok: true, deleted: true });
       }
@@ -1373,12 +1378,19 @@ wss.on('connection', (ws, req) => {
   function handleWsMessage(ws, raw) {
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
+    if (ws.userId) {
+      const active = db.prepare('SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
+      if (!active) {
+        try { ws.close(4001, 'account unavailable'); } catch { /* ignore */ }
+        return;
+      }
+    }
     if (msg.type === 'join_table') {
       const table = getLiveTable(msg.tableId);
       if (!table) return ws.send(JSON.stringify({ type: 'error', error: 'table not found' }));
       const entry = LIVE_TABLES.get(msg.tableId);
       // ensure there is a seat for the human
-      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
+      const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
       if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
       if (msg.observe) {
         table.fillBots(Math.max(3, table.cfg.seats - 1));
@@ -1463,7 +1475,7 @@ wss.on('connection', (ws, req) => {
       if (table.tournament) return ws.send(JSON.stringify({ type: 'error', error: 'No rebuys in tournaments' }));
       const amount = Math.round(Number(msg.amount) || 0);
       if (amount < table.cfg.min_buyin || amount > table.cfg.max_buyin) return ws.send(JSON.stringify({ type: 'error', error: 'invalid amount' }));
-      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
+      const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
       if (!u || u.balance < amount) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
       if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
       const sessionId = seat.player.sessionId;

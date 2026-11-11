@@ -142,3 +142,33 @@ test('live join and leave write matching session markers', async () => {
     child.kill();
   }
 });
+
+
+test('deleting a user closes the live socket and blocks a rejoin', async () => {
+  const { child, port, data } = await startServer();
+  try {
+    const user = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ login: 'DansiDanutz', password: 'ggpoker' }),
+    }).then((r) => r.json());
+    const admin = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ login: 'admin', password: 'admin123' }),
+    }).then((r) => r.json());
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${user.token}`);
+    await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
+    ws.send(JSON.stringify({ type: 'join_table', tableId: 'nlh-diamond-01', buyin: 50000 }));
+    await new Promise((r) => setTimeout(r, 1200));
+    const closed = new Promise((resolve) => ws.once('close', (code) => resolve(code)));
+    await fetch(`http://127.0.0.1:${port}/api/admin/users/1`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${admin.token}` },
+      body: JSON.stringify({ action: 'delete' }),
+    });
+    assert.equal(await closed, 4001);
+    const db = new DatabaseSync(path.join(data, 'ggpoker.db'));
+    const second = db.prepare("SELECT COUNT(*) c FROM transactions WHERE session_id LIKE 'nlh-diamond-02:%'").get().c;
+    assert.equal(second, 0);
+  } finally {
+    child.kill();
+  }
+});

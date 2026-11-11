@@ -251,7 +251,7 @@ Goldfish reviews and the consolidated disposition are in
 
 The review changed the code: `addTransaction` is now a single SQLite
 transaction, the deck shuffle uses `node:crypto`, the app enforces a single
-instance, CDP is gated to dev, request bodies are capped, and 29 committed
+instance, CDP is gated to dev, request bodies are capped, and 30 committed
 `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
 
 ## Notes / scope

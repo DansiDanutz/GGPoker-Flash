@@ -100,7 +100,7 @@ without a separate decision.
 **Decided:**
 
 *   **Testing seam**: `node:test` over the pure engine. Committed at
-    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `refund-fault.test.js`, `claims.test.js` and `http.test.js` (29 tests: deck,
+    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `refund-fault.test.js`, `claims.test.js` and `http.test.js` (30 tests: deck,
     hand ranking, Hold'em/Omaha selection, rake, side pots, uncontested pot,
     tournament payout, ledger atomicity/continuity/rollback, crash refunds,
     claims and the ephemeral-port server). Run with
@@ -157,7 +157,8 @@ without a separate decision.
 *   Tables expose `tableEpoch`/`tableVersion`; a client that sees an epoch change
     or a sequence gap reconnects for a full snapshot. Events are not replayed.
 *   Admin "delete" is a soft delete: sessions revoked, live seats cashed out,
-    the account anonymised and banned, ledger/claim rows retained.
+    the user's WebSockets closed, the account anonymised and banned, ledger/claim
+    rows retained. Every WS message revalidates the account.
 *   **Open**: `app/server/index.js` is a 1,384-line router plus domain logic; the
     placement rule is the intended boundary, not the current shape.
 
@@ -491,7 +492,7 @@ the code has not been written.
     Hold'em/Omaha selection, rake floor/cap, side pots, uncontested pot and
     tournament payout; `app/server/ledger.test.js` covers ledger atomicity,
     continuity and rollback. Run with `pnpm test`.
-*   **Exit**: tests pass (29/29). Crash refunds, claims, cashier replay, places
+*   **Exit**: tests pass (30/30). Crash refunds, claims, cashier replay, places
     2/3, live join/leave session markers and the ephemeral-port server are covered.
     2/3 and the ephemeral-port server are covered.
 
