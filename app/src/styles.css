@@ -361,7 +361,7 @@ a { color: inherit; text-decoration: none; }
     0 0 0 70px rgba(0,0,0,.18);
 }
 .felt::after { content: ''; position: absolute; inset: 24px; border-radius: 50% / 46%; border: 1px solid rgba(230,200,140,.28); box-shadow: inset 0 0 60px rgba(0,0,0,.25); }
-.room-mark { position: absolute; left: 0; right: 0; top: 0; height: 152px; background: url('/assets/tables/featured_6ring.png') center top/100% auto no-repeat; opacity: .55; filter: brightness(.65); -webkit-mask-image: linear-gradient(#000 45%, transparent 100%); mask-image: linear-gradient(#000 45%, transparent 100%); pointer-events: none; }
+.room-mark { position: absolute; inset: 0; background: url('/assets/tables/room_dark.png') center 38%/cover no-repeat; opacity: .85; pointer-events: none; }
 .table-center { position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 5; width: 60%; }
 .pot-label { background: rgba(0,0,0,.55); border: 1px solid rgba(255,215,130,.25); color: #ffe0a0; padding: 4px 14px; border-radius: 14px; font-weight: 700; font-size: 14px; letter-spacing: .3px; }
 .board { display: flex; gap: 6px; min-height: 92px; align-items: center; }

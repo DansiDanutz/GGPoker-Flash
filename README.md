@@ -54,6 +54,8 @@ pnpm desktop      # Electron loads http://127.0.0.1:5198
 New accounts can be created on the login screen (welcome bonus is credited automatically).
 Admin console: log in as `admin`, then `#/admin` (or Settings → Admin).
 
+Table-room layers are generated from the decoded AIR table kit by `tools/make_room.py`.
+
 The client is branded **DanGG.ro**: the wordmark is rebuilt from the original rounded GG glyph and
 the Flipout banner uses a personal portrait in place of the GGPoker spokesperson.
 
