@@ -12,6 +12,7 @@ const TABS = [
   { key: 'transactions', label: 'Transactions' },
   { key: 'tickets', label: 'Tickets' },
   { key: 'messages', label: 'Messages' },
+  { key: 'notes', label: 'Player notes' },
   { key: 'leaders', label: 'Leaderboard' },
   { key: 'verify', label: 'Verify ID' },
   { key: 'security', label: 'Security' },
@@ -31,12 +32,15 @@ export function MyPage() {
   const [tx, setTx] = useState<any[]>([]);
   const [leaders, setLeaders] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [noteEdit, setNoteEdit] = useState<any>(null);
 
   useEffect(() => {
     api.missions().then((r) => setMissions(r.missions)).catch(() => {});
     api.cashier().then((r) => setTx(r.transactions)).catch(() => {});
     api.leaderboard().then((r) => setLeaders(r.leaders)).catch(() => {});
     fetch('/api/chat').then((r) => r.json()).then((d) => setMessages((d.messages || []).slice(-20))).catch(() => {});
+    fetch('/api/notes', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setNotes(d.notes || [])).catch(() => {});
   }, []);
 
   const claim = async (m: any) => {
@@ -190,6 +194,60 @@ export function MyPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {tab === 'notes' && (
+          <>
+            <div className="between" style={{ marginBottom: 10 }}>
+              <p className="muted small" style={{ margin: 0 }}>Private notes you have written on other players. Only you can see them.</p>
+              <button className="btn btn-ghost btn-sm" onClick={() => setNoteEdit({ target: '', note: '', color: 'yellow', isNew: true })}>+ New note</button>
+            </div>
+            <div className="grid g2">
+              {notes.map((n) => (
+                <div key={n.target} className="card">
+                  <div className="between">
+                    <div className="row"><span style={{ width: 10, height: 10, borderRadius: '50%', background: n.color === 'green' ? '#45c777' : n.color === 'red' ? '#d0455a' : n.color === 'blue' ? '#3f9ad0' : '#e0b34b', display: 'inline-block' }} /><b style={{ color: '#eee' }}>{n.target}</b></div>
+                    <span className="muted small">{n.updated_at?.slice(0, 16)}</span>
+                  </div>
+                  <div style={{ color: '#cfcfcf', fontSize: 12.5, margin: '8px 0', whiteSpace: 'pre-wrap' }}>{n.note}</div>
+                  <div className="row">
+                    <button className="btn btn-ghost btn-sm" onClick={() => setNoteEdit({ ...n })}>Edit</button>
+                    <button className="btn btn-ghost btn-sm" onClick={async () => {
+                      await fetch('/api/notes', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ target: n.target, note: '' }) });
+                      setNotes((prev) => prev.filter((x) => x.target !== n.target));
+                    }}>Delete</button>
+                  </div>
+                </div>
+              ))}
+              {!notes.length && <div className="empty-state" style={{ gridColumn: 'span 2' }}>No player notes yet. Click a player at the table to add one.</div>}
+            </div>
+            {noteEdit && (
+              <div className="modal-backdrop" onClick={() => setNoteEdit(null)}>
+                <div className="modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-head"><h3>{noteEdit.isNew ? 'New player note' : `Note · ${noteEdit.target}`}</h3></div>
+                  <div className="modal-body">
+                    {noteEdit.isNew && (
+                      <div className="field"><label>Player nickname</label><input value={noteEdit.target} onChange={(e) => setNoteEdit({ ...noteEdit, target: e.target.value })} placeholder="Nickname" /></div>
+                    )}
+                    <div className="field"><label>Note</label><textarea rows={4} value={noteEdit.note} onChange={(e) => setNoteEdit({ ...noteEdit, note: e.target.value })} style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10, fontFamily: 'inherit' }} /></div>
+                    <div className="row">
+                      {['yellow', 'green', 'red', 'blue'].map((c) => (
+                        <button key={c} onClick={() => setNoteEdit({ ...noteEdit, color: c })} style={{ width: 26, height: 26, borderRadius: '50%', background: c === 'yellow' ? '#e0b34b' : c === 'green' ? '#45c777' : c === 'red' ? '#d0455a' : '#3f9ad0', border: noteEdit.color === c ? '2px solid #fff' : '2px solid transparent' }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="modal-foot">
+                    <button className="btn btn-dark" onClick={() => setNoteEdit(null)}>Cancel</button>
+                    <button className="btn btn-red" disabled={!noteEdit.target?.trim() || !noteEdit.note?.trim()} onClick={async () => {
+                      await fetch('/api/notes', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ target: noteEdit.target, note: noteEdit.note, color: noteEdit.color }) });
+                      const r = await fetch('/api/notes', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((x) => x.json());
+                      setNotes(r.notes || []); setNoteEdit(null);
+                    }}>Save</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {tab === 'leaders' && (

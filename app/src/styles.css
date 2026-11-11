@@ -766,3 +766,14 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .care-content p { color: #d8c9a8; font-size: 13px; max-width: 420px; }
 .care-jackpot { margin-top: 14px; background: rgba(0,0,0,.45); border: 1px solid rgba(231,182,75,.4); display: inline-block; border-radius: 14px; padding: 6px 14px; color: #f0d9a8; }
 .care-jackpot b { color: #ffe6a6; font-size: 18px; margin-left: 6px; }
+
+.filter-bar { height: 30px; flex: 0 0 30px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: #191919; border-bottom: 1px solid #0b0b0b; }
+.filter-bar select, .filter-bar input { height: 22px; background: #101010; border: 1px solid #333; border-radius: 3px; color: #cfcfcf; font-size: 11px; padding: 0 6px; outline: none; }
+.filter-bar select { max-width: 150px; }
+.filter-bar input { flex: 1; min-width: 100px; max-width: 220px; }
+.fav-toggle { height: 22px; padding: 0 9px; border-radius: 3px; background: #1f1f1f; border: 1px solid #383838; color: #aaa; font-size: 11px; }
+.fav-toggle.on { color: #ffd98a; border-color: #6b5320; background: #2a2311; }
+.filter-count { margin-left: auto; color: #777; font-size: 10.5px; }
+.fav-star { color: #3a3a3a; font-size: 12px; line-height: 1; padding: 0 2px; }
+.fav-star.on { color: #e7b64b; }
+.fav-star:hover { color: #e7b64b; }

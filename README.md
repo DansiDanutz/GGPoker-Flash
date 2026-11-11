@@ -83,7 +83,8 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for 
 - Second row game tabs using the original tab artwork: **Home, All-in or Fold, Rush & Cash,
   Hold'em, PLO, Short Deck, Spin & Gold, Mystery Battle Royale**.
 - Promotional carousel using the client's Flipout banner.
-- Cash-game table list with **sortable columns** (name, stakes, players, average pot), table selection,
+- Cash-game table list with **stake/seat/speed filters, table search, favourites**, sortable columns,
+  table selection,
   live preview (animated mini-table with seats, blinds, dealer button), buy-in range and Join/Open.
 - **Table View / Group View** toggle, right rail with balances (USD, P$, T$, XP), Cashier,
   Prop Bet, GG Left, My Promo, Missions, Leaders, GGPass.
@@ -99,7 +100,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for 
 - Buy-in modal with min/max range, percentage presets and seat selection; cash-out on leave.
 - Rake (5%, capped) on cash-game pots; tournament and Spin & Gold pots are rake-free.
 - **Spectate a table** (Open), take a seat from the rail, rebuy/add chips between hands and toggle auto-rebuy.
-- **Private player notes** (per player, colour-coded; stored locally in SQLite).
+- **Private player notes** (per player, colour-coded; written at the table and managed from My Page, stored locally in SQLite).
 - Four-colour deck option and an animation toggle; cards fly from the dealer and chips travel to the pot/winner.
 - **All-in flash**, hand-strength indicator (`Two Pair · AK suited`), win overlay, chip animations,
   hotkeys (F1 fold, F2 check/call, F3 raise, F4 all-in),
