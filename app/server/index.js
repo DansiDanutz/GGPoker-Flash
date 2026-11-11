@@ -367,6 +367,12 @@ const server = http.createServer(async (req, res) => {
       const reg = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       if (!reg && t.buyin > 0) return json(res, 400, { error: 'Register first' });
       const tableId = `tourney-${id}`;
+      const existing = LIVE_TABLES.get(tableId);
+      if (existing && existing.table.tournament && existing.table.tournament.winner) {
+        clearInterval(existing.timer);
+        LIVE_TABLES.delete(tableId);
+        CUSTOM_CFG.delete(tableId);
+      }
       if (!CUSTOM_CFG.has(tableId)) {
         const bb = Math.max(20, Math.round(t.starting_stack / 100));
         CUSTOM_CFG.set(tableId, {

@@ -168,29 +168,33 @@ export class PokerTable {
     if (ready.length >= 2) this.startHand();
   }
 
+  awardSpinWinner() {
+    const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
+    if (!w || !w.player) return;
+    w.player.stack += this.spinPrize;
+    this.spinWinner = { nick: w.player.nick, id: w.player.id, prize: this.spinPrize };
+    this.emit({ type: 'spin_win', ...this.spinWinner, multiplier: this.spinMultiplier });
+    this.street = 'ended';
+    this.nextHandAt = 0;
+    if (this.hooks.onHandComplete) this.hooks.onHandComplete({ table: this, winner: { id: w.player.id } });
+  }
+
+  awardTournamentWinner() {
+    const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
+    if (!w || !w.player) return;
+    const prize = Math.round((this.tournament.prizePool || 0) * 0.5);
+    w.player.stack += prize;
+    this.tournament.winner = { nick: w.player.nick, id: w.player.id, prize };
+    this.emit({ type: 'tourney_win', nick: w.player.nick, id: w.player.id, prize, tableName: this.cfg.name });
+    this.street = 'ended';
+    this.nextHandAt = 0;
+    if (this.hooks.onTournamentEnd) this.hooks.onTournamentEnd(this, this.tournament.winner);
+  }
+
   startHand() {
     const ready = this.occupiedSeats().filter((s) => s.player && s.player.stack > 0 && !s.player.sittingOut);
-    if (this.spin && this.handNo > 0 && ready.length === 1) {
-      const w = ready[0];
-      w.player.stack += this.spinPrize;
-      this.spinWinner = { nick: w.player.nick, id: w.player.id, prize: this.spinPrize };
-      this.emit({ type: 'spin_win', ...this.spinWinner, multiplier: this.spinMultiplier });
-      this.street = 'ended';
-      this.nextHandAt = 0;
-      if (this.hooks.onHandComplete) this.hooks.onHandComplete({ table: this, winner: { id: w.player.id } });
-      return;
-    }
-    if (this.tournament && this.handNo > 0 && ready.length === 1) {
-      const w = ready[0];
-      const prize = Math.round((this.tournament.prizePool || 0) * 0.5);
-      w.player.stack += prize;
-      this.tournament.winner = { nick: w.player.nick, id: w.player.id, prize };
-      this.emit({ type: 'tourney_win', nick: w.player.nick, id: w.player.id, prize, tableName: this.cfg.name });
-      this.street = 'ended';
-      this.nextHandAt = 0;
-      if (this.hooks.onTournamentEnd) this.hooks.onTournamentEnd(this, this.tournament.winner);
-      return;
-    }
+    if (this.spin && this.handNo > 0 && ready.length === 1) { this.awardSpinWinner(); return; }
+    if (this.tournament && this.handNo > 0 && ready.length === 1) { this.awardTournamentWinner(); return; }
     if (ready.length < 2) { this.street = 'idle'; return; }
     if (this.spin && this.handNo > 0 && this.handNo % 8 === 0) {
       this.sb = Math.round(this.sb * 1.5);
@@ -675,12 +679,15 @@ export class PokerTable {
           if (s.player && s.player.isBot && s.player.stack <= 0 && !this.elimination) s.player.stack = this.cfg.max_buyin;
         }
         if (this.elimination) {
+          const aliveCount = this.occupiedSeats().filter((x) => x.player && x.player.stack > 0).length;
+          let batch = 0;
           for (const s of [...this.seats]) {
             if (s.player && s.player.stack <= 0) {
               const busted = s.player;
               if (this.tournament) {
-                const alive = this.occupiedSeats().filter((x) => x.player && x.player.stack > 0).length;
-                const place = alive + 1 + this.finished.filter((f) => f.place >= alive + 1).length;
+                const alive = aliveCount;
+                const place = alive + 1 + batch;
+                batch++;
                 const pool = this.tournament.prizePool || 0;
                 const pct = place === 2 ? 0.3 : place === 3 ? 0.2 : 0;
                 const payout = Math.round(pool * pct);
@@ -692,9 +699,10 @@ export class PokerTable {
             }
           }
         }
-        if (this.occupiedSeats().filter((s) => s.player && s.player.stack > 0).length >= 2) {
-          this.startHand();
-        }
+        const alive = this.occupiedSeats().filter((s) => s.player && s.player.stack > 0);
+        if (alive.length >= 2) this.startHand();
+        else if (this.tournament && alive.length === 1 && this.handNo > 0) this.awardTournamentWinner();
+        else if (this.spin && alive.length === 1 && this.handNo > 0) this.awardSpinWinner();
       }
       return;
     }
