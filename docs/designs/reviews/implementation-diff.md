@@ -1,19 +1,46 @@
-# Implementation Diff — Remediation Phases 1–4 (final)
+# Implementation Diff — Remediation + Poker Parity (final)
 
 Baseline: 320f00b
-Head: 7c9c75d
+Head: daa2fa5
 
 ```diff
 diff --git a/README.md b/README.md
-index 0cbf69d..940f76d 100644
+index 0cbf69d..d24616a 100644
 --- a/README.md
 +++ b/README.md
+@@ -83,7 +83,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for
+ - Frameless macOS window with the client's title bar, traffic lights, online counter and icon strip.
+ - Original `PLAY GG.RO` logo, POKER / TOURNAMENTS / SLOTS / CASINO header pills, Bad Beat Jackpot ticker.
+ - Second row game tabs using the original tab artwork: **Home, All-in or Fold, Rush & Cash,
+-  Hold'em, PLO, Short Deck, Spin & Gold, Mystery Battle Royale**.
++  Hold'em, PLO/PLO5/PLO6, Short Deck, Spin & Gold, Mystery Battle Royale**.
+ - Promotional carousel using the client's Flipout banner.
+ - Cash-game table list with **stake/seat/speed filters, table search, favourites**, sortable columns,
+   table selection,
+@@ -95,7 +95,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for
+ ### Poker tables
+ - Real No-Limit Hold'em engine: blinds, antes, betting rounds, min-raise rules, all-in,
+   side pots, showdown, split pots, hand evaluation, dealer button, timers.
+-- Variants: **Hold'em, PLO/PLO5 (2+3 rule), Short Deck (36 cards), All-in or Fold, Rush & Cash,
++- Variants: **Hold'em, PLO/PLO5/PLO6 (2+3 rule), Short Deck (36 cards), All-in or Fold, Rush & Cash,
+   Spin & Gold SNG** (3-handed, prize wheel, escalating blinds, winner-takes-all),
+   Mystery Battle Royale tables.
+ - Bot opponents with Monte-Carlo equity decisions fill empty seats; stack persistence.
+@@ -230,7 +230,7 @@ Faithful to the installed client:
+ - lobby layout, top navigation, game tabs, table list and side rail, built from the client's own artwork;
+ - the original sound effects, lobby music and many table/notification cues;
+ - the string table's 30 locales (including RTL Arabic) for the shared UI vocabulary;
+-- cash-game, tournament, Spin & Gold and Mystery Battle Royale formats with a server-authoritative engine;
++- cash-game Hold'em, PLO, PLO5, PLO6, Short Deck, tournament, Spin & Gold and Mystery Battle Royale formats with a server-authoritative engine;
+ - cashier, rewards, missions, GG Pass, Fish Buffet, Ocean Rewards, GG Care, Honeymoon, Prop Bet, hand history and support.
+ 
+ Deliberate approximations in this local build:
 @@ -251,7 +251,7 @@ Goldfish reviews and the consolidated disposition are in
  
  The review changed the code: `addTransaction` is now a single SQLite
  transaction, the deck shuffle uses `node:crypto`, the app enforces a single
 -instance, CDP is gated to dev, request bodies are capped, and 11 committed
-+instance, CDP is gated to dev, request bodies are capped, and 30 committed
++instance, CDP is gated to dev, request bodies are capped, and 31 committed
  `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
  
  ## Notes / scope
@@ -224,10 +251,19 @@ index 0000000..d11a832
 +  assert.notEqual(w1, w2);
 +});
 diff --git a/app/server/db.js b/app/server/db.js
-index 51482ca..97d917f 100644
+index 51482ca..f8638e4 100644
 --- a/app/server/db.js
 +++ b/app/server/db.js
-@@ -203,6 +203,32 @@ function init() {
+@@ -54,7 +54,7 @@ function init() {
+   CREATE TABLE IF NOT EXISTS tables (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+-    game TEXT NOT NULL,             -- holdem | omaha | omaha5 | shortdeck | rush | aof | spingold | battleroyale | flipandgo
++    game TEXT NOT NULL,             -- holdem | omaha | omaha5 | omaha6 | shortdeck | rush | aof | spingold | battleroyale | flipandgo
+     category TEXT NOT NULL,         -- Diamond | Platinum | Gold | Silver ...
+     sb INTEGER NOT NULL,
+     bb INTEGER NOT NULL,
+@@ -203,11 +203,51 @@ function init() {
  
    try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
    try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
@@ -259,8 +295,27 @@ index 51482ca..97d917f 100644
 +    FROM daily_claims`).run();
    const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
    if (!count) seed();
++  ensurePloVariants();
    ensureSeries();
-@@ -346,22 +372,126 @@ export function setSetting(key, value) {
+ }
+ 
++function ensurePloVariants() {
++  const ins = db.prepare(`INSERT OR IGNORE INTO tables
++    (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,sort)
++    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
++  let sort = 900;
++  for (const [game, label] of [['omaha5', 'PLO5'], ['omaha6', 'PLO6']]) {
++    for (let i = 1; i <= 6; i++) {
++      ins.run(`${game}-platinum-${i}`, `${label} Platinum ${String(i).padStart(2, '0')}`, game, 'Platinum',
++        500, 1000, 0, 20000, 100000, 6, 'Normal', 0, sort++);
++    }
++  }
++}
++
+ function ensureSeries() {
+   const tins = db.prepare(`INSERT INTO tournaments (id,name,buyin,fee,gtd,start_at,entrants,format) VALUES (?,?,?,?,?,?,?,?)`);
+   for (const [id, name, buyin, fee, gtd, hours, fmt] of [
+@@ -346,22 +386,126 @@ export function setSetting(key, value) {
      .run(key, JSON.stringify(value));
  }
  
@@ -391,7 +446,7 @@ index 51482ca..97d917f 100644
  export function newSession(userId, device = '') {
    const token = randomUUID();
    const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
-@@ -371,7 +501,8 @@ export function newSession(userId, device = '') {
+@@ -371,7 +515,8 @@ export function newSession(userId, device = '') {
  
  export function userByToken(token) {
    if (!token) return null;
@@ -402,7 +457,7 @@ index 51482ca..97d917f 100644
  }
  
 diff --git a/app/server/engine.test.js b/app/server/engine.test.js
-index 0334242..05da5a6 100644
+index 0334242..4504b94 100644
 --- a/app/server/engine.test.js
 +++ b/app/server/engine.test.js
 @@ -56,13 +56,17 @@ test('bestOmaha uses exactly two hole cards and three board cards', () => {
@@ -424,7 +479,7 @@ index 0334242..05da5a6 100644
  });
  
  test('showdown builds side pots and conserves chips', () => {
-@@ -106,3 +110,75 @@ test('tournament winner receives half the prize pool exactly once and fires the
+@@ -106,3 +110,85 @@ test('tournament winner receives half the prize pool exactly once and fires the
    assert.equal(paid, 1);
    assert.equal(ends, 1);
  });
@@ -499,6 +554,16 @@ index 0334242..05da5a6 100644
 +  const after = t.snapshotFor();
 +  assert.equal(before.tableEpoch, after.tableEpoch);
 +  assert.equal(after.tableVersion, before.tableVersion + 1);
++});
++
++
++test('PLO5 and PLO6 deal five and six hole cards', () => {
++  const p1 = player(1, 'A', 1000, 0, []);
++  const p2 = player(2, 'B', 1000, 0, []);
++  const t5 = tableWith([p1, p2], { seats: 2, game: 'omaha5' });
++  assert.equal(t5.omahaHole, 5);
++  const t6 = tableWith([p1, p2], { seats: 2, game: 'omaha6' });
++  assert.equal(t6.omahaHole, 6);
 +});
 diff --git a/app/server/http.test.js b/app/server/http.test.js
 new file mode 100644
@@ -1430,7 +1495,7 @@ index 0000000..a776859
 +  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference LIKE 'refund:fault:%'").get().c, 1);
 +});
 diff --git a/app/server/table.js b/app/server/table.js
-index fa07090..7b42cdf 100644
+index fa07090..c53d38b 100644
 --- a/app/server/table.js
 +++ b/app/server/table.js
 @@ -64,7 +64,7 @@ export class PokerTable {
@@ -1442,16 +1507,20 @@ index fa07090..7b42cdf 100644
      this.rake = 0;
      this.finished = [];
      if (this.spin) {
-@@ -74,6 +74,8 @@ export class PokerTable {
+@@ -72,8 +72,11 @@ export class PokerTable {
+       this.spinMultiplier = options[Math.floor(Math.random() * options.length)];
+       this.spinPrize = Math.round(cfg.min_buyin * this.spinMultiplier);
      }
-     this.omaha = cfg.game === 'omaha' || cfg.game === 'omaha5';
+-    this.omaha = cfg.game === 'omaha' || cfg.game === 'omaha5';
++    this.omahaHole = cfg.game === 'omaha5' ? 5 : cfg.game === 'omaha6' ? 6 : 4;
++    this.omaha = cfg.game === 'omaha' || cfg.game === 'omaha5' || cfg.game === 'omaha6';
      this.messageSeq = 0;
 +    this.tableEpoch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 +    this.tableVersion = 0;
    }
  
    /* ------------------------------ seating ------------------------------ */
-@@ -90,7 +92,7 @@ export class PokerTable {
+@@ -90,7 +93,7 @@ export class PokerTable {
      return this.seats.find((s) => s.player && s.player.id === playerId);
    }
  
@@ -1460,7 +1529,7 @@ index fa07090..7b42cdf 100644
      if (this.seatOf(player.id)) return { ok: false, error: 'already seated' };
      let seat = seatIndex != null ? this.seats[seatIndex] : this.seats.find((s) => !s.player);
      if (!seat) return { ok: false, error: 'table full' };
-@@ -119,6 +121,7 @@ export class PokerTable {
+@@ -119,6 +122,7 @@ export class PokerTable {
        joinedAt: Date.now(),
        handsPlayed: 0,
        won: 0,
@@ -1468,7 +1537,7 @@ index fa07090..7b42cdf 100644
      };
      this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
      this.maybeStart();
-@@ -173,6 +176,7 @@ export class PokerTable {
+@@ -173,6 +177,7 @@ export class PokerTable {
      const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
      if (!w || !w.player) return;
      w.player.stack += this.spinPrize;
@@ -1476,6 +1545,16 @@ index fa07090..7b42cdf 100644
      this.spinWinner = { nick: w.player.nick, id: w.player.id, prize: this.spinPrize };
      this.emit({ type: 'spin_win', ...this.spinWinner, multiplier: this.spinMultiplier });
      this.street = 'ended';
+@@ -300,8 +305,7 @@ export class PokerTable {
+     if (this.omaha) {
+       for (const s of dealOrder) {
+         if (s.player && s.player.inHand) {
+-          s.player.cards.push(this.deck.pop());
+-          s.player.cards.push(this.deck.pop());
++          for (let i = 0; i < this.omahaHole - 2; i++) s.player.cards.push(this.deck.pop());
+         }
+       }
+     }
 @@ -546,8 +550,7 @@ export class PokerTable {
    computeRake(pot) {
      if (this.tournament || this.spin) return 0;
@@ -1527,7 +1606,7 @@ index fa07090..7b42cdf 100644
      if (evt.type === 'win') this.lastResult = evt;
      for (const fn of this.listeners) {
 diff --git a/app/src/lib/api.ts b/app/src/lib/api.ts
-index 34cae72..9548d59 100644
+index 34cae72..470dea6 100644
 --- a/app/src/lib/api.ts
 +++ b/app/src/lib/api.ts
 @@ -34,6 +34,7 @@ export type LobbyTable = {
@@ -1549,6 +1628,14 @@ index 34cae72..9548d59 100644
    hands: () => request<{ hands: any[] }>('/api/hands'),
    missions: () => request<{ missions: any[] }>('/api/missions'),
    claimMission: (id: string) => request<any>(`/api/missions/${id}/claim`, { method: 'POST' }),
+@@ -157,6 +158,7 @@ export const GAME_LABEL: Record<string, string> = {
+   holdem: "Hold'em",
+   omaha: 'PLO',
+   omaha5: 'PLO5',
++  omaha6: 'PLO6',
+   shortdeck: 'Short Deck',
+   rush: 'Rush & Cash',
+   aof: 'All-in or Fold',
 diff --git a/app/src/pages/Admin.tsx b/app/src/pages/Admin.tsx
 index 3487a64..6975250 100644
 --- a/app/src/pages/Admin.tsx
@@ -1640,9 +1727,18 @@ index 68ba28e..7e130ed 100644
  
    const tx = data?.transactions || [];
 diff --git a/app/src/pages/Lobby.tsx b/app/src/pages/Lobby.tsx
-index b565b06..6a0425a 100644
+index b565b06..10da88b 100644
 --- a/app/src/pages/Lobby.tsx
 +++ b/app/src/pages/Lobby.tsx
+@@ -11,7 +11,7 @@ const TAB_GAME: Record<string, string[]> = {
+   aof: ['aof'],
+   rush: ['rush'],
+   holdem: ['holdem'],
+-  plo: ['omaha', 'omaha5'],
++  plo: ['omaha', 'omaha5', 'omaha6'],
+   short: ['shortdeck'],
+   spin: ['spingold'],
+   battle: ['battleroyale'],
 @@ -54,9 +54,7 @@ function MiniTable({ table, players }: { table: LobbyTable | null; players: { na
  }
  
