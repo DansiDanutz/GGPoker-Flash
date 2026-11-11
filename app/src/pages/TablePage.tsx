@@ -40,6 +40,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [raiseTo, setRaiseTo] = useState(0);
   const [chat, setChat] = useState<{ nick: string; message: string }[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
+  const [emoteOpen, setEmoteOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [emoteFx, setEmoteFx] = useState<{ userId: number; nick: string; emote: string; key: number } | null>(null);
   const emoteTimer = useRef<number | null>(null);
@@ -525,11 +526,20 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         <div className="spacer" />
         <button onClick={() => setChatOpen((v) => !v)}>💬 Chat</button>
+        <button onClick={() => setEmoteOpen((v) => !v)} title="Send a reaction">😀</button>
         <button onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
         <button onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
         <button onClick={() => setMenuOpen((v) => !v)}>Menu</button>
         <button onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
+
+      {emoteOpen && (
+        <div className="emote-tray" onClick={(e) => e.stopPropagation()}>
+          {['😀', '😂', '😎', '😱', '😡', '🍀', '🎉', '🐟'].map((e) => (
+            <button key={e} onClick={() => { send({ type: 'emote', emote: e }); setEmoteOpen(false); sound.play('bubble', { volume: .45 }); }}>{e}</button>
+          ))}
+        </div>
+      )}
 
       {allInFx && <div className="allin-flash"><span>ALL IN</span></div>}
 

@@ -1727,7 +1727,12 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'emote') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
-      const evt = { type: 'emote', nick: ws.nick, userId: ws.userId, emote: msg.emote, at: Date.now() };
+      const muted = db.prepare('SELECT chat_muted FROM users WHERE id = ?').get(ws.userId);
+      if (muted?.chat_muted) return;
+      if (db.prepare('SELECT 1 FROM table_mutes WHERE table_id = ? AND user_id = ?').get(msg.tableId, ws.userId)) return;
+      const emote = String(msg.emote || '').slice(0, 8);
+      if (!emote) return;
+      const evt = { type: 'emote', nick: ws.nick, userId: ws.userId, emote, at: Date.now() };
       for (const client of entry.clients) if (client.readyState === 1) client.send(JSON.stringify({ type: 'event', event: evt }));
       return;
     }

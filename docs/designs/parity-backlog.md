@@ -48,6 +48,7 @@ not a source to copy blindly.
   - per-table owner chat moderation for seated players, with persistent mute rows;
   - auto buy-in from the lobby Join action.
 - Table:
+  - eight-reaction emote tray with server broadcast and table/account mute enforcement;
   - card-back skin from settings;
   - four configurable quick-bet buttons with pre/post-flop labels;
   - show-hand and hotkey-hint preferences;
