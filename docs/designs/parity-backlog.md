@@ -122,15 +122,11 @@ not a source to copy blindly.
 
 ## Still missing or partial
 
-- Auto buy-in from the lobby (Codex has this); the default percentage and
-  auto top-up exist, but seating still asks for an explicit buy-in.
-- Native six-front artwork; this app has four CSS front styles.
-- Native full table background catalogue and per-table appearance overrides; this
-  app exposes three official room backdrops globally.
-- Native hotkey remapping; this app has fixed F1–F4 with an enable toggle.
-- Codex's owner-hosted room/tournament console, chat moderation and invitation
-  flows are a different architecture; this app has an admin console and local
-  tournaments but not the same owner workflow.
-- Multi-table play, Rush queue parity and KKPoker-specific surfaces remain open.
-- Timer seconds are fixed at 10 in the engine; the old dead slider was removed
-  from the UI rather than pretending it worked.
+- True multi-table tournament flights, balancing and table breaks; cash multi-tabling works through separate Electron windows.
+- KKPoker-specific surfaces and verification; KKPoker is not installed or exposed to automation on this machine.
+- Push-based DMs/notifications; current implementation polls every 15 seconds.
+- Full native table-background catalogue beyond the five room choices.
+- Native hotkey remapping; F1–F4 are fixed with an enable toggle.
+- Elo is one ladder rather than separate ladders per game variant.
+- Full animated replay inside the admin report queue; the player-facing Hand History already has replay.
+- Exact native card geometry/anti-aliasing differences from the six official sprites.
