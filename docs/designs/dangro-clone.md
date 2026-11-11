@@ -100,7 +100,7 @@ without a separate decision.
 **Decided:**
 
 *   **Testing seam**: `node:test` over the pure engine. Committed at
-    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `claims.test.js` and `http.test.js` (29 tests: deck,
+    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `refund-fault.test.js`, `claims.test.js` and `http.test.js` (29 tests: deck,
     hand ranking, Hold'em/Omaha selection, rake, side pots, uncontested pot,
     tournament payout, ledger atomicity/continuity/rollback, crash refunds,
     claims and the ephemeral-port server). Run with
