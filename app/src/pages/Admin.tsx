@@ -13,6 +13,7 @@ const SECTIONS = [
   { key: 'banners', label: 'Promotions', icon: '🎁' },
   { key: 'branding', label: 'Branding', icon: '🎨' },
   { key: 'verifications', label: 'Verifications', icon: '🪪' },
+  { key: 'reports', label: 'Player reports', icon: '🚩' },
   { key: 'missions', label: 'Missions', icon: '📋' },
   { key: 'settings', label: 'Game settings', icon: '⚙️' },
   { key: 'transactions', label: 'Transactions', icon: '💳' },
@@ -37,6 +38,7 @@ export function Admin() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [audit, setAudit] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<any>(null);
   const [local, setLocal] = useState<any>({});
@@ -47,13 +49,13 @@ export function Admin() {
   const loadAll = async () => {
     if (!isAdmin) return;
     try {
-      const [s, u, t, tt, b, m, st, tx, au, v] = await Promise.all([
+      const [s, u, t, tt, b, m, st, tx, au, v, rp] = await Promise.all([
         api.admin.stats(), api.admin.users(), api.admin.tables(), api.admin.tournaments(),
-        api.admin.banners(), api.admin.missions(), api.admin.settings(), api.admin.transactions(), api.admin.audit(), api.admin.verifications(),
+        api.admin.banners(), api.admin.missions(), api.admin.settings(), api.admin.transactions(), api.admin.audit(), api.admin.verifications(), api.admin.reports(),
       ]);
       setStats(s); setUsers(u.users); setTables(t.tables); setTourneys(tt.tournaments);
       setBanners(b.banners); setMissions(m.missions); setSettings(st.settings);
-      setTransactions(tx.transactions); setAudit(au.log); setVerifications(v.verifications || []);
+      setTransactions(tx.transactions); setAudit(au.log); setVerifications(v.verifications || []); setReports(rp.reports || []);
     } catch (e: any) { toast({ kind: 'error', title: 'Admin', body: e.message }); }
   };
 
@@ -490,6 +492,35 @@ export function Admin() {
                         <td>{money(t.balance_after)}</td><td className="muted">{t.memo}</td><td className="muted">{t.created_at}</td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {section === 'reports' && (
+            <>
+              <div className="between">
+                <h2 className="admin-title" style={{ margin: 0 }}>Player reports</h2>
+                <button className="btn btn-ghost btn-sm" onClick={async () => { try { const d = await api.admin.reports(); setReports(d.reports || []); } catch { /* ignore */ } }}>Refresh</button>
+              </div>
+              <div className="admin-card" style={{ padding: 0 }}>
+                <table className="admin-table">
+                  <thead><tr><th>#</th><th>Reporter</th><th>Target</th><th>Reason</th><th>Details</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {reports.map((r) => (
+                      <tr key={r.id}>
+                        <td>{r.id}</td><td>{r.reporter_nick}</td><td><b>{r.target_nick}</b></td><td>{r.reason}</td>
+                        <td className="muted" style={{ maxWidth: 260 }}>{r.detail}</td>
+                        <td><span className={'tag ' + (r.status === 'open' ? 'red' : r.status === 'resolved' ? 'live' : '')}>{r.status}</span></td>
+                        <td className="muted">{r.created_at?.slice(0, 16)}</td>
+                        <td><div className="row" style={{ gap: 3 }}>
+                          {r.status === 'open' && <button className="btn btn-gold btn-sm" onClick={async () => { await api.admin.reportAction(r.id, 'resolve'); const d = await api.admin.reports(); setReports(d.reports || []); toast({ kind: 'success', title: 'Report resolved' }); }}>Resolve</button>}
+                          {r.status === 'open' && <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.reportAction(r.id, 'dismiss'); const d = await api.admin.reports(); setReports(d.reports || []); }}>Dismiss</button>}
+                        </div></td>
+                      </tr>
+                    ))}
+                    {!reports.length && <tr><td colSpan={8}><div className="empty-state">No reports.</div></td></tr>}
                   </tbody>
                 </table>
               </div>

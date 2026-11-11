@@ -100,6 +100,7 @@ export const api = {
   cashier: () => request<any>('/api/cashier'),
   notifications: () => request<{ items: any[]; unread: number }>('/api/notifications'),
   elo: () => request<{ leaders: any[]; me: any }>('/api/elo'),
+  reportPlayer: (targetId: number, reason: string, detail: string) => request<any>('/api/reports', { method: 'POST', body: JSON.stringify({ targetId, reason, detail }) }),
   markNotificationsRead: (keys: string[]) => request<any>('/api/notifications/read', { method: 'POST', body: JSON.stringify({ keys }) }),
   messages: () => request<{ threads: any[] }>('/api/messages'),
   userProfile: (id: number) => request<any>(`/api/users/${id}/profile`),
@@ -129,6 +130,8 @@ export const api = {
   claimCare: () => request<any>('/api/ggcare/claim', { method: 'POST' }),
   spin: () => request<any>('/api/rewards/spin', { method: 'POST' }),
   admin: {
+    reports: () => request<{ reports: any[] }>('/api/admin/reports'),
+    reportAction: (id: number, action: 'resolve' | 'dismiss') => request<any>(`/api/admin/reports/${id}`, { method: 'POST', body: JSON.stringify({ action }) }),
     stats: () => request<any>('/api/admin/stats'),
     users: (q = '') => request<{ users: User[] }>(`/api/admin/users?q=${encodeURIComponent(q)}`),
     userAction: (id: number, body: any) => request(`/api/admin/users/${id}`, { method: 'POST', body: JSON.stringify(body) }),

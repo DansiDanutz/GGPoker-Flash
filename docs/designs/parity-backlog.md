@@ -90,6 +90,9 @@ not a source to copy blindly.
   - divisions, ladder, current rank and recent rating-change history;
   - ELO Challenge creates a private heads-up table with an invitable link;
   - only players dealt into the hand are rated.
+- Player reporting:
+  - report from the table profile with reason and details;
+  - persisted reports, audit entries and admin resolve/dismiss workflow.
 - Table player profiles:
   - click a seat to see public avatar, VIP, country, hands/wins/biggest pot and presence;
   - add friend or open a direct message from the profile;

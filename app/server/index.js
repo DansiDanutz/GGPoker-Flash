@@ -837,6 +837,20 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, balance: award.balance, reward: m.reward, kind: m.reward_kind });
     }
 
+    if (p === '/api/reports' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      const targetId = Number(b.targetId);
+      const target = db.prepare('SELECT id,nick FROM users WHERE id = ? AND deleted_at IS NULL').get(targetId);
+      if (!target) return json(res, 404, { error: 'Player not found' });
+      if (target.id === u.id) return json(res, 400, { error: 'You cannot report yourself' });
+      const reason = String(b.reason || '').trim().slice(0, 60) || 'Other';
+      const detail = String(b.detail || '').trim().slice(0, 500);
+      const info = db.prepare('INSERT INTO reports (reporter_id,target_id,reason,detail) VALUES (?,?,?,?)').run(u.id, target.id, reason, detail);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'report', `target ${target.nick} (${target.id}) — ${reason}`);
+      return json(res, 200, { ok: true, id: Number(info.lastInsertRowid) });
+    }
+
     if (p === '/api/elo') {
       const u = userByToken(tokenFrom(req));
       const rows = db.prepare('SELECT id,nick,avatar,vip_level,elo FROM users WHERE deleted_at IS NULL AND banned = 0 ORDER BY elo DESC, nick LIMIT 50').all();
@@ -1482,6 +1496,24 @@ const server = http.createServer(async (req, res) => {
       const turnover = db.prepare(`SELECT COALESCE(SUM(ABS(amount)),0) s FROM transactions`).get().s;
       const live = [...LIVE_TABLES.values()].map((e) => ({ id: e.table.cfg.id, name: e.table.cfg.name, players: e.table.occupiedSeats().length, hand: e.table.handNo, street: e.table.street }));
       return json(res, 200, { users, hands, tables, tourneys, turnover, live, online: sitesStats().online, jackpot: getSetting('jackpot'), mint_bot: getSetting('mint_bot_total', 0), mint_spin: getSetting('mint_spin_total', 0) });
+    }
+
+    if (p === '/api/admin/reports' && req.method === 'GET') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const rows = db.prepare(`SELECT r.*, ur.nick AS reporter_nick, ut.nick AS target_nick
+        FROM reports r JOIN users ur ON ur.id = r.reporter_id JOIN users ut ON ut.id = r.target_id
+        ORDER BY CASE r.status WHEN 'open' THEN 0 ELSE 1 END, r.id DESC LIMIT 200`).all();
+      return json(res, 200, { reports: rows });
+    }
+    if (p.startsWith('/api/admin/reports/') && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const id = Number(p.split('/')[4]);
+      const b = await readBody(req);
+      const status = b.action === 'resolve' ? 'resolved' : b.action === 'dismiss' ? 'dismissed' : null;
+      if (!status) return json(res, 400, { error: 'Unknown action' });
+      db.prepare("UPDATE reports SET status = ?, resolved_at = datetime('now') WHERE id = ?").run(status, id);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'report_' + status, `report ${id}`);
+      return json(res, 200, { ok: true });
     }
 
     if (p === '/api/admin/users') {

@@ -68,6 +68,10 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [noteTarget, setNoteTarget] = useState<PlayerState | null>(null);
   const [playerProfile, setPlayerProfile] = useState<any>(null);
   const [friendAdded, setFriendAdded] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('Abusive chat');
+  const [reportDetail, setReportDetail] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
   const [mutes, setMutes] = useState<number[]>([]);
   const [noteText, setNoteText] = useState('');
@@ -904,6 +908,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                     ) : (<>
                       <button className="btn btn-ghost btn-sm" disabled={friendAdded || playerProfile.friend || playerProfile.pending} onClick={async () => { await api.addFriend(playerProfile.user.nick); setFriendAdded(true); toast({ kind: 'success', title: 'Friend request sent', body: playerProfile.user.nick }); }}>{playerProfile.friend ? 'Friend' : (playerProfile.pending || friendAdded) ? 'Requested' : 'Add friend'}</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => { setNoteTarget(null); navigate(`/my-page?dm=${playerProfile.user.id}`); }}>Message</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setReportOpen(true)} title="Report player">Report</button>
                     </>)}
                   </div>
                 </div>
@@ -924,6 +929,33 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="modal-foot">
               <button className="btn btn-dark" onClick={() => setNoteTarget(null)}>Cancel</button>
               <button className="btn btn-red" onClick={saveNote}>Save note</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reportOpen && noteTarget && playerProfile?.user && (
+        <div className="modal-backdrop" onClick={() => setReportOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Report {playerProfile.user.nick}</h3></div>
+            <div className="modal-body">
+              <label className="admin-label">Reason</label>
+              <select className="admin-select" style={{ width: '100%' }} value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
+                {['Abusive chat', 'Collusion', 'Slow play', 'Chip dumping', 'Offensive nickname', 'Other'].map((r) => <option key={r}>{r}</option>)}
+              </select>
+              <label className="admin-label" style={{ marginTop: 10 }}>Details</label>
+              <textarea value={reportDetail} onChange={(e) => setReportDetail(e.target.value)} rows={4} maxLength={500} placeholder="What happened?"
+                style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10, fontFamily: 'inherit' }} />
+              <p className="muted small">Reports are reviewed by the local administrator. False reports may be actioned.</p>
+            </div>
+            <div className="modal-foot">
+              <button className="btn btn-dark" onClick={() => setReportOpen(false)}>Cancel</button>
+              <button className="btn btn-red" disabled={reportBusy} onClick={async () => {
+                setReportBusy(true);
+                try { await api.reportPlayer(playerProfile.user.id, reportReason, reportDetail); setReportOpen(false); setReportDetail(''); toast({ kind: 'success', title: 'Report submitted', body: `Reported ${playerProfile.user.nick}` }); }
+                catch (e: any) { toast({ kind: 'error', title: 'Could not report', body: e.message }); }
+                finally { setReportBusy(false); }
+              }}>Submit report</button>
             </div>
           </div>
         </div>
