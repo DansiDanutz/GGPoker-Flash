@@ -3,6 +3,13 @@
 This directory is the VM-ready deployment for the existing Node/SQLite game
 server. It is intentionally separate from the Mac-local Electron shell.
 
+## Current live deployment
+
+Play-money site: **https://dangg.live**  
+Admin: private SSH tunnel only (`ssh -N -L 5198:127.0.0.1:5198 dexter`)  
+Host: Dexter (2 vCPU / 8 GB) — live for testing, not yet the recommended
+100–1,000-player production host. See `DEXTER-STAGING.md` and `DNS.md`.
+
 ## Fleet assessment (2026-11-11)
 
 Existing DigitalOcean droplets reachable over Tailscale:
