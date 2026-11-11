@@ -37,6 +37,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [chatInput, setChatInput] = useState('');
   const [emoteFx, setEmoteFx] = useState<{ userId: number; nick: string; emote: string; key: number } | null>(null);
   const emoteTimer = useRef<number | null>(null);
+  const [chatFx, setChatFx] = useState<{ userId: number; nick: string; message: string; key: number } | null>(null);
+  const chatFxTimer = useRef<number | null>(null);
   const [fx, setFx] = useState<{ id: number; seat: number; amount: number }[]>([]);
   const [winFx, setWinFx] = useState<{ id: number; amount: number; nick: string } | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -210,6 +212,10 @@ export function TablePage({ tableId }: { tableId: string }) {
       }
     } else if (evt.type === 'chat') {
       setChat((prev) => [...prev.slice(-30), { nick: evt.nick, message: evt.message }]);
+      setChatFx({ userId: evt.userId, nick: evt.nick, message: evt.message, key: Date.now() });
+      sound.play('click', { volume: .35 });
+      if (chatFxTimer.current) window.clearTimeout(chatFxTimer.current);
+      chatFxTimer.current = window.setTimeout(() => setChatFx(null), 4500);
     } else if (evt.type === 'emote') {
       setEmoteFx({ userId: evt.userId, nick: evt.nick, emote: evt.emote, key: Date.now() });
       sound.play('bubble', { volume: .55 });
@@ -400,6 +406,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       )}
 
       <div className="room-mark" />
+      <div className="room-floor" />
       <div className="felt" />
       <div className="table-watermark" style={{ top: '34%', fontSize: 20, letterSpacing: 5 }}>{state?.name || ''}</div>
       <div className="table-center">
@@ -480,6 +487,9 @@ export function TablePage({ tableId }: { tableId: string }) {
             {p.allIn && <div className="action-badge" style={{ color: '#ffd98a' }}>ALL IN</div>}
             {emoteFx && emoteFx.userId === (p as any).id && (
               <div key={emoteFx.key} className="emote-bubble" title={emoteFx.nick}>{emoteFx.emote}</div>
+            )}
+            {chatFx && chatFx.userId === (p as any).id && (
+              <div key={chatFx.key} className="chat-bubble">{chatFx.message}</div>
             )}
           </div>
         );
