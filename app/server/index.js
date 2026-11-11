@@ -404,6 +404,7 @@ const server = http.createServer(async (req, res) => {
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id);
       const already = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       if (!already || !t) return json(res, 400, { error: 'Not registered' });
+      if (t.status !== 'registering') return json(res, 400, { error: 'Unregistration is closed' });
       addTransaction(u.id, 'tourney_refund', t.buyin + t.fee, `Unregistration ${t.name}`);
       db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').run(id, u.id);
       return json(res, 200, { ok: true });
@@ -839,7 +840,7 @@ const server = http.createServer(async (req, res) => {
           const stack = s.player.stack;
           const uid = s.player.id;
           entry.table.stand(uid);
-          if (stack > 0) addTransaction(uid, 'cashout', stack, `Table closed by admin`);
+          if (stack > 0 && !entry.table.tournament) addTransaction(uid, 'cashout', stack, `Table closed by admin`);
         }
       }
       clearInterval(entry.timer);
@@ -979,7 +980,7 @@ wss.on('connection', (ws, req) => {
         if (seat) {
           const stack = seat.player.stack;
           const res = table.stand(ws.userId);
-          if (stack > 0) addTransaction(ws.userId, 'cashout', stack, `Cash-out ${table.cfg.name}`);
+          if (stack > 0 && !table.tournament) addTransaction(ws.userId, 'cashout', stack, `Cash-out ${table.cfg.name}`);
         }
         broadcastState(table);
       }
@@ -1063,7 +1064,7 @@ wss.on('connection', (ws, req) => {
         seat.player.disconnected = true;
         const stack = seat.player.stack;
         table.stand(ws.userId);
-        if (stack > 0) addTransaction(ws.userId, 'cashout', stack, `Cash-out ${table.cfg.name}`);
+        if (stack > 0 && !table.tournament) addTransaction(ws.userId, 'cashout', stack, `Cash-out ${table.cfg.name}`);
       }
       broadcastState(table);
     }
