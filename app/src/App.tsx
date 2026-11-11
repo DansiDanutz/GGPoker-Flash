@@ -18,6 +18,8 @@ import { Ocean, GGCare } from './pages/Ocean';
 import { Honeymoon } from './pages/Honeymoon';
 import { MobileNav } from './components/MobileNav';
 import { InstallApp } from './pages/InstallApp';
+import { Reconnect } from './pages/Reconnect';
+import { FirstLaunch } from './components/FirstLaunch';
 import { QuickMenu } from './components/QuickMenu';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
@@ -63,7 +65,7 @@ function ComingSoon({ title }: { title: string }) {
 }
 
 export default function App() {
-  const { route, toasts, dismissToast, loading, user, guest, splashDone, meta, installGate } = useApp();
+  const { route, toasts, dismissToast, loading, user, guest, splashDone, meta, installGate, authOffline, firstLaunch } = useApp();
 
   const page = useMemo(() => {
     const [path] = route.split('?');
@@ -105,6 +107,14 @@ export default function App() {
   }
 
   if (!user && !guest) {
+    // A saved session that could not reach the server is not a logout.
+    if (authOffline) {
+      return (
+        <ScaleStage>
+          <Reconnect />
+        </ScaleStage>
+      );
+    }
     return (
       <ScaleStage>
         <TitleBar online={meta.online} />
@@ -127,6 +137,7 @@ export default function App() {
   return (
     <ScaleStage>
       {page}
+      {firstLaunch && <FirstLaunch />}
       <MobileNav />
       <QuickMenu />
       <div className="toasts">
