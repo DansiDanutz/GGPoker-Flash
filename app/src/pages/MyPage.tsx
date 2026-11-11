@@ -37,6 +37,13 @@ export function MyPage() {
   const [noteEdit, setNoteEdit] = useState<any>(null);
   const [friends, setFriends] = useState<any[]>([]);
   const [friendNick, setFriendNick] = useState('');
+  const [verify, setVerify] = useState<any>(null);
+  const [vName, setVName] = useState('');
+  const [vDob, setVDob] = useState('');
+  const [vCountry, setVCountry] = useState('Romania');
+  const [vDocType, setVDocType] = useState('Passport');
+  const [vDoc, setVDoc] = useState<string | null>(null);
+  const [vBusy, setVBusy] = useState(false);
 
   useEffect(() => {
     api.missions().then((r) => setMissions(r.missions)).catch(() => {});
@@ -45,6 +52,7 @@ export function MyPage() {
     fetch('/api/chat').then((r) => r.json()).then((d) => setMessages((d.messages || []).slice(-20))).catch(() => {});
     fetch('/api/notes', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setNotes(d.notes || [])).catch(() => {});
     fetch('/api/friends', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setFriends(d.friends || [])).catch(() => {});
+    fetch('/api/verify', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => { setVerify(d.verification); if (d.verification) { setVName(d.verification.full_name || ''); setVDob(d.verification.dob || ''); setVCountry(d.verification.country || 'Romania'); setVDocType(d.verification.doc_type || 'Passport'); } }).catch(() => {});
   }, []);
 
   const claim = async (m: any) => {
@@ -314,12 +322,50 @@ export function MyPage() {
             <div className="card">
               <div className="panel-title">{tab === 'verify' ? 'Identity verification' : 'Account security'}</div>
               {tab === 'verify' ? (
-                <>
-                  <div className="field"><label>Full name</label><input defaultValue="" placeholder="As on your ID" /></div>
-                  <div className="field"><label>Date of birth</label><input type="date" /></div>
-                  <div className="field"><label>Document number</label><input placeholder="Passport / ID" /></div>
-                  <button className="btn btn-red btn-sm" onClick={() => toast({ kind: 'success', title: 'Verification submitted', body: 'This is a local demo — no documents are uploaded.' })}>Submit</button>
-                </>
+                verify && verify.status !== 'rejected' ? (
+                  <>
+                    <div className={'tag ' + (verify.status === 'approved' ? 'live' : '')}>{verify.status === 'approved' ? 'Verified' : 'Pending review'}</div>
+                    <div className="kv" style={{ marginTop: 10 }}><span>Name</span><b>{verify.full_name}</b></div>
+                    <div className="kv"><span>Document</span><b>{verify.doc_type}</b></div>
+                    <div className="kv"><span>Submitted</span><b>{verify.created_at?.slice(0, 10)}</b></div>
+                    {verify.note && <div className="muted small" style={{ marginTop: 8 }}>Reviewer note: {verify.note}</div>}
+                    {verify.status === 'pending' && <p className="muted small" style={{ marginTop: 10 }}>Your documents are queued for review by the admin.</p>}
+                  </>
+                ) : (
+                  <>
+                    {verify?.status === 'rejected' && <div className="tag red" style={{ marginBottom: 8 }}>Rejected — resubmit</div>}
+                    <div className="field"><label>Full legal name</label><input value={vName} onChange={(e) => setVName(e.target.value)} placeholder="As on your ID" /></div>
+                    <div className="field"><label>Date of birth</label><input type="date" value={vDob} onChange={(e) => setVDob(e.target.value)} /></div>
+                    <div className="field"><label>Country</label>
+                      <select value={vCountry} onChange={(e) => setVCountry(e.target.value)}>
+                        {['Romania', 'Germany', 'France', 'Spain', 'United Kingdom', 'United States', 'Canada', 'Brazil', 'Japan', 'Australia'].map((c) => <option key={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div className="field"><label>Document type</label>
+                      <select value={vDocType} onChange={(e) => setVDocType(e.target.value)}>
+                        {['Passport', 'National ID', 'Driving licence'].map((c) => <option key={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div className="field"><label>Photo of document</label>
+                      <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => {
+                        const f = e.target.files?.[0]; if (!f) return;
+                        if (f.size > 5 * 1024 * 1024) { toast({ kind: 'error', title: 'File too large', body: '5 MB maximum' }); return; }
+                        const r = new FileReader(); r.onload = () => setVDoc(String(r.result)); r.readAsDataURL(f);
+                      }} />
+                      {vDoc && <div className="muted small" style={{ marginTop: 4 }}>Document attached ✓</div>}
+                    </div>
+                    <button className="btn btn-red btn-sm" disabled={vBusy || !vName.trim() || !vDob || !vDoc} onClick={async () => {
+                      setVBusy(true);
+                      try {
+                        await fetch('/api/verify', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ fullName: vName, dob: vDob, country: vCountry, docType: vDocType, dataUrl: vDoc }) });
+                        const d = await fetch('/api/verify', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((x) => x.json());
+                        setVerify(d.verification);
+                        toast({ kind: 'success', title: 'Verification submitted', body: 'An administrator will review your document.' });
+                      } catch (err: any) { toast({ kind: 'error', title: 'Submission failed', body: err.message }); }
+                      finally { setVBusy(false); }
+                    }}>{vBusy ? 'Submitting…' : 'Submit for verification'}</button>
+                  </>
+                )
               ) : (
                 <>
                   <div className="field"><label>Current password</label><input type="password" /></div>

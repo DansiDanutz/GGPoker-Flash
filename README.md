@@ -159,6 +159,7 @@ responsible-gaming limits and take-a-break screen.
 - **Missions**: create/edit/delete/reset, reward kinds (USD/P$/ticket/gem).
 - **Game settings**: every server-side constant (jackpot, online base, bot speed, rake, welcome bonus,
   default balance, maintenance flag).
+- **Identity verification**: players submit legal name, DOB, country, document type and a photo; admins review/approve/reject with a note.
 - **Branding**: upload a replacement wordmark and lobby banner (stored in SQLite, served instantly to every window) or reset to the defaults.
 - **CSV exports** for users, transactions, hands and tournaments (BOM-prefixed UTF-8, available from the dashboard).
 - **Transactions** ledger, **Audit log**, and lobby **announcements**.

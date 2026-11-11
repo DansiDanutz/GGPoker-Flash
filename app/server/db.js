@@ -161,6 +161,19 @@ function init() {
     data TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS verifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL UNIQUE,
+    full_name TEXT NOT NULL,
+    dob TEXT,
+    country TEXT,
+    doc_type TEXT,
+    doc_data TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    reviewed_at TEXT
+  );
   CREATE TABLE IF NOT EXISTS friends (
     user_id INTEGER NOT NULL,
     friend_id INTEGER NOT NULL,

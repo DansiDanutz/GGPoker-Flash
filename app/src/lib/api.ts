@@ -117,6 +117,13 @@ export const api = {
     chat: (message: string) => request('/api/admin/chat', { method: 'POST', body: JSON.stringify({ message }) }),
     saveBrand: (slot: string, dataUrl: string) => request('/api/admin/brand', { method: 'POST', body: JSON.stringify({ slot, dataUrl }) }),
     resetBrand: (slot: string) => request(`/api/admin/brand/${slot}`, { method: 'DELETE' }),
+    verifications: () => request<{ verifications: any[] }>('/api/admin/verifications'),
+    reviewVerification: (id: number, action: string, note: string) => request(`/api/admin/verifications/${id}`, { method: 'POST', body: JSON.stringify({ action, note }) }),
+    verificationDoc: async (id: number) => {
+      const r = await fetch(`/api/admin/verifications/${id}/doc`, { headers: { authorization: `Bearer ${getToken()}` } });
+      if (!r.ok) throw new Error('Document unavailable');
+      return r.text();
+    },
     exportCsv: async (kind: string) => {
       const r = await fetch(`/api/admin/export/${kind}`, { headers: { authorization: `Bearer ${getToken()}` } });
       if (!r.ok) throw new Error('Export failed');

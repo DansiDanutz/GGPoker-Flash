@@ -686,6 +686,30 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { won, payout, stake, balance: after, market: body.market });
     }
 
+    // ---------- identity verification ----------
+    if (p === '/api/verify' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const row = db.prepare('SELECT id, full_name, dob, country, doc_type, status, note, created_at, reviewed_at FROM verifications WHERE user_id = ?').get(u.id);
+      return json(res, 200, { verification: row || null });
+    }
+    if (p === '/api/verify' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      const fullName = String(b.fullName || '').trim();
+      if (fullName.length < 3) return json(res, 400, { error: 'Enter your full legal name' });
+      if (!b.dob) return json(res, 400, { error: 'Date of birth is required' });
+      const m = String(b.dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/);
+      if (!m) return json(res, 400, { error: 'Attach a photo of your ID' });
+      if (Buffer.from(m[2], 'base64').length > 5 * 1024 * 1024) return json(res, 400, { error: 'Image too large (5 MB max)' });
+      db.prepare(`INSERT INTO verifications (user_id, full_name, dob, country, doc_type, doc_data, status, note, created_at, reviewed_at)
+        VALUES (?,?,?,?,?,?,'pending',NULL,datetime('now'),NULL)
+        ON CONFLICT(user_id) DO UPDATE SET full_name=excluded.full_name, dob=excluded.dob, country=excluded.country,
+          doc_type=excluded.doc_type, doc_data=excluded.doc_data, status='pending', note=NULL, created_at=datetime('now'), reviewed_at=NULL`)
+        .run(u.id, fullName, String(b.dob), String(b.country || ''), String(b.docType || 'Passport'), String(b.dataUrl));
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'verification_submit', u.nick);
+      return json(res, 200, { ok: true });
+    }
+
     // ---------- friends ----------
     if (p === '/api/friends' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
@@ -870,6 +894,31 @@ const server = http.createServer(async (req, res) => {
     }
 
     /* ---------------- admin ---------------- */
+    if (p === '/api/admin/verifications' && req.method === 'GET') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const rows = db.prepare(`SELECT v.id, v.user_id, u.nick, u.login, v.full_name, v.dob, v.country, v.doc_type, v.status, v.note, v.created_at, v.reviewed_at
+        FROM verifications v JOIN users u ON u.id = v.user_id ORDER BY CASE v.status WHEN 'pending' THEN 0 ELSE 1 END, v.created_at DESC`).all();
+      return json(res, 200, { verifications: rows });
+    }
+    if (p.startsWith('/api/admin/verifications/') && p.endsWith('/doc') && req.method === 'GET') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const id = Number(p.split('/')[4]);
+      const row = db.prepare('SELECT doc_data FROM verifications WHERE id = ?').get(id);
+      if (!row || !row.doc_data) return json(res, 404, { error: 'not found' });
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      return res.end(row.doc_data);
+    }
+    if (p.startsWith('/api/admin/verifications/') && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const id = Number(p.split('/')[4]);
+      const b = await readBody(req);
+      const status = b.action === 'approve' ? 'approved' : b.action === 'reject' ? 'rejected' : null;
+      if (!status) return json(res, 400, { error: 'invalid action' });
+      db.prepare('UPDATE verifications SET status = ?, note = ?, reviewed_at = datetime(\'now\') WHERE id = ?').run(status, String(b.note || ''), id);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'verification_' + status, String(id));
+      return json(res, 200, { ok: true });
+    }
+
     if (p.startsWith('/api/admin/export/') && req.method === 'GET') {
       const a = requireAdmin(req, res); if (!a) return;
       const kind = p.split('/')[4];

@@ -12,6 +12,7 @@ const SECTIONS = [
   { key: 'tournaments', label: 'Tournaments', icon: '🏆' },
   { key: 'banners', label: 'Promotions', icon: '🎁' },
   { key: 'branding', label: 'Branding', icon: '🎨' },
+  { key: 'verifications', label: 'Verifications', icon: '🪪' },
   { key: 'missions', label: 'Missions', icon: '📋' },
   { key: 'settings', label: 'Game settings', icon: '⚙️' },
   { key: 'transactions', label: 'Transactions', icon: '💳' },
@@ -35,6 +36,7 @@ export function Admin() {
   const [settings, setSettings] = useState<any>({});
   const [transactions, setTransactions] = useState<any[]>([]);
   const [audit, setAudit] = useState<any[]>([]);
+  const [verifications, setVerifications] = useState<any[]>([]);
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<any>(null);
   const [local, setLocal] = useState<any>({});
@@ -45,13 +47,13 @@ export function Admin() {
   const loadAll = async () => {
     if (!isAdmin) return;
     try {
-      const [s, u, t, tt, b, m, st, tx, au] = await Promise.all([
+      const [s, u, t, tt, b, m, st, tx, au, v] = await Promise.all([
         api.admin.stats(), api.admin.users(), api.admin.tables(), api.admin.tournaments(),
-        api.admin.banners(), api.admin.missions(), api.admin.settings(), api.admin.transactions(), api.admin.audit(),
+        api.admin.banners(), api.admin.missions(), api.admin.settings(), api.admin.transactions(), api.admin.audit(), api.admin.verifications(),
       ]);
       setStats(s); setUsers(u.users); setTables(t.tables); setTourneys(tt.tournaments);
       setBanners(b.banners); setMissions(m.missions); setSettings(st.settings);
-      setTransactions(tx.transactions); setAudit(au.log);
+      setTransactions(tx.transactions); setAudit(au.log); setVerifications(v.verifications || []);
     } catch (e: any) { toast({ kind: 'error', title: 'Admin', body: e.message }); }
   };
 
@@ -337,6 +339,52 @@ export function Admin() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {section === 'verifications' && (
+            <>
+              <div className="between">
+                <h2 className="admin-title" style={{ margin: 0 }}>Identity verifications</h2>
+                <button className="btn btn-ghost btn-sm" onClick={async () => { try { const d = await api.admin.verifications(); setVerifications(d.verifications || []); } catch { /* ignore */ } }}>Refresh</button>
+              </div>
+              <div className="admin-card" style={{ padding: 0 }}>
+                <table className="admin-table">
+                  <thead><tr><th>#</th><th>Player</th><th>Name</th><th>Country</th><th>Document</th><th>Status</th><th>Submitted</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {verifications.map((v) => (
+                      <tr key={v.id}>
+                        <td>{v.id}</td>
+                        <td><b>{v.nick}</b><div className="muted small">{v.login}</div></td>
+                        <td>{v.full_name}</td>
+                        <td>{v.country}</td>
+                        <td>{v.doc_type}</td>
+                        <td><span className={'tag ' + (v.status === 'approved' ? 'live' : v.status === 'rejected' ? 'red' : '')}>{v.status}</span></td>
+                        <td className="muted">{v.created_at?.slice(0, 16)}</td>
+                        <td>
+                          <div className="row" style={{ gap: 3 }}>
+                            <button className="btn btn-ghost btn-sm" onClick={async () => {
+                              try { const url = await api.admin.verificationDoc(v.id); const w = window.open('', '_blank'); if (w) { w.document.write(`<title>ID · ${v.nick}</title><body style="background:#111;margin:0;display:grid;place-items:center"><img src="${url}" style="max-width:100%;max-height:100vh"/></body>`); w.document.close(); } }
+                              catch (e: any) { toast({ kind: 'error', title: 'Document', body: e.message }); }
+                            }}>View ID</button>
+                            <button className="btn btn-ghost btn-sm" onClick={async () => {
+                              try { await api.admin.reviewVerification(v.id, 'approve', 'Approved'); setVerifications((prev) => prev.map((x) => x.id === v.id ? { ...x, status: 'approved' } : x)); toast({ kind: 'success', title: 'Verified', body: v.nick }); }
+                              catch (e: any) { toast({ kind: 'error', title: 'Review failed', body: e.message }); }
+                            }}>Approve</button>
+                            <button className="btn btn-ghost btn-sm" onClick={async () => {
+                              const note = window.prompt('Reason for rejection', 'Document unreadable');
+                              if (note == null) return;
+                              try { await api.admin.reviewVerification(v.id, 'reject', note); setVerifications((prev) => prev.map((x) => x.id === v.id ? { ...x, status: 'rejected', note } : x)); toast({ kind: 'info', title: 'Rejected', body: v.nick }); }
+                              catch (e: any) { toast({ kind: 'error', title: 'Review failed', body: e.message }); }
+                            }}>Reject</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!verifications.length && <tr><td colSpan={8} className="empty-state">No verification requests yet.</td></tr>}
                   </tbody>
                 </table>
               </div>
