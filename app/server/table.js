@@ -593,7 +593,7 @@ export class PokerTable {
   }
 
   runout() {
-    if (this.runItTwice && this.activePlayers().filter((s) => !s.player.folded).length === 2) {
+    if (this.runItTwice && this.activePlayers().filter((s) => !s.player.folded).length >= 2) {
       this.runoutTwice();
       return;
     }
@@ -615,24 +615,54 @@ export class PokerTable {
     this.actor = null;
     this.collectBets();
     const alive = this.activePlayers().filter((s) => !s.player.folded);
+    if (alive.length < 2) { this.doShowdown(); return; }
     const board1 = [];
     const board2 = [];
     while (board1.length < 5) board1.push(this.deck.pop());
     while (board2.length < 5) board2.push(this.deck.pop());
     const evaluate = (board) => alive.map((s) => {
-      const best = this.omaha ? bestOmaha(s.player.cards, board) : bestHoldem(s.player.cards, board);
-      return { seat: s.index, player: s.player, score: best.score, name: best.name, cards: best.cards };
+      const p = s.player;
+      const best = this.omaha ? bestOmaha(p.cards, board) : bestHoldem(p.cards, board);
+      return { seat: s.index, player: p, score: best.score, name: best.name, cards: best.cards };
     });
     const scored = [evaluate(board1), evaluate(board2)];
-    const pot = this.pot;
-    const rake = this.computeRake(pot);
+
+    const contributions = this.seats
+      .filter((s) => s.player && s.player.totalBet > 0)
+      .map((s) => ({ player: s.player, amount: s.player.totalBet, folded: s.player.folded }));
+    const levels = [...new Set(contributions.map((c) => c.amount))].sort((a, b) => a - b);
+    const pots = [];
+    let prev = 0;
+    for (const level of levels) {
+      let amount = 0;
+      for (const c of contributions) amount += Math.max(0, Math.min(c.amount, level) - prev);
+      const ids = contributions
+        .filter((c) => !c.folded && c.amount >= level)
+        .map((c) => c.player.id);
+      if (amount > 0 && ids.length) pots.push({ amount, ids });
+      prev = level;
+    }
+    const totalContrib = contributions.reduce((a, c) => a + c.amount, 0);
+    const potsTotal = pots.reduce((a, p) => a + p.amount, 0);
+    if (totalContrib > potsTotal) pots.push({ amount: totalContrib - potsTotal, ids: alive.map((s) => s.player.id) });
+    const rake = this.computeRake(this.pot);
     this.rake = rake;
-    const prize = pot - rake;
+    let remain = rake;
+    for (const pot of pots) {
+      const take = Math.min(pot.amount, remain);
+      pot.amount -= take;
+      remain -= take;
+      if (remain <= 0) break;
+    }
+
     const results = [];
-    const awardBoard = (sc, amount) => {
+    const award = (scoredBoard, amount, boardIndex, eligible) => {
+      if (amount <= 0 || !eligible.length) return;
+      const candidates = scoredBoard.filter((sc) => eligible.includes(sc.player.id));
+      if (!candidates.length) return;
       let best = null;
-      for (const x of sc) if (!best || compareScores(x.score, best.score) > 0) best = x;
-      const winners = sc.filter((x) => compareScores(x.score, best.score) === 0);
+      for (const sc of candidates) if (!best || compareScores(sc.score, best.score) > 0) best = sc;
+      const winners = candidates.filter((sc) => compareScores(sc.score, best.score) === 0);
       const share = Math.floor(amount / winners.length);
       let remainder = amount - share * winners.length;
       for (const w of winners) {
@@ -641,16 +671,28 @@ export class PokerTable {
         w.player.stack += amt;
         w.player.winAmount += amt;
         const prior = results.find((r) => r.id === w.player.id);
-        if (prior) prior.amount += amt;
-        else results.push({ id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt, hand: w.name, cards: w.cards.map(cardStr), pot });
+        if (prior) {
+          prior.amount += amt;
+          prior.boards = [...new Set([...(prior.boards || []), boardIndex])];
+        } else {
+          results.push({
+            id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt,
+            hand: w.name, cards: w.cards.map(cardStr), board: boardIndex, boards: [boardIndex],
+          });
+        }
       }
     };
-    awardBoard(scored[0], Math.floor(prize / 2));
-    awardBoard(scored[1], prize - Math.floor(prize / 2));
+
+    for (const pot of pots) {
+      const half = Math.floor(pot.amount / 2);
+      award(scored[0], half, 0, pot.ids);
+      award(scored[1], pot.amount - half, 1, pot.ids);
+    }
+
     this.board = board1;
     this.boards = [board1, board2];
     const summary = {
-      pot, rake, board: board1.map(cardStr), boards: [board1.map(cardStr), board2.map(cardStr)],
+      pot: this.pot, rake, board: board1.map(cardStr), boards: [board1.map(cardStr), board2.map(cardStr)],
       winners: results, runItTwice: true, reason: 'showdown',
       hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
     };
@@ -659,7 +701,7 @@ export class PokerTable {
     this.nextHandAt = Date.now() + this.showdownDelay;
     this.emit({ type: 'win', ...summary });
     this.saveHand(summary);
-    this.updateMissionProgress(results[0]);
+    this.updateMissionProgress(results[0] || null);
   }
 
   collectBets() {

@@ -46,7 +46,7 @@
 1.  **PLO5/PLO6 correctness** — done.
 2.  **Tournament formats** — Flip & Go, Bounty Hunters, Mystery Bounty, satellites — done.
 3.  **Game loops** — true All-in or Fold, Spin & Gold 6-max, Spin insurance and Rush cross-table move — done.
-4.  **Table features** — straddle, auto-muck, heads-up run-it-twice and card squeeze — done.
+4.  **Table features** — straddle, auto-muck, multiway run-it-twice with side pots and card squeeze — done.
 5.  **Lobby parity** — Table View preview, last jackpot, winners and PRO badge done. Full MTT series/payout filters remain partial.
 
 The official client was not joined for a hand: the account had insufficient balance

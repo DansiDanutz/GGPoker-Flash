@@ -297,3 +297,18 @@ test('a Rush fold queues a cross-table move', () => {
   const folded = [p1, p2].find((p) => p.folded);
   assert.equal(folded.rushQueued, true);
 });
+
+
+test('run it twice handles a multiway side pot and conserves chips', () => {
+  const p1 = player(1, 'Short', 1000, 100, ['As', 'Ks'].map(C));
+  const p2 = player(2, 'Big A', 1000, 300, ['Qd', 'Qc'].map(C));
+  const p3 = player(3, 'Big B', 1000, 300, ['7h', '8h'].map(C));
+  const t = tableWith([p1, p2, p3], { seats: 3 });
+  t.pot = 700;
+  t.deck = makeDeck(false);
+  t.runItTwice = true;
+  t.runoutTwice();
+  assert.equal(t.result.boards.length, 2);
+  const paid = t.result.winners.reduce((a, w) => a + w.amount, 0);
+  assert.equal(paid, 665);
+});
