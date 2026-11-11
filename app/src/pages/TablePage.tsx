@@ -77,7 +77,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [topupTrigger] = useState(() => Number(localStorage.getItem('ggpoker.topupTrigger') || 25));
   const [topupTarget] = useState(() => Number(localStorage.getItem('ggpoker.topupTarget') || 100));
   const [cardBack] = useState(readCardBack);
-  const [cardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'classic');
+  const [cardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'official');
   const [roomBg] = useState(() => localStorage.getItem('ggpoker.roomBg') || 'featured');
   const [showHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
   const [hotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');

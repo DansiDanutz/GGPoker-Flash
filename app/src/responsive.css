@@ -525,3 +525,16 @@ body.electron .app-window::before { display: none; }
 .player-profile-card span { display: block; color: #8b978f; font-size: 10px; margin-top: 2px; }
 .player-stats-row { display: flex; gap: 14px; padding: 6px 2px 10px; color: #8b978f; font-size: 10px; }
 .player-stats-row b { color: #e9d9b1; font-size: 12px; }
+
+/* Official 1586×648 card-face sprite: 13 columns × 4 suit rows. */
+.pcard.art-face {
+  background-color: transparent;
+  background-image: url('/assets/cards/faces_classic.png');
+  background-size: 1300% 400%;
+  background-repeat: no-repeat;
+  background-position: calc(var(--col) / 12 * 100%) calc(var(--row) / 3 * 100%);
+  border-radius: 6px;
+}
+.pcard.art-face.art-official-four { background-image: url('/assets/cards/faces_four.png'); }
+.pcard.art-face .rank, .pcard.art-face .suit, .pcard.art-face .big-suit { display: none; }
+.pcard.art-face.mini { border-radius: 4px; }

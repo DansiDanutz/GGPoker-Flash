@@ -87,7 +87,7 @@ export function Settings() {
   const [hotkeys, setHotkeys] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
   const [dealSpeed, setDealSpeed] = useState(() => Number(localStorage.getItem('ggpoker.dealSpeed') || 3));
   const [cardBack, setCardBack] = useState(readCardBack());
-  const [cardFront, setCardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'classic');
+  const [cardFront, setCardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'official');
   const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
   const [roomBg, setRoomBg] = useState(() => localStorage.getItem('ggpoker.roomBg') || 'featured');
   const [channels, setChannels] = useState({ ...sound.channels });
@@ -255,8 +255,8 @@ export function Settings() {
             </div>
             <div className="panel-title" style={{ marginTop: 18 }}>Card front</div>
             <div className="card-front-grid">
-              {([['classic', 'Classic'], ['jumbo', 'Jumbo index'], ['minimal', 'Minimal'], ['four', 'Four colour']] as const).map(([id, label]) => (
-                <button key={id} className={'card-front-choice' + (cardFront === id ? ' on' : '')} onClick={() => { setCardFront(id); persist('ggpoker.cardFront', id); if (id === 'four') { setFourColor(true); persist('ggpoker.fourcolor', '1'); } }}>
+              {([['official', 'Official'], ['official-four', 'Official 4-colour'], ['classic', 'CSS classic'], ['jumbo', 'Jumbo index'], ['minimal', 'Minimal']] as const).map(([id, label]) => (
+                <button key={id} className={'card-front-choice' + (cardFront === id ? ' on' : '')} onClick={() => { setCardFront(id); persist('ggpoker.cardFront', id); if (id === 'official-four') { setFourColor(true); persist('ggpoker.fourcolor', '1'); } }}>
                   <span className={'mini-card front-' + id}><i>A</i><b>♠</b></span><b>{label}</b>
                 </button>
               ))}
