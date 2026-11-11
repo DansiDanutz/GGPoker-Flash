@@ -137,6 +137,7 @@ function sitesStats() {
 
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
 const WAITLISTS = new Map(); // tableId -> [{ userId, nick, since }]
+const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
 
 function waitlistJoin(tableId, userId, nick) {
   const list = WAITLISTS.get(tableId) || [];
@@ -605,28 +606,48 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
       const action = String(body.action || 'deal');
-      const bet = Math.max(10, Math.min(1000000, Math.round(Number(body.bet) || 100)));
-      const deck = shuffle(makeDeck(false));
-      const val = (c) => (c.v >= 10 ? 10 : c.v === 14 ? 11 : c.v);
-      const total = (cards) => {
-        let sum = cards.reduce((a, c) => a + val(c), 0);
+      const bjValue = (cards) => {
+        let sum = cards.reduce((a, c) => a + (c.v >= 10 ? 10 : c.v === 14 ? 11 : c.v), 0);
         let aces = cards.filter((c) => c.v === 14).length;
         while (sum > 21 && aces > 0) { sum -= 10; aces--; }
         return sum;
       };
       if (action === 'deal') {
+        const bet = Math.max(10, Math.min(1000000, Math.round(Number(body.bet) || 100)));
         if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
+        addTransaction(u.id, 'blackjack', -bet, 'Blackjack bet');
+        const deck = shuffle(makeDeck(false));
         const player = [deck.pop(), deck.pop()];
         const dealer = [deck.pop(), deck.pop()];
-        addTransaction(u.id, 'blackjack', -bet, 'Blackjack bet');
-        const bj = total(player) === 21;
-        return json(res, 200, { player: player.map(cardStr), dealer: [cardStr(dealer[0]), '??'], dealerHidden: dealer.map(cardStr), playerTotal: total(player), balance: u.balance - bet, bet, blackjack: bj });
+        BJ_HANDS.set(u.id, { deck, player, dealer, bet });
+        return json(res, 200, {
+          player: player.map(cardStr), dealer: [cardStr(dealer[0]), '??'], dealerHidden: dealer.map(cardStr),
+          playerTotal: bjValue(player), balance: u.balance - bet, bet, blackjack: bjValue(player) === 21,
+        });
       }
-      // simplified settle endpoint for hit/stand flow kept client-side
-      if (action === 'settle') {
-        const amount = Math.round(Number(body.amount) || 0);
-        const after = addTransaction(u.id, 'blackjack', amount, 'Blackjack result');
-        return json(res, 200, { balance: after });
+      const hand = BJ_HANDS.get(u.id);
+      if (!hand) return json(res, 400, { error: 'No active hand' });
+      if (action === 'hit') {
+        hand.player.push(hand.deck.pop());
+        const pv = bjValue(hand.player), dv = bjValue(hand.dealer);
+        if (pv > 21) {
+          BJ_HANDS.delete(u.id);
+          return json(res, 200, { player: hand.player.map(cardStr), dealer: hand.dealer.map(cardStr), playerTotal: pv, bust: true, payout: 0, balance: u.balance, done: true });
+        }
+        return json(res, 200, { player: hand.player.map(cardStr), playerTotal: pv, dealer: [cardStr(hand.dealer[0]), '??'], done: false });
+      }
+      if (action === 'stand') {
+        while (bjValue(hand.dealer) < 17) hand.dealer.push(hand.deck.pop());
+        const pv = bjValue(hand.player), dv = bjValue(hand.dealer);
+        const natural = hand.player.length === 2 && pv === 21;
+        let payout = 0;
+        let result = 'lose';
+        if (pv > 21) { payout = 0; result = 'bust'; }
+        else if (dv > 21 || pv > dv) { payout = natural ? Math.floor(hand.bet * 2.5) : hand.bet * 2; result = 'win'; }
+        else if (pv === dv) { payout = hand.bet; result = 'push'; }
+        if (payout > 0) addTransaction(u.id, 'blackjack', payout, `Blackjack ${result}`);
+        BJ_HANDS.delete(u.id);
+        return json(res, 200, { player: hand.player.map(cardStr), dealer: hand.dealer.map(cardStr), playerTotal: pv, dealerTotal: dv, payout, result, done: true, balance: u.balance - hand.bet + payout });
       }
       return json(res, 400, { error: 'unknown action' });
     }
@@ -1020,7 +1041,14 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true, balance: after });
       }
       if (body.action === 'set') {
-        for (const field of ['balance', 'play_chips', 'tickets', 'gems', 'xp', 'vip_level', 'vip_points']) {
+        const currency = { balance: 'USD', play_chips: 'PLAY', tickets: 'TICKET', gems: 'GEM' };
+        for (const [field, cur] of Object.entries(currency)) {
+          if (body[field] == null) continue;
+          const next = Math.round(Number(body[field]));
+          const delta = next - Number(target[field] || 0);
+          if (delta !== 0) addTransaction(id, 'admin_set', delta, `Admin set ${field} by ${a.login}`, cur);
+        }
+        for (const field of ['xp', 'vip_level', 'vip_points']) {
           if (body[field] != null) db.prepare(`UPDATE users SET ${field} = ? WHERE id = ?`).run(Math.round(Number(body[field])), id);
         }
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'set', `user ${id} ${JSON.stringify(body)}`);

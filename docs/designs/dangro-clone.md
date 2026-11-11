@@ -125,6 +125,13 @@ without a separate decision.
 *   The client-side hand evaluator (`app/src/game/eval.ts`) duplicates server
     `poker.js`. It is display-only today; a divergent tie-break would be a
     correctness bug. The server snapshot remains canonical.
+*   Lobby `players`, `avgPot`, `vpip`, `handsPerHour` and `online` are synthetic
+    projections (table-id hash + sine wave), while `running` is real. The
+    synthetic columns must remain cosmetic; any decision must use `LIVE_TABLES`.
+*   Blackjack is server-authoritative: the server holds the shoe, player and
+    dealer, and computes hit/stand payouts. The client never sends an amount.
+*   Rake's `3 × bb` fallback is reachable only when `rake_cap` is 0; production
+    injects 300. The fallback is a test-only path.
 *   The CDP port 9333 is a development affordance. It is now gated behind
     `GGPOKER_DEV=1` or `GGPOKER_CDP=1`; the packaged app does not open it by
     default.
@@ -255,6 +262,8 @@ Ownership rules:
 *   `hands` is written by the table engine at hand end; it is a record, not a
     source of live state. The read path is `/api/hands` and the Hand History
     screen.
+*   Admin `set` on a currency field is a delta through `addTransaction`, not a
+    direct `UPDATE`, so the ledger chain remains continuous.
 *   Live table state (stacks, pots, timers) lives in the server process. It is
     **not** reconstructed on restart: if the process dies mid-session, the seats
     are dropped and the buy-in remains in the ledger until a cash-out. This is a
@@ -299,8 +308,9 @@ one 10-second time bank per player per hand.
 
 ### Game invariants
 
-*   Every chip in a pot is committed from a seat stack; `pot` equals the sum of
-    `totalBet` contributions minus rake at showdown.
+*   Every chip in a pot is committed from a seat stack; the displayed `pot` is
+    gross (sum of `totalBet`), and the winner receives `pot − rake`, with rake
+    reported separately.
 *   Side pots are built from distinct all-in contribution levels; a player can
     win only the layers they funded.
 *   Rake follows the single definition in Money and ledger invariants; it is
@@ -326,8 +336,10 @@ one 10-second time bank per player per hand.
     affected currency's balance.
 *   Buy-in debits before seating; a failed seat refunds via a `refund`
     transaction.
-*   Cash-outs return the remaining stack for cash tables only. Tournament and
-    Spin stacks are not cashable; tournament prizes are credited separately.
+*   Cash-outs return the remaining stack for cash tables and Spin & Gold. Spin
+    prizes are minted into the stack and become cashable through the normal
+    cash-out; tournament chips are not cashable and tournament prizes are
+    credited separately.
 *   Deposits, withdrawals and admin credits are attributable but are **not**
     replay-protected by an idempotency key; a retried request is a second
     movement. Period-based claims (daily, GG Care, Honeymoon, missions) are
@@ -351,11 +363,10 @@ one 10-second time bank per player per hand.
 *   `tools/build_i18n.py` is re-run when UI strings change; a string added with
     `t()` but missing from the table falls back to English and is visible in the
     generated JSON diff. The dictionary is not auto-updated at runtime.
-*   **Compatibility shim**: the DOM observer in `i18n.tsx` translates legacy
-    string literals that were not written with `t()`. It is frozen: new UI must
-    call `t()`, and the observer may be removed once the literals are wrapped.
-    The observer does not translate player names, chat bodies, or numeric
-    values.
+*   **Compatibility shim**: the DOM observer in `i18n.tsx` is currently the
+    mechanism that translates all UI strings; `t()` exists but has no callers
+    yet. New UI should call `t()`. The observer does not translate player names,
+    chat bodies, or numeric values.
 *   Branding is served from `/api/brand/*` when the admin uploads a logo or
     banner; otherwise static files under `assets/chrome` are used.
 

@@ -217,48 +217,47 @@ export function Blackjack() {
   const [phase, setPhase] = useState<'idle' | 'playing' | 'done'>('idle');
   const [msg, setMsg] = useState('');
 
-  const settle = async (amount: number) => {
-    await fetch('/api/games/blackjack', {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${getToken()}` },
-      body: JSON.stringify({ action: 'settle', amount }),
-    });
-    await refreshUser();
-  };
+  const post = (body: any) => fetch('/api/games/blackjack', {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify(body),
+  }).then((r) => r.json());
 
   const deal = async () => {
     if (!user) { navigate('/login'); return; }
     try {
-      const res = await fetch('/api/games/blackjack', {
-        method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ action: 'deal', bet }),
-      }).then((r) => r.json());
+      const res = await post({ action: 'deal', bet });
       if (res.error) throw new Error(res.error);
-      setPlayer(res.player); setDealer(res.dealerHidden);
-      setPhase('playing'); setMsg('');
+      setPlayer(res.player); setDealer(res.dealerHidden); setPhase('playing'); setMsg(res.blackjack ? 'Blackjack!' : '');
       sound.play('deal');
+      await refreshUser();
     } catch (e: any) { toast({ kind: 'error', title: 'Blackjack', body: e.message }); }
   };
 
-  const hit = () => {
-    const c = draw();
-    const p = [...player, c];
-    setPlayer(p); sound.play('deal', { volume: .6 });
-    if (bjValue(p) > 21) { setMsg('Bust!'); setPhase('done'); sound.play('fold'); settle(0); }
+  const hit = async () => {
+    try {
+      const res = await post({ action: 'hit' });
+      if (res.error) throw new Error(res.error);
+      setPlayer(res.player);
+      sound.play('deal', { volume: .6 });
+      if (res.done) {
+        setDealer(res.dealer); setPhase('done');
+        setMsg(res.bust ? 'Bust!' : '');
+        sound.play('fold', { volume: .5 });
+        await refreshUser();
+      }
+    } catch (e: any) { toast({ kind: 'error', title: 'Blackjack', body: e.message }); }
   };
 
-  const stand = () => {
-    let d = [...dealer];
-    while (bjValue(d) < 17) d.push(draw());
-    setDealer(d);
-    const pv = bjValue(player), dv = bjValue(d);
-    let amount = 0;
-    if (pv > 21) amount = 0;
-    else if (dv > 21 || pv > dv) amount = bet * 2;
-    else if (pv === dv) amount = bet;
-    setMsg(pv > 21 ? 'Bust' : dv > 21 ? 'Dealer busts — you win' : pv > dv ? 'You win' : pv === dv ? 'Push' : 'Dealer wins');
-    setPhase('done');
-    if (amount > bet) sound.play('win'); else if (amount === bet) sound.play('click'); else sound.play('fold', { volume: .5 });
-    settle(amount);
+  const stand = async () => {
+    try {
+      const res = await post({ action: 'stand' });
+      if (res.error) throw new Error(res.error);
+      setPlayer(res.player); setDealer(res.dealer); setPhase('done');
+      const label = res.result === 'bust' ? 'Bust' : res.result === 'push' ? 'Push' : res.result === 'win' ? 'You win' : 'Dealer wins';
+      setMsg(label);
+      if (res.result === 'win') sound.play('win'); else if (res.result === 'push') sound.play('click'); else sound.play('fold', { volume: .5 });
+      await refreshUser();
+    } catch (e: any) { toast({ kind: 'error', title: 'Blackjack', body: e.message }); }
   };
 
   return (
