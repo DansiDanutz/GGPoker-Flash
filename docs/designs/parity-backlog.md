@@ -69,6 +69,7 @@ not a source to copy blindly.
 - Rush lobby hero:
   - live player/pool counts;
   - Cash Drop chance;
+  - Rush transfers choose the least-occupied matching pool.
   - quick-fold explanation replacing the generic promo carousel on the Rush tab.
 - Rush Cash Drop:
   - 12% chance after a Rush hand;
@@ -87,7 +88,8 @@ not a source to copy blindly.
 - ELO rating:
   - persisted per-user rating with win/loss settlement on completed cash hands;
   - divisions, ladder, current rank and recent rating-change history;
-  - ELO Challenge creates a private heads-up table with an invitable link.
+  - ELO Challenge creates a private heads-up table with an invitable link;
+  - only players dealt into the hand are rated.
 - Table player profiles:
   - click a seat to see public avatar, VIP, country, hands/wins/biggest pot and presence;
   - add friend or open a direct message from the profile;

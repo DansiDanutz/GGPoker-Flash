@@ -233,7 +233,7 @@ function getLiveTable(id) {
         );
         const winners = h.result?.winners || [];
         for (const p of (h.players || [])) {
-          if (!p || !p.id) continue;
+          if (!p || !p.id || p.inHand === false) continue;
           const u = db.prepare('SELECT id, elo FROM users WHERE id = ? AND deleted_at IS NULL').get(p.id);
           if (!u) continue;
           const won = winners.some((w) => Number(w.id) === Number(p.id));
@@ -340,10 +340,12 @@ function moveRushPlayers(table) {
     if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; continue; }
     const rows = db.prepare("SELECT id FROM tables WHERE game = 'rush' AND enabled = 1 AND bb = ?").all(table.bb);
     let target = null;
+    let targetCount = Infinity;
     for (const row of rows) {
       if (row.id === table.cfg.id) continue;
       const candidate = getLiveTable(row.id);
-      if (candidate && candidate.occupiedSeats().length < candidate.cfg.seats) { target = candidate; break; }
+      const occupied = candidate ? candidate.occupiedSeats().length : 0;
+      if (candidate && occupied < candidate.cfg.seats && occupied < targetCount) { target = candidate; targetCount = occupied; }
     }
     if (!target) { seat.player.rushQueued = false; continue; }
     cashOutSeat(table, p.id, 'Rush transfer');

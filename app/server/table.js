@@ -870,7 +870,7 @@ export class PokerTable {
   saveHand(summary) {
     const players = this.seats.filter((s) => s.player).map((s) => ({
       id: s.player.id, nick: s.player.nick, stack: s.player.stack,
-      cards: s.player.cards.map(cardStr), folded: s.player.folded,
+      cards: s.player.cards.map(cardStr), folded: s.player.folded, inHand: s.player.inHand,
       win: s.player.winAmount, totalBet: s.player.totalBet,
     }));
     const hero = this.humans()[0];
