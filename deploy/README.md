@@ -77,7 +77,8 @@ sudo usermod -aG docker "$USER"
 git clone <repo> dangro
 cd dangro/deploy
 cp .env.example .env
-# edit DOMAIN and GGPOKER_ADMIN_ALLOW
+# edit DOMAIN, GGPOKER_ADMIN_ALLOW and GGPOKER_ADMIN_PASSWORD
+# production refuses to seed with a password shorter than 16 characters
 docker compose up -d --build
 docker compose ps
 curl -fsS https://dangg.live/api/lobby

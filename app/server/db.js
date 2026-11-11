@@ -372,9 +372,14 @@ function seed() {
     `INSERT INTO users (login, nick, password, email, avatar, balance, play_chips, tickets, gems, xp, vip_level, vip_points, is_admin)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
   );
-  insertUser.run('DansiDanutz', 'DansiDanutz', hashPassword('ggpoker'), 'dansi@example.com', '', 1000000, 5000, 50, 1240, 8200, 5, 18400, 0);
-  insertUser.run('admin', 'Administrator', hashPassword('admin123'), 'admin@ggpoker.local', '', 100000000, 1000000, 999, 99999, 999999, 10, 999999, 1);
-  insertUser.run('guest', 'Guest', hashPassword('guest'), '', '', 500000, 0, 0, 0, 0, 1, 0, 0);
+  const adminPassword = process.env.GGPOKER_ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'admin123');
+  if (process.env.NODE_ENV === 'production' && String(adminPassword).length < 16) {
+    throw new Error('Set GGPOKER_ADMIN_PASSWORD to at least 16 characters before first production start');
+  }
+  const seedDemo = process.env.GGPOKER_SEED_DEMO !== '0' && process.env.NODE_ENV !== 'production';
+  if (seedDemo) insertUser.run('DansiDanutz', 'DansiDanutz', hashPassword('ggpoker'), 'dansi@example.com', '', 1000000, 5000, 50, 1240, 8200, 5, 18400, 0);
+  insertUser.run('admin', 'Administrator', hashPassword(adminPassword), 'admin@ggpoker.local', '', 100000000, 1000000, 999, 99999, 999999, 10, 999999, 1);
+  if (seedDemo) insertUser.run('guest', 'Guest', hashPassword('guest'), '', '', 500000, 0, 0, 0, 0, 1, 0, 0);
 
   const tables = [];
   const cats = [
