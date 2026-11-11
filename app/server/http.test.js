@@ -35,6 +35,8 @@ test('server binds an ephemeral port and serves the API', async () => {
     const lobby = await fetch(`http://127.0.0.1:${port}/api/lobby`).then((r) => r.json());
     assert.ok(Array.isArray(lobby.tables));
     assert.equal(lobby.tables[0].synthetic, true);
+    // The login screen only offers the demo shortcut when this account exists.
+    assert.equal(lobby.demoAccount, true);
     const badOrigin = await fetch(`http://127.0.0.1:${port}/api/lobby`, { headers: { origin: 'http://evil.example' } });
     assert.equal(badOrigin.status, 403);
     const login = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {

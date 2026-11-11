@@ -39,3 +39,7 @@ research/brand/
 app/public/ruffle/
 deploy/.env
 deploy/backups/
+
+# Local mobile/QA artifacts (screenshots, probes, dev cache)
+.mobile-audit/
+app/.audit/

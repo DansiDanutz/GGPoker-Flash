@@ -6,6 +6,8 @@ type Toast = { id: number; kind: 'info' | 'success' | 'error' | 'reward'; title:
 
 type AppState = {
   user: User | null;
+  guest: boolean;
+  enterGuest: () => void;
   loading: boolean;
   route: string;
   navigate: (to: string) => void;
@@ -25,6 +27,7 @@ type AppState = {
   setOpeningTable: (v: string | null) => void;
   splashDone: boolean;
   meta: { online: number; jackpot: number };
+  demoAccount: boolean;
   brand: { logo: string; promo: string };
   dmUnread: number;
   refreshBrand: () => Promise<void>;
@@ -39,6 +42,8 @@ function currentRoute() {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [guest, setGuest] = useState(() => typeof window !== 'undefined' && localStorage.getItem('ggpoker.guest') === '1');
+  const [demoAccount, setDemoAccount] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useState(currentRoute());
@@ -142,7 +147,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const r = await fetch('/api/lobby', { headers: getToken() ? { authorization: `Bearer ${getToken()}` } : {} });
         if (!r.ok) return;
         const d = await r.json();
-        if (alive) setMeta({ online: d.online, jackpot: d.jackpot });
+        if (alive) {
+          setMeta({ online: d.online, jackpot: d.jackpot });
+          setDemoAccount(!!d.demoAccount);
+        }
       } catch { /* ignore */ }
     };
     loadMeta();
@@ -160,9 +168,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((x) => x.id !== id));
   }, []);
 
+  const enterGuest = useCallback(() => {
+    localStorage.setItem('ggpoker.guest', '1');
+    setGuest(true);
+  }, []);
+
   const login = useCallback(async (loginId: string, pw: string) => {
     const res = await api.login(loginId, pw);
     setToken(res.token);
+    localStorage.removeItem('ggpoker.guest');
+    setGuest(false);
     setUser(res.user);
     navigate('/');
   }, [navigate]);
@@ -170,6 +185,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(async (data: { login: string; nick: string; password: string; email?: string }) => {
     const res = await api.register(data);
     setToken(res.token);
+    localStorage.removeItem('ggpoker.guest');
+    setGuest(false);
     setUser(res.user);
     navigate('/');
   }, [navigate]);
@@ -177,6 +194,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     try { await api.logout(); } catch { /* ignore */ }
     setToken(null);
+    localStorage.removeItem('ggpoker.guest');
+    setGuest(false);
     setUser(null);
     navigate('/');
   }, [navigate]);
@@ -189,11 +208,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<AppState>(() => ({
-    user, loading, route, navigate, login, register, logout, refreshUser, setUser,
+    user, guest, enterGuest, loading, route, navigate, login, register, logout, refreshUser, setUser,
     toasts, toast, dismissToast, soundOn, toggleSound, animations,
     setAnimations: (v: boolean) => { setAnimations(v); localStorage.setItem('ggpoker.animations', v ? '1' : '0'); },
-    openingTable, setOpeningTable, meta, brand, refreshBrand, splashDone, dmUnread,
-  }), [user, loading, route, navigate, login, register, logout, refreshUser, toasts, toast, dismissToast, soundOn, toggleSound, animations, openingTable, meta, brand, refreshBrand, splashDone, dmUnread]);
+    openingTable, setOpeningTable, meta, demoAccount, brand, refreshBrand, splashDone, dmUnread,
+  }), [user, guest, enterGuest, loading, route, navigate, login, register, logout, refreshUser, toasts, toast, dismissToast, soundOn, toggleSound, animations, openingTable, meta, demoAccount, brand, refreshBrand, splashDone, dmUnread]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

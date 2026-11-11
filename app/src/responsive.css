@@ -125,7 +125,8 @@ body.electron .app-window::before { display: none; }
 @media (max-width: 760px) {
   .app-window { border-radius: 0; }
   .titlebar { height: 34px; flex-basis: 34px; padding: 0 8px; gap: 8px; }
-  .titlebar .traffic { gap: 6px; }
+  /* macOS window controls make no sense on a phone; the strip stays for status/icons. */
+  .titlebar .traffic { display: none; }
   .titlebar .traffic i, .titlebar .traffic button { width: 10px; height: 10px; }
   .online-pill { font-size: 11px; }
   .title-icons { gap: 0; }
@@ -162,7 +163,12 @@ body.electron .app-window::before { display: none; }
 
   /* lobby */
   .lobby-left, .lobby-side, .lobby-rail { display: none; }
-  .lobby-content { display: block; }
+  /* Keep the flex chain intact: a block .lobby-content let .list-scroll grow to
+     the full table list instead of scrolling, so the phone showed only the
+     first few tables and the rest were clipped by the window. */
+  .lobby-content { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .lobby-main { flex: 1 1 auto; min-height: 0; }
+  .list-scroll { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   .promo-wrap { height: 122px; flex-basis: 122px; margin: 8px 8px 0; }
   .promo-copy { left: 10px; bottom: 10px; max-width: 62%; }
   .promo-copy b { font-size: 15px; }
@@ -216,12 +222,16 @@ body.electron .app-window::before { display: none; }
   .login-box { width: 100%; flex: 1; padding: 24px 20px; }
   .login-art { display: none; }
   .login-box .brand-logo { width: 170px; height: 42px; }
+  /* Text links were 18px tall — under a thumb that is a miss, not a tap. */
+  .auth-links { gap: 10px; align-items: center; }
+  .auth-links button { min-height: 44px; padding: 10px 8px; }
 
   /* room */
   .table-topbar { height: 34px; padding: 0 6px; gap: 4px; font-size: 10px; }
   .table-topbar .name { font-size: 11px; max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .table-topbar .pill { display: none; }
   .table-topbar button { padding: 4px 5px; font-size: 10px; }
+  .table-topbar .popout-btn { display: none; }
   .felt { width: 94%; height: 48%; top: 45%; }
   .table-center { top: 45%; width: 84%; }
   .pot-label { font-size: 12px; padding: 3px 10px 3px 24px; }
@@ -242,8 +252,14 @@ body.electron .app-window::before { display: none; }
   .amount-input { width: 64px; height: 30px; }
   .quick-bets { display: none; }
   .turn-timer-bar { height: 2px; }
+  /* The keyboard/hand/stack line is dead weight on a phone and pushed the
+     action bar up over the hero seat (your own avatar and cards). */
+  .action-bar .status-row { display: none; }
+  .pot-odds { font-size: 10px; padding: 2px 6px; }
   .table-menu { right: 6px; top: 36px; width: 210px; max-height: 64vh; overflow-y: auto; }
   .chat-panel { width: 100% !important; }
+  .toasts { left: 10px; right: 10px; bottom: calc(70px + env(safe-area-inset-bottom, 0)); }
+  .toasts .toast { max-width: none; }
 }
 
 @media (max-width: 420px) {
@@ -310,10 +326,6 @@ body.electron .app-window::before { display: none; }
 .quick-grid button:hover { background: rgba(216,177,95,.1); border-color: rgba(216,177,95,.3); }
 .quick-ggpass { width: 100%; height: 38px; border-radius: 8px; border: 1px solid rgba(216,177,95,.28); color: #f1d99f; background: rgba(216,177,95,.08); font-weight: 700; font-size: 12px; }
 @media (max-width: 1120px) { .lobby-rail { display: none; } }
-@media (max-width: 900px) {
-  .mobile-nav { display: grid; }
-  .app-content { padding-bottom: 64px; }
-}
 @media (max-width: 760px) {
   .quick-menu { width: min(100%, 360px); }
   .quick-backdrop { position: fixed; }
@@ -356,11 +368,6 @@ body.electron .app-window::before { display: none; }
 .rail-btn:hover { background: rgba(216,177,95,.09); color: #f1dfb4; padding-left: 10px; }
 .rail-btn .ico { width: 27px; height: 27px; background: rgba(216,177,95,.09); border: 1px solid rgba(216,177,95,.12); }
 .rail-btn.gold { background: rgba(216,177,95,.1); border-color: rgba(216,177,95,.22); color: #f1d99f; }
-@media (max-width: 1100px) {
-  .mobile-nav { display: grid; }
-  .app-content { padding-bottom: 64px; }
-}
-
 /* ---------------- table action templates ---------------- */
 .table-menu .menu-section { margin: 5px 7px 2px; color: #8b978f; font-size: 9px; letter-spacing: 1.6px; text-transform: uppercase; }
 .layout-switch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px 5px 7px; }
@@ -638,3 +645,30 @@ body.electron .app-window::before { display: none; }
 .subnav button { flex: 0 0 auto; }
 .room-bg-plo5envelope .room-mark { background-image: url('/assets/tables/table_plo5_envelope.png'); background-position: center 44%; background-size: cover; filter: brightness(1.12) contrast(1.04) saturate(1.05); opacity: .96; }
 .room-bg-plo6super .room-mark { background-image: url('/assets/tables/table_plo6_supercircuit.png'); background-position: center 44%; background-size: cover; filter: brightness(1.1) contrast(1.05) saturate(1.05); opacity: .96; }
+
+/* Landscape phones (e.g. 844x390): the desktop promo and side rails leave the
+   table list with zero height, so treat the rails as phone chrome too. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .promo-wrap { display: none; }
+  .lobby-left, .lobby-side, .lobby-rail { display: none; }
+  .lobby-content { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .lobby-main { flex: 1 1 auto; min-height: 0; }
+  .titlebar { height: 28px; flex-basis: 28px; }
+  .app-header { height: 44px; flex-basis: 44px; }
+  .game-tabs { height: 40px; flex-basis: 40px; }
+  .filter-bar { margin: 4px 8px; padding: 4px 6px; min-height: 34px; }
+  .table-row { height: 36px; }
+  .action-bar { padding: 4px 6px 6px; gap: 4px; }
+  .action-bar .status-row { display: none; }
+  .table-topbar { height: 30px; }
+  .mobile-nav { display: none; }
+  .app-content { padding-bottom: 0; }
+  /* A landscape phone has ~390px of height: shrink the seats so the hero's
+     stack plate clears the action bar. */
+  .seat { transform: translate(-50%, -50%) scale(.82); }
+  .table-center { top: 42%; }
+  .felt { top: 44%; height: 50%; }
+  /* Secondary action rows would push the bar over the hero; the table menu
+     still offers "Post blinds / sit in" on these screens. */
+  .action-bar .sitout-row, .action-bar .preaction-row { display: none; }
+}

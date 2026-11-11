@@ -191,6 +191,10 @@ export function Lobby() {
     catch (e: any) { toast({ kind: 'error', title: 'Cannot delete table', body: e.message }); }
   };
 
+  // Phones have no hover and no reliable double-click: one tap on a row opens
+  // the buy-in sheet, the same way the desktop right-hand Join button does.
+  const coarsePointer = () => typeof window !== 'undefined' && window.matchMedia('(hover: none), (pointer: coarse)').matches;
+
   const openJoin = (t: LobbyTable) => {
     sound.play('click', { volume: .6 });
     setBuyinTable(t);
@@ -347,7 +351,7 @@ export function Lobby() {
             onClick={() => { sound.play('click'); navigate(PROMOS[promoIdx]?.to || '/promotions'); }}
           >
             {PROMOS.map((p, i) => p.full ? (
-              <img key="full" className={'promo-img' + (i === promoIdx ? ' on' : '')} src={brand.promo} alt={p.title} />
+              <img key={`promo-${i}`} className={'promo-img' + (i === promoIdx ? ' on' : '')} src={brand.promo} alt={p.title} />
             ) : (
               <div key={p.img} className={'promo-art-bg' + (i === promoIdx ? ' on' : '')} style={{ background: p.bg }}>
                 <img className="promo-art" src={p.img} alt="" />
@@ -364,7 +368,7 @@ export function Lobby() {
             <button className="promo-arrow next" aria-label="Next promotion" onClick={(e) => { e.stopPropagation(); setPromoIdx((i) => (i + 1) % PROMOS.length); }}>›</button>
             <div className="promo-dots">
               {PROMOS.map((p, i) => (
-                <button key={p.img} className={i === promoIdx ? 'on' : ''} aria-label={`Show ${p.title}`} onClick={(e) => { e.stopPropagation(); setPromoIdx(i); }} />
+                <button key={`dot-${i}`} className={i === promoIdx ? 'on' : ''} aria-label={`Show ${p.title}`} onClick={(e) => { e.stopPropagation(); setPromoIdx(i); }} />
               ))}
             </div>
           </div>
@@ -410,7 +414,7 @@ export function Lobby() {
                 <div
                   key={t.id}
                   className={'table-row' + (selected === t.id ? ' selected' : '')}
-                  onClick={() => { setSelected(t.id); }}
+                  onClick={() => { setSelected(t.id); if (coarsePointer()) openJoin(t); }}
                   onDoubleClick={() => openJoin(t)}
                 >
                   <div className="name">

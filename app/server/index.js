@@ -753,6 +753,13 @@ const server = http.createServer(async (req, res) => {
         })),
         user: publicUser(u),
         missions: lobbyMissions(u),
+        // Offer the demo shortcut only when the advertised credentials actually
+        // work: the row can exist with another password (for example a player
+        // registered that name), and a dead button is worse than no button.
+        demoAccount: (() => {
+          const demo = db.prepare('SELECT password FROM users WHERE login = ?').get('DansiDanutz');
+          return !!(demo && checkPassword('ggpoker', demo.password));
+        })(),
         settings: { site_name: getSetting('site_name', 'GGPoker'), maintenance: getSetting('maintenance', false) },
       });
     }
