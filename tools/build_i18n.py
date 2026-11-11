@@ -51,6 +51,23 @@ MANUAL_RO = {
     "Search tables…": "Caută mese…", "Favorites": "Favorite", "Missions": "Misiuni",
     "Group View": "Grup", "Table View": "Masă", "My Promo": "Promoțiile mele",
     "★ Favorites": "★ Favorite",
+    "Total Pot :": "Pot total :",
+    "Buy-in Range": "Interval de cumpărare",
+    "Take a seat": "Ia un loc",
+    "Open seat": "Loc liber",
+    "Pop out": "Fereastră nouă",
+    "Menu": "Meniu",
+    "Connected": "Conectat",
+    "Rabbit hunt": "Vânătoare de iepuri",
+    "Sit out next hand": "Stai afară următoarea mână",
+    "Post blinds / sit in": "Plătește blindurile / intră în joc",
+    "Rebuy / add chips": "Recumpărare / adaugă jetoane",
+    "Auto rebuy": "Recumpărare automată",
+    "Four-colour deck": "Pachet cu patru culori",
+    "Disable animations": "Oprește animațiile",
+    "Enable animations": "Pornește animațiile",
+    "Table settings": "Setări masă",
+    "You are observing this table. Take a seat to join the action.": "Urmărești această masă. Ia un loc pentru a intra în joc.",
 }
 
 
