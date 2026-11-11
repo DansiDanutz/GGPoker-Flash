@@ -14,6 +14,8 @@ services:
       - game-data:/data
     expose:
       - "5198"
+    ports:
+      - "127.0.0.1:5198:5198"
     security_opt:
       - no-new-privileges:true
     cap_drop:

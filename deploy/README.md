@@ -46,13 +46,15 @@ MX   eforward*.registrar-servers.com
 SPF  v=spf1 include:spf.efwd.registrar-servers.com ~all
 ```
 
-Once the VM has a public IPv4, replace only the parking A record and add the
-admin host:
+Once the VM has a public IPv4, replace only the parking A record:
 
 ```text
 A  dangg.live         <VM public IPv4>   TTL 300
-A  admin.dangg.live   <VM public IPv4>   TTL 300
+CNAME www            dangg.live.         TTL 300
 ```
+
+`admin.dangg.live` is intentionally **not** exposed. Admin access uses an SSH
+tunnel from the Mac Studio to the loopback-only game port.
 
 Do not remove the MX/SPF records unless the domain's email is being retired.
 Caddy obtains certificates automatically once DNS resolves.
@@ -87,17 +89,29 @@ curl -fsS https://dangg.live/api/lobby
 The game container is only exposed on the internal Compose network. Caddy owns
 80/443. Do not publish `5198`.
 
-## Mac Studio admin
+## Mac Studio admin — private SSH tunnel
 
-Admin API access is limited by `GGPOKER_ADMIN_ALLOW`. The default example allows
-the Tailscale CGNAT range `100.64.0.0/10` and localhost. Caddy forwards the real
-client IP through `X-Forwarded-For`, and the server trusts it only because
-`GGPOKER_TRUST_PROXY=1`.
+Admin is not published on a public hostname. From the Mac Studio:
 
-Open `https://admin.dangg.live` from the Mac Studio on Tailscale and sign in with
-the admin account. Public players cannot call `/api/admin/*` even if they log in.
+```bash
+ssh -N -L 5198:127.0.0.1:5198 root@<VM_PUBLIC_IP>
+```
+
+Leave that running, then open:
+
+```text
+http://127.0.0.1:5198
+```
+
+The server sees a localhost request, so the admin allowlist admits it; public
+players cannot reach the loopback port. The admin account is `admin` with the
+`GGPOKER_ADMIN_PASSWORD` set in `deploy/.env`.
 
 The player site is `https://dangg.live`.
+
+If you later want a Tailscale-hosted admin URL, add Tailscale Serve on the VM
+and keep the loopback port private. Do not add a public `admin.dangg.live`
+record.
 
 ## Desktop client in remote mode
 
@@ -113,8 +127,7 @@ that sets `GGPOKER_SERVER_URL=https://dangg.live`. In remote mode the Electron
 process does not start or own a local game server and its CSP is limited to the
 configured HTTPS/WSS origin.
 
-The Mac Studio admin should use a browser at `https://admin.dangg.live` while
-connected to Tailscale; the admin API is IP-restricted independently.
+The Mac Studio admin should use the SSH tunnel above; there is no public admin hostname.
 
 ## Backups
 
@@ -132,7 +145,7 @@ Also enable DigitalOcean weekly volume snapshots and copy backups off the VM.
 ## Security notes
 
 - Keep `deploy/.env` out of git.
-- Restrict admin to Tailscale; never expose `/api/admin` publicly.
+- Keep admin on the loopback SSH tunnel; never expose `/api/admin` publicly.
 - Use DO Cloud Firewall, not only UFW, because Docker publishes ports outside
   UFW.
 - Rotate the DigitalOcean API token after provisioning.
