@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, getToken, setToken, User } from './api';
 import { sound } from './sound';
+import { completeInstall, installPending, isPhone, isStandalone, markInstallPending, skipInstall, subscribeInstall } from './install';
 
 type Toast = { id: number; kind: 'info' | 'success' | 'error' | 'reward'; title: string; body?: string };
 
@@ -28,6 +29,9 @@ type AppState = {
   splashDone: boolean;
   meta: { online: number; jackpot: number };
   demoAccount: boolean;
+  installGate: boolean;
+  finishInstall: () => void;
+  dismissInstall: () => void;
   brand: { logo: string; promo: string };
   dmUnread: number;
   refreshBrand: () => Promise<void>;
@@ -44,6 +48,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [guest, setGuest] = useState(() => typeof window !== 'undefined' && localStorage.getItem('ggpoker.guest') === '1');
   const [demoAccount, setDemoAccount] = useState(false);
+  // Pending install from an earlier visit (account created but app not added).
+  const [installGate, setInstallGate] = useState(() => installPending());
   const [splashDone, setSplashDone] = useState(false);
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useState(currentRoute());
@@ -173,6 +179,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setGuest(true);
   }, []);
 
+  const finishInstall = useCallback(() => {
+    completeInstall();
+    setInstallGate(false);
+    navigate('/');
+  }, [navigate]);
+
+  const dismissInstall = useCallback(() => {
+    skipInstall();
+    setInstallGate(false);
+    navigate('/');
+  }, [navigate]);
+
+  // `appinstalled` (Android) or launching from the home-screen icon closes the
+  // gate even if it was triggered outside this screen.
+  useEffect(() => {
+    if (!installGate) return;
+    return subscribeInstall(() => {
+      if (isStandalone() || !installPending()) setInstallGate(false);
+    });
+  }, [installGate]);
+
   const login = useCallback(async (loginId: string, pw: string) => {
     const res = await api.login(loginId, pw);
     setToken(res.token);
@@ -188,6 +215,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('ggpoker.guest');
     setGuest(false);
     setUser(res.user);
+    // A brand-new phone account goes straight to the install step; desktop
+    // sign-ups continue into the lobby as before.
+    if (isPhone() && !isStandalone()) {
+      markInstallPending();
+      setInstallGate(true);
+    }
     navigate('/');
   }, [navigate]);
 
@@ -212,7 +245,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     toasts, toast, dismissToast, soundOn, toggleSound, animations,
     setAnimations: (v: boolean) => { setAnimations(v); localStorage.setItem('ggpoker.animations', v ? '1' : '0'); },
     openingTable, setOpeningTable, meta, demoAccount, brand, refreshBrand, splashDone, dmUnread,
-  }), [user, guest, enterGuest, loading, route, navigate, login, register, logout, refreshUser, toasts, toast, dismissToast, soundOn, toggleSound, animations, openingTable, meta, demoAccount, brand, refreshBrand, splashDone, dmUnread]);
+    installGate, finishInstall, dismissInstall,
+  }), [user, guest, enterGuest, loading, route, navigate, login, register, logout, refreshUser, toasts, toast, dismissToast, soundOn, toggleSound, animations, openingTable, meta, demoAccount, brand, refreshBrand, splashDone, dmUnread, installGate, finishInstall, dismissInstall]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

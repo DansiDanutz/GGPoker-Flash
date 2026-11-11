@@ -14,3 +14,12 @@ createRoot(document.getElementById('root')!).render(
     </AppProvider>
   </I18nProvider>
 );
+
+// Production only: the service worker makes the phone client installable and
+// keeps the shell available on a weak connection. It stays out of the Vite dev
+// server so HMR is never served from a cache.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* installable features stay optional */ });
+  });
+}

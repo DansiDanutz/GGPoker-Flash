@@ -835,3 +835,117 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .action-badge.away { color: #b9b9b9; background: rgba(0,0,0,.6); }
 .table-menu button:disabled { opacity: .4; cursor: default; }
 .act-btn:focus-visible, .quick-bets button:focus-visible, .tb-btn:focus-visible { outline: 2px solid #ffd98a; outline-offset: 2px; }
+
+/* ---------------- install / add to home screen ---------------- */
+.install-screen {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: grid;
+  place-items: center;
+  padding: calc(30px + env(safe-area-inset-top, 0)) 18px calc(26px + env(safe-area-inset-bottom, 0));
+  background:
+    radial-gradient(700px 380px at 50% -10%, rgba(40, 106, 78, .22), transparent 70%),
+    radial-gradient(520px 420px at 90% 110%, rgba(150, 40, 50, .16), transparent 65%),
+    #070b09;
+  isolation: isolate;
+}
+.install-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(300px 180px at 50% 34%, rgba(216, 177, 95, .10), transparent 70%);
+  z-index: -1;
+}
+.install-card {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+.install-logo { width: 186px; height: auto; margin-bottom: 2px; filter: drop-shadow(0 10px 24px rgba(0, 0, 0, .55)); }
+.install-kicker { margin: 0; color: var(--gold2); font-size: 9px; letter-spacing: 2.6px; font-weight: 700; }
+.install-title { margin: 0; font-family: var(--head-font); font-size: 28px; line-height: 1.08; color: #f6f1e4; letter-spacing: .2px; }
+.install-sub { margin: 2px 0 0; max-width: 40ch; color: #a9b4ad; font-size: 13.5px; line-height: 1.55; }
+.install-features {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin: 6px 0 2px;
+  padding: 0;
+}
+.install-features li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid rgba(216, 177, 95, .18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .035);
+  color: #d6ded8;
+  font-size: 11px;
+  letter-spacing: .2px;
+}
+.install-primary {
+  width: 100%;
+  height: 52px;
+  margin-top: 8px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .4px;
+}
+.install-secondary { width: 100%; height: 44px; border-radius: 8px; margin-top: 2px; }
+.install-platform { margin: 0; color: #7f8b84; font-size: 11px; line-height: 1.45; }
+.install-steps {
+  width: 100%;
+  text-align: left;
+  margin: 4px 0 0;
+  padding: 12px 14px 12px 30px;
+  border: 1px solid rgba(216, 177, 95, .16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .035);
+  color: #cfd8d1;
+  font-size: 12.5px;
+  line-height: 1.6;
+  display: grid;
+  gap: 6px;
+}
+.install-steps b { color: #f1dfb4; font-weight: 700; }
+.share-glyph { vertical-align: -3px; color: #8fc5ff; }
+.install-skip {
+  min-height: 40px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  color: #98a49c;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.install-skip:hover { color: #d8b46a; }
+.install-note { margin: 2px 0 0; color: #5f6a64; font-size: 10.5px; line-height: 1.5; }
+.install-done {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  margin-top: 8px;
+  border: 1px solid rgba(120, 200, 150, .28);
+  border-radius: 10px;
+  background: rgba(30, 80, 55, .28);
+}
+.install-done b { color: #b9efcb; font-size: 15px; }
+.install-done span { color: #a9c4b2; font-size: 12px; line-height: 1.5; }
+.install-done .install-primary { margin-top: 10px; }
+
+@media (max-width: 420px) {
+  .install-logo { width: 160px; }
+  .install-title { font-size: 24px; }
+  .install-sub { font-size: 12.5px; }
+}
+.install-features li svg { color: var(--gold2); flex: 0 0 auto; }
