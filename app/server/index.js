@@ -1324,11 +1324,25 @@ const server = http.createServer(async (req, res) => {
         WHERE r.user_id = ? AND t.status = 'registering' AND t.start_at > datetime('now') ORDER BY t.start_at LIMIT 5`).all(u.id);
       const dailyClaimed = db.prepare("SELECT 1 FROM bonus_claims WHERE user_id = ? AND claim_key = ?").get(u.id, `daily:${new Date().toISOString().slice(0, 10)}`);
       const items = [];
-      for (const r of requests) items.push({ kind: 'friend', icon: '👥', title: `${r.nick} sent a friend request`, body: 'Open Friends to accept or decline.', link: '/my-page' });
-      if (dm > 0) items.push({ kind: 'dm', icon: '💬', title: `${dm} unread direct message${dm === 1 ? '' : 's'}`, body: 'Open Messages to reply.', link: '/my-page' });
-      for (const t of upcoming) items.push({ kind: 'tournament', icon: '🏆', title: t.name, body: `Starts ${new Date(t.start_at).toLocaleString('en-GB')}`, link: `/tournaments?id=${encodeURIComponent(t.id)}` });
-      if (!dailyClaimed) items.push({ kind: 'bonus', icon: '🎁', title: 'Daily freebie is ready', body: 'Claim it in the Cashier.', link: '/cashier' });
-      return json(res, 200, { items, unread: items.length });
+      for (const r of requests) items.push({ key: `friend:${r.id}`, kind: 'friend', icon: '👥', title: `${r.nick} sent a friend request`, body: 'Open Friends to accept or decline.', link: '/my-page' });
+      const latestDm = db.prepare('SELECT MAX(id) AS id FROM direct_messages WHERE to_id = ? AND read_at IS NULL').get(u.id);
+      if (dm > 0) items.push({ key: `dm:${latestDm?.id || 0}`, kind: 'dm', icon: '💬', title: `${dm} unread direct message${dm === 1 ? '' : 's'}`, body: 'Open Messages to reply.', link: '/my-page' });
+      for (const t of upcoming) items.push({ key: `tournament:${t.id}`, kind: 'tournament', icon: '🏆', title: t.name, body: `Starts ${new Date(t.start_at).toLocaleString('en-GB')}`, link: `/tournaments?id=${encodeURIComponent(t.id)}` });
+      if (!dailyClaimed) items.push({ key: `bonus:daily:${new Date().toISOString().slice(0, 10)}`, kind: 'bonus', icon: '🎁', title: 'Daily freebie is ready', body: 'Claim it in the Cashier.', link: '/cashier' });
+      const read = new Set(db.prepare('SELECT item_key FROM notification_reads WHERE user_id = ?').all(u.id).map((r) => r.item_key));
+      const visible = items.filter((i) => !read.has(i.key));
+      return json(res, 200, { items: visible, unread: visible.length });
+    }
+
+    if (p === '/api/notifications/read' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      const keys = Array.isArray(b.keys) ? b.keys.slice(0, 50) : [];
+      for (const key of keys) {
+        if (typeof key !== 'string' || key.length > 160) continue;
+        db.prepare('INSERT OR IGNORE INTO notification_reads (user_id,item_key) VALUES (?,?)').run(u.id, key);
+      }
+      return json(res, 200, { ok: true });
     }
 
     if (p === '/api/messages' && req.method === 'GET') {

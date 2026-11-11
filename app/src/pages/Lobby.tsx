@@ -113,7 +113,7 @@ export function Lobby() {
 
   useEffect(() => {
     if (!notifOpen) return;
-    api.notifications().then((r) => setNotifItems(r.items || [])).catch(() => setNotifItems([]));
+    api.notifications().then((r) => { setNotifItems(r.items || []); if (r.items?.length) api.markNotificationsRead(r.items.map((i: any) => i.key)).catch(() => {}); }).catch(() => setNotifItems([]));
   }, [notifOpen]);
 
   useEffect(() => {

@@ -84,6 +84,12 @@ function init() {
     hero_cards TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS notification_reads (
+    user_id INTEGER NOT NULL,
+    item_key TEXT NOT NULL,
+    read_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, item_key)
+  );
   CREATE TABLE IF NOT EXISTS direct_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     from_id INTEGER NOT NULL,

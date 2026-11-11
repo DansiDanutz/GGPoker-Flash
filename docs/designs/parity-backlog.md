@@ -71,6 +71,7 @@ not a source to copy blindly.
   - self hides friend/message and links to My Page.
 - Notification center:
   - unread DMs, pending friend requests, registered tournaments and daily bonus;
+  - per-item read state persisted in `notification_reads`;
   - global badge uses the derived notification count;
   - each item deep-links to Cashier, My Page, Tournaments or Rewards.
 - Friend requests:
