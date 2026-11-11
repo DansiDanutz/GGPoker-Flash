@@ -230,7 +230,7 @@ function broadcastState(table) {
   }
 }
 
-function seatHuman(table, user, buyin, seatIndex) {
+function seatHuman(table, user, buyin, seatIndex = null) {
   const existing = table.seatOf(user.id);
   if (existing) return { ok: true, seat: existing.index };
   const stack = Number(buyin) || table.cfg.min_buyin;
@@ -946,7 +946,8 @@ wss.on('connection', (ws, req) => {
         if (table.tournament) {
           table.sit({ id: u.id, nick: u.nick, avatar: u.avatar }, null, table.cfg.min_buyin);
         } else {
-          const res = seatHuman(table, u, Number(msg.buyin) || table.cfg.min_buyin);
+          let res = seatHuman(table, u, Number(msg.buyin) || table.cfg.min_buyin, msg.seat);
+          if (!res.ok && msg.seat != null) res = seatHuman(table, u, Number(msg.buyin) || table.cfg.min_buyin, null);
           if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
         }
       }

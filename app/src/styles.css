@@ -739,3 +739,6 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .hh-street { text-transform: uppercase; font-size: 10px; letter-spacing: 1px; color: #6f6f6f; }
 .modal.wide { max-height: 90vh; display: flex; flex-direction: column; }
 .modal.wide .modal-body { overflow-y: auto; }
+.seat-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+.seat-pick { width: 42px; height: 34px; border-radius: 4px; background: #1d1d1d; border: 1px solid #383838; color: #bbb; font-size: 12px; }
+.seat-pick.on { background: linear-gradient(#c92433, #94121d); border-color: #e04b57; color: #fff; }

@@ -70,6 +70,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const query = new URLSearchParams(window.location.hash.split('?')[1] || '');
   const buyin = Number(query.get('buyin') || 0);
   const observe = query.get('observe') === '1';
+  const seatParam = query.get('seat');
 
   useEffect(() => {
     if (!user) { navigate('/login'); }
@@ -82,7 +83,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     wsRef.current = ws;
     ws.onopen = () => {
       setConnected(true);
-      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe }));
+      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe, seat: seatParam != null ? Number(seatParam) : null }));
     };
     ws.onmessage = (ev) => {
       let msg: any;

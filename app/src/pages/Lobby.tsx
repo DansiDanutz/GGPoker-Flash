@@ -66,6 +66,7 @@ export function Lobby() {
   const [selected, setSelected] = useState<string | null>(null);
   const [buyinTable, setBuyinTable] = useState<LobbyTable | null>(null);
   const [buyin, setBuyin] = useState(0);
+  const [seat, setSeat] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
   const [promoIdx, setPromoIdx] = useState(0);
   const [sortKey, setSortKey] = useState<'name'|'bb'|'players'|'avgPot'>('bb');
@@ -138,6 +139,7 @@ export function Lobby() {
     sound.play('click', { volume: .6 });
     setBuyinTable(t);
     setBuyin(t.min_buyin);
+    setSeat(null);
   };
 
   const confirmJoin = async () => {
@@ -149,7 +151,7 @@ export function Lobby() {
     }
     setOpeningTable(buyinTable.id);
     setBuyinTable(null);
-    navigate(`/table/${buyinTable.id}?buyin=${buyin}`);
+    navigate(`/table/${buyinTable.id}?buyin=${buyin}${seat != null ? `&seat=${seat}` : ''}`);
   };
 
   const loadChat = async () => {
@@ -353,6 +355,15 @@ export function Lobby() {
               <div className="between" style={{ marginBottom: 12 }}>
                 <span className="muted">Table type</span>
                 <b>{GAME_LABEL[buyinTable.game]} · {buyinTable.seats}-max</b>
+              </div>
+              <div className="field">
+                <label>Preferred seat</label>
+                <div className="seat-picker">
+                  <button className={'seat-pick' + (seat == null ? ' on' : '')} onClick={() => setSeat(null)}>Any</button>
+                  {Array.from({ length: buyinTable.seats }).map((_, i) => (
+                    <button key={i} className={'seat-pick' + (seat === i ? ' on' : '')} onClick={() => setSeat(i)}>{i + 1}</button>
+                  ))}
+                </div>
               </div>
               <div className="field">
                 <label>Buy-in amount</label>

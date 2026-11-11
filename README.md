@@ -93,7 +93,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for 
   Spin & Gold SNG** (3-handed, prize wheel, escalating blinds, winner-takes-all),
   Mystery Battle Royale tables.
 - Bot opponents with Monte-Carlo equity decisions fill empty seats; stack persistence.
-- Buy-in modal with min/max range and percentage presets, cash-out on leave.
+- Buy-in modal with min/max range, percentage presets and seat selection; cash-out on leave.
 - Rake (5%, capped) on cash-game pots; tournament and Spin & Gold pots are rake-free.
 - **Spectate a table** (Open), take a seat from the rail, rebuy/add chips between hands and toggle auto-rebuy.
 - **Private player notes** (per player, colour-coded; stored locally in SQLite).
