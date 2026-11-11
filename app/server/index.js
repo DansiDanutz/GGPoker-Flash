@@ -1928,6 +1928,19 @@ wss.on('connection', (ws, req) => {
   });
 });
 
+// Scheduled tournaments move out of registration on their own start time.
+setInterval(() => {
+  try {
+    const rows = db.prepare("SELECT id, start_at, entrants FROM tournaments WHERE status = 'registering' AND enabled = 1").all();
+    for (const t of rows) {
+      const start = Date.parse(t.start_at);
+      if (Number.isFinite(start) && start <= Date.now() && Number(t.entrants) >= 2) {
+        db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(t.id);
+      }
+    }
+  } catch (err) { console.error('tournament scheduler', err); }
+}, 15000).unref();
+
 const refunded = refundOpenSessions();
 if (refunded) console.log(`refunded ${refunded} open table session(s)`);
 server.listen(PORT, '127.0.0.1', () => {

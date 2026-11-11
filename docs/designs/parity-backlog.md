@@ -57,6 +57,9 @@ not a source to copy blindly.
   - owner table list, copy-invite link and delete action in the host modal;
   - per-table owner chat moderation for seated players, with persistent mute rows;
   - auto buy-in from the lobby Join action.
+- Tournament lifecycle:
+  - a 15-second scheduler moves registering events with at least two entrants to running after their start time;
+  - late-registration checks remain enforced by the registration endpoint.
 - Private tournaments:
   - owner-created freezeouts with format, mode, buy-in, fee, stack, blind speed, late registration, bounty, ticket and start time;
   - owner-only lobby visibility, direct `?id=` invite links, registration, play and deletion;
