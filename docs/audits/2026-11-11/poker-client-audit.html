@@ -58,15 +58,15 @@
   <h1>Poker client audit: engine, server, desktop shell and table UI</h1>
 
   <div class="verdict">
-    <p><strong>VERDICT — FIXED IN THE WORKING TREE, NOT YET COMMITTED OR PACKAGED.</strong></p>
+    <p><strong>VERDICT — FIXED AND COMMITTED ON THE AUDIT BRANCH; NOT PUSHED OR PACKAGED.</strong></p>
     <p>The audit found 8 critical and 16 high-severity defects. All 24 are fixed and covered by tests. The suite went from 18 to 67 passing tests, the TypeScript check is clean and the production build succeeds. The fixed build was exercised in a browser against a throwaway database.</p>
-    <p>Two things are not done. The changes are uncommitted, so the installed <code>~/Applications/DanGG.ro.app</code> still runs the old code. The Electron shell changes were syntax-checked but never launched, because the installed app was running and holds the single-instance lock and port 5198.</p>
+    <p>One thing is not done: the branch is not pushed and the app is not repackaged, so the installed <code>~/Applications/DanGG.ro.app</code> still runs the old code. The Electron shell changes were launched and checked on an isolated profile (10 of 10 checks passed).</p>
   </div>
 
   <div class="tiles">
     <div class="tile"><b>53</b><span>findings in total</span></div>
-    <div class="tile"><b>43</b><span>fixed and verified</span></div>
-    <div class="tile"><b>10</b><span>open (1 high, 4 medium, 5 low)</span></div>
+    <div class="tile"><b>44</b><span>fixed and verified</span></div>
+    <div class="tile"><b>9</b><span>open (1 high, 4 medium, 4 low)</span></div>
     <div class="tile"><b>18 → 67</b><span>passing tests</span></div>
     <div class="tile"><b>67%</b><span>line coverage (target 80%)</span></div>
   </div>
@@ -103,7 +103,7 @@
     <tr><td class="id">H-10</td><td>Any dropped connection cashed the player out immediately, and forfeited a tournament. Closing a popped-out table window, or the original window, did the same.</td><td>The seat is held for 60 seconds and survives a reconnect; a leave is ignored while another window of the same player is on the table. Two tests.</td></tr>
     <tr><td class="id">H-11</td><td>The local server accepted any <code>Host</code> and WebSocket <code>Origin</code>. A web page could reach it through DNS rebinding and try the documented default admin password.</td><td>Requests with a non-loopback Host get 403; sockets from a non-local Origin are refused; failed logins are throttled at 10 per 10 minutes. Two tests.</td></tr>
     <tr><td class="id">H-12</td><td>Bots filled tables completely, so a third human was wait-listed behind bots that never leave.</td><td>A human now takes a bot's seat. Test seats four humans at one table.</td></tr>
-    <tr><td class="id">H-13</td><td>Electron: the close, minimise and maximise buttons of a popped-out table acted on the main window; renderer sandbox was off; any URL scheme was passed to the operating system; nothing blocked navigation away from the app.</td><td>Controls act on the sending window; <code>sandbox: true</code>; only http and https open externally; navigation guard; permission requests denied. <strong>Not launched — see verification.</strong></td></tr>
+    <tr><td class="id">H-13</td><td>Electron: the close, minimise and maximise buttons of a popped-out table acted on the main window; renderer sandbox was off; any URL scheme was passed to the operating system; nothing blocked navigation away from the app.</td><td>Controls act on the sending window; <code>sandbox: true</code>; only http and https open externally; navigation guard; permission requests denied. Verified by launching the shell — see verification.</td></tr>
     <tr><td class="id">H-14</td><td>A rebuy of up to the table maximum was accepted on top of any stack, and was refused between hands because <code>inHand</code> stayed set after a hand ended.</td><td>A top-up must leave the stack within the table's buy-in limits and is allowed once the player's hand is over. The dialog and auto-rebuy follow the same rule.</td></tr>
     <tr><td class="id">H-15</td><td>Admin credit and "set balance" accepted non-numeric values and wrote <code>NaN</code> into balances and the ledger. Table definitions were unvalidated (100 seats, small blind above big blind).</td><td>New <code>server/validate.js</code>. Test: "admin money actions reject non-numeric and overdraft amounts".</td></tr>
     <tr><td class="id">H-16</td><td>The deal sound replayed on every state broadcast (about twice a second) throughout pre-flop, because the socket handler compared against stale state.</td><td>The last dealt hand is tracked in a ref.</td></tr>
@@ -150,7 +150,6 @@
     <tr><td class="id">O-3</td><td><span class="sev m">MEDIUM</span></td><td>Seeded accounts with documented passwords (including the admin) exist in every database. The server binds to loopback only, and logins are now throttled.</td><td>Force a password change on first admin login before the server is ever exposed beyond this machine.</td></tr>
     <tr><td class="id">O-4</td><td><span class="sev m">MEDIUM</span></td><td>The session token lives in <code>localStorage</code> and is sent in the WebSocket URL.</td><td>Move to an HttpOnly cookie and authenticate the socket in its first message.</td></tr>
     <tr><td class="id">O-5</td><td><span class="sev m">MEDIUM</span></td><td>A tournament is one six-seat table against bots that pays 50/30/20% of the full guaranteed pool, so one entry can return hundreds of buy-ins. Lobby player counts and averages are synthetic.</td><td>Scale the prize pool to the seats actually in play, or build multi-table tournaments.</td></tr>
-    <tr><td class="id">O-6</td><td><span class="sev l">LOW</span></td><td>Electron changes (sandbox, per-window controls, navigation guard, SIGTERM on quit) were not launched.</td><td>Quit the installed app, run <code>pnpm desktop</code>, pop a table out and close it.</td></tr>
     <tr><td class="id">O-7</td><td><span class="sev l">LOW</span></td><td>Blackjack hands live in memory, so a crash mid-hand loses the stake. Baccarat uses a simplified third-card rule. No split or double.</td><td>Persist the open hand; implement the standard drawing table.</td></tr>
     <tr><td class="id">O-8</td><td><span class="sev l">LOW</span></td><td>Poker rules still simplified: no dead button or missed-blind posting for new players, the run-it-twice setting does nothing, one bot strategy for all stakes, odd chips go by seat order.</td><td>Implement as wanted; none affects chip conservation.</td></tr>
     <tr><td class="id">O-9</td><td><span class="sev l">LOW</span></td><td>No lint configuration, no browser end-to-end suite, one 500 kB+ JavaScript chunk. The UI check in this audit was manual.</td><td>Add ESLint and a Playwright smoke test of login, sit, act and leave.</td></tr>
@@ -174,16 +173,25 @@ node --test --experimental-test-coverage server/*.test.js
     <li>Letting the timer run out twice produced the sitting-out banner. Reloading the page returned to the same seat with the $200 stack and no second buy-in. "I'm back" dealt the player in, a call registered, and the pre-action row appeared while waiting.</li>
     <li>No Content-Security-Policy violations or script errors in the console. The only errors were 404s for the artwork that is not in this checkout.</li>
   </ul>
+  <h3>Checked in the Electron shell</h3>
+  <p>Electron 38.8.6 was launched from this branch with <code>GGPOKER_USER_DATA</code> pointing at a temporary profile and <code>GGPOKER_PORT=5320</code>, then driven over the DevTools protocol. The installed app and its database were not touched.</p>
+  <ul>
+    <li>The main window loads the local server and the app renders with the renderer sandbox on.</li>
+    <li>The preload bridge works under the sandbox; no Node globals (<code>require</code>, <code>process</code>) are reachable from the page.</li>
+    <li>A popped-out window gets its own bridge, and its close button closes only that window; the main window stays open.</li>
+    <li>Navigating the window to <code>file:///etc/hosts</code> is blocked; a notification permission request is denied.</li>
+    <li>Quitting sends SIGTERM and the server logs a clean shutdown.</li>
+  </ul>
   <h3>Not verified</h3>
   <ul>
-    <li>The Electron shell (O-6) and the packaged app.</li>
+    <li>The packaged app. It has not been rebuilt from this branch.</li>
     <li>Tournament and Spin &amp; Gold play to completion in the UI. Their engine paths are covered by tests only.</li>
     <li>Two humans at one table in the UI. Covered by socket tests only.</li>
     <li>Pages other than the table: lobby, cashier, rewards, casino and admin were not clicked through.</li>
   </ul>
 
   <h2>Files changed</h2>
-  <p>Nothing is committed. New: <code>server/slots.js</code>, <code>security.js</code>, <code>validate.js</code>, <code>hand-history.js</code>, <code>test-helpers.js</code>, five test files, <code>src/game/betting.ts</code>. Modified: <code>server/table.js</code>, <code>poker.js</code>, <code>index.js</code>, <code>db.js</code>, <code>electron/main.cjs</code>, <code>src/pages/TablePage.tsx</code>, <code>Casino.tsx</code>, <code>Rewards.tsx</code>, <code>src/game/eval.ts</code>, <code>styles.css</code>, <code>README.md</code>, <code>.gitignore</code>.</p>
+  <p>Committed on <code>claude/poker-client-audit-85d30f</code>. New: <code>server/slots.js</code>, <code>security.js</code>, <code>validate.js</code>, <code>hand-history.js</code>, <code>test-helpers.js</code>, five test files, <code>src/game/betting.ts</code>. Modified: <code>server/table.js</code>, <code>poker.js</code>, <code>index.js</code>, <code>db.js</code>, <code>electron/main.cjs</code>, <code>src/pages/TablePage.tsx</code>, <code>Casino.tsx</code>, <code>Rewards.tsx</code>, <code>src/game/eval.ts</code>, <code>styles.css</code>, <code>README.md</code>, <code>.gitignore</code>.</p>
   <p>Two behaviour changes players will notice: passwords for new accounts need six characters, and the Fish Buffet wheel is once a day.</p>
 </main>
 </body>

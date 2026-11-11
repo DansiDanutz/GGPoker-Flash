@@ -18,7 +18,8 @@ if (!gotSingleInstanceLock) {
   });
 }
 app.setName('DanGG.ro');
-app.setPath('userData', require('node:path').join(app.getPath('appData'), 'GGPoker Clone'));
+// GGPOKER_USER_DATA points a test or second instance at its own profile and database.
+app.setPath('userData', process.env.GGPOKER_USER_DATA || path.join(app.getPath('appData'), 'GGPoker Clone'));
 try { require('node:fs').mkdirSync(app.getPath('userData'), { recursive: true }); } catch {}
 
 const DEV = process.env.GGPOKER_DEV === '1';
