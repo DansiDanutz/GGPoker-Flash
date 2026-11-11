@@ -39,10 +39,10 @@ function Splash() {
   return (
     <div className="splash">
       <div className="splash-inner">
-        <img className="splash-logo" src={brand.logo} alt="DanGG.ro" />
+        <img className="splash-logo" src={brand.logo} alt="DanGG" />
         <div className="splash-tagline">THE WORLD'S BIGGEST POKER ROOM</div>
         <div className="splash-bar"><i /></div>
-        <div className="splash-status">Connecting to DanGG.ro…</div>
+        <div className="splash-status">Connecting to DanGG…</div>
         <div className="splash-legal">Play money · local clone · no real-money gambling</div>
       </div>
     </div>

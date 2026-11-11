@@ -85,9 +85,9 @@ export function InstallApp() {
     <div className="install-screen">
       <div className="install-glow" aria-hidden="true" />
       <div className="install-card">
-        <img className="install-logo" src={brand.logo} alt="DanGG.ro" />
+        <img className="install-logo" src={brand.logo} alt="DanGG" />
         <p className="install-kicker">ONE LAST STEP</p>
-        <h1 className="install-title">Get the DanGG.ro app</h1>
+        <h1 className="install-title">Get the DanGG app</h1>
         <p className="install-sub">
           {user ? `${user.nick}, install` : 'Install'} the app on your phone to play full-screen:
           home-screen icon, one-tap launch and faster loading than the browser tab.
@@ -102,7 +102,7 @@ export function InstallApp() {
         {installed ? (
           <div className="install-done" role="status">
             <b>App installed</b>
-            <span>Open DanGG.ro from your home screen — see you at the tables.</span>
+            <span>Open DanGG from your home screen — see you at the tables.</span>
             <button className="btn btn-red btn-block install-primary" onClick={finishInstall}>Continue</button>
           </div>
         ) : (
@@ -128,7 +128,7 @@ export function InstallApp() {
               Tap the <ShareGlyph /> <b>Share</b> button in your browser's toolbar.
             </li>
             <li>Scroll the share sheet and tap <b>Add to Home Screen</b>.</li>
-            <li>Tap <b>Add</b> — the DanGG.ro icon appears on your Home Screen.</li>
+            <li>Tap <b>Add</b> — the DanGG icon appears on your Home Screen.</li>
           </ol>
         )}
 
@@ -137,7 +137,7 @@ export function InstallApp() {
             {isAndroid && <li>Open the <b>⋮</b> menu in Chrome.</li>}
             {!isAndroid && <li>Open your browser menu.</li>}
             <li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li>
-            <li>Confirm — DanGG.ro opens in its own full-screen window.</li>
+            <li>Confirm — DanGG opens in its own full-screen window.</li>
           </ol>
         )}
 

@@ -12,7 +12,7 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
   );
   return (
     <div className="app-header">
-      <img className="brand-logo" src={brand.logo} alt="DanGG.ro" onClick={() => go('/')} />
+      <img className="brand-logo" src={brand.logo} alt="DanGG" onClick={() => go('/')} />
       <nav className="topnav">
         {tab('poker', 'Poker', '/')}
         <span className="sep" />

@@ -2,19 +2,29 @@
 # Rebuild the web client and refresh the signed desktop app in ~/Applications.
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-APP="$HOME/Applications/DanGG.ro.app"
+APP="$HOME/Applications/DanGG.app"
 cd "$ROOT/app"
 pnpm build
 pkill -9 -x GGPokerClone 2>/dev/null || true
 sleep 1
 mkdir -p "$HOME/Applications"
 if [ ! -d "$APP" ]; then
-  cp -R "$ROOT/app/node_modules/.pnpm/electron@38.8.6/node_modules/electron/dist/Electron.app" "$APP"
+  # Electron's dist layout depends on the installer: pnpm nests it, npm flattens it,
+  # and the binary may be absent entirely (ELECTRON_SKIP_BINARY_DOWNLOAD).
+  ELECTRON_APP=""
+  for cand in "$ROOT/app/node_modules/electron/dist/Electron.app" "$ROOT"/app/node_modules/.pnpm/electron@*/node_modules/electron/dist/Electron.app; do
+    [ -d "$cand" ] && ELECTRON_APP="$cand" && break
+  done
+  if [ -z "$ELECTRON_APP" ]; then
+    echo "Electron.app not found; install the electron package first (pnpm install --force or npm rebuild electron)." >&2
+    exit 1
+  fi
+  cp -R "$ELECTRON_APP" "$APP"
   mv "$APP/Contents/MacOS/Electron" "$APP/Contents/MacOS/GGPokerClone"
   PB=/usr/libexec/PlistBuddy
   $PB -c "Set :CFBundleExecutable GGPokerClone" "$APP/Contents/Info.plist"
-  $PB -c "Set :CFBundleName DanGG.ro" "$APP/Contents/Info.plist"
-  $PB -c "Set :CFBundleDisplayName DanGG.ro" "$APP/Contents/Info.plist"
+  $PB -c "Set :CFBundleName DanGG" "$APP/Contents/Info.plist"
+  $PB -c "Set :CFBundleDisplayName DanGG" "$APP/Contents/Info.plist"
   $PB -c "Set :CFBundleIdentifier com.danslab.dangro" "$APP/Contents/Info.plist"
   $PB -c "Set :CFBundleShortVersionString 1.0.0" "$APP/Contents/Info.plist"
   $PB -c "Set :CFBundleIconFile AppIcon.icns" "$APP/Contents/Info.plist"
@@ -35,12 +45,12 @@ d=json.load(open(p)); d['main']='electron/main.cjs'; d['name']='ggpoker-clone-de
 json.dump(d,open(p,'w'),indent=2)
 PY
 cd "$HOME/Applications"
-xattr -cr "DanGG.ro.app"
-find "DanGG.ro.app" -name ".DS_Store" -delete
-xattr -cr "DanGG.ro.app"
-codesign --force --deep --sign "Developer ID Application: Dan Semenescu (3RUJZ24Y76)" "DanGG.ro.app" >/dev/null 2>&1 || codesign --force --deep --sign - "DanGG.ro.app"
-codesign --verify --deep --strict "DanGG.ro.app"
+xattr -cr "DanGG.app"
+find "DanGG.app" -name ".DS_Store" -delete
+xattr -cr "DanGG.app"
+codesign --force --deep --sign "Developer ID Application: Dan Semenescu (3RUJZ24Y76)" "DanGG.app" >/dev/null 2>&1 || codesign --force --deep --sign - "DanGG.app"
+codesign --verify --deep --strict "DanGG.app"
 echo "Signed OK"
-env -u ELECTRON_RUN_AS_NODE open -n "DanGG.ro.app"
+env -u ELECTRON_RUN_AS_NODE -u NODE_OPTIONS open -n "DanGG.app"
 sleep 6
 echo "Launched: $(pgrep -lx GGPokerClone | head -1)"

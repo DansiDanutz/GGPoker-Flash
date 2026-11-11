@@ -13,9 +13,9 @@ export function FirstLaunch() {
     <div className="welcome-screen" role="dialog" aria-modal="true" aria-label="Welcome to the app">
       <div className="welcome-card">
         <button className="welcome-close" aria-label="Close" onClick={dismissFirstLaunch}>✕</button>
-        <img className="welcome-logo" src={brand.logo} alt="DanGG.ro" />
+        <img className="welcome-logo" src={brand.logo} alt="DanGG" />
         <p className="install-kicker">YOU&apos;RE IN</p>
-        <h1 className="welcome-title">{user ? `Welcome, ${user.nick}` : 'Welcome to DanGG.ro'}</h1>
+        <h1 className="welcome-title">{user ? `Welcome, ${user.nick}` : 'Welcome to DanGG'}</h1>
         <p className="welcome-sub">The app is ready. Three things worth knowing:</p>
         <ul className="welcome-tips">
           <li>
