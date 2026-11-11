@@ -592,3 +592,22 @@ body.electron .app-window::before { display: none; }
 .elo-challenge-banner b { color: #ffd98a; }
 .elo-challenge-banner span { color: #aeb9b1; font-size: 12px; }
 @media (max-width: 760px) { .elo-hero { gap: 12px; } .elo-ring { width: 86px; height: 86px; } .elo-ring b { font-size: 21px; } .elo-kpis { width: 100%; justify-content: space-between; text-align: left; } }
+
+/* Splash must fit the smallest supported window. */
+@media (max-width: 760px) {
+  .splash-inner { width: min(92vw, 390px); padding: 0 12px; box-sizing: border-box; }
+  .splash-logo { width: min(82vw, 330px); }
+  .splash-tagline { font-size: 9px; letter-spacing: 2.6px; line-height: 1.6; white-space: normal; }
+  .splash-bar { width: min(76vw, 280px); margin-top: 26px; }
+  .splash-status { font-size: 11px; }
+  .splash-legal { margin-top: 42px; padding: 0 18px; line-height: 1.6; white-space: normal; }
+}
+
+@media (max-width: 420px) {
+  .seat { width: 84px; }
+  .seat .plate { min-width: 0; width: 86px; padding: 2px 4px; }
+  .seat .plate .nm { max-width: 78px; font-size: 9.5px; }
+  .seat .plate .st { font-size: 9.5px; }
+  .seat .action-badge { font-size: 8.5px; padding: 0 4px; bottom: -18px; }
+  .seat .bet-chip { font-size: 9px; padding: 0 5px; }
+}
