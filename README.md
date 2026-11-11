@@ -224,6 +224,23 @@ regenerate them from your installed client.
 
 ---
 
+## Parity notes
+
+Faithful to the installed client:
+- lobby layout, top navigation, game tabs, table list and side rail, built from the client's own artwork;
+- the original sound effects, lobby music and many table/notification cues;
+- the string table's 30 locales (including RTL Arabic) for the shared UI vocabulary;
+- cash-game, tournament, Spin & Gold and Mystery Battle Royale formats with a server-authoritative engine;
+- cashier, rewards, missions, GG Pass, Fish Buffet, Ocean Rewards, GG Care, Honeymoon, Prop Bet, hand history and support.
+
+Deliberate approximations in this local build:
+- the 3D Stage3D room is recreated with CSS over the decoded room texture rather than a GPU scene;
+- there is no live-dealer video streaming; casino tables are local RNG games;
+- some clone-specific labels outside the original string table remain English in non-Romanian locales;
+- slot content and the largest tournament series are representative rather than a full content catalogue.
+
+The public repository contains code only. GGPoker artwork, fonts and audio are generated locally from the installed client with `tools/setup_assets.sh` and the asset tools, and are not redistributed.
+
 ## Notes / scope
 
 - This is a faithful **functional** clone: layout, art, audio, tab structure, game flow and

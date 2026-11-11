@@ -51,7 +51,7 @@ export function Tournaments() {
     else if (filter === 'plo') l = l.filter((t: any) => t.format === 'PLO');
     else if (filter === 'holdem') l = l.filter((t: any) => t.format === 'NLH');
     if (series !== 'all') {
-      const needle: Record<string, string> = { wsop: 'WSOP', ggmasters: 'GGMasters', mystery: 'Mystery', spin: 'Spin', flip: 'Flip' };
+      const needle: Record<string, string> = { wsop: 'WSOP', ggmasters: 'GGMasters', mystery: 'Mystery', spin: 'Spin', flip: 'Flip & Go' };
       l = l.filter((t: any) => t.name.toLowerCase().includes(needle[series].toLowerCase()));
     }
     return l;
