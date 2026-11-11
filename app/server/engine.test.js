@@ -331,3 +331,17 @@ test('time bank extension is clamped and usable once per hand', () => {
   clamped.timeBankUsed = new Set();
   assert.equal(clamped.useTimeBank(3, 999).seconds, 60);
 });
+
+test('tournament blinds advance on the clock, not hand count', () => {
+  const t = new PokerTable({
+    id: 'clock', name: 'Clock', game: 'holdem', sb: 50, bb: 100, seats: 2,
+    min_buyin: 1000, max_buyin: 10000,
+    tournament: { blindEvery: 0.001, level: 1, prizePool: 10000 },
+  });
+  t.street = 'ended';
+  t.nextHandAt = 0;
+  const sb = t.sb;
+  t.tick(Date.now() + 100);
+  assert.equal(t.tournament.level, 2);
+  assert.ok(t.sb > sb);
+});

@@ -23,7 +23,7 @@ type TableState = {
   timeBankUsed?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean;
   spin?: { multiplier: number; prize: number; winner: any } | null;
-  tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string } | null;
+  tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null } | null;
   straddle?: boolean;
   runItTwice?: boolean;
   boards?: string[][] | null;
@@ -533,7 +533,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className="pill">Blinds {state ? (state.tournament ? `${state.sb}/${state.bb}` : `${chips(state.sb)}/${chips(state.bb)}`) : ''}</span>
         <span className="pill">Hand #{state?.handNo ?? '-'}</span>
         {state?.spin && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {money(state.spin.prize)}</span>}
-        {state?.tournament && <span className="pill" style={{ color: '#ffd98a' }}>Level {state.tournament.level} · Prize {money(state.tournament.prizePool)}</span>}
+        {state?.tournament && <span className="pill" style={{ color: '#ffd98a' }}>Level {state.tournament.level}{state.tournament.nextBlindAt ? ` · ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000 / 60))}m ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000) % 60).toString().padStart(2, '0')}s` : ''} · Prize {money(state.tournament.prizePool)}</span>}
         {state?.bombPot && <span className="pill" style={{ color: '#ffd98a' }}>BOMB POT</span>}
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         <div className="spacer" />

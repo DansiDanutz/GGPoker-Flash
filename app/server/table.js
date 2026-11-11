@@ -66,6 +66,7 @@ export class PokerTable {
     this.spinPrize = 0;
     this.spinWinner = null;
     this.tournament = cfg.tournament || null;
+    this.levelStartedAt = this.tournament ? Date.now() : 0;
     this.elimination = this.spin || !!this.tournament;
     this.flip = this.tournament?.mode === 'FLIP';
     this.bounty = Number(this.tournament?.bounty || 0);
@@ -226,13 +227,6 @@ export class PokerTable {
       this.bb = Math.round(this.bb * 1.5);
       this.minRaise = this.bb;
       this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb });
-    }
-    if (this.tournament && this.handNo > 0 && this.handNo % (this.tournament.blindEvery || 10) === 0) {
-      this.sb = Math.round(this.sb * 1.5);
-      this.bb = Math.round(this.bb * 1.5);
-      this.minRaise = this.bb;
-      this.tournament.level = (this.tournament.level || 1) + 1;
-      this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb, level: this.tournament.level });
     }
 
     this.handNo++;
@@ -893,6 +887,17 @@ export class PokerTable {
   /* ------------------------------ tick / bots ------------------------------ */
 
   tick(now = Date.now()) {
+    if (this.tournament && this.levelStartedAt && this.tournament.blindEvery > 0) {
+      const interval = Number(this.tournament.blindEvery) * 60000;
+      if (now - this.levelStartedAt >= interval) {
+        this.sb = Math.round(this.sb * 1.5);
+        this.bb = Math.round(this.bb * 1.5);
+        this.minRaise = this.bb;
+        this.tournament.level = (this.tournament.level || 1) + 1;
+        this.levelStartedAt = now;
+        this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb, level: this.tournament.level, nextBlindAt: now + interval });
+      }
+    }
     if (this.street === 'ended' || this.street === 'idle') {
       if (this.nextHandAt && now >= this.nextHandAt) {
         this.nextHandAt = 0;
@@ -1097,7 +1102,7 @@ export class PokerTable {
       straddle: this.straddle,
       runItTwice: this.runItTwice,
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
-      tournament: this.tournament ? { name: this.cfg.name, prizePool: this.tournament.prizePool, level: this.tournament.level || 1, mode: this.tournament.mode || 'STANDARD', bounty: this.tournament.bounty || 0, ticket: this.tournament.ticket || '', winner: this.tournament.winner || null } : null,
+      tournament: this.tournament ? { name: this.cfg.name, prizePool: this.tournament.prizePool, level: this.tournament.level || 1, mode: this.tournament.mode || 'STANDARD', bounty: this.tournament.bounty || 0, ticket: this.tournament.ticket || '', winner: this.tournament.winner || null, nextBlindAt: this.levelStartedAt ? this.levelStartedAt + Number(this.tournament.blindEvery || 10) * 60000 : null } : null,
     };
   }
 

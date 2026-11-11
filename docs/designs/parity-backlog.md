@@ -4,7 +4,7 @@ Audit date: 2026-11-11
 
 ## Verification
 
-- `server/features.test.js` covers private table create/list/mute/delete, private tournament create/detail/delete, cashier bonus idempotency and direct messages; the suite is now 43 tests.
+- `server/features.test.js` covers private table create/list/mute/delete, private tournament create/detail/delete, cashier bonus idempotency and direct messages; the suite is now 44 tests.
 
 ## Sources
 
@@ -58,6 +58,8 @@ not a source to copy blindly.
   - per-table owner chat moderation for seated players, with persistent mute rows;
   - auto buy-in from the lobby Join action.
 - Tournament lifecycle:
+  - blinds advance on a real clock (`blind_speed` minutes), not hand count;
+  - tournament header shows the next-level countdown;
   - a 15-second scheduler moves registering events with at least two entrants to running after their start time;
   - late-registration checks remain enforced by the registration endpoint.
 - Private tournaments:
