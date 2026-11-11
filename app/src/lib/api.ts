@@ -131,6 +131,7 @@ export const api = {
   spin: () => request<any>('/api/rewards/spin', { method: 'POST' }),
   admin: {
     reports: () => request<{ reports: any[] }>('/api/admin/reports'),
+    hand: (id: string) => request<{ hand: any }>(`/api/admin/hands/${encodeURIComponent(id)}`),
     reportAction: (id: number, action: 'resolve' | 'dismiss') => request<any>(`/api/admin/reports/${id}`, { method: 'POST', body: JSON.stringify({ action }) }),
     stats: () => request<any>('/api/admin/stats'),
     users: (q = '') => request<{ users: User[] }>(`/api/admin/users?q=${encodeURIComponent(q)}`),

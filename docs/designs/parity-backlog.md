@@ -92,7 +92,8 @@ not a source to copy blindly.
   - only players dealt into the hand are rated.
 - Player reporting:
   - report from the table profile with reason and details;
-  - persisted reports with optional hand ID, audit entries and admin resolve/dismiss workflow.
+  - persisted reports with optional hand ID, audit entries and admin resolve/dismiss workflow;
+  - admin **Hand** evidence viewer with board, hole cards, stacks, bets and wins.
 - Table player profiles:
   - click a seat to see public avatar, VIP, country, hands/wins/biggest pot and presence;
   - add friend or open a direct message from the profile;

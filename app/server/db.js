@@ -272,6 +272,7 @@ function init() {
   try { db.exec('ALTER TABLE tables ADD COLUMN private INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tables ADD COLUMN bomb_pot INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE reports ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE hands ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN chat_muted INTEGER DEFAULT 0'); } catch { /* already exists */ }

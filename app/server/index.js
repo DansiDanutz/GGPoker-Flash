@@ -226,9 +226,9 @@ function getLiveTable(id) {
     onEvent: (t, evt) => broadcastTable(t, evt),
     onHandSave: (h) => {
       try {
-        db.prepare(`INSERT INTO hands (hand_no,table_id,table_name,game,players,board,pot,result,hero_cards,actions)
-          VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
-          h.handNo, h.tableId, h.tableName, h.game, JSON.stringify(h.players),
+        db.prepare(`INSERT INTO hands (hand_id,hand_no,table_id,table_name,game,players,board,pot,result,hero_cards,actions)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
+          h.handId || null, h.handNo, h.tableId, h.tableName, h.game, JSON.stringify(h.players),
           h.board.join(' '), h.pot, JSON.stringify(h.result), h.heroCards || '', JSON.stringify(h.actions || [])
         );
         const winners = h.result?.winners || [];
@@ -1497,6 +1497,17 @@ const server = http.createServer(async (req, res) => {
       const turnover = db.prepare(`SELECT COALESCE(SUM(ABS(amount)),0) s FROM transactions`).get().s;
       const live = [...LIVE_TABLES.values()].map((e) => ({ id: e.table.cfg.id, name: e.table.cfg.name, players: e.table.occupiedSeats().length, hand: e.table.handNo, street: e.table.street }));
       return json(res, 200, { users, hands, tables, tourneys, turnover, live, online: sitesStats().online, jackpot: getSetting('jackpot'), mint_bot: getSetting('mint_bot_total', 0), mint_spin: getSetting('mint_spin_total', 0) });
+    }
+
+    if (p.startsWith('/api/admin/hands/') && req.method === 'GET') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const handId = decodeURIComponent(p.split('/')[4]);
+      const row = db.prepare('SELECT * FROM hands WHERE hand_id = ? ORDER BY id DESC LIMIT 1').get(handId);
+      if (!row) return json(res, 404, { error: 'Hand not found' });
+      let players = []; let result = {};
+      try { players = JSON.parse(row.players || '[]'); } catch { /* ignore */ }
+      try { result = JSON.parse(row.result || '{}'); } catch { /* ignore */ }
+      return json(res, 200, { hand: { ...row, players, result } });
     }
 
     if (p === '/api/admin/reports' && req.method === 'GET') {

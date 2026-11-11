@@ -4,6 +4,7 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
+import { PlayingCard } from '../components/Card';
 
 const SECTIONS = [
   { key: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -39,6 +40,7 @@ export function Admin() {
   const [audit, setAudit] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+  const [handView, setHandView] = useState<any>(null);
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<any>(null);
   const [local, setLocal] = useState<any>({});
@@ -516,6 +518,7 @@ export function Admin() {
                         <td><span className={'tag ' + (r.status === 'open' ? 'red' : r.status === 'resolved' ? 'live' : '')}>{r.status}</span></td>
                         <td className="muted">{r.created_at?.slice(0, 16)}</td>
                         <td><div className="row" style={{ gap: 3 }}>
+                          {r.hand_id && <button className="btn btn-ghost btn-sm" onClick={async () => { try { const d = await api.admin.hand(r.hand_id); setHandView(d.hand); } catch (e: any) { toast({ kind: 'error', title: 'Hand unavailable', body: e.message }); } }}>Hand</button>}
                           {r.status === 'open' && <button className="btn btn-gold btn-sm" onClick={async () => { await api.admin.reportAction(r.id, 'resolve'); const d = await api.admin.reports(); setReports(d.reports || []); toast({ kind: 'success', title: 'Report resolved' }); }}>Resolve</button>}
                           {r.status === 'open' && <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.reportAction(r.id, 'dismiss'); const d = await api.admin.reports(); setReports(d.reports || []); }}>Dismiss</button>}
                         </div></td>
@@ -556,6 +559,34 @@ export function Admin() {
           )}
         </div>
       </div>
+
+      {handView && (
+        <div className="modal-backdrop" onClick={() => setHandView(null)}>
+          <div className="modal wide" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Hand evidence · {handView.hand_id}</h3><button className="title-icon" onClick={() => setHandView(null)}>✕</button></div>
+            <div className="modal-body">
+              <div className="muted small" style={{ marginBottom: 8 }}>{handView.table_name} · {handView.game} · pot {money(handView.pot)}</div>
+              <div className="row" style={{ gap: 4, marginBottom: 12 }}>
+                {(handView.board || '').split(' ').filter(Boolean).map((c: string) => <PlayingCard key={c} card={c} size="mini" />)}
+                {!(handView.board || '').trim() && <span className="muted small">No board</span>}
+              </div>
+              <table className="admin-table">
+                <thead><tr><th>Player</th><th>Cards</th><th>Stack</th><th>Bet</th><th>Win</th></tr></thead>
+                <tbody>
+                  {(handView.players || []).map((p: any, i: number) => (
+                    <tr key={i}>
+                      <td>{p.nick}{p.folded ? ' (folded)' : ''}</td>
+                      <td className="muted">{(p.cards || []).join(' ') || '—'}</td>
+                      <td>{money(p.stack || 0)}</td><td>{money(p.totalBet || 0)}</td><td className="gold">{p.win ? money(p.win) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="muted small" style={{ marginTop: 10 }}>{(handView.actions || []).length} logged actions · {(handView.result?.reason || 'showdown')}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <div className="modal-backdrop" onClick={() => setEditing(null)}>
