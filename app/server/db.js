@@ -48,7 +48,8 @@ function init() {
     token TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    expires_at TEXT NOT NULL
+    expires_at TEXT NOT NULL,
+    device TEXT DEFAULT ''
   );
   CREATE TABLE IF NOT EXISTS tables (
     id TEXT PRIMARY KEY,
@@ -201,6 +202,7 @@ function init() {
   `);
 
   try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
 }
@@ -332,10 +334,10 @@ export function addTransaction(userId, kind, amount, memo, currency = 'USD') {
   return after;
 }
 
-export function newSession(userId) {
+export function newSession(userId, device = '') {
   const token = randomUUID();
   const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
-  db.prepare('INSERT INTO sessions (token,user_id,expires_at) VALUES (?,?,?)').run(token, userId, expires);
+  db.prepare('INSERT INTO sessions (token,user_id,expires_at,device) VALUES (?,?,?,?)').run(token, userId, expires, String(device).slice(0, 160));
   return token;
 }
 

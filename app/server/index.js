@@ -284,7 +284,7 @@ const server = http.createServer(async (req, res) => {
       if (!user || !checkPassword(body.password || '', user.password)) return json(res, 400, { error: 'Invalid account ID or password' });
       if (user.banned) return json(res, 403, { error: 'This account is locked. Contact support.' });
       db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
-      const token = newSession(user.id);
+      const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
     }
 
@@ -300,7 +300,7 @@ const server = http.createServer(async (req, res) => {
         .run(login, nick, hashPassword(body.password), body.email || '', start, 5);
       const user = db.prepare('SELECT * FROM users WHERE login = ?').get(login);
       addTransaction(user.id, 'welcome', start, 'Welcome bonus');
-      const token = newSession(user.id);
+      const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
     }
 
@@ -684,6 +684,38 @@ const server = http.createServer(async (req, res) => {
       const payout = won ? Math.round(stake * m.mult) : 0;
       const after = addTransaction(u.id, 'propbet', payout - stake, `Prop bet ${body.market} ${won ? 'won' : 'lost'}`, 'USD');
       return json(res, 200, { won, payout, stake, balance: after, market: body.market });
+    }
+
+    // ---------- sessions & password ----------
+    if (p === '/api/sessions' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const current = tokenFrom(req);
+      const rows = db.prepare('SELECT token, created_at, expires_at, device FROM sessions WHERE user_id = ? AND expires_at > datetime(\'now\') ORDER BY created_at DESC').all(u.id);
+      return json(res, 200, { sessions: rows.map((r) => ({ ...r, current: r.token === current })) });
+    }
+    if (p === '/api/sessions' && req.method === 'DELETE') {
+      const u = requireUser(req, res); if (!u) return;
+      const current = tokenFrom(req);
+      db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(u.id, current);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'sessions_revoked', 'all other devices');
+      return json(res, 200, { ok: true });
+    }
+    if (p.startsWith('/api/sessions/') && req.method === 'DELETE') {
+      const u = requireUser(req, res); if (!u) return;
+      const token = p.split('/')[3];
+      if (token === tokenFrom(req)) return json(res, 400, { error: 'Use logout for this device' });
+      db.prepare('DELETE FROM sessions WHERE user_id = ? AND token = ?').run(u.id, token);
+      return json(res, 200, { ok: true });
+    }
+    if (p === '/api/password' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      if (!checkPassword(b.current || '', u.password)) return json(res, 400, { error: 'Current password is incorrect' });
+      if (String(b.next || '').length < 4) return json(res, 400, { error: 'New password must be at least 4 characters' });
+      db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(b.next), u.id);
+      db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(u.id, tokenFrom(req));
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'password_changed', '');
+      return json(res, 200, { ok: true });
     }
 
     // ---------- identity verification ----------

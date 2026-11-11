@@ -44,6 +44,10 @@ export function MyPage() {
   const [vDocType, setVDocType] = useState('Passport');
   const [vDoc, setVDoc] = useState<string | null>(null);
   const [vBusy, setVBusy] = useState(false);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [pwdCur, setPwdCur] = useState('');
+  const [pwdNew, setPwdNew] = useState('');
+  const [pwdBusy, setPwdBusy] = useState(false);
 
   useEffect(() => {
     api.missions().then((r) => setMissions(r.missions)).catch(() => {});
@@ -52,6 +56,7 @@ export function MyPage() {
     fetch('/api/chat').then((r) => r.json()).then((d) => setMessages((d.messages || []).slice(-20))).catch(() => {});
     fetch('/api/notes', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setNotes(d.notes || [])).catch(() => {});
     fetch('/api/friends', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setFriends(d.friends || [])).catch(() => {});
+    fetch('/api/sessions', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setSessions(d.sessions || [])).catch(() => {});
     fetch('/api/verify', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => { setVerify(d.verification); if (d.verification) { setVName(d.verification.full_name || ''); setVDob(d.verification.dob || ''); setVCountry(d.verification.country || 'Romania'); setVDocType(d.verification.doc_type || 'Passport'); } }).catch(() => {});
   }, []);
 
@@ -368,20 +373,47 @@ export function MyPage() {
                 )
               ) : (
                 <>
-                  <div className="field"><label>Current password</label><input type="password" /></div>
-                  <div className="field"><label>New password</label><input type="password" /></div>
-                  <button className="btn btn-red btn-sm" onClick={() => toast({ kind: 'success', title: 'Password updated' })}>Change password</button>
+                  <div className="field"><label>Current password</label><input type="password" value={pwdCur} onChange={(e) => setPwdCur(e.target.value)} /></div>
+                  <div className="field"><label>New password</label><input type="password" value={pwdNew} onChange={(e) => setPwdNew(e.target.value)} /></div>
+                  <button className="btn btn-red btn-sm" disabled={pwdBusy || !pwdCur || pwdNew.length < 4} onClick={async () => {
+                    setPwdBusy(true);
+                    try {
+                      await fetch('/api/password', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ current: pwdCur, next: pwdNew }) });
+                      toast({ kind: 'success', title: 'Password updated', body: 'Other sessions were signed out.' });
+                      setPwdCur(''); setPwdNew('');
+                      const d = await fetch('/api/sessions', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((x) => x.json());
+                      setSessions(d.sessions || []);
+                    } catch (e: any) { toast({ kind: 'error', title: 'Password change failed', body: e.message }); }
+                    finally { setPwdBusy(false); }
+                  }}>{pwdBusy ? 'Updating…' : 'Change password'}</button>
                   <div className="panel-title" style={{ marginTop: 18 }}>Two-factor authentication</div>
                   <div className="kv"><span>Status</span><b>Off</b></div>
-                  <button className="btn btn-ghost btn-sm" onClick={() => toast({ kind: 'info', title: '2FA', body: 'Local demo does not require 2FA.' })}>Enable</button>
+                  <p className="muted small">Two-factor authentication is not required for this local play-money instance.</p>
                 </>
               )}
             </div>
             <div className="card">
-              <div className="panel-title">Sessions</div>
-              <div className="kv"><span>This device</span><b>macOS · active</b></div>
-              <div className="kv"><span>Other sessions</span><b>none</b></div>
-              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={() => navigate('/settings')}>Account settings</button>
+              <div className="between"><div className="panel-title">Active sessions</div>
+                <button className="btn btn-ghost btn-sm" onClick={async () => {
+                  await fetch('/api/sessions', { method: 'DELETE', headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } });
+                  const d = await fetch('/api/sessions', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((x) => x.json());
+                  setSessions(d.sessions || []);
+                  toast({ kind: 'info', title: 'Signed out other devices' });
+                }}>Sign out others</button>
+              </div>
+              {sessions.map((sess) => (
+                <div key={sess.token} className="kv" style={{ alignItems: 'center' }}>
+                  <span>{sess.current ? 'This device' : (sess.device || 'Unknown device').slice(0, 46)}</span>
+                  <span className="row">
+                    <b>{sess.current ? 'active' : sess.created_at?.slice(0, 10)}</b>
+                    {!sess.current && <button className="btn btn-ghost btn-sm" onClick={async () => {
+                      await fetch(`/api/sessions/${sess.token}`, { method: 'DELETE', headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } });
+                      setSessions((prev) => prev.filter((x) => x.token !== sess.token));
+                    }}>Revoke</button>}
+                  </span>
+                </div>
+              ))}
+              {!sessions.length && <div className="muted small">No active sessions.</div>}
             </div>
           </div>
         )}
