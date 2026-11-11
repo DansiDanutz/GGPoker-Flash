@@ -75,6 +75,10 @@ export const api = {
   hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number }) =>
     request<{ id: string }>('/api/tables/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTables: () => request<{ tables: any[] }>('/api/tables/host'),
+  hostTournament: (data: any) => request<{ id: string }>('/api/tournaments/host', { method: 'POST', body: JSON.stringify(data) }),
+  hostTournaments: () => request<{ tournaments: any[] }>('/api/tournaments/host'),
+  deleteHostTournament: (id: string) => request<any>(`/api/tournaments/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  tournament: (id: string) => request<{ tournament: any }>(`/api/tournaments/${encodeURIComponent(id)}`),
   deleteHostTable: (id: string) => request<any>(`/api/tables/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   hostMutes: (id: string) => request<{ muted: any[] }>(`/api/tables/host/${encodeURIComponent(id)}/mutes`),
   muteHostPlayer: (id: string, userId: number, muted: boolean) => request<any>(`/api/tables/host/${encodeURIComponent(id)}/mutes`, { method: 'POST', body: JSON.stringify({ userId, muted }) }),

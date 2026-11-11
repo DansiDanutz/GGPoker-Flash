@@ -44,6 +44,11 @@ export function Tournaments() {
     try { setData(await api.tournaments()); } catch (e: any) { toast({ kind: 'error', title: 'Tournaments', body: e.message }); }
   };
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    const id = new URLSearchParams(location.hash.split('?')[1] || '').get('id');
+    if (!id) return;
+    api.tournament(id).then((r) => setDetail(r.tournament)).catch((e) => toast({ kind: 'error', title: 'Tournament', body: e.message }));
+  }, []);
 
   const list = useMemo(() => {
     if (!data) return [];

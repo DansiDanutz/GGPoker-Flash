@@ -47,6 +47,10 @@ not a source to copy blindly.
   - owner table list, copy-invite link and delete action in the host modal;
   - per-table owner chat moderation for seated players, with persistent mute rows;
   - auto buy-in from the lobby Join action.
+- Private tournaments:
+  - owner-created freezeouts with format, mode, buy-in, fee, stack, blind speed, late registration, bounty, ticket and start time;
+  - owner-only lobby visibility, direct `?id=` invite links, registration, play and deletion;
+  - private tournament rows carry `owner_id` and `private`.
 - Table:
   - eight-reaction emote tray with server broadcast and table/account mute enforcement;
   - card-back skin from settings;

@@ -569,9 +569,56 @@ const server = http.createServer(async (req, res) => {
     // ---------- tournaments ----------
     if (p === '/api/tournaments') {
       const u = userByToken(tokenFrom(req));
-      const rows = db.prepare('SELECT * FROM tournaments WHERE enabled = 1 ORDER BY start_at').all();
+      const rows = db.prepare('SELECT * FROM tournaments WHERE enabled = 1 AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY start_at').all(u?.id || null);
       const regs = u ? db.prepare('SELECT tournament_id FROM tourney_regs WHERE user_id = ?').all(u.id).map((r) => r.tournament_id) : [];
       return json(res, 200, { tournaments: rows, registered: regs });
+    }
+
+    if (p === '/api/tournaments/host' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const rows = db.prepare('SELECT * FROM tournaments WHERE owner_id = ? AND private = 1 ORDER BY start_at').all(u.id);
+      return json(res, 200, { tournaments: rows });
+    }
+
+    if (p.startsWith('/api/tournaments/host/') && req.method === 'DELETE') {
+      const u = requireUser(req, res); if (!u) return;
+      const id = decodeURIComponent(p.slice('/api/tournaments/host/'.length));
+      const t = db.prepare('SELECT * FROM tournaments WHERE id = ? AND owner_id = ? AND private = 1').get(id, u.id);
+      if (!t) return json(res, 404, { error: 'not found' });
+      if (t.status !== 'registering') return json(res, 409, { error: 'Tournament has started' });
+      db.prepare('DELETE FROM tournaments WHERE id = ?').run(id);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'delete_host_tournament', id);
+      return json(res, 200, { ok: true });
+    }
+
+    if (p === '/api/tournaments/host' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      const count = db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id = ? AND private = 1').get(u.id).n;
+      if (count >= 8) return json(res, 400, { error: 'You already have 8 private tournaments' });
+      const name = String(b.name || `${u.nick}'s tournament`).trim().slice(0, 60) || `${u.nick}'s tournament`;
+      const format = ['NLH', 'PLO', 'Short Deck'].includes(b.format) ? b.format : 'NLH';
+      const game = format === 'PLO' ? 'omaha' : format === 'Short Deck' ? 'shortdeck' : 'holdem';
+      const buyin = Math.max(0, Math.round(Number(b.buyin) || 0));
+      const fee = Math.max(0, Math.round(Number(b.fee) || 0));
+      const startingStack = Math.max(100, Math.round(Number(b.starting_stack) || 10000));
+      const blindSpeed = Math.max(1, Math.min(120, Math.round(Number(b.blind_speed) || 8)));
+      const lateReg = Math.max(0, Math.min(600, Math.round(Number(b.late_reg) || 90)));
+      const mode = ['STANDARD', 'BOUNTY', 'MYSTERY', 'SATELLITE', 'FLIP'].includes(b.mode) ? b.mode : 'STANDARD';
+      const start = b.start_at ? new Date(b.start_at).toISOString() : new Date(Date.now() + 3600000).toISOString();
+      const id = `home-t-${u.id}-${Date.now().toString(36)}`;
+      db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled,owner_id,private)
+        VALUES (?,?,?,?,?,0,?, 'registering', 1000, 0, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1)`)
+        .run(id, name, game, buyin, fee, start, startingStack, blindSpeed, lateReg, format, mode, Math.max(0, Number(b.bounty) || 0), String(b.ticket || '').slice(0, 80), u.id);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_tournament', id);
+      return json(res, 200, { ok: true, id });
+    }
+
+    if (p.startsWith('/api/tournaments/') && !p.includes('/register') && !p.includes('/play') && !p.includes('/unregister') && req.method === 'GET') {
+      const id = decodeURIComponent(p.slice('/api/tournaments/'.length));
+      const t = db.prepare('SELECT * FROM tournaments WHERE id = ? AND enabled = 1').get(id);
+      if (!t) return json(res, 404, { error: 'not found' });
+      return json(res, 200, { tournament: t });
     }
 
     if (p.startsWith('/api/tournaments/') && p.endsWith('/register') && req.method === 'POST') {

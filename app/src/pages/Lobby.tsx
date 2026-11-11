@@ -76,6 +76,9 @@ export function Lobby() {
   const [hostBusy, setHostBusy] = useState(false);
   const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000 });
   const [myHosts, setMyHosts] = useState<any[]>([]);
+  const [myTourneys, setMyTourneys] = useState<any[]>([]);
+  const [hostKind, setHostKind] = useState<'cash' | 'tournament'>('cash');
+  const [hostTourneyForm, setHostTourneyForm] = useState({ name: '', format: 'NLH', buyin: 1000, fee: 100, gtd: 0, starting_stack: 10000, blind_speed: 8, late_reg: 90, mode: 'STANDARD', bounty: 0, ticket: '', start_at: new Date(Date.now() + 3600000).toISOString().slice(0, 16) });
   const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
   const [promoIdx, setPromoIdx] = useState(0);
   const [promoPaused, setPromoPaused] = useState(false);
@@ -167,7 +170,7 @@ export function Lobby() {
 
   const openHost = async () => {
     setHostOpen(true);
-    try { const r = await api.hostTables(); setMyHosts(r.tables || []); } catch { setMyHosts([]); }
+    try { const [r, t] = await Promise.all([api.hostTables(), api.hostTournaments()]); setMyHosts(r.tables || []); setMyTourneys(t.tournaments || []); } catch { setMyHosts([]); setMyTourneys([]); }
   };
 
   const copyHostLink = async (id: string) => {
@@ -231,6 +234,31 @@ export function Lobby() {
     } catch (e: any) {
       toast({ kind: 'error', title: 'Could not host table', body: e.message });
     } finally { setHostBusy(false); }
+  };
+
+  const createHostTournament = async () => {
+    if (hostBusy) return;
+    setHostBusy(true);
+    try {
+      const r = await api.hostTournament({ ...hostTourneyForm, start_at: new Date(hostTourneyForm.start_at).toISOString() });
+      toast({ kind: 'success', title: 'Private tournament created', body: 'Copy the invite link or open the event.' });
+      setHostOpen(false);
+      navigate(`/tournaments?id=${r.id}`);
+    } catch (e: any) {
+      toast({ kind: 'error', title: 'Could not host tournament', body: e.message });
+    } finally { setHostBusy(false); }
+  };
+
+  const copyTourneyLink = async (id: string) => {
+    const link = `${location.origin}/#/tournaments?id=${id}`;
+    try { await navigator.clipboard.writeText(link); toast({ kind: 'success', title: 'Tournament invite copied', body: link }); }
+    catch { toast({ kind: 'info', title: 'Copy this link', body: link }); }
+  };
+
+  const deleteHostTournament = async (id: string) => {
+    if (!window.confirm('Delete this private tournament?')) return;
+    try { await api.deleteHostTournament(id); setMyTourneys((rows) => rows.filter((r) => r.id !== id)); toast({ kind: 'success', title: 'Private tournament deleted' }); }
+    catch (e: any) { toast({ kind: 'error', title: 'Cannot delete tournament', body: e.message }); }
   };
 
   const loadChat = async () => {
@@ -544,35 +572,73 @@ export function Lobby() {
       {hostOpen && (
         <div className="modal-backdrop" onClick={() => setHostOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 540 }}>
-            <div className="modal-head"><h3>Host a private table</h3><button className="title-icon" onClick={() => setHostOpen(false)}>✕</button></div>
+            <div className="modal-head"><h3>{hostKind === 'cash' ? 'Host a private table' : 'Host a private tournament'}</h3><button className="title-icon" onClick={() => setHostOpen(false)}>✕</button></div>
             <div className="modal-body">
-              <p className="muted small" style={{ marginTop: 0 }}>Local play-money table. Only you and players with the table link can see it.</p>
-              {myHosts.length > 0 && (
-                <div className="host-list">
-                  <div className="panel-title" style={{ marginBottom: 4 }}>Your private tables</div>
-                  {myHosts.map((t) => (
-                    <div key={t.id} className="host-row">
-                      <div><b>{t.name}</b><span>{t.game} · {t.seats}-max · {money(t.sb)}/{money(t.bb)}</span></div>
-                      <button className="btn btn-ghost btn-sm" onClick={() => copyHostLink(t.id)}>Copy invite</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => deleteHost(t.id)}>Delete</button>
-                    </div>
-                  ))}
-                  <div style={{ height: 10 }} />
-                </div>
-              )}
-              <label className="admin-label">Table name</label>
-              <input className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} table`} value={hostForm.name} onChange={(e) => setHostForm({ ...hostForm, name: e.target.value })} maxLength={40} />
-              <div className="grid g2" style={{ marginTop: 10 }}>
-                <div><label className="admin-label">Game</label><select className="admin-select" style={{ width: '100%' }} value={hostForm.game} onChange={(e) => setHostForm({ ...hostForm, game: e.target.value })}><option value="holdem">No-limit Hold'em</option><option value="omaha">PLO 4</option><option value="omaha5">PLO 5</option><option value="omaha6">PLO 6</option><option value="shortdeck">Short Deck</option></select></div>
-                <div><label className="admin-label">Seats</label><input className="admin-input" type="number" min={2} max={9} value={hostForm.seats} onChange={(e) => setHostForm({ ...hostForm, seats: Number(e.target.value) })} /></div>
-                <div><label className="admin-label">Small blind (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.sb} onChange={(e) => setHostForm({ ...hostForm, sb: Number(e.target.value) })} /></div>
-                <div><label className="admin-label">Big blind (cents)</label><input className="admin-input" type="number" min={2} value={hostForm.bb} onChange={(e) => setHostForm({ ...hostForm, bb: Number(e.target.value) })} /></div>
-                <div><label className="admin-label">Min buy-in (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.min_buyin} onChange={(e) => setHostForm({ ...hostForm, min_buyin: Number(e.target.value) })} /></div>
-                <div><label className="admin-label">Max buy-in (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.max_buyin} onChange={(e) => setHostForm({ ...hostForm, max_buyin: Number(e.target.value) })} /></div>
+              <div className="tabs-line" style={{ marginBottom: 12 }}>
+                <button className={hostKind === 'cash' ? 'on' : ''} onClick={() => setHostKind('cash')}>Cash table</button>
+                <button className={hostKind === 'tournament' ? 'on' : ''} onClick={() => setHostKind('tournament')}>Tournament</button>
               </div>
-              <p className="muted small">Stakes are stored in cents. Example: 200/400 = $2/$4. Max buy-in must be at least the minimum.</p>
+              {hostKind === 'cash' && (<>
+                <p className="muted small" style={{ marginTop: 0 }}>Local play-money table. Only you and players with the table link can see it.</p>
+                {myHosts.length > 0 && (
+                  <div className="host-list">
+                    <div className="panel-title" style={{ marginBottom: 4 }}>Your private tables</div>
+                    {myHosts.map((t) => (
+                      <div key={t.id} className="host-row">
+                        <div><b>{t.name}</b><span>{t.game} · {t.seats}-max · {money(t.sb)}/{money(t.bb)}</span></div>
+                        <button className="btn btn-ghost btn-sm" onClick={() => copyHostLink(t.id)}>Copy invite</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => deleteHost(t.id)}>Delete</button>
+                      </div>
+                    ))}
+                    <div style={{ height: 10 }} />
+                  </div>
+                )}
+                <label className="admin-label">Table name</label>
+                <input className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} table`} value={hostForm.name} onChange={(e) => setHostForm({ ...hostForm, name: e.target.value })} maxLength={40} />
+                <div className="grid g2" style={{ marginTop: 10 }}>
+                  <div><label className="admin-label">Game</label><select className="admin-select" style={{ width: '100%' }} value={hostForm.game} onChange={(e) => setHostForm({ ...hostForm, game: e.target.value })}><option value="holdem">No-limit Hold'em</option><option value="omaha">PLO 4</option><option value="omaha5">PLO 5</option><option value="omaha6">PLO 6</option><option value="shortdeck">Short Deck</option></select></div>
+                  <div><label className="admin-label">Seats</label><input className="admin-input" type="number" min={2} max={9} value={hostForm.seats} onChange={(e) => setHostForm({ ...hostForm, seats: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Small blind (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.sb} onChange={(e) => setHostForm({ ...hostForm, sb: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Big blind (cents)</label><input className="admin-input" type="number" min={2} value={hostForm.bb} onChange={(e) => setHostForm({ ...hostForm, bb: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Min buy-in (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.min_buyin} onChange={(e) => setHostForm({ ...hostForm, min_buyin: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Max buy-in (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.max_buyin} onChange={(e) => setHostForm({ ...hostForm, max_buyin: Number(e.target.value) })} /></div>
+                </div>
+                <p className="muted small">Stakes are stored in cents. Example: 200/400 = $2/$4. Max buy-in must be at least the minimum.</p>
+              </>)}
+
+              {hostKind === 'tournament' && (<>
+                <p className="muted small" style={{ marginTop: 0 }}>Private freezeout. Registrants need the invite link.</p>
+                {myTourneys.length > 0 && (
+                  <div className="host-list">
+                    <div className="panel-title" style={{ marginBottom: 4 }}>Your private tournaments</div>
+                    {myTourneys.map((t) => (
+                      <div key={t.id} className="host-row">
+                        <div><b>{t.name}</b><span>{t.format} · {t.mode} · {new Date(t.start_at).toLocaleString('en-GB')}</span></div>
+                        <button className="btn btn-ghost btn-sm" onClick={() => copyTourneyLink(t.id)}>Copy invite</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => deleteHostTournament(t.id)}>Delete</button>
+                      </div>
+                    ))}
+                    <div style={{ height: 10 }} />
+                  </div>
+                )}
+                <label className="admin-label">Tournament name</label>
+                <input className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} tournament`} value={hostTourneyForm.name} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, name: e.target.value })} maxLength={60} />
+                <div className="grid g2" style={{ marginTop: 10 }}>
+                  <div><label className="admin-label">Format</label><select className="admin-select" style={{ width: '100%' }} value={hostTourneyForm.format} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, format: e.target.value })}><option value="NLH">No-limit Hold'em</option><option value="PLO">Pot-limit Omaha</option><option value="Short Deck">Short Deck</option></select></div>
+                  <div><label className="admin-label">Mode</label><select className="admin-select" style={{ width: '100%' }} value={hostTourneyForm.mode} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, mode: e.target.value })}><option>STANDARD</option><option>BOUNTY</option><option>MYSTERY</option><option>SATELLITE</option><option>FLIP</option></select></div>
+                  <div><label className="admin-label">Buy-in (cents)</label><input className="admin-input" type="number" min={0} value={hostTourneyForm.buyin} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, buyin: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Fee (cents)</label><input className="admin-input" type="number" min={0} value={hostTourneyForm.fee} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, fee: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Starting stack</label><input className="admin-input" type="number" min={100} value={hostTourneyForm.starting_stack} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, starting_stack: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Blind speed (min)</label><input className="admin-input" type="number" min={1} max={120} value={hostTourneyForm.blind_speed} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, blind_speed: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Late registration (min)</label><input className="admin-input" type="number" min={0} max={600} value={hostTourneyForm.late_reg} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, late_reg: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Bounty (cents)</label><input className="admin-input" type="number" min={0} value={hostTourneyForm.bounty} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, bounty: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Start</label><input className="admin-input" type="datetime-local" value={hostTourneyForm.start_at} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, start_at: e.target.value })} /></div>
+                  <div><label className="admin-label">Satellite ticket</label><input className="admin-input" value={hostTourneyForm.ticket} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, ticket: e.target.value })} placeholder="Target event" /></div>
+                </div>
+                <p className="muted small">Freezeout starts when at least two players register at the start time.</p>
+              </>)}
             </div>
-            <div className="modal-foot"><button className="btn btn-dark" onClick={() => setHostOpen(false)}>Cancel</button><button className="btn btn-gold" disabled={hostBusy || hostForm.max_buyin < hostForm.min_buyin} onClick={createHost}>{hostBusy ? 'Creating…' : 'Create table'}</button></div>
+            <div className="modal-foot"><button className="btn btn-dark" onClick={() => setHostOpen(false)}>Cancel</button>{hostKind === 'cash' ? <button className="btn btn-gold" disabled={hostBusy || hostForm.max_buyin < hostForm.min_buyin} onClick={createHost}>{hostBusy ? 'Creating…' : 'Create table'}</button> : <button className="btn btn-gold" disabled={hostBusy} onClick={createHostTournament}>{hostBusy ? 'Creating…' : 'Create tournament'}</button>}</div>
           </div>
         </div>
       )}

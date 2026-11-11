@@ -116,7 +116,9 @@ function init() {
     bounty INTEGER DEFAULT 0,
     ticket TEXT DEFAULT '',
     banner TEXT DEFAULT '',
-    enabled INTEGER NOT NULL DEFAULT 1
+    enabled INTEGER NOT NULL DEFAULT 1,
+    owner_id INTEGER,
+    private INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS tourney_regs (
     tournament_id TEXT NOT NULL,
@@ -231,6 +233,8 @@ function init() {
   try { db.exec('ALTER TABLE tournaments ADD COLUMN bounty INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tournaments ADD COLUMN late_reg INTEGER DEFAULT 90'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE tournaments ADD COLUMN ticket TEXT DEFAULT ''"); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tournaments ADD COLUMN owner_id INTEGER'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tournaments ADD COLUMN private INTEGER DEFAULT 0'); } catch { /* already exists */ }
   db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND (mode IS NULL OR mode='STANDARD')");
   db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND (mode IS NULL OR mode='STANDARD')");
   db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND (mode IS NULL OR mode='STANDARD')");
