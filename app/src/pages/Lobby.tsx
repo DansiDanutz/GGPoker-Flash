@@ -11,7 +11,7 @@ const TAB_GAME: Record<string, string[]> = {
   aof: ['aof'],
   rush: ['rush'],
   holdem: ['holdem'],
-  plo: ['omaha', 'omaha5'],
+  plo: ['omaha', 'omaha5', 'omaha6'],
   short: ['shortdeck'],
   spin: ['spingold'],
   battle: ['battleroyale'],

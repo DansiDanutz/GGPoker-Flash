@@ -54,7 +54,7 @@ function init() {
   CREATE TABLE IF NOT EXISTS tables (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    game TEXT NOT NULL,             -- holdem | omaha | omaha5 | shortdeck | rush | aof | spingold | battleroyale | flipandgo
+    game TEXT NOT NULL,             -- holdem | omaha | omaha5 | omaha6 | shortdeck | rush | aof | spingold | battleroyale | flipandgo
     category TEXT NOT NULL,         -- Diamond | Platinum | Gold | Silver ...
     sb INTEGER NOT NULL,
     bb INTEGER NOT NULL,
@@ -231,7 +231,21 @@ function init() {
     FROM daily_claims`).run();
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
+  ensurePloVariants();
   ensureSeries();
+}
+
+function ensurePloVariants() {
+  const ins = db.prepare(`INSERT OR IGNORE INTO tables
+    (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,sort)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  let sort = 900;
+  for (const [game, label] of [['omaha5', 'PLO5'], ['omaha6', 'PLO6']]) {
+    for (let i = 1; i <= 6; i++) {
+      ins.run(`${game}-platinum-${i}`, `${label} Platinum ${String(i).padStart(2, '0')}`, game, 'Platinum',
+        500, 1000, 0, 20000, 100000, 6, 'Normal', 0, sort++);
+    }
+  }
 }
 
 function ensureSeries() {

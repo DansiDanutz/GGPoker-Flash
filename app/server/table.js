@@ -72,7 +72,8 @@ export class PokerTable {
       this.spinMultiplier = options[Math.floor(Math.random() * options.length)];
       this.spinPrize = Math.round(cfg.min_buyin * this.spinMultiplier);
     }
-    this.omaha = cfg.game === 'omaha' || cfg.game === 'omaha5';
+    this.omahaHole = cfg.game === 'omaha5' ? 5 : cfg.game === 'omaha6' ? 6 : 4;
+    this.omaha = cfg.game === 'omaha' || cfg.game === 'omaha5' || cfg.game === 'omaha6';
     this.messageSeq = 0;
     this.tableEpoch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     this.tableVersion = 0;
@@ -304,8 +305,7 @@ export class PokerTable {
     if (this.omaha) {
       for (const s of dealOrder) {
         if (s.player && s.player.inHand) {
-          s.player.cards.push(this.deck.pop());
-          s.player.cards.push(this.deck.pop());
+          for (let i = 0; i < this.omahaHole - 2; i++) s.player.cards.push(this.deck.pop());
         }
       }
     }

@@ -182,3 +182,13 @@ test('snapshots and events carry a table epoch and monotonic version', () => {
   assert.equal(before.tableEpoch, after.tableEpoch);
   assert.equal(after.tableVersion, before.tableVersion + 1);
 });
+
+
+test('PLO5 and PLO6 deal five and six hole cards', () => {
+  const p1 = player(1, 'A', 1000, 0, []);
+  const p2 = player(2, 'B', 1000, 0, []);
+  const t5 = tableWith([p1, p2], { seats: 2, game: 'omaha5' });
+  assert.equal(t5.omahaHole, 5);
+  const t6 = tableWith([p1, p2], { seats: 2, game: 'omaha6' });
+  assert.equal(t6.omahaHole, 6);
+});

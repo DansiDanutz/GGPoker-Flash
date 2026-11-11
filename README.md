@@ -230,7 +230,7 @@ Faithful to the installed client:
 - lobby layout, top navigation, game tabs, table list and side rail, built from the client's own artwork;
 - the original sound effects, lobby music and many table/notification cues;
 - the string table's 30 locales (including RTL Arabic) for the shared UI vocabulary;
-- cash-game, tournament, Spin & Gold and Mystery Battle Royale formats with a server-authoritative engine;
+- cash-game Hold'em, PLO, PLO5, PLO6, Short Deck, tournament, Spin & Gold and Mystery Battle Royale formats with a server-authoritative engine;
 - cashier, rewards, missions, GG Pass, Fish Buffet, Ocean Rewards, GG Care, Honeymoon, Prop Bet, hand history and support.
 
 Deliberate approximations in this local build:

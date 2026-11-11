@@ -158,6 +158,7 @@ export const GAME_LABEL: Record<string, string> = {
   holdem: "Hold'em",
   omaha: 'PLO',
   omaha5: 'PLO5',
+  omaha6: 'PLO6',
   shortdeck: 'Short Deck',
   rush: 'Rush & Cash',
   aof: 'All-in or Fold',
