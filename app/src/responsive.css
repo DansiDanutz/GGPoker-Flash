@@ -555,3 +555,5 @@ body.electron .app-window::before { display: none; }
 .pcard.art-face.art-official-gold { background-image: url('/assets/cards/faces_gold.png'); }
 .pcard.art-face.art-official-filled { background-image: url('/assets/cards/faces_filled.png'); }
 .pcard.art-face.art-official-two { background-image: url('/assets/cards/faces_two.png'); }
+.room-bg-5ring .room-mark { background-image: url('/assets/tables/table_5ring.png'); background-position: center 44%; background-size: cover; filter: brightness(1.28) contrast(1.04) saturate(.85); opacity: .96; }
+.room-bg-envelope .room-mark { background-image: url('/assets/tables/table_envelope.png'); background-position: center 44%; background-size: cover; filter: brightness(1.15) contrast(1.05) saturate(1.05); opacity: .96; }
