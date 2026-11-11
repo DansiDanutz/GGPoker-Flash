@@ -3,6 +3,7 @@ import { useApp } from '../lib/store';
 import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
+import { SwfEffect } from '../components/SwfEffect';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
@@ -66,6 +67,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [noteColor, setNoteColor] = useState('yellow');
   const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
   const [autoMuck, setAutoMuck] = useState(() => localStorage.getItem('ggpoker.automuck') === '1');
+  const [swfEffect, setSwfEffect] = useState<string | null>(null);
+  const clearSwf = useCallback(() => setSwfEffect(null), []);
+  const spinIntroSeen = useRef(false);
   const [squeeze, setSqueeze] = useState(false);
   const autoRebuyPending = useRef(false);
   const spinSeen = useRef(false);
@@ -240,19 +244,22 @@ export function TablePage({ tableId }: { tableId: string }) {
       toast({ kind: 'info', title: 'Insurance bought', body: `Premium ${money(evt.premium)} for the next hand` });
     } else if (evt.type === 'insurance_paid') {
       toast({ kind: 'reward', title: 'Insurance paid', body: money(evt.amount) });
+    } else if (evt.type === 'spin_win') {
+      setSwfEffect('/assets/swf/spin_win.swf');
+      setSpinWin(evt);
+      sound.play('sngWin');
+      setTimeout(() => sound.play('fireworks', { volume: .7 }), 600);
     } else if (evt.type === 'bounty') {
+      if (evt.mystery) setSwfEffect('/assets/swf/mystery_box.swf');
       toast({ kind: 'reward', title: evt.mystery ? 'Mystery bounty' : 'Bounty', body: `${evt.winnerNick} wins ${money(evt.amount)} (${evt.bustedNick})` });
       sound.play('coin');
     } else if (evt.type === 'tourney_payout') {
       toast({ kind: 'reward', title: `Finished #${evt.place}`, body: `${evt.nick} wins ${money(evt.payout)}` });
       sound.play('coin');
     } else if (evt.type === 'tourney_win') {
+      if (!evt.ticket) setSwfEffect('/assets/swf/win_effect.swf');
       setTourneyWin(evt);
       sound.play('tournamentWin');
-      setTimeout(() => sound.play('fireworks', { volume: .7 }), 600);
-    } else if (evt.type === 'spin_win') {
-      setSpinWin(evt);
-      sound.play('sngWin');
       setTimeout(() => sound.play('fireworks', { volume: .7 }), 600);
     } else if (evt.type === 'rabbit') {
       setRabbit(evt.cards || []);
@@ -392,6 +399,13 @@ export function TablePage({ tableId }: { tableId: string }) {
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
 
   useEffect(() => {
+    if (state?.spin && state.handNo === 1 && !spinIntroSeen.current) {
+      spinIntroSeen.current = true;
+      setSwfEffect('/assets/swf/spin_intro.swf');
+    }
+  }, [state?.spin, state?.handNo]);
+
+  useEffect(() => {
     if (!state?.handNo) return;
     setSqueeze(true);
     const id = window.setTimeout(() => setSqueeze(false), 700);
@@ -477,6 +491,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button onClick={() => { setRebuyAmount(state?.minBuyin || 0); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
+          <button onClick={() => setSwfEffect('/assets/swf/chip_shuffle.swf')}>Official FX preview</button>
           <button onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Straddle</button>
           <button onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
           <button onClick={() => send({ type: 'option', tableId, runItTwice: !state?.runItTwice })}>{state?.runItTwice ? '✓ ' : ''}Run it twice</button>
@@ -739,6 +754,8 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="spin-sub">Good luck — {state.seats}-handed winner takes all</div>
         </div>
       )}
+
+      {swfEffect && <SwfEffect src={swfEffect} onDone={clearSwf} />}
 
       {tourneyWin && (
         <div className="spin-overlay win">

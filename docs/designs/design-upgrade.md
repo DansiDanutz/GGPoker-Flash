@@ -48,6 +48,29 @@ The generic purple/neon recommendation from the design system was rejected: it w
 - Reduced-motion support is explicit.
 - Cards and chips are decorative; amounts remain textual.
 
+## Lobby navigation and carousel
+
+- Added the official-style left rail: Game Lobby, Daily Challenge, Daily
+  Leaderboard, Millionaires Club, ELO Rating, ELO Challenge, LIVE and Play Money,
+  with a gold active state and a live pulse.
+- The hero is now a four-slide carousel: the main promo plus official Discover
+  art cards, with autoplay, pause-on-hover, previous/next controls, progress
+  dots, crossfade and a per-slide CTA.
+
+## Authentic SWF motion
+
+The official client's SWF effects are played through **Ruffle 0.7.1**:
+
+- `spinandgold_animation.swf` plays as the Spin & Gold intro;
+- `spinandgold_congratulation.swf` plays on a Spin win;
+- `mystery_jackpot_bounty_box_motion.swf` plays on a mystery bounty;
+- `winEffect.swf` plays on a tournament win;
+- `chipShuffle.swf` is available from the table menu as an FX preview.
+
+The runtime is copied into `app/public/ruffle` by `tools/copy_ruffle.mjs`; the
+packaged CSP allows `wasm-unsafe-eval` and blob workers. The SWF files stay
+local and are not redistributed.
+
 ## Official assets used
 
 - **Table backdrop:** decoded from the installed client's
@@ -65,6 +88,13 @@ The installed client was inspected at
 It contains 771 MB of atlases, SWFs, bitmap fonts, sounds and room art. The CSS
 surface cannot execute the client's SWF/Stage3D content directly; the static
 table and card assets are used, while the motion is rebuilt in CSS.
+
+## Remaining official assets
+
+The official card-face atlas is a set of 53 large frames (face cards and backs),
+not a clean 52-card rank/suit map. The official flag atlas likewise has 820
+unnamed frames. Those two remain a mapping exercise; the table backdrop and one
+official card back are already in use.
 
 ## Limits
 

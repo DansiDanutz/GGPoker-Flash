@@ -17,6 +17,13 @@ const TAB_GAME: Record<string, string[]> = {
   battle: ['battleroyale'],
 };
 
+const PROMOS = [
+  { full: true, title: 'Daily $100,000 Flipout', sub: 'Daily jackpots · 6/9-max tables', to: '/tournaments' },
+  { img: '/assets/ui/discover/Bg_Discover_AoF.png', bg: 'radial-gradient(120% 160% at 18% 10%, #3c1b17, #150c0b 68%)', title: 'All-in or Fold', sub: 'One decision. Fast action.', to: '/?tab=aof' },
+  { img: '/assets/ui/discover/Bg_Discover_Leaderboard_PLO6.png', bg: 'radial-gradient(120% 160% at 15% 10%, #1a2740, #0a111d 70%)', title: 'PLO6 is live', sub: 'Six cards. Six-max. More outs.', to: '/?tab=plo' },
+  { img: '/assets/ui/discover/Bg_Discover_GGcare.png', bg: 'radial-gradient(120% 160% at 18% 10%, #3a2a12, #140f08 70%)', title: 'GG Care', sub: 'Daily rewards and community drops', to: '/ggcare' },
+];
+
 const PREVIEW_SEATS = [
   { x: 50, y: 8 }, { x: 10, y: 30 }, { x: 90, y: 30 },
   { x: 12, y: 74 }, { x: 88, y: 74 }, { x: 50, y: 92 },
@@ -67,6 +74,7 @@ export function Lobby() {
   const [seat, setSeat] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
   const [promoIdx, setPromoIdx] = useState(0);
+  const [promoPaused, setPromoPaused] = useState(false);
   const [sortKey, setSortKey] = useState<'name'|'bb'|'players'|'avgPot'>('bb');
   const [sortDir, setSortDir] = useState<1|-1>(-1);
   const [search, setSearch] = useState('');
@@ -218,11 +226,45 @@ export function Lobby() {
         </div>
       )}
       <div className="lobby-content">
+        <aside className="lobby-left" aria-label="Poker navigation">
+          <div className="ll-label">POKER</div>
+          <button className="ll-item on" aria-current="page" onClick={() => navigate('/')}><span className="ll-mark" />Game Lobby</button>
+          <button className="ll-item" onClick={() => navigate('/rewards')}><span className="ll-mark" />Daily Challenge</button>
+          <button className="ll-item" onClick={() => navigate('/leaderboard')}><span className="ll-mark" />Daily Leaderboard</button>
+          <button className="ll-item" onClick={() => navigate('/tournaments')}><span className="ll-mark" />Millionaires Club</button>
+          <button className="ll-item" onClick={() => navigate('/leaderboard')}><span className="ll-mark" />ELO Rating</button>
+          <button className="ll-item" onClick={() => navigate('/leaderboard')}><span className="ll-mark" />ELO Challenge</button>
+          <button className="ll-item ll-live" onClick={() => navigate('/casino')}><span className="ll-live-dot" />LIVE</button>
+          <button className="ll-item ll-play" onClick={() => setGameTab('holdem')}><span className="ll-mark" />Play Money</button>
+        </aside>
         <div className="lobby-main">
-          <div className="promo-wrap" onClick={() => { sound.play('click'); navigate('/promotions'); }}>
-            <img className="promo-img" src={brand.promo} alt="Promotion" />
+          <div
+            className={'promo-wrap' + (promoPaused ? ' paused' : '')}
+            onMouseEnter={() => setPromoPaused(true)}
+            onMouseLeave={() => setPromoPaused(false)}
+            onClick={() => { sound.play('click'); navigate(PROMOS[promoIdx]?.to || '/promotions'); }}
+          >
+            {PROMOS.map((p, i) => p.full ? (
+              <img key="full" className={'promo-img' + (i === promoIdx ? ' on' : '')} src={brand.promo} alt={p.title} />
+            ) : (
+              <div key={p.img} className={'promo-art-bg' + (i === promoIdx ? ' on' : '')} style={{ background: p.bg }}>
+                <img className="promo-art" src={p.img} alt="" />
+              </div>
+            ))}
             <span className="promo-badge">FEATURED</span>
+            <div className="promo-copy">
+              <small>PROMOTION</small>
+              <b>{PROMOS[promoIdx]?.title}</b>
+              <span>{PROMOS[promoIdx]?.sub}</span>
+            </div>
             <span className="promo-cta">Discover <span>→</span></span>
+            <button className="promo-arrow prev" aria-label="Previous promotion" onClick={(e) => { e.stopPropagation(); setPromoIdx((i) => (i - 1 + PROMOS.length) % PROMOS.length); }}>‹</button>
+            <button className="promo-arrow next" aria-label="Next promotion" onClick={(e) => { e.stopPropagation(); setPromoIdx((i) => (i + 1) % PROMOS.length); }}>›</button>
+            <div className="promo-dots">
+              {PROMOS.map((p, i) => (
+                <button key={p.img} className={i === promoIdx ? 'on' : ''} aria-label={`Show ${p.title}`} onClick={(e) => { e.stopPropagation(); setPromoIdx(i); }} />
+              ))}
+            </div>
           </div>
           <div className="filter-bar">
             <select value={stakeFilter} onChange={(e) => setStakeFilter(e.target.value)}>

@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@ruffle-rs/ruffle':
+        specifier: ^0.7.1
+        version: 0.7.1
       react:
         specifier: ^19.2.0
         version: 19.3.1
@@ -508,6 +511,9 @@ packages:
     resolution: {integrity: sha512-ee+c14ggUiM7lg4PtCjSBYU9O9dHp4FFespRnd5yj7SilUBJCL3x3aHlB+sIqbGjcPo3pEyODASnfKJuZ26YBw==}
     cpu: [x64]
     os: [win32]
+
+  '@ruffle-rs/ruffle@0.7.1':
+    resolution: {integrity: sha512-6ZWxx/cfX3RoNyQ1AVimECSae4gKqMxdPimOD+chiIcOFiJS0ATGKcjkretxNT03lqNUpiSyJjF55AuvvZ+QeA==}
 
   '@sindresorhus/is@4.6.0':
     resolution: {integrity: sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw==}
@@ -1656,6 +1662,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.68.2':
     optional: true
+
+  '@ruffle-rs/ruffle@0.7.1': {}
 
   '@sindresorhus/is@4.6.0': {}
 
