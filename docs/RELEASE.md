@@ -28,14 +28,12 @@ Local, play-money-only desktop clone. Server-authoritative; no real-money flows.
 
 Poker lobby, Rush & Cash, cash tables, private tables, bomb pot, tournaments,
 private tournaments, Spin & Gold, Battle Royale, slots, casino, rewards,
-missions, cashier, leaderboards, ELO, hand history, profile, social, DMs,
-friend requests, notifications, player reports, admin console, owner moderation.
+missions, cashier with filters/CSV, leaderboards, per-variant ELO, Crash,
+hand history, profile, social, DMs with live push, friend requests, notifications,
+player reports with hand evidence, admin console, owner moderation.
 
 ## Remaining
 
 - True multi-table tournament flights/balancing.
 - KKPoker-specific verification (not installed/exposed).
-- Push DMs/notifications (polling currently).
 - Complete native background catalogue.
-- Native hotkey remapping.
-- Per-variant Elo ladders.
