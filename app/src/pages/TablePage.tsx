@@ -49,6 +49,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const timerWarnRef = useRef<string>('');
   const [fx, setFx] = useState<{ id: number; seat: number; amount: number }[]>([]);
   const [winFx, setWinFx] = useState<{ id: number; amount: number; nick: string } | null>(null);
+  const [cashDrop, setCashDrop] = useState<{ amount: number; nick: string } | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [spinShow, setSpinShow] = useState(false);
   const [spinWin, setSpinWin] = useState<any>(null);
@@ -279,6 +280,11 @@ export function TablePage({ tableId }: { tableId: string }) {
       toast({ kind: 'info', title: 'Insurance bought', body: `Premium ${money(evt.premium)} for the next hand` });
     } else if (evt.type === 'insurance_paid') {
       toast({ kind: 'reward', title: 'Insurance paid', body: money(evt.amount) });
+    } else if (evt.type === 'cashdrop') {
+      setCashDrop({ amount: evt.amount, nick: evt.nick });
+      sound.play('cashdrop', { volume: .8 });
+      toast({ kind: 'reward', title: 'Rush Cash Drop', body: `${evt.nick} won ${money(evt.amount)}` });
+      window.setTimeout(() => setCashDrop(null), 4500);
     } else if (evt.type === 'spin_win') {
       setSwfEffect('/assets/swf/spin_win.swf');
       setSpinWin(evt);
@@ -544,6 +550,14 @@ export function TablePage({ tableId }: { tableId: string }) {
           {['😀', '😂', '😎', '😱', '😡', '🍀', '🎉', '🐟'].map((e) => (
             <button key={e} onClick={() => { send({ type: 'emote', emote: e }); setEmoteOpen(false); sound.play('bubble', { volume: .45 }); }}>{e}</button>
           ))}
+        </div>
+      )}
+
+      {cashDrop && (
+        <div className="cashdrop-overlay">
+          <div className="cashdrop-title">RUSH CASH DROP</div>
+          <div className="cashdrop-amount">{money(cashDrop.amount)}</div>
+          <div className="cashdrop-nick">{cashDrop.nick}</div>
         </div>
       )}
 

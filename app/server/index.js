@@ -231,6 +231,15 @@ function getLiveTable(id) {
           h.handNo, h.tableId, h.tableName, h.game, JSON.stringify(h.players),
           h.board.join(' '), h.pot, JSON.stringify(h.result), h.heroCards || '', JSON.stringify(h.actions || [])
         );
+        if (h.game === 'rush' && Math.random() < 0.12) {
+          const humans = (h.players || []).filter((p) => p && p.id && !p.isBot && db.prepare('SELECT 1 FROM users WHERE id = ?').get(p.id));
+          if (humans.length) {
+            const lucky = humans[Math.floor(Math.random() * humans.length)];
+            const amount = Math.max(100, Math.min(5000, Math.round((Number(h.pot) || 0) * 0.5 / 100) * 100));
+            addTransaction(lucky.id, 'cashdrop', amount, 'Rush & Cash drop');
+            table.emit({ type: 'cashdrop', nick: lucky.nick, amount });
+          }
+        }
       } catch (e) { console.error('hand save', e); }
     },
     onTournamentPayout: (table, p) => {

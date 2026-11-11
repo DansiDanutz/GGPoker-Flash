@@ -557,3 +557,8 @@ body.electron .app-window::before { display: none; }
 .pcard.art-face.art-official-two { background-image: url('/assets/cards/faces_two.png'); }
 .room-bg-5ring .room-mark { background-image: url('/assets/tables/table_5ring.png'); background-position: center 44%; background-size: cover; filter: brightness(1.28) contrast(1.04) saturate(.85); opacity: .96; }
 .room-bg-envelope .room-mark { background-image: url('/assets/tables/table_envelope.png'); background-position: center 44%; background-size: cover; filter: brightness(1.15) contrast(1.05) saturate(1.05); opacity: .96; }
+.cashdrop-overlay { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); z-index: 70; text-align: center; pointer-events: none; animation: cashDropIn 4.4s ease both; text-shadow: 0 3px 14px #000; }
+.cashdrop-title { color: #ffd98a; font-size: 13px; font-weight: 800; letter-spacing: 3px; }
+.cashdrop-amount { color: #fff1c9; font-family: var(--head-font); font-size: 38px; font-weight: 900; }
+.cashdrop-nick { color: #dfe8df; font-size: 12px; }
+@keyframes cashDropIn { 0% { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(.9); } 12%,80% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }

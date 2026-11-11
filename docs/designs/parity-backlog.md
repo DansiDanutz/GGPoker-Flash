@@ -64,6 +64,10 @@ not a source to copy blindly.
   - owner-created freezeouts with format, mode, buy-in, fee, stack, blind speed, late registration, bounty, ticket and start time;
   - owner-only lobby visibility, direct `?id=` invite links, registration, play and deletion;
   - private tournament rows carry `owner_id` and `private`.
+- Rush Cash Drop:
+  - 12% chance after a Rush hand;
+  - awards a random human at the table with a play-money drop;
+  - ledger transaction, table overlay and native cash-drop sound.
 - Table:
   - eight-reaction emote tray with server broadcast and table/account mute enforcement;
   - card-back skin from settings;
