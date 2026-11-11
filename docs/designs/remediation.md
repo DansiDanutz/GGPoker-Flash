@@ -43,7 +43,7 @@ instead of building around them.
     with a 300 default; `resetpw` writes an audit row; display-only money
     formatting is cleaned up; blackjack returns the settlement balance; the
     design-of-record is updated.
-*   **Verification:** `cd app && pnpm test` → 26 passed. The packaged app was
+*   **Verification:** `cd app && pnpm test` → 27 passed. The packaged app was
     relaunched, `/api/lobby` returned 200, and a live join/leave produced one
     `buyin` and one `cashout` with the same session id and `in:`/`out:` refs.
 
@@ -118,7 +118,7 @@ The review found eight items. Classified honestly:
 | D3 | Cashier replay is fixed with a client key and a unique ledger reference. | A double-click or retry returns the first movement; no new table is needed. |
 | D4 | One new table: `player_claims`. Daily, GG Care, Honeymoon and missions move to it; `daily_claims` is migrated and retired. | One table covers every claim and fixes the global-mission defect. |
 | D5 | The lobby keeps synthetic estimates, flagged in the API as `synthetic: true`; `running` and live seats are real. | Projecting from `LIVE_TABLES` would show 0 for 100 seeded tables. |
-| D6 | Bots and Spin mint play money. Bound: bots mint at most `bots × max_buyin` per table; Spin prizes are capped by the table multiplier. | Removing bots empties the tables; the inflation is part of the demo. |
+| D6 | Bots and Spin mint play money. Bound: bots mint at most `bots × max_buyin` per table; Spin prizes are capped by the table multiplier. Totals are counted in `mint_bot_total`/`mint_spin_total` and shown in Admin stats. | Removing bots empties the tables; the inflation is part of the demo. |
 | D7 | No disconnect grace window and no protocol version. | The current close path cashes out; a version cursor resets on table recreation and adds a failure mode. |
 | D8 | Port ownership uses the child's stdout and exit code, not a nonce or `/api/health`. | The parent already owns the pipe and the PID; a nonce over HTTP is readable by the same local process. |
 | D9 | `addTransaction` remains the only transaction owner. | Nested `BEGIN` throws; the sweep calls it per row and relies on a unique reference. |
@@ -333,8 +333,8 @@ no mission read touches the global `missions.progress`/`missions.claimed` flag.
 *   **Cashier replay:** protected by `Idempotency-Key` + `(user_id, reference)`;
     the client reuses the key on retry, blocks double submits, and returns 409
     when the key is reused with a different amount.
-*   **Bot/Spin inflation:** bounded per table by bot stacks and multiplier; not
-    centrally monitored in this build.
+*   **Bot/Spin inflation:** bounded per table by bot stacks and multiplier;
+    cumulative totals appear in Admin stats (`bot mint`, `spin mint`).
 *   **Local threat model:** the renderer is sandboxed (`sandbox: true`) and a CSP
     header is enforced in the packaged build;
     loopback is still not a boundary and the SQLite file is readable by a local
@@ -357,13 +357,13 @@ no mission read touches the global `missions.progress`/`missions.claimed` flag.
 | R1 | Crash strands buy-in | G1 | 1 | ledger-session.test.js |
 | R2 | Cashier replay | G5 | 4 | http.test.js |
 | R3 | Port 5198 takeover | G3 | 3 | manual |
-| R4 | Bot/Spin minting | accepted | — | bound in Risks |
+| R4 | Bot/Spin minting | G5 | 4 | Admin stats (`mint_bot`, `mint_spin`) |
 
 ## Accepted Bounds (summary)
 
 *   Cashier: no replay protection; one duplicate movement per double-click.
 *   Crash: refund `chips_in`; losses forgiven; winnings above `chips_in` lost.
-*   Bots/Spin: play-money minting, bounded per table; not centrally monitored.
+*   Bots/Spin: play-money minting, bounded per table and counted in Admin stats.
 *   Lobby: synthetic estimates flagged; only `running`/live seats are real.
 *   Threat model: loopback is not a boundary; local processes can read the token
     and database.

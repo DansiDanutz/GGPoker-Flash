@@ -174,6 +174,7 @@ export class PokerTable {
     const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
     if (!w || !w.player) return;
     w.player.stack += this.spinPrize;
+    if (this.hooks.onMint) this.hooks.onMint(this, 'spin', this.spinPrize);
     this.spinWinner = { nick: w.player.nick, id: w.player.id, prize: this.spinPrize };
     this.emit({ type: 'spin_win', ...this.spinWinner, multiplier: this.spinMultiplier });
     this.street = 'ended';
@@ -689,7 +690,10 @@ export class PokerTable {
         this.nextHandAt = 0;
         // remove busted bots, rebuy bots so the table stays alive
         for (const s of this.seats) {
-          if (s.player && s.player.isBot && s.player.stack <= 0 && !this.elimination) s.player.stack = this.cfg.max_buyin;
+          if (s.player && s.player.isBot && s.player.stack <= 0 && !this.elimination) {
+            s.player.stack = this.cfg.max_buyin;
+            if (this.hooks.onMint) this.hooks.onMint(this, 'bot', this.cfg.max_buyin);
+          }
         }
         if (this.elimination) {
           const aliveCount = this.occupiedSeats().filter((x) => x.player && x.player.stack > 0).length;

@@ -3,7 +3,7 @@
 **Date:** 2026-11-11
 **Scope:** `320f00b..2b78993` plus the follow-up fixes in this change set.
 **Reviewers:** fresh-context EGM `codebase_details` and an independent code-review subagent. Both read the working tree, not only the patch.
-**Tests at review:** 20 passing; after fixes: 26 passing.
+**Tests at review:** 20 passing; after fixes: 27 passing.
 
 ## Verdict
 
@@ -52,6 +52,7 @@ A fresh reviewer re-checked every prior finding at `ab75928`; 14/14 were confirm
 *   Rake tests now cover `bb=2000` and `rakeCap: 0`; mission rollover has a unit test.
 *   Admin mission Reset deletes the per-user claim rows instead of writing the unused global columns.
 *   Admin credit requires a reference; the Cashier clears its key only after `load()`/`refreshUser()` succeed.
+*   Bot and Spin mint hooks feed `mint_bot_total`/`mint_spin_total`, shown as Admin stats cards; a spin mint test covers the hook.
 
 ## Remaining
 

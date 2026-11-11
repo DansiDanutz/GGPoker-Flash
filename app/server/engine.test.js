@@ -157,3 +157,17 @@ test('a throwing onSeatBusted hook still clears the busted seat', () => {
   assert.equal(t.seats[1].player, null);
   assert.equal(t.seats[2].player, null);
 });
+
+
+test('spin award reports the minted prize', () => {
+  const p1 = player(1, 'Winner', 1000, 0, []);
+  const p2 = player(2, 'Busted', 0, 0, []);
+  const t = tableWith([p1, p2], { seats: 2, game: 'spingold' });
+  t.spinPrize = 250;
+  t.street = 'ended';
+  t.nextHandAt = 1;
+  let minted = 0;
+  t.hooks = { onMint: (_table, kind, amount) => { if (kind === 'spin') minted += amount; }, onHandComplete: () => {} };
+  t.tick(2);
+  assert.equal(minted, 250);
+});

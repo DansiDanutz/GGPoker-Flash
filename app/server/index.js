@@ -232,6 +232,10 @@ function getLiveTable(id) {
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize}`);
       } catch (e) { console.error('tournament end', e); }
     },
+    onMint: (table, kind, amount) => {
+      const key = kind === 'bot' ? 'mint_bot_total' : 'mint_spin_total';
+      setSetting(key, (Number(getSetting(key, 0)) || 0) + Number(amount || 0));
+    },
     onSeatBusted: (table, player) => {
       if (!table.spin) return;
       const seat = table.seatOf(player.id);
@@ -1088,7 +1092,7 @@ const server = http.createServer(async (req, res) => {
       const tourneys = db.prepare('SELECT COUNT(*) c FROM tournaments').get().c;
       const turnover = db.prepare(`SELECT COALESCE(SUM(ABS(amount)),0) s FROM transactions`).get().s;
       const live = [...LIVE_TABLES.values()].map((e) => ({ id: e.table.cfg.id, name: e.table.cfg.name, players: e.table.occupiedSeats().length, hand: e.table.handNo, street: e.table.street }));
-      return json(res, 200, { users, hands, tables, tourneys, turnover, live, online: sitesStats().online, jackpot: getSetting('jackpot') });
+      return json(res, 200, { users, hands, tables, tourneys, turnover, live, online: sitesStats().online, jackpot: getSetting('jackpot'), mint_bot: getSetting('mint_bot_total', 0), mint_spin: getSetting('mint_spin_total', 0) });
     }
 
     if (p === '/api/admin/users') {

@@ -145,6 +145,8 @@ export function Admin() {
                 <div className="stat"><span>Hands played</span><b>{stats?.hands ?? '—'}</b></div>
                 <div className="stat"><span>Cash tables</span><b>{stats?.tables ?? '—'}</b></div>
                 <div className="stat"><span>Tournaments</span><b>{stats?.tourneys ?? '—'}</b></div>
+                <div className="stat"><span>Bot mint</span><b>{money(stats?.mint_bot || 0)}</b></div>
+                <div className="stat"><span>Spin mint</span><b>{money(stats?.mint_spin || 0)}</b></div>
               </div>
               <div className="grid g2">
                 <div className="admin-card">
