@@ -1,11 +1,11 @@
 # Implementation Diff — Remediation + Poker Parity (final)
 
 Baseline: 320f00b
-Head: 2b0d855
+Head: e38c4b1
 
 ```diff
 diff --git a/README.md b/README.md
-index 0cbf69d..5188539 100644
+index 0cbf69d..10be5e4 100644
 --- a/README.md
 +++ b/README.md
 @@ -83,7 +83,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for
@@ -40,7 +40,7 @@ index 0cbf69d..5188539 100644
  The review changed the code: `addTransaction` is now a single SQLite
  transaction, the deck shuffle uses `node:crypto`, the app enforces a single
 -instance, CDP is gated to dev, request bodies are capped, and 11 committed
-+instance, CDP is gated to dev, request bodies are capped, and 35 committed
++instance, CDP is gated to dev, request bodies are capped, and 38 committed
  `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
  
  ## Notes / scope
@@ -251,7 +251,7 @@ index 0000000..d11a832
 +  assert.notEqual(w1, w2);
 +});
 diff --git a/app/server/db.js b/app/server/db.js
-index 51482ca..abfca5c 100644
+index 51482ca..eec61f7 100644
 --- a/app/server/db.js
 +++ b/app/server/db.js
 @@ -54,7 +54,7 @@ function init() {
@@ -263,9 +263,11 @@ index 51482ca..abfca5c 100644
      category TEXT NOT NULL,         -- Diamond | Platinum | Gold | Silver ...
      sb INTEGER NOT NULL,
      bb INTEGER NOT NULL,
-@@ -95,6 +95,9 @@ function init() {
+@@ -94,7 +94,11 @@ function init() {
+     entrants INTEGER NOT NULL DEFAULT 0,
      starting_stack INTEGER NOT NULL DEFAULT 10000,
      blind_speed INTEGER NOT NULL DEFAULT 8,
++    late_reg INTEGER NOT NULL DEFAULT 90,
      format TEXT DEFAULT 'NLH',
 +    mode TEXT DEFAULT 'STANDARD',
 +    bounty INTEGER DEFAULT 0,
@@ -273,13 +275,14 @@ index 51482ca..abfca5c 100644
      banner TEXT DEFAULT '',
      enabled INTEGER NOT NULL DEFAULT 1
    );
-@@ -203,11 +206,61 @@ function init() {
+@@ -203,11 +207,62 @@ function init() {
  
    try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
    try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
 +  try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
 +  try { db.exec("ALTER TABLE tournaments ADD COLUMN mode TEXT DEFAULT 'STANDARD'"); } catch { /* already exists */ }
 +  try { db.exec('ALTER TABLE tournaments ADD COLUMN bounty INTEGER DEFAULT 0'); } catch { /* already exists */ }
++  try { db.exec('ALTER TABLE tournaments ADD COLUMN late_reg INTEGER DEFAULT 90'); } catch { /* already exists */ }
 +  try { db.exec("ALTER TABLE tournaments ADD COLUMN ticket TEXT DEFAULT ''"); } catch { /* already exists */ }
 +  db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND (mode IS NULL OR mode='STANDARD')");
 +  db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND (mode IS NULL OR mode='STANDARD')");
@@ -335,13 +338,19 @@ index 51482ca..abfca5c 100644
  function ensureSeries() {
    const tins = db.prepare(`INSERT INTO tournaments (id,name,buyin,fee,gtd,start_at,entrants,format) VALUES (?,?,?,?,?,?,?,?)`);
    for (const [id, name, buyin, fee, gtd, hours, fmt] of [
-@@ -218,6 +271,13 @@ function ensureSeries() {
+@@ -218,6 +273,19 @@ function ensureSeries() {
        tins.run(id, name, buyin, fee, gtd * 100, new Date(Date.now() + hours * 3600_000).toISOString(), 300 + (gtd % 400), fmt);
      }
    }
-+  if (!db.prepare("SELECT 1 FROM tournaments WHERE id = 'sat-sunday'").get()) {
-+    tins.run('sat-sunday', '$1 Step to Sunday Major', 1000, 100, 0, new Date(Date.now() + 8 * 3600_000).toISOString(), 240, 'NLH');
-+    db.prepare("UPDATE tournaments SET mode='SATELLITE', ticket='Sunday Major $250K' WHERE id='sat-sunday'").run();
++  for (const [id, name, buyin, hours] of [
++    ['sat-sunday', '$1 Step to Sunday Major', 1000, 8],
++    ['sat-mid', '$5 Step to Sunday Major', 5000, 6],
++    ['sat-high', '$25 Step to Sunday Major', 25000, 4],
++  ]) {
++    if (!db.prepare('SELECT 1 FROM tournaments WHERE id = ?').get(id)) {
++      tins.run(id, name, buyin, Math.round(buyin * 0.1), 0, new Date(Date.now() + hours * 3600_000).toISOString(), 120, 'NLH');
++      db.prepare("UPDATE tournaments SET mode='SATELLITE', ticket='Sunday Major $250K' WHERE id=?").run(id);
++    }
 +  }
 +  db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND mode='STANDARD'");
 +  db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND mode='STANDARD'");
@@ -349,7 +358,7 @@ index 51482ca..abfca5c 100644
  }
  
  function seed() {
-@@ -346,22 +406,126 @@ export function setSetting(key, value) {
+@@ -346,22 +414,126 @@ export function setSetting(key, value) {
      .run(key, JSON.stringify(value));
  }
  
@@ -480,7 +489,7 @@ index 51482ca..abfca5c 100644
  export function newSession(userId, device = '') {
    const token = randomUUID();
    const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
-@@ -371,7 +535,8 @@ export function newSession(userId, device = '') {
+@@ -371,7 +543,8 @@ export function newSession(userId, device = '') {
  
  export function userByToken(token) {
    if (!token) return null;
@@ -491,7 +500,7 @@ index 51482ca..abfca5c 100644
  }
  
 diff --git a/app/server/engine.test.js b/app/server/engine.test.js
-index 0334242..e29b6a0 100644
+index 0334242..62f80bb 100644
 --- a/app/server/engine.test.js
 +++ b/app/server/engine.test.js
 @@ -56,13 +56,17 @@ test('bestOmaha uses exactly two hole cards and three board cards', () => {
@@ -513,7 +522,7 @@ index 0334242..e29b6a0 100644
  });
  
  test('showdown builds side pots and conserves chips', () => {
-@@ -106,3 +110,150 @@ test('tournament winner receives half the prize pool exactly once and fires the
+@@ -106,3 +110,190 @@ test('tournament winner receives half the prize pool exactly once and fires the
    assert.equal(paid, 1);
    assert.equal(ends, 1);
  });
@@ -663,6 +672,46 @@ index 0334242..e29b6a0 100644
 +  assert.ok(straddler);
 +  assert.equal(straddler.totalBet, 200);
 +  assert.ok(t.actor);
++});
++
++
++test('run it twice deals two boards and splits the pot', () => {
++  const p1 = player(1, 'A', 1000, 500, ['As', 'Ks'].map(C));
++  const p2 = player(2, 'B', 1000, 500, ['2d', '7c'].map(C));
++  const t = tableWith([p1, p2], { seats: 2 });
++  t.pot = 1000;
++  t.deck = makeDeck(false);
++  t.runItTwice = true;
++  t.runoutTwice();
++  assert.equal(t.result.boards.length, 2);
++  assert.equal(t.result.boards[0].length, 5);
++  assert.equal(t.result.boards[1].length, 5);
++  const paid = t.result.winners.reduce((a, w) => a + w.amount, 0);
++  assert.equal(paid, 950);
++});
++
++
++test('Spin insurance charges a premium and arms a payout', () => {
++  const p1 = player(1, 'A', 15000, 0, []);
++  const p2 = player(2, 'B', 15000, 0, []);
++  const t = tableWith([p1, p2], { seats: 2, game: 'spingold', min_buyin: 15000 });
++  t.street = 'idle';
++  assert.equal(t.setInsurance(1, true).ok, true);
++  assert.equal(p1.stack, 14250);
++  assert.equal(p1.insurance, true);
++});
++
++test('a Rush fold queues a cross-table move', () => {
++  const p1 = player(1, 'A', 10000, 0, []);
++  const p2 = player(2, 'B', 10000, 0, []);
++  const t = tableWith([p1, p2], { seats: 2, game: 'rush' });
++  t.street = 'idle';
++  t.handNo = 0;
++  t.startHand();
++  const actor = t.actor;
++  t.act(actor, 'fold');
++  const folded = [p1, p2].find((p) => p.folded);
++  assert.equal(folded.rushQueued, true);
 +});
 diff --git a/app/server/http.test.js b/app/server/http.test.js
 new file mode 100644
@@ -845,7 +894,7 @@ index 0000000..2c27320
 +  }
 +});
 diff --git a/app/server/index.js b/app/server/index.js
-index c5c6cff..6783b95 100644
+index c5c6cff..4d71991 100644
 --- a/app/server/index.js
 +++ b/app/server/index.js
 @@ -2,10 +2,11 @@ import http from 'node:http';
@@ -929,7 +978,7 @@ index c5c6cff..6783b95 100644
      };
    });
  }
-@@ -205,21 +245,43 @@ function getLiveTable(id) {
+@@ -205,21 +245,44 @@ function getLiveTable(id) {
            db.prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?").run(tid);
          }
          const u = db.prepare('SELECT * FROM users WHERE id = ?').get(winner.id);
@@ -967,6 +1016,7 @@ index c5c6cff..6783b95 100644
 +    },
      onHandComplete: ({ table, winner }) => {
        // mission progress for humans
++      moveRushPlayers(table);
        for (const s of table.seats) {
          if (!s.player || s.player.isBot) continue;
 -        db.prepare(`UPDATE missions SET progress = MIN(goal, progress + 1) WHERE id = 'daily-hands' AND claimed = 0`).run();
@@ -982,7 +1032,7 @@ index c5c6cff..6783b95 100644
        }
      },
    });
-@@ -232,6 +294,7 @@ function getLiveTable(id) {
+@@ -232,6 +295,7 @@ function getLiveTable(id) {
        if (entry.clients.size === 0) {
          if (!entry.emptySince) entry.emptySince = Date.now();
          else if (Date.now() - entry.emptySince > 45000) {
@@ -990,7 +1040,45 @@ index c5c6cff..6783b95 100644
            clearInterval(entry.timer);
            LIVE_TABLES.delete(id);
          }
-@@ -273,12 +336,35 @@ function seatHuman(table, user, buyin, seatIndex = null) {
+@@ -244,6 +308,37 @@ function getLiveTable(id) {
+   return table;
+ }
+ 
++function moveRushPlayers(table) {
++  if (!table.rush) return;
++  const queued = table.humans().filter((p) => table.seatOf(p.id)?.player?.rushQueued);
++  for (const p of queued) {
++    const seat = table.seatOf(p.id);
++    const stack = seat?.player?.stack || 0;
++    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(p.id);
++    if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; continue; }
++    const rows = db.prepare("SELECT id FROM tables WHERE game = 'rush' AND enabled = 1 AND bb = ?").all(table.bb);
++    let target = null;
++    for (const row of rows) {
++      if (row.id === table.cfg.id) continue;
++      const candidate = getLiveTable(row.id);
++      if (candidate && candidate.occupiedSeats().length < candidate.cfg.seats) { target = candidate; break; }
++    }
++    if (!target) { seat.player.rushQueued = false; continue; }
++    cashOutSeat(table, p.id, 'Rush transfer');
++    const res = seatHuman(target, user, Math.min(stack, target.cfg.max_buyin), null);
++    if (!res.ok) { seat.player && (seat.player.rushQueued = false); continue; }
++    const entry = LIVE_TABLES.get(table.cfg.id);
++    if (entry) {
++      for (const client of entry.clients) {
++        if (client.userId === p.id && client.readyState === 1) {
++          client.send(JSON.stringify({ type: 'rush_move', tableId: target.cfg.id, stack: Math.min(stack, target.cfg.max_buyin) }));
++        }
++      }
++    }
++    broadcastState(target);
++  }
++}
++
+ function broadcastTable(table, evt) {
+   const entry = LIVE_TABLES.get(table.cfg.id);
+   if (!entry) return;
+@@ -273,12 +368,35 @@ function seatHuman(table, user, buyin, seatIndex = null) {
    const stack = Number(buyin) || table.cfg.min_buyin;
    if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
    if (user.balance < stack) return { ok: false, error: 'not enough balance' };
@@ -1029,7 +1117,7 @@ index c5c6cff..6783b95 100644
  /* ------------------------------------------------------------------ */
  /* HTTP API                                                            */
  /* ------------------------------------------------------------------ */
-@@ -288,10 +374,11 @@ const server = http.createServer(async (req, res) => {
+@@ -288,10 +406,11 @@ const server = http.createServer(async (req, res) => {
    const p = url.pathname;
  
    try {
@@ -1042,7 +1130,7 @@ index c5c6cff..6783b95 100644
        if (!user || !checkPassword(body.password || '', user.password)) return json(res, 400, { error: 'Invalid account ID or password' });
        if (user.banned) return json(res, 403, { error: 'This account is locked. Contact support.' });
        db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
-@@ -308,9 +395,10 @@ const server = http.createServer(async (req, res) => {
+@@ -308,9 +427,10 @@ const server = http.createServer(async (req, res) => {
        if (db.prepare('SELECT id FROM users WHERE lower(login)=lower(?)').get(login)) return json(res, 400, { error: 'Account already exists' });
        const start = getSetting('default_balance', 5000) + getSetting('welcome_bonus', 100000);
        db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
@@ -1056,7 +1144,7 @@ index c5c6cff..6783b95 100644
        const token = newSession(user.id, req.headers['user-agent'] || '');
        return json(res, 200, { token, user: publicUser(user) });
      }
-@@ -362,8 +450,12 @@ const server = http.createServer(async (req, res) => {
+@@ -362,8 +482,12 @@ const server = http.createServer(async (req, res) => {
          banners,
          online: sitesStats().online,
          jackpot: getSetting('jackpot', 199026635),
@@ -1070,7 +1158,16 @@ index c5c6cff..6783b95 100644
          settings: { site_name: getSetting('site_name', 'GGPoker'), maintenance: getSetting('maintenance', false) },
        });
      }
-@@ -392,7 +484,7 @@ const server = http.createServer(async (req, res) => {
+@@ -387,12 +511,16 @@ const server = http.createServer(async (req, res) => {
+       if (!t) return json(res, 404, { error: 'not found' });
+       const already = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
+       if (already) return json(res, 400, { error: 'Already registered' });
++      const startAt = Date.parse(t.start_at);
++      if (Number.isFinite(startAt) && Date.now() > startAt + (Number(t.late_reg) || 0) * 60000) {
++        return json(res, 400, { error: 'Late registration closed' });
++      }
+       const total = t.buyin + t.fee;
+       if (u.balance < total) return json(res, 400, { error: 'Insufficient balance' });
        addTransaction(u.id, 'tourney_buyin', -total, `Registration ${t.name}`);
        db.prepare('INSERT INTO tourney_regs (tournament_id,user_id) VALUES (?,?)').run(id, u.id);
        db.prepare('UPDATE tournaments SET entrants = entrants + 1 WHERE id = ?').run(id);
@@ -1079,7 +1176,7 @@ index c5c6cff..6783b95 100644
        return json(res, 200, { ok: true });
      }
  
-@@ -419,6 +511,8 @@ const server = http.createServer(async (req, res) => {
+@@ -419,6 +547,8 @@ const server = http.createServer(async (req, res) => {
            tournament: {
              prizePool: Math.max(t.gtd, t.entrants * (t.buyin + t.fee)),
              level: 1, blindEvery: Math.max(5, t.blind_speed),
@@ -1088,7 +1185,7 @@ index c5c6cff..6783b95 100644
            },
          });
        }
-@@ -459,17 +553,29 @@ const server = http.createServer(async (req, res) => {
+@@ -459,17 +589,29 @@ const server = http.createServer(async (req, res) => {
        const body = await readBody(req);
        const amount = Math.round(Number(body.amount || 0));
        if (amount <= 0 || amount > 100000000) return json(res, 400, { error: 'Invalid amount' });
@@ -1122,7 +1219,7 @@ index c5c6cff..6783b95 100644
      }
  
      // ---------- hand history ----------
-@@ -488,7 +594,13 @@ const server = http.createServer(async (req, res) => {
+@@ -488,7 +630,13 @@ const server = http.createServer(async (req, res) => {
      // ---------- missions / rewards ----------
      if (p === '/api/missions') {
        const u = requireUser(req, res); if (!u) return;
@@ -1137,7 +1234,7 @@ index c5c6cff..6783b95 100644
      }
  
      if (p.startsWith('/api/missions/') && p.endsWith('/claim') && req.method === 'POST') {
-@@ -496,11 +608,13 @@ const server = http.createServer(async (req, res) => {
+@@ -496,11 +644,13 @@ const server = http.createServer(async (req, res) => {
        const id = p.split('/')[3];
        const m = db.prepare('SELECT * FROM missions WHERE id = ?').get(id);
        if (!m) return json(res, 404, { error: 'not found' });
@@ -1156,7 +1253,7 @@ index c5c6cff..6783b95 100644
      }
  
      if (p === '/api/leaderboard') {
-@@ -511,19 +625,19 @@ const server = http.createServer(async (req, res) => {
+@@ -511,19 +661,19 @@ const server = http.createServer(async (req, res) => {
      if (p === '/api/rewards/daily' && req.method === 'POST') {
        const u = requireUser(req, res); if (!u) return;
        const day = new Date().toISOString().slice(0, 10);
@@ -1183,7 +1280,7 @@ index c5c6cff..6783b95 100644
      }
  
      if (p === '/api/rewards/spin' && req.method === 'POST') {
-@@ -613,16 +727,17 @@ const server = http.createServer(async (req, res) => {
+@@ -613,16 +763,17 @@ const server = http.createServer(async (req, res) => {
          return sum;
        };
        if (action === 'deal') {
@@ -1203,7 +1300,7 @@ index c5c6cff..6783b95 100644
          });
        }
        const hand = BJ_HANDS.get(u.id);
-@@ -632,7 +747,8 @@ const server = http.createServer(async (req, res) => {
+@@ -632,7 +783,8 @@ const server = http.createServer(async (req, res) => {
          const pv = bjValue(hand.player), dv = bjValue(hand.dealer);
          if (pv > 21) {
            BJ_HANDS.delete(u.id);
@@ -1213,7 +1310,7 @@ index c5c6cff..6783b95 100644
          }
          return json(res, 200, { player: hand.player.map(cardStr), playerTotal: pv, dealer: [cardStr(hand.dealer[0]), '??'], done: false });
        }
-@@ -645,9 +761,9 @@ const server = http.createServer(async (req, res) => {
+@@ -645,9 +797,9 @@ const server = http.createServer(async (req, res) => {
          if (pv > 21) { payout = 0; result = 'bust'; }
          else if (dv > 21 || pv > dv) { payout = natural ? Math.floor(hand.bet * 2.5) : hand.bet * 2; result = 'win'; }
          else if (pv === dv) { payout = hand.bet; result = 'push'; }
@@ -1225,7 +1322,7 @@ index c5c6cff..6783b95 100644
        }
        return json(res, 400, { error: 'unknown action' });
      }
-@@ -844,12 +960,12 @@ const server = http.createServer(async (req, res) => {
+@@ -844,12 +996,12 @@ const server = http.createServer(async (req, res) => {
      // ---------- honeymoon ----------
      if (p === '/api/honeymoon' && req.method === 'GET') {
        const u = requireUser(req, res); if (!u) return;
@@ -1243,7 +1340,7 @@ index c5c6cff..6783b95 100644
          missions: true,
        });
      }
-@@ -857,32 +973,27 @@ const server = http.createServer(async (req, res) => {
+@@ -857,32 +1009,27 @@ const server = http.createServer(async (req, res) => {
        const u = requireUser(req, res); if (!u) return;
        const b = await readBody(req);
        const step = String(b.step || '');
@@ -1287,7 +1384,7 @@ index c5c6cff..6783b95 100644
      }
  
      // ---------- brand assets ----------
-@@ -1012,19 +1123,19 @@ const server = http.createServer(async (req, res) => {
+@@ -1012,19 +1159,19 @@ const server = http.createServer(async (req, res) => {
  
      if (p === '/api/admin/stats') {
        const a = requireAdmin(req, res); if (!a) return;
@@ -1310,7 +1407,7 @@ index c5c6cff..6783b95 100644
          .filter((u) => !q || u.login.toLowerCase().includes(q) || u.nick.toLowerCase().includes(q));
        return json(res, 200, { users: rows.map(publicUser) });
      }
-@@ -1036,9 +1147,17 @@ const server = http.createServer(async (req, res) => {
+@@ -1036,9 +1183,17 @@ const server = http.createServer(async (req, res) => {
        const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
        if (!target) return json(res, 404, { error: 'not found' });
        if (body.action === 'credit') {
@@ -1330,7 +1427,7 @@ index c5c6cff..6783b95 100644
        }
        if (body.action === 'set') {
          const currency = { balance: 'USD', play_chips: 'PLAY', tickets: 'TICKET', gems: 'GEM' };
-@@ -1061,11 +1180,23 @@ const server = http.createServer(async (req, res) => {
+@@ -1061,11 +1216,23 @@ const server = http.createServer(async (req, res) => {
        }
        if (body.action === 'resetpw') {
          db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(String(body.password || 'ggpoker')), id);
@@ -1356,7 +1453,7 @@ index c5c6cff..6783b95 100644
        }
        return json(res, 400, { error: 'unknown action' });
      }
-@@ -1138,18 +1269,27 @@ const server = http.createServer(async (req, res) => {
+@@ -1138,18 +1305,27 @@ const server = http.createServer(async (req, res) => {
        const a = requireAdmin(req, res); if (!a) return;
        const b = await readBody(req);
        if (b.delete) { db.prepare('DELETE FROM missions WHERE id = ?').run(b.id); return json(res, 200, { ok: true }); }
@@ -1388,7 +1485,7 @@ index c5c6cff..6783b95 100644
      }
  
      if (p.startsWith('/api/admin/live/') && p.endsWith('/close') && req.method === 'POST') {
-@@ -1158,12 +1298,7 @@ const server = http.createServer(async (req, res) => {
+@@ -1158,12 +1334,7 @@ const server = http.createServer(async (req, res) => {
        const entry = LIVE_TABLES.get(id);
        if (!entry) return json(res, 404, { error: 'not running' });
        for (const s of [...entry.table.seats]) {
@@ -1402,7 +1499,7 @@ index c5c6cff..6783b95 100644
        }
        clearInterval(entry.timer);
        LIVE_TABLES.delete(id);
-@@ -1235,7 +1370,14 @@ const server = http.createServer(async (req, res) => {
+@@ -1235,7 +1406,14 @@ const server = http.createServer(async (req, res) => {
  /* WebSocket                                                           */
  /* ------------------------------------------------------------------ */
  
@@ -1418,7 +1515,7 @@ index c5c6cff..6783b95 100644
  
  wss.on('connection', (ws, req) => {
    const url = new URL(req.url, 'http://localhost');
-@@ -1256,12 +1398,19 @@ wss.on('connection', (ws, req) => {
+@@ -1256,12 +1434,19 @@ wss.on('connection', (ws, req) => {
    function handleWsMessage(ws, raw) {
      let msg;
      try { msg = JSON.parse(raw.toString()); } catch { return; }
@@ -1439,7 +1536,7 @@ index c5c6cff..6783b95 100644
        if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
        if (msg.observe) {
          table.fillBots(Math.max(3, table.cfg.seats - 1));
-@@ -1303,17 +1452,26 @@ wss.on('connection', (ws, req) => {
+@@ -1303,17 +1488,34 @@ wss.on('connection', (ws, req) => {
        broadcastState(table);
        return;
      }
@@ -1451,6 +1548,14 @@ index c5c6cff..6783b95 100644
 +        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
 +      }
 +      if (msg.autoMuck != null) entry.table.setAutoMuck(ws.userId, !!msg.autoMuck);
++      if (msg.insurance != null) {
++        const res = entry.table.setInsurance(ws.userId, !!msg.insurance);
++        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
++      }
++      if (msg.runItTwice != null) {
++        const res = entry.table.setRunItTwice(!!msg.runItTwice);
++        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
++      }
 +      broadcastState(entry.table);
 +      return;
 +    }
@@ -1471,7 +1576,7 @@ index c5c6cff..6783b95 100644
            notifyWaitlist(msg.tableId);
          } else {
            waitlistLeave(msg.tableId, ws.userId);
-@@ -1345,11 +1503,19 @@ wss.on('connection', (ws, req) => {
+@@ -1345,11 +1547,19 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
        if (seat.player.inHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
@@ -1493,7 +1598,7 @@ index c5c6cff..6783b95 100644
        seat.player.stack += amount;
        broadcastState(table);
        return;
-@@ -1406,9 +1572,7 @@ wss.on('connection', (ws, req) => {
+@@ -1406,9 +1616,7 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (seat) {
          seat.player.disconnected = true;
@@ -1504,7 +1609,7 @@ index c5c6cff..6783b95 100644
          notifyWaitlist(id);
        } else {
          waitlistLeave(id, ws.userId);
-@@ -1418,6 +1582,10 @@ wss.on('connection', (ws, req) => {
+@@ -1418,6 +1626,10 @@ wss.on('connection', (ws, req) => {
    });
  });
  
@@ -1645,13 +1750,14 @@ index 0000000..a776859
 +  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference LIKE 'refund:fault:%'").get().c, 1);
 +});
 diff --git a/app/server/table.js b/app/server/table.js
-index fa07090..6cfb710 100644
+index fa07090..00df109 100644
 --- a/app/server/table.js
 +++ b/app/server/table.js
-@@ -57,14 +57,19 @@ export class PokerTable {
+@@ -57,14 +57,20 @@ export class PokerTable {
      this.showdownDelay = 5000;
      this.botSpeed = Number(cfg.botSpeed || 900);
      this.aof = cfg.game === 'aof';
++    this.rush = cfg.game === 'rush';
 +    this.straddle = !!cfg.straddle;
      this.spin = cfg.game === 'spingold';
      this.spinMultiplier = null;
@@ -1669,7 +1775,7 @@ index fa07090..6cfb710 100644
      this.rake = 0;
      this.finished = [];
      if (this.spin) {
-@@ -72,8 +77,11 @@ export class PokerTable {
+@@ -72,8 +78,11 @@ export class PokerTable {
        this.spinMultiplier = options[Math.floor(Math.random() * options.length)];
        this.spinPrize = Math.round(cfg.min_buyin * this.spinMultiplier);
      }
@@ -1682,7 +1788,7 @@ index fa07090..6cfb710 100644
    }
  
    /* ------------------------------ seating ------------------------------ */
-@@ -90,7 +98,7 @@ export class PokerTable {
+@@ -90,7 +99,7 @@ export class PokerTable {
      return this.seats.find((s) => s.player && s.player.id === playerId);
    }
  
@@ -1691,16 +1797,17 @@ index fa07090..6cfb710 100644
      if (this.seatOf(player.id)) return { ok: false, error: 'already seated' };
      let seat = seatIndex != null ? this.seats[seatIndex] : this.seats.find((s) => !s.player);
      if (!seat) return { ok: false, error: 'table full' };
-@@ -119,6 +127,8 @@ export class PokerTable {
+@@ -119,6 +128,9 @@ export class PokerTable {
        joinedAt: Date.now(),
        handsPlayed: 0,
        won: 0,
 +      autoMuck: false,
++      insurance: false,
 +      sessionId,
      };
      this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
      this.maybeStart();
-@@ -173,6 +183,7 @@ export class PokerTable {
+@@ -173,6 +185,7 @@ export class PokerTable {
      const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
      if (!w || !w.player) return;
      w.player.stack += this.spinPrize;
@@ -1708,7 +1815,7 @@ index fa07090..6cfb710 100644
      this.spinWinner = { nick: w.player.nick, id: w.player.id, prize: this.spinPrize };
      this.emit({ type: 'spin_win', ...this.spinWinner, multiplier: this.spinMultiplier });
      this.street = 'ended';
-@@ -183,6 +194,14 @@ export class PokerTable {
+@@ -183,6 +196,14 @@ export class PokerTable {
    awardTournamentWinner() {
      const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
      if (!w || !w.player) return;
@@ -1723,7 +1830,15 @@ index fa07090..6cfb710 100644
      const prize = Math.round((this.tournament.prizePool || 0) * 0.5);
      w.player.stack += prize;
      this.tournament.winner = { nick: w.player.nick, id: w.player.id, prize };
-@@ -285,8 +304,16 @@ export class PokerTable {
+@@ -221,6 +242,7 @@ export class PokerTable {
+     this.lastAggressor = null;
+     this.result = null;
+     this.showdown = false;
++    this.boards = [];
+     this.street = 'preflop';
+     this.streetStartedAt = Date.now();
+     this.history = [];
+@@ -285,8 +307,16 @@ export class PokerTable {
      }
      this.postBlind(sbSeat, this.sb, 'SB');
      this.postBlind(bbSeat, this.bb, 'BB');
@@ -1742,7 +1857,7 @@ index fa07090..6cfb710 100644
  
      // deal
      const dealOrder = postOrder;
-@@ -300,26 +327,28 @@ export class PokerTable {
+@@ -300,26 +330,28 @@ export class PokerTable {
      if (this.omaha) {
        for (const s of dealOrder) {
          if (s.player && s.player.inHand) {
@@ -1780,13 +1895,36 @@ index fa07090..6cfb710 100644
      this.setActor(firstToAct ? firstToAct.player.id : null);
    }
  
-@@ -356,6 +385,18 @@ export class PokerTable {
+@@ -356,6 +388,41 @@ export class PokerTable {
      return null;
    }
  
 +  setAutoMuck(userId, value) {
 +    const seat = this.seatOf(userId);
 +    if (seat?.player) seat.player.autoMuck = !!value;
++    return { ok: true };
++  }
++
++  setInsurance(userId, value) {
++    if (!this.spin) return { ok: false, error: 'insurance is Spin & Gold only' };
++    if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };
++    const seat = this.seatOf(userId);
++    if (!seat?.player) return { ok: false, error: 'not seated' };
++    const p = seat.player;
++    if (value && !p.insurance) {
++      const premium = Math.round(this.cfg.min_buyin * 0.05);
++      if (p.stack <= premium) return { ok: false, error: 'not enough stack for insurance' };
++      p.stack -= premium;
++      p.insurance = true;
++      p.insurancePremium = premium;
++      this.emit({ type: 'insurance_bought', seat: seat.index, premium });
++    }
++    return { ok: true };
++  }
++
++  setRunItTwice(value) {
++    if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };
++    this.runItTwice = !!value;
 +    return { ok: true };
 +  }
 +
@@ -1799,7 +1937,7 @@ index fa07090..6cfb710 100644
    setActor(playerId) {
      this.actor = playerId;
      if (!playerId) return;
-@@ -393,6 +434,36 @@ export class PokerTable {
+@@ -393,10 +460,41 @@ export class PokerTable {
      if (this.actor !== playerId) return { ok: false, error: 'not your turn' };
      if (p.folded || p.allIn) return { ok: false, error: 'cannot act' };
  
@@ -1836,7 +1974,82 @@ index fa07090..6cfb710 100644
      const call = this.toCall(p);
      if (action === 'fold') {
        p.folded = true;
-@@ -546,8 +617,7 @@ export class PokerTable {
+       p.lastAction = { action: 'Fold', amount: 0 };
++      if (this.rush && !p.isBot) p.rushQueued = true;
+       this.log.push({ nick: p.nick, action: 'fold', street: this.street });
+       this.emit({ type: 'action', seat: seat.index, playerId, action: 'fold' });
+     } else if (action === 'check') {
+@@ -495,6 +593,10 @@ export class PokerTable {
+   }
+ 
+   runout() {
++    if (this.runItTwice && this.activePlayers().filter((s) => !s.player.folded).length === 2) {
++      this.runoutTwice();
++      return;
++    }
+     this.street = 'showdown';
+     this.actor = null;
+     while (this.board.length < 5) {
+@@ -508,6 +610,58 @@ export class PokerTable {
+     this.doShowdown();
+   }
+ 
++  runoutTwice() {
++    this.street = 'showdown';
++    this.actor = null;
++    this.collectBets();
++    const alive = this.activePlayers().filter((s) => !s.player.folded);
++    const board1 = [];
++    const board2 = [];
++    while (board1.length < 5) board1.push(this.deck.pop());
++    while (board2.length < 5) board2.push(this.deck.pop());
++    const evaluate = (board) => alive.map((s) => {
++      const best = this.omaha ? bestOmaha(s.player.cards, board) : bestHoldem(s.player.cards, board);
++      return { seat: s.index, player: s.player, score: best.score, name: best.name, cards: best.cards };
++    });
++    const scored = [evaluate(board1), evaluate(board2)];
++    const pot = this.pot;
++    const rake = this.computeRake(pot);
++    this.rake = rake;
++    const prize = pot - rake;
++    const results = [];
++    const awardBoard = (sc, amount) => {
++      let best = null;
++      for (const x of sc) if (!best || compareScores(x.score, best.score) > 0) best = x;
++      const winners = sc.filter((x) => compareScores(x.score, best.score) === 0);
++      const share = Math.floor(amount / winners.length);
++      let remainder = amount - share * winners.length;
++      for (const w of winners) {
++        let amt = share;
++        if (remainder > 0) { amt++; remainder--; }
++        w.player.stack += amt;
++        w.player.winAmount += amt;
++        const prior = results.find((r) => r.id === w.player.id);
++        if (prior) prior.amount += amt;
++        else results.push({ id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt, hand: w.name, cards: w.cards.map(cardStr), pot });
++      }
++    };
++    awardBoard(scored[0], Math.floor(prize / 2));
++    awardBoard(scored[1], prize - Math.floor(prize / 2));
++    this.board = board1;
++    this.boards = [board1, board2];
++    const summary = {
++      pot, rake, board: board1.map(cardStr), boards: [board1.map(cardStr), board2.map(cardStr)],
++      winners: results, runItTwice: true, reason: 'showdown',
++      hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
++    };
++    this.result = summary;
++    this.street = 'ended';
++    this.nextHandAt = Date.now() + this.showdownDelay;
++    this.emit({ type: 'win', ...summary });
++    this.saveHand(summary);
++    this.updateMissionProgress(results[0]);
++  }
++
+   collectBets() {
+     for (const s of this.seats) {
+       if (!s.player) continue;
+@@ -546,8 +700,7 @@ export class PokerTable {
    computeRake(pot) {
      if (this.tournament || this.spin) return 0;
      const raw = Math.floor((pot * this.rakePercent) / 100);
@@ -1846,7 +2059,15 @@ index fa07090..6cfb710 100644
    }
  
    finishByFold(winnerSeat) {
-@@ -579,7 +649,6 @@ export class PokerTable {
+@@ -567,6 +720,7 @@ export class PokerTable {
+       board: this.board.map(cardStr),
+       reason: 'fold',
+     };
++    for (const s of this.seats) if (s.player) s.player.insurance = false;
+     this.result = summary;
+     this.street = 'ended';
+     this.actor = null;
+@@ -579,7 +733,6 @@ export class PokerTable {
    doShowdown() {
      this.collectBets();
      const alive = this.activePlayers().filter((s) => !s.player.folded);
@@ -1854,7 +2075,7 @@ index fa07090..6cfb710 100644
      const scored = alive.map((s) => {
        const p = s.player;
        const best = this.omaha ? bestOmaha(p.cards, this.board) : bestHoldem(p.cards, this.board);
-@@ -689,7 +758,10 @@ export class PokerTable {
+@@ -689,7 +842,10 @@ export class PokerTable {
          this.nextHandAt = 0;
          // remove busted bots, rebuy bots so the table stays alive
          for (const s of this.seats) {
@@ -1866,7 +2087,7 @@ index fa07090..6cfb710 100644
          }
          if (this.elimination) {
            const aliveCount = this.occupiedSeats().filter((x) => x.player && x.player.stack > 0).length;
-@@ -707,6 +779,28 @@ export class PokerTable {
+@@ -707,6 +863,28 @@ export class PokerTable {
                  this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
                  if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
                }
@@ -1895,7 +2116,7 @@ index fa07090..6cfb710 100644
                s.player = null;
                this.emit({ type: 'stand', seat: s.index });
              }
-@@ -803,6 +897,8 @@ export class PokerTable {
+@@ -803,6 +981,8 @@ export class PokerTable {
      const now = Date.now();
      return {
        id: this.cfg.id,
@@ -1904,12 +2125,14 @@ index fa07090..6cfb710 100644
        name: this.cfg.name,
        game: this.game,
        sb: this.sb,
-@@ -855,13 +951,17 @@ export class PokerTable {
+@@ -855,13 +1035,19 @@ export class PokerTable {
        lastAction: this.lastAction,
        canStart: this.street === 'idle',
        spin: this.spin ? { multiplier: this.spinMultiplier, prize: this.spinPrize, winner: this.spinWinner } : null,
 -      tournament: this.tournament ? { name: this.cfg.name, prizePool: this.tournament.prizePool, level: this.tournament.level || 1, winner: this.tournament.winner || null } : null,
 +      straddle: this.straddle,
++      runItTwice: this.runItTwice,
++      boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
 +      tournament: this.tournament ? { name: this.cfg.name, prizePool: this.tournament.prizePool, level: this.tournament.level || 1, mode: this.tournament.mode || 'STANDARD', bounty: this.tournament.bounty || 0, ticket: this.tournament.ticket || '', winner: this.tournament.winner || null } : null,
      };
    }
@@ -2127,10 +2350,10 @@ index 9ba833e..ecf04c6 100644
                  <button
                    className={'btn btn-sm ' + (m.claimed ? 'btn-ghost' : 'btn-gold')}
 diff --git a/app/src/pages/TablePage.tsx b/app/src/pages/TablePage.tsx
-index 825e4e5..c8ff8bf 100644
+index 825e4e5..d4d6b1f 100644
 --- a/app/src/pages/TablePage.tsx
 +++ b/app/src/pages/TablePage.tsx
-@@ -15,13 +15,14 @@ type PlayerState = {
+@@ -15,13 +15,16 @@ type PlayerState = {
  };
  
  type TableState = {
@@ -2144,18 +2367,21 @@ index 825e4e5..c8ff8bf 100644
 -  tournament?: { name: string; prizePool: number; level: number; winner: any } | null;
 +  tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string } | null;
 +  straddle?: boolean;
++  runItTwice?: boolean;
++  boards?: string[][] | null;
  };
  
  const POS6 = [[50, 80], [12, 71], [16, 32], [50, 17], [84, 32], [88, 71]];
-@@ -62,6 +63,7 @@ export function TablePage({ tableId }: { tableId: string }) {
+@@ -62,6 +65,8 @@ export function TablePage({ tableId }: { tableId: string }) {
    const [noteText, setNoteText] = useState('');
    const [noteColor, setNoteColor] = useState('yellow');
    const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
 +  const [autoMuck, setAutoMuck] = useState(() => localStorage.getItem('ggpoker.automuck') === '1');
++  const [squeeze, setSqueeze] = useState(false);
    const autoRebuyPending = useRef(false);
    const spinSeen = useRef(false);
    const [now, setNow] = useState(Date.now());
-@@ -72,6 +74,8 @@ export function TablePage({ tableId }: { tableId: string }) {
+@@ -72,6 +77,8 @@ export function TablePage({ tableId }: { tableId: string }) {
    const fxId = useRef(1);
    const retry = useRef<number | null>(null);
    const everJoined = useRef(false);
@@ -2164,7 +2390,7 @@ index 825e4e5..c8ff8bf 100644
  
    const [theme] = useState(() => localStorage.getItem('ggpoker.theme') || 'Green');
    const query = new URLSearchParams(window.location.hash.split('?')[1] || '');
-@@ -97,6 +101,8 @@ export function TablePage({ tableId }: { tableId: string }) {
+@@ -97,6 +104,8 @@ export function TablePage({ tableId }: { tableId: string }) {
        try { msg = JSON.parse(ev.data); } catch { return; }
        if (msg.type === 'state') {
          const s: TableState = msg.state;
@@ -2173,9 +2399,13 @@ index 825e4e5..c8ff8bf 100644
          stateRef.current = s;
          setState(s);
          const mine = s.players.find((p) => p.isMe);
-@@ -123,7 +129,11 @@ export function TablePage({ tableId }: { tableId: string }) {
+@@ -122,8 +131,15 @@ export function TablePage({ tableId }: { tableId: string }) {
+         setWaitlistPos(msg.position || 1);
          setObserving(true);
          toast({ kind: 'info', title: 'Waitlist', body: `You are #${msg.position || 1} in line. We will hold the next seat for you.` });
++      } else if (msg.type === 'rush_move') {
++        toast({ kind: 'info', title: 'Rush & Cash', body: 'New table, same stack.' });
++        navigate(`/table/${msg.tableId}?buyin=${msg.stack || 0}`);
        } else if (msg.type === 'event') {
 -        handleEvent(msg.event);
 +        const e = msg.event;
@@ -2186,26 +2416,67 @@ index 825e4e5..c8ff8bf 100644
        } else if (msg.type === 'error') {
          toast({ kind: 'error', title: 'Table', body: msg.error });
        }
-@@ -220,6 +230,9 @@ export function TablePage({ tableId }: { tableId: string }) {
+@@ -220,6 +236,13 @@ export function TablePage({ tableId }: { tableId: string }) {
          window.setTimeout(() => setWinFx(null), 2600);
        }
        if (Array.isArray(evt.cards)) sound.play('show', { volume: .5 });
++    } else if (evt.type === 'insurance_bought') {
++      toast({ kind: 'info', title: 'Insurance bought', body: `Premium ${money(evt.premium)} for the next hand` });
++    } else if (evt.type === 'insurance_paid') {
++      toast({ kind: 'reward', title: 'Insurance paid', body: money(evt.amount) });
 +    } else if (evt.type === 'bounty') {
 +      toast({ kind: 'reward', title: evt.mystery ? 'Mystery bounty' : 'Bounty', body: `${evt.winnerNick} wins ${money(evt.amount)} (${evt.bustedNick})` });
 +      sound.play('coin');
      } else if (evt.type === 'tourney_payout') {
        toast({ kind: 'reward', title: `Finished #${evt.place}`, body: `${evt.nick} wins ${money(evt.payout)}` });
        sound.play('coin');
-@@ -447,6 +460,8 @@ export function TablePage({ tableId }: { tableId: string }) {
+@@ -368,6 +391,13 @@ export function TablePage({ tableId }: { tableId: string }) {
+   const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, state.game === 'omaha' || state.game === 'omaha5') : null;
+   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
+ 
++  useEffect(() => {
++    if (!state?.handNo) return;
++    setSqueeze(true);
++    const id = window.setTimeout(() => setSqueeze(false), 700);
++    return () => window.clearTimeout(id);
++  }, [state?.handNo]);
++
+   useEffect(() => {
+     if (!autoRebuy || !me || !state || observing) return;
+     if (state.tournament || state.spin) return;
+@@ -447,6 +477,10 @@ export function TablePage({ tableId }: { tableId: string }) {
            <button onClick={() => { setRebuyAmount(state?.minBuyin || 0); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
            <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
            <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
 +          <button onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Straddle</button>
 +          <button onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
++          <button onClick={() => send({ type: 'option', tableId, runItTwice: !state?.runItTwice })}>{state?.runItTwice ? '✓ ' : ''}Run it twice</button>
++          {state?.spin && <button onClick={() => send({ type: 'option', tableId, insurance: true })}>Buy Spin insurance (5%)</button>}
            <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
            <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
            <button onClick={() => navigate('/hand-history')}>Hand history</button>
-@@ -696,7 +711,7 @@ export function TablePage({ tableId }: { tableId: string }) {
+@@ -463,6 +497,11 @@ export function TablePage({ tableId }: { tableId: string }) {
+         {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
+         <div className="board">
+           {(state?.board || []).map((c, i) => <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt style={{ '--dx': '0px', '--dy': '34px', animationDelay: `${i * 0.08}s` } as React.CSSProperties} />)}
++          {state?.boards && state.boards.length > 1 && (
++            <div className="board second-board">
++              {state.boards[1].map((c, i) => <PlayingCard key={`second-${state?.handNo}-${i}-${c}`} card={c} size="mini" />)}
++            </div>
++          )}
+           {state && state.board.length === 0 && state.street !== 'idle' && (
+             <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 12, letterSpacing: 2 }}>PRE-FLOP</div>
+           )}
+@@ -503,7 +542,7 @@ export function TablePage({ tableId }: { tableId: string }) {
+         return (
+           <div
+             key={p.seat}
+-            className={'seat' + (p.isMe ? ' me' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
++            className={'seat' + (p.isMe ? ' me' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
+             style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default' }}
+             onClick={() => { if (p.nick) openNote(p); }}
+             title={p.nick ? 'Player note' : ''}
+@@ -696,7 +735,7 @@ export function TablePage({ tableId }: { tableId: string }) {
          <div className="spin-overlay win">
            <div className="spin-title">TOURNAMENT WINNER</div>
            <div style={{ fontSize: 60, margin: '10px 0' }}>🏆</div>
@@ -2215,7 +2486,7 @@ index 825e4e5..c8ff8bf 100644
            <button className="btn btn-gold" style={{ marginTop: 18 }} onClick={() => navigate('/')}>Back to lobby</button>
          </div>
 diff --git a/app/src/pages/Tournaments.tsx b/app/src/pages/Tournaments.tsx
-index af10738..fbb7294 100644
+index af10738..e1dc940 100644
 --- a/app/src/pages/Tournaments.tsx
 +++ b/app/src/pages/Tournaments.tsx
 @@ -11,6 +11,8 @@ const SERIES = [
@@ -2245,10 +2516,12 @@ index af10738..fbb7294 100644
                    </div>
                  </div>
                  <div className="t-buyin">{t.buyin === 0 ? 'Freeroll' : money(t.buyin + t.fee)}</div>
-@@ -212,6 +214,10 @@ export function Tournaments() {
+@@ -211,7 +213,11 @@ export function Tournaments() {
+                     <div className="kv"><span>Entrants</span><b>{detail.entrants.toLocaleString()}</b></div>
                      <div className="kv"><span>Game</span><b>{detail.format}</b></div>
                      <div className="kv"><span>Start</span><b>{new Date(detail.start_at).toLocaleString('en-GB')}</b></div>
-                     <div className="kv"><span>Late registration</span><b>Until level 12</b></div>
+-                    <div className="kv"><span>Late registration</span><b>Until level 12</b></div>
++                    <div className="kv"><span>Late registration</span><b>{new Date(new Date(detail.start_at).getTime() + (detail.late_reg || 0) * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b></div>
 +                    {detail.mode && detail.mode !== 'STANDARD' && <div className="kv"><span>Format</span><b>{detail.mode}</b></div>}
 +                    {detail.mode === 'BOUNTY' && <div className="kv"><span>Bounty</span><b className="gold">{money(detail.bounty || 0)}</b></div>}
 +                    {detail.mode === 'MYSTERY' && <div className="kv"><span>Mystery bounty</span><b className="gold">up to {money((detail.bounty || 0) * 10)}</b></div>}
@@ -2257,14 +2530,17 @@ index af10738..fbb7294 100644
                    <p className="muted small" style={{ marginTop: 14 }}>
                      Play-money tournament. Prizes are credited to your play balance. Blind levels increase every {detail.blind_speed} minutes;
 diff --git a/app/src/styles.css b/app/src/styles.css
-index 8fc54b5..cba793f 100644
+index 8fc54b5..310bb19 100644
 --- a/app/src/styles.css
 +++ b/app/src/styles.css
-@@ -818,3 +818,6 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
+@@ -818,3 +818,9 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
  .series-chip { height: 28px; padding: 0 14px; border-radius: 14px; background: #191919; border: 1px solid #303030; color: #b9b9b9; font-size: 11.5px; white-space: nowrap; }
  .series-chip:hover { border-color: #5a4a22; color: #e8d5a0; }
  .series-chip.on { background: #2b2110; border-color: #8a6a2a; color: #ffe1a0; }
 +.est-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #6d5a2a; margin-left: 3px; vertical-align: middle; cursor: help; }
 +.tag.pro { background: #2b3b2e; color: #9fe0a8; border: 1px solid #3e5a42; font-size: 9px; padding: 1px 4px; margin-left: 6px; }
 +.mini-stats { padding: 8px 12px; border-top: 1px solid #2b2b2b; display: flex; flex-direction: column; gap: 4px; }
++
++.seat.me.squeeze .cards .card { animation: squeezeIn .55s cubic-bezier(.2,.8,.3,1) both !important; }
++@keyframes squeezeIn { 0% { transform: rotateY(88deg) scale(.75); opacity: .2; } 60% { transform: rotateY(-8deg) scale(1.04); opacity: 1; } 100% { transform: rotateY(0) scale(1); } }
 ```
