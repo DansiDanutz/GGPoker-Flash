@@ -43,6 +43,25 @@ pnpm build        # writes app/dist
 pnpm desktop      # Electron loads http://127.0.0.1:5198
 ```
 
+### Install on the phone
+
+A new account created on a phone lands on the **Download App** step instead of the
+lobby:
+
+- **Android / Chrome** — *Download App* opens Chrome's native install prompt (the
+  client is an installable web app). When the prompt is unavailable (another
+  browser, or it was dismissed) the same screen shows the manual path:
+  **⋮ → Install app / Add to Home screen**.
+- **iPhone / iPad** — Safari has no install API, so *Download App* reveals
+  **Share → Add to Home Screen** and a confirmation button.
+- **Continue in browser** is always available and is remembered; desktop
+  sign-ups skip the step, and launching from the home-screen icon skips it too.
+
+The installable shell is `app/public/manifest.webmanifest`, `app/public/sw.js`
+and the icons in `app/public/pwa/`. The service worker registers only in
+production builds, never caches `/api` or `/ws`, and drops old hashed assets
+when it activates so an installed app does not accumulate stale bundles.
+
 ### Accounts
 
 | Account | Password | Notes |
