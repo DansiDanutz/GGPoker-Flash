@@ -1459,6 +1459,7 @@ wss.on('connection', (ws, req) => {
         const res = entry.table.setStraddle(!!msg.straddle);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
+      if (msg.autoMuck != null) entry.table.setAutoMuck(ws.userId, !!msg.autoMuck);
       broadcastState(entry.table);
       return;
     }

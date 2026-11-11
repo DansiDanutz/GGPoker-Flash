@@ -127,6 +127,7 @@ export class PokerTable {
       joinedAt: Date.now(),
       handsPlayed: 0,
       won: 0,
+      autoMuck: false,
       sessionId,
     };
     this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
@@ -382,6 +383,12 @@ export class PokerTable {
       if (s.player && s.player.inHand && !s.player.folded) return s;
     }
     return null;
+  }
+
+  setAutoMuck(userId, value) {
+    const seat = this.seatOf(userId);
+    if (seat?.player) seat.player.autoMuck = !!value;
+    return { ok: true };
   }
 
   setStraddle(value) {
@@ -642,7 +649,6 @@ export class PokerTable {
   doShowdown() {
     this.collectBets();
     const alive = this.activePlayers().filter((s) => !s.player.folded);
-    for (const s of alive) s.player.reveal = true;
     const scored = alive.map((s) => {
       const p = s.player;
       const best = this.omaha ? bestOmaha(p.cards, this.board) : bestHoldem(p.cards, this.board);
