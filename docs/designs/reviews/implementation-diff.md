@@ -1,11 +1,11 @@
 # Implementation Diff — Remediation Phases 1–4 (final)
 
 Baseline: 320f00b
-Head: 9c9e32b
+Head: 7c9c75d
 
 ```diff
 diff --git a/README.md b/README.md
-index 0cbf69d..f4feb39 100644
+index 0cbf69d..940f76d 100644
 --- a/README.md
 +++ b/README.md
 @@ -251,7 +251,7 @@ Goldfish reviews and the consolidated disposition are in
@@ -13,7 +13,7 @@ index 0cbf69d..f4feb39 100644
  The review changed the code: `addTransaction` is now a single SQLite
  transaction, the deck shuffle uses `node:crypto`, the app enforces a single
 -instance, CDP is gated to dev, request bodies are capped, and 11 committed
-+instance, CDP is gated to dev, request bodies are capped, and 29 committed
++instance, CDP is gated to dev, request bodies are capped, and 30 committed
  `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
  
  ## Notes / scope
@@ -502,10 +502,10 @@ index 0334242..05da5a6 100644
 +});
 diff --git a/app/server/http.test.js b/app/server/http.test.js
 new file mode 100644
-index 0000000..a1e7736
+index 0000000..2c27320
 --- /dev/null
 +++ b/app/server/http.test.js
-@@ -0,0 +1,144 @@
+@@ -0,0 +1,174 @@
 +import test from 'node:test';
 +import assert from 'node:assert/strict';
 +import { spawn } from 'node:child_process';
@@ -650,8 +650,38 @@ index 0000000..a1e7736
 +    child.kill();
 +  }
 +});
++
++
++test('deleting a user closes the live socket and blocks a rejoin', async () => {
++  const { child, port, data } = await startServer();
++  try {
++    const user = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
++      method: 'POST', headers: { 'content-type': 'application/json' },
++      body: JSON.stringify({ login: 'DansiDanutz', password: 'ggpoker' }),
++    }).then((r) => r.json());
++    const admin = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
++      method: 'POST', headers: { 'content-type': 'application/json' },
++      body: JSON.stringify({ login: 'admin', password: 'admin123' }),
++    }).then((r) => r.json());
++    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${user.token}`);
++    await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
++    ws.send(JSON.stringify({ type: 'join_table', tableId: 'nlh-diamond-01', buyin: 50000 }));
++    await new Promise((r) => setTimeout(r, 1200));
++    const closed = new Promise((resolve) => ws.once('close', (code) => resolve(code)));
++    await fetch(`http://127.0.0.1:${port}/api/admin/users/1`, {
++      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${admin.token}` },
++      body: JSON.stringify({ action: 'delete' }),
++    });
++    assert.equal(await closed, 4001);
++    const db = new DatabaseSync(path.join(data, 'ggpoker.db'));
++    const second = db.prepare("SELECT COUNT(*) c FROM transactions WHERE session_id LIKE 'nlh-diamond-02:%'").get().c;
++    assert.equal(second, 0);
++  } finally {
++    child.kill();
++  }
++});
 diff --git a/app/server/index.js b/app/server/index.js
-index c5c6cff..5dc3f1c 100644
+index c5c6cff..02bcf72 100644
 --- a/app/server/index.js
 +++ b/app/server/index.js
 @@ -2,10 +2,11 @@ import http from 'node:http';
@@ -1102,7 +1132,7 @@ index c5c6cff..5dc3f1c 100644
        }
        if (body.action === 'set') {
          const currency = { balance: 'USD', play_chips: 'PLAY', tickets: 'TICKET', gems: 'GEM' };
-@@ -1061,11 +1160,18 @@ const server = http.createServer(async (req, res) => {
+@@ -1061,11 +1160,23 @@ const server = http.createServer(async (req, res) => {
        }
        if (body.action === 'resetpw') {
          db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(String(body.password || 'ggpoker')), id);
@@ -1118,12 +1148,17 @@ index c5c6cff..5dc3f1c 100644
 +        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
 +        db.prepare(`UPDATE users SET banned = 1, deleted_at = datetime('now'),
 +          login = ?, nick = ?, email = '' WHERE id = ?`).run(`deleted:${id}:${target.login}`, `Deleted ${id}`, id);
++        for (const client of wss.clients) {
++          if (client.userId === id) {
++            try { client.close(4001, 'account deleted'); } catch { /* ignore */ }
++          }
++        }
 +        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'delete_user', `user ${id}`);
 +        return json(res, 200, { ok: true, deleted: true });
        }
        return json(res, 400, { error: 'unknown action' });
      }
-@@ -1138,18 +1244,27 @@ const server = http.createServer(async (req, res) => {
+@@ -1138,18 +1249,27 @@ const server = http.createServer(async (req, res) => {
        const a = requireAdmin(req, res); if (!a) return;
        const b = await readBody(req);
        if (b.delete) { db.prepare('DELETE FROM missions WHERE id = ?').run(b.id); return json(res, 200, { ok: true }); }
@@ -1155,7 +1190,7 @@ index c5c6cff..5dc3f1c 100644
      }
  
      if (p.startsWith('/api/admin/live/') && p.endsWith('/close') && req.method === 'POST') {
-@@ -1158,12 +1273,7 @@ const server = http.createServer(async (req, res) => {
+@@ -1158,12 +1278,7 @@ const server = http.createServer(async (req, res) => {
        const entry = LIVE_TABLES.get(id);
        if (!entry) return json(res, 404, { error: 'not running' });
        for (const s of [...entry.table.seats]) {
@@ -1169,7 +1204,7 @@ index c5c6cff..5dc3f1c 100644
        }
        clearInterval(entry.timer);
        LIVE_TABLES.delete(id);
-@@ -1235,7 +1345,14 @@ const server = http.createServer(async (req, res) => {
+@@ -1235,7 +1350,14 @@ const server = http.createServer(async (req, res) => {
  /* WebSocket                                                           */
  /* ------------------------------------------------------------------ */
  
@@ -1185,7 +1220,28 @@ index c5c6cff..5dc3f1c 100644
  
  wss.on('connection', (ws, req) => {
    const url = new URL(req.url, 'http://localhost');
-@@ -1309,11 +1426,9 @@ wss.on('connection', (ws, req) => {
+@@ -1256,12 +1378,19 @@ wss.on('connection', (ws, req) => {
+   function handleWsMessage(ws, raw) {
+     let msg;
+     try { msg = JSON.parse(raw.toString()); } catch { return; }
++    if (ws.userId) {
++      const active = db.prepare('SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
++      if (!active) {
++        try { ws.close(4001, 'account unavailable'); } catch { /* ignore */ }
++        return;
++      }
++    }
+     if (msg.type === 'join_table') {
+       const table = getLiveTable(msg.tableId);
+       if (!table) return ws.send(JSON.stringify({ type: 'error', error: 'table not found' }));
+       const entry = LIVE_TABLES.get(msg.tableId);
+       // ensure there is a seat for the human
+-      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
++      const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
+       if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
+       if (msg.observe) {
+         table.fillBots(Math.max(3, table.cfg.seats - 1));
+@@ -1309,11 +1438,9 @@ wss.on('connection', (ws, req) => {
          entry.clients.delete(ws);
          ws.tables.delete(msg.tableId);
          const table = entry.table;
@@ -1200,14 +1256,15 @@ index c5c6cff..5dc3f1c 100644
            notifyWaitlist(msg.tableId);
          } else {
            waitlistLeave(msg.tableId, ws.userId);
-@@ -1345,11 +1460,19 @@ wss.on('connection', (ws, req) => {
+@@ -1345,11 +1472,19 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
        if (seat.player.inHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
 +      if (table.tournament) return ws.send(JSON.stringify({ type: 'error', error: 'No rebuys in tournaments' }));
        const amount = Math.round(Number(msg.amount) || 0);
        if (amount < table.cfg.min_buyin || amount > table.cfg.max_buyin) return ws.send(JSON.stringify({ type: 'error', error: 'invalid amount' }));
-       const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
+-      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
++      const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
        if (!u || u.balance < amount) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
 -      addTransaction(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`);
 +      if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
@@ -1221,7 +1278,7 @@ index c5c6cff..5dc3f1c 100644
        seat.player.stack += amount;
        broadcastState(table);
        return;
-@@ -1406,9 +1529,7 @@ wss.on('connection', (ws, req) => {
+@@ -1406,9 +1541,7 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (seat) {
          seat.player.disconnected = true;
@@ -1232,7 +1289,7 @@ index c5c6cff..5dc3f1c 100644
          notifyWaitlist(id);
        } else {
          waitlistLeave(id, ws.userId);
-@@ -1418,6 +1539,10 @@ wss.on('connection', (ws, req) => {
+@@ -1418,6 +1551,10 @@ wss.on('connection', (ws, req) => {
    });
  });
  
