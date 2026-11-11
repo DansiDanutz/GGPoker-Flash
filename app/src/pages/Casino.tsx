@@ -315,13 +315,24 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
     return data;
   };
 
+  useEffect(() => {
+    let saved: any = null;
+    try { saved = JSON.parse(localStorage.getItem('ggpoker.crashRound') || 'null'); } catch { /* ignore */ }
+    if (!saved?.roundId || !saved?.startedAt) return;
+    if (Date.now() - Number(saved.startedAt) > 120000) { localStorage.removeItem('ggpoker.crashRound'); return; }
+    post({ action: 'status', roundId: saved.roundId }).then((r) => {
+      if (r.crashed) { localStorage.removeItem('ggpoker.crashRound'); return; }
+      setRoundId(saved.roundId); setStartedAt(Number(saved.startedAt)); setMultiplier(Number(r.multiplier) || 1); setPhase('live');
+    }).catch(() => localStorage.removeItem('ggpoker.crashRound'));
+  }, []);
+
   const start = async () => {
     if (!user) { navigate('/login'); return; }
     if (busy || phase === 'live') return;
     setBusy(true);
     try {
       const r = await post({ action: 'start', bet });
-      setRoundId(r.roundId); setStartedAt(r.startedAt);
+      setRoundId(r.roundId); setStartedAt(r.startedAt); localStorage.setItem('ggpoker.crashRound', JSON.stringify({ roundId: r.roundId, startedAt: r.startedAt }));
       setMultiplier(1); setCrashAt(null); setPhase('live');
       sound.play('deal', { volume: .5 }); await refreshUser();
     } catch (e: any) { toast({ kind: 'error', title: 'Crash', body: e.message }); }
@@ -334,12 +345,12 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
     try {
       const r = await post({ action: 'cashout', roundId });
       if (r.won) {
-        setMultiplier(r.multiplier); setPhase('cashed'); setCrashAt(r.crash);
+        setMultiplier(r.multiplier); setPhase('cashed'); setCrashAt(r.crash); localStorage.removeItem('ggpoker.crashRound');
         setHistory((h) => [{ m: r.multiplier, won: true }, ...h].slice(0, 8));
         sound.play('win'); toast({ kind: 'reward', title: 'Cashed out', body: `${r.multiplier.toFixed(2)}x · ${money(r.payout)}` });
         await refreshUser();
       } else {
-        setMultiplier(r.crash); setCrashAt(r.crash); setPhase('crashed');
+        setMultiplier(r.crash); setCrashAt(r.crash); setPhase('crashed'); localStorage.removeItem('ggpoker.crashRound');
         setHistory((h) => [{ m: r.crash, won: false }, ...h].slice(0, 8));
         sound.play('fold', { volume: .6 });
       }
@@ -359,7 +370,7 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
       try {
         const r = await post({ action: 'status', roundId });
         if (r.crashed) {
-          setPhase('crashed'); setMultiplier(r.crash); setCrashAt(r.crash);
+          setPhase('crashed'); setMultiplier(r.crash); setCrashAt(r.crash); localStorage.removeItem('ggpoker.crashRound');
           setHistory((h) => [{ m: r.crash, won: false }, ...h].slice(0, 8));
           sound.play('fold', { volume: .6 });
         } else {

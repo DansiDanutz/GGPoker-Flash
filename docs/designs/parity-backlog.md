@@ -123,6 +123,7 @@ not a source to copy blindly.
   - friend **Message** opens the conversation;
   - account-wide chat mute applies to direct messages.
 - Crash casino game:
+  - active round is restored after a reload from local round state;
   - server-generated crash point, hidden until the round ends;
   - live multiplier, cash-out endpoint with ledger settlement;
   - recent-round history and mobile layout;
