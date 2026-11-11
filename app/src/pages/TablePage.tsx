@@ -372,6 +372,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <div className="spacer" />
         <button onClick={() => setChatOpen((v) => !v)}>💬 Chat</button>
         <button onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
+        <button onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
         <button onClick={() => setMenuOpen((v) => !v)}>Menu</button>
         <button onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>

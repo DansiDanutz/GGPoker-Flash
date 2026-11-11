@@ -25,7 +25,7 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
         <div className="jackpot-label"><b>BAD BEAT</b><span>JACKPOT</span></div>
         <div className="jackpot-amount">{money(jackpot).replace('$', '$')}</div>
       </div>
-      <div className="account-block" onClick={() => go('/profile')}>
+      <div className="account-block" onClick={() => go('/my-page')}>
         <div className="avatar-ring">
           <div className="inner">
             {user?.avatar ? <img src={user.avatar} alt="" /> : <div className="avatar-fallback">{(user?.nick || 'G')[0].toUpperCase()}</div>}

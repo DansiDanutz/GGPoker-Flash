@@ -89,26 +89,53 @@ export function HandHistory() {
   const [hands, setHands] = useState<any[]>([]);
   const [detail, setDetail] = useState<any>(null);
   const [replay, setReplay] = useState(0);
+  const [playing, setPlaying] = useState(true);
+  const [q, setQ] = useState('');
+  const [resFilter, setResFilter] = useState('all');
+  const [gameFilter, setGameFilter] = useState('all');
 
   useEffect(() => { api.hands().then((r) => setHands(r.hands)).catch(() => {}); }, []);
 
   useEffect(() => {
-    if (!detail) return;
-    setReplay(0);
+    if (!detail || !playing) return;
+    setReplay((r) => (r >= 5 ? r : r));
     const t = setInterval(() => setReplay((r) => (r >= 5 ? 5 : r + 1)), 700);
     return () => clearInterval(t);
-  }, [detail]);
+  }, [detail, playing]);
+
+  useEffect(() => { if (detail) { setReplay(0); setPlaying(true); } }, [detail]);
+
+  const filtered = hands.filter((h) => {
+    if (q && !(`${h.tableName} ${h.game}`.toLowerCase().includes(q.toLowerCase()))) return false;
+    if (gameFilter !== 'all' && h.game !== gameFilter) return false;
+    if (resFilter !== 'all') {
+      const won = h.result?.winners?.some((w: any) => w.id === user?.id);
+      if (resFilter === 'won' && !won) return false;
+      if (resFilter === 'lost' && won) return false;
+    }
+    return true;
+  });
 
   return (
     <PageShell activeTop="poker">
       <div className="page">
         <h1 className="page-title">Hand History</h1>
         <p className="page-sub">Every hand you played is stored locally and can be replayed</p>
+        <div className="row" style={{ marginBottom: 10 }}>
+          <input className="admin-input" style={{ width: 260 }} placeholder="Search table or game…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <select className="admin-select" value={resFilter} onChange={(e) => setResFilter(e.target.value)}>
+            <option value="all">All results</option><option value="won">Won</option><option value="lost">Lost</option>
+          </select>
+          <select className="admin-select" value={gameFilter} onChange={(e) => setGameFilter(e.target.value)}>
+            <option value="all">All games</option><option value="holdem">Hold’em</option><option value="omaha">PLO</option><option value="shortdeck">Short Deck</option><option value="rush">Rush & Cash</option>
+          </select>
+          <span className="muted small">{filtered.length} hands</span>
+        </div>
         <div className="card" style={{ padding: 0 }}>
           <table className="admin-table">
             <thead><tr><th>#</th><th>Table</th><th>Game</th><th>Board</th><th>Pot</th><th>Result</th><th>Date</th></tr></thead>
             <tbody>
-              {hands.map((h) => {
+              {filtered.map((h) => {
                 const won = h.result?.winners?.some((w: any) => w.id === user?.id);
                 return (
                   <tr key={h.id} onClick={() => setDetail(h)} style={{ cursor: 'pointer' }}>
@@ -159,9 +186,28 @@ export function HandHistory() {
                 </tbody>
               </table>
               <div className="row" style={{ marginTop: 12 }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setReplay(0)}>Replay</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setReplay(0); setPlaying(true); }}>Replay</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setPlaying((v) => !v)}>{playing ? 'Pause' : 'Play'}</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setReplay(5)}>Show all</button>
                 <span className="muted small">Board revealed {replay}/5</span>
               </div>
+              {!!detail.actions?.length && (
+                <>
+                  <div className="panel-title" style={{ marginTop: 16 }}>Action</div>
+                  <div className="hh-actions">
+                    {detail.actions.map((a: any, i: number) => {
+                      const streetCount = a.street === 'preflop' ? 0 : a.street === 'flop' ? 3 : a.street === 'turn' ? 4 : 5;
+                      return (
+                        <div key={i} className={'hh-action' + (streetCount <= replay ? ' on' : '')}>
+                          <span className="hh-street">{a.street || 'preflop'}</span>
+                          <b>{a.nick}</b>
+                          <span>{a.action}{a.amount ? ` · ${money(a.amount)}` : ''}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

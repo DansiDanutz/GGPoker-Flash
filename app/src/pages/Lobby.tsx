@@ -284,6 +284,7 @@ export function Lobby() {
           <button className="rail-btn" onClick={() => navigate('/rewards')}><span className="ico">🐟</span>GG Left</button>
           <button className="rail-btn" onClick={() => navigate('/promotions')}><span className="ico">🎁</span>My Promo</button>
           <div className="rail-sep" />
+          <button className="rail-btn" onClick={() => navigate('/my-page')}><span className="ico">👤</span>My Page</button>
           <button className="rail-btn" onClick={() => navigate('/missions')}><span className="ico">📋</span>Missions</button>
           <button className="rail-btn" onClick={() => navigate('/leaderboard')}><span className="ico">🏆</span>Leaders</button>
           <div style={{ flex: 1 }} />

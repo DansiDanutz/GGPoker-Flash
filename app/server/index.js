@@ -147,10 +147,10 @@ function getLiveTable(id) {
     onEvent: (t, evt) => broadcastTable(t, evt),
     onHandSave: (h) => {
       try {
-        db.prepare(`INSERT INTO hands (hand_no,table_id,table_name,game,players,board,pot,result,hero_cards)
-          VALUES (?,?,?,?,?,?,?,?,?)`).run(
+        db.prepare(`INSERT INTO hands (hand_no,table_id,table_name,game,players,board,pot,result,hero_cards,actions)
+          VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
           h.handNo, h.tableId, h.tableName, h.game, JSON.stringify(h.players),
-          h.board.join(' '), h.pot, JSON.stringify(h.result), h.heroCards || ''
+          h.board.join(' '), h.pot, JSON.stringify(h.result), h.heroCards || '', JSON.stringify(h.actions || [])
         );
       } catch (e) { console.error('hand save', e); }
     },
@@ -436,7 +436,7 @@ const server = http.createServer(async (req, res) => {
         hands: rows.map((h) => ({
           id: h.id, handNo: h.hand_no, tableId: h.table_id, tableName: h.table_name, game: h.game,
           board: h.board, pot: h.pot, result: JSON.parse(h.result || '{}'), players: JSON.parse(h.players || '[]'),
-          heroCards: h.hero_cards, created_at: h.created_at,
+          heroCards: h.hero_cards, actions: JSON.parse(h.actions || '[]'), created_at: h.created_at,
         })),
       });
     }

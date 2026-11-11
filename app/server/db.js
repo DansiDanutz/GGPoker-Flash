@@ -175,6 +175,7 @@ function init() {
   );
   `);
 
+  try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
 }

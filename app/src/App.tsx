@@ -12,6 +12,7 @@ import { Promotions, Settings } from './pages/Promotions';
 import { Slots, Casino } from './pages/Casino';
 import { Profile, HandHistory, PropBet, Support } from './pages/Extras';
 import { Admin } from './pages/Admin';
+import { MyPage } from './pages/MyPage';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
   const desktop = typeof window !== 'undefined' && !!(window as any).ggDesktop;
@@ -85,6 +86,7 @@ export default function App() {
       case 'slots': return <Slots />;
       case 'casino': return <Casino />;
       case 'profile': return <Profile />;
+      case 'my-page': return <MyPage />;
       case 'support': return <Support />;
       case 'hand-history': return <HandHistory />;
       case 'propbet': return <PropBet />;

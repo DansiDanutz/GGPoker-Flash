@@ -732,3 +732,10 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .four-color .pcard.s-c .suit, .four-color .pcard.s-c .big-suit { color: #2f9a52; }
 .anim-off .pcard, .anim-off .win-overlay, .anim-off .allin-flash, .anim-off .promo-wrap img { animation: none !important; }
 .note-dot { position: absolute; top: -2px; right: -6px; font-size: 14px; filter: drop-shadow(0 1px 2px #000); }
+.hh-actions { display: flex; flex-direction: column; gap: 3px; max-height: 160px; overflow-y: auto; margin-top: 6px; }
+.hh-action { display: grid; grid-template-columns: 70px 110px 1fr; gap: 8px; font-size: 12px; color: #7a7a7a; padding: 2px 6px; border-radius: 3px; }
+.hh-action.on { color: #d8d8d8; background: #202020; }
+.hh-action b { color: #e8c15c; font-weight: 600; }
+.hh-street { text-transform: uppercase; font-size: 10px; letter-spacing: 1px; color: #6f6f6f; }
+.modal.wide { max-height: 90vh; display: flex; flex-direction: column; }
+.modal.wide .modal-body { overflow-y: auto; }

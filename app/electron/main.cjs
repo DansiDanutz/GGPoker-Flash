@@ -85,6 +85,17 @@ function createWindow() {
   win.webContents.on('did-fail-load', (e, code, desc) => console.error('load failed', code, desc));
   win.webContents.on('render-process-gone', (e, d) => console.error('renderer gone', d));
   win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith(URL)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 1200, height: 961, minWidth: 980, minHeight: 720,
+          frame: false, transparent: false, backgroundColor: '#0a0a0b',
+          hasShadow: true, title: 'GGPoker',
+          webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: false },
+        },
+      };
+    }
     shell.openExternal(url);
     return { action: 'deny' };
   });

@@ -380,13 +380,13 @@ export class PokerTable {
     if (action === 'fold') {
       p.folded = true;
       p.lastAction = { action: 'Fold', amount: 0 };
-      this.log.push({ nick: p.nick, action: 'fold' });
+      this.log.push({ nick: p.nick, action: 'fold', street: this.street });
       this.emit({ type: 'action', seat: seat.index, playerId, action: 'fold' });
     } else if (action === 'check') {
       if (call > 0) return { ok: false, error: 'cannot check' };
       p.lastAction = { action: 'Check', amount: 0 };
       p.acted = true;
-      this.log.push({ nick: p.nick, action: 'check' });
+      this.log.push({ nick: p.nick, action: 'check', street: this.street });
       this.emit({ type: 'action', seat: seat.index, playerId, action: 'check' });
     } else if (action === 'call') {
       if (call <= 0) return this.act(playerId, 'check');
@@ -394,7 +394,7 @@ export class PokerTable {
       if (p.stack === 0) p.allIn = true;
       p.lastAction = { action: 'Call', amount: paid };
       p.acted = true;
-      this.log.push({ nick: p.nick, action: 'call', amount: paid });
+      this.log.push({ nick: p.nick, action: 'call', amount: paid, street: this.street });
       this.emit({ type: 'action', seat: seat.index, playerId, action: 'call', amount: paid, allIn: p.allIn });
     } else if (['bet', 'raise', 'allin'].includes(action)) {
       let target = Math.round(Number(amount) || 0);
@@ -422,7 +422,7 @@ export class PokerTable {
       this.lastAggressor = p.id;
       const label = previousBet === 0 ? 'Bet' : 'Raise';
       p.lastAction = { action: label, amount: target };
-      this.log.push({ nick: p.nick, action: label.toLowerCase(), amount: target });
+      this.log.push({ nick: p.nick, action: label.toLowerCase(), amount: target, street: this.street });
       this.emit({
         type: 'action', seat: seat.index, playerId, action: label.toLowerCase(),
         amount: target, paid, allIn: p.allIn, pot: this.pot + this.totalBets(),
@@ -659,6 +659,7 @@ export class PokerTable {
         handNo: this.handNo, tableId: this.cfg.id, tableName: this.cfg.name, game: this.cfg.game,
         players, board: this.board.map(cardStr), pot: summary.pot, result: summary,
         heroCards: hero ? hero.cards.map(cardStr).join(' ') : '',
+        actions: this.log || [],
       });
     }
   }
