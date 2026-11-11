@@ -2,7 +2,7 @@
 # Build context: repository root (see deploy/compose.yml).
 FROM node:26-bookworm-slim AS build
 
-RUN corepack enable
+RUN npm install -g pnpm@10.32.1
 WORKDIR /src
 COPY tools ./tools
 COPY app/package.json app/pnpm-lock.yaml ./app/
@@ -17,7 +17,7 @@ ENV NODE_ENV=production \
     PORT=5198 \
     GGPOKER_DATA=/data
 
-RUN corepack enable
+RUN npm install -g pnpm@10.32.1
 WORKDIR /app
 COPY app/package.json app/pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
