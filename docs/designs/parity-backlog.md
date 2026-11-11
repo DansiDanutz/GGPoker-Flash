@@ -34,7 +34,7 @@ not a source to copy blindly.
   - betting shortcuts: four pre-flop BB values and four post-flop percentages,
     persisted and previewed;
   - nine native 122×162 card-back images plus official card-face sprites;
-  - five room backgrounds, including official 6-ring, 5-ring and Envelope table artwork plus dark room and stone floor;
+  - seven room backgrounds, including official 6-ring, 5-ring, Envelope, SuperCircuit and Mystery Envelope artwork plus dark room and stone floor;
   - stack display in chips, big blinds, or both (click a stack to cycle);
   - buy-in default as a percentage of table maximum;
   - auto top-up with trigger/target percentages;

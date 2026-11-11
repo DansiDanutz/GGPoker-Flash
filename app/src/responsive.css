@@ -613,3 +613,5 @@ body.electron .app-window::before { display: none; }
 }
 .hotkey-binding { min-width: 68px; height: 26px; padding: 0 8px; border: 1px solid #3a3a3a; border-radius: 4px; background: #1c1c1c; color: #ffd98a; font-size: 11px; font-weight: 700; }
 .hotkey-binding:hover { border-color: #6b5320; background: #242018; }
+.room-bg-supercircuit .room-mark { background-image: url('/assets/tables/table_supercircuit.png'); background-position: center 44%; background-size: cover; filter: brightness(1.12) contrast(1.04) saturate(1.05); opacity: .96; }
+.room-bg-mystery .room-mark { background-image: url('/assets/tables/table_mystery.png'); background-position: center 44%; background-size: cover; filter: brightness(1.12) contrast(1.04) saturate(1.1); opacity: .96; }
