@@ -449,15 +449,16 @@ export class PokerTable {
     this.emit({ type: 'turn', playerId, endsAt: this.actionEndsAt });
   }
 
-  useTimeBank(playerId) {
+  useTimeBank(playerId, seconds = 10) {
     const seat = this.seatOf(playerId);
     if (!seat || !seat.player) return { ok: false, error: 'not seated' };
     if (this.actor !== playerId) return { ok: false, error: 'not your turn' };
     if (this.timeBankUsed.has(playerId)) return { ok: false, error: 'time bank already used' };
+    const add = Math.max(5, Math.min(60, Math.round(Number(seconds) || 10)));
     this.timeBankUsed.add(playerId);
-    this.actionEndsAt += 10000;
-    this.emit({ type: 'timebank', playerId, endsAt: this.actionEndsAt });
-    return { ok: true, endsAt: this.actionEndsAt };
+    this.actionEndsAt += add * 1000;
+    this.emit({ type: 'timebank', playerId, seconds: add, endsAt: this.actionEndsAt });
+    return { ok: true, seconds: add, endsAt: this.actionEndsAt };
   }
 
   toCall(player) {

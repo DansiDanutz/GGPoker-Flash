@@ -1821,7 +1821,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'timebank') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
-      const res = entry.table.useTimeBank(ws.userId);
+      const res = entry.table.useTimeBank(ws.userId, msg.seconds);
       if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       else broadcastState(entry.table);
       return;

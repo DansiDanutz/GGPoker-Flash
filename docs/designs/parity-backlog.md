@@ -41,6 +41,7 @@ not a source to copy blindly.
   - show-hand-strength toggle;
   - enable-hotkeys and show-hints toggles;
   - dealer animation speed;
+  - configurable time bank (5–60 seconds, server-clamped);
   - real password change and revoke-other-sessions;
   - email is read-only because no account-email mutation API exists.
 - Bomb-pot cash tables:

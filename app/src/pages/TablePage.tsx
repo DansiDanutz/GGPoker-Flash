@@ -84,6 +84,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [hotkeysOn] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
   const [dealSpeed] = useState(readDealSpeed);
   const [betPrefs] = useState(readBetPrefs);
+  const [timeBankSeconds] = useState(() => Math.max(5, Math.min(60, Number(localStorage.getItem('ggpoker.timeBank') || 10))));
   const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
   const [cardAnim, setCardAnim] = useState<'deal' | 'flip' | 'slide' | 'off'>(() => {
     const saved = localStorage.getItem('ggpoker.cardAnim');
@@ -302,7 +303,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       toast({ kind: 'success', title: 'Seat available', body: 'A seat just opened — click Take a seat.' });
     } else if (evt.type === 'timebank') {
       sound.play('timebank', { volume: .6 });
-      toast({ kind: 'info', title: 'Time bank', body: '+10 seconds' });
+      toast({ kind: 'info', title: 'Time bank', body: `+${evt.seconds || timeBankSeconds} seconds` });
     } else if (evt.type === 'blinds_up') {
       sound.play('turn', { volume: .5 });
     } else if (evt.type === 'turn') {
@@ -762,7 +763,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}
         <div className="action-row">
-          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!myTurn || tbUsed} onClick={() => send({ type: 'timebank' })} title="Add 10 seconds once per hand">⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
+          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!myTurn || tbUsed} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (
             <button className="act-btn act-check" disabled={!myTurn} onClick={() => act('check')}>Check</button>
