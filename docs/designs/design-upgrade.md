@@ -96,6 +96,21 @@ not a clean 52-card rank/suit map. The official flag atlas likewise has 820
 unnamed frames. Those two remain a mapping exercise; the table backdrop and one
 official card back are already in use.
 
+## Resizable desktop shell
+
+- Removed the fixed 1200×961 stage. `.app-window` now fills the native window;
+  the Electron shell is borderless at every size and the browser preview no
+  longer applies a scale transform.
+- Responsive breakpoints at 1280, 1120, 980, 900, 760 and a short-height rule
+  at 780.
+- Lobby left rail collapses at 1120; side preview collapses at 980; table
+  columns collapse from eight to six and then five; game tabs scroll.
+- Login stacks/hides art, admin tables scroll, tournament rows collapse,
+  action rows wrap, and cards/tables scale down.
+- Verified by resizing the packaged app to **1000×720**, **1200×830** and
+  **1440×900**; lobby and room screenshots are in
+  `research/screens/deliverable/responsive_*.png`.
+
 ## Limits
 
 - The room is still a CSS/2D composition over the decoded room texture, not the Stage3D scene.

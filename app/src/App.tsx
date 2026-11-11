@@ -18,22 +18,12 @@ import { Honeymoon } from './pages/Honeymoon';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
   const desktop = typeof window !== 'undefined' && !!(window as any).ggDesktop;
-  const [scale, setScale] = useState(1);
   useEffect(() => {
-    if (desktop) { document.body.classList.add('electron'); return; }
-    const compute = () => {
-      const s = Math.min(1, (window.innerWidth - 24) / 1200, (window.innerHeight - 24) / 961);
-      setScale(Math.max(0.5, s));
-    };
-    compute();
-    window.addEventListener('resize', compute);
-    return () => window.removeEventListener('resize', compute);
+    if (desktop) document.body.classList.add('electron');
   }, [desktop]);
   return (
     <div className="desktop">
-      <div className="app-window" style={desktop ? undefined : { transform: `scale(${scale})` }}>
-        {children}
-      </div>
+      <div className="app-window">{children}</div>
     </div>
   );
 }
