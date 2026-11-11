@@ -43,7 +43,7 @@ instead of building around them.
     with a 300 default; `resetpw` writes an audit row; display-only money
     formatting is cleaned up; blackjack returns the settlement balance; the
     design-of-record is updated.
-*   **Verification:** `cd app && pnpm test` → 30 passed. The packaged app was
+*   **Verification:** `cd app && pnpm test` → 31 passed. The packaged app was
     relaunched, `/api/lobby` returned 200, and a live join/leave produced one
     `buyin` and one `cashout` with the same session id and `in:`/`out:` refs.
 

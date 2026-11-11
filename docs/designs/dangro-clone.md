@@ -72,7 +72,7 @@ justify new architecture.
 
 **Tier 2 — parity surface, kept because it reuses the recovered assets:**
 
-*   PLO, PLO5, Short Deck, All-in or Fold, Rush & Cash, Spin & Gold and Mystery
+*   PLO, PLO5, PLO6, Short Deck, All-in or Fold, Rush & Cash, Spin & Gold and Mystery
     Battle Royale.
 *   Slots, roulette, blackjack, baccarat, dragon tiger and sic bo.
 *   Rewards, missions, GG Pass, Fish Buffet, Ocean Rewards, GG Care, Honeymoon,
@@ -100,7 +100,7 @@ without a separate decision.
 **Decided:**
 
 *   **Testing seam**: `node:test` over the pure engine. Committed at
-    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `refund-fault.test.js`, `claims.test.js` and `http.test.js` (30 tests: deck,
+    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `refund-fault.test.js`, `claims.test.js` and `http.test.js` (31 tests: deck,
     hand ranking, Hold'em/Omaha selection, rake, side pots, uncontested pot,
     tournament payout, ledger atomicity/continuity/rollback, crash refunds,
     claims and the ephemeral-port server). Run with
@@ -221,7 +221,7 @@ local filler.
 
 ## Glossary and dependencies
 
-**Terms:** NLHE = no-limit Hold'em; PLO = pot-limit Omaha; PLO5 = five-card PLO;
+**Terms:** NLHE = no-limit Hold'em; PLO = pot-limit Omaha; PLO5 = five-card PLO; PLO6 = six-card PLO;
 Short Deck = 36-card Hold'em; AoF = All-in or Fold; Rush & Cash = fast-fold cash;
 Spin & Gold = three-handed jackpot SNG; Mystery Battle Royale = bounty format;
 bb = big blind; WAL = SQLite write-ahead log; CDP = Chrome DevTools Protocol;
@@ -492,7 +492,7 @@ the code has not been written.
     Hold'em/Omaha selection, rake floor/cap, side pots, uncontested pot and
     tournament payout; `app/server/ledger.test.js` covers ledger atomicity,
     continuity and rollback. Run with `pnpm test`.
-*   **Exit**: tests pass (30/30). Crash refunds, claims, cashier replay, places
+*   **Exit**: tests pass (31/31). Crash refunds, claims, cashier replay, places
     2/3, live join/leave session markers and the ephemeral-port server are covered.
     2/3 and the ephemeral-port server are covered.
 

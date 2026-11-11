@@ -83,7 +83,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for 
 - Frameless macOS window with the client's title bar, traffic lights, online counter and icon strip.
 - Original `PLAY GG.RO` logo, POKER / TOURNAMENTS / SLOTS / CASINO header pills, Bad Beat Jackpot ticker.
 - Second row game tabs using the original tab artwork: **Home, All-in or Fold, Rush & Cash,
-  Hold'em, PLO, Short Deck, Spin & Gold, Mystery Battle Royale**.
+  Hold'em, PLO/PLO5/PLO6, Short Deck, Spin & Gold, Mystery Battle Royale**.
 - Promotional carousel using the client's Flipout banner.
 - Cash-game table list with **stake/seat/speed filters, table search, favourites**, sortable columns,
   table selection,
@@ -95,7 +95,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for 
 ### Poker tables
 - Real No-Limit Hold'em engine: blinds, antes, betting rounds, min-raise rules, all-in,
   side pots, showdown, split pots, hand evaluation, dealer button, timers.
-- Variants: **Hold'em, PLO/PLO5 (2+3 rule), Short Deck (36 cards), All-in or Fold, Rush & Cash,
+- Variants: **Hold'em, PLO/PLO5/PLO6 (2+3 rule), Short Deck (36 cards), All-in or Fold, Rush & Cash,
   Spin & Gold SNG** (3-handed, prize wheel, escalating blinds, winner-takes-all),
   Mystery Battle Royale tables.
 - Bot opponents with Monte-Carlo equity decisions fill empty seats; stack persistence.
@@ -251,7 +251,7 @@ Goldfish reviews and the consolidated disposition are in
 
 The review changed the code: `addTransaction` is now a single SQLite
 transaction, the deck shuffle uses `node:crypto`, the app enforces a single
-instance, CDP is gated to dev, request bodies are capped, and 30 committed
+instance, CDP is gated to dev, request bodies are capped, and 31 committed
 `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
 
 ## Notes / scope
