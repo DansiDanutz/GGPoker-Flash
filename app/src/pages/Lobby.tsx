@@ -221,6 +221,8 @@ export function Lobby() {
         <div className="lobby-main">
           <div className="promo-wrap" onClick={() => { sound.play('click'); navigate('/promotions'); }}>
             <img className="promo-img" src={brand.promo} alt="Promotion" />
+            <span className="promo-badge">FEATURED</span>
+            <span className="promo-cta">Discover <span>→</span></span>
           </div>
           <div className="filter-bar">
             <select value={stakeFilter} onChange={(e) => setStakeFilter(e.target.value)}>
@@ -236,7 +238,7 @@ export function Lobby() {
             <button className={'fav-toggle' + (favOnly ? ' on' : '')} onClick={() => setFavOnly((v) => !v)}>★ Favorites</button>
             <span className="filter-count">{tables.length} tables</span>
           </div>
-          <div className="table-list">
+          <div className="table-list" key={gameTab}>
             <div className="list-head">
               <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
               <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>

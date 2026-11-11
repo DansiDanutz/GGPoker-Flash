@@ -4,6 +4,7 @@ import App from './App';
 import { AppProvider } from './lib/store';
 import { I18nProvider } from './lib/i18n';
 import './styles.css';
+import './design-v2.css';
 
 createRoot(document.getElementById('root')!).render(
   <I18nProvider>

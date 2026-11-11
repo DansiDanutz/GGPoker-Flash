@@ -490,11 +490,20 @@ export function TablePage({ tableId }: { tableId: string }) {
       )}
 
       <div className="room-mark" />
+      <div className="room-ambient" aria-hidden="true">
+        <span className="room-light l1" />
+        <span className="room-light l2" />
+        <span className="room-light l3" />
+        <div className="room-dust">
+          {Array.from({ length: 14 }).map((_, i) => <i key={i} style={{ '--i': i } as React.CSSProperties} />)}
+        </div>
+      </div>
       <div className="room-floor" />
       <div className="felt" />
       <div className="table-watermark" style={{ top: '34%', fontSize: 20, letterSpacing: 5 }}>{state?.name || ''}</div>
       <div className="table-center">
         {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
+        <div className="pot-chips" aria-hidden="true"><i /><i /><i /><i /><i /></div>
         <div className="board">
           {(state?.board || []).map((c, i) => <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt style={{ '--dx': '0px', '--dy': '34px', animationDelay: `${i * 0.08}s` } as React.CSSProperties} />)}
           {state?.boards && state.boards.length > 1 && (
