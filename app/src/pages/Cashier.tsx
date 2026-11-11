@@ -33,11 +33,11 @@ export function Cashier() {
       if (!requestKey.current) requestKey.current = crypto.randomUUID();
       if (mode === 'deposit') await api.deposit(amount, method, requestKey.current || undefined);
       else await api.withdraw(amount, method, requestKey.current || undefined);
-      requestKey.current = null;
       sound.play('coin');
       toast({ kind: 'success', title: mode === 'deposit' ? 'Deposit complete' : 'Withdrawal requested', body: money(amount) });
       await load();
       await refreshUser();
+      requestKey.current = null;
     } catch (e: any) {
       toast({ kind: 'error', title: 'Transaction failed', body: e.message });
     } finally { inFlight.current = false; setBusy(false); }

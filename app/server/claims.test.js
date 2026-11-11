@@ -39,3 +39,13 @@ test('daily claim is once per period and survives a retry', () => {
   assert.equal(b.claimed, false);
   assert.equal(getClaim(u1.id, 'daily', '2026-11-11').claimed, 1);
 });
+
+
+test('mission period rolls over daily and weekly', () => {
+  const a = missionPeriodKey('daily-hands', Date.UTC(2026, 10, 11));
+  const b = missionPeriodKey('daily-hands', Date.UTC(2026, 10, 12));
+  const w1 = missionPeriodKey('weekly-vip', Date.UTC(2026, 10, 11));
+  const w2 = missionPeriodKey('weekly-vip', Date.UTC(2026, 10, 18));
+  assert.notEqual(a, b);
+  assert.notEqual(w1, w2);
+});

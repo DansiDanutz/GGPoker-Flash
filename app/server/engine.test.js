@@ -56,13 +56,17 @@ test('bestOmaha uses exactly two hole cards and three board cards', () => {
   assert.notEqual(noFalseRoyal.name, 'Royal Flush');
 });
 
-test('rake is floored at 5% and capped at 3 big blinds', () => {
+test('rake is floored at 5% and capped by rakeCap (default 300)', () => {
   const t = tableWith([player(1, 'A', 1000, 0, [])], { seats: 1 });
   assert.equal(t.computeRake(1000), 50);
   assert.equal(t.computeRake(1010), 50);
   assert.equal(t.computeRake(10000), 300);
   const capped = tableWith([player(1, 'A', 1000, 0, [])], { seats: 1, rakeCap: 120 });
   assert.equal(capped.computeRake(10000), 120);
+  const high = tableWith([player(1, 'A', 1000, 0, [])], { seats: 1, bb: 2000 });
+  assert.equal(high.computeRake(100000), 300);
+  const zero = tableWith([player(1, 'A', 1000, 0, [])], { seats: 1, rakeCap: 0 });
+  assert.equal(zero.computeRake(10000), 300);
 });
 
 test('showdown builds side pots and conserves chips', () => {
@@ -138,4 +142,18 @@ test('elimination bust fires onSeatBusted before the seat is cleared', () => {
   t.hooks = { onSeatBusted: (_table, p) => busted.push(p.id), onHandComplete: () => {} };
   t.tick(2);
   assert.deepEqual(busted.sort(), [2, 3]);
+});
+
+
+test('a throwing onSeatBusted hook still clears the busted seat', () => {
+  const p1 = player(1, 'Winner', 1000, 0, []);
+  const p2 = player(2, 'Busted', 0, 0, []);
+  const p3 = player(3, 'Busted too', 0, 0, []);
+  const t = tableWith([p1, p2, p3], { seats: 3, game: 'spingold' });
+  t.street = 'ended';
+  t.nextHandAt = 1;
+  t.hooks = { onSeatBusted: () => { throw new Error('hook failed'); }, onHandComplete: () => {} };
+  t.tick(2);
+  assert.equal(t.seats[1].player, null);
+  assert.equal(t.seats[2].player, null);
 });

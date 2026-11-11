@@ -100,7 +100,7 @@ without a separate decision.
 **Decided:**
 
 *   **Testing seam**: `node:test` over the pure engine. Committed at
-    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `claims.test.js` and `http.test.js` (24 tests: deck,
+    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `claims.test.js` and `http.test.js` (26 tests: deck,
     hand ranking, Hold'em/Omaha selection, rake, side pots, uncontested pot,
     tournament payout, ledger atomicity/continuity/rollback, crash refunds,
     claims and the ephemeral-port server). Run with
@@ -485,7 +485,7 @@ the code has not been written.
     Hold'em/Omaha selection, rake floor/cap, side pots, uncontested pot and
     tournament payout; `app/server/ledger.test.js` covers ledger atomicity,
     continuity and rollback. Run with `pnpm test`.
-*   **Exit**: tests pass (24/24). Crash refunds, claims, cashier replay, places
+*   **Exit**: tests pass (26/26). Crash refunds, claims, cashier replay, places
     2/3, live join/leave session markers and the ephemeral-port server are covered.
     2/3 and the ephemeral-port server are covered.
 

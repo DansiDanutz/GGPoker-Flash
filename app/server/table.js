@@ -707,7 +707,7 @@ export class PokerTable {
                 this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
                 if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
               }
-              if (this.hooks.onSeatBusted) this.hooks.onSeatBusted(this, busted);
+              try { if (this.hooks.onSeatBusted) this.hooks.onSeatBusted(this, busted); } catch (e) { console.error('seat busted hook', e); }
               s.player = null;
               this.emit({ type: 'stand', seat: s.index });
             }

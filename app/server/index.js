@@ -589,7 +589,7 @@ const server = http.createServer(async (req, res) => {
       const amount = 500 + Math.floor(Math.random() * 20) * 250;
       const award = claimReward(u.id, 'daily', day, amount, 'USD', 'Daily freebie');
       if (!award.claimed) return json(res, 400, { error: 'Daily freebie already claimed today', amount: award.amount });
-      return json(res, 200, { ok: true, amount, balance: award.balance });
+      return json(res, 200, { ok: true, amount: award.amount, balance: award.balance });
     }
 
     if (p === '/api/rewards/daily') {
@@ -1106,7 +1106,8 @@ const server = http.createServer(async (req, res) => {
       const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       if (!target) return json(res, 404, { error: 'not found' });
       if (body.action === 'credit') {
-        const reference = body.reference ? `admin:credit:${body.reference}` : null;
+        if (!body.reference) return json(res, 400, { error: 'reference required' });
+        const reference = `admin:credit:${body.reference}`;
         const existing = transactionByReference(id, reference);
         if (existing) {
           if (existing.amount !== Math.round(body.amount || 0)) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
@@ -1216,12 +1217,16 @@ const server = http.createServer(async (req, res) => {
       const a = requireAdmin(req, res); if (!a) return;
       const b = await readBody(req);
       if (b.delete) { db.prepare('DELETE FROM missions WHERE id = ?').run(b.id); return json(res, 200, { ok: true }); }
-      db.prepare(`INSERT INTO missions (id,title,description,goal,progress,reward,reward_kind,active,sort,claimed)
-        VALUES (?,?,?,?,?,?,?,?,?,0)
+      if (b.reset) {
+        db.prepare("DELETE FROM player_claims WHERE kind = 'mission' AND period_key LIKE ?").run(`mission:${b.id}:%`);
+        return json(res, 200, { ok: true });
+      }
+      db.prepare(`INSERT INTO missions (id,title,description,goal,reward,reward_kind,active,sort)
+        VALUES (?,?,?,?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET title=excluded.title, description=excluded.description, goal=excluded.goal,
         reward=excluded.reward, reward_kind=excluded.reward_kind, active=excluded.active, sort=excluded.sort`)
         .run(b.id || `m${Date.now()}`, b.title || 'Mission', b.description || '', Number(b.goal) || 1,
-          Number(b.progress) || 0, Number(b.reward) || 100, b.reward_kind || 'USD', b.active === false ? 0 : 1, Number(b.sort) || 0);
+          Number(b.reward) || 100, b.reward_kind || 'USD', b.active === false ? 0 : 1, Number(b.sort) || 0);
       return json(res, 200, { ok: true });
     }
 
@@ -1428,11 +1433,12 @@ wss.on('connection', (ws, req) => {
       if (!u || u.balance < amount) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
       if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
       const sessionId = seat.player.sessionId;
-      seat.player.rebuyCount = (seat.player.rebuyCount || 0) + 1;
+      const rebuyNo = (seat.player.rebuyCount || 0) + 1;
       const award = addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
-        sessionId, reference: `in:${sessionId}:r${seat.player.rebuyCount}`, onDuplicate: 'skip',
+        sessionId, reference: `in:${sessionId}:r${rebuyNo}`, onDuplicate: 'skip',
       });
       if (!award.applied) return ws.send(JSON.stringify({ type: 'error', error: 'Rebuy already applied' }));
+      seat.player.rebuyCount = rebuyNo;
       seat.player.stack += amount;
       broadcastState(table);
       return;

@@ -3,7 +3,7 @@
 **Date:** 2026-11-11
 **Scope:** `320f00b..2b78993` plus the follow-up fixes in this change set.
 **Reviewers:** fresh-context EGM `codebase_details` and an independent code-review subagent. Both read the working tree, not only the patch.
-**Tests at review:** 20 passing; after fixes: 24 passing.
+**Tests at review:** 20 passing; after fixes: 26 passing.
 
 ## Verdict
 
@@ -41,6 +41,17 @@ The design is implemented, but the first review found real money bugs in the new
 * `http.test.js`: ephemeral port, lobby, registration single credit, deposit/withdraw replay, 409 on changed amount, live join/leave markers.
 * `engine.test.js`: places 2/3 + winner, spin `onSeatBusted` hook, rake floor/cap at bb=2000.
 * `ledger.test.js`: per-currency balance reconciliation.
+
+## Second verification pass
+
+A fresh reviewer re-checked every prior finding at `ab75928`; 14/14 were confirmed fixed and no new Blocking/Major regression was found. It raised six should-fix items, all now addressed:
+
+*   Daily claim returned the freshly generated amount instead of `award.amount` on a replay.
+*   The Spin `onSeatBusted` hook is wrapped in `try/catch`, so a hook failure cannot block the busted-seat cleanup.
+*   Rebuy computes `r<n>` before the write and only increments `rebuyCount` when the ledger row applied.
+*   Rake tests now cover `bb=2000` and `rakeCap: 0`; mission rollover has a unit test.
+*   Admin mission Reset deletes the per-user claim rows instead of writing the unused global columns.
+*   Admin credit requires a reference; the Cashier clears its key only after `load()`/`refreshUser()` succeed.
 
 ## Remaining
 

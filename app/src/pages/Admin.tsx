@@ -340,7 +340,7 @@ export function Admin() {
                         <td>
                           <div className="row" style={{ gap: 3 }}>
                             <button className="btn btn-ghost btn-sm" onClick={() => { setEditing({ kind: 'mission' }); setLocal({ ...m, active: !!m.active }); }}>Edit</button>
-                            <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.saveMission({ ...m, progress: 0, claimed: false }); loadAll(); }}>Reset</button>
+                            <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.saveMission({ id: m.id, reset: true }); loadAll(); }}>Reset</button>
                           </div>
                         </td>
                       </tr>

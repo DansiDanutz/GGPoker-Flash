@@ -1,12 +1,11 @@
-# Implementation Diff — Remediation Phases 1–4
+# Implementation Diff — Remediation Phases 1–4 (final)
 
-Baseline: 320f00b (re-draft)
-Head: 2b78993
-Scope: app/server, app/src, app/electron, app/index.html, README.md
+Baseline: 320f00b
+Head: ab75928
 
 ```diff
 diff --git a/README.md b/README.md
-index 0cbf69d..8923b40 100644
+index 0cbf69d..6e5a31c 100644
 --- a/README.md
 +++ b/README.md
 @@ -251,7 +251,7 @@ Goldfish reviews and the consolidated disposition are in
@@ -14,26 +13,47 @@ index 0cbf69d..8923b40 100644
  The review changed the code: `addTransaction` is now a single SQLite
  transaction, the deck shuffle uses `node:crypto`, the app enforces a single
 -instance, CDP is gated to dev, request bodies are capped, and 11 committed
-+instance, CDP is gated to dev, request bodies are capped, and 20 committed
++instance, CDP is gated to dev, request bodies are capped, and 24 committed
  `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
  
  ## Notes / scope
 diff --git a/app/electron/main.cjs b/app/electron/main.cjs
-index c6119ad..c46438f 100644
+index c6119ad..7ac12b1 100644
 --- a/app/electron/main.cjs
 +++ b/app/electron/main.cjs
-@@ -1,4 +1,4 @@
+@@ -1,7 +1,6 @@
 -const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
-+const { app, BrowserWindow, ipcMain, Menu, shell, dialog } = require('electron');
++const { app, BrowserWindow, ipcMain, Menu, shell, dialog, session } = require('electron');
  const path = require('node:path');
  const { spawn } = require('node:child_process');
- const http = require('node:http');
-@@ -32,20 +32,30 @@ if (DEV || process.env.GGPOKER_CDP === '1') {
+-const http = require('node:http');
+ const fs = require('node:fs');
+ 
+ 
+@@ -23,7 +22,7 @@ try { require('node:fs').mkdirSync(app.getPath('userData'), { recursive: true })
+ 
+ const DEV = process.env.GGPOKER_DEV === '1';
+ const PORT = Number(process.env.GGPOKER_PORT || 5198);
+-const URL = DEV ? 'http://localhost:5199' : `http://127.0.0.1:${PORT}`;
++let URL = DEV ? 'http://localhost:5199' : `http://127.0.0.1:${PORT}`;
+ 
+ if (DEV || process.env.GGPOKER_CDP === '1') {
+   app.commandLine.appendSwitch('remote-debugging-port', '9333');
+@@ -32,20 +31,39 @@ if (DEV || process.env.GGPOKER_CDP === '1') {
  let win = null;
  let serverProc = null;
  
 -function waitForServer(timeoutMs = 20000) {
 -  const start = Date.now();
++const CSP = "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*; font-src 'self' data:;";
++
++function installCsp() {
++  if (DEV) return;
++  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
++    callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [CSP] } });
++  });
++}
++
 +function waitForListening(child, timeoutMs = 15000) {
    return new Promise((resolve, reject) => {
 -    const tick = () => {
@@ -51,14 +71,14 @@ index c6119ad..c46438f 100644
 +      child.stdout.off('data', onData);
 +      child.off('exit', onExit);
 +      clearTimeout(timer);
-     };
--    tick();
++    };
 +    const finish = (fn, value) => {
 +      if (settled) return;
 +      settled = true;
 +      cleanup();
 +      fn(value);
-+    };
+     };
+-    tick();
 +    const onData = (chunk) => {
 +      buffer += String(chunk);
 +      const match = buffer.match(/LISTENING (\d+)/);
@@ -71,13 +91,14 @@ index c6119ad..c46438f 100644
    });
  }
  
-@@ -64,7 +74,12 @@ async function startServer() {
+@@ -64,7 +82,13 @@ async function startServer() {
    });
    serverProc.stdout.on('data', (d) => console.log('[server]', String(d).trim()));
    serverProc.stderr.on('data', (d) => console.error('[server]', String(d).trim()));
 -  await waitForServer();
 +  try {
-+    await waitForListening(serverProc);
++    const port = await waitForListening(serverProc);
++    URL = `http://127.0.0.1:${port}`;
 +  } catch (e) {
 +    try { serverProc.kill(); } catch { /* ignore */ }
 +    throw e;
@@ -85,7 +106,7 @@ index c6119ad..c46438f 100644
  }
  
  function createWindow() {
-@@ -85,7 +100,7 @@ function createWindow() {
+@@ -85,7 +109,7 @@ function createWindow() {
        preload: path.join(__dirname, 'preload.cjs'),
        contextIsolation: true,
        nodeIntegration: false,
@@ -94,7 +115,7 @@ index c6119ad..c46438f 100644
      },
    });
    win.loadURL(URL);
-@@ -105,7 +120,7 @@ function createWindow() {
+@@ -105,7 +129,7 @@ function createWindow() {
            width: 1200, height: 961, minWidth: 980, minHeight: 720,
            frame: false, transparent: false, backgroundColor: '#0a0a0b',
            hasShadow: true, title: 'DanGG.ro',
@@ -103,7 +124,7 @@ index c6119ad..c46438f 100644
          },
        };
      }
-@@ -130,6 +145,9 @@ app.whenReady().then(async () => {
+@@ -130,6 +154,9 @@ app.whenReady().then(async () => {
      await startServer();
    } catch (e) {
      console.error('Failed to start local server', e);
@@ -113,6 +134,14 @@ index c6119ad..c46438f 100644
    }
    if (process.platform === 'darwin') {
      Menu.setApplicationMenu(Menu.buildFromTemplate([
+@@ -145,6 +172,7 @@ app.whenReady().then(async () => {
+       { role: 'windowMenu' },
+     ]));
+   }
++  installCsp();
+   createWindow();
+   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+ });
 diff --git a/app/electron/preload.cjs b/app/electron/preload.cjs
 index 13cf770..ee80970 100644
 --- a/app/electron/preload.cjs
@@ -124,24 +153,12 @@ index 13cf770..ee80970 100644
 -  platform: process.platform,
 +  platform: (typeof process !== 'undefined' && process.platform) || 'darwin',
  });
-diff --git a/app/index.html b/app/index.html
-index 7707111..3a6c924 100644
---- a/app/index.html
-+++ b/app/index.html
-@@ -3,6 +3,7 @@
- <head>
-   <meta charset="utf-8" />
-   <meta name="viewport" content="width=device-width, initial-scale=1" />
-+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*; font-src 'self' data:;" />
-   <title>DanGG.ro</title>
-   <link rel="icon" href="/assets/chrome/logo.png" />
- </head>
 diff --git a/app/server/claims.test.js b/app/server/claims.test.js
 new file mode 100644
-index 0000000..64c857b
+index 0000000..44efc5c
 --- /dev/null
 +++ b/app/server/claims.test.js
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,41 @@
 +import test from 'node:test';
 +import assert from 'node:assert/strict';
 +import fs from 'node:fs';
@@ -149,22 +166,31 @@ index 0000000..64c857b
 +import path from 'node:path';
 +
 +process.env.GGPOKER_DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'dangro-claims-'));
-+const { db, bumpMission, claimReward, getClaim } = await import('./db.js');
++const { db, bumpMission, claimReward, getClaim, missionPeriodKey } = await import('./db.js');
 +const [u1, u2] = db.prepare('SELECT id FROM users ORDER BY id LIMIT 2').all();
 +
 +test('mission progress and claims are per user', () => {
 +  bumpMission(u1.id, 'daily-hands', 20);
-+  assert.equal(getClaim(u1.id, 'mission', 'daily-hands').progress, 20);
-+  assert.equal(getClaim(u2.id, 'mission', 'daily-hands'), undefined);
++  assert.equal(getClaim(u1.id, 'mission', missionPeriodKey('daily-hands')).progress, 20);
++  assert.equal(getClaim(u2.id, 'mission', missionPeriodKey('daily-hands')), undefined);
 +
-+  const first = claimReward(u1.id, 'mission', 'daily-hands', 5000, 'USD', 'hands');
++  const first = claimReward(u1.id, 'mission', missionPeriodKey('daily-hands'), 5000, 'USD', 'hands');
 +  assert.equal(first.claimed, true);
-+  const second = claimReward(u1.id, 'mission', 'daily-hands', 5000, 'USD', 'hands');
++  const second = claimReward(u1.id, 'mission', missionPeriodKey('daily-hands'), 5000, 'USD', 'hands');
 +  assert.equal(second.claimed, false);
-+  assert.equal(getClaim(u1.id, 'mission', 'daily-hands').claimed, 1);
++  assert.equal(getClaim(u1.id, 'mission', missionPeriodKey('daily-hands')).claimed, 1);
 +
 +  bumpMission(u2.id, 'daily-hands', 20);
-+  assert.equal(claimReward(u2.id, 'mission', 'daily-hands', 5000, 'USD', 'hands').claimed, true);
++  assert.equal(claimReward(u2.id, 'mission', missionPeriodKey('daily-hands'), 5000, 'USD', 'hands').claimed, true);
++});
++
++test('a crash between award and flag repairs from the ledger amount', () => {
++  claimReward(u1.id, 'mission', 'crash-check', 500, 'USD', 'crash');
++  db.prepare("UPDATE player_claims SET claimed = 0 WHERE user_id = ? AND kind = 'mission' AND period_key = 'crash-check'").run(u1.id);
++  const repaired = claimReward(u1.id, 'mission', 'crash-check', 999, 'USD', 'crash');
++  assert.equal(repaired.claimed, true);
++  assert.equal(repaired.amount, 500);
++  assert.equal(getClaim(u1.id, 'mission', 'crash-check').amount, 500);
 +});
 +
 +test('daily claim is once per period and survives a retry', () => {
@@ -175,17 +201,19 @@ index 0000000..64c857b
 +  assert.equal(getClaim(u1.id, 'daily', '2026-11-11').claimed, 1);
 +});
 diff --git a/app/server/db.js b/app/server/db.js
-index 51482ca..4f88c37 100644
+index 51482ca..0c948f8 100644
 --- a/app/server/db.js
 +++ b/app/server/db.js
-@@ -203,6 +203,29 @@ function init() {
+@@ -203,6 +203,31 @@ function init() {
  
    try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
    try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
 +  try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
 +  try { db.exec('ALTER TABLE transactions ADD COLUMN reference TEXT'); } catch { /* already exists */ }
-+  db.exec("DROP INDEX IF EXISTS idx_transactions_reference");
++  const refIndex = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_transactions_reference'").get();
++  if (refIndex && /WHERE/i.test(refIndex.sql || '')) db.exec('DROP INDEX idx_transactions_reference');
 +  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_reference ON transactions(user_id, reference)");
++  db.exec("CREATE INDEX IF NOT EXISTS idx_transactions_session ON transactions(session_id)");
 +  db.exec(`CREATE TABLE IF NOT EXISTS player_claims (
 +    user_id INTEGER NOT NULL,
 +    kind TEXT NOT NULL,
@@ -208,7 +236,7 @@ index 51482ca..4f88c37 100644
    const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
    if (!count) seed();
    ensureSeries();
-@@ -346,22 +369,103 @@ export function setSetting(key, value) {
+@@ -346,22 +371,125 @@ export function setSetting(key, value) {
      .run(key, JSON.stringify(value));
  }
  
@@ -268,10 +296,10 @@ index 51482ca..4f88c37 100644
 +  for (const s of openSessions()) {
 +    try {
 +      const tableId = String(s.session_id).split(':')[0] || 'table';
-+      addTransactionEx(s.user_id, 'buyin_refund', s.chips_in, `Crash refund ${tableId}`, 'USD', {
++      const award = addTransactionEx(s.user_id, 'buyin_refund', s.chips_in, `Crash refund ${tableId}`, 'USD', {
 +        sessionId: s.session_id, reference: `refund:${s.session_id}`, onDuplicate: 'skip',
 +      });
-+      refunded++;
++      if (award.applied) refunded++;
 +    } catch (e) {
 +      console.error('refund session failed', s.session_id, e && e.message);
 +    }
@@ -288,39 +316,61 @@ index 51482ca..4f88c37 100644
 +    VALUES (?,?,?,0,0,0) ON CONFLICT(user_id, kind, period_key) DO NOTHING`).run(userId, kind, periodKey);
 +  const row = getClaim(userId, kind, periodKey);
 +  if (row.claimed) return { claimed: false, amount: row.amount };
++  const reference = `claim:${kind}:${periodKey}`;
 +  const award = addTransactionEx(userId, kind, amount, memo || `${kind} reward`, currency, {
-+    reference: `claim:${kind}:${periodKey}`, onDuplicate: 'skip',
++    reference, onDuplicate: 'skip',
 +  });
++  let paid = amount;
++  if (!award.applied) {
++    const prior = db.prepare('SELECT amount FROM transactions WHERE user_id = ? AND reference = ?').get(userId, reference);
++    if (prior) paid = prior.amount;
++  }
 +  db.prepare(`UPDATE player_claims SET claimed = 1, amount = ?, updated_at = datetime('now')
-+    WHERE user_id = ? AND kind = ? AND period_key = ?`).run(amount, userId, kind, periodKey);
-+  return { claimed: true, amount, balance: award.balance, reapplied: !award.applied };
++    WHERE user_id = ? AND kind = ? AND period_key = ?`).run(paid, userId, kind, periodKey);
++  return { claimed: true, amount: paid, balance: award.balance, reapplied: !award.applied };
++}
++
++export function missionPeriodKey(missionId, now = Date.now()) {
++  const d = new Date(now);
++  if (String(missionId).startsWith('weekly-')) {
++    const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
++    const dow = t.getUTCDay() || 7;
++    t.setUTCDate(t.getUTCDate() + 4 - dow);
++    const year = t.getUTCFullYear();
++    const yearStart = new Date(Date.UTC(year, 0, 1));
++    const week = Math.ceil((((t - yearStart) / 86400000) + 1) / 7);
++    return `mission:${missionId}:week:${year}-W${String(week).padStart(2, '0')}`;
++  }
++  return `mission:${missionId}:day:${d.toISOString().slice(0, 10)}`;
 +}
 +
 +export function bumpMission(userId, missionId, delta = 1) {
 +  const m = db.prepare('SELECT goal FROM missions WHERE id = ?').get(missionId);
 +  if (!m) return;
++  const period = missionPeriodKey(missionId);
 +  db.prepare(`INSERT INTO player_claims (user_id, kind, period_key, progress, claimed, amount)
-+    VALUES (?, 'mission', ?, 0, 0, 0) ON CONFLICT(user_id, kind, period_key) DO NOTHING`).run(userId, missionId);
++    VALUES (?, 'mission', ?, 0, 0, 0) ON CONFLICT(user_id, kind, period_key) DO NOTHING`).run(userId, period);
 +  db.prepare(`UPDATE player_claims SET progress = MIN(?, progress + ?), updated_at = datetime('now')
-+    WHERE user_id = ? AND kind = 'mission' AND period_key = ?`).run(m.goal, delta, userId, missionId);
++    WHERE user_id = ? AND kind = 'mission' AND period_key = ?`).run(m.goal, delta, userId, period);
 +}
 +
 +export function setMissionDone(userId, missionId) {
 +  const m = db.prepare('SELECT goal FROM missions WHERE id = ?').get(missionId);
 +  if (!m) return;
++  const period = missionPeriodKey(missionId);
 +  db.prepare(`INSERT INTO player_claims (user_id, kind, period_key, progress, claimed, amount)
 +    VALUES (?, 'mission', ?, ?, 0, 0)
-+    ON CONFLICT(user_id, kind, period_key) DO UPDATE SET progress = excluded.progress, updated_at = datetime('now')`).run(userId, missionId, m.goal);
++    ON CONFLICT(user_id, kind, period_key) DO UPDATE SET progress = excluded.progress, updated_at = datetime('now')`).run(userId, period, m.goal);
 +}
 +
  export function newSession(userId, device = '') {
    const token = randomUUID();
    const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
 diff --git a/app/server/engine.test.js b/app/server/engine.test.js
-index 0334242..8eae974 100644
+index 0334242..951b382 100644
 --- a/app/server/engine.test.js
 +++ b/app/server/engine.test.js
-@@ -106,3 +106,22 @@ test('tournament winner receives half the prize pool exactly once and fires the
+@@ -106,3 +106,36 @@ test('tournament winner receives half the prize pool exactly once and fires the
    assert.equal(paid, 1);
    assert.equal(ends, 1);
  });
@@ -343,15 +393,31 @@ index 0334242..8eae974 100644
 +  assert.deepEqual(payouts.map((p) => [p.place, p.payout]), [[2, 900], [3, 600]]);
 +  assert.equal(endPrize, 1500);
 +});
++
++
++test('elimination bust fires onSeatBusted before the seat is cleared', () => {
++  const p1 = player(1, 'Spin winner', 1000, 0, []);
++  const p2 = player(2, 'Busted A', 0, 0, []);
++  const p3 = player(3, 'Busted B', 0, 0, []);
++  const t = tableWith([p1, p2, p3], { seats: 3, game: 'spingold' });
++  t.street = 'ended';
++  t.nextHandAt = 1;
++  const busted = [];
++  t.hooks = { onSeatBusted: (_table, p) => busted.push(p.id), onHandComplete: () => {} };
++  t.tick(2);
++  assert.deepEqual(busted.sort(), [2, 3]);
++});
 diff --git a/app/server/http.test.js b/app/server/http.test.js
 new file mode 100644
-index 0000000..bbf3232
+index 0000000..ac0d46d
 --- /dev/null
 +++ b/app/server/http.test.js
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,124 @@
 +import test from 'node:test';
 +import assert from 'node:assert/strict';
 +import { spawn } from 'node:child_process';
++import { DatabaseSync } from 'node:sqlite';
++import WebSocket from 'ws';
 +import fs from 'node:fs';
 +import os from 'node:os';
 +import path from 'node:path';
@@ -371,7 +437,7 @@ index 0000000..bbf3232
 +    child.stdout.on('data', (d) => {
 +      out += String(d);
 +      const m = out.match(/LISTENING (\d+)/);
-+      if (m) { clearTimeout(timer); resolve({ child, port: Number(m[1]) }); }
++      if (m) { clearTimeout(timer); resolve({ child, port: Number(m[1]), data }); }
 +    });
 +    child.stderr.on('data', (d) => process.stderr.write(d));
 +    child.once('exit', (code) => { clearTimeout(timer); reject(new Error(`exit ${code}`)); });
@@ -406,6 +472,34 @@ index 0000000..bbf3232
 +    }).then((r) => r.json());
 +    assert.equal(first.balance, second.balance);
 +    assert.equal(second.replayed, true);
++    const conflict = await fetch(`http://127.0.0.1:${port}/api/cashier/deposit`, {
++      method: 'POST',
++      headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}`, 'idempotency-key': 'test-key-1' },
++      body: JSON.stringify({ amount: 800, method: 'card' }),
++    });
++    assert.equal(conflict.status, 409);
++    const w1 = await fetch(`http://127.0.0.1:${port}/api/cashier/withdraw`, {
++      method: 'POST',
++      headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}`, 'idempotency-key': 'wd-1' },
++      body: JSON.stringify({ amount: 100, method: 'bank' }),
++    }).then((r) => r.json());
++    const w2 = await fetch(`http://127.0.0.1:${port}/api/cashier/withdraw`, {
++      method: 'POST',
++      headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}`, 'idempotency-key': 'wd-1' },
++      body: JSON.stringify({ amount: 100, method: 'bank' }),
++    }).then((r) => r.json());
++    assert.equal(w1.balance, w2.balance);
++    assert.equal(w2.replayed, true);
++    const reg = await fetch(`http://127.0.0.1:${port}/api/auth/register`, {
++      method: 'POST', headers: { 'content-type': 'application/json' },
++      body: JSON.stringify({ login: 'freshuser', nick: 'Fresh', password: 'fresh' }),
++    }).then((r) => r.json());
++    assert.equal(reg.user.balance, 600000);
++    const regCash = await fetch(`http://127.0.0.1:${port}/api/cashier`, {
++      headers: { authorization: `Bearer ${reg.token}` },
++    }).then((r) => r.json());
++    assert.equal(regCash.user.balance, 600000);
++    assert.equal(regCash.transactions.find((t) => t.kind === 'welcome')?.amount, 600000);
 +    const bad = await fetch(`http://127.0.0.1:${port}/api/admin/users/1`, {
 +      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}` },
 +      body: JSON.stringify({ action: 'credit', amount: 1 }),
@@ -415,8 +509,36 @@ index 0000000..bbf3232
 +    child.kill();
 +  }
 +});
++
++
++test('live join and leave write matching session markers', async () => {
++  const { child, port, data } = await startServer();
++  try {
++    const login = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
++      method: 'POST', headers: { 'content-type': 'application/json' },
++      body: JSON.stringify({ login: 'DansiDanutz', password: 'ggpoker' }),
++    }).then((r) => r.json());
++    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${login.token}`);
++    await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
++    ws.send(JSON.stringify({ type: 'join_table', tableId: 'nlh-diamond-01', buyin: 50000 }));
++    await new Promise((r) => setTimeout(r, 1800));
++    ws.send(JSON.stringify({ type: 'leave_table', tableId: 'nlh-diamond-01' }));
++    await new Promise((r) => setTimeout(r, 600));
++    ws.close();
++    const db = new DatabaseSync(path.join(data, 'ggpoker.db'));
++    const rows = db.prepare("SELECT kind, amount, session_id, reference FROM transactions WHERE session_id IS NOT NULL ORDER BY id").all();
++    assert.equal(rows[0].kind, 'buyin');
++    assert.ok(rows[0].reference.startsWith('in:'));
++    const close = rows.find((r) => r.reference.startsWith('out:'));
++    assert.ok(close);
++    assert.equal(close.session_id, rows[0].session_id);
++    assert.equal(close.reference, `out:${rows[0].session_id}`);
++  } finally {
++    child.kill();
++  }
++});
 diff --git a/app/server/index.js b/app/server/index.js
-index c5c6cff..81f5429 100644
+index c5c6cff..90146d8 100644
 --- a/app/server/index.js
 +++ b/app/server/index.js
 @@ -2,10 +2,11 @@ import http from 'node:http';
@@ -429,7 +551,7 @@ index c5c6cff..81f5429 100644
 -  db, DATA_DIR, hashPassword, checkPassword, addTransaction, newSession, userByToken,
 -  publicUser, getSetting, setSetting,
 +  db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, newSession, userByToken,
-+  publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone,
++  publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone, missionPeriodKey,
  } from './db.js';
  import { PokerTable, botName } from './table.js';
  import { makeDeck, shuffle, cardStr } from './poker.js';
@@ -450,7 +572,25 @@ index c5c6cff..81f5429 100644
  function tokenFrom(req) {
    const h = req.headers.authorization;
    if (h && h.startsWith('Bearer ')) return h.slice(7);
-@@ -122,6 +133,7 @@ function lobbyTables() {
+@@ -106,6 +117,17 @@ function occupancyFor(t) {
+   return TABLE_OCCUPANCY.get(t.id);
+ }
+ 
++function lobbyMissions(user) {
++  const defs = db.prepare('SELECT * FROM missions WHERE active = 1 ORDER BY sort').all();
++  if (!user) return defs.map((m) => ({ ...m, progress: 0, claimed: 0 }));
++  const claims = db.prepare("SELECT * FROM player_claims WHERE user_id = ? AND kind = 'mission'").all(user.id);
++  const byId = new Map(claims.map((c) => [c.period_key, c]));
++  return defs.map((m) => {
++    const c = byId.get(missionPeriodKey(m.id));
++    return { ...m, progress: c?.progress || 0, claimed: c?.claimed || 0 };
++  });
++}
++
+ function lobbyTables() {
+   const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 ORDER BY sort ASC').all();
+   return rows.map((t) => {
+@@ -122,6 +144,7 @@ function lobbyTables() {
        vpip: players ? 18 + (seed % 45) : 0,
        handsPerHour: 55 + (seed % 80),
        running: LIVE_TABLES.has(t.id),
@@ -458,7 +598,20 @@ index c5c6cff..81f5429 100644
      };
    });
  }
-@@ -213,13 +225,9 @@ function getLiveTable(id) {
+@@ -209,17 +232,22 @@ function getLiveTable(id) {
+         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize}`);
+       } catch (e) { console.error('tournament end', e); }
+     },
++    onSeatBusted: (table, player) => {
++      if (!table.spin) return;
++      const seat = table.seatOf(player.id);
++      const sessionId = seat?.player?.sessionId;
++      if (!sessionId) return;
++      addTransactionEx(player.id, 'session_close', 0, 'Spin bust', 'USD', {
++        sessionId, reference: `out:${sessionId}`, onDuplicate: 'skip',
++      });
++    },
+     onHandComplete: ({ table, winner }) => {
        // mission progress for humans
        for (const s of table.seats) {
          if (!s.player || s.player.isBot) continue;
@@ -475,7 +628,7 @@ index c5c6cff..81f5429 100644
        }
      },
    });
-@@ -232,6 +240,7 @@ function getLiveTable(id) {
+@@ -232,6 +260,7 @@ function getLiveTable(id) {
        if (entry.clients.size === 0) {
          if (!entry.emptySince) entry.emptySince = Date.now();
          else if (Date.now() - entry.emptySince > 45000) {
@@ -483,17 +636,18 @@ index c5c6cff..81f5429 100644
            clearInterval(entry.timer);
            LIVE_TABLES.delete(id);
          }
-@@ -273,12 +282,38 @@ function seatHuman(table, user, buyin, seatIndex = null) {
+@@ -273,12 +302,35 @@ function seatHuman(table, user, buyin, seatIndex = null) {
    const stack = Number(buyin) || table.cfg.min_buyin;
    if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
    if (user.balance < stack) return { ok: false, error: 'not enough balance' };
 -  addTransaction(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`);
+-  const res = table.sit({ id: user.id, nick: user.nick, avatar: user.avatar }, seatIndex ?? null, stack);
+-  if (!res.ok) { addTransaction(user.id, 'refund', stack, 'Buy-in refund'); return res; }
 +  const sessionId = `${table.cfg.id}:${randomUUID()}`;
 +  addTransactionEx(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`, 'USD', {
 +    sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
 +  });
-   const res = table.sit({ id: user.id, nick: user.nick, avatar: user.avatar }, seatIndex ?? null, stack);
--  if (!res.ok) { addTransaction(user.id, 'refund', stack, 'Buy-in refund'); return res; }
++  const res = table.sit({ id: user.id, nick: user.nick, avatar: user.avatar }, seatIndex ?? null, stack, sessionId);
 +  if (!res.ok) {
 +    addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
 +      sessionId, reference: `refund:${sessionId}`, onDuplicate: 'skip',
@@ -512,19 +666,39 @@ index c5c6cff..81f5429 100644
 +  const sessionId = seat.player.sessionId;
 +  table.stand(userId);
 +  if (table.tournament) return;
-+  if (sessionId) {
-+    addTransactionEx(userId, stack > 0 ? 'cashout' : 'session_close', stack, reason, 'USD', {
-+      sessionId, reference: `out:${sessionId}`, onDuplicate: 'skip',
-+    });
-+  } else if (stack > 0) {
-+    addTransaction(userId, 'cashout', stack, reason);
-+  }
++  const sid = sessionId || `${table.cfg.id}:${randomUUID()}`;
++  addTransactionEx(userId, stack > 0 ? 'cashout' : 'session_close', stack, reason, 'USD', {
++    sessionId: sid, reference: `out:${sid}`, onDuplicate: 'skip',
++  });
 +}
 +
  /* ------------------------------------------------------------------ */
  /* HTTP API                                                            */
  /* ------------------------------------------------------------------ */
-@@ -392,7 +427,7 @@ const server = http.createServer(async (req, res) => {
+@@ -308,9 +360,10 @@ const server = http.createServer(async (req, res) => {
+       if (db.prepare('SELECT id FROM users WHERE lower(login)=lower(?)').get(login)) return json(res, 400, { error: 'Account already exists' });
+       const start = getSetting('default_balance', 5000) + getSetting('welcome_bonus', 100000);
+       db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
+-        .run(login, nick, hashPassword(body.password), body.email || '', start, 5);
+-      const user = db.prepare('SELECT * FROM users WHERE login = ?').get(login);
+-      addTransaction(user.id, 'welcome', start, 'Welcome bonus');
++        .run(login, nick, hashPassword(body.password), body.email || '', 0, 5);
++      const created = db.prepare('SELECT * FROM users WHERE login = ?').get(login);
++      addTransaction(created.id, 'welcome', start, 'Welcome bonus');
++      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
+       const token = newSession(user.id, req.headers['user-agent'] || '');
+       return json(res, 200, { token, user: publicUser(user) });
+     }
+@@ -363,7 +416,7 @@ const server = http.createServer(async (req, res) => {
+         online: sitesStats().online,
+         jackpot: getSetting('jackpot', 199026635),
+         user: publicUser(u),
+-        missions: db.prepare('SELECT * FROM missions WHERE active = 1 ORDER BY sort').all(),
++        missions: lobbyMissions(u),
+         settings: { site_name: getSetting('site_name', 'GGPoker'), maintenance: getSetting('maintenance', false) },
+       });
+     }
+@@ -392,7 +445,7 @@ const server = http.createServer(async (req, res) => {
        addTransaction(u.id, 'tourney_buyin', -total, `Registration ${t.name}`);
        db.prepare('INSERT INTO tourney_regs (tournament_id,user_id) VALUES (?,?)').run(id, u.id);
        db.prepare('UPDATE tournaments SET entrants = entrants + 1 WHERE id = ?').run(id);
@@ -533,7 +707,7 @@ index c5c6cff..81f5429 100644
        return json(res, 200, { ok: true });
      }
  
-@@ -459,17 +494,23 @@ const server = http.createServer(async (req, res) => {
+@@ -459,17 +512,29 @@ const server = http.createServer(async (req, res) => {
        const body = await readBody(req);
        const amount = Math.round(Number(body.amount || 0));
        if (amount <= 0 || amount > 100000000) return json(res, 400, { error: 'Invalid amount' });
@@ -541,7 +715,10 @@ index c5c6cff..81f5429 100644
 -      return json(res, 200, { ok: true, balance: after });
 +      const reference = idempotentReference(req, body, 'cashier:deposit');
 +      const existing = transactionByReference(u.id, reference);
-+      if (existing) return json(res, 200, { ok: true, balance: existing.balance_after, replayed: true });
++      if (existing) {
++        if (existing.amount !== amount) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
++        return json(res, 200, { ok: true, balance: u.balance, replayed: true });
++      }
 +      const award = addTransactionEx(u.id, 'deposit', amount, body.method || 'Instant bank transfer', 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
 +      return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
      }
@@ -552,7 +729,10 @@ index c5c6cff..81f5429 100644
        const amount = Math.round(Number(body.amount || 0));
 +      const reference = idempotentReference(req, body, 'cashier:withdraw');
 +      const existing = transactionByReference(u.id, reference);
-+      if (existing) return json(res, 200, { ok: true, balance: existing.balance_after, replayed: true });
++      if (existing) {
++        if (existing.amount !== -amount) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
++        return json(res, 200, { ok: true, balance: u.balance, replayed: true });
++      }
        if (amount <= 0 || amount > u.balance) return json(res, 400, { error: 'Invalid amount' });
 -      const after = addTransaction(u.id, 'withdraw', -amount, body.method || 'Bank transfer');
 -      return json(res, 200, { ok: true, balance: after });
@@ -561,7 +741,7 @@ index c5c6cff..81f5429 100644
      }
  
      // ---------- hand history ----------
-@@ -488,7 +529,10 @@ const server = http.createServer(async (req, res) => {
+@@ -488,7 +553,13 @@ const server = http.createServer(async (req, res) => {
      // ---------- missions / rewards ----------
      if (p === '/api/missions') {
        const u = requireUser(req, res); if (!u) return;
@@ -569,11 +749,14 @@ index c5c6cff..81f5429 100644
 +      const defs = db.prepare('SELECT * FROM missions WHERE active = 1 ORDER BY sort').all();
 +      const claims = db.prepare("SELECT * FROM player_claims WHERE user_id = ? AND kind = 'mission'").all(u.id);
 +      const byId = new Map(claims.map((c) => [c.period_key, c]));
-+      return json(res, 200, { missions: defs.map((m) => ({ ...m, progress: byId.get(m.id)?.progress || 0, claimed: byId.get(m.id)?.claimed || 0 })) });
++      return json(res, 200, { missions: defs.map((m) => {
++        const c = byId.get(missionPeriodKey(m.id));
++        return { ...m, progress: c?.progress || 0, claimed: c?.claimed || 0 };
++      }) });
      }
  
      if (p.startsWith('/api/missions/') && p.endsWith('/claim') && req.method === 'POST') {
-@@ -496,11 +540,12 @@ const server = http.createServer(async (req, res) => {
+@@ -496,11 +567,13 @@ const server = http.createServer(async (req, res) => {
        const id = p.split('/')[3];
        const m = db.prepare('SELECT * FROM missions WHERE id = ?').get(id);
        if (!m) return json(res, 404, { error: 'not found' });
@@ -582,16 +765,17 @@ index c5c6cff..81f5429 100644
 -      db.prepare('UPDATE missions SET claimed = 1 WHERE id = ?').run(id);
 -      const after = addTransaction(u.id, 'claim', m.reward, `Mission: ${m.title}`, m.reward_kind);
 -      return json(res, 200, { ok: true, balance: after, reward: m.reward, kind: m.reward_kind });
-+      const c = getClaim(u.id, 'mission', id);
++      const period = missionPeriodKey(id);
++      const c = getClaim(u.id, 'mission', period);
 +      if (c?.claimed) return json(res, 400, { error: 'Already claimed' });
 +      if (!c || c.progress < m.goal) return json(res, 400, { error: 'Mission not complete' });
-+      const award = claimReward(u.id, 'mission', id, m.reward, m.reward_kind, `Mission: ${m.title}`);
++      const award = claimReward(u.id, 'mission', period, m.reward, m.reward_kind, `Mission: ${m.title}`);
 +      if (!award.claimed) return json(res, 400, { error: 'Already claimed' });
 +      return json(res, 200, { ok: true, balance: award.balance, reward: m.reward, kind: m.reward_kind });
      }
  
      if (p === '/api/leaderboard') {
-@@ -511,19 +556,19 @@ const server = http.createServer(async (req, res) => {
+@@ -511,19 +584,19 @@ const server = http.createServer(async (req, res) => {
      if (p === '/api/rewards/daily' && req.method === 'POST') {
        const u = requireUser(req, res); if (!u) return;
        const day = new Date().toISOString().slice(0, 10);
@@ -618,8 +802,11 @@ index c5c6cff..81f5429 100644
      }
  
      if (p === '/api/rewards/spin' && req.method === 'POST') {
-@@ -615,14 +660,14 @@ const server = http.createServer(async (req, res) => {
+@@ -613,16 +686,17 @@ const server = http.createServer(async (req, res) => {
+         return sum;
+       };
        if (action === 'deal') {
++        if (BJ_HANDS.has(u.id)) return json(res, 400, { error: 'Finish the current hand first' });
          const bet = Math.max(10, Math.min(1000000, Math.round(Number(body.bet) || 100)));
          if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
 -        addTransaction(u.id, 'blackjack', -bet, 'Blackjack bet');
@@ -635,7 +822,7 @@ index c5c6cff..81f5429 100644
          });
        }
        const hand = BJ_HANDS.get(u.id);
-@@ -632,7 +677,8 @@ const server = http.createServer(async (req, res) => {
+@@ -632,7 +706,8 @@ const server = http.createServer(async (req, res) => {
          const pv = bjValue(hand.player), dv = bjValue(hand.dealer);
          if (pv > 21) {
            BJ_HANDS.delete(u.id);
@@ -645,7 +832,7 @@ index c5c6cff..81f5429 100644
          }
          return json(res, 200, { player: hand.player.map(cardStr), playerTotal: pv, dealer: [cardStr(hand.dealer[0]), '??'], done: false });
        }
-@@ -645,9 +691,9 @@ const server = http.createServer(async (req, res) => {
+@@ -645,9 +720,9 @@ const server = http.createServer(async (req, res) => {
          if (pv > 21) { payout = 0; result = 'bust'; }
          else if (dv > 21 || pv > dv) { payout = natural ? Math.floor(hand.bet * 2.5) : hand.bet * 2; result = 'win'; }
          else if (pv === dv) { payout = hand.bet; result = 'push'; }
@@ -657,7 +844,7 @@ index c5c6cff..81f5429 100644
        }
        return json(res, 400, { error: 'unknown action' });
      }
-@@ -844,12 +890,12 @@ const server = http.createServer(async (req, res) => {
+@@ -844,12 +919,12 @@ const server = http.createServer(async (req, res) => {
      // ---------- honeymoon ----------
      if (p === '/api/honeymoon' && req.method === 'GET') {
        const u = requireUser(req, res); if (!u) return;
@@ -675,7 +862,7 @@ index c5c6cff..81f5429 100644
          missions: true,
        });
      }
-@@ -857,32 +903,27 @@ const server = http.createServer(async (req, res) => {
+@@ -857,32 +932,27 @@ const server = http.createServer(async (req, res) => {
        const u = requireUser(req, res); if (!u) return;
        const b = await readBody(req);
        const step = String(b.step || '');
@@ -719,14 +906,18 @@ index c5c6cff..81f5429 100644
      }
  
      // ---------- brand assets ----------
-@@ -1036,9 +1077,12 @@ const server = http.createServer(async (req, res) => {
+@@ -1036,9 +1106,16 @@ const server = http.createServer(async (req, res) => {
        const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
        if (!target) return json(res, 404, { error: 'not found' });
        if (body.action === 'credit') {
 -        const after = addTransaction(id, 'admin', Math.round(body.amount || 0), `Admin credit by ${a.login}`);
 +        const reference = body.reference ? `admin:credit:${body.reference}` : null;
 +        const existing = transactionByReference(id, reference);
-+        if (existing) return json(res, 200, { ok: true, balance: existing.balance_after, replayed: true });
++        if (existing) {
++          if (existing.amount !== Math.round(body.amount || 0)) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
++          const current = db.prepare('SELECT balance FROM users WHERE id = ?').get(id)?.balance;
++          return json(res, 200, { ok: true, balance: current, replayed: true });
++        }
 +        const award = addTransactionEx(id, 'admin', Math.round(body.amount || 0), `Admin credit by ${a.login}`, 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
          db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'credit', `user ${id} ${body.amount}`);
 -        return json(res, 200, { ok: true, balance: after });
@@ -734,7 +925,7 @@ index c5c6cff..81f5429 100644
        }
        if (body.action === 'set') {
          const currency = { balance: 'USD', play_chips: 'PLAY', tickets: 'TICKET', gems: 'GEM' };
-@@ -1061,6 +1105,7 @@ const server = http.createServer(async (req, res) => {
+@@ -1061,6 +1138,7 @@ const server = http.createServer(async (req, res) => {
        }
        if (body.action === 'resetpw') {
          db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(String(body.password || 'ggpoker')), id);
@@ -742,7 +933,21 @@ index c5c6cff..81f5429 100644
          return json(res, 200, { ok: true });
        }
        if (body.action === 'delete' && !target.is_admin) {
-@@ -1158,12 +1203,7 @@ const server = http.createServer(async (req, res) => {
+@@ -1149,7 +1227,12 @@ const server = http.createServer(async (req, res) => {
+ 
+     if (p === '/api/admin/missions') {
+       const a = requireAdmin(req, res); if (!a) return;
+-      return json(res, 200, { missions: db.prepare('SELECT * FROM missions ORDER BY sort').all() });
++      const defs = db.prepare('SELECT * FROM missions ORDER BY sort').all();
++      return json(res, 200, { missions: defs.map((m) => ({
++        ...m,
++        progress: db.prepare("SELECT COUNT(*) c FROM player_claims WHERE kind = 'mission' AND period_key LIKE ? AND claimed = 1").get(`mission:${m.id}:%`).c,
++        claimed: db.prepare("SELECT COUNT(*) c FROM player_claims WHERE kind = 'mission' AND period_key LIKE ? AND claimed = 1").get(`mission:${m.id}:%`).c > 0,
++      })) });
+     }
+ 
+     if (p.startsWith('/api/admin/live/') && p.endsWith('/close') && req.method === 'POST') {
+@@ -1158,12 +1241,7 @@ const server = http.createServer(async (req, res) => {
        const entry = LIVE_TABLES.get(id);
        if (!entry) return json(res, 404, { error: 'not running' });
        for (const s of [...entry.table.seats]) {
@@ -756,7 +961,7 @@ index c5c6cff..81f5429 100644
        }
        clearInterval(entry.timer);
        LIVE_TABLES.delete(id);
-@@ -1309,11 +1349,9 @@ wss.on('connection', (ws, req) => {
+@@ -1309,11 +1387,9 @@ wss.on('connection', (ws, req) => {
          entry.clients.delete(ws);
          ws.tables.delete(msg.tableId);
          const table = entry.table;
@@ -771,7 +976,12 @@ index c5c6cff..81f5429 100644
            notifyWaitlist(msg.tableId);
          } else {
            waitlistLeave(msg.tableId, ws.userId);
-@@ -1349,7 +1387,12 @@ wss.on('connection', (ws, req) => {
+@@ -1345,11 +1421,18 @@ wss.on('connection', (ws, req) => {
+       const seat = table.seatOf(ws.userId);
+       if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
+       if (seat.player.inHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
++      if (table.tournament) return ws.send(JSON.stringify({ type: 'error', error: 'No rebuys in tournaments' }));
+       const amount = Math.round(Number(msg.amount) || 0);
        if (amount < table.cfg.min_buyin || amount > table.cfg.max_buyin) return ws.send(JSON.stringify({ type: 'error', error: 'invalid amount' }));
        const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
        if (!u || u.balance < amount) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
@@ -779,13 +989,14 @@ index c5c6cff..81f5429 100644
 +      if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
 +      const sessionId = seat.player.sessionId;
 +      seat.player.rebuyCount = (seat.player.rebuyCount || 0) + 1;
-+      addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
++      const award = addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
 +        sessionId, reference: `in:${sessionId}:r${seat.player.rebuyCount}`, onDuplicate: 'skip',
 +      });
++      if (!award.applied) return ws.send(JSON.stringify({ type: 'error', error: 'Rebuy already applied' }));
        seat.player.stack += amount;
        broadcastState(table);
        return;
-@@ -1406,9 +1449,7 @@ wss.on('connection', (ws, req) => {
+@@ -1406,9 +1489,7 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (seat) {
          seat.player.disconnected = true;
@@ -796,7 +1007,7 @@ index c5c6cff..81f5429 100644
          notifyWaitlist(id);
        } else {
          waitlistLeave(id, ws.userId);
-@@ -1418,6 +1459,10 @@ wss.on('connection', (ws, req) => {
+@@ -1418,6 +1499,10 @@ wss.on('connection', (ws, req) => {
    });
  });
  
@@ -880,8 +1091,34 @@ index 0000000..b2f3ab8
 +  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference = 'refund:t4:s1'").get().c, 1);
 +  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference = 'refund:bad:s'").get().c, 0);
 +});
+diff --git a/app/server/ledger.test.js b/app/server/ledger.test.js
+index 93fd58b..ea26c94 100644
+--- a/app/server/ledger.test.js
++++ b/app/server/ledger.test.js
+@@ -37,3 +37,21 @@ test('a failed ledger write does not change the balance', () => {
+   assert.equal(after, before);
+   assert.equal(db.prepare('SELECT COUNT(*) c FROM transactions WHERE user_id = 999999').get().c, 0);
+ });
++
++
++test('each currency reconciles balance to the sum of its ledger rows', () => {
++  const u = db.prepare('SELECT * FROM users ORDER BY id LIMIT 1').get();
++  const before = db.prepare('SELECT balance, play_chips, tickets, gems FROM users WHERE id = ?').get(u.id);
++  addTransaction(u.id, 'recon_usd', 1000, 'usd');
++  addTransaction(u.id, 'recon_play', 500, 'play', 'PLAY');
++  addTransaction(u.id, 'recon_ticket', 2, 'ticket', 'TICKET');
++  addTransaction(u.id, 'recon_gem', 3, 'gem', 'GEM');
++  const sums = db.prepare(`SELECT currency, SUM(amount) total FROM transactions
++    WHERE user_id = ? AND kind LIKE 'recon_%' GROUP BY currency`).all(u.id);
++  const by = Object.fromEntries(sums.map((r) => [r.currency, r.total]));
++  const after = db.prepare('SELECT balance, play_chips, tickets, gems FROM users WHERE id = ?').get(u.id);
++  assert.equal(after.balance - before.balance, by.USD);
++  assert.equal(after.play_chips - before.play_chips, by.PLAY);
++  assert.equal(after.tickets - before.tickets, by.TICKET);
++  assert.equal(after.gems - before.gems, by.GEM);
++});
 diff --git a/app/server/table.js b/app/server/table.js
-index fa07090..8524f52 100644
+index fa07090..7b7874c 100644
 --- a/app/server/table.js
 +++ b/app/server/table.js
 @@ -64,7 +64,7 @@ export class PokerTable {
@@ -889,11 +1126,28 @@ index fa07090..8524f52 100644
      this.elimination = this.spin || !!this.tournament;
      this.rakePercent = cfg.rakePercent ?? 5;
 -    this.rakeCap = cfg.rakeCap ?? 0;
-+    this.rakeCap = cfg.rakeCap ?? 300;
++    this.rakeCap = Number(cfg.rakeCap) > 0 ? Number(cfg.rakeCap) : 300;
      this.rake = 0;
      this.finished = [];
      if (this.spin) {
-@@ -546,8 +546,7 @@ export class PokerTable {
+@@ -90,7 +90,7 @@ export class PokerTable {
+     return this.seats.find((s) => s.player && s.player.id === playerId);
+   }
+ 
+-  sit(player, seatIndex = null, buyin = null) {
++  sit(player, seatIndex = null, buyin = null, sessionId = null) {
+     if (this.seatOf(player.id)) return { ok: false, error: 'already seated' };
+     let seat = seatIndex != null ? this.seats[seatIndex] : this.seats.find((s) => !s.player);
+     if (!seat) return { ok: false, error: 'table full' };
+@@ -119,6 +119,7 @@ export class PokerTable {
+       joinedAt: Date.now(),
+       handsPlayed: 0,
+       won: 0,
++      sessionId,
+     };
+     this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
+     this.maybeStart();
+@@ -546,8 +547,7 @@ export class PokerTable {
    computeRake(pot) {
      if (this.tournament || this.spin) return 0;
      const raw = Math.floor((pot * this.rakePercent) / 100);
@@ -903,6 +1157,14 @@ index fa07090..8524f52 100644
    }
  
    finishByFold(winnerSeat) {
+@@ -707,6 +707,7 @@ export class PokerTable {
+                 this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
+                 if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
+               }
++              if (this.hooks.onSeatBusted) this.hooks.onSeatBusted(this, busted);
+               s.player = null;
+               this.emit({ type: 'stand', seat: s.index });
+             }
 diff --git a/app/src/lib/api.ts b/app/src/lib/api.ts
 index 34cae72..9548d59 100644
 --- a/app/src/lib/api.ts
@@ -927,20 +1189,32 @@ index 34cae72..9548d59 100644
    missions: () => request<{ missions: any[] }>('/api/missions'),
    claimMission: (id: string) => request<any>(`/api/missions/${id}/claim`, { method: 'POST' }),
 diff --git a/app/src/pages/Admin.tsx b/app/src/pages/Admin.tsx
-index 3487a64..121b45d 100644
+index 3487a64..5fef50e 100644
 --- a/app/src/pages/Admin.tsx
 +++ b/app/src/pages/Admin.tsx
-@@ -91,7 +91,7 @@ export function Admin() {
+@@ -1,4 +1,4 @@
+-import React, { useEffect, useMemo, useState } from 'react';
++import React, { useEffect, useMemo, useRef, useState } from 'react';
+ import { api, money, User } from '../lib/api';
+ import { useApp } from '../lib/store';
+ import { sound } from '../lib/sound';
+@@ -91,7 +91,13 @@ export function Admin() {
      catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
    };
  
 -  const quickCredit = (u: User, amount: number) => userAction(u.id, { action: 'credit', amount });
-+  const quickCredit = (u: User, amount: number) => userAction(u.id, { action: 'credit', amount, reference: crypto.randomUUID() });
++  const creditBusy = useRef(new Set<string>());
++  const quickCredit = (u: User, amount: number) => {
++    const key = `${u.id}:${amount}`;
++    if (creditBusy.current.has(key)) return;
++    creditBusy.current.add(key);
++    userAction(u.id, { action: 'credit', amount, reference: crypto.randomUUID() }).finally(() => creditBusy.current.delete(key));
++  };
  
    if (!isAdmin) {
      return (
 diff --git a/app/src/pages/Cashier.tsx b/app/src/pages/Cashier.tsx
-index 68ba28e..0c2ea0f 100644
+index 68ba28e..df7f310 100644
 --- a/app/src/pages/Cashier.tsx
 +++ b/app/src/pages/Cashier.tsx
 @@ -1,4 +1,4 @@
@@ -967,11 +1241,11 @@ index 68ba28e..0c2ea0f 100644
      if (!user) { navigate('/login'); return; }
 +    if (inFlight.current) return;
 +    inFlight.current = true;
-+    if (!requestKey.current) requestKey.current = crypto.randomUUID();
      setBusy(true);
      try {
 -      if (mode === 'deposit') await api.deposit(amount, method);
 -      else await api.withdraw(amount, method);
++      if (!requestKey.current) requestKey.current = crypto.randomUUID();
 +      if (mode === 'deposit') await api.deposit(amount, method, requestKey.current || undefined);
 +      else await api.withdraw(amount, method, requestKey.current || undefined);
 +      requestKey.current = null;
