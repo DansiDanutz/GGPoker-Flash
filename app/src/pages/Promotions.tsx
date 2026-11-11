@@ -265,7 +265,7 @@ export function Settings() {
             </div>
             <div className="panel-title" style={{ marginTop: 18 }}>Room background</div>
             <div className="room-bg-grid">
-              {([['featured', 'Featured 6-ring', 'featured_6ring.png'], ['5ring', 'Featured 5-ring', 'table_5ring.png'], ['envelope', 'Envelope', 'table_envelope.png'], ['supercircuit', 'SuperCircuit', 'table_supercircuit.png'], ['mystery', 'Mystery Envelope', 'table_mystery.png'], ['dark', 'Dark room', 'room_dark.png'], ['floor', 'Stone floor', 'room_floor.png']] as const).map(([id, label, img]) => (
+              {([['featured', 'Featured 6-ring', 'featured_6ring.png'], ['5ring', 'Featured 5-ring', 'table_5ring.png'], ['envelope', 'Envelope', 'table_envelope.png'], ['supercircuit', 'SuperCircuit', 'table_supercircuit.png'], ['mystery', 'Mystery Envelope', 'table_mystery.png'], ['plo5envelope', 'PLO5 Envelope', 'table_plo5_envelope.png'], ['plo6super', 'PLO6 SuperCircuit', 'table_plo6_supercircuit.png'], ['dark', 'Dark room', 'room_dark.png'], ['floor', 'Stone floor', 'room_floor.png']] as const).map(([id, label, img]) => (
                 <button key={id} className={'room-bg-choice' + (roomBg === id ? ' on' : '')} onClick={() => { setRoomBg(id); persist('ggpoker.roomBg', id); sound.play('click', { volume: .4 }); }}>
                   <span style={{ backgroundImage: `url('/assets/tables/${img}')` }} /><b>{label}</b>
                 </button>

@@ -636,3 +636,5 @@ body.electron .app-window::before { display: none; }
 .subnav { overflow-x: auto; overflow-y: hidden; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .subnav::-webkit-scrollbar { display: none; }
 .subnav button { flex: 0 0 auto; }
+.room-bg-plo5envelope .room-mark { background-image: url('/assets/tables/table_plo5_envelope.png'); background-position: center 44%; background-size: cover; filter: brightness(1.12) contrast(1.04) saturate(1.05); opacity: .96; }
+.room-bg-plo6super .room-mark { background-image: url('/assets/tables/table_plo6_supercircuit.png'); background-position: center 44%; background-size: cover; filter: brightness(1.1) contrast(1.05) saturate(1.05); opacity: .96; }
