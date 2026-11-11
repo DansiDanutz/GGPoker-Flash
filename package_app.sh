@@ -2,7 +2,7 @@
 # Rebuild the web client and refresh the signed desktop app in ~/Applications.
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-APP="$HOME/Applications/GGPoker Clone.app"
+APP="$HOME/Applications/DanGG.ro.app"
 cd "$ROOT/app"
 pnpm build
 pkill -9 -x GGPokerClone 2>/dev/null || true
@@ -13,12 +13,14 @@ if [ ! -d "$APP" ]; then
   mv "$APP/Contents/MacOS/Electron" "$APP/Contents/MacOS/GGPokerClone"
   PB=/usr/libexec/PlistBuddy
   $PB -c "Set :CFBundleExecutable GGPokerClone" "$APP/Contents/Info.plist"
-  $PB -c "Set :CFBundleName GGPoker Clone" "$APP/Contents/Info.plist"
-  $PB -c "Set :CFBundleDisplayName GGPoker Clone" "$APP/Contents/Info.plist"
-  $PB -c "Set :CFBundleIdentifier com.danslab.ggpokerclone" "$APP/Contents/Info.plist"
+  $PB -c "Set :CFBundleName DanGG.ro" "$APP/Contents/Info.plist"
+  $PB -c "Set :CFBundleDisplayName DanGG.ro" "$APP/Contents/Info.plist"
+  $PB -c "Set :CFBundleIdentifier com.danslab.dangro" "$APP/Contents/Info.plist"
   $PB -c "Set :CFBundleShortVersionString 1.0.0" "$APP/Contents/Info.plist"
+  $PB -c "Set :CFBundleIconFile AppIcon.icns" "$APP/Contents/Info.plist"
   $PB -c "Set :CFBundleVersion 1" "$APP/Contents/Info.plist"
   mkdir -p "$APP/Contents/Resources/app"
+  cp "$ROOT/research/brand/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns" 2>/dev/null || true
 fi
 APPR="$APP/Contents/Resources/app"
 rm -rf "$APPR/dist" "$APPR/public" "$APPR/server" "$APPR/electron"
@@ -32,12 +34,12 @@ d=json.load(open(p)); d['main']='electron/main.cjs'; d['name']='ggpoker-clone-de
 json.dump(d,open(p,'w'),indent=2)
 PY
 cd "$HOME/Applications"
-xattr -cr "GGPoker Clone.app"
-find "GGPoker Clone.app" -name ".DS_Store" -delete
-xattr -cr "GGPoker Clone.app"
-codesign --force --deep --sign "Developer ID Application: Dan Semenescu (3RUJZ24Y76)" "GGPoker Clone.app" >/dev/null 2>&1 || codesign --force --deep --sign - "GGPoker Clone.app"
-codesign --verify --deep --strict "GGPoker Clone.app"
+xattr -cr "DanGG.ro.app"
+find "DanGG.ro.app" -name ".DS_Store" -delete
+xattr -cr "DanGG.ro.app"
+codesign --force --deep --sign "Developer ID Application: Dan Semenescu (3RUJZ24Y76)" "DanGG.ro.app" >/dev/null 2>&1 || codesign --force --deep --sign - "DanGG.ro.app"
+codesign --verify --deep --strict "DanGG.ro.app"
 echo "Signed OK"
-env -u ELECTRON_RUN_AS_NODE open -n "GGPoker Clone.app"
+env -u ELECTRON_RUN_AS_NODE open -n "DanGG.ro.app"
 sleep 6
 echo "Launched: $(pgrep -lx GGPokerClone | head -1)"

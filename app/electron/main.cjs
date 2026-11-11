@@ -6,7 +6,7 @@ const fs = require('node:fs');
 
 
 const ROOT = path.join(__dirname, '..');
-app.setName('GGPoker Clone');
+app.setName('DanGG.ro');
 app.setPath('userData', require('node:path').join(app.getPath('appData'), 'GGPoker Clone'));
 try { require('node:fs').mkdirSync(app.getPath('userData'), { recursive: true }); } catch {}
 
@@ -67,7 +67,7 @@ function createWindow() {
     resizable: true,
     show: true,
     center: true,
-    title: 'GGPoker',
+    title: 'DanGG.ro',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -91,7 +91,7 @@ function createWindow() {
         overrideBrowserWindowOptions: {
           width: 1200, height: 961, minWidth: 980, minHeight: 720,
           frame: false, transparent: false, backgroundColor: '#0a0a0b',
-          hasShadow: true, title: 'GGPoker',
+          hasShadow: true, title: 'DanGG.ro',
           webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: false },
         },
       };

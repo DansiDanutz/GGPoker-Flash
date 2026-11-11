@@ -95,11 +95,10 @@ export function Lobby() {
   useEffect(() => {
     load();
     timer.current = window.setInterval(load, 12000);
-    const promo = window.setInterval(() => setPromoIdx((i) => (i + 1) % 3), 7000);
-    return () => { if (timer.current) window.clearInterval(timer.current); window.clearInterval(promo); };
+    return () => { if (timer.current) window.clearInterval(timer.current); };
   }, []);
 
-  const PROMO_IMAGES = ['/assets/chrome/promo.png', '/assets/ui/discover/Bg_Discover_Fishbuffet.png', '/assets/ui/discover/Bg_Discover_GGcare.png'];
+  const PROMO_IMAGES = ['/assets/chrome/promo.png'];
 
   const tables: LobbyTable[] = useMemo(() => {
     if (!data) return [];
@@ -203,7 +202,6 @@ export function Lobby() {
         <div className="lobby-main">
           <div className="promo-wrap" onClick={() => { sound.play('click'); navigate('/promotions'); }}>
             <img key={promoIdx} className="promo-img fade-in" src={PROMO_IMAGES[promoIdx]} alt="Promotion" />
-            <div className="promo-dots">{PROMO_IMAGES.map((_, i) => <i key={i} className={i === promoIdx ? 'on' : ''} />)}</div>
           </div>
           <div className="table-list">
             <div className="list-head">

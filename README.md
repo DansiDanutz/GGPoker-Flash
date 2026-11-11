@@ -1,4 +1,4 @@
-# GGPoker Desktop — local 1:1 clone
+# DanGG.ro — local GGPoker desktop clone
 
 A working, offline, **play-money** reconstruction of the GGPoker desktop client (the Adobe AIR client
 installed on this Mac), rebuilt as a native desktop app with the original client's artwork, fonts,
@@ -15,15 +15,15 @@ sounds and interaction design, plus a full administration console.
 
 ### The desktop app (recommended)
 
-Open **`~/Applications/GGPoker Clone.app`** (double-click), or run
-**`Launch GGPoker Clone.command`** from this folder. The app starts its own local server
+Open **`~/Applications/DanGG.ro.app`** (double-click), or run
+**`Launch DanGG.ro.command`** from this folder. The app starts its own local server
 (127.0.0.1:5198) and opens a frameless 1200×961 window with the client.
 
 If macOS quarantines the unsigned build, run once:
 
 ```bash
-xattr -dr com.apple.quarantine "$HOME/Applications/GGPoker Clone.app"
-open "$HOME/Applications/GGPoker Clone.app"
+xattr -dr com.apple.quarantine "$HOME/Applications/DanGG.ro.app"
+open "$HOME/Applications/DanGG.ro.app"
 ```
 
 ### Development
@@ -53,6 +53,9 @@ pnpm desktop      # Electron loads http://127.0.0.1:5198
 
 New accounts can be created on the login screen (welcome bonus is credited automatically).
 Admin console: log in as `admin`, then `#/admin` (or Settings → Admin).
+
+The client is branded **DanGG.ro**: the wordmark is rebuilt from the original rounded GG glyph and
+the Flipout banner uses a personal portrait in place of the GGPoker spokesperson.
 
 ---
 
@@ -171,7 +174,7 @@ app/
     main.cjs           frameless BrowserWindow + local server supervisor
     preload.cjs        window controls bridge
   public/assets/       extracted original client art, sounds, fonts
-~/Applications/GGPoker Clone.app   packaged desktop build (Electron runtime, Developer ID signed)
+~/Applications/DanGG.ro.app   packaged desktop build (Electron runtime, Developer ID signed)
 research/              reverse-engineering evidence, decompiled sources, screenshots
 tools/                 asset extraction / ATF decoding / UI automation scripts
 ```

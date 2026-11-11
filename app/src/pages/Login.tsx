@@ -45,7 +45,7 @@ export function Login() {
         </div>
       </div>
       <div className="login-box">
-        <img className="brand-logo" src="/assets/chrome/logo.png" alt="GGPoker" />
+        <img className="brand-logo" src="/assets/chrome/logo.png" alt="DanGG.ro" />
         <div className="tabs-line">
           <button className={mode === 'login' ? 'on' : ''} onClick={() => { setMode('login'); setErr(''); }}>Log in</button>
           <button className={mode === 'register' ? 'on' : ''} onClick={() => { setMode('register'); setErr(''); }}>Create account</button>
@@ -54,7 +54,7 @@ export function Login() {
         <form onSubmit={submit}>
           <div className="field">
             <label>Account ID or nickname</label>
-            <input value={loginId} onChange={(e) => setLoginId(e.target.value)} autoFocus placeholder="Your GGPoker ID" />
+            <input value={loginId} onChange={(e) => setLoginId(e.target.value)} autoFocus placeholder="Your DanGG.ro ID" />
           </div>
           {mode === 'register' && (
             <>

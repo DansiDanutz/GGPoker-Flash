@@ -111,7 +111,7 @@ export function Admin() {
     <PageShell activeTop="poker">
       <div className="admin-shell">
         <nav className="admin-nav">
-          <div className="brand">GGPOKER<small>LOCAL ADMIN</small></div>
+          <div className="brand">DANGG.RO<small>LOCAL ADMIN</small></div>
           {SECTIONS.map((s) => (
             <button key={s.key} className={section === s.key ? 'on' : ''} onClick={() => { setSection(s.key); setEditing(null); setLocal({}); }}>
               <span style={{ marginRight: 8 }}>{s.icon}</span>{s.label}
