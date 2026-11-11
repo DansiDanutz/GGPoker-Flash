@@ -29,7 +29,9 @@ not a source to copy blindly.
   - independent sound channels (SFX, voices, alerts, lobby music, ambience);
   - betting shortcuts: four pre-flop BB values and four post-flop percentages,
     persisted and previewed;
-  - six card-back skins;
+  - six card-back skins and four card-front styles (classic, jumbo, minimal, four colour);
+  - buy-in default as a percentage of table maximum;
+  - auto top-up with trigger/target percentages;
   - show-hand-strength toggle;
   - enable-hotkeys and show-hints toggles;
   - dealer animation speed;
@@ -44,8 +46,9 @@ not a source to copy blindly.
 
 ## Still missing or partial
 
-- Buy-in defaults, auto top-up and auto buy-in (Codex has these).
-- Six native card-front layouts; this app has two/four-colour only.
+- Auto buy-in from the lobby (Codex has this); the default percentage and
+  auto top-up exist, but seating still asks for an explicit buy-in.
+- Native six-front artwork; this app has four CSS front styles.
 - Native table background catalogue and per-table appearance overrides.
 - Native hotkey remapping; this app has fixed F1–F4 with an enable toggle.
 - Codex's owner-hosted room/tournament console, chat moderation and invitation

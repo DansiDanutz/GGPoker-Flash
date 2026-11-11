@@ -68,7 +68,11 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [noteColor, setNoteColor] = useState('yellow');
   const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
   const [autoMuck, setAutoMuck] = useState(() => localStorage.getItem('ggpoker.automuck') === '1');
+  const [autoTopup] = useState(() => localStorage.getItem('ggpoker.autoTopup') === '1');
+  const [topupTrigger] = useState(() => Number(localStorage.getItem('ggpoker.topupTrigger') || 25));
+  const [topupTarget] = useState(() => Number(localStorage.getItem('ggpoker.topupTarget') || 100));
   const [cardBack] = useState(readCardBack);
+  const [cardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'classic');
   const [showHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
   const [hotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
   const [hotkeysOn] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
@@ -436,14 +440,19 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [state?.handNo]);
 
   useEffect(() => {
-    if (!autoRebuy || !me || !state || observing) return;
+    if ((!autoRebuy && !autoTopup) || !me || !state || observing) return;
     if (state.tournament || state.spin) return;
     if (me.inHand) { autoRebuyPending.current = false; return; }
-    if ((me.stack || 0) < state.bb * 10 && state.street === 'ended' && !autoRebuyPending.current) {
+    const min = state.minBuyin || state.bb * 20;
+    const max = state.maxBuyin || Math.max(min, state.bb * 100);
+    const trigger = autoTopup ? max * Math.max(0, Math.min(100, topupTrigger)) / 100 : state.bb * 10;
+    const target = autoTopup ? max * Math.max(0, Math.min(100, topupTarget)) / 100 : Math.max(min, state.bb * 20);
+    if ((me.stack || 0) < trigger && state.street === 'ended' && !autoRebuyPending.current) {
       autoRebuyPending.current = true;
-      send({ type: 'rebuy', amount: state.minBuyin || state.bb * 20 });
+      const amount = Math.max(min, Math.min(max, Math.round((target - (me.stack || 0)) / 100) * 100));
+      if (amount > 0) send({ type: 'rebuy', amount });
     }
-  }, [autoRebuy, me?.stack, me?.inHand, state?.street, state?.handNo]);
+  }, [autoRebuy, autoTopup, topupTrigger, topupTarget, me?.stack, me?.inHand, state?.street, state?.handNo, state?.minBuyin, state?.maxBuyin, state?.bb]);
 
   const openNote = (p: PlayerState) => {
     if (!p.nick) return;
@@ -489,7 +498,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   if (!user) return null;
 
   return (
-    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
+    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack} front-${cardFront}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
       <div className="table-topbar">
         <span className="name">{state?.name || 'Table'}</span>
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>

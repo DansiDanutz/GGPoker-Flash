@@ -87,7 +87,12 @@ export function Settings() {
   const [hotkeys, setHotkeys] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
   const [dealSpeed, setDealSpeed] = useState(() => Number(localStorage.getItem('ggpoker.dealSpeed') || 3));
   const [cardBack, setCardBack] = useState(readCardBack());
+  const [cardFront, setCardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'classic');
   const [channels, setChannels] = useState({ ...sound.channels });
+  const [buyinPct, setBuyinPct] = useState(() => Number(localStorage.getItem('ggpoker.buyinPct') || 0));
+  const [autoTopup, setAutoTopup] = useState(() => localStorage.getItem('ggpoker.autoTopup') === '1');
+  const [topupTrigger, setTopupTrigger] = useState(() => Number(localStorage.getItem('ggpoker.topupTrigger') || 25));
+  const [topupTarget, setTopupTarget] = useState(() => Number(localStorage.getItem('ggpoker.topupTarget') || 100));
   const [currentPw, setCurrentPw] = useState('');
   const [nextPw, setNextPw] = useState('');
   const [fourColor, setFourColor] = useState(localStorage.getItem('ggpoker.fourcolor') === '1');
@@ -159,6 +164,28 @@ export function Settings() {
               <div className="kv"><span>Streamer mode</span><b>Off</b></div>
               <div className="kv"><span>Theme</span><b>{theme}</b></div>
             </div>
+            <div className="card" style={{ gridColumn: '1 / -1' }}>
+              <div className="panel-title">Buy-in defaults</div>
+              <div className="between"><span className="muted small">Default buy-in (0% = table minimum)</span><b>{buyinPct}% of maximum</b></div>
+              <input type="range" min={0} max={100} value={buyinPct} style={{ width: '100%' }}
+                onChange={(e) => { const v = Number(e.target.value); setBuyinPct(v); persist('ggpoker.buyinPct', String(v)); }} />
+              <label className="switch-row" style={{ marginTop: 8 }}><span>Auto top-up after a hand</span><input type="checkbox" checked={autoTopup} onChange={(e) => { setAutoTopup(e.target.checked); persist('ggpoker.autoTopup', e.target.checked ? '1' : '0'); }} /></label>
+              <div className="grid g2" style={{ marginTop: 6 }}>
+                <div>
+                  <div className="between muted small"><span>Refill below</span><b>{topupTrigger}%</b></div>
+                  <input type="range" min={5} max={80} value={topupTrigger} style={{ width: '100%' }} onChange={(e) => {
+                    const v = Math.min(Number(e.target.value), topupTarget); setTopupTrigger(v); persist('ggpoker.topupTrigger', String(v));
+                  }} />
+                </div>
+                <div>
+                  <div className="between muted small"><span>Refill to</span><b>{topupTarget}%</b></div>
+                  <input type="range" min={20} max={100} value={topupTarget} style={{ width: '100%' }} onChange={(e) => {
+                    const v = Math.max(Number(e.target.value), topupTrigger); setTopupTarget(v); persist('ggpoker.topupTarget', String(v));
+                  }} />
+                </div>
+              </div>
+              <p className="muted small">Uses practice chips only. Auto top-up never refills during a hand.</p>
+            </div>
           </div>
         )}
 
@@ -206,6 +233,14 @@ export function Settings() {
                 <button key={b.id} className={'cardback-swatch back-skin-' + b.id + (cardBack === b.id ? ' on' : '')} onClick={() => { setCardBack(b.id); persist('ggpoker.cardBack', b.id); sound.play('click', { volume: .4 }); }}>
                   <span className="back-preview" />
                   <b>{b.label}</b>
+                </button>
+              ))}
+            </div>
+            <div className="panel-title" style={{ marginTop: 18 }}>Card front</div>
+            <div className="card-front-grid">
+              {([['classic', 'Classic'], ['jumbo', 'Jumbo index'], ['minimal', 'Minimal'], ['four', 'Four colour']] as const).map(([id, label]) => (
+                <button key={id} className={'card-front-choice' + (cardFront === id ? ' on' : '')} onClick={() => { setCardFront(id); persist('ggpoker.cardFront', id); if (id === 'four') { setFourColor(true); persist('ggpoker.fourcolor', '1'); } }}>
+                  <span className={'mini-card front-' + id}><i>A</i><b>♠</b></span><b>{label}</b>
                 </button>
               ))}
             </div>
@@ -331,7 +366,7 @@ export function Settings() {
               <div className="panel-title">Take a break</div>
               <p className="muted" style={{ fontSize: 13 }}>Pause your account for a period of time. You will be logged out and unable to play until the break ends.</p>
               <div className="row" style={{ flexWrap: 'wrap' }}>
-                {['24 hours', '7 days', '30 days', 'Self-exclude'].map((x) => <button key={x} className="btn btn-ghost btn-sm">{x}</button>)}
+                {['24 hours', '7 days', '30 days', 'Self-exclude'].map((x) => <button key={x} className="btn btn-ghost btn-sm" onClick={() => toast({ kind: 'info', title: 'Play-money limit', body: `${x} breaks are not enforced in this local clone.` })}>{x}</button>)}
               </div>
             </div>
           </div>

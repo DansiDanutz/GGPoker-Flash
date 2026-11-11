@@ -164,7 +164,9 @@ export function Lobby() {
   const openJoin = (t: LobbyTable) => {
     sound.play('click', { volume: .6 });
     setBuyinTable(t);
-    setBuyin(t.min_buyin);
+    const pct = Math.max(0, Math.min(100, Number(localStorage.getItem('ggpoker.buyinPct') || 0)));
+    const preferred = pct > 0 ? Math.round((t.max_buyin * pct) / 100 / 100) * 100 : t.min_buyin;
+    setBuyin(Math.max(t.min_buyin, Math.min(t.max_buyin, preferred)));
     setSeat(null);
   };
 

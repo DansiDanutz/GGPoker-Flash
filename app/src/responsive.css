@@ -470,3 +470,20 @@ body.electron .app-window::before { display: none; }
 .table-screen.layout-float .quick-bets button { padding: 0 6px; font-size: 10.5px; }
 .table-screen.layout-float .amount-input { width: 72px; }
 .table-screen.layout-float .act-btn { min-width: 78px; padding: 0 8px; }
+
+.card-front-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; max-width: 620px; }
+.card-front-choice { display: flex; align-items: center; gap: 9px; padding: 8px; border: 1px solid #2f2f2f; border-radius: 9px; background: #171717; color: #a8b3ab; font-size: 10px; }
+.card-front-choice.on { border-color: var(--gold); color: #f1dfb4; background: #211b0f; }
+.mini-card { position: relative; width: 30px; height: 42px; border-radius: 3px; background: #f7f4ea; color: #171717; flex: 0 0 auto; }
+.mini-card i { position: absolute; left: 3px; top: 1px; font-style: normal; font-weight: 800; font-size: 13px; }
+.mini-card b { position: absolute; right: 3px; bottom: 1px; font-size: 15px; }
+.mini-card.front-jumbo i { font-size: 17px; }
+.mini-card.front-jumbo b { font-size: 18px; }
+.mini-card.front-minimal b { display: none; }
+.front-jumbo .pcard .rank { font-size: 32px; }
+.front-jumbo .pcard .suit { font-size: 32px; top: 36px; }
+.front-jumbo .pcard .big-suit { display: none; }
+.front-minimal .pcard .big-suit { display: none; }
+.front-minimal .pcard .rank { font-size: 28px; }
+@media (max-width: 760px) { .card-front-grid { grid-template-columns: 1fr 1fr; } }
+.table-screen.layout-side .quick-bets { grid-template-columns: repeat(2, 1fr); }
