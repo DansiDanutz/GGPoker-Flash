@@ -1,0 +1,37 @@
+.DS_Store
+node_modules/
+app/node_modules/
+app/dist/
+app/server/data/
+app/*.log
+*.app/
+research/swf_export/
+research/fonts/
+research/screens/
+research/*.png
+research/strings_en.json
+# Extracted third-party artwork/audio is generated locally, not published:
+app/public/assets/*
+app/public/assets/*.png
+app/public/assets/*.json
+app/public/assets/chrome/
+app/public/assets/sounds/
+app/public/assets/table/
+app/public/assets/tables/
+app/public/assets/ui/
+app/public/assets/atlas/
+app/public/assets/lobby_top/
+
+!app/public/assets/README.md
+
+# local reverse-engineering toolchains
+tools/jdk-*/
+tools/jre-*/
+tools/ffdec/
+tools/ffdec.zip
+tools/temurin-*
+tools/__pycache__/
+research/*.atf
+
+research/sheets/
+research/*.log

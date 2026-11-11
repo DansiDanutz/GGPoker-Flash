@@ -1,0 +1,390 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { api, chips, GAME_LABEL, LobbyTable, money, User } from '../lib/api';
+import { useApp } from '../lib/store';
+import { sound } from '../lib/sound';
+import { AppHeader, GameTabs } from '../components/AppHeader';
+import { TitleBar } from '../components/TitleBar';
+import { Avatar } from '../components/Avatar';
+
+const TAB_GAME: Record<string, string[]> = {
+  home: [],
+  aof: ['aof'],
+  rush: ['rush'],
+  holdem: ['holdem'],
+  plo: ['omaha', 'omaha5'],
+  short: ['shortdeck'],
+  spin: ['spingold'],
+  battle: ['battleroyale'],
+};
+
+const PREVIEW_SEATS = [
+  { x: 50, y: 8 }, { x: 10, y: 30 }, { x: 90, y: 30 },
+  { x: 12, y: 74 }, { x: 88, y: 74 }, { x: 50, y: 92 },
+];
+
+function MiniTable({ table, players }: { table: LobbyTable | null; players: { name: string; stack: number; empty?: boolean; seat: number }[] }) {
+  if (!table) {
+    return <div className="mini-table"><div className="buyin-range">Select a table<br /><b>to preview</b></div></div>;
+  }
+  return (
+    <div className="mini-table">
+      <div className="mini-arrows" style={{ left: '50%', top: 6, transform: 'translateX(-50%)' }}>▼</div>
+      <div className="mini-arrows" style={{ left: '50%', bottom: 4, transform: 'translateX(-50%)' }}>▲</div>
+      <div className="buyin-range">
+        Buy-in Range<br /><b>{money(table.min_buyin, true)} - {money(table.max_buyin, true)}</b>
+      </div>
+      {PREVIEW_SEATS.map((pos, i) => {
+        const p = players[i];
+        return (
+          <div
+            key={i}
+            className={'mini-seat' + (p && !p.empty ? '' : ' empty')}
+            style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%,-50%)' }}
+          >
+            {p && !p.empty ? <Avatar name={p.name} size={30} /> : null}
+            {p && !p.empty && <><div className="nm">{p.name}</div><div className="st">{chips(p.stack)}</div></>}
+          </div>
+        );
+      })}
+      <div style={{ position: 'absolute', right: 10, top: 42, width: 18, height: 18, borderRadius: '50%', background: 'radial-gradient(#f6f2e8,#cfc6b2)', color: '#222', fontSize: 9, fontWeight: 900, display: 'grid', placeItems: 'center' }}>D</div>
+      <div style={{ position: 'absolute', left: 14, top: 44, background: '#1d4b8f', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 2 }}>SB</div>
+      <div style={{ position: 'absolute', right: 26, top: 52, background: '#1d4b8f', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 2 }}>BB</div>
+    </div>
+  );
+}
+
+function fmtStakes(t: LobbyTable) {
+  const sb = (t.sb / 100).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const bb = (t.bb / 100).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  return `$${sb} / $${bb}`;
+}
+
+export function Lobby() {
+  const { user, navigate, toast, refreshUser, setOpeningTable } = useApp();
+  const [data, setData] = useState<any>(null);
+  const [gameTab, setGameTab] = useState('holdem');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [buyinTable, setBuyinTable] = useState<LobbyTable | null>(null);
+  const [buyin, setBuyin] = useState(0);
+  const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
+  const [promoIdx, setPromoIdx] = useState(0);
+  const [sortKey, setSortKey] = useState<'name'|'bb'|'players'|'avgPot'>('bb');
+  const [sortDir, setSortDir] = useState<1|-1>(-1);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMsgs, setChatMsgs] = useState<any[]>([]);
+  const [chatText, setChatText] = useState('');
+  const [notifOpen, setNotifOpen] = useState(false);
+  const timer = useRef<number | null>(null);
+
+  const load = async () => {
+    try {
+      const d = await api.lobby();
+      setData(d);
+      if (!selected && d.tables.length) {
+        const first = d.tables.find((t: LobbyTable) => t.game === 'holdem') || d.tables[0];
+        setSelected(first.id);
+      }
+    } catch (e: any) {
+      toast({ kind: 'error', title: 'Connection problem', body: e.message });
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    load();
+    timer.current = window.setInterval(load, 12000);
+    const promo = window.setInterval(() => setPromoIdx((i) => (i + 1) % 3), 7000);
+    return () => { if (timer.current) window.clearInterval(timer.current); window.clearInterval(promo); };
+  }, []);
+
+  const PROMO_IMAGES = ['/assets/chrome/promo.png', '/assets/ui/discover/Bg_Discover_Fishbuffet.png', '/assets/ui/discover/Bg_Discover_GGcare.png'];
+
+  const tables: LobbyTable[] = useMemo(() => {
+    if (!data) return [];
+    const gs = TAB_GAME[gameTab];
+    let list = gs.length ? data.tables.filter((t: LobbyTable) => gs.includes(t.game)) : data.tables;
+    if (gameTab === 'home') {
+      list = [...data.tables].sort((a: LobbyTable, b: LobbyTable) => Number(b.featured) - Number(a.featured) || a.bb - b.bb);
+    }
+    if (search.trim()) list = list.filter((t: LobbyTable) => t.name.toLowerCase().includes(search.toLowerCase()));
+    const key = sortKey;
+    list = [...list].sort((a: LobbyTable, b: LobbyTable) => {
+      const va = key === 'name' ? a.name : key === 'bb' ? a.bb : key === 'players' ? a.players : a.avgPot;
+      const vb = key === 'name' ? b.name : key === 'bb' ? b.bb : key === 'players' ? b.players : b.avgPot;
+      if (typeof va === 'string') return va.localeCompare(vb as string) * sortDir;
+      return ((va as number) - (vb as number)) * sortDir;
+    });
+    return list;
+  }, [data, gameTab, sortKey, sortDir, search]);
+
+  useEffect(() => {
+    if (tables.length && !tables.find((t) => t.id === selected)) setSelected(tables[0].id);
+  }, [tables]);
+
+  const table = data?.tables.find((t: LobbyTable) => t.id === selected) || null;
+  const previewPlayers = useMemo(() => {
+    if (!table) return [];
+    const names = ['tropicalTit', 'psyhoagromc', 'Mikhail Ryko', 'GGChamp', 'SpewySally', 'NitWizard', 'RiverRat'];
+    const count = Math.max(2, table.players);
+    return PREVIEW_SEATS.map((_, i) => (i < count ? {
+      seat: i,
+      name: names[(i + table.name.length) % names.length],
+      stack: Math.round((table.min_buyin * (0.6 + ((i * 37) % 90) / 100)) / 100) * 100,
+    } : { seat: i, name: '', stack: 0, empty: true }));
+  }, [table]);
+
+  const openJoin = (t: LobbyTable) => {
+    sound.play('click', { volume: .6 });
+    setBuyinTable(t);
+    setBuyin(t.min_buyin);
+  };
+
+  const confirmJoin = async () => {
+    if (!buyinTable) return;
+    if (!user) { navigate('/login'); return; }
+    if (user.balance < buyin) {
+      toast({ kind: 'error', title: 'Not enough balance', body: 'Visit the cashier to top up your play balance.' });
+      return;
+    }
+    setOpeningTable(buyinTable.id);
+    setBuyinTable(null);
+    navigate(`/table/${buyinTable.id}?buyin=${buyin}`);
+  };
+
+  const loadChat = async () => {
+    try {
+      const r = await fetch('/api/chat');
+      const d = await r.json();
+      setChatMsgs(d.messages || []);
+    } catch { /* ignore */ }
+  };
+
+  const sendChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatText.trim()) return;
+    if (!user) { navigate('/login'); return; }
+    try {
+      const r = await fetch('/api/chat', {
+        method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` },
+        body: JSON.stringify({ message: chatText }),
+      });
+      if (!r.ok) throw new Error('send failed');
+      setChatText(''); await loadChat();
+    } catch (err: any) { toast({ kind: 'error', title: 'Chat', body: err.message }); }
+  };
+
+  if (loading) {
+    return (
+      <>
+        <TitleBar online={192203} />
+        <AppHeader online={192203} jackpot={199026635} user={user} activeTop="poker" />
+        <div className="empty-state">Loading lobby…</div>
+      </>
+    );
+  }
+
+  const online = data?.online || 192203;
+
+  return (
+    <>
+      <TitleBar online={online} unread={user ? 3 : 0} onOpenChat={() => { setChatOpen(true); loadChat(); }} onOpenNotifications={() => setNotifOpen(true)} />
+      <AppHeader online={online} jackpot={data?.jackpot || 199026635} user={user} activeTop="poker" />
+      <GameTabs active={gameTab} onChange={(k) => { setGameTab(k); }} />
+      {(!user) && (
+        <div style={{ background: 'linear-gradient(90deg,#3a2413,#2a1a0e)', borderBottom: '1px solid #6b5320', padding: '6px 14px', fontSize: 12.5, color: '#f0d9a8', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <b>You are browsing as guest.</b> Log in to keep your balance, rewards and hand history.
+          <button className="btn btn-red btn-sm" style={{ marginLeft: 'auto' }} onClick={() => navigate('/login')}>Log in / Sign up</button>
+        </div>
+      )}
+      <div className="lobby-content">
+        <div className="lobby-main">
+          <div className="promo-wrap" onClick={() => { sound.play('click'); navigate('/promotions'); }}>
+            <img key={promoIdx} className="promo-img fade-in" src={PROMO_IMAGES[promoIdx]} alt="Promotion" />
+            <div className="promo-dots">{PROMO_IMAGES.map((_, i) => <i key={i} className={i === promoIdx ? 'on' : ''} />)}</div>
+          </div>
+          <div className="table-list">
+            <div className="list-head">
+              <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
+              <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
+              <div>Buy-in</div>
+              <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Players</div>
+              <div>Wait</div>
+              <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>AvgPot</div>
+              <div>VPIP%</div><div>H/hr</div>
+            </div>
+            <div className="list-scroll">
+              {viewMode === 'group' ? (
+                <div className="group-grid">
+                  {tables.map((t) => (
+                    <div key={t.id} className={'group-card' + (selected === t.id ? ' on' : '')} onClick={() => setSelected(t.id)} onDoubleClick={() => openJoin(t)}>
+                      <div className="gc-top"><span>{t.name}</span><span className="tag reg">{t.speed}</span></div>
+                      <div className="gc-stakes">{fmtStakes(t)}</div>
+                      <div className="gc-meta"><span>{t.game === 'holdem' ? "Hold'em" : t.game}</span><span>{t.players}/{t.seats} players</span></div>
+                      <div className="gc-buyin">Buy-in {money(t.min_buyin, true)}</div>
+                      <button className="btn btn-red btn-sm" onClick={(e) => { e.stopPropagation(); openJoin(t); }}>Join</button>
+                    </div>
+                  ))}
+                </div>
+              ) : tables.map((t) => (
+                <div
+                  key={t.id}
+                  className={'table-row' + (selected === t.id ? ' selected' : '')}
+                  onClick={() => { setSelected(t.id); }}
+                  onDoubleClick={() => openJoin(t)}
+                >
+                  <div className="name">
+                    <span className={'chip-dot ' + t.category.toLowerCase()} />
+                    <span>{t.name}</span>
+                  </div>
+                  <div>{fmtStakes(t)}</div>
+                  <div>{money(t.min_buyin, true)}</div>
+                  <div className="player-bars">
+                    {Array.from({ length: t.seats }).map((_, i) => (
+                      <i key={i} className={i < t.players ? 'on' : ''} />
+                    ))}
+                  </div>
+                  <div className={t.wait ? '' : 'zero'}>{t.wait ? t.wait : '-'}</div>
+                  <div className={t.avgPot ? '' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
+                  <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
+                  <div>{t.handsPerHour}</div>
+                </div>
+              ))}
+              {!tables.length && <div className="list-empty">No tables in this category right now.</div>}
+            </div>
+          </div>
+        </div>
+
+        <div className="lobby-side">
+          <div className="view-toggle">
+            <button className={viewMode === 'group' ? 'on' : ''} onClick={() => setViewMode('group')}>Group View</button>
+            <button className={viewMode === 'table' ? 'on' : ''} onClick={() => setViewMode('table')}>Table View</button>
+          </div>
+          <div className="mini-table-wrap">
+            <MiniTable table={table} players={previewPlayers} />
+          </div>
+          <div className="mini-actions">
+            <button className="btn btn-dark btn-block" onClick={() => { if (table) openJoin(table); }}>Open</button>
+            <button className="btn btn-red btn-block" onClick={() => { if (table) openJoin(table); }}>Join</button>
+          </div>
+          <div style={{ flex: 1 }} />
+          <div style={{ padding: '6px 8px', fontSize: 11, color: '#777', borderTop: '1px solid #222' }}>
+            {table ? GAME_LABEL[table.game] : ''} · {table ? table.speed : ''}
+          </div>
+        </div>
+
+        <div className="lobby-rail">
+          <div className="currency-row"><span>USD</span><b>{money(user?.balance ?? 0)}</b></div>
+          <div className="currency-row"><span>P$</span><b style={{ color: '#f0c96a' }}>{(user?.play_chips ?? 0).toLocaleString()}</b></div>
+          <div className="currency-row"><span>T$</span><b style={{ color: '#f0c96a' }}>T${(user?.tickets ?? 0).toLocaleString()}</b></div>
+          <div className="currency-row coin"><span>XP</span><b>{((user?.xp ?? 0) / 1000).toFixed(1)}K</b></div>
+          <button className="cashier-btn" onClick={() => { sound.play('coin'); navigate('/cashier'); }}>Cashier</button>
+          <div className="rail-sep" />
+          <button className="rail-btn" onClick={() => navigate('/propbet')}><span className="ico">🎯</span>Prop Bet</button>
+          <button className="rail-btn" onClick={() => navigate('/rewards')}><span className="ico">🐟</span>GG Left</button>
+          <button className="rail-btn" onClick={() => navigate('/promotions')}><span className="ico">🎁</span>My Promo</button>
+          <div className="rail-sep" />
+          <button className="rail-btn" onClick={() => navigate('/missions')}><span className="ico">📋</span>Missions</button>
+          <button className="rail-btn" onClick={() => navigate('/leaderboard')}><span className="ico">🏆</span>Leaders</button>
+          <div style={{ flex: 1 }} />
+          <button className="rail-btn gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>GGPass</button>
+        </div>
+      </div>
+
+      {notifOpen && (
+        <div className="modal-backdrop" onClick={() => setNotifOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Notifications</h3><button className="title-icon" onClick={() => setNotifOpen(false)}>✕</button></div>
+            <div className="modal-body" style={{ padding: 0 }}>
+              {[
+                ['🎁', 'Daily freebie is ready', 'Open My Rewards to claim your daily gift.', '/rewards'],
+                ['🏆', 'Daily $100,000 Flipout starts soon', 'Register before late registration closes.', '/tournaments'],
+                ['🐟', 'Fish Buffet wheel available', 'Spin for up to 100,000x your buy-in.', '/rewards'],
+                ['💥', 'Bad Beat Jackpot just grew', 'The pool is now over $1.9M. Play your part.', '/'],
+              ].map(([icon, title, body, link]) => (
+                <div key={title as string} className="list-row" style={{ borderRadius: 0 }} onClick={() => { setNotifOpen(false); navigate(link as string); }}>
+                  <span style={{ fontSize: 20 }}>{icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <b style={{ color: '#eee', fontSize: 13 }}>{title}</b>
+                    <div className="muted small">{body}</div>
+                  </div>
+                  <span className="muted">›</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {chatOpen && (
+        <div className="modal-backdrop" onClick={() => setChatOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Lobby chat</h3><button className="title-icon" onClick={() => setChatOpen(false)}>✕</button></div>
+            <div className="modal-body" style={{ padding: 0 }}>
+              <div className="chat-log" style={{ maxHeight: 320, padding: 12 }}>
+                {chatMsgs.map((m: any) => (
+                  <div key={m.id}><b style={{ color: '#ffd98a' }}>{m.nick}:</b> <span style={{ color: '#ddd' }}>{m.message}</span>{' '}
+                    <span className="muted" style={{ fontSize: 10 }}>{m.created_at?.slice(11, 16)}</span></div>
+                ))}
+                {!chatMsgs.length && <div className="muted">No messages yet. Say hello!</div>}
+              </div>
+              <form onSubmit={sendChat} className="chat-form" style={{ padding: 12 }}>
+                <input value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder={user ? 'Message the lobby…' : 'Log in to chat'} style={{ flex: 1, height: 34, background: '#101010', border: '1px solid #333', borderRadius: 4, color: '#eee', padding: '0 10px' }} />
+                <button className="btn btn-red btn-sm" type="submit">Send</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {buyinTable && (
+        <div className="modal-backdrop" onClick={() => setBuyinTable(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Buy-in · {buyinTable.name}</h3>
+              <button className="title-icon" onClick={() => setBuyinTable(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="between" style={{ marginBottom: 12 }}>
+                <span className="muted">Stakes</span>
+                <b>{fmtStakes(buyinTable)}</b>
+              </div>
+              <div className="between" style={{ marginBottom: 12 }}>
+                <span className="muted">Table type</span>
+                <b>{GAME_LABEL[buyinTable.game]} · {buyinTable.seats}-max</b>
+              </div>
+              <div className="field">
+                <label>Buy-in amount</label>
+                <input
+                  type="range"
+                  min={buyinTable.min_buyin}
+                  max={Math.min(buyinTable.max_buyin, Math.max(user?.balance ?? buyinTable.min_buyin, buyinTable.min_buyin))}
+                  step={Math.max(100, Math.round(buyinTable.bb / 2))}
+                  value={buyin}
+                  onChange={(e) => setBuyin(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div className="between" style={{ margin: '10px 0 4px' }}>
+                <span className="muted">Min {money(buyinTable.min_buyin)}</span>
+                <b style={{ color: '#ffd98a', fontSize: 18 }}>{money(buyin)}</b>
+                <span className="muted">Max {money(buyinTable.max_buyin)}</span>
+              </div>
+              <div className="row" style={{ marginTop: 10 }}>
+                {[0.25, 0.5, 0.75, 1].map((f) => (
+                  <button key={f} className="btn btn-ghost btn-sm" onClick={() => setBuyin(Math.round((buyinTable.min_buyin + (buyinTable.max_buyin - buyinTable.min_buyin) * f) / 100) * 100)}>
+                    {Math.round(f * 100)}%
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button className="btn btn-dark" onClick={() => setBuyinTable(null)}>Cancel</button>
+              <button className="btn btn-red" onClick={confirmJoin}>Take a seat · {money(buyin)}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
