@@ -55,6 +55,7 @@ not a source to copy blindly.
   - animation speed applied through `--deal-speed`;
   - existing three action layouts retained.
 
+- Multi-table windows: Settings can open joined tables in new Electron windows, and the buy-in modal exposes **New window**; auto buy-in respects the same setting.
 - Tournament search now filters by event name or format.
 - Cashier bonuses are real, not toast-only:
   - welcome once per account, reload once per ISO week, daily once per UTC day;

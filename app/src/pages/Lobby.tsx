@@ -191,8 +191,12 @@ export function Lobby() {
     setBuyin(amount);
     setSeat(null);
     if (localStorage.getItem('ggpoker.autoBuyin') === '1' && user && user.balance >= amount) {
-      setOpeningTable(t.id);
-      navigate(`/table/${t.id}?buyin=${amount}`);
+      if (localStorage.getItem('ggpoker.newWindowTables') === '1') {
+        window.open(`${location.origin}/#/table/${t.id}?buyin=${amount}`, '_blank', 'width=1200,height=961');
+      } else {
+        setOpeningTable(t.id);
+        navigate(`/table/${t.id}?buyin=${amount}`);
+      }
     }
   };
 
@@ -203,9 +207,16 @@ export function Lobby() {
       toast({ kind: 'error', title: 'Not enough balance', body: 'Visit the cashier to top up your play balance.' });
       return;
     }
-    setOpeningTable(buyinTable.id);
-    setBuyinTable(null);
-    navigate(`/table/${buyinTable.id}?buyin=${buyin}${seat != null ? `&seat=${seat}` : ''}`);
+    const url = `${location.origin}/#/table/${buyinTable.id}?buyin=${buyin}${seat != null ? `&seat=${seat}` : ''}`;
+    if (localStorage.getItem('ggpoker.newWindowTables') === '1') {
+      window.open(url, '_blank', 'width=1200,height=961');
+      setBuyinTable(null);
+      setOpeningTable(null);
+    } else {
+      setOpeningTable(buyinTable.id);
+      setBuyinTable(null);
+      navigate(`/table/${buyinTable.id}?buyin=${buyin}${seat != null ? `&seat=${seat}` : ''}`);
+    }
   };
 
   const createHost = async () => {
@@ -518,6 +529,12 @@ export function Lobby() {
             </div>
             <div className="modal-foot">
               <button className="btn btn-dark" onClick={() => setBuyinTable(null)}>Cancel</button>
+              <button className="btn btn-dark" onClick={() => {
+                if (!buyinTable) return;
+                const url = `${location.origin}/#/table/${buyinTable.id}?buyin=${buyin}${seat != null ? `&seat=${seat}` : ''}`;
+                window.open(url, '_blank', 'width=1200,height=961');
+                setBuyinTable(null);
+              }}>New window</button>
               <button className="btn btn-red" onClick={confirmJoin}>Take a seat · {money(buyin)}</button>
             </div>
           </div>

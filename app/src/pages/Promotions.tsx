@@ -94,6 +94,7 @@ export function Settings() {
   const [buyinPct, setBuyinPct] = useState(() => Number(localStorage.getItem('ggpoker.buyinPct') || 0));
   const [autoTopup, setAutoTopup] = useState(() => localStorage.getItem('ggpoker.autoTopup') === '1');
   const [autoBuyin, setAutoBuyin] = useState(() => localStorage.getItem('ggpoker.autoBuyin') === '1');
+  const [newWindowTables, setNewWindowTables] = useState(() => localStorage.getItem('ggpoker.newWindowTables') === '1');
   const [topupTrigger, setTopupTrigger] = useState(() => Number(localStorage.getItem('ggpoker.topupTrigger') || 25));
   const [topupTarget, setTopupTarget] = useState(() => Number(localStorage.getItem('ggpoker.topupTarget') || 100));
   const [currentPw, setCurrentPw] = useState('');
@@ -151,6 +152,10 @@ export function Settings() {
               <label className="switch-row">
                 <span>Run it twice when all-in</span>
                 <input type="checkbox" checked={runItTwice} onChange={(e) => { setRunItTwice(e.target.checked); persist('ggpoker.rit', e.target.checked ? '1' : '0'); }} />
+              </label>
+              <label className="switch-row">
+                <span>Open tables in a new window (multi-table)</span>
+                <input type="checkbox" checked={newWindowTables} onChange={(e) => { setNewWindowTables(e.target.checked); persist('ggpoker.newWindowTables', e.target.checked ? '1' : '0'); }} />
               </label>
               <label className="switch-row">
                 <span>Auto-muck losing hands</span>
