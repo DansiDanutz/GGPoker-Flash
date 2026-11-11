@@ -67,6 +67,14 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [noteColor, setNoteColor] = useState('yellow');
   const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
   const [autoMuck, setAutoMuck] = useState(() => localStorage.getItem('ggpoker.automuck') === '1');
+  const [cardAnim, setCardAnim] = useState<'deal' | 'flip' | 'slide' | 'off'>(() => {
+    const saved = localStorage.getItem('ggpoker.cardAnim');
+    return saved === 'flip' || saved === 'slide' || saved === 'off' ? saved : 'deal';
+  });
+  const chooseCardAnim = (anim: 'deal' | 'flip' | 'slide' | 'off') => {
+    setCardAnim(anim);
+    localStorage.setItem('ggpoker.cardAnim', anim);
+  };
   const [buttonLayout, setButtonLayout] = useState<'bottom' | 'side' | 'float'>(() => {
     const saved = localStorage.getItem('ggpoker.buttonLayout');
     return saved === 'side' || saved === 'float' ? saved : 'bottom';
@@ -474,7 +482,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   if (!user) return null;
 
   return (
-    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout}`}>
+    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim}`}>
       <div className="table-topbar">
         <span className="name">{state?.name || 'Table'}</span>
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>
@@ -500,6 +508,12 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
           <button onClick={() => setSwfEffect('/assets/swf/chip_shuffle.swf')}>Official FX preview</button>
+          <div className="menu-section">Card animation</div>
+          <div className="anim-switch">
+            {([['deal', 'Deal'], ['flip', 'Flip'], ['slide', 'Slide'], ['off', 'Off']] as const).map(([key, label]) => (
+              <button key={key} className={cardAnim === key ? 'on' : ''} aria-pressed={cardAnim === key} onClick={() => chooseCardAnim(key)}>{label}</button>
+            ))}
+          </div>
           <div className="menu-section">Button layout</div>
           <div className="layout-switch">
             {([['bottom', 'Bottom bar'], ['side', 'Side panel'], ['float', 'Floating']] as const).map(([key, label]) => (
@@ -590,7 +604,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="cards">
               {(p.cards || []).map((c, i) => {
                 const [px, py] = seatPosOf(p.seat!);
-                return <PlayingCard key={`${state?.handNo}-${p.seat}-${i}`} card={c} size="mini" dim={p.folded}
+                return <PlayingCard key={`${state?.handNo}-${p.seat}-${i}`} card={c} size="mini" dim={p.folded} dealt
                   style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />;
               })}
             </div>

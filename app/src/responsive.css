@@ -226,14 +226,14 @@ body.electron .app-window::before { display: none; }
   .table-center { top: 45%; width: 84%; }
   .pot-label { font-size: 12px; padding: 3px 10px 3px 24px; }
   .board { gap: 3px; }
-  .board .pcard { width: 44px; height: 62px; }
+  .board .pcard { width: 48px; height: 68px; }
   .board .pcard.mini { width: 28px; height: 40px; }
   .seat { width: 88px; }
   .seat .avatar-wrap { width: 46px; height: 46px; }
   .seat .plate { min-width: 78px; padding: 2px 5px; }
   .seat .plate .nm { max-width: 82px; font-size: 10px; }
   .seat .plate .st { font-size: 10px; }
-  .seat .cards .pcard { width: 28px; height: 40px; }
+  .seat .cards .pcard { width: 31px; height: 44px; }
   .seat .action-badge { font-size: 9px; bottom: -19px; }
   .action-bar { padding: 5px 6px 8px; gap: 4px; }
   .action-row { flex-wrap: wrap; gap: 4px; }
@@ -420,3 +420,22 @@ body.electron .app-window::before { display: none; }
   .table-screen.layout-side .quick-bets,
   .table-screen.layout-float .quick-bets { display: none; }
 }
+
+/* Card animation choices */
+.anim-switch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; padding: 3px 5px 7px; }
+.anim-switch button { height: 27px; border-radius: 5px; border: 1px solid #333; background: #1b1b1b; color: #aeb8b1; font-size: 9px; }
+.anim-switch button.on { border-color: #6b5320; background: #2b2110; color: #ffe1a0; }
+.cards-flip .pcard.dealt { animation: cardFlip .46s cubic-bezier(.2,.85,.3,1.08) both; }
+.cards-slide .pcard.dealt { animation: cardSlide .4s cubic-bezier(.2,.85,.3,1.12) both; }
+.cards-off .pcard.dealt { animation: none !important; }
+.cards-flip .pcard.dealt { transform-origin: 50% 50%; }
+@keyframes cardFlip {
+  from { opacity: 0; transform: perspective(620px) rotateY(78deg) scale(.86); }
+  60% { opacity: 1; }
+  to { opacity: 1; transform: perspective(620px) rotateY(0) scale(1); }
+}
+@keyframes cardSlide {
+  from { opacity: 0; transform: translateY(34px) scale(.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.anim-off .pcard.dealt { animation: none !important; }

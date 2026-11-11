@@ -140,6 +140,16 @@ official card back are already in use.
 - Tablet widths use the 980/1120 desktop rules (side preview hidden, table
   columns collapsed) rather than the phone card layout.
 
+## Card size and animation
+
+- Table cards are larger: board cards **74×104px** (from 62×88), hole cards
+  **44×62px** (from 38×54), with larger rank/suit glyphs.
+- **Menu → Card animation** offers **Deal**, **Flip**, **Slide** and **Off**;
+  the choice is stored in `ggpoker.cardAnim`.
+- Deal uses the existing centre-deal motion; Flip rotates the card in 3D; Slide
+  rises into place; Off and the global animation toggle both remove motion.
+- Phones keep proportionally scaled cards.
+
 ## Table action templates
 
 Three selectable locations for betting controls, persisted per device in
