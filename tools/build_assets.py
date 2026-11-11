@@ -61,7 +61,21 @@ def main():
     for f in (SRC / "sounds").glob("*.mp3"):
         shutil.copy(f, snd_out / f.name)
 
-    # 4. card atlas metadata
+    # 4. official card back + table backdrop for the room
+    cards_out = OUT / "cards"
+    cards_out.mkdir(exist_ok=True)
+    import zipfile, json as _json
+    table_card_png = SRC / "after_lobby/table_card.png"
+    table_card_meta = SRC / "after_lobby/table_card.json"
+    if table_card_png.exists() and table_card_meta.exists():
+        _img = Image.open(table_card_png).convert("RGBA")
+        _frames = _json.load(open(table_card_meta, encoding="utf-8-sig"))["frames"]
+        for _name, _target in (("card0032", "back_green.png"), ("card0030", "back_red.png")):
+            if _name in _frames:
+                _f = _frames[_name]["frame"]
+                _img.crop((_f["x"], _f["y"], _f["x"] + _f["w"], _f["y"] + _f["h"])).save(cards_out / _target)
+
+    # 5. card atlas metadata
     import zipfile
     with zipfile.ZipFile(SRC / "card/card.zip") as z:
         for n in z.namelist():

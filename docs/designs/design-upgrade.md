@@ -48,6 +48,24 @@ The generic purple/neon recommendation from the design system was rejected: it w
 - Reduced-motion support is explicit.
 - Cards and chips are decorative; amounts remain textual.
 
+## Official assets used
+
+- **Table backdrop:** decoded from the installed client's
+  `table_bg/normal/Tablebg_Featured_6Ring.atf` into
+  `app/public/assets/tables/featured_6ring.png`; the room now uses it behind the
+  felt instead of the nearly-black room mask.
+- **Card back:** extracted from the official `after_lobby/table_card.png` atlas
+  (`card0032`, the green diamond back) into
+  `app/public/assets/cards/back_green.png`.
+- `tools/build_assets.py` now re-extracts the card back and keeps the table
+  backdrop in the regenerated asset tree.
+
+The installed client was inspected at
+`~/Library/Application Support/com.nsuslab.ncf.launcher.live.ggpcom/Game/assets`.
+It contains 771 MB of atlases, SWFs, bitmap fonts, sounds and room art. The CSS
+surface cannot execute the client's SWF/Stage3D content directly; the static
+table and card assets are used, while the motion is rebuilt in CSS.
+
 ## Limits
 
 - The room is still a CSS/2D composition over the decoded room texture, not the Stage3D scene.

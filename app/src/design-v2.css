@@ -379,14 +379,14 @@ body { background: #050706; }
   box-shadow: 0 0 0 2px rgba(0, 0, 0, .4), 0 0 8px rgba(245, 221, 162, .35);
 }
 .pcard.back {
-  background:
-    radial-gradient(circle at 50% 50%, rgba(245, 221, 162, .16) 0 2px, transparent 3px),
-    repeating-linear-gradient(45deg, #5e1119 0 6px, #7f1d28 6px 12px);
+  background: url('/assets/cards/back_green.png') center / 100% 100% no-repeat, #123c29;
+  border-color: #e9dfc6;
 }
+.pcard.back::after { border-color: rgba(245, 221, 162, .28); }
 
 
 /* richer room light and table props */
-.room-mark { opacity: .78; filter: brightness(1.75) contrast(1.06) saturate(.72); }
+.room-mark { background-image: url('/assets/tables/featured_6ring.png'); background-position: center 42%; background-size: cover; opacity: .95; filter: brightness(1.35) contrast(1.05) saturate(.8); }
 .room-light { opacity: .7; }
 .table-screen::after { background: radial-gradient(ellipse at 50% 48%, transparent 52%, rgba(0, 0, 0, .38) 100%); }
 .table-watermark { font-size: 29px; letter-spacing: 9px; color: rgba(245, 221, 162, .13); text-shadow: 0 0 22px rgba(245, 221, 162, .06); }
