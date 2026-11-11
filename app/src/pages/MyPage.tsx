@@ -83,7 +83,10 @@ export function MyPage() {
   }, [dmPeer?.peer_id]);
 
   useEffect(() => {
-    const id = Number(new URLSearchParams(location.hash.split('?')[1] || '').get('dm') || 0);
+    const params = new URLSearchParams(location.hash.split('?')[1] || '');
+    const wanted = params.get('tab');
+    if (wanted && ['overview', 'promo', 'missions', 'transactions', 'tickets', 'messages', 'notes', 'friends', 'leaderboard', 'verify', 'security'].includes(wanted)) setTab(wanted);
+    const id = Number(params.get('dm') || 0);
     if (!id) return;
     api.userProfile(id).then((r) => openDm({ peer_id: r.user.id, nick: r.user.nick })).catch(() => {});
   }, []);

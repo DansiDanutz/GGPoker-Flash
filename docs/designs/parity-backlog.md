@@ -108,7 +108,7 @@ not a source to copy blindly.
   - unread DMs, pending friend requests, registered tournaments and daily bonus;
   - per-item read state persisted in `notification_reads`;
   - global badge uses the derived notification count;
-  - each item deep-links to Cashier, My Page, Tournaments or Rewards.
+  - each item deep-links to Cashier, My Page's Friends/Messages tab, Tournaments or Rewards.
 - Friend requests:
   - request instead of instant follow;
   - incoming Accept/Decline panel;
