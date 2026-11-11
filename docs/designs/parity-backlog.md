@@ -110,7 +110,9 @@ not a source to copy blindly.
   - reciprocal request auto-accepts;
   - table-profile Add friend shows Requested.
 - Direct messages between local accounts:
-  - global unread polling and title-bar badge;
+  - Server-Sent Events push for new DMs and friend requests, with 15-second polling fallback;
+  - live DM thread refresh when the conversation is open;
+  - global unread badge;
   - inbox threads with unread counts;
   - message history and send endpoint;
   - friend **Message** opens the conversation;

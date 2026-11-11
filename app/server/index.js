@@ -180,6 +180,21 @@ function sitesStats() {
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
 const WAITLISTS = new Map(); // tableId -> [{ userId, nick, since }]
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
+const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
+
+function notifyUser(userId, payload) {
+  const set = SSE_CLIENTS.get(Number(userId));
+  if (!set) return;
+  const frame = `data: ${JSON.stringify(payload)}\n\n`;
+  for (const res of [...set]) {
+    try { res.write(frame); } catch { set.delete(res); }
+  }
+}
+setInterval(() => {
+  for (const set of SSE_CLIENTS.values()) {
+    for (const res of set) { try { res.write(': ping\n\n'); } catch { set.delete(res); } }
+  }
+}, 25000).unref();
 
 function waitlistJoin(tableId, userId, nick) {
   const list = WAITLISTS.get(tableId) || [];
@@ -1198,9 +1213,11 @@ const server = http.createServer(async (req, res) => {
         db.prepare("UPDATE friend_requests SET status = 'accepted' WHERE from_id = ? AND to_id = ?").run(target.id, u.id);
         db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?,?)').run(u.id, target.id);
         db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?,?)').run(target.id, u.id);
+        notifyUser(target.id, { type: 'friend_accept', from_id: u.id, nick: u.nick });
         return json(res, 200, { ok: true, accepted: true, nick: target.nick });
       }
       db.prepare("INSERT INTO friend_requests (from_id,to_id,status) VALUES (?,?,'pending') ON CONFLICT(from_id,to_id) DO UPDATE SET status='pending', created_at=datetime('now')").run(u.id, target.id);
+      notifyUser(target.id, { type: 'friend', from_id: u.id, nick: u.nick });
       return json(res, 200, { ok: true, requested: true, nick: target.nick });
     }
     if (p.startsWith('/api/friends/requests/') && req.method === 'POST') {
@@ -1213,6 +1230,7 @@ const server = http.createServer(async (req, res) => {
         db.prepare("UPDATE friend_requests SET status = 'accepted' WHERE from_id = ? AND to_id = ?").run(from, u.id);
         db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?,?)').run(u.id, from);
         db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?,?)').run(from, u.id);
+        notifyUser(from, { type: 'friend_accept', from_id: u.id, nick: u.nick });
         return json(res, 200, { ok: true });
       }
       db.prepare("UPDATE friend_requests SET status = 'declined' WHERE from_id = ? AND to_id = ?").run(from, u.id);
@@ -1370,6 +1388,25 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    if (p === '/api/notifications/stream' && req.method === 'GET') {
+      const u = userByToken(url.searchParams.get('token'));
+      if (!u) return json(res, 401, { error: 'unauthorized' });
+      res.writeHead(200, {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache, no-transform',
+        connection: 'keep-alive',
+        'x-accel-buffering': 'no',
+      });
+      res.write('retry: 5000\n\n');
+      const set = SSE_CLIENTS.get(u.id) || new Set();
+      set.add(res);
+      SSE_CLIENTS.set(u.id, set);
+      const cleanup = () => { set.delete(res); if (!set.size) SSE_CLIENTS.delete(u.id); };
+      req.on('close', cleanup);
+      req.on('aborted', cleanup);
+      return;
+    }
+
     if (p === '/api/notifications' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
       const requests = db.prepare(`SELECT r.from_id AS id, u.nick FROM friend_requests r JOIN users u ON u.id = r.from_id WHERE r.to_id = ? AND r.status = 'pending' ORDER BY r.created_at DESC`).all(u.id);
@@ -1425,6 +1462,7 @@ const server = http.createServer(async (req, res) => {
       else if (body.nick) peer = db.prepare('SELECT id,nick FROM users WHERE nick = ? COLLATE NOCASE AND deleted_at IS NULL AND banned = 0').get(String(body.nick));
       if (!peer || peer.id === u.id) return json(res, 400, { error: 'Recipient not found' });
       const info = db.prepare('INSERT INTO direct_messages (from_id,to_id,body) VALUES (?,?,?)').run(u.id, peer.id, text);
+      notifyUser(peer.id, { type: 'dm', from_id: u.id, nick: u.nick, messageId: Number(info.lastInsertRowid) });
       return json(res, 200, { ok: true, id: Number(info.lastInsertRowid), peer });
     }
 

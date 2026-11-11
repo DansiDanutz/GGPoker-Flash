@@ -69,6 +69,20 @@ export function MyPage() {
   };
 
   useEffect(() => {
+    const onNotify = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (!detail) return;
+      if (detail.type === 'dm' && dmPeer && Number(detail.from_id) === Number(dmPeer.peer_id)) {
+        api.messageThread(dmPeer.peer_id).then((r) => setDmThread(r.messages || [])).catch(() => {});
+        loadDms();
+      }
+      if (detail.type === 'friend' || detail.type === 'friend_accept') loadFriendReqs();
+    };
+    window.addEventListener('gg:notify', onNotify);
+    return () => window.removeEventListener('gg:notify', onNotify);
+  }, [dmPeer?.peer_id]);
+
+  useEffect(() => {
     const id = Number(new URLSearchParams(location.hash.split('?')[1] || '').get('dm') || 0);
     if (!id) return;
     api.userProfile(id).then((r) => openDm({ peer_id: r.user.id, nick: r.user.nick })).catch(() => {});
