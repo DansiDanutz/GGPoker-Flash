@@ -2420,7 +2420,7 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 const refunded = refundOpenSessions();
 if (refunded) console.log(`refunded ${refunded} open table session(s)`);
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, process.env.GGPOKER_BIND || '127.0.0.1', () => {
   const port = server.address().port;
   console.log(`LISTENING ${port}`);
   console.log(`GGPoker clone server: http://127.0.0.1:${port}`);
