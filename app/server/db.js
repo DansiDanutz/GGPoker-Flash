@@ -155,6 +155,14 @@ function init() {
     message TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS player_notes (
+    user_id INTEGER NOT NULL,
+    target TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT 'yellow',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, target)
+  );
   CREATE TABLE IF NOT EXISTS daily_claims (
     user_id INTEGER NOT NULL,
     day TEXT NOT NULL,

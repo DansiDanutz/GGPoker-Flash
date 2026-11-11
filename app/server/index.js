@@ -653,6 +653,25 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { won, payout, stake, balance: after, market: body.market });
     }
 
+    // ---------- player notes ----------
+    if (p === '/api/notes' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const rows = db.prepare('SELECT target, note, color, updated_at FROM player_notes WHERE user_id = ?').all(u.id);
+      return json(res, 200, { notes: rows });
+    }
+    if (p === '/api/notes' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      const target = String(b.target || '').slice(0, 40);
+      const note = String(b.note || '').slice(0, 1000);
+      if (!target) return json(res, 400, { error: 'missing target' });
+      if (!note.trim()) { db.prepare('DELETE FROM player_notes WHERE user_id = ? AND target = ?').run(u.id, target); return json(res, 200, { ok: true, deleted: true }); }
+      db.prepare(`INSERT INTO player_notes (user_id,target,note,color) VALUES (?,?,?,?)
+        ON CONFLICT(user_id,target) DO UPDATE SET note=excluded.note, color=excluded.color, updated_at=datetime('now')`)
+        .run(u.id, target, note, String(b.color || 'yellow'));
+      return json(res, 200, { ok: true });
+    }
+
     // ---------- chat ----------
     if (p === '/api/chat' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
@@ -914,6 +933,15 @@ wss.on('connection', (ws, req) => {
       // ensure there is a seat for the human
       const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
       if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
+      if (msg.observe) {
+        table.fillBots(Math.max(3, table.cfg.seats - 1));
+        table.maybeStart();
+        entry.clients.add(ws);
+        ws.tables.add(msg.tableId);
+        ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true }));
+        broadcastState(table);
+        return;
+      }
       if (!table.seatOf(u.id)) {
         if (table.tournament) {
           table.sit({ id: u.id, nick: u.nick, avatar: u.avatar }, null, table.cfg.min_buyin);
@@ -956,6 +984,22 @@ wss.on('connection', (ws, req) => {
       const table = entry.table;
       const res = table.act(ws.userId, msg.action, msg.amount);
       if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      return;
+    }
+    if (msg.type === 'rebuy') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const table = entry.table;
+      const seat = table.seatOf(ws.userId);
+      if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
+      if (seat.player.inHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
+      const amount = Math.round(Number(msg.amount) || 0);
+      if (amount < table.cfg.min_buyin || amount > table.cfg.max_buyin) return ws.send(JSON.stringify({ type: 'error', error: 'invalid amount' }));
+      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
+      if (!u || u.balance < amount) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
+      addTransaction(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`);
+      seat.player.stack += amount;
+      broadcastState(table);
       return;
     }
     if (msg.type === 'sit_out') {

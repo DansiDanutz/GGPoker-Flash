@@ -718,3 +718,17 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .confetti { position: absolute; inset: -40px 0 0; overflow: hidden; pointer-events: none; }
 .confetti i { position: absolute; top: -10px; width: 7px; height: 12px; border-radius: 1px; animation: confettiFall 1.8s linear forwards; }
 @keyframes confettiFall { 0% { transform: translateY(0) rotate(0); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(260px) rotate(540deg); opacity: 0; } }
+
+.fly-chip { position: absolute; width: 17px; height: 17px; border-radius: 50%; border: 2px solid rgba(255,240,190,.65); box-shadow: 0 3px 8px rgba(0,0,0,.6), inset 0 0 0 2px rgba(0,0,0,.25); z-index: 38; pointer-events: none; }
+@keyframes dealFromCenter {
+  from { opacity: 0; transform: translate(var(--dx, 40px), var(--dy, -40px)) scale(.55) rotate(-12deg); }
+  to { opacity: 1; transform: none; }
+}
+.pcard.dealt { animation: dealFromCenter .42s cubic-bezier(.2,.85,.3,1.12) both; }
+
+.four-color .pcard.s-d { color: #2f7ad0; }
+.four-color .pcard.s-c { color: #2f9a52; }
+.four-color .pcard.s-d .suit, .four-color .pcard.s-d .big-suit { color: #2f7ad0; }
+.four-color .pcard.s-c .suit, .four-color .pcard.s-c .big-suit { color: #2f9a52; }
+.anim-off .pcard, .anim-off .win-overlay, .anim-off .allin-flash, .anim-off .promo-wrap img { animation: none !important; }
+.note-dot { position: absolute; top: -2px; right: -6px; font-size: 14px; filter: drop-shadow(0 1px 2px #000); }

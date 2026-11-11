@@ -66,6 +66,9 @@ Admin console: log in as `admin`, then `#/admin` (or Settings → Admin).
 | F4 | All-in |
 | Esc | Close menu / dialog |
 
+Table menu: sit out, rebuy, auto-rebuy, rabbit hunt, four-colour deck, animations, hand history, leave.
+Click any player's seat to open a private note.
+
 Lobby: click a row to preview, double-click or **Join** to take a seat, **Group View** for card layout,
 the mail icon for notifications, the chat icon for lobby chat, and the gear for settings.
 
@@ -92,6 +95,9 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for 
 - Bot opponents with Monte-Carlo equity decisions fill empty seats; stack persistence.
 - Buy-in modal with min/max range and percentage presets, cash-out on leave.
 - Rake (5%, capped) on cash-game pots; tournament and Spin & Gold pots are rake-free.
+- **Spectate a table** (Open), take a seat from the rail, rebuy/add chips between hands and toggle auto-rebuy.
+- **Private player notes** (per player, colour-coded; stored locally in SQLite).
+- Four-colour deck option and an animation toggle; cards fly from the dealer and chips travel to the pot/winner.
 - **All-in flash**, hand-strength indicator (`Two Pair · AK suited`), win overlay, chip animations,
   hotkeys (F1 fold, F2 check/call, F3 raise, F4 all-in),
   per-action sounds (the client's own MP3s), turn timer ring, card-deal animations,

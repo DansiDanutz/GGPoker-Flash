@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../lib/store';
-import { chips, getToken, money } from '../lib/api';
+import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { Avatar } from '../components/Avatar';
@@ -18,7 +18,7 @@ type TableState = {
   id: string; name: string; game: string; sb: number; bb: number; ante: number; seats: number;
   button: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
-  players: PlayerState[]; log: any[];
+  players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number;
   spin?: { multiplier: number; prize: number; winner: any } | null;
   tournament?: { name: string; prizePool: number; level: number; winner: any } | null;
 };
@@ -45,8 +45,20 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sittingOut, setSittingOut] = useState(false);
   const [rabbit, setRabbit] = useState<string[]>([]);
+  const [fourColor, setFourColor] = useState(() => localStorage.getItem('ggpoker.fourcolor') === '1');
+  const [animOff, setAnimOff] = useState(() => localStorage.getItem('ggpoker.animations') === '0');
+  const [observing, setObserving] = useState(false);
+  const [rebuyOpen, setRebuyOpen] = useState(false);
+  const [rebuyAmount, setRebuyAmount] = useState(0);
+  const [notes, setNotes] = useState<Record<string, { note: string; color: string }>>({});
+  const [noteTarget, setNoteTarget] = useState<PlayerState | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [noteColor, setNoteColor] = useState('yellow');
+  const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
+  const autoRebuyPending = useRef(false);
   const spinSeen = useRef(false);
   const [now, setNow] = useState(Date.now());
+  const tableRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const stateRef = useRef<TableState | null>(null);
   const mySeatRef = useRef<number | null>(null);
@@ -57,6 +69,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [theme] = useState(() => localStorage.getItem('ggpoker.theme') || 'Green');
   const query = new URLSearchParams(window.location.hash.split('?')[1] || '');
   const buyin = Number(query.get('buyin') || 0);
+  const observe = query.get('observe') === '1';
 
   useEffect(() => {
     if (!user) { navigate('/login'); }
@@ -69,7 +82,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     wsRef.current = ws;
     ws.onopen = () => {
       setConnected(true);
-      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin }));
+      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe }));
     };
     ws.onmessage = (ev) => {
       let msg: any;
@@ -94,6 +107,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       } else if (msg.type === 'joined') {
         everJoined.current = true;
         setMySeat(msg.seat);
+        if (msg.observe) setObserving(true); else setObserving(false);
         setOpeningTable(null);
       } else if (msg.type === 'event') {
         handleEvent(msg.event);
@@ -109,6 +123,28 @@ export function TablePage({ tableId }: { tableId: string }) {
     ws.onerror = () => { /* handled by close */ };
   }, [tableId, user]);
 
+  const flyChips = (from: [number, number], to: [number, number], count = 3, color = '#d9a83c') => {
+    const el = tableRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    for (let i = 0; i < count; i++) {
+      const chip = document.createElement('div');
+      chip.className = 'fly-chip';
+      chip.style.background = `radial-gradient(circle at 35% 30%, #fff3c4, ${color} 55%, #5b3d06 100%)`;
+      chip.style.left = `${(r.width * from[0]) / 100 + (Math.random() - 0.5) * 26}px`;
+      chip.style.top = `${(r.height * from[1]) / 100 + (Math.random() - 0.5) * 18}px`;
+      el.appendChild(chip);
+      const dx = (r.width * (to[0] - from[0])) / 100;
+      const dy = (r.height * (to[1] - from[1])) / 100;
+      chip.animate([
+        { transform: 'translate(-50%,-50%) scale(.7)', opacity: 0 },
+        { transform: `translate(calc(-50% + ${dx * 0.55}px), calc(-50% + ${dy * 0.55 - 26}px)) scale(1.05)`, opacity: 1, offset: 0.6 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.85)`, opacity: 0 },
+      ], { duration: 540 + Math.random() * 140, delay: i * 55, easing: 'cubic-bezier(.2,.8,.3,1)' });
+      window.setTimeout(() => chip.remove(), 800 + i * 55);
+    }
+  };
+
   const handleEvent = (evt: any) => {
     if (evt.type === 'action') {
       const map: Record<string, any> = { fold: 'fold', check: 'check', call: 'call', bet: 'bet', raise: 'raise', allin: 'allin' };
@@ -119,11 +155,26 @@ export function TablePage({ tableId }: { tableId: string }) {
         const id = fxId.current++;
         setFx((prev) => [...prev, { id, seat: evt.seat, amount: evt.amount || evt.paid }]);
         window.setTimeout(() => setFx((prev) => prev.filter((f) => f.id !== id)), 1100);
+        const s = stateRef.current;
+        const p = s?.players.find((x) => x.seat === evt.seat);
+        if (p) {
+          const pos = seatPosOf(evt.seat);
+          flyChips(pos, [50, 45], evt.action === 'raise' || evt.action === 'bet' ? 4 : 2);
+        }
       }
     } else if (evt.type === 'street') {
+      setAllInFx(false);
       sound.play('flop', { volume: .7 });
     } else if (evt.type === 'win') {
       setAllInFx(false);
+      const s = stateRef.current;
+      for (const w of evt.winners || []) {
+        const pl = s?.players.find((x) => x.id === w.id);
+        if (pl) {
+          const pos = seatPosOf(pl.seat);
+          setTimeout(() => flyChips([50, 45], pos, 7), 220);
+        }
+      }
       sound.play('win', { volume: .9 });
       setTimeout(() => sound.play('gather', { volume: .6 }), 450);
       const heroId = stateRef.current?.players.find((p) => p.isMe)?.id;
@@ -176,6 +227,16 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [connect, tableId, user]);
 
   useEffect(() => {
+    fetch('/api/notes', { headers: { authorization: `Bearer ${getToken()}` } })
+      .then((r) => r.json())
+      .then((d) => {
+        const m: Record<string, { note: string; color: string }> = {};
+        for (const n of d.notes || []) m[n.target] = { note: n.note, color: n.color };
+        setNotes(m);
+      }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(t);
   }, []);
@@ -203,6 +264,16 @@ export function TablePage({ tableId }: { tableId: string }) {
     send({ type: 'action', action, amount });
   };
 
+  const sitIn = () => {
+    send({ type: 'join_table', buyin: state?.minBuyin || buyin || 0, observe: false });
+  };
+
+  const doRebuy = () => {
+    send({ type: 'rebuy', amount: rebuyAmount });
+    setRebuyOpen(false);
+    sound.play('coin');
+  };
+
   const leave = () => {
     send({ type: 'leave_table' });
     everJoined.current = false;
@@ -223,6 +294,15 @@ export function TablePage({ tableId }: { tableId: string }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [myTurn, toCall, raiseTo, maxTo, act]);
 
+  const seatPosOf = (seat: number): [number, number] => {
+    const n = stateRef.current?.seats || 6;
+    const base = mySeatRef.current ?? 0;
+    const rel = (seat - base + n) % n;
+    const lay = n >= 7 ? POS9 : POS6;
+    const p = lay[rel % lay.length] || [50, 50];
+    return [p[0], p[1]];
+  };
+
   const layout = state ? (state.seats >= 7 ? POS9 : POS6) : POS6;
   const seatPos = (seat: number) => {
     const n = state?.seats || 6;
@@ -236,6 +316,43 @@ export function TablePage({ tableId }: { tableId: string }) {
   const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, state.game === 'omaha' || state.game === 'omaha5') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
 
+  useEffect(() => {
+    if (!autoRebuy || !me || !state || observing) return;
+    if (state.tournament || state.spin) return;
+    if (me.inHand) { autoRebuyPending.current = false; return; }
+    if ((me.stack || 0) < state.bb * 10 && state.street === 'ended' && !autoRebuyPending.current) {
+      autoRebuyPending.current = true;
+      send({ type: 'rebuy', amount: state.minBuyin || state.bb * 20 });
+    }
+  }, [autoRebuy, me?.stack, me?.inHand, state?.street, state?.handNo]);
+
+  const openNote = (p: PlayerState) => {
+    if (!p.nick) return;
+    const existing = notes[p.nick];
+    setNoteTarget(p);
+    setNoteText(existing?.note || '');
+    setNoteColor(existing?.color || 'yellow');
+  };
+
+  const saveNote = async () => {
+    if (!noteTarget?.nick) return;
+    try {
+      await fetch('/api/notes', {
+        method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ target: noteTarget.nick, note: noteText, color: noteColor }),
+      });
+      setNotes((prev) => {
+        const next = { ...prev };
+        if (!noteText.trim()) delete next[noteTarget.nick!];
+        else next[noteTarget.nick!] = { note: noteText, color: noteColor };
+        return next;
+      });
+      setNoteTarget(null);
+      sound.play('click');
+      toast({ kind: 'success', title: 'Note saved', body: noteTarget.nick });
+    } catch (e: any) { toast({ kind: 'error', title: 'Note', body: e.message }); }
+  };
+
   const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - now) / 15000)) : 0;
 
   const emotes = ['😂', '😎', '😭', '🔥', '👏', '🐟', '🤡', '💪', '🍀', '😱'];
@@ -243,7 +360,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   if (!user) return null;
 
   return (
-    <div className={`table-screen theme-${theme.toLowerCase()}`}>
+    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''}`}>
       <div className="table-topbar">
         <span className="name">{state?.name || 'Table'}</span>
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>
@@ -264,7 +381,11 @@ export function TablePage({ tableId }: { tableId: string }) {
       {menuOpen && (
         <div className="table-menu" onClick={() => setMenuOpen(false)}>
           <button onClick={() => { const next = !sittingOut; setSittingOut(next); send({ type: 'sit_out', value: next }); }}>{sittingOut ? 'Post blinds / sit in' : 'Sit out next hand'}</button>
+          <button onClick={() => { setRebuyAmount(state?.minBuyin || 0); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
+          <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
+          <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
+          <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
           <button onClick={() => navigate('/hand-history')}>Hand history</button>
           <button onClick={() => navigate('/settings')}>Table settings</button>
           <button onClick={() => setConfirmLeave(true)}>Leave table</button>
@@ -277,7 +398,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       <div className="table-center">
         {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
         <div className="board">
-          {(state?.board || []).map((c, i) => <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt />)}
+          {(state?.board || []).map((c, i) => <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt style={{ '--dx': '0px', '--dy': '34px', animationDelay: `${i * 0.08}s` } as React.CSSProperties} />)}
           {state && state.board.length === 0 && state.street !== 'idle' && (
             <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 12, letterSpacing: 2 }}>PRE-FLOP</div>
           )}
@@ -319,12 +440,18 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div
             key={p.seat}
             className={'seat' + (p.isMe ? ' me' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
-            style={{ left: `${x}%`, top: `${y}%` }}
+            style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default' }}
+            onClick={() => { if (p.nick) openNote(p); }}
+            title={p.nick ? 'Player note' : ''}
           >
             {p.winAmount ? <div className="win-amount">+{chip(p.winAmount)}</div> : null}
             {isActor && !p.folded ? <div className="timer" style={{ animationDuration: '1.4s' }} /> : null}
             <div className="cards">
-              {(p.cards || []).map((c, i) => <PlayingCard key={`${state?.handNo}-${p.seat}-${i}`} card={c} size="mini" dim={p.folded} />)}
+              {(p.cards || []).map((c, i) => {
+                const [px, py] = seatPosOf(p.seat!);
+                return <PlayingCard key={`${state?.handNo}-${p.seat}-${i}`} card={c} size="mini" dim={p.folded}
+                  style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />;
+              })}
             </div>
             <div className="avatar-wrap">
               <img className="seat-ring" src={(p.winAmount || 0) > 0 ? '/assets/table/ring_gold.png' : isActor ? '/assets/table/ring_gold.png' : '/assets/table/ring_silver.png'} alt="" />
@@ -336,6 +463,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <div className="nm">{p.nick}</div>
               <div className="st">{chip(p.stack)}</div>
             </div>
+            {p.nick && notes[p.nick] && <span className="note-dot" title={notes[p.nick].note}>📝</span>}
             {p.lastAction && !p.folded && (
               <div className={'action-badge ' + (p.lastAction.action || '').toLowerCase()}>
                 {p.lastAction.action}{p.lastAction.amount ? ` ${money(p.lastAction.amount)}` : ''}
@@ -401,6 +529,15 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       )}
 
+      {observing ? (
+        <div className="action-bar">
+          <div className="action-row">
+            <div style={{ flex: 1, color: '#cfcfcf', fontSize: 13 }}>You are observing this table. Take a seat to join the action.</div>
+            <button className="btn btn-red" onClick={sitIn}>Take a seat · {chip(state?.minBuyin)}</button>
+            <button className="btn btn-dark" onClick={() => setConfirmLeave(true)}>Leave</button>
+          </div>
+        </div>
+      ) : (
       <div className="action-bar">
         {myTurn && (
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
@@ -460,6 +597,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <span>{me ? `Your stack ${chip(me.stack)}` : ''}</span>
         </div>
       </div>
+      )}
 
       {spinShow && state?.spin && (
         <div className="spin-overlay">
@@ -491,6 +629,51 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="spin-center" style={{ width: 150, height: 150, fontSize: 38 }}>{spinWin.multiplier}x</div>
           <div className="spin-prize">{spinWin.nick} wins <b>{money(spinWin.prize)}</b></div>
           <button className="btn btn-gold" style={{ marginTop: 18 }} onClick={() => navigate('/')}>Back to lobby</button>
+        </div>
+      )}
+
+      {noteTarget && (
+        <div className="modal-backdrop" onClick={() => setNoteTarget(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Note · {noteTarget.nick}</h3></div>
+            <div className="modal-body">
+              <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={4} placeholder="Notes are private and only visible to you…"
+                style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10, fontFamily: 'inherit' }} />
+              <div className="row" style={{ marginTop: 10 }}>
+                {['yellow', 'green', 'red', 'blue'].map((c) => (
+                  <button key={c} onClick={() => setNoteColor(c)} style={{ width: 26, height: 26, borderRadius: '50%', background: c === 'yellow' ? '#e0b34b' : c === 'green' ? '#45c777' : c === 'red' ? '#d0455a' : '#3f9ad0', border: noteColor === c ? '2px solid #fff' : '2px solid transparent' }} />
+                ))}
+                <div style={{ flex: 1 }} />
+                <button className="btn btn-ghost btn-sm" onClick={() => { setNoteText(''); saveNote(); }}>Delete</button>
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button className="btn btn-dark" onClick={() => setNoteTarget(null)}>Cancel</button>
+              <button className="btn btn-red" onClick={saveNote}>Save note</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rebuyOpen && (
+        <div className="modal-backdrop" onClick={() => setRebuyOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Rebuy</h3></div>
+            <div className="modal-body">
+              <p className="muted small">Add chips to your stack between hands. Your stack is {chip(me?.stack)}.</p>
+              <input type="range" min={state?.minBuyin || 0} max={state?.maxBuyin || 0} step={Math.max(100, state?.bb || 100)}
+                value={rebuyAmount} onChange={(e) => setRebuyAmount(Number(e.target.value))} style={{ width: '100%' }} />
+              <div className="between" style={{ marginTop: 8 }}>
+                <span className="muted small">{chip(state?.minBuyin)}</span>
+                <b style={{ color: '#ffd98a' }}>{chip(rebuyAmount)}</b>
+                <span className="muted small">{chip(state?.maxBuyin)}</span>
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button className="btn btn-dark" onClick={() => setRebuyOpen(false)}>Cancel</button>
+              <button className="btn btn-red" onClick={doRebuy}>Add chips</button>
+            </div>
+          </div>
         </div>
       )}
 

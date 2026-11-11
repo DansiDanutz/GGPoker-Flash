@@ -787,6 +787,8 @@ export class PokerTable {
       bb: this.bb,
       ante: this.ante,
       seats: this.cfg.seats,
+      minBuyin: this.cfg.min_buyin,
+      maxBuyin: this.cfg.max_buyin,
       button: this.button,
       handNo: this.handNo,
       street: this.street,
