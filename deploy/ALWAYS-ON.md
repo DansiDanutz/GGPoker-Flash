@@ -11,8 +11,13 @@ the DigitalOcean droplet `Dexter`; the Mac is not part of the serving path.
 | Host reboot | `docker` service enabled at boot + restart policy | reboot |
 | Hung app (process alive, not answering) | `keepalive.sh` via cron every 2 min | deadlock, stuck event loop |
 | Data loss | `backup.sh` via cron at 04:15 UTC, keeps 14 days | bad deploy, corruption |
+| Loss of the droplet | `nano-backup-pull.sh` on Nano, 05:00 UTC, 30 days | host loss, disk failure |
+| Droplet / route / certificate outage | `nano-uptime-check.sh` on Nano every 5 min → Discord | anything Dexter cannot report itself |
 | TLS expiry | Let's Encrypt through Traefik, auto-renewed | certificate expiry |
 | DNS | `dangg.live` → `46.101.219.116` at Namecheap | — |
+
+The watchdog only helps while Dexter is alive. The last two rows run on the
+**other** droplet, so they still notice when Dexter is unreachable.
 
 Docker's own healthcheck (`/healthz`, every 30s) only *marks* a container
 unhealthy — it does **not** restart it. That gap is why the watchdog exists.
@@ -39,6 +44,47 @@ ssh dexter 'crontab -e'
 
 Both entries are installed on Dexter as of 2026-11-11.
 
+## Off-host backups (Nano)
+
+Dexter snapshots the database nightly. Nano pulls those snapshots so a lost
+droplet does not mean lost data:
+
+```bash
+scp deploy/nano-backup-pull.sh nano:~/dangro-backup-pull.sh
+ssh nano 'chmod +x ~/dangro-backup-pull.sh'
+```
+
+```cron
+0 5 * * * /home/Nano1981/dangro-backup-pull.sh >> /home/Nano1981/dangro-backup-pull.log 2>&1
+```
+
+Nano keeps 30 days under `~/dangro-backups`; Dexter keeps 14. The pull mirrors
+with `--delete`, so the copy never drifts from the source. It authenticates with
+Nano's existing key, which is trusted by Dexter's `authorized_keys`, and needs one
+firewall rule on Dexter: `ufw allow from 157.230.23.158 to any port 22` (Nano's
+public IP only).
+
+Restore: copy any `backup-*.db` back into the `game-data` volume as
+`ggpoker.db` and restart the container.
+
+## External monitoring (Nano)
+
+Dexter's watchdog cannot report its own death. Nano checks the public endpoint
+every 5 minutes and alerts on **state changes only**, so a long outage does not
+spam the channel:
+
+```bash
+scp deploy/nano-uptime-check.sh nano:~/danggro-uptime-check.sh
+ssh nano 'chmod +x ~/danggro-uptime-check.sh'
+```
+
+```cron
+*/5 * * * * /home/Nano1981/danggro-uptime-check.sh >/dev/null 2>&1
+```
+
+The Discord webhook is read at runtime from the host's existing
+`~/droplet-discord-alert.sh` rather than copied into this repo.
+
 ## Checking it
 
 ```bash
@@ -61,6 +107,11 @@ ssh dexter 'ls -lh ~/dangro/deploy/backups | tail -5'
   restarted the container → `/healthz` 200 again in ~20s.
 - `backup.sh` produced a consistent 228 KB snapshot (`VACUUM INTO`, so it is
   safe while the server is running).
+- `nano-backup-pull.sh` copied that snapshot to Nano (232 KB on arrival).
+- Uptime check: healthy run exits 0 and records `200`; a simulated unreachable
+  endpoint logged `ALERT DOWN` and flipped state to `000`; a simulated recovery
+  logged `ALERT RECOVERED`.
+- The Discord webhook accepted a labelled test message (HTTP 204).
 - Certificate valid to 2027-02-09, issued by Let's Encrypt.
 
 ## Known risk: disk headroom
