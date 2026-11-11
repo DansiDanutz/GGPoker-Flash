@@ -562,3 +562,16 @@ body.electron .app-window::before { display: none; }
 .cashdrop-amount { color: #fff1c9; font-family: var(--head-font); font-size: 38px; font-weight: 900; }
 .cashdrop-nick { color: #dfe8df; font-size: 12px; }
 @keyframes cashDropIn { 0% { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(.9); } 12%,80% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
+
+.rush-hero { position: relative; height: 154px; flex: 0 0 154px; margin: 8px 8px 0; border-radius: 10px; overflow: hidden; border: 1px solid rgba(216,177,95,.22); background: linear-gradient(110deg, #101a15, #1d2a1e 60%, #2b2010); }
+.rush-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: .5; filter: saturate(.9); }
+.rush-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,10,7,.92), rgba(5,10,7,.35) 65%, rgba(5,10,7,.75)); }
+.rush-hero-copy { position: relative; z-index: 2; padding: 22px 24px; max-width: 55%; display: flex; flex-direction: column; gap: 5px; }
+.rush-hero-copy small { color: #e7b64b; font-size: 10px; font-weight: 800; letter-spacing: 2.4px; }
+.rush-hero-copy b { color: #fff6df; font-size: 24px; line-height: 1.1; }
+.rush-hero-copy span { color: #aeb9b1; font-size: 12px; line-height: 1.4; }
+.rush-hero-stats { position: absolute; z-index: 2; right: 18px; bottom: 16px; display: flex; gap: 20px; text-align: right; }
+.rush-hero-stats b { display: block; color: #f0d59a; font-size: 19px; font-variant-numeric: tabular-nums; }
+.rush-hero-stats span { color: #7f8d82; font-size: 9px; text-transform: uppercase; letter-spacing: .8px; }
+.promo-wrap.rush-hidden { display: none; }
+@media (max-width: 760px) { .rush-hero { height: 138px; flex-basis: 138px; margin: 8px 8px 0; } .rush-hero-copy { padding: 16px; max-width: 66%; } .rush-hero-copy b { font-size: 19px; } .rush-hero-stats { display: none; } }

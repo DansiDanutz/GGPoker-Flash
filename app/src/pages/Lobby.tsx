@@ -325,8 +325,23 @@ export function Lobby() {
           <button className="ll-item ll-play" onClick={() => setGameTab('holdem')}><span className="ll-mark" />Play Money</button>
         </aside>
         <div className="lobby-main">
+          {gameTab === 'rush' && (
+            <div className="rush-hero">
+              <div className="rush-hero-bg" style={{ backgroundImage: "url('/assets/ui/discover/Bg_Discover_RushNCash_Holdem.png')" }} />
+              <div className="rush-hero-copy">
+                <small>RUSH &amp; CASH</small>
+                <b>Fold. Move. Play again.</b>
+                <span>Quick-fold to a fresh table with the same stack. Look out for Cash Drops.</span>
+              </div>
+              <div className="rush-hero-stats">
+                <div><b>{tables.filter((t) => t.game === 'rush').reduce((n, t) => n + t.players, 0)}</b><span>players</span></div>
+                <div><b>{tables.filter((t) => t.game === 'rush').length}</b><span>pools</span></div>
+                <div><b>12%</b><span>drop chance</span></div>
+              </div>
+            </div>
+          )}
           <div
-            className={'promo-wrap' + (promoPaused ? ' paused' : '')}
+            className={'promo-wrap' + (promoPaused ? ' paused' : '') + (gameTab === 'rush' ? ' rush-hidden' : '')}
             onMouseEnter={() => setPromoPaused(true)}
             onMouseLeave={() => setPromoPaused(false)}
             onClick={() => { sound.play('click'); navigate(PROMOS[promoIdx]?.to || '/promotions'); }}
