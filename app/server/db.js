@@ -97,6 +97,12 @@ function init() {
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     resolved_at TEXT
   );
+  CREATE TABLE IF NOT EXISTS elo_ratings (
+    user_id INTEGER NOT NULL,
+    game TEXT NOT NULL,
+    elo INTEGER NOT NULL DEFAULT 1000,
+    PRIMARY KEY (user_id, game)
+  );
   CREATE TABLE IF NOT EXISTS elo_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -104,6 +110,7 @@ function init() {
     delta INTEGER NOT NULL,
     before INTEGER NOT NULL,
     after INTEGER NOT NULL,
+    game TEXT NOT NULL DEFAULT 'all',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE TABLE IF NOT EXISTS notification_reads (
@@ -273,6 +280,7 @@ function init() {
   try { db.exec('ALTER TABLE tables ADD COLUMN bomb_pot INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE reports ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE hands ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE elo_history ADD COLUMN game TEXT NOT NULL DEFAULT 'all'"); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN chat_muted INTEGER DEFAULT 0'); } catch { /* already exists */ }

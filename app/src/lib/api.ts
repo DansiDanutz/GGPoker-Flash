@@ -99,7 +99,7 @@ export const api = {
   unregisterTourney: (id: string) => request(`/api/tournaments/${id}/unregister`, { method: 'POST' }),
   cashier: () => request<any>('/api/cashier'),
   notifications: () => request<{ items: any[]; unread: number }>('/api/notifications'),
-  elo: () => request<{ leaders: any[]; me: any }>('/api/elo'),
+  elo: (game: string = 'all') => request<{ leaders: any[]; me: any; game: string }>(`/api/elo${game === 'all' ? '' : '?game=' + encodeURIComponent(game)}`),
   reportPlayer: (targetId: number, reason: string, detail: string, handId?: string) => request<any>('/api/reports', { method: 'POST', body: JSON.stringify({ targetId, reason, detail, handId }) }),
   markNotificationsRead: (keys: string[]) => request<any>('/api/notifications/read', { method: 'POST', body: JSON.stringify({ keys }) }),
   messages: () => request<{ threads: any[] }>('/api/messages'),

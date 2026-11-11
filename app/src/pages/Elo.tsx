@@ -16,8 +16,9 @@ function tier(elo: number) {
 export function Elo() {
   const { user, navigate, toast } = useApp();
   const [data, setData] = useState<{ leaders: any[]; me: any }>({ leaders: [], me: null });
+  const [game, setGame] = useState('all');
   const challenge = location.hash.includes('challenge=1');
-  useEffect(() => { api.elo().then(setData).catch(() => {}); }, []);
+  useEffect(() => { api.elo(game).then(setData).catch(() => {}); }, [game]);
   const myElo = data.me?.elo ?? user?.elo ?? 1000;
   const t = tier(Number(myElo));
   const leaders = data.leaders || [];
@@ -31,6 +32,12 @@ export function Elo() {
             <p className="page-sub">Skill-based rating for local cash tables. Win hands to climb; every completed hand settles ELO.</p>
           </div>
           <button className="btn btn-gold" onClick={() => navigate('/')}>Play a cash table</button>
+        </div>
+
+        <div className="elo-tabs">
+          {([['all', 'All'], ['holdem', "Hold'em"], ['omaha', 'PLO'], ['shortdeck', 'Short Deck'], ['rush', 'Rush & Cash']] as const).map(([id, label]) => (
+            <button key={id} className={game === id ? 'on' : ''} onClick={() => setGame(id)}>{label}</button>
+          ))}
         </div>
 
         {challenge && (
@@ -99,7 +106,7 @@ export function Elo() {
             <div className="panel-title">Recent rating changes</div>
             {(data.me?.history || []).length ? (data.me.history as any[]).map((h, i) => (
               <div key={i} className="kv elo-history-row">
-                <span>{h.created_at?.slice(5, 16)}</span>
+                <span>{h.created_at?.slice(5, 16)}{h.game && h.game !== 'all' ? ` · ${h.game}` : ''}</span>
                 <b style={{ color: h.delta >= 0 ? '#9fd8b0' : '#e08b8b' }}>{h.delta >= 0 ? '+' : ''}{h.delta}</b>
                 <span className="muted small">{h.before} → {h.after}</span>
               </div>

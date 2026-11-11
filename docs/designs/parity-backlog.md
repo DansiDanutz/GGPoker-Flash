@@ -91,7 +91,8 @@ not a source to copy blindly.
 - Tournament search now filters by event name or format.
 - ELO rating:
   - persisted per-user rating with win/loss settlement on completed cash hands;
-  - opponent-weighted Elo (K=24, ±30 cap) with divisions, ladder, current rank and recent history;
+  - opponent-weighted Elo (K=24, ±30 cap) with separate Hold'em, PLO, Short Deck and Rush & Cash ladders;
+  - divisions, current rank and recent history;
   - ELO Challenge creates a private heads-up table with an invitable link;
   - only players dealt into the hand are rated.
 - Player reporting:

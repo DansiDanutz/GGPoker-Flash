@@ -615,3 +615,6 @@ body.electron .app-window::before { display: none; }
 .hotkey-binding:hover { border-color: #6b5320; background: #242018; }
 .room-bg-supercircuit .room-mark { background-image: url('/assets/tables/table_supercircuit.png'); background-position: center 44%; background-size: cover; filter: brightness(1.12) contrast(1.04) saturate(1.05); opacity: .96; }
 .room-bg-mystery .room-mark { background-image: url('/assets/tables/table_mystery.png'); background-position: center 44%; background-size: cover; filter: brightness(1.12) contrast(1.04) saturate(1.1); opacity: .96; }
+.elo-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 2px; }
+.elo-tabs button { height: 30px; padding: 0 13px; border-radius: 15px; border: 1px solid #303030; background: #191919; color: #98a49c; font-size: 11px; }
+.elo-tabs button.on { background: linear-gradient(#d8b15f, #a77d2c); border-color: #e8c37a; color: #1b1407; font-weight: 800; }

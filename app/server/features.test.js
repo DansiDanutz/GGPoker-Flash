@@ -78,6 +78,10 @@ test('host tables, private tournaments, bonuses and direct messages', async () =
     assert.equal(r.status, 200);
     assert.ok(Array.isArray(elo.leaders));
     assert.equal(elo.me.elo, 1000);
+    r = await fetch(`${base}/api/elo?game=omaha`, { headers: H(u.token) });
+    const ploElo = await r.json();
+    assert.equal(ploElo.game, 'omaha');
+    assert.equal(ploElo.me.elo, 1000);
 
     r = await fetch(`${base}/api/messages`, { method: 'POST', headers: H(admin.token), body: JSON.stringify({ peerId: u.user.id, message: 'Feature DM' }) });
     assert.equal(r.status, 200);

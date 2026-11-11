@@ -182,6 +182,11 @@ const WAITLISTS = new Map(); // tableId -> [{ userId, nick, since }]
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
 
+function eloGame(game) {
+  if (game === 'omaha5' || game === 'omaha6') return 'omaha';
+  return ['holdem', 'omaha', 'shortdeck', 'rush'].includes(game) ? game : 'holdem';
+}
+
 function notifyUser(userId, payload) {
   const set = SSE_CLIENTS.get(Number(userId));
   if (!set) return;
@@ -252,19 +257,25 @@ function getLiveTable(id) {
           const u = db.prepare('SELECT id, elo FROM users WHERE id = ? AND deleted_at IS NULL').get(p.id);
           if (!u) continue;
           const won = winners.some((w) => Number(w.id) === Number(p.id));
-          const before = Number(u.elo ?? 1000);
+          const game = eloGame(h.game);
+          const rating = db.prepare('SELECT elo FROM elo_ratings WHERE user_id = ? AND game = ?').get(u.id, game);
+          const before = Number(rating?.elo ?? u.elo ?? 1000);
           let oppSum = 0, oppCount = 0;
           for (const other of (h.players || [])) {
             if (!other || other.id === p.id || other.inHand === false) continue;
             const ou = db.prepare('SELECT elo FROM users WHERE id = ? AND deleted_at IS NULL').get(other.id);
-            if (ou) { oppSum += Number(ou.elo ?? 1000); oppCount++; }
+            if (!ou) continue;
+            const orating = db.prepare('SELECT elo FROM elo_ratings WHERE user_id = ? AND game = ?').get(other.id, game);
+            oppSum += Number(orating?.elo ?? ou.elo ?? 1000); oppCount++;
           }
           const oppAvg = oppCount ? oppSum / oppCount : 1000;
           const expected = 1 / (1 + Math.pow(10, (oppAvg - before) / 400));
           const delta = Math.max(-30, Math.min(30, Math.round(24 * ((won ? 1 : 0) - expected))));
           const next = Math.max(0, before + delta);
-          db.prepare('UPDATE users SET elo = ? WHERE id = ?').run(next, u.id);
-          db.prepare('INSERT INTO elo_history (user_id,hand_id,delta,before,after) VALUES (?,?,?,?,?)').run(u.id, h.handId || null, next - before, before, next);
+          const overall = Math.max(0, Number(u.elo ?? 1000) + delta);
+          db.prepare('INSERT INTO elo_ratings (user_id,game,elo) VALUES (?,?,?) ON CONFLICT(user_id,game) DO UPDATE SET elo = excluded.elo').run(u.id, game, next);
+          db.prepare('UPDATE users SET elo = ? WHERE id = ?').run(overall, u.id);
+          db.prepare('INSERT INTO elo_history (user_id,hand_id,delta,before,after,game) VALUES (?,?,?,?,?,?)').run(u.id, h.handId || null, next - before, before, next, game);
         }
         if (h.game === 'rush' && Math.random() < 0.12) {
           const humans = (h.players || []).filter((p) => p && p.id && !p.isBot && db.prepare('SELECT 1 FROM users WHERE id = ?').get(p.id));
@@ -878,10 +889,22 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/elo') {
       const u = userByToken(tokenFrom(req));
-      const rows = db.prepare('SELECT id,nick,avatar,vip_level,elo FROM users WHERE deleted_at IS NULL AND banned = 0 ORDER BY elo DESC, nick LIMIT 50').all();
+      const game = eloGame(url.searchParams.get('game') || 'all');
+      const selected = url.searchParams.get('game') || 'all';
+      const rows = selected === 'all'
+        ? db.prepare('SELECT id,nick,avatar,vip_level,elo FROM users WHERE deleted_at IS NULL AND banned = 0 ORDER BY elo DESC, nick LIMIT 50').all()
+        : db.prepare(`SELECT u.id,u.nick,u.avatar,u.vip_level,COALESCE(e.elo,1000) AS elo
+            FROM users u LEFT JOIN elo_ratings e ON e.user_id = u.id AND e.game = ?
+            WHERE u.deleted_at IS NULL AND u.banned = 0 ORDER BY elo DESC, u.nick LIMIT 50`).all(game);
       const rank = u ? rows.findIndex((r) => r.id === u.id) + 1 : 0;
-      const history = u ? db.prepare('SELECT delta, before, after, created_at FROM elo_history WHERE user_id = ? ORDER BY id DESC LIMIT 12').all(u.id) : [];
-      return json(res, 200, { leaders: rows, me: u ? { ...publicUser(u), rank: rank || null, history } : null });
+      const mine = u && selected !== 'all' ? db.prepare('SELECT elo FROM elo_ratings WHERE user_id = ? AND game = ?').get(u.id, game) : null;
+      const history = u
+        ? (selected === 'all'
+          ? db.prepare('SELECT delta, before, after, created_at, game FROM elo_history WHERE user_id = ? ORDER BY id DESC LIMIT 12').all(u.id)
+          : db.prepare('SELECT delta, before, after, created_at, game FROM elo_history WHERE user_id = ? AND game = ? ORDER BY id DESC LIMIT 12').all(u.id, game))
+        : [];
+      const me = u ? { ...publicUser(u), elo: Number(mine?.elo ?? u.elo ?? 1000), rank: rank || null, history } : null;
+      return json(res, 200, { leaders: rows, me, game: selected });
     }
 
     if (p === '/api/leaderboard') {
