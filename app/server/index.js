@@ -238,7 +238,16 @@ function getLiveTable(id) {
           if (!u) continue;
           const won = winners.some((w) => Number(w.id) === Number(p.id));
           const before = Number(u.elo ?? 1000);
-          const next = Math.max(0, before + (won ? 8 : -5));
+          let oppSum = 0, oppCount = 0;
+          for (const other of (h.players || [])) {
+            if (!other || other.id === p.id || other.inHand === false) continue;
+            const ou = db.prepare('SELECT elo FROM users WHERE id = ? AND deleted_at IS NULL').get(other.id);
+            if (ou) { oppSum += Number(ou.elo ?? 1000); oppCount++; }
+          }
+          const oppAvg = oppCount ? oppSum / oppCount : 1000;
+          const expected = 1 / (1 + Math.pow(10, (oppAvg - before) / 400));
+          const delta = Math.max(-30, Math.min(30, Math.round(24 * ((won ? 1 : 0) - expected))));
+          const next = Math.max(0, before + delta);
           db.prepare('UPDATE users SET elo = ? WHERE id = ?').run(next, u.id);
           db.prepare('INSERT INTO elo_history (user_id,hand_id,delta,before,after) VALUES (?,?,?,?,?)').run(u.id, h.handId || null, next - before, before, next);
         }

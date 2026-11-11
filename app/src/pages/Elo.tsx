@@ -60,8 +60,8 @@ export function Elo() {
           </div>
           <div className="elo-kpis">
             <div><b>{leaders.length}</b><span>rated players</span></div>
-            <div><b>+8</b><span>win</span></div>
-            <div><b>−5</b><span>loss</span></div>
+            <div><b>K 24</b><span>rating factor</span></div>
+            <div><b>±30</b><span>max change</span></div>
           </div>
         </div>
 
@@ -106,7 +106,7 @@ export function Elo() {
             )) : <p className="muted small">No settled hands yet. Play a cash hand to start your history.</p>}
             <div className="panel-title" style={{ marginTop: 16 }}>How ELO works</div>
             <p className="muted small" style={{ lineHeight: 1.6 }}>
-              Every completed cash-table hand settles a small rating change. Winners gain <b style={{ color: '#9fd8b0' }}>+8</b>, everyone else loses <b style={{ color: '#e08b8b' }}>−5</b>, floored at zero. Tournament and bot-only hands do not count.
+              Every completed cash-table hand settles an Elo rating change against the average rating of the opponents dealt in. The K-factor is 24, capped at ±30, and the rating is floored at zero. Tournament and bot-only hands do not count.
             </p>
             <div className="panel-title" style={{ marginTop: 16 }}>Divisions</div>
             {[['Rookie', 0, 1200], ['Bronze', 1200, 1400], ['Silver', 1400, 1600], ['Gold', 1600, 1800], ['Platinum', 1800, 2000], ['Diamond', 2000, 2200]].map(([name, lo, hi]) => (
