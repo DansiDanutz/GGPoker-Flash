@@ -9,6 +9,7 @@ import {
   publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone, missionPeriodKey,
 } from './db.js';
 import { PokerTable, botName } from './table.js';
+import { normalizeAvatar } from './avatar.js';
 import { makeDeck, shuffle, cardStr } from './poker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -459,8 +460,13 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/me/avatar' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
-      db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(String(body.avatar || '').slice(0, 400000), u.id);
-      return json(res, 200, { ok: true });
+      try {
+        const avatar = normalizeAvatar(body.avatar);
+        db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar ? avatar.dataUrl : '', u.id);
+        return json(res, 200, { ok: true, hash: avatar ? avatar.hash : null });
+      } catch (err) {
+        return json(res, err.status || 400, { error: err.message });
+      }
     }
 
     if (p === '/api/me/nick' && req.method === 'POST') {

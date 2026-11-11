@@ -1,15 +1,36 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api, getToken, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { PlayingCard } from '../components/Card';
+import { avatarChoices, fileToAvatar } from '../lib/avatar';
 
 export function Profile() {
   const { user, refreshUser, logout, toast, navigate } = useApp();
   const [nick, setNick] = useState(user?.nick || '');
   const [stats, setStats] = useState({ hands: 0, won: 0, biggest: 0 });
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarFile = useRef<HTMLInputElement>(null);
+  const presetChoices = useMemo(() => avatarChoices(), []);
+  const applyAvatar = async (src: string) => {
+    setAvatarBusy(true);
+    try {
+      await api.setAvatar(src);
+      await refreshUser();
+      sound.play('click', { volume: .5 });
+      toast({ kind: 'success', title: 'Avatar updated', body: src ? 'Your new avatar is live.' : 'Reset to the generated avatar.' });
+    } catch (e: any) {
+      toast({ kind: 'error', title: 'Avatar not saved', body: e.message });
+    } finally { setAvatarBusy(false); }
+  };
+  const pickAvatar = async (file?: File) => {
+    if (!file) return;
+    try { await applyAvatar(await fileToAvatar(file)); }
+    catch (e: any) { toast({ kind: 'error', title: 'Avatar not accepted', body: e.message }); }
+    finally { if (avatarFile.current) avatarFile.current.value = ''; }
+  };
 
   useEffect(() => {
     api.hands().then((r) => {
@@ -61,14 +82,34 @@ export function Profile() {
             <label className="admin-label">Nickname</label>
             <div className="row"><input className="admin-input" style={{ flex: 1 }} value={nick} onChange={(e) => setNick(e.target.value)} maxLength={20} /><button className="btn btn-red btn-sm" onClick={save}>Save</button></div>
             <label className="admin-label">Avatar</label>
-            <div className="row" style={{ flexWrap: 'wrap' }}>
-              {['DansiDanutz', 'Shark', 'Lion', 'Ninja', 'Robot', 'Queen', 'Ace', 'Wolf'].map((n) => (
-                <button key={n} style={{ borderRadius: '50%', border: '2px solid transparent' }} onClick={() => api.setAvatar('').then(refreshUser)}>
-                  <Avatar name={n} size={40} />
+            <div className="avatar-current">
+              <div className="avatar-ring" style={{ width: 64, height: 64 }}>
+                <div className="inner"><Avatar name={user?.nick || '?'} src={user?.avatar} size={58} /></div>
+              </div>
+              <div>
+                <b style={{ color: '#f2eee3' }}>{user?.avatar ? 'Custom avatar' : 'Generated avatar'}</b>
+                <div className="muted small">PNG, JPEG or WebP · centre-cropped to 256×256</div>
+              </div>
+              <button className="btn btn-dark btn-sm" disabled={avatarBusy} onClick={() => avatarFile.current?.click()}>Upload</button>
+              <input ref={avatarFile} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => pickAvatar(e.target.files?.[0])} />
+              <button className="btn btn-ghost btn-sm" disabled={avatarBusy || !user?.avatar} onClick={() => applyAvatar('')}>Reset</button>
+            </div>
+            <div className="avatar-picker">
+              {presetChoices.map((choice) => (
+                <button
+                  key={choice.name}
+                  className={'avatar-choice' + (user?.avatar === choice.src ? ' on' : '')}
+                  onClick={() => applyAvatar(choice.src)}
+                  disabled={avatarBusy}
+                  title={choice.name}
+                  aria-label={`Use ${choice.name} avatar`}
+                  aria-pressed={user?.avatar === choice.src}
+                >
+                  <img src={choice.src} alt="" />
                 </button>
               ))}
             </div>
-            <p className="muted small">Avatars are generated locally. Your original avatar is never uploaded.</p>
+            <p className="muted small">Avatars are generated or processed locally. Nothing is uploaded to a third party.</p>
           </div>
           <div className="card">
             <div className="panel-title">VIP progress</div>

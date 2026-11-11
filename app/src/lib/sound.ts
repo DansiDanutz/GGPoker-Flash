@@ -40,6 +40,9 @@ const FILES = {
   bgm: 'BgmLobby.mp3',
 };
 
+type Channel = 'sfx' | 'voice' | 'alerts' | 'music' | 'ambience';
+const DEFAULT_CHANNELS: Record<Channel, boolean> = { sfx: true, voice: true, alerts: true, music: true, ambience: true };
+
 class SoundEngine {
   enabled = true;
   volume = 0.7;
@@ -47,12 +50,29 @@ class SoundEngine {
   cache = new Map<string, HTMLAudioElement>();
   music: HTMLAudioElement | null = null;
   unlocked = false;
+  channels: Record<Channel, boolean> = { ...DEFAULT_CHANNELS };
 
   constructor() {
     try {
       const saved = localStorage.getItem('ggpoker.sound');
       if (saved != null) this.enabled = saved === '1';
+      const channels = JSON.parse(localStorage.getItem('ggpoker.soundChannels') || '{}');
+      this.channels = { ...DEFAULT_CHANNELS, ...channels };
     } catch { /* ignore */ }
+  }
+
+  channelFor(key: string): Channel {
+    if (key === 'bgm') return 'music';
+    if (key.startsWith('voice')) return 'voice';
+    if (['turn', 'timebank', 'winding', 'mission', 'jackpot', 'coin'].includes(key)) return 'alerts';
+    if (['bubble', 'fish', 'cashdrop'].includes(key)) return 'ambience';
+    return 'sfx';
+  }
+
+  setChannel(channel: Channel, on: boolean) {
+    this.channels[channel] = on;
+    try { localStorage.setItem('ggpoker.soundChannels', JSON.stringify(this.channels)); } catch { /* ignore */ }
+    if (channel === 'music') { if (on && this.enabled) this.startMusic(); else this.music?.pause(); }
   }
 
   unlock() {
@@ -72,6 +92,7 @@ class SoundEngine {
 
   play(key: keyof typeof FILES, opts: { volume?: number; rate?: number } = {}) {
     if (!this.enabled) return;
+    if (!this.channels[this.channelFor(key)]) return;
     this.unlock();
     const src = this.cache.get(key);
     if (!src) return;
@@ -84,7 +105,7 @@ class SoundEngine {
   }
 
   startMusic() {
-    if (!this.enabled) return;
+    if (!this.enabled || !this.channels.music) return;
     if (!this.music) {
       this.music = new Audio(BASE + FILES.bgm);
       this.music.loop = true;

@@ -4,6 +4,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { SwfEffect } from '../components/SwfEffect';
+import { betLabel, betTarget, readBetPrefs, readCardBack, readDealSpeed } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
@@ -67,6 +68,12 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [noteColor, setNoteColor] = useState('yellow');
   const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
   const [autoMuck, setAutoMuck] = useState(() => localStorage.getItem('ggpoker.automuck') === '1');
+  const [cardBack] = useState(readCardBack);
+  const [showHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
+  const [hotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
+  const [hotkeysOn] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
+  const [dealSpeed] = useState(readDealSpeed);
+  const [betPrefs] = useState(readBetPrefs);
   const [cardAnim, setCardAnim] = useState<'deal' | 'flip' | 'slide' | 'off'>(() => {
     const saved = localStorage.getItem('ggpoker.cardAnim');
     return saved === 'flip' || saved === 'slide' || saved === 'off' ? saved : 'deal';
@@ -382,7 +389,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { setMenuOpen(false); setConfirmLeave(false); return; }
-      if (!myTurn) return;
+      if (!hotkeysOn || !myTurn) return;
       if (e.key === 'F1') { e.preventDefault(); act('fold'); }
       else if (e.key === 'F2') { e.preventDefault(); act(toCall > 0 ? 'call' : 'check'); }
       else if (e.key === 'F3') { e.preventDefault(); act(raiseTo >= maxTo ? 'allin' : 'raise', raiseTo); }
@@ -390,7 +397,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [myTurn, toCall, raiseTo, maxTo, act]);
+  }, [hotkeysOn, myTurn, toCall, raiseTo, maxTo, act]);
 
   const seatPosOf = (seat: number): [number, number] => {
     const n = stateRef.current?.seats || 6;
@@ -482,7 +489,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   if (!user) return null;
 
   return (
-    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim}`}>
+    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
       <div className="table-topbar">
         <span className="name">{state?.name || 'Table'}</span>
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>
@@ -558,7 +565,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 12, letterSpacing: 2 }}>PRE-FLOP</div>
           )}
         </div>
-        {handInfo && (
+        {handInfo && showHand && (
           <div className="hand-strength">{handInfo.name} <span>·</span> {holeLabel}</div>
         )}
         {rabbit.length > 0 && (
@@ -723,12 +730,11 @@ export function TablePage({ tableId }: { tableId: string }) {
           )}
           <div className="grow" />
           <div className="quick-bets">
-            {[0.5, 0.75, 1].map((f) => (
-              <button key={f} disabled={!myTurn} onClick={() => {
-                const target = Math.min(maxTo, Math.max(minTo, Math.round((state!.pot * f + state!.currentBet) / 100) * 100));
-                setRaiseTo(target);
-              }}>{f === 1 ? 'Pot' : `${f * 100}%`}</button>
-            ))}
+            {(state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0) ? betPrefs.opening : betPrefs.normal).map((value, i) => {
+              const opening = state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0);
+              const target = state ? betTarget(value, opening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo) : minTo;
+              return <button key={`${value}-${i}`} disabled={!myTurn} onClick={() => setRaiseTo(target)}>{betLabel(value, opening)}</button>;
+            })}
           </div>
           <input
             className="bet-slider"
@@ -760,8 +766,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         <div className="action-row" style={{ color: '#9a9a9a', fontSize: 11.5 }}>
           <span>{myTurn ? 'Your turn — choose an action' : state ? (state.actor ? 'Waiting for opponents…' : state.street === 'ended' ? 'Hand complete' : 'Dealing…') : 'Connecting…'}</span>
           <div className="grow" />
-          <span>F1 Fold · F2 Check/Call · F3 Raise · F4 All-in</span>
-          <span>·</span>
+          {hotkeyHints && <span>F1 Fold · F2 Check/Call · F3 Raise · F4 All-in</span>}
+          {hotkeyHints && <span>·</span>}
           <span>Hand #{state?.handNo ?? 0}</span>
           <span>·</span>
           <span>{me ? `Your stack ${chip(me.stack)}` : ''}</span>

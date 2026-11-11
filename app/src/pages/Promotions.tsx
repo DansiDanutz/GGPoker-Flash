@@ -5,6 +5,7 @@ import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { useI18n } from '../lib/i18n';
+import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, betLabel, readBetPrefs, readCardBack, type BetPrefs } from '../lib/tablePrefs';
 
 export function Promotions() {
   const { toast, navigate } = useApp();
@@ -80,7 +81,15 @@ export function Settings() {
   const [nick, setNick] = useState(user?.nick || '');
   const [theme, setTheme] = useState(localStorage.getItem('ggpoker.theme') || 'Green');
   const [volume, setVolume] = useState(Number(localStorage.getItem('ggpoker.volume') || 70));
-  const [timeBank, setTimeBank] = useState(30);
+  const [betting, setBetting] = useState<BetPrefs>(() => readBetPrefs());
+  const [showHand, setShowHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
+  const [hotkeyHints, setHotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
+  const [hotkeys, setHotkeys] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
+  const [dealSpeed, setDealSpeed] = useState(() => Number(localStorage.getItem('ggpoker.dealSpeed') || 3));
+  const [cardBack, setCardBack] = useState(readCardBack());
+  const [channels, setChannels] = useState({ ...sound.channels });
+  const [currentPw, setCurrentPw] = useState('');
+  const [nextPw, setNextPw] = useState('');
   const [fourColor, setFourColor] = useState(localStorage.getItem('ggpoker.fourcolor') === '1');
   const [autoMuck, setAutoMuck] = useState(localStorage.getItem('ggpoker.automuck') !== '0');
   const [runItTwice, setRunItTwice] = useState(localStorage.getItem('ggpoker.rit') === '1');
@@ -91,7 +100,21 @@ export function Settings() {
       lang: localStorage.getItem('ggpoker.lang'), theme: localStorage.getItem('ggpoker.theme'),
       volume: localStorage.getItem('ggpoker.volume'), fourcolor: localStorage.getItem('ggpoker.fourcolor'),
       automuck: localStorage.getItem('ggpoker.automuck'), rit: localStorage.getItem('ggpoker.rit'),
+      betPrefs: localStorage.getItem('ggpoker.betPrefs'), showHand: localStorage.getItem('ggpoker.showHand'),
+      hotkeyHints: localStorage.getItem('ggpoker.hotkeyHints'), dealSpeed: localStorage.getItem('ggpoker.dealSpeed'),
+      cardBack: localStorage.getItem('ggpoker.cardBack'),
     }).catch(() => {});
+  };
+  const saveBetting = (next: BetPrefs) => {
+    setBetting(next);
+    persist('ggpoker.betPrefs', JSON.stringify(next));
+  };
+  const changePassword = async () => {
+    try {
+      await api.changePassword(currentPw, nextPw);
+      setCurrentPw(''); setNextPw('');
+      toast({ kind: 'success', title: 'Password changed', body: 'Other sessions have been signed out.' });
+    } catch (e: any) { toast({ kind: 'error', title: 'Password not changed', body: e.message }); }
   };
 
   const saveNick = async () => {
@@ -100,7 +123,7 @@ export function Settings() {
   };
 
   return (
-    <PageShell activeTop="poker" subnav={<SubNav items={[{ key: 'general', label: 'General' }, { key: 'sound', label: 'Sound' }, { key: 'table', label: 'Table & cards' }, { key: 'account', label: 'Account' }, { key: 'responsible', label: 'Responsible gaming' }]} active={tab} onChange={setTab} />}>
+    <PageShell activeTop="poker" subnav={<SubNav items={[{ key: 'general', label: 'General' }, { key: 'sound', label: 'Sound' }, { key: 'table', label: 'Table & cards' }, { key: 'betting', label: 'Betting' }, { key: 'account', label: 'Account' }, { key: 'responsible', label: 'Responsible gaming' }]} active={tab} onChange={setTab} />}>
       <div className="page">
         <h1 className="page-title">Settings</h1>
         <p className="page-sub">Preferences are stored locally and applied instantly</p>
@@ -157,9 +180,10 @@ export function Settings() {
             </div>
             <div className="card">
               <div className="panel-title">Audio channels</div>
-              {[['Card & chip sounds', true], ['Action voices', true], ['Notification alerts', true], ['Lobby music', true], ['Table ambience', false]].map(([l, v]) => (
-                <label key={l as string} className="switch-row"><span>{l as string}</span><input type="checkbox" defaultChecked={v as boolean} /></label>
+              {([['sfx', 'Card & chip sounds'], ['voice', 'Action voices'], ['alerts', 'Notification alerts'], ['music', 'Lobby music'], ['ambience', 'Table ambience']] as const).map(([key, label]) => (
+                <label key={key} className="switch-row"><span>{label}</span><input type="checkbox" checked={channels[key]} onChange={(e) => { const on = e.target.checked; sound.setChannel(key, on); setChannels({ ...sound.channels }); }} /></label>
               ))}
+              <p className="muted small">These are independent channels; master sound still overrides all of them.</p>
             </div>
           </div>
         )}
@@ -176,21 +200,86 @@ export function Settings() {
                 </button>
               ))}
             </div>
+            <div className="panel-title" style={{ marginTop: 18 }}>Card back</div>
+            <div className="cardback-grid">
+              {CARD_BACKS.map((b) => (
+                <button key={b.id} className={'cardback-swatch back-skin-' + b.id + (cardBack === b.id ? ' on' : '')} onClick={() => { setCardBack(b.id); persist('ggpoker.cardBack', b.id); sound.play('click', { volume: .4 }); }}>
+                  <span className="back-preview" />
+                  <b>{b.label}</b>
+                </button>
+              ))}
+            </div>
             <div className="grid g2" style={{ marginTop: 18 }}>
               <div className="card">
                 <div className="panel-title">Cards</div>
                 <label className="switch-row"><span>Four-colour deck</span><input type="checkbox" checked={fourColor} onChange={(e) => { setFourColor(e.target.checked); persist('ggpoker.fourcolor', e.target.checked ? '1' : '0'); }} /></label>
-                <label className="switch-row"><span>Show hand strength</span><input type="checkbox" defaultChecked /></label>
-                <label className="switch-row"><span>Dealer animation speed</span><input type="range" min={1} max={5} defaultValue={3} /></label>
+                <label className="switch-row"><span>Show hand strength</span><input type="checkbox" checked={showHand} onChange={(e) => { setShowHand(e.target.checked); persist('ggpoker.showHand', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Enable table hotkeys</span><input type="checkbox" checked={hotkeys} onChange={(e) => { setHotkeys(e.target.checked); persist('ggpoker.hotkeys', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Show keyboard hints</span><input type="checkbox" checked={hotkeyHints} onChange={(e) => { setHotkeyHints(e.target.checked); persist('ggpoker.hotkeyHints', e.target.checked ? '1' : '0'); }} /></label>
+                <div className="admin-label" style={{ marginTop: 14 }}>Dealer animation speed</div>
+                <input type="range" min={1} max={5} value={dealSpeed} style={{ width: '100%' }}
+                  onChange={(e) => { const v = Number(e.target.value); setDealSpeed(v); persist('ggpoker.dealSpeed', String(v)); }} />
+                <div className="between muted small"><span>Slow</span><span>{dealSpeed}</span><span>Fast</span></div>
               </div>
               <div className="card">
                 <div className="panel-title">Time bank</div>
-                <div className="kv"><span>Time bank seconds</span><b>{timeBank}s</b></div>
-                <input type="range" min={5} max={60} value={timeBank} onChange={(e) => setTimeBank(Number(e.target.value))} style={{ width: '100%' }} />
-                <p className="muted small">Extra time you can use on a single decision. The timer ring around your avatar shows the remaining time.</p>
+                <div className="kv"><span>Time bank seconds</span><b>10s</b></div>
+                <p className="muted small">One 10-second extension per hand. The table engine owns the timer, so the value is fixed for now.</p>
+                <div className="panel-title" style={{ marginTop: 18 }}>Deck</div>
+                <div className="kv"><span>Card fronts</span><b>{fourColor ? 'Four colour' : 'Two colour'}</b></div>
+                <div className="kv"><span>Card back</span><b>{CARD_BACKS.find((b) => b.id === cardBack)?.label}</b></div>
               </div>
             </div>
           </>
+        )}
+
+        {tab === 'betting' && (
+          <div className="grid g2">
+            <div className="card">
+              <div className="panel-title">Pre-flop opening</div>
+              <p className="muted small">The four buttons shown before the flop. Values are in big blinds.</p>
+              <div className="bet-pref-grid">
+                {(betting.opening).map((v, i) => (
+                  <label key={i}><span>Button {i + 1}</span>
+                    <select className="admin-select" value={String(v)} onChange={(e) => {
+                      const raw = e.target.value; const val: any = raw === 'pot' ? 'pot' : Number(raw);
+                      const next = { ...betting, opening: betting.opening.map((x, j) => j === i ? val : x) }; saveBetting(next);
+                    }}>
+                      {OPENING_CHOICES.map((v2) => <option key={String(v2)} value={String(v2)}>{betLabel(v2, true)}</option>)}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="card">
+              <div className="panel-title">Post-flop sizing</div>
+              <p className="muted small">The four buttons after the flop. Percentages are of the pot plus the call amount.</p>
+              <div className="bet-pref-grid">
+                {(betting.normal).map((v, i) => (
+                  <label key={i}><span>Button {i + 1}</span>
+                    <select className="admin-select" value={String(v)} onChange={(e) => {
+                      const raw = e.target.value; const val: any = raw === 'max' ? 'max' : Number(raw);
+                      const next = { ...betting, normal: betting.normal.map((x, j) => j === i ? val : x) }; saveBetting(next);
+                    }}>
+                      {NORMAL_CHOICES.map((v2) => <option key={String(v2)} value={String(v2)}>{betLabel(v2, false)}</option>)}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="card" style={{ gridColumn: '1 / -1' }}>
+              <div className="panel-title">Preview</div>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                {betting.opening.map((v, i) => <span key={'o' + i} className="tag gold">{betLabel(v, true)}</span>)}
+                <span style={{ width: 12 }} />
+                {betting.normal.map((v, i) => <span key={'n' + i} className="tag">{betLabel(v, false)}</span>)}
+              </div>
+              <div className="row" style={{ marginTop: 12 }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => saveBetting({ opening: [...DEFAULT_BETS.opening], normal: [...DEFAULT_BETS.normal] })}>Reset defaults</button>
+              </div>
+              <p className="muted small">Shortcuts only prepare an amount — they never submit an action.</p>
+            </div>
+          </div>
         )}
 
         {tab === 'account' && (
@@ -207,19 +296,23 @@ export function Settings() {
               <label className="admin-label">Nickname</label>
               <div className="row"><input className="admin-input" style={{ flex: 1 }} value={nick} onChange={(e) => setNick(e.target.value)} maxLength={20} /><button className="btn btn-red btn-sm" onClick={saveNick}>Save</button></div>
               <label className="admin-label">Email</label>
-              <input className="admin-input" style={{ width: '100%' }} defaultValue={user?.email} />
+              <input className="admin-input" style={{ width: '100%' }} value={user?.email || ''} disabled />
+              <p className="muted small">Email changes are managed by the local operator.</p>
               <div className="kv" style={{ marginTop: 12 }}><span>Balance</span><b>{money(user?.balance ?? 0)}</b></div>
               <div className="kv"><span>Tickets</span><b>T${user?.tickets ?? 0}</b></div>
               <div className="kv"><span>Member since</span><b>{user?.created_at?.slice(0, 10)}</b></div>
             </div>
             <div className="card">
               <div className="panel-title">Security</div>
-              <div className="field"><label>Current password</label><input type="password" placeholder="••••••••" /></div>
-              <div className="field"><label>New password</label><input type="password" placeholder="••••••••" /></div>
-              <button className="btn btn-red btn-sm" onClick={() => toast({ kind: 'success', title: 'Password changed', body: 'Use it on your next login.' })}>Change password</button>
+              <div className="field"><label>Current password</label><input type="password" placeholder="••••••••" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} autoComplete="current-password" /></div>
+              <div className="field"><label>New password</label><input type="password" placeholder="At least 4 characters" value={nextPw} onChange={(e) => setNextPw(e.target.value)} autoComplete="new-password" /></div>
+              <button className="btn btn-red btn-sm" disabled={!currentPw || nextPw.length < 4} onClick={changePassword}>Change password</button>
               <div className="panel-title" style={{ marginTop: 20 }}>Sessions</div>
               <div className="kv"><span>This device</span><b>macOS · active now</b></div>
-              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={() => toast({ kind: 'info', title: 'Other sessions', body: 'No other active sessions.' })}>Sign out other devices</button>
+              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={async () => {
+                try { await api.revokeOtherSessions(); toast({ kind: 'success', title: 'Other sessions signed out' }); }
+                catch (e: any) { toast({ kind: 'error', title: 'Could not sign out sessions', body: e.message }); }
+              }}>Sign out other devices</button>
             </div>
           </div>
         )}
