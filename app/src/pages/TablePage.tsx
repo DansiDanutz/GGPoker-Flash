@@ -21,7 +21,7 @@ type TableState = {
   button: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
-  players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number;
+  players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean;
   spin?: { multiplier: number; prize: number; winner: any } | null;
   tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string } | null;
   straddle?: boolean;
@@ -64,6 +64,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [rebuyAmount, setRebuyAmount] = useState(0);
   const [notes, setNotes] = useState<Record<string, { note: string; color: string }>>({});
   const [noteTarget, setNoteTarget] = useState<PlayerState | null>(null);
+  const [muteOpen, setMuteOpen] = useState(false);
+  const [mutes, setMutes] = useState<number[]>([]);
   const [noteText, setNoteText] = useState('');
   const [noteColor, setNoteColor] = useState('yellow');
   const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
@@ -538,6 +540,9 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
           <button onClick={() => setSwfEffect('/assets/swf/chip_shuffle.swf')}>Official FX preview</button>
+          {state?.ownerId === user?.id && state.private && (
+            <button onClick={async () => { setMuteOpen(true); setMenuOpen(false); try { const r = await api.hostMutes(tableId); setMutes((r.muted || []).map((m) => m.user_id)); } catch { setMutes([]); } }}>Table moderation…</button>
+          )}
           <div className="menu-section">Card animation</div>
           <div className="anim-switch">
             {([['deal', 'Deal'], ['flip', 'Flip'], ['slide', 'Slide'], ['off', 'Off']] as const).map(([key, label]) => (
@@ -830,6 +835,24 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="spin-center" style={{ width: 150, height: 150, fontSize: 38 }}>{spinWin.multiplier}x</div>
           <div className="spin-prize">{spinWin.nick} wins <b>{money(spinWin.prize)}</b></div>
           <button className="btn btn-gold" style={{ marginTop: 18 }} onClick={() => navigate('/')}>Back to lobby</button>
+        </div>
+      )}
+
+      {muteOpen && state?.ownerId === user?.id && (
+        <div className="modal-backdrop" onClick={() => setMuteOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 430 }}>
+            <div className="modal-head"><h3>Table chat moderation</h3><button className="title-icon" onClick={() => setMuteOpen(false)}>✕</button></div>
+            <div className="modal-body">
+              <p className="muted small" style={{ marginTop: 0 }}>Muted players can still bet and sit; they cannot send table chat.</p>
+              {(state.players || []).filter((p) => p && !p.empty && Number(p.id) !== user?.id).map((p) => (
+                <div key={p.seat} className="mute-row">
+                  <div><b>{p.nick}</b><span>Seat {p.seat + 1}</span></div>
+                  <button className={'btn btn-sm ' + (mutes.includes(Number(p.id)) ? 'btn-red' : 'btn-ghost')} onClick={async () => { const muted = !mutes.includes(Number(p.id)); await api.muteHostPlayer(tableId, Number(p.id), muted); setMutes((xs) => muted ? [...xs, Number(p.id)] : xs.filter((x) => x !== Number(p.id))); }}>{mutes.includes(Number(p.id)) ? 'Unmute' : 'Mute'}</button>
+                </div>
+              ))}
+              {!(state.players || []).some((p) => p && !p.empty && Number(p.id) !== user?.id) && <p className="muted">No other seated players.</p>}
+            </div>
+          </div>
         </div>
       )}
 

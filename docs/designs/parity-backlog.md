@@ -45,6 +45,7 @@ not a source to copy blindly.
   - private-table rows carry `owner_id` and `private` in SQLite;
   - creation is audited and capped at eight tables per owner;
   - owner table list, copy-invite link and delete action in the host modal;
+  - per-table owner chat moderation for seated players, with persistent mute rows;
   - auto buy-in from the lobby Join action.
 - Table:
   - card-back skin from settings;

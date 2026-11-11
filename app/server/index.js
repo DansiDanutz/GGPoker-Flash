@@ -518,7 +518,31 @@ const server = http.createServer(async (req, res) => {
       if (live && live.table.occupiedSeats().length) return json(res, 409, { error: 'Table has players — ask them to leave first' });
       if (live) { clearInterval(live.timer); LIVE_TABLES.delete(id); CUSTOM_CFG.delete(id); }
       db.prepare('DELETE FROM tables WHERE id = ?').run(id);
+      db.prepare('DELETE FROM table_mutes WHERE table_id = ?').run(id);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'delete_host_table', id);
+      return json(res, 200, { ok: true });
+    }
+
+    if (p.startsWith('/api/tables/host/') && p.endsWith('/mutes') && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const id = decodeURIComponent(p.slice('/api/tables/host/'.length, -'/mutes'.length));
+      const t = db.prepare('SELECT id FROM tables WHERE id = ? AND owner_id = ?').get(id, u.id);
+      if (!t) return json(res, 404, { error: 'not found' });
+      const rows = db.prepare('SELECT m.user_id, u.nick FROM table_mutes m JOIN users u ON u.id = m.user_id WHERE m.table_id = ?').all(id);
+      return json(res, 200, { muted: rows });
+    }
+
+    if (p.startsWith('/api/tables/host/') && p.endsWith('/mutes') && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const id = decodeURIComponent(p.slice('/api/tables/host/'.length, -'/mutes'.length));
+      const t = db.prepare('SELECT id FROM tables WHERE id = ? AND owner_id = ?').get(id, u.id);
+      if (!t) return json(res, 404, { error: 'not found' });
+      const b = await readBody(req);
+      const userId = Number(b.userId);
+      if (!userId || userId === u.id) return json(res, 400, { error: 'invalid player' });
+      if (b.muted) db.prepare('INSERT OR IGNORE INTO table_mutes (table_id,user_id) VALUES (?,?)').run(id, userId);
+      else db.prepare('DELETE FROM table_mutes WHERE table_id = ? AND user_id = ?').run(id, userId);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, b.muted ? 'table_mute' : 'table_unmute', `${id} user ${userId}`);
       return json(res, 200, { ok: true });
     }
 
@@ -1648,6 +1672,7 @@ wss.on('connection', (ws, req) => {
       if (!entry) return;
       const chatter = db.prepare('SELECT chat_muted FROM users WHERE id = ?').get(ws.userId);
       if (chatter?.chat_muted) return;
+      if (db.prepare('SELECT 1 FROM table_mutes WHERE table_id = ? AND user_id = ?').get(msg.tableId, ws.userId)) return;
       const text = String(msg.message || '').slice(0, 200);
       if (!text.trim()) return;
       const evt = { type: 'chat', nick: ws.nick, userId: ws.userId, message: text, at: Date.now() };

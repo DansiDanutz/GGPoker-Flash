@@ -76,6 +76,8 @@ export const api = {
     request<{ id: string }>('/api/tables/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTables: () => request<{ tables: any[] }>('/api/tables/host'),
   deleteHostTable: (id: string) => request<any>(`/api/tables/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  hostMutes: (id: string) => request<{ muted: any[] }>(`/api/tables/host/${encodeURIComponent(id)}/mutes`),
+  muteHostPlayer: (id: string, userId: number, muted: boolean) => request<any>(`/api/tables/host/${encodeURIComponent(id)}/mutes`, { method: 'POST', body: JSON.stringify({ userId, muted }) }),
   login: (login: string, password: string) =>
     request<{ token: string; user: User }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, password }) }),
   register: (data: { login: string; nick: string; password: string; email?: string }) =>

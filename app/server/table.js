@@ -1033,6 +1033,8 @@ export class PokerTable {
       seats: this.cfg.seats,
       minBuyin: this.cfg.min_buyin,
       maxBuyin: this.cfg.max_buyin,
+      ownerId: this.cfg.owner_id || null,
+      private: !!this.cfg.private,
       button: this.button,
       handNo: this.handNo,
       street: this.street,
