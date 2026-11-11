@@ -4,6 +4,21 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { Countdown, PageShell, SubNav } from '../components/PageShell';
 
+const SERIES = [
+  { key: 'all', label: 'All series' },
+  { key: 'wsop', label: 'WSOP Express' },
+  { key: 'ggmasters', label: 'GGMasters' },
+  { key: 'mystery', label: 'Mystery Bounty' },
+  { key: 'spin', label: 'Spin & Gold' },
+  { key: 'flip', label: 'Flip & Go' },
+];
+
+const SERIES_ART: Record<string, string> = {
+  wsop: '/assets/ui/discover/Bg_Discover_WSOPExpress_Promo1_EN.png',
+  mystery: '/assets/ui/discover/Bg_Discover_MysteryBattleRoyal.png',
+  spin: '/assets/ui/discover/Bg_Discover_SpinNGold.png',
+};
+
 const FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'registering', label: 'Register now' },
@@ -17,6 +32,7 @@ export function Tournaments() {
   const { user, refreshUser, toast, navigate, brand } = useApp();
   const [data, setData] = useState<any>(null);
   const [filter, setFilter] = useState('all');
+  const [series, setSeries] = useState('all');
   const [detail, setDetail] = useState<any>(null);
   const [detailTab, setDetailTab] = useState<'overview' | 'structure' | 'prizes'>('overview');
   const [busy, setBusy] = useState<string | null>(null);
@@ -34,8 +50,12 @@ export function Tournaments() {
     else if (filter === 'freeroll') l = l.filter((t: any) => t.buyin === 0);
     else if (filter === 'plo') l = l.filter((t: any) => t.format === 'PLO');
     else if (filter === 'holdem') l = l.filter((t: any) => t.format === 'NLH');
+    if (series !== 'all') {
+      const needle: Record<string, string> = { wsop: 'WSOP', ggmasters: 'GGMasters', mystery: 'Mystery', spin: 'Spin', flip: 'Flip' };
+      l = l.filter((t: any) => t.name.toLowerCase().includes(needle[series].toLowerCase()));
+    }
     return l;
-  }, [data, filter]);
+  }, [data, filter, series]);
 
   const registered: string[] = data?.registered || [];
 
@@ -78,7 +98,7 @@ export function Tournaments() {
     } finally { setBusy(null); }
   };
 
-  const featured = data?.tournaments.find((t: any) => t.gtd >= 100000) || data?.tournaments[0];
+  const featured = list.length ? list.reduce((a: any, b: any) => (b.gtd > a.gtd ? b : a), list[0]) : data?.tournaments?.[0];
 
   const prizeRows = (t: any) => {
     if (!t) return [];
@@ -94,7 +114,7 @@ export function Tournaments() {
     <PageShell activeTop="tournaments" subnav={<SubNav items={FILTERS} active={filter} onChange={setFilter} />}>
       <div className="page">
         <div className="tourney-hero">
-          <div className="th-bg" style={{ backgroundImage: `url(${brand.promo})` }} />
+          <div className="th-bg" style={{ backgroundImage: `url(${SERIES_ART[series] || brand.promo})` }} />
           <div className="th-content">
             <div className="th-kicker">TOURNAMENT SERIES</div>
             <h1>{featured?.name || 'Daily $100,000 Flipout'}</h1>
@@ -110,6 +130,12 @@ export function Tournaments() {
               </button>
             )}
           </div>
+        </div>
+
+        <div className="series-bar">
+          {SERIES.map((s2) => (
+            <button key={s2.key} className={'series-chip' + (series === s2.key ? ' on' : '')} onClick={() => setSeries(s2.key)}>{s2.label}</button>
+          ))}
         </div>
 
         <div className="tourney-toolbar">

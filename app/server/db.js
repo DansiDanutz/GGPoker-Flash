@@ -205,6 +205,19 @@ function init() {
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
+  ensureSeries();
+}
+
+function ensureSeries() {
+  const tins = db.prepare(`INSERT INTO tournaments (id,name,buyin,fee,gtd,start_at,entrants,format) VALUES (?,?,?,?,?,?,?,?)`);
+  for (const [id, name, buyin, fee, gtd, hours, fmt] of [
+    ['flip-go', 'Flip & Go $20K', 2000, 200, 20000, 6, 'NLH'],
+    ['wsop-express-2', 'WSOP Express $30K', 3000, 300, 30000, 10, 'NLH'],
+  ]) {
+    if (!db.prepare('SELECT 1 FROM tournaments WHERE id = ?').get(id)) {
+      tins.run(id, name, buyin, fee, gtd * 100, new Date(Date.now() + hours * 3600_000).toISOString(), 300 + (gtd % 400), fmt);
+    }
+  }
 }
 
 function seed() {
@@ -277,6 +290,15 @@ function seed() {
   for (const [name, buyin, fee, gtd, hours] of tourneys) {
     ti++;
     tins.run(`t${ti}`, name, buyin, fee, gtd * 100, new Date(now + hours * 3600_000).toISOString(), 120 + ((ti * 337) % 800), ti % 4 === 0 ? 'PLO' : 'NLH');
+  }
+
+  for (const [id, name, buyin, fee, gtd, hours, fmt] of [
+    ['flip-go', 'Flip & Go $20K', 2000, 200, 20000, 6, 'NLH'],
+    ['wsop-express-2', 'WSOP Express $30K', 3000, 300, 30000, 10, 'NLH'],
+  ]) {
+    if (!db.prepare('SELECT 1 FROM tournaments WHERE id = ?').get(id)) {
+      tins.run(id, name, buyin, fee, gtd * 100, new Date(Date.now() + hours * 3600_000).toISOString(), 300 + gtd % 400, fmt);
+    }
   }
 
   db.prepare(`INSERT INTO missions (id,title,description,goal,progress,reward,reward_kind,claimed,active,sort) VALUES

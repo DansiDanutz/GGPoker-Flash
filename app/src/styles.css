@@ -814,3 +814,7 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .push-stack i:nth-child(2) { top: 4px; filter: brightness(.94); }
 .push-stack i:nth-child(3) { top: 8px; filter: brightness(.88); }
 .push-stack i:nth-child(4) { top: 12px; filter: brightness(.8); }
+.series-bar { display: flex; gap: 6px; margin: 10px 0 8px; overflow-x: auto; }
+.series-chip { height: 28px; padding: 0 14px; border-radius: 14px; background: #191919; border: 1px solid #303030; color: #b9b9b9; font-size: 11.5px; white-space: nowrap; }
+.series-chip:hover { border-color: #5a4a22; color: #e8d5a0; }
+.series-chip.on { background: #2b2110; border-color: #8a6a2a; color: #ffe1a0; }
