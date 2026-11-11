@@ -43,7 +43,25 @@ export function Cashier() {
     } finally { inFlight.current = false; setBusy(false); }
   };
 
+  const [txQuery, setTxQuery] = useState('');
+  const [txType, setTxType] = useState('all');
   const tx = data?.transactions || [];
+  const txFiltered = tx.filter((t: any) => {
+    const kind = String(t.kind || '');
+    if (txType === 'deposits' && kind !== 'deposit') return false;
+    if (txType === 'withdrawals' && kind !== 'withdraw' && kind !== 'withdrawal') return false;
+    if (txType === 'bonuses' && !kind.includes('bonus') && kind !== 'welcome' && kind !== 'reload' && kind !== 'daily') return false;
+    if (txType === 'poker' && !['session_open', 'session_close', 'cashdrop', 'rake', 'rakeback', 'tourney_buyin', 'tourney_payout', 'tourney_refund'].includes(kind)) return false;
+    if (txType === 'rewards' && !['mission', 'daily', 'spin', 'wheel', 'bounty', 'mystery_bounty', 'satellite_win', 'ocean', 'propbet'].includes(kind)) return false;
+    if (txQuery && !`${kind} ${t.memo || ''} ${t.currency || ''}`.toLowerCase().includes(txQuery.toLowerCase())) return false;
+    return true;
+  });
+  const exportCsv = () => {
+    const rows: any[][] = [['id', 'kind', 'currency', 'amount', 'balance_after', 'memo', 'created_at'], ...txFiltered.map((t: any) => [t.id, t.kind, t.currency, t.amount, t.balance_after, t.memo, t.created_at])];
+    const csv = rows.map((r: any[]) => r.map((v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'dangro-transactions.csv'; a.click(); URL.revokeObjectURL(url);
+  };
 
   return (
     <PageShell activeTop="poker" subnav={<SubNav items={[{ key: 'cashier', label: 'Cashier' }, { key: 'transactions', label: 'Transactions' }, { key: 'bonus', label: 'Bonuses' }]} active={tab} onChange={setTab} />}>
@@ -115,22 +133,37 @@ export function Cashier() {
         )}
 
         {tab === 'transactions' && (
-          <div className="card" style={{ padding: 0 }}>
-            <table className="admin-table">
-              <thead><tr><th>#</th><th>Type</th><th>Currency</th><th>Amount</th><th>Balance after</th><th>Memo</th><th>Date</th></tr></thead>
-              <tbody>
-                {tx.map((t: any) => (
-                  <tr key={t.id}>
-                    <td>{t.id}</td><td style={{ textTransform: 'capitalize' }}>{t.kind.replace(/_/g, ' ')}</td><td>{t.currency}</td>
-                    <td style={{ color: t.amount >= 0 ? '#7fe0a0' : '#ff9a9a' }}>{t.amount >= 0 ? '+' : ''}{money(t.amount)}</td>
-                    <td>{money(t.balance_after)}</td><td className="muted">{t.memo}</td>
-                    <td className="muted">{new Date(t.created_at).toLocaleString('en-GB')}</td>
-                  </tr>
-                ))}
-                {!tx.length && <tr><td colSpan={7} className="empty-state">No transactions.</td></tr>}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
+              <input className="admin-input" style={{ flex: '1 1 220px' }} placeholder="Search type, memo or currency…" value={txQuery} onChange={(e) => setTxQuery(e.target.value)} />
+              <select className="admin-select" value={txType} onChange={(e) => setTxType(e.target.value)}>
+                <option value="all">All transactions</option>
+                <option value="deposits">Deposits</option>
+                <option value="withdrawals">Withdrawals</option>
+                <option value="bonuses">Bonuses</option>
+                <option value="poker">Poker & tournaments</option>
+                <option value="rewards">Rewards</option>
+              </select>
+              <button className="btn btn-ghost btn-sm" onClick={exportCsv} disabled={!txFiltered.length}>Export CSV</button>
+              <span className="muted small">{txFiltered.length} / {tx.length}</span>
+            </div>
+            <div className="card" style={{ padding: 0 }}>
+              <table className="admin-table">
+                <thead><tr><th>#</th><th>Type</th><th>Currency</th><th>Amount</th><th>Balance after</th><th>Memo</th><th>Date</th></tr></thead>
+                <tbody>
+                  {txFiltered.map((t: any) => (
+                    <tr key={t.id}>
+                      <td>{t.id}</td><td style={{ textTransform: 'capitalize' }}>{t.kind.replace(/_/g, ' ')}</td><td>{t.currency}</td>
+                      <td style={{ color: t.amount >= 0 ? '#7fe0a0' : '#ff9a9a' }}>{t.amount >= 0 ? '+' : ''}{money(t.amount)}</td>
+                      <td>{money(t.balance_after)}</td><td className="muted">{t.memo}</td>
+                      <td className="muted">{new Date(t.created_at).toLocaleString('en-GB')}</td>
+                    </tr>
+                  ))}
+                  {!txFiltered.length && <tr><td colSpan={7} className="empty-state">No matching transactions.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {tab === 'bonus' && (

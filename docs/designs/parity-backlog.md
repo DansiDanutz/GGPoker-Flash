@@ -122,6 +122,9 @@ not a source to copy blindly.
   - message history and send endpoint;
   - friend **Message** opens the conversation;
   - account-wide chat mute applies to direct messages.
+- Cashier transactions:
+  - searchable history with category filters;
+  - client-side CSV export of the filtered set.
 - Cashier bonuses are real, not toast-only:
   - welcome once per account, reload once per ISO week, daily once per UTC day;
   - persistent `bonus_claims` rows, idempotent ledger references and audit entries;
