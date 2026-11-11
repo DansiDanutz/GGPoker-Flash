@@ -273,23 +273,6 @@ body.electron .app-window::before { display: none; }
   .seat .plate .nm { max-width: 74px; }
 }
 
-/* Landscape phones (e.g. 844x390): the desktop promo and side rails leave the
-   table list with zero height, so treat the rails as phone chrome too. */
-@media (max-height: 520px) and (orientation: landscape) {
-  .promo-wrap { display: none; }
-  .lobby-left, .lobby-side, .lobby-rail { display: none; }
-  .lobby-content { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-  .lobby-main { flex: 1 1 auto; min-height: 0; }
-  .titlebar { height: 28px; flex-basis: 28px; }
-  .app-header { height: 44px; flex-basis: 44px; }
-  .game-tabs { height: 40px; flex-basis: 40px; }
-  .filter-bar { margin: 4px 8px; padding: 4px 6px; min-height: 34px; }
-  .table-row { height: 36px; }
-  .action-bar { padding: 4px 6px 6px; gap: 4px; }
-  .action-bar .status-row { display: none; }
-  .table-topbar { height: 30px; }
-}
-
 @media (max-width: 760px) {
   .tourney-hero { height: auto; min-height: 0; margin-bottom: 10px; }
   .th-content { padding: 13px 14px 14px; }
@@ -343,10 +326,6 @@ body.electron .app-window::before { display: none; }
 .quick-grid button:hover { background: rgba(216,177,95,.1); border-color: rgba(216,177,95,.3); }
 .quick-ggpass { width: 100%; height: 38px; border-radius: 8px; border: 1px solid rgba(216,177,95,.28); color: #f1d99f; background: rgba(216,177,95,.08); font-weight: 700; font-size: 12px; }
 @media (max-width: 1120px) { .lobby-rail { display: none; } }
-@media (max-width: 900px) {
-  .mobile-nav { display: grid; }
-  .app-content { padding-bottom: 64px; }
-}
 @media (max-width: 760px) {
   .quick-menu { width: min(100%, 360px); }
   .quick-backdrop { position: fixed; }
@@ -389,11 +368,6 @@ body.electron .app-window::before { display: none; }
 .rail-btn:hover { background: rgba(216,177,95,.09); color: #f1dfb4; padding-left: 10px; }
 .rail-btn .ico { width: 27px; height: 27px; background: rgba(216,177,95,.09); border: 1px solid rgba(216,177,95,.12); }
 .rail-btn.gold { background: rgba(216,177,95,.1); border-color: rgba(216,177,95,.22); color: #f1d99f; }
-@media (max-width: 1100px) {
-  .mobile-nav { display: grid; }
-  .app-content { padding-bottom: 64px; }
-}
-
 /* ---------------- table action templates ---------------- */
 .table-menu .menu-section { margin: 5px 7px 2px; color: #8b978f; font-size: 9px; letter-spacing: 1.6px; text-transform: uppercase; }
 .layout-switch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px 5px 7px; }
@@ -671,3 +645,30 @@ body.electron .app-window::before { display: none; }
 .subnav button { flex: 0 0 auto; }
 .room-bg-plo5envelope .room-mark { background-image: url('/assets/tables/table_plo5_envelope.png'); background-position: center 44%; background-size: cover; filter: brightness(1.12) contrast(1.04) saturate(1.05); opacity: .96; }
 .room-bg-plo6super .room-mark { background-image: url('/assets/tables/table_plo6_supercircuit.png'); background-position: center 44%; background-size: cover; filter: brightness(1.1) contrast(1.05) saturate(1.05); opacity: .96; }
+
+/* Landscape phones (e.g. 844x390): the desktop promo and side rails leave the
+   table list with zero height, so treat the rails as phone chrome too. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .promo-wrap { display: none; }
+  .lobby-left, .lobby-side, .lobby-rail { display: none; }
+  .lobby-content { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .lobby-main { flex: 1 1 auto; min-height: 0; }
+  .titlebar { height: 28px; flex-basis: 28px; }
+  .app-header { height: 44px; flex-basis: 44px; }
+  .game-tabs { height: 40px; flex-basis: 40px; }
+  .filter-bar { margin: 4px 8px; padding: 4px 6px; min-height: 34px; }
+  .table-row { height: 36px; }
+  .action-bar { padding: 4px 6px 6px; gap: 4px; }
+  .action-bar .status-row { display: none; }
+  .table-topbar { height: 30px; }
+  .mobile-nav { display: none; }
+  .app-content { padding-bottom: 0; }
+  /* A landscape phone has ~390px of height: shrink the seats so the hero's
+     stack plate clears the action bar. */
+  .seat { transform: translate(-50%, -50%) scale(.82); }
+  .table-center { top: 42%; }
+  .felt { top: 44%; height: 50%; }
+  /* Secondary action rows would push the bar over the hero; the table menu
+     still offers "Post blinds / sit in" on these screens. */
+  .action-bar .sitout-row, .action-bar .preaction-row { display: none; }
+}

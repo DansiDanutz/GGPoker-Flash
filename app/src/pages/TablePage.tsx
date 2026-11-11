@@ -40,11 +40,12 @@ const POS6 = [[50, 80], [12, 71], [16, 32], [50, 17], [84, 32], [88, 71]];
 const POS9 = [[50, 84], [26, 81], [10, 64], [11, 40], [29, 22], [50, 17], [71, 22], [89, 40], [90, 64]];
 // Portrait phones lose the bottom of the screen to the action bar, so the two
 // lowest seats move up to keep the hero's avatar, cards and stack visible.
-const POS6_PHONE = [[50, 69], [12, 63], [16, 31], [50, 17], [84, 31], [88, 63]];
-const POS9_PHONE = [[50, 72], [26, 69], [10, 58], [11, 38], [29, 21], [50, 16], [71, 21], [89, 38], [90, 58]];
+const POS6_PHONE = [[50, 65], [12, 63], [16, 31], [50, 17], [84, 31], [88, 63]];
+const POS9_PHONE = [[50, 68], [26, 69], [10, 58], [11, 38], [29, 21], [50, 16], [71, 21], [89, 38], [90, 58]];
 
 function useNarrowScreen(maxWidth = 760) {
-  const query = `(max-width: ${maxWidth}px)`;
+  // Also compact the ring on phones held sideways (short viewport, wide width).
+  const query = `(max-width: ${maxWidth}px), (max-height: 520px) and (orientation: landscape)`;
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
   useEffect(() => {
     const mq = window.matchMedia(query);
