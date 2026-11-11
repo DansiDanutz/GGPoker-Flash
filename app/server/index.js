@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import {
   db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, newSession, userByToken,
-  publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone,
+  publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone, missionPeriodKey,
 } from './db.js';
 import { PokerTable, botName } from './table.js';
 import { makeDeck, shuffle, cardStr } from './poker.js';
@@ -117,6 +117,17 @@ function occupancyFor(t) {
   return TABLE_OCCUPANCY.get(t.id);
 }
 
+function lobbyMissions(user) {
+  const defs = db.prepare('SELECT * FROM missions WHERE active = 1 ORDER BY sort').all();
+  if (!user) return defs.map((m) => ({ ...m, progress: 0, claimed: 0 }));
+  const claims = db.prepare("SELECT * FROM player_claims WHERE user_id = ? AND kind = 'mission'").all(user.id);
+  const byId = new Map(claims.map((c) => [c.period_key, c]));
+  return defs.map((m) => {
+    const c = byId.get(missionPeriodKey(m.id));
+    return { ...m, progress: c?.progress || 0, claimed: c?.claimed || 0 };
+  });
+}
+
 function lobbyTables() {
   const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 ORDER BY sort ASC').all();
   return rows.map((t) => {
@@ -221,6 +232,15 @@ function getLiveTable(id) {
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize}`);
       } catch (e) { console.error('tournament end', e); }
     },
+    onSeatBusted: (table, player) => {
+      if (!table.spin) return;
+      const seat = table.seatOf(player.id);
+      const sessionId = seat?.player?.sessionId;
+      if (!sessionId) return;
+      addTransactionEx(player.id, 'session_close', 0, 'Spin bust', 'USD', {
+        sessionId, reference: `out:${sessionId}`, onDuplicate: 'skip',
+      });
+    },
     onHandComplete: ({ table, winner }) => {
       // mission progress for humans
       for (const s of table.seats) {
@@ -286,7 +306,7 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   addTransactionEx(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`, 'USD', {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
   });
-  const res = table.sit({ id: user.id, nick: user.nick, avatar: user.avatar }, seatIndex ?? null, stack);
+  const res = table.sit({ id: user.id, nick: user.nick, avatar: user.avatar }, seatIndex ?? null, stack, sessionId);
   if (!res.ok) {
     addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
       sessionId, reference: `refund:${sessionId}`, onDuplicate: 'skip',
@@ -305,13 +325,10 @@ function cashOutSeat(table, userId, reason) {
   const sessionId = seat.player.sessionId;
   table.stand(userId);
   if (table.tournament) return;
-  if (sessionId) {
-    addTransactionEx(userId, stack > 0 ? 'cashout' : 'session_close', stack, reason, 'USD', {
-      sessionId, reference: `out:${sessionId}`, onDuplicate: 'skip',
-    });
-  } else if (stack > 0) {
-    addTransaction(userId, 'cashout', stack, reason);
-  }
+  const sid = sessionId || `${table.cfg.id}:${randomUUID()}`;
+  addTransactionEx(userId, stack > 0 ? 'cashout' : 'session_close', stack, reason, 'USD', {
+    sessionId: sid, reference: `out:${sid}`, onDuplicate: 'skip',
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -343,9 +360,10 @@ const server = http.createServer(async (req, res) => {
       if (db.prepare('SELECT id FROM users WHERE lower(login)=lower(?)').get(login)) return json(res, 400, { error: 'Account already exists' });
       const start = getSetting('default_balance', 5000) + getSetting('welcome_bonus', 100000);
       db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
-        .run(login, nick, hashPassword(body.password), body.email || '', start, 5);
-      const user = db.prepare('SELECT * FROM users WHERE login = ?').get(login);
-      addTransaction(user.id, 'welcome', start, 'Welcome bonus');
+        .run(login, nick, hashPassword(body.password), body.email || '', 0, 5);
+      const created = db.prepare('SELECT * FROM users WHERE login = ?').get(login);
+      addTransaction(created.id, 'welcome', start, 'Welcome bonus');
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
       const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
     }
@@ -398,7 +416,7 @@ const server = http.createServer(async (req, res) => {
         online: sitesStats().online,
         jackpot: getSetting('jackpot', 199026635),
         user: publicUser(u),
-        missions: db.prepare('SELECT * FROM missions WHERE active = 1 ORDER BY sort').all(),
+        missions: lobbyMissions(u),
         settings: { site_name: getSetting('site_name', 'GGPoker'), maintenance: getSetting('maintenance', false) },
       });
     }
@@ -496,7 +514,10 @@ const server = http.createServer(async (req, res) => {
       if (amount <= 0 || amount > 100000000) return json(res, 400, { error: 'Invalid amount' });
       const reference = idempotentReference(req, body, 'cashier:deposit');
       const existing = transactionByReference(u.id, reference);
-      if (existing) return json(res, 200, { ok: true, balance: existing.balance_after, replayed: true });
+      if (existing) {
+        if (existing.amount !== amount) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
+        return json(res, 200, { ok: true, balance: u.balance, replayed: true });
+      }
       const award = addTransactionEx(u.id, 'deposit', amount, body.method || 'Instant bank transfer', 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
       return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
     }
@@ -507,7 +528,10 @@ const server = http.createServer(async (req, res) => {
       const amount = Math.round(Number(body.amount || 0));
       const reference = idempotentReference(req, body, 'cashier:withdraw');
       const existing = transactionByReference(u.id, reference);
-      if (existing) return json(res, 200, { ok: true, balance: existing.balance_after, replayed: true });
+      if (existing) {
+        if (existing.amount !== -amount) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
+        return json(res, 200, { ok: true, balance: u.balance, replayed: true });
+      }
       if (amount <= 0 || amount > u.balance) return json(res, 400, { error: 'Invalid amount' });
       const award = addTransactionEx(u.id, 'withdraw', -amount, body.method || 'Bank transfer', 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
       return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
@@ -532,7 +556,10 @@ const server = http.createServer(async (req, res) => {
       const defs = db.prepare('SELECT * FROM missions WHERE active = 1 ORDER BY sort').all();
       const claims = db.prepare("SELECT * FROM player_claims WHERE user_id = ? AND kind = 'mission'").all(u.id);
       const byId = new Map(claims.map((c) => [c.period_key, c]));
-      return json(res, 200, { missions: defs.map((m) => ({ ...m, progress: byId.get(m.id)?.progress || 0, claimed: byId.get(m.id)?.claimed || 0 })) });
+      return json(res, 200, { missions: defs.map((m) => {
+        const c = byId.get(missionPeriodKey(m.id));
+        return { ...m, progress: c?.progress || 0, claimed: c?.claimed || 0 };
+      }) });
     }
 
     if (p.startsWith('/api/missions/') && p.endsWith('/claim') && req.method === 'POST') {
@@ -540,10 +567,11 @@ const server = http.createServer(async (req, res) => {
       const id = p.split('/')[3];
       const m = db.prepare('SELECT * FROM missions WHERE id = ?').get(id);
       if (!m) return json(res, 404, { error: 'not found' });
-      const c = getClaim(u.id, 'mission', id);
+      const period = missionPeriodKey(id);
+      const c = getClaim(u.id, 'mission', period);
       if (c?.claimed) return json(res, 400, { error: 'Already claimed' });
       if (!c || c.progress < m.goal) return json(res, 400, { error: 'Mission not complete' });
-      const award = claimReward(u.id, 'mission', id, m.reward, m.reward_kind, `Mission: ${m.title}`);
+      const award = claimReward(u.id, 'mission', period, m.reward, m.reward_kind, `Mission: ${m.title}`);
       if (!award.claimed) return json(res, 400, { error: 'Already claimed' });
       return json(res, 200, { ok: true, balance: award.balance, reward: m.reward, kind: m.reward_kind });
     }
@@ -658,6 +686,7 @@ const server = http.createServer(async (req, res) => {
         return sum;
       };
       if (action === 'deal') {
+        if (BJ_HANDS.has(u.id)) return json(res, 400, { error: 'Finish the current hand first' });
         const bet = Math.max(10, Math.min(1000000, Math.round(Number(body.bet) || 100)));
         if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
         const after = addTransaction(u.id, 'blackjack', -bet, 'Blackjack bet');
@@ -1079,7 +1108,11 @@ const server = http.createServer(async (req, res) => {
       if (body.action === 'credit') {
         const reference = body.reference ? `admin:credit:${body.reference}` : null;
         const existing = transactionByReference(id, reference);
-        if (existing) return json(res, 200, { ok: true, balance: existing.balance_after, replayed: true });
+        if (existing) {
+          if (existing.amount !== Math.round(body.amount || 0)) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
+          const current = db.prepare('SELECT balance FROM users WHERE id = ?').get(id)?.balance;
+          return json(res, 200, { ok: true, balance: current, replayed: true });
+        }
         const award = addTransactionEx(id, 'admin', Math.round(body.amount || 0), `Admin credit by ${a.login}`, 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'credit', `user ${id} ${body.amount}`);
         return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
@@ -1194,7 +1227,12 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/admin/missions') {
       const a = requireAdmin(req, res); if (!a) return;
-      return json(res, 200, { missions: db.prepare('SELECT * FROM missions ORDER BY sort').all() });
+      const defs = db.prepare('SELECT * FROM missions ORDER BY sort').all();
+      return json(res, 200, { missions: defs.map((m) => ({
+        ...m,
+        progress: db.prepare("SELECT COUNT(*) c FROM player_claims WHERE kind = 'mission' AND period_key LIKE ? AND claimed = 1").get(`mission:${m.id}:%`).c,
+        claimed: db.prepare("SELECT COUNT(*) c FROM player_claims WHERE kind = 'mission' AND period_key LIKE ? AND claimed = 1").get(`mission:${m.id}:%`).c > 0,
+      })) });
     }
 
     if (p.startsWith('/api/admin/live/') && p.endsWith('/close') && req.method === 'POST') {
@@ -1383,6 +1421,7 @@ wss.on('connection', (ws, req) => {
       const seat = table.seatOf(ws.userId);
       if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
       if (seat.player.inHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
+      if (table.tournament) return ws.send(JSON.stringify({ type: 'error', error: 'No rebuys in tournaments' }));
       const amount = Math.round(Number(msg.amount) || 0);
       if (amount < table.cfg.min_buyin || amount > table.cfg.max_buyin) return ws.send(JSON.stringify({ type: 'error', error: 'invalid amount' }));
       const u = db.prepare('SELECT * FROM users WHERE id = ?').get(ws.userId);
@@ -1390,9 +1429,10 @@ wss.on('connection', (ws, req) => {
       if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
       const sessionId = seat.player.sessionId;
       seat.player.rebuyCount = (seat.player.rebuyCount || 0) + 1;
-      addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
+      const award = addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
         sessionId, reference: `in:${sessionId}:r${seat.player.rebuyCount}`, onDuplicate: 'skip',
       });
+      if (!award.applied) return ws.send(JSON.stringify({ type: 'error', error: 'Rebuy already applied' }));
       seat.player.stack += amount;
       broadcastState(table);
       return;

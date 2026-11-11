@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api, money, User } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
@@ -91,7 +91,13 @@ export function Admin() {
     catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
   };
 
-  const quickCredit = (u: User, amount: number) => userAction(u.id, { action: 'credit', amount, reference: crypto.randomUUID() });
+  const creditBusy = useRef(new Set<string>());
+  const quickCredit = (u: User, amount: number) => {
+    const key = `${u.id}:${amount}`;
+    if (creditBusy.current.has(key)) return;
+    creditBusy.current.add(key);
+    userAction(u.id, { action: 'credit', amount, reference: crypto.randomUUID() }).finally(() => creditBusy.current.delete(key));
+  };
 
   if (!isAdmin) {
     return (

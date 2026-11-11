@@ -37,3 +37,21 @@ test('a failed ledger write does not change the balance', () => {
   assert.equal(after, before);
   assert.equal(db.prepare('SELECT COUNT(*) c FROM transactions WHERE user_id = 999999').get().c, 0);
 });
+
+
+test('each currency reconciles balance to the sum of its ledger rows', () => {
+  const u = db.prepare('SELECT * FROM users ORDER BY id LIMIT 1').get();
+  const before = db.prepare('SELECT balance, play_chips, tickets, gems FROM users WHERE id = ?').get(u.id);
+  addTransaction(u.id, 'recon_usd', 1000, 'usd');
+  addTransaction(u.id, 'recon_play', 500, 'play', 'PLAY');
+  addTransaction(u.id, 'recon_ticket', 2, 'ticket', 'TICKET');
+  addTransaction(u.id, 'recon_gem', 3, 'gem', 'GEM');
+  const sums = db.prepare(`SELECT currency, SUM(amount) total FROM transactions
+    WHERE user_id = ? AND kind LIKE 'recon_%' GROUP BY currency`).all(u.id);
+  const by = Object.fromEntries(sums.map((r) => [r.currency, r.total]));
+  const after = db.prepare('SELECT balance, play_chips, tickets, gems FROM users WHERE id = ?').get(u.id);
+  assert.equal(after.balance - before.balance, by.USD);
+  assert.equal(after.play_chips - before.play_chips, by.PLAY);
+  assert.equal(after.tickets - before.tickets, by.TICKET);
+  assert.equal(after.gems - before.gems, by.GEM);
+});

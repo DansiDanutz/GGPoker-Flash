@@ -37,12 +37,13 @@ instead of building around them.
 *   **Phase 3 — port ownership and testability:** implemented. The server prints
     `LISTENING <port>`, supports `PORT=0`, and the Electron parent waits for the
     line; `ledger-session`, `claims` and `http` tests were added.
-*   **Phase 4 — maintenance:** implemented. Lobby rows carry `synthetic: true`
+*   **Phase 4 — maintenance:** implemented. Cashier/admin movements carry
+    `Idempotency-Key`; the renderer is sandboxed with a CSP; lobby rows carry `synthetic: true`
     and the estimated columns are marked; the rake `3 × bb` fallback is removed
     with a 300 default; `resetpw` writes an audit row; display-only money
     formatting is cleaned up; blackjack returns the settlement balance; the
     design-of-record is updated.
-*   **Verification:** `cd app && pnpm test` → 20 passed. The packaged app was
+*   **Verification:** `cd app && pnpm test` → 24 passed. The packaged app was
     relaunched, `/api/lobby` returned 200, and a live join/leave produced one
     `buyin` and one `cashout` with the same session id and `in:`/`out:` refs.
 
@@ -330,10 +331,12 @@ no mission read touches the global `missions.progress`/`missions.claimed` flag.
 *   **Refund fairness:** losses are forgiven and winnings above `chips_in` are
     lost. Bound: one stack per crash. This is a product choice, not a bug.
 *   **Cashier replay:** protected by `Idempotency-Key` + `(user_id, reference)`;
-    the client reuses the key on retry and blocks double submits.
+    the client reuses the key on retry, blocks double submits, and returns 409
+    when the key is reused with a different amount.
 *   **Bot/Spin inflation:** bounded per table by bot stacks and multiplier; not
     centrally monitored in this build.
-*   **Local threat model:** the renderer is sandboxed and a CSP is enforced;
+*   **Local threat model:** the renderer is sandboxed (`sandbox: true`) and a CSP
+    header is enforced in the packaged build;
     loopback is still not a boundary and the SQLite file is readable by a local
     process. Accepted.
 *   **Claims migration:** `player_claims` is one new table; a failed copy must

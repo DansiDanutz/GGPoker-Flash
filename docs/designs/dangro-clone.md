@@ -100,7 +100,7 @@ without a separate decision.
 **Decided:**
 
 *   **Testing seam**: `node:test` over the pure engine. Committed at
-    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `claims.test.js` and `http.test.js` (20 tests: deck,
+    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `claims.test.js` and `http.test.js` (24 tests: deck,
     hand ranking, Hold'em/Omaha selection, rake, side pots, uncontested pot,
     tournament payout, ledger atomicity/continuity/rollback, crash refunds,
     claims and the ephemeral-port server). Run with
@@ -353,7 +353,8 @@ one 10-second time bank per player per hand.
     replay-protected by an idempotency key; a retried request is a second
     movement. Period-based claims (daily, GG Care, Honeymoon, missions) are
     protected by `player_claims`, keyed `(user_id, kind, period_key)`, and awarded
-    with a unique `claim:<kind>:<period_key>` reference. Cashier movements accept
+    with a unique `claim:<kind>:<period_key>` reference. Mission periods roll over
+    daily (`daily-*`) or weekly (`weekly-*`). Cashier movements accept
     an `Idempotency-Key` and store `cashier:<kind>:<key>` on the ledger; a retry
     returns the original balance.
 *   Rake is `floor(pot × rakePercent / 100)`, capped at the table's `rakeCap`
@@ -484,7 +485,8 @@ the code has not been written.
     Hold'em/Omaha selection, rake floor/cap, side pots, uncontested pot and
     tournament payout; `app/server/ledger.test.js` covers ledger atomicity,
     continuity and rollback. Run with `pnpm test`.
-*   **Exit**: tests pass (20/20). Crash refunds, claims, cashier replay, places
+*   **Exit**: tests pass (24/24). Crash refunds, claims, cashier replay, places
+    2/3, live join/leave session markers and the ephemeral-port server are covered.
     2/3 and the ephemeral-port server are covered.
 
 ### Phase 2 — Trust-boundary hardening (implemented)

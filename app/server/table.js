@@ -64,7 +64,7 @@ export class PokerTable {
     this.tournament = cfg.tournament || null;
     this.elimination = this.spin || !!this.tournament;
     this.rakePercent = cfg.rakePercent ?? 5;
-    this.rakeCap = cfg.rakeCap ?? 300;
+    this.rakeCap = Number(cfg.rakeCap) > 0 ? Number(cfg.rakeCap) : 300;
     this.rake = 0;
     this.finished = [];
     if (this.spin) {
@@ -90,7 +90,7 @@ export class PokerTable {
     return this.seats.find((s) => s.player && s.player.id === playerId);
   }
 
-  sit(player, seatIndex = null, buyin = null) {
+  sit(player, seatIndex = null, buyin = null, sessionId = null) {
     if (this.seatOf(player.id)) return { ok: false, error: 'already seated' };
     let seat = seatIndex != null ? this.seats[seatIndex] : this.seats.find((s) => !s.player);
     if (!seat) return { ok: false, error: 'table full' };
@@ -119,6 +119,7 @@ export class PokerTable {
       joinedAt: Date.now(),
       handsPlayed: 0,
       won: 0,
+      sessionId,
     };
     this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
     this.maybeStart();
@@ -706,6 +707,7 @@ export class PokerTable {
                 this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
                 if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
               }
+              if (this.hooks.onSeatBusted) this.hooks.onSeatBusted(this, busted);
               s.player = null;
               this.emit({ type: 'stand', seat: s.index });
             }

@@ -125,3 +125,17 @@ test('places 2 and 3 are paid 30% and 20%, then the winner takes 50%', () => {
   assert.deepEqual(payouts.map((p) => [p.place, p.payout]), [[2, 900], [3, 600]]);
   assert.equal(endPrize, 1500);
 });
+
+
+test('elimination bust fires onSeatBusted before the seat is cleared', () => {
+  const p1 = player(1, 'Spin winner', 1000, 0, []);
+  const p2 = player(2, 'Busted A', 0, 0, []);
+  const p3 = player(3, 'Busted B', 0, 0, []);
+  const t = tableWith([p1, p2, p3], { seats: 3, game: 'spingold' });
+  t.street = 'ended';
+  t.nextHandAt = 1;
+  const busted = [];
+  t.hooks = { onSeatBusted: (_table, p) => busted.push(p.id), onHandComplete: () => {} };
+  t.tick(2);
+  assert.deepEqual(busted.sort(), [2, 3]);
+});

@@ -37,12 +37,12 @@
     before listening.
 *   Electron main waits for the `LISTENING` line, shows a blocking error and
     quits on failure, and skips the handshake when `GGPOKER_DEV=1`.
-*   Tests: `ledger-session.test.js` (4), `claims.test.js` (2), `http.test.js` (1),
-    plus the existing 11 = **18 passing**.
+*   Tests: `ledger-session.test.js` (5), `claims.test.js` (3), `http.test.js` (3),
+    `engine.test.js` places 2/3 and spin bust, plus the existing = **24 passing**.
 
 ## Verification
 
-*   `cd app && pnpm test` → 18 passed.
+*   `cd app && pnpm test` → 24 passed.
 *   `pnpm build` → success.
 *   Packaged and relaunched `DanGG.ro.app`; `/api/lobby` → 200.
 *   Production DB migrated: `transactions.session_id`, `transactions.reference`,
@@ -57,16 +57,36 @@
 *   Lobby table rows include `synthetic: true`; the Players/AvgPot/VPIP/H-Hr
     headers carry an "estimated" dot; stakes use `money()`.
 *   Rake cap defaults to 300; the `3 × bb` fallback is removed; the engine test
-    still asserts the floor/cap.
+    asserts the cap at both bb=100 and bb=2000.
 *   `resetpw` writes an audit row.
 *   Mission ticket rewards display `T$` units instead of dividing by 100.
 *   Blackjack deal/stand return the balance from the settlement call.
+*   Cashier and admin credit accept `Idempotency-Key`; a retry returns the first
+    movement, a different amount returns 409. Cashier blocks double submits and
+    reuses the key on retry.
+*   Renderer runs with `sandbox: true` and a packaged-build CSP header; the
+    preload bridge still exposes `window.ggDesktop`.
+*   `resetpw` writes an audit row; blackjack rejects a second deal while a hand
+    is live; rebuys are rejected in tournaments; Spin busts write a zero-amount
+    `session_close`.
+*   Missions roll over daily (`daily-*`) or weekly (`weekly-*`), not once per
+    database lifetime.
 *   `docs/designs/dangro-clone.md` updated for sessions, claims, port handshake,
-    synthetic lobby and the new test count.
+    sandbox/CSP, synthetic lobby and the 24-test suite.
+
+## Review
+
+A full fresh code review of the implementation diff was run on 2026-11-11. It
+found and was followed by fixes for: registration double-credit, session id set
+after seating, Spin bust without a close marker, cashier stale replay balance,
+admin double-click, blackjack deal over a live hand, tournament rebuy refunds,
+unconditional index rebuild, and missing join/leave/registration tests. The
+review report is [implementation-review.md](implementation-review.md).
 
 ## Remaining
 
-*   Full re-review of the implemented diff has not been run; the targeted
-    verification covered the six prior blockers.
-*   Fault injection of the refund sweep and places 2/3 tournament payouts remain
-    uncommitted tests.
+*   Admin user deletion leaves claims/transactions/session rows behind; the
+    startup sweep logs a per-user failure for the deleted id.
+*   A full Origin policy and WS state versioning remain open.
+*   The refund sweep is fault-injected with one failing session; broader fault
+    injection is not committed.

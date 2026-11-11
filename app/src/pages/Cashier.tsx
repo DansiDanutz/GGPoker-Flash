@@ -28,9 +28,9 @@ export function Cashier() {
     if (!user) { navigate('/login'); return; }
     if (inFlight.current) return;
     inFlight.current = true;
-    if (!requestKey.current) requestKey.current = crypto.randomUUID();
     setBusy(true);
     try {
+      if (!requestKey.current) requestKey.current = crypto.randomUUID();
       if (mode === 'deposit') await api.deposit(amount, method, requestKey.current || undefined);
       else await api.withdraw(amount, method, requestKey.current || undefined);
       requestKey.current = null;

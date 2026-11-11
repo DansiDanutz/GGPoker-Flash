@@ -1,7 +1,6 @@
-const { app, BrowserWindow, ipcMain, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, shell, dialog, session } = require('electron');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const http = require('node:http');
 const fs = require('node:fs');
 
 
@@ -23,7 +22,7 @@ try { require('node:fs').mkdirSync(app.getPath('userData'), { recursive: true })
 
 const DEV = process.env.GGPOKER_DEV === '1';
 const PORT = Number(process.env.GGPOKER_PORT || 5198);
-const URL = DEV ? 'http://localhost:5199' : `http://127.0.0.1:${PORT}`;
+let URL = DEV ? 'http://localhost:5199' : `http://127.0.0.1:${PORT}`;
 
 if (DEV || process.env.GGPOKER_CDP === '1') {
   app.commandLine.appendSwitch('remote-debugging-port', '9333');
@@ -31,6 +30,15 @@ if (DEV || process.env.GGPOKER_CDP === '1') {
 
 let win = null;
 let serverProc = null;
+
+const CSP = "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*; font-src 'self' data:;";
+
+function installCsp() {
+  if (DEV) return;
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [CSP] } });
+  });
+}
 
 function waitForListening(child, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
@@ -75,7 +83,8 @@ async function startServer() {
   serverProc.stdout.on('data', (d) => console.log('[server]', String(d).trim()));
   serverProc.stderr.on('data', (d) => console.error('[server]', String(d).trim()));
   try {
-    await waitForListening(serverProc);
+    const port = await waitForListening(serverProc);
+    URL = `http://127.0.0.1:${port}`;
   } catch (e) {
     try { serverProc.kill(); } catch { /* ignore */ }
     throw e;
@@ -163,6 +172,7 @@ app.whenReady().then(async () => {
       { role: 'windowMenu' },
     ]));
   }
+  installCsp();
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

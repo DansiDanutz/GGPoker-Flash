@@ -205,8 +205,10 @@ function init() {
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE transactions ADD COLUMN reference TEXT'); } catch { /* already exists */ }
-  db.exec("DROP INDEX IF EXISTS idx_transactions_reference");
+  const refIndex = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_transactions_reference'").get();
+  if (refIndex && /WHERE/i.test(refIndex.sql || '')) db.exec('DROP INDEX idx_transactions_reference');
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_reference ON transactions(user_id, reference)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_transactions_session ON transactions(session_id)");
   db.exec(`CREATE TABLE IF NOT EXISTS player_claims (
     user_id INTEGER NOT NULL,
     kind TEXT NOT NULL,
@@ -421,10 +423,10 @@ export function refundOpenSessions() {
   for (const s of openSessions()) {
     try {
       const tableId = String(s.session_id).split(':')[0] || 'table';
-      addTransactionEx(s.user_id, 'buyin_refund', s.chips_in, `Crash refund ${tableId}`, 'USD', {
+      const award = addTransactionEx(s.user_id, 'buyin_refund', s.chips_in, `Crash refund ${tableId}`, 'USD', {
         sessionId: s.session_id, reference: `refund:${s.session_id}`, onDuplicate: 'skip',
       });
-      refunded++;
+      if (award.applied) refunded++;
     } catch (e) {
       console.error('refund session failed', s.session_id, e && e.message);
     }
@@ -441,29 +443,51 @@ export function claimReward(userId, kind, periodKey, amount, currency = 'USD', m
     VALUES (?,?,?,0,0,0) ON CONFLICT(user_id, kind, period_key) DO NOTHING`).run(userId, kind, periodKey);
   const row = getClaim(userId, kind, periodKey);
   if (row.claimed) return { claimed: false, amount: row.amount };
+  const reference = `claim:${kind}:${periodKey}`;
   const award = addTransactionEx(userId, kind, amount, memo || `${kind} reward`, currency, {
-    reference: `claim:${kind}:${periodKey}`, onDuplicate: 'skip',
+    reference, onDuplicate: 'skip',
   });
+  let paid = amount;
+  if (!award.applied) {
+    const prior = db.prepare('SELECT amount FROM transactions WHERE user_id = ? AND reference = ?').get(userId, reference);
+    if (prior) paid = prior.amount;
+  }
   db.prepare(`UPDATE player_claims SET claimed = 1, amount = ?, updated_at = datetime('now')
-    WHERE user_id = ? AND kind = ? AND period_key = ?`).run(amount, userId, kind, periodKey);
-  return { claimed: true, amount, balance: award.balance, reapplied: !award.applied };
+    WHERE user_id = ? AND kind = ? AND period_key = ?`).run(paid, userId, kind, periodKey);
+  return { claimed: true, amount: paid, balance: award.balance, reapplied: !award.applied };
+}
+
+export function missionPeriodKey(missionId, now = Date.now()) {
+  const d = new Date(now);
+  if (String(missionId).startsWith('weekly-')) {
+    const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const dow = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - dow);
+    const year = t.getUTCFullYear();
+    const yearStart = new Date(Date.UTC(year, 0, 1));
+    const week = Math.ceil((((t - yearStart) / 86400000) + 1) / 7);
+    return `mission:${missionId}:week:${year}-W${String(week).padStart(2, '0')}`;
+  }
+  return `mission:${missionId}:day:${d.toISOString().slice(0, 10)}`;
 }
 
 export function bumpMission(userId, missionId, delta = 1) {
   const m = db.prepare('SELECT goal FROM missions WHERE id = ?').get(missionId);
   if (!m) return;
+  const period = missionPeriodKey(missionId);
   db.prepare(`INSERT INTO player_claims (user_id, kind, period_key, progress, claimed, amount)
-    VALUES (?, 'mission', ?, 0, 0, 0) ON CONFLICT(user_id, kind, period_key) DO NOTHING`).run(userId, missionId);
+    VALUES (?, 'mission', ?, 0, 0, 0) ON CONFLICT(user_id, kind, period_key) DO NOTHING`).run(userId, period);
   db.prepare(`UPDATE player_claims SET progress = MIN(?, progress + ?), updated_at = datetime('now')
-    WHERE user_id = ? AND kind = 'mission' AND period_key = ?`).run(m.goal, delta, userId, missionId);
+    WHERE user_id = ? AND kind = 'mission' AND period_key = ?`).run(m.goal, delta, userId, period);
 }
 
 export function setMissionDone(userId, missionId) {
   const m = db.prepare('SELECT goal FROM missions WHERE id = ?').get(missionId);
   if (!m) return;
+  const period = missionPeriodKey(missionId);
   db.prepare(`INSERT INTO player_claims (user_id, kind, period_key, progress, claimed, amount)
     VALUES (?, 'mission', ?, ?, 0, 0)
-    ON CONFLICT(user_id, kind, period_key) DO UPDATE SET progress = excluded.progress, updated_at = datetime('now')`).run(userId, missionId, m.goal);
+    ON CONFLICT(user_id, kind, period_key) DO UPDATE SET progress = excluded.progress, updated_at = datetime('now')`).run(userId, period, m.goal);
 }
 
 export function newSession(userId, device = '') {
