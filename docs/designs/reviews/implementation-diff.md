@@ -1,11 +1,11 @@
 # Implementation Diff — Remediation Phases 1–4 (final)
 
 Baseline: 320f00b
-Head: 18a17cd
+Head: 9c9e32b
 
 ```diff
 diff --git a/README.md b/README.md
-index 0cbf69d..c8c2c23 100644
+index 0cbf69d..f4feb39 100644
 --- a/README.md
 +++ b/README.md
 @@ -251,7 +251,7 @@ Goldfish reviews and the consolidated disposition are in
@@ -13,7 +13,7 @@ index 0cbf69d..c8c2c23 100644
  The review changed the code: `addTransaction` is now a single SQLite
  transaction, the deck shuffle uses `node:crypto`, the app enforces a single
 -instance, CDP is gated to dev, request bodies are capped, and 11 committed
-+instance, CDP is gated to dev, request bodies are capped, and 27 committed
++instance, CDP is gated to dev, request bodies are capped, and 29 committed
  `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
  
  ## Notes / scope
@@ -153,6 +153,19 @@ index 13cf770..ee80970 100644
 -  platform: process.platform,
 +  platform: (typeof process !== 'undefined' && process.platform) || 'darwin',
  });
+diff --git a/app/package.json b/app/package.json
+index e9f1edb..6b909f3 100644
+--- a/app/package.json
++++ b/app/package.json
+@@ -4,7 +4,7 @@
+   "version": "1.0.0",
+   "type": "module",
+   "scripts": {
+-    "dev": "concurrently -k \"node server/index.js\" \"vite --port 5199 --strictPort\"",
++    "dev": "concurrently -k \"GGPOKER_DEV=1 node server/index.js\" \"vite --port 5199 --strictPort\"",
+     "build": "vite build",
+     "start": "node server/index.js",
+     "serve": "node server/index.js",
 diff --git a/app/server/claims.test.js b/app/server/claims.test.js
 new file mode 100644
 index 0000000..d11a832
@@ -211,13 +224,14 @@ index 0000000..d11a832
 +  assert.notEqual(w1, w2);
 +});
 diff --git a/app/server/db.js b/app/server/db.js
-index 51482ca..0c948f8 100644
+index 51482ca..97d917f 100644
 --- a/app/server/db.js
 +++ b/app/server/db.js
-@@ -203,6 +203,31 @@ function init() {
+@@ -203,6 +203,32 @@ function init() {
  
    try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
    try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
++  try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
 +  try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
 +  try { db.exec('ALTER TABLE transactions ADD COLUMN reference TEXT'); } catch { /* already exists */ }
 +  const refIndex = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_transactions_reference'").get();
@@ -246,7 +260,7 @@ index 51482ca..0c948f8 100644
    const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
    if (!count) seed();
    ensureSeries();
-@@ -346,22 +371,125 @@ export function setSetting(key, value) {
+@@ -346,22 +372,126 @@ export function setSetting(key, value) {
      .run(key, JSON.stringify(value));
  }
  
@@ -301,12 +315,13 @@ index 51482ca..0c948f8 100644
 +       AND -SUM(CASE WHEN t.kind IN ('buyin','rebuy') THEN t.amount ELSE 0 END) > 0`).all();
 +}
 +
-+export function refundOpenSessions() {
++export function refundOpenSessions(options = {}) {
++  const refund = options.refund || addTransactionEx;
 +  let refunded = 0;
 +  for (const s of openSessions()) {
 +    try {
 +      const tableId = String(s.session_id).split(':')[0] || 'table';
-+      const award = addTransactionEx(s.user_id, 'buyin_refund', s.chips_in, `Crash refund ${tableId}`, 'USD', {
++      const award = refund(s.user_id, 'buyin_refund', s.chips_in, `Crash refund ${tableId}`, 'USD', {
 +        sessionId: s.session_id, reference: `refund:${s.session_id}`, onDuplicate: 'skip',
 +      });
 +      if (award.applied) refunded++;
@@ -376,8 +391,18 @@ index 51482ca..0c948f8 100644
  export function newSession(userId, device = '') {
    const token = randomUUID();
    const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
+@@ -371,7 +501,8 @@ export function newSession(userId, device = '') {
+ 
+ export function userByToken(token) {
+   if (!token) return null;
+-  const row = db.prepare(`SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')`).get(token);
++  const row = db.prepare(`SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
++    WHERE s.token = ? AND s.expires_at > datetime('now') AND u.deleted_at IS NULL`).get(token);
+   return row || null;
+ }
+ 
 diff --git a/app/server/engine.test.js b/app/server/engine.test.js
-index 0334242..ac87ae8 100644
+index 0334242..05da5a6 100644
 --- a/app/server/engine.test.js
 +++ b/app/server/engine.test.js
 @@ -56,13 +56,17 @@ test('bestOmaha uses exactly two hole cards and three board cards', () => {
@@ -399,7 +424,7 @@ index 0334242..ac87ae8 100644
  });
  
  test('showdown builds side pots and conserves chips', () => {
-@@ -106,3 +110,64 @@ test('tournament winner receives half the prize pool exactly once and fires the
+@@ -106,3 +110,75 @@ test('tournament winner receives half the prize pool exactly once and fires the
    assert.equal(paid, 1);
    assert.equal(ends, 1);
  });
@@ -464,12 +489,23 @@ index 0334242..ac87ae8 100644
 +  t.tick(2);
 +  assert.equal(minted, 250);
 +});
++
++
++test('snapshots and events carry a table epoch and monotonic version', () => {
++  const p1 = player(1, 'A', 1000, 0, []);
++  const t = tableWith([p1], { seats: 1 });
++  const before = t.snapshotFor();
++  t.emit({ type: 'test' });
++  const after = t.snapshotFor();
++  assert.equal(before.tableEpoch, after.tableEpoch);
++  assert.equal(after.tableVersion, before.tableVersion + 1);
++});
 diff --git a/app/server/http.test.js b/app/server/http.test.js
 new file mode 100644
-index 0000000..ac0d46d
+index 0000000..a1e7736
 --- /dev/null
 +++ b/app/server/http.test.js
-@@ -0,0 +1,124 @@
+@@ -0,0 +1,144 @@
 +import test from 'node:test';
 +import assert from 'node:assert/strict';
 +import { spawn } from 'node:child_process';
@@ -502,11 +538,13 @@ index 0000000..ac0d46d
 +}
 +
 +test('server binds an ephemeral port and serves the API', async () => {
-+  const { child, port } = await startServer();
++  const { child, port, data } = await startServer();
 +  try {
 +    const lobby = await fetch(`http://127.0.0.1:${port}/api/lobby`).then((r) => r.json());
 +    assert.ok(Array.isArray(lobby.tables));
 +    assert.equal(lobby.tables[0].synthetic, true);
++    const badOrigin = await fetch(`http://127.0.0.1:${port}/api/lobby`, { headers: { origin: 'http://evil.example' } });
++    assert.equal(badOrigin.status, 403);
 +    const login = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
 +      method: 'POST', headers: { 'content-type': 'application/json' },
 +      body: JSON.stringify({ login: 'DansiDanutz', password: 'ggpoker' }),
@@ -562,6 +600,24 @@ index 0000000..ac0d46d
 +      body: JSON.stringify({ action: 'credit', amount: 1 }),
 +    });
 +    assert.equal(bad.status, 403);
++    const admin = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
++      method: 'POST', headers: { 'content-type': 'application/json' },
++      body: JSON.stringify({ login: 'admin', password: 'admin123' }),
++    }).then((r) => r.json());
++    const del = await fetch(`http://127.0.0.1:${port}/api/admin/users/3`, {
++      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${admin.token}` },
++      body: JSON.stringify({ action: 'delete' }),
++    }).then((r) => r.json());
++    assert.equal(del.ok, true);
++    const guest = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
++      method: 'POST', headers: { 'content-type': 'application/json' },
++      body: JSON.stringify({ login: 'guest', password: 'guest' }),
++    });
++    assert.equal(guest.status, 400);
++    const db = new DatabaseSync(path.join(data, 'ggpoker.db'));
++    const deleted = db.prepare('SELECT deleted_at, login FROM users WHERE id = 3').get();
++    assert.ok(deleted.deleted_at);
++    assert.ok(deleted.login.startsWith('deleted:3:'));
 +  } finally {
 +    child.kill();
 +  }
@@ -595,7 +651,7 @@ index 0000000..ac0d46d
 +  }
 +});
 diff --git a/app/server/index.js b/app/server/index.js
-index c5c6cff..8c3ad6b 100644
+index c5c6cff..5dc3f1c 100644
 --- a/app/server/index.js
 +++ b/app/server/index.js
 @@ -2,10 +2,11 @@ import http from 'node:http';
@@ -612,7 +668,30 @@ index c5c6cff..8c3ad6b 100644
  } from './db.js';
  import { PokerTable, botName } from './table.js';
  import { makeDeck, shuffle, cardStr } from './poker.js';
-@@ -43,6 +44,16 @@ async function readBody(req) {
+@@ -13,6 +14,22 @@ import { makeDeck, shuffle, cardStr } from './poker.js';
+ const __dirname = path.dirname(fileURLToPath(import.meta.url));
+ const PORT = Number(process.env.PORT || 5198);
+ const APP_DIR = path.join(__dirname, '..');
++
++function localPort() {
++  return server.address()?.port || PORT;
++}
++
++function originAllowed(req) {
++  const port = localPort();
++  const hosts = [`127.0.0.1:${port}`, `localhost:${port}`];
++  if (process.env.GGPOKER_DEV === '1') hosts.push('127.0.0.1:5199', 'localhost:5199');
++  const host = String(req.headers.host || '').toLowerCase();
++  if (!hosts.includes(host)) return false;
++  const origin = req.headers.origin;
++  if (!origin) return true;
++  const origins = hosts.map((h) => `http://${h}`);
++  return origins.includes(String(origin).toLowerCase());
++}
+ const DIST = path.join(APP_DIR, 'dist');
+ const PUBLIC = path.join(APP_DIR, 'public');
+ 
+@@ -43,6 +60,16 @@ async function readBody(req) {
    try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return {}; }
  }
  
@@ -629,7 +708,7 @@ index c5c6cff..8c3ad6b 100644
  function tokenFrom(req) {
    const h = req.headers.authorization;
    if (h && h.startsWith('Bearer ')) return h.slice(7);
-@@ -106,6 +117,17 @@ function occupancyFor(t) {
+@@ -106,6 +133,17 @@ function occupancyFor(t) {
    return TABLE_OCCUPANCY.get(t.id);
  }
  
@@ -647,7 +726,7 @@ index c5c6cff..8c3ad6b 100644
  function lobbyTables() {
    const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 ORDER BY sort ASC').all();
    return rows.map((t) => {
-@@ -122,6 +144,7 @@ function lobbyTables() {
+@@ -122,6 +160,7 @@ function lobbyTables() {
        vpip: players ? 18 + (seed % 45) : 0,
        handsPerHour: 55 + (seed % 80),
        running: LIVE_TABLES.has(t.id),
@@ -655,7 +734,7 @@ index c5c6cff..8c3ad6b 100644
      };
    });
  }
-@@ -209,17 +232,26 @@ function getLiveTable(id) {
+@@ -209,17 +248,26 @@ function getLiveTable(id) {
          db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize}`);
        } catch (e) { console.error('tournament end', e); }
      },
@@ -689,7 +768,7 @@ index c5c6cff..8c3ad6b 100644
        }
      },
    });
-@@ -232,6 +264,7 @@ function getLiveTable(id) {
+@@ -232,6 +280,7 @@ function getLiveTable(id) {
        if (entry.clients.size === 0) {
          if (!entry.emptySince) entry.emptySince = Date.now();
          else if (Date.now() - entry.emptySince > 45000) {
@@ -697,7 +776,7 @@ index c5c6cff..8c3ad6b 100644
            clearInterval(entry.timer);
            LIVE_TABLES.delete(id);
          }
-@@ -273,12 +306,35 @@ function seatHuman(table, user, buyin, seatIndex = null) {
+@@ -273,12 +322,35 @@ function seatHuman(table, user, buyin, seatIndex = null) {
    const stack = Number(buyin) || table.cfg.min_buyin;
    if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
    if (user.balance < stack) return { ok: false, error: 'not enough balance' };
@@ -736,7 +815,20 @@ index c5c6cff..8c3ad6b 100644
  /* ------------------------------------------------------------------ */
  /* HTTP API                                                            */
  /* ------------------------------------------------------------------ */
-@@ -308,9 +364,10 @@ const server = http.createServer(async (req, res) => {
+@@ -288,10 +360,11 @@ const server = http.createServer(async (req, res) => {
+   const p = url.pathname;
+ 
+   try {
++    if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
+     // ---------- auth ----------
+     if (p === '/api/auth/login' && req.method === 'POST') {
+       const body = await readBody(req);
+-      const user = db.prepare('SELECT * FROM users WHERE lower(login) = lower(?) OR lower(nick) = lower(?)').get(body.login || '', body.login || '');
++      const user = db.prepare('SELECT * FROM users WHERE (lower(login) = lower(?) OR lower(nick) = lower(?)) AND deleted_at IS NULL').get(body.login || '', body.login || '');
+       if (!user || !checkPassword(body.password || '', user.password)) return json(res, 400, { error: 'Invalid account ID or password' });
+       if (user.banned) return json(res, 403, { error: 'This account is locked. Contact support.' });
+       db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
+@@ -308,9 +381,10 @@ const server = http.createServer(async (req, res) => {
        if (db.prepare('SELECT id FROM users WHERE lower(login)=lower(?)').get(login)) return json(res, 400, { error: 'Account already exists' });
        const start = getSetting('default_balance', 5000) + getSetting('welcome_bonus', 100000);
        db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
@@ -750,7 +842,7 @@ index c5c6cff..8c3ad6b 100644
        const token = newSession(user.id, req.headers['user-agent'] || '');
        return json(res, 200, { token, user: publicUser(user) });
      }
-@@ -363,7 +420,7 @@ const server = http.createServer(async (req, res) => {
+@@ -363,7 +437,7 @@ const server = http.createServer(async (req, res) => {
          online: sitesStats().online,
          jackpot: getSetting('jackpot', 199026635),
          user: publicUser(u),
@@ -759,7 +851,7 @@ index c5c6cff..8c3ad6b 100644
          settings: { site_name: getSetting('site_name', 'GGPoker'), maintenance: getSetting('maintenance', false) },
        });
      }
-@@ -392,7 +449,7 @@ const server = http.createServer(async (req, res) => {
+@@ -392,7 +466,7 @@ const server = http.createServer(async (req, res) => {
        addTransaction(u.id, 'tourney_buyin', -total, `Registration ${t.name}`);
        db.prepare('INSERT INTO tourney_regs (tournament_id,user_id) VALUES (?,?)').run(id, u.id);
        db.prepare('UPDATE tournaments SET entrants = entrants + 1 WHERE id = ?').run(id);
@@ -768,7 +860,7 @@ index c5c6cff..8c3ad6b 100644
        return json(res, 200, { ok: true });
      }
  
-@@ -459,17 +516,29 @@ const server = http.createServer(async (req, res) => {
+@@ -459,17 +533,29 @@ const server = http.createServer(async (req, res) => {
        const body = await readBody(req);
        const amount = Math.round(Number(body.amount || 0));
        if (amount <= 0 || amount > 100000000) return json(res, 400, { error: 'Invalid amount' });
@@ -802,7 +894,7 @@ index c5c6cff..8c3ad6b 100644
      }
  
      // ---------- hand history ----------
-@@ -488,7 +557,13 @@ const server = http.createServer(async (req, res) => {
+@@ -488,7 +574,13 @@ const server = http.createServer(async (req, res) => {
      // ---------- missions / rewards ----------
      if (p === '/api/missions') {
        const u = requireUser(req, res); if (!u) return;
@@ -817,7 +909,7 @@ index c5c6cff..8c3ad6b 100644
      }
  
      if (p.startsWith('/api/missions/') && p.endsWith('/claim') && req.method === 'POST') {
-@@ -496,11 +571,13 @@ const server = http.createServer(async (req, res) => {
+@@ -496,11 +588,13 @@ const server = http.createServer(async (req, res) => {
        const id = p.split('/')[3];
        const m = db.prepare('SELECT * FROM missions WHERE id = ?').get(id);
        if (!m) return json(res, 404, { error: 'not found' });
@@ -836,7 +928,7 @@ index c5c6cff..8c3ad6b 100644
      }
  
      if (p === '/api/leaderboard') {
-@@ -511,19 +588,19 @@ const server = http.createServer(async (req, res) => {
+@@ -511,19 +605,19 @@ const server = http.createServer(async (req, res) => {
      if (p === '/api/rewards/daily' && req.method === 'POST') {
        const u = requireUser(req, res); if (!u) return;
        const day = new Date().toISOString().slice(0, 10);
@@ -863,7 +955,7 @@ index c5c6cff..8c3ad6b 100644
      }
  
      if (p === '/api/rewards/spin' && req.method === 'POST') {
-@@ -613,16 +690,17 @@ const server = http.createServer(async (req, res) => {
+@@ -613,16 +707,17 @@ const server = http.createServer(async (req, res) => {
          return sum;
        };
        if (action === 'deal') {
@@ -883,7 +975,7 @@ index c5c6cff..8c3ad6b 100644
          });
        }
        const hand = BJ_HANDS.get(u.id);
-@@ -632,7 +710,8 @@ const server = http.createServer(async (req, res) => {
+@@ -632,7 +727,8 @@ const server = http.createServer(async (req, res) => {
          const pv = bjValue(hand.player), dv = bjValue(hand.dealer);
          if (pv > 21) {
            BJ_HANDS.delete(u.id);
@@ -893,7 +985,7 @@ index c5c6cff..8c3ad6b 100644
          }
          return json(res, 200, { player: hand.player.map(cardStr), playerTotal: pv, dealer: [cardStr(hand.dealer[0]), '??'], done: false });
        }
-@@ -645,9 +724,9 @@ const server = http.createServer(async (req, res) => {
+@@ -645,9 +741,9 @@ const server = http.createServer(async (req, res) => {
          if (pv > 21) { payout = 0; result = 'bust'; }
          else if (dv > 21 || pv > dv) { payout = natural ? Math.floor(hand.bet * 2.5) : hand.bet * 2; result = 'win'; }
          else if (pv === dv) { payout = hand.bet; result = 'push'; }
@@ -905,7 +997,7 @@ index c5c6cff..8c3ad6b 100644
        }
        return json(res, 400, { error: 'unknown action' });
      }
-@@ -844,12 +923,12 @@ const server = http.createServer(async (req, res) => {
+@@ -844,12 +940,12 @@ const server = http.createServer(async (req, res) => {
      // ---------- honeymoon ----------
      if (p === '/api/honeymoon' && req.method === 'GET') {
        const u = requireUser(req, res); if (!u) return;
@@ -923,7 +1015,7 @@ index c5c6cff..8c3ad6b 100644
          missions: true,
        });
      }
-@@ -857,32 +936,27 @@ const server = http.createServer(async (req, res) => {
+@@ -857,32 +953,27 @@ const server = http.createServer(async (req, res) => {
        const u = requireUser(req, res); if (!u) return;
        const b = await readBody(req);
        const step = String(b.step || '');
@@ -967,7 +1059,14 @@ index c5c6cff..8c3ad6b 100644
      }
  
      // ---------- brand assets ----------
-@@ -1018,7 +1092,7 @@ const server = http.createServer(async (req, res) => {
+@@ -1012,19 +1103,19 @@ const server = http.createServer(async (req, res) => {
+ 
+     if (p === '/api/admin/stats') {
+       const a = requireAdmin(req, res); if (!a) return;
+-      const users = db.prepare('SELECT COUNT(*) c FROM users').get().c;
++      const users = db.prepare('SELECT COUNT(*) c FROM users WHERE deleted_at IS NULL').get().c;
+       const hands = db.prepare('SELECT COUNT(*) c FROM hands').get().c;
+       const tables = db.prepare('SELECT COUNT(*) c FROM tables').get().c;
        const tourneys = db.prepare('SELECT COUNT(*) c FROM tournaments').get().c;
        const turnover = db.prepare(`SELECT COALESCE(SUM(ABS(amount)),0) s FROM transactions`).get().s;
        const live = [...LIVE_TABLES.values()].map((e) => ({ id: e.table.cfg.id, name: e.table.cfg.name, players: e.table.occupiedSeats().length, hand: e.table.handNo, street: e.table.street }));
@@ -976,7 +1075,14 @@ index c5c6cff..8c3ad6b 100644
      }
  
      if (p === '/api/admin/users') {
-@@ -1036,9 +1110,17 @@ const server = http.createServer(async (req, res) => {
+       const a = requireAdmin(req, res); if (!a) return;
+       const q = (url.searchParams.get('q') || '').toLowerCase();
+-      const rows = db.prepare('SELECT * FROM users ORDER BY id').all()
++      const rows = db.prepare('SELECT * FROM users WHERE deleted_at IS NULL ORDER BY id').all()
+         .filter((u) => !q || u.login.toLowerCase().includes(q) || u.nick.toLowerCase().includes(q));
+       return json(res, 200, { users: rows.map(publicUser) });
+     }
+@@ -1036,9 +1127,17 @@ const server = http.createServer(async (req, res) => {
        const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
        if (!target) return json(res, 404, { error: 'not found' });
        if (body.action === 'credit') {
@@ -996,7 +1102,7 @@ index c5c6cff..8c3ad6b 100644
        }
        if (body.action === 'set') {
          const currency = { balance: 'USD', play_chips: 'PLAY', tickets: 'TICKET', gems: 'GEM' };
-@@ -1061,6 +1143,7 @@ const server = http.createServer(async (req, res) => {
+@@ -1061,11 +1160,18 @@ const server = http.createServer(async (req, res) => {
        }
        if (body.action === 'resetpw') {
          db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(String(body.password || 'ggpoker')), id);
@@ -1004,7 +1110,20 @@ index c5c6cff..8c3ad6b 100644
          return json(res, 200, { ok: true });
        }
        if (body.action === 'delete' && !target.is_admin) {
-@@ -1138,18 +1221,27 @@ const server = http.createServer(async (req, res) => {
+-        db.prepare('DELETE FROM users WHERE id = ?').run(id);
+-        return json(res, 200, { ok: true });
++        for (const entry of LIVE_TABLES.values()) {
++          if (entry.table.seatOf(id)) cashOutSeat(entry.table, id, 'Account deleted by admin');
++        }
++        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
++        db.prepare(`UPDATE users SET banned = 1, deleted_at = datetime('now'),
++          login = ?, nick = ?, email = '' WHERE id = ?`).run(`deleted:${id}:${target.login}`, `Deleted ${id}`, id);
++        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'delete_user', `user ${id}`);
++        return json(res, 200, { ok: true, deleted: true });
+       }
+       return json(res, 400, { error: 'unknown action' });
+     }
+@@ -1138,18 +1244,27 @@ const server = http.createServer(async (req, res) => {
        const a = requireAdmin(req, res); if (!a) return;
        const b = await readBody(req);
        if (b.delete) { db.prepare('DELETE FROM missions WHERE id = ?').run(b.id); return json(res, 200, { ok: true }); }
@@ -1036,7 +1155,7 @@ index c5c6cff..8c3ad6b 100644
      }
  
      if (p.startsWith('/api/admin/live/') && p.endsWith('/close') && req.method === 'POST') {
-@@ -1158,12 +1250,7 @@ const server = http.createServer(async (req, res) => {
+@@ -1158,12 +1273,7 @@ const server = http.createServer(async (req, res) => {
        const entry = LIVE_TABLES.get(id);
        if (!entry) return json(res, 404, { error: 'not running' });
        for (const s of [...entry.table.seats]) {
@@ -1050,7 +1169,23 @@ index c5c6cff..8c3ad6b 100644
        }
        clearInterval(entry.timer);
        LIVE_TABLES.delete(id);
-@@ -1309,11 +1396,9 @@ wss.on('connection', (ws, req) => {
+@@ -1235,7 +1345,14 @@ const server = http.createServer(async (req, res) => {
+ /* WebSocket                                                           */
+ /* ------------------------------------------------------------------ */
+ 
+-const wss = new WebSocketServer({ server, path: '/ws' });
++const wss = new WebSocketServer({
++  server,
++  path: '/ws',
++  verifyClient: (info, cb) => {
++    if (originAllowed(info.req)) cb(true);
++    else cb(false, 403, 'Forbidden');
++  },
++});
+ 
+ wss.on('connection', (ws, req) => {
+   const url = new URL(req.url, 'http://localhost');
+@@ -1309,11 +1426,9 @@ wss.on('connection', (ws, req) => {
          entry.clients.delete(ws);
          ws.tables.delete(msg.tableId);
          const table = entry.table;
@@ -1065,7 +1200,7 @@ index c5c6cff..8c3ad6b 100644
            notifyWaitlist(msg.tableId);
          } else {
            waitlistLeave(msg.tableId, ws.userId);
-@@ -1345,11 +1430,19 @@ wss.on('connection', (ws, req) => {
+@@ -1345,11 +1460,19 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
        if (seat.player.inHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
@@ -1086,7 +1221,7 @@ index c5c6cff..8c3ad6b 100644
        seat.player.stack += amount;
        broadcastState(table);
        return;
-@@ -1406,9 +1499,7 @@ wss.on('connection', (ws, req) => {
+@@ -1406,9 +1529,7 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (seat) {
          seat.player.disconnected = true;
@@ -1097,7 +1232,7 @@ index c5c6cff..8c3ad6b 100644
          notifyWaitlist(id);
        } else {
          waitlistLeave(id, ws.userId);
-@@ -1418,6 +1509,10 @@ wss.on('connection', (ws, req) => {
+@@ -1418,6 +1539,10 @@ wss.on('connection', (ws, req) => {
    });
  });
  
@@ -1111,10 +1246,10 @@ index c5c6cff..8c3ad6b 100644
  });
 diff --git a/app/server/ledger-session.test.js b/app/server/ledger-session.test.js
 new file mode 100644
-index 0000000..b2f3ab8
+index 0000000..6442b39
 --- /dev/null
 +++ b/app/server/ledger-session.test.js
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,67 @@
 +import test from 'node:test';
 +import assert from 'node:assert/strict';
 +import fs from 'node:fs';
@@ -1136,7 +1271,7 @@ index 0000000..b2f3ab8
 +  const start = balance();
 +  addTransactionEx(user.id, 'buyin', -5000, 'buy-in', 'USD', { sessionId: 't1:s1', reference: 'in:t1:s1:1' });
 +  addTransactionEx(user.id, 'rebuy', -5000, 'rebuy', 'USD', { sessionId: 't1:s1', reference: 'in:t1:s1:r1' });
-+  assert.equal(openSessions().length, 1);
++  assert.equal(openSessions().filter((s) => s.session_id === 't1:s1').length, 1);
 +  assert.equal(refundOpenSessions(), 1);
 +  assert.equal(balance(), start);
 +  assert.equal(refundOpenSessions(), 0);
@@ -1181,6 +1316,7 @@ index 0000000..b2f3ab8
 +  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference = 'refund:t4:s1'").get().c, 1);
 +  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference = 'refund:bad:s'").get().c, 0);
 +});
++
 diff --git a/app/server/ledger.test.js b/app/server/ledger.test.js
 index 93fd58b..ea26c94 100644
 --- a/app/server/ledger.test.js
@@ -1207,8 +1343,37 @@ index 93fd58b..ea26c94 100644
 +  assert.equal(after.tickets - before.tickets, by.TICKET);
 +  assert.equal(after.gems - before.gems, by.GEM);
 +});
+diff --git a/app/server/refund-fault.test.js b/app/server/refund-fault.test.js
+new file mode 100644
+index 0000000..a776859
+--- /dev/null
++++ b/app/server/refund-fault.test.js
+@@ -0,0 +1,23 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import fs from 'node:fs';
++import os from 'node:os';
++import path from 'node:path';
++
++process.env.GGPOKER_DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'dangro-fault-'));
++const { db, addTransactionEx, openSessions, refundOpenSessions } = await import('./db.js');
++const user = db.prepare('SELECT * FROM users ORDER BY id LIMIT 1').get();
++
++test('a database failure mid-sweep leaves later sessions open and does not abort', () => {
++  addTransactionEx(user.id, 'buyin', -1000, 'buyin', 'USD', { sessionId: 'fault:s1', reference: 'in:fault:s1:1' });
++  addTransactionEx(user.id, 'buyin', -1000, 'buyin', 'USD', { sessionId: 'fault:s2', reference: 'in:fault:s2:1' });
++  let calls = 0;
++  const injected = (...args) => {
++    calls++;
++    if (calls === 2) throw new Error('injected database failure');
++    return addTransactionEx(...args);
++  };
++  assert.equal(refundOpenSessions({ refund: injected }), 1);
++  assert.equal(openSessions().filter((s) => s.session_id.startsWith('fault:')).length, 1);
++  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference LIKE 'refund:fault:%'").get().c, 1);
++});
 diff --git a/app/server/table.js b/app/server/table.js
-index fa07090..0b8a2e1 100644
+index fa07090..7b42cdf 100644
 --- a/app/server/table.js
 +++ b/app/server/table.js
 @@ -64,7 +64,7 @@ export class PokerTable {
@@ -1220,7 +1385,16 @@ index fa07090..0b8a2e1 100644
      this.rake = 0;
      this.finished = [];
      if (this.spin) {
-@@ -90,7 +90,7 @@ export class PokerTable {
+@@ -74,6 +74,8 @@ export class PokerTable {
+     }
+     this.omaha = cfg.game === 'omaha' || cfg.game === 'omaha5';
+     this.messageSeq = 0;
++    this.tableEpoch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
++    this.tableVersion = 0;
+   }
+ 
+   /* ------------------------------ seating ------------------------------ */
+@@ -90,7 +92,7 @@ export class PokerTable {
      return this.seats.find((s) => s.player && s.player.id === playerId);
    }
  
@@ -1229,7 +1403,7 @@ index fa07090..0b8a2e1 100644
      if (this.seatOf(player.id)) return { ok: false, error: 'already seated' };
      let seat = seatIndex != null ? this.seats[seatIndex] : this.seats.find((s) => !s.player);
      if (!seat) return { ok: false, error: 'table full' };
-@@ -119,6 +119,7 @@ export class PokerTable {
+@@ -119,6 +121,7 @@ export class PokerTable {
        joinedAt: Date.now(),
        handsPlayed: 0,
        won: 0,
@@ -1237,7 +1411,7 @@ index fa07090..0b8a2e1 100644
      };
      this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
      this.maybeStart();
-@@ -173,6 +174,7 @@ export class PokerTable {
+@@ -173,6 +176,7 @@ export class PokerTable {
      const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
      if (!w || !w.player) return;
      w.player.stack += this.spinPrize;
@@ -1245,7 +1419,7 @@ index fa07090..0b8a2e1 100644
      this.spinWinner = { nick: w.player.nick, id: w.player.id, prize: this.spinPrize };
      this.emit({ type: 'spin_win', ...this.spinWinner, multiplier: this.spinMultiplier });
      this.street = 'ended';
-@@ -546,8 +548,7 @@ export class PokerTable {
+@@ -546,8 +550,7 @@ export class PokerTable {
    computeRake(pot) {
      if (this.tournament || this.spin) return 0;
      const raw = Math.floor((pot * this.rakePercent) / 100);
@@ -1255,7 +1429,7 @@ index fa07090..0b8a2e1 100644
    }
  
    finishByFold(winnerSeat) {
-@@ -689,7 +690,10 @@ export class PokerTable {
+@@ -689,7 +692,10 @@ export class PokerTable {
          this.nextHandAt = 0;
          // remove busted bots, rebuy bots so the table stays alive
          for (const s of this.seats) {
@@ -1267,7 +1441,7 @@ index fa07090..0b8a2e1 100644
          }
          if (this.elimination) {
            const aliveCount = this.occupiedSeats().filter((x) => x.player && x.player.stack > 0).length;
-@@ -707,6 +711,7 @@ export class PokerTable {
+@@ -707,6 +713,7 @@ export class PokerTable {
                  this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
                  if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
                }
@@ -1275,6 +1449,26 @@ index fa07090..0b8a2e1 100644
                s.player = null;
                this.emit({ type: 'stand', seat: s.index });
              }
+@@ -803,6 +810,8 @@ export class PokerTable {
+     const now = Date.now();
+     return {
+       id: this.cfg.id,
++      tableEpoch: this.tableEpoch,
++      tableVersion: this.tableVersion,
+       name: this.cfg.name,
+       game: this.game,
+       sb: this.sb,
+@@ -861,7 +870,10 @@ export class PokerTable {
+ 
+   emit(evt) {
+     evt.tableId = this.cfg.id;
++    this.tableVersion += 1;
+     evt.seq = ++this.messageSeq;
++    evt.tableEpoch = this.tableEpoch;
++    evt.tableVersion = this.tableVersion;
+     evt.at = Date.now();
+     if (evt.type === 'win') this.lastResult = evt;
+     for (const fn of this.listeners) {
 diff --git a/app/src/lib/api.ts b/app/src/lib/api.ts
 index 34cae72..9548d59 100644
 --- a/app/src/lib/api.ts
@@ -1439,6 +1633,50 @@ index 9ba833e..ecf04c6 100644
                  </div>
                  <button
                    className={'btn btn-sm ' + (m.claimed ? 'btn-ghost' : 'btn-gold')}
+diff --git a/app/src/pages/TablePage.tsx b/app/src/pages/TablePage.tsx
+index 825e4e5..3f87230 100644
+--- a/app/src/pages/TablePage.tsx
++++ b/app/src/pages/TablePage.tsx
+@@ -15,7 +15,7 @@ type PlayerState = {
+ };
+ 
+ type TableState = {
+-  id: string; name: string; game: string; sb: number; bb: number; ante: number; seats: number;
++  id: string; tableEpoch?: string; tableVersion?: number; name: string; game: string; sb: number; bb: number; ante: number; seats: number;
+   button: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
+   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
+   timeBankUsed?: number[];
+@@ -72,6 +72,8 @@ export function TablePage({ tableId }: { tableId: string }) {
+   const fxId = useRef(1);
+   const retry = useRef<number | null>(null);
+   const everJoined = useRef(false);
++  const tableEpoch = useRef<string | null>(null);
++  const lastSeq = useRef(0);
+ 
+   const [theme] = useState(() => localStorage.getItem('ggpoker.theme') || 'Green');
+   const query = new URLSearchParams(window.location.hash.split('?')[1] || '');
+@@ -97,6 +99,8 @@ export function TablePage({ tableId }: { tableId: string }) {
+       try { msg = JSON.parse(ev.data); } catch { return; }
+       if (msg.type === 'state') {
+         const s: TableState = msg.state;
++        tableEpoch.current = s.tableEpoch || null;
++        lastSeq.current = s.tableVersion || 0;
+         stateRef.current = s;
+         setState(s);
+         const mine = s.players.find((p) => p.isMe);
+@@ -123,7 +127,11 @@ export function TablePage({ tableId }: { tableId: string }) {
+         setObserving(true);
+         toast({ kind: 'info', title: 'Waitlist', body: `You are #${msg.position || 1} in line. We will hold the next seat for you.` });
+       } else if (msg.type === 'event') {
+-        handleEvent(msg.event);
++        const e = msg.event;
++        if (tableEpoch.current && e.tableEpoch && e.tableEpoch !== tableEpoch.current) { ws.close(); return; }
++        if (e.seq && lastSeq.current && e.seq > lastSeq.current + 1) { ws.close(); return; }
++        if (e.seq) lastSeq.current = e.seq;
++        handleEvent(e);
+       } else if (msg.type === 'error') {
+         toast({ kind: 'error', title: 'Table', body: msg.error });
+       }
 diff --git a/app/src/styles.css b/app/src/styles.css
 index 8fc54b5..bae972a 100644
 --- a/app/src/styles.css
