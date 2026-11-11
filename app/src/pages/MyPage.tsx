@@ -41,6 +41,7 @@ export function MyPage() {
   const [notes, setNotes] = useState<any[]>([]);
   const [noteEdit, setNoteEdit] = useState<any>(null);
   const [friends, setFriends] = useState<any[]>([]);
+  const [friendReqs, setFriendReqs] = useState<any>({ incoming: [], outgoing: [] });
   const [friendNick, setFriendNick] = useState('');
   const [verify, setVerify] = useState<any>(null);
   const [vName, setVName] = useState('');
@@ -73,6 +74,8 @@ export function MyPage() {
     api.userProfile(id).then((r) => openDm({ peer_id: r.user.id, nick: r.user.nick })).catch(() => {});
   }, []);
 
+  const loadFriendReqs = async () => { try { setFriendReqs(await api.friendRequests()); } catch { /* ignore */ } };
+
   useEffect(() => {
     api.missions().then((r) => setMissions(r.missions)).catch(() => {});
     api.cashier().then((r) => setTx(r.transactions)).catch(() => {});
@@ -81,6 +84,7 @@ export function MyPage() {
     loadDms();
     fetch('/api/notes', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setNotes(d.notes || [])).catch(() => {});
     fetch('/api/friends', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setFriends(d.friends || [])).catch(() => {});
+    loadFriendReqs();
     fetch('/api/sessions', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setSessions(d.sessions || [])).catch(() => {});
     fetch('/api/verify', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => { setVerify(d.verification); if (d.verification) { setVName(d.verification.full_name || ''); setVDob(d.verification.dob || ''); setVCountry(d.verification.country || 'Romania'); setVDocType(d.verification.doc_type || 'Passport'); } }).catch(() => {});
   }, []);
@@ -272,13 +276,26 @@ export function MyPage() {
                 <input className="admin-input" placeholder="Nickname" value={friendNick} onChange={(e) => setFriendNick(e.target.value)} style={{ width: 170 }} />
                 <button className="btn btn-red btn-sm" disabled={!friendNick.trim()} onClick={async () => {
                   try {
-                    await fetch('/api/friends', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ nick: friendNick }) });
+                    const result = await api.addFriend(friendNick);
                     const r = await fetch('/api/friends', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((x) => x.json());
-                    setFriends(r.friends || []); setFriendNick('');
+                    setFriends(r.friends || []); setFriendNick(''); await loadFriendReqs();
+                    toast({ kind: 'success', title: result.accepted ? 'Friend request accepted' : 'Friend request sent', body: result.nick });
                   } catch { /* ignore */ }
                 }}>Add friend</button>
               </div>
             </div>
+            {friendReqs.incoming?.length > 0 && (
+              <div className="card" style={{ marginBottom: 10, borderColor: 'rgba(216,177,95,.35)' }}>
+                <div className="panel-title">Friend requests</div>
+                {friendReqs.incoming.map((r: any) => (
+                  <div key={r.id} className="host-row">
+                    <div><b>{r.nick}</b><span>wants to be friends</span></div>
+                    <button className="btn btn-gold btn-sm" onClick={async () => { await api.respondFriendRequest(r.id, 'accept'); await loadFriendReqs(); const x = await fetch('/api/friends', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((q) => q.json()); setFriends(x.friends || []); toast({ kind: 'success', title: 'Friend added', body: r.nick }); }}>Accept</button>
+                    <button className="btn btn-ghost btn-sm" onClick={async () => { await api.respondFriendRequest(r.id, 'decline'); await loadFriendReqs(); }}>Decline</button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="grid g3">
               {friends.map((f) => (
                 <div key={f.id} className="card">

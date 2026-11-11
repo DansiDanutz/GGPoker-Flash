@@ -1105,10 +1105,11 @@ const server = http.createServer(async (req, res) => {
         for (const w of wins) if (Number(w.id) === id) biggest = Math.max(biggest, Number(w.amount) || 0);
       }
       const friend = db.prepare('SELECT 1 FROM friends WHERE user_id = ? AND friend_id = ?').get(viewer.id, id);
+      const pending = db.prepare("SELECT 1 FROM friend_requests WHERE from_id = ? AND to_id = ? AND status = 'pending'").get(viewer.id, id);
       return json(res, 200, {
         user: { id: target.id, nick: target.nick, avatar: target.avatar, vip_level: target.vip_level, country: target.country, created_at: target.created_at },
         stats: { played, won, biggest },
-        friend: !!friend,
+        friend: !!friend, pending: !!pending,
         online: [...LIVE_TABLES.values()].some((e) => e.table.seatOf(id)),
       });
     }
@@ -1123,7 +1124,13 @@ const server = http.createServer(async (req, res) => {
       };
       return json(res, 200, { friends: rows.map((r) => ({ ...r, online: online(r.id) })) });
     }
-    if (p === '/api/friends' && req.method === 'POST') {
+    if (p === '/api/friends/requests' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const incoming = db.prepare(`SELECT r.from_id AS id, u.nick, u.avatar, u.vip_level, r.created_at FROM friend_requests r JOIN users u ON u.id = r.from_id WHERE r.to_id = ? AND r.status = 'pending' ORDER BY r.created_at DESC`).all(u.id);
+      const outgoing = db.prepare(`SELECT r.to_id AS id, u.nick, u.avatar, u.vip_level, r.created_at FROM friend_requests r JOIN users u ON u.id = r.to_id WHERE r.from_id = ? AND r.status = 'pending' ORDER BY r.created_at DESC`).all(u.id);
+      return json(res, 200, { incoming, outgoing });
+    }
+    if (p === '/api/friends/requests' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const b = await readBody(req);
       const nick = String(b.nick || '').trim();
@@ -1131,8 +1138,31 @@ const server = http.createServer(async (req, res) => {
       const target = db.prepare('SELECT * FROM users WHERE lower(nick) = lower(?) OR lower(login) = lower(?)').get(nick, nick);
       if (!target) return json(res, 404, { error: 'Player not found' });
       if (target.id === u.id) return json(res, 400, { error: 'That is you' });
-      db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?,?)').run(u.id, target.id);
-      return json(res, 200, { ok: true, nick: target.nick });
+      if (db.prepare('SELECT 1 FROM friends WHERE user_id = ? AND friend_id = ?').get(u.id, target.id)) return json(res, 409, { error: 'Already friends' });
+      const reverse = db.prepare("SELECT 1 FROM friend_requests WHERE from_id = ? AND to_id = ? AND status = 'pending'").get(target.id, u.id);
+      if (reverse) {
+        db.prepare("UPDATE friend_requests SET status = 'accepted' WHERE from_id = ? AND to_id = ?").run(target.id, u.id);
+        db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?,?)').run(u.id, target.id);
+        db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?,?)').run(target.id, u.id);
+        return json(res, 200, { ok: true, accepted: true, nick: target.nick });
+      }
+      db.prepare("INSERT INTO friend_requests (from_id,to_id,status) VALUES (?,?,'pending') ON CONFLICT(from_id,to_id) DO UPDATE SET status='pending', created_at=datetime('now')").run(u.id, target.id);
+      return json(res, 200, { ok: true, requested: true, nick: target.nick });
+    }
+    if (p.startsWith('/api/friends/requests/') && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const from = Number(p.split('/')[4]);
+      const b = await readBody(req);
+      const row = db.prepare("SELECT * FROM friend_requests WHERE from_id = ? AND to_id = ? AND status = 'pending'").get(from, u.id);
+      if (!row) return json(res, 404, { error: 'Request not found' });
+      if (b.action === 'accept') {
+        db.prepare("UPDATE friend_requests SET status = 'accepted' WHERE from_id = ? AND to_id = ?").run(from, u.id);
+        db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?,?)').run(u.id, from);
+        db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?,?)').run(from, u.id);
+        return json(res, 200, { ok: true });
+      }
+      db.prepare("UPDATE friend_requests SET status = 'declined' WHERE from_id = ? AND to_id = ?").run(from, u.id);
+      return json(res, 200, { ok: true });
     }
     if (p.startsWith('/api/friends/') && req.method === 'DELETE') {
       const u = requireUser(req, res); if (!u) return;

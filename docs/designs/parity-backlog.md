@@ -69,6 +69,12 @@ not a source to copy blindly.
   - click a seat to see public avatar, VIP, country, hands/wins/biggest pot and presence;
   - add friend or open a direct message from the profile;
   - self hides friend/message and links to My Page.
+- Friend requests:
+  - request instead of instant follow;
+  - incoming Accept/Decline panel;
+  - outgoing pending state;
+  - reciprocal request auto-accepts;
+  - table-profile Add friend shows Requested.
 - Direct messages between local accounts:
   - global unread polling and title-bar badge;
   - inbox threads with unread counts;

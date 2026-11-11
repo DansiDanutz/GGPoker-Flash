@@ -886,7 +886,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                     {playerProfile.user.id === user?.id ? (
                       <button className="btn btn-ghost btn-sm" onClick={() => { setNoteTarget(null); navigate('/my-page'); }}>My Page</button>
                     ) : (<>
-                      <button className="btn btn-ghost btn-sm" disabled={friendAdded || playerProfile.friend} onClick={async () => { await api.addFriend(playerProfile.user.nick); setFriendAdded(true); toast({ kind: 'success', title: 'Friend added', body: playerProfile.user.nick }); }}>{playerProfile.friend || friendAdded ? 'Friend' : 'Add friend'}</button>
+                      <button className="btn btn-ghost btn-sm" disabled={friendAdded || playerProfile.friend || playerProfile.pending} onClick={async () => { await api.addFriend(playerProfile.user.nick); setFriendAdded(true); toast({ kind: 'success', title: 'Friend request sent', body: playerProfile.user.nick }); }}>{playerProfile.friend ? 'Friend' : (playerProfile.pending || friendAdded) ? 'Requested' : 'Add friend'}</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => { setNoteTarget(null); navigate(`/my-page?dm=${playerProfile.user.id}`); }}>Message</button>
                     </>)}
                   </div>

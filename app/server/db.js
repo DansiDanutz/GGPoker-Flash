@@ -205,6 +205,13 @@ function init() {
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     reviewed_at TEXT
   );
+  CREATE TABLE IF NOT EXISTS friend_requests (
+    from_id INTEGER NOT NULL,
+    to_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (from_id, to_id)
+  );
   CREATE TABLE IF NOT EXISTS friends (
     user_id INTEGER NOT NULL,
     friend_id INTEGER NOT NULL,
