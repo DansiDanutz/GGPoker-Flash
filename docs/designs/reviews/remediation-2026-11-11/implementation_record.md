@@ -38,11 +38,11 @@
 *   Electron main waits for the `LISTENING` line, shows a blocking error and
     quits on failure, and skips the handshake when `GGPOKER_DEV=1`.
 *   Tests: `ledger-session.test.js` (5), `claims.test.js` (3), `http.test.js` (3),
-    `engine.test.js` places 2/3 and spin bust, plus the existing = **35 passing**.
+    `engine.test.js` places 2/3 and spin bust, plus the existing = **38 passing**.
 
 ## Verification
 
-*   `cd app && pnpm test` → 35 passed.
+*   `cd app && pnpm test` → 38 passed.
 *   `pnpm build` → success.
 *   Packaged and relaunched `DanGG.ro.app`; `/api/lobby` → 200.
 *   Production DB migrated: `transactions.session_id`, `transactions.reference`,
@@ -73,6 +73,15 @@
     database lifetime.
 *   `docs/designs/dangro-clone.md` updated for sessions, claims, port handshake,
     sandbox/CSP, synthetic lobby and the 24-test suite.
+
+*   **Rush & Cash:** a fold queues a cross-table move at hand end; the stack is
+    cashed out, re-bought at another rush table and the client navigates there.
+*   **Spin & Gold:** 6-max tables; next-hand insurance charges 5% of the minimum
+    buy-in and pays 50% if the stack busts.
+*   **Run it twice:** heads-up all-in showdowns deal two boards and split the
+    pot.
+*   **Card squeeze:** the hero's hole cards animate on each new hand.
+*   **MTT:** late-registration cutoff, three satellite rungs and a payout table.
 
 ## Review
 

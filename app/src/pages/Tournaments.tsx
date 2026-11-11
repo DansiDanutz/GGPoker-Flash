@@ -213,7 +213,7 @@ export function Tournaments() {
                     <div className="kv"><span>Entrants</span><b>{detail.entrants.toLocaleString()}</b></div>
                     <div className="kv"><span>Game</span><b>{detail.format}</b></div>
                     <div className="kv"><span>Start</span><b>{new Date(detail.start_at).toLocaleString('en-GB')}</b></div>
-                    <div className="kv"><span>Late registration</span><b>Until level 12</b></div>
+                    <div className="kv"><span>Late registration</span><b>{new Date(new Date(detail.start_at).getTime() + (detail.late_reg || 0) * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b></div>
                     {detail.mode && detail.mode !== 'STANDARD' && <div className="kv"><span>Format</span><b>{detail.mode}</b></div>}
                     {detail.mode === 'BOUNTY' && <div className="kv"><span>Bounty</span><b className="gold">{money(detail.bounty || 0)}</b></div>}
                     {detail.mode === 'MYSTERY' && <div className="kv"><span>Mystery bounty</span><b className="gold">up to {money((detail.bounty || 0) * 10)}</b></div>}

@@ -94,6 +94,7 @@ function init() {
     entrants INTEGER NOT NULL DEFAULT 0,
     starting_stack INTEGER NOT NULL DEFAULT 10000,
     blind_speed INTEGER NOT NULL DEFAULT 8,
+    late_reg INTEGER NOT NULL DEFAULT 90,
     format TEXT DEFAULT 'NLH',
     mode TEXT DEFAULT 'STANDARD',
     bounty INTEGER DEFAULT 0,
@@ -209,6 +210,7 @@ function init() {
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE tournaments ADD COLUMN mode TEXT DEFAULT 'STANDARD'"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tournaments ADD COLUMN bounty INTEGER DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tournaments ADD COLUMN late_reg INTEGER DEFAULT 90'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE tournaments ADD COLUMN ticket TEXT DEFAULT ''"); } catch { /* already exists */ }
   db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND (mode IS NULL OR mode='STANDARD')");
   db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND (mode IS NULL OR mode='STANDARD')");
@@ -271,9 +273,15 @@ function ensureSeries() {
       tins.run(id, name, buyin, fee, gtd * 100, new Date(Date.now() + hours * 3600_000).toISOString(), 300 + (gtd % 400), fmt);
     }
   }
-  if (!db.prepare("SELECT 1 FROM tournaments WHERE id = 'sat-sunday'").get()) {
-    tins.run('sat-sunday', '$1 Step to Sunday Major', 1000, 100, 0, new Date(Date.now() + 8 * 3600_000).toISOString(), 240, 'NLH');
-    db.prepare("UPDATE tournaments SET mode='SATELLITE', ticket='Sunday Major $250K' WHERE id='sat-sunday'").run();
+  for (const [id, name, buyin, hours] of [
+    ['sat-sunday', '$1 Step to Sunday Major', 1000, 8],
+    ['sat-mid', '$5 Step to Sunday Major', 5000, 6],
+    ['sat-high', '$25 Step to Sunday Major', 25000, 4],
+  ]) {
+    if (!db.prepare('SELECT 1 FROM tournaments WHERE id = ?').get(id)) {
+      tins.run(id, name, buyin, Math.round(buyin * 0.1), 0, new Date(Date.now() + hours * 3600_000).toISOString(), 120, 'NLH');
+      db.prepare("UPDATE tournaments SET mode='SATELLITE', ticket='Sunday Major $250K' WHERE id=?").run(id);
+    }
   }
   db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND mode='STANDARD'");
   db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND mode='STANDARD'");

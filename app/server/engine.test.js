@@ -257,3 +257,43 @@ test('straddle posts a third blind and opens action after it', () => {
   assert.equal(straddler.totalBet, 200);
   assert.ok(t.actor);
 });
+
+
+test('run it twice deals two boards and splits the pot', () => {
+  const p1 = player(1, 'A', 1000, 500, ['As', 'Ks'].map(C));
+  const p2 = player(2, 'B', 1000, 500, ['2d', '7c'].map(C));
+  const t = tableWith([p1, p2], { seats: 2 });
+  t.pot = 1000;
+  t.deck = makeDeck(false);
+  t.runItTwice = true;
+  t.runoutTwice();
+  assert.equal(t.result.boards.length, 2);
+  assert.equal(t.result.boards[0].length, 5);
+  assert.equal(t.result.boards[1].length, 5);
+  const paid = t.result.winners.reduce((a, w) => a + w.amount, 0);
+  assert.equal(paid, 950);
+});
+
+
+test('Spin insurance charges a premium and arms a payout', () => {
+  const p1 = player(1, 'A', 15000, 0, []);
+  const p2 = player(2, 'B', 15000, 0, []);
+  const t = tableWith([p1, p2], { seats: 2, game: 'spingold', min_buyin: 15000 });
+  t.street = 'idle';
+  assert.equal(t.setInsurance(1, true).ok, true);
+  assert.equal(p1.stack, 14250);
+  assert.equal(p1.insurance, true);
+});
+
+test('a Rush fold queues a cross-table move', () => {
+  const p1 = player(1, 'A', 10000, 0, []);
+  const p2 = player(2, 'B', 10000, 0, []);
+  const t = tableWith([p1, p2], { seats: 2, game: 'rush' });
+  t.street = 'idle';
+  t.handNo = 0;
+  t.startHand();
+  const actor = t.actor;
+  t.act(actor, 'fold');
+  const folded = [p1, p2].find((p) => p.folded);
+  assert.equal(folded.rushQueued, true);
+});

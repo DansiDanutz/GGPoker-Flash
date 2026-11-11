@@ -277,6 +277,7 @@ function getLiveTable(id) {
     },
     onHandComplete: ({ table, winner }) => {
       // mission progress for humans
+      moveRushPlayers(table);
       for (const s of table.seats) {
         if (!s.player || s.player.isBot) continue;
         bumpMission(s.player.id, 'daily-hands');
@@ -305,6 +306,37 @@ function getLiveTable(id) {
   }, 260);
   LIVE_TABLES.set(id, entry);
   return table;
+}
+
+function moveRushPlayers(table) {
+  if (!table.rush) return;
+  const queued = table.humans().filter((p) => table.seatOf(p.id)?.player?.rushQueued);
+  for (const p of queued) {
+    const seat = table.seatOf(p.id);
+    const stack = seat?.player?.stack || 0;
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(p.id);
+    if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; continue; }
+    const rows = db.prepare("SELECT id FROM tables WHERE game = 'rush' AND enabled = 1 AND bb = ?").all(table.bb);
+    let target = null;
+    for (const row of rows) {
+      if (row.id === table.cfg.id) continue;
+      const candidate = getLiveTable(row.id);
+      if (candidate && candidate.occupiedSeats().length < candidate.cfg.seats) { target = candidate; break; }
+    }
+    if (!target) { seat.player.rushQueued = false; continue; }
+    cashOutSeat(table, p.id, 'Rush transfer');
+    const res = seatHuman(target, user, Math.min(stack, target.cfg.max_buyin), null);
+    if (!res.ok) { seat.player && (seat.player.rushQueued = false); continue; }
+    const entry = LIVE_TABLES.get(table.cfg.id);
+    if (entry) {
+      for (const client of entry.clients) {
+        if (client.userId === p.id && client.readyState === 1) {
+          client.send(JSON.stringify({ type: 'rush_move', tableId: target.cfg.id, stack: Math.min(stack, target.cfg.max_buyin) }));
+        }
+      }
+    }
+    broadcastState(target);
+  }
 }
 
 function broadcastTable(table, evt) {
@@ -479,6 +511,10 @@ const server = http.createServer(async (req, res) => {
       if (!t) return json(res, 404, { error: 'not found' });
       const already = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       if (already) return json(res, 400, { error: 'Already registered' });
+      const startAt = Date.parse(t.start_at);
+      if (Number.isFinite(startAt) && Date.now() > startAt + (Number(t.late_reg) || 0) * 60000) {
+        return json(res, 400, { error: 'Late registration closed' });
+      }
       const total = t.buyin + t.fee;
       if (u.balance < total) return json(res, 400, { error: 'Insufficient balance' });
       addTransaction(u.id, 'tourney_buyin', -total, `Registration ${t.name}`);
@@ -1460,6 +1496,14 @@ wss.on('connection', (ws, req) => {
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
       if (msg.autoMuck != null) entry.table.setAutoMuck(ws.userId, !!msg.autoMuck);
+      if (msg.insurance != null) {
+        const res = entry.table.setInsurance(ws.userId, !!msg.insurance);
+        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      }
+      if (msg.runItTwice != null) {
+        const res = entry.table.setRunItTwice(!!msg.runItTwice);
+        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      }
       broadcastState(entry.table);
       return;
     }

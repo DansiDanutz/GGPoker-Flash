@@ -32,12 +32,12 @@
 | Short Deck | Present. |
 | All-in or Fold | **Implemented**: each player chooses all-in or fold, with no postflop betting. |
 | Rush & Cash | Present as a fast table; not a true fast-fold pool. |
-| Spin & Gold | Present; 3-max and **6-max** tables, multipliers, prizes. Insurance is not implemented. |
+| Spin & Gold | Present; 3-max and **6-max** tables, multipliers, prizes, and a next-hand insurance purchase. |
 | Mystery Battle Royale | Present as a tournament-style table; stage/mystery-bounty mechanics are not implemented. |
 | Flip & Go | **Implemented**: the first hand is all-in, survivors continue normally. |
 | Bounty Hunters / Mystery Bounty | **Implemented**: fixed and mystery bounty tiers, credited to the eliminator and shown in the table feed. |
 | Satellites / tickets | **Implemented**: a satellite tournament awards a ticket to its target event. |
-| Tournament late registration, payout table, series filters | Partial; clone MTT list is simpler. |
+| Tournament late registration, payout table, series filters | Late registration cutoff, satellite ladder and payout table exist; series/buy-in filters are representative. |
 | Lobby table preview, last jackpot, winner stats, pro column | **Implemented**: preview, last jackpot, recent winners and a PRO badge on Rush tables. |
 | Table features | Chat, time bank, rabbit and hotkeys exist; run-it-twice, insurance, straddle, auto-muck and card squeeze are not confirmed/implemented. |
 
@@ -45,8 +45,8 @@
 
 1.  **PLO5/PLO6 correctness** — done.
 2.  **Tournament formats** — Flip & Go, Bounty Hunters, Mystery Bounty, satellites — done.
-3.  **Game loops** — true All-in or Fold and Spin & Gold 6-max — done. True Rush fast-fold and Spin insurance remain.
-4.  **Table features** — straddle and auto-muck done. Run-it-twice, insurance and card squeeze remain.
+3.  **Game loops** — true All-in or Fold, Spin & Gold 6-max, Spin insurance and Rush cross-table move — done.
+4.  **Table features** — straddle, auto-muck, heads-up run-it-twice and card squeeze — done.
 5.  **Lobby parity** — Table View preview, last jackpot, winners and PRO badge done. Full MTT series/payout filters remain partial.
 
 The official client was not joined for a hand: the account had insufficient balance

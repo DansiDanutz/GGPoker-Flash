@@ -57,6 +57,7 @@ export class PokerTable {
     this.showdownDelay = 5000;
     this.botSpeed = Number(cfg.botSpeed || 900);
     this.aof = cfg.game === 'aof';
+    this.rush = cfg.game === 'rush';
     this.straddle = !!cfg.straddle;
     this.spin = cfg.game === 'spingold';
     this.spinMultiplier = null;
@@ -128,6 +129,7 @@ export class PokerTable {
       handsPlayed: 0,
       won: 0,
       autoMuck: false,
+      insurance: false,
       sessionId,
     };
     this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
@@ -240,6 +242,7 @@ export class PokerTable {
     this.lastAggressor = null;
     this.result = null;
     this.showdown = false;
+    this.boards = [];
     this.street = 'preflop';
     this.streetStartedAt = Date.now();
     this.history = [];
@@ -391,6 +394,29 @@ export class PokerTable {
     return { ok: true };
   }
 
+  setInsurance(userId, value) {
+    if (!this.spin) return { ok: false, error: 'insurance is Spin & Gold only' };
+    if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };
+    const seat = this.seatOf(userId);
+    if (!seat?.player) return { ok: false, error: 'not seated' };
+    const p = seat.player;
+    if (value && !p.insurance) {
+      const premium = Math.round(this.cfg.min_buyin * 0.05);
+      if (p.stack <= premium) return { ok: false, error: 'not enough stack for insurance' };
+      p.stack -= premium;
+      p.insurance = true;
+      p.insurancePremium = premium;
+      this.emit({ type: 'insurance_bought', seat: seat.index, premium });
+    }
+    return { ok: true };
+  }
+
+  setRunItTwice(value) {
+    if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };
+    this.runItTwice = !!value;
+    return { ok: true };
+  }
+
   setStraddle(value) {
     if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };
     this.straddle = !!value;
@@ -468,6 +494,7 @@ export class PokerTable {
     if (action === 'fold') {
       p.folded = true;
       p.lastAction = { action: 'Fold', amount: 0 };
+      if (this.rush && !p.isBot) p.rushQueued = true;
       this.log.push({ nick: p.nick, action: 'fold', street: this.street });
       this.emit({ type: 'action', seat: seat.index, playerId, action: 'fold' });
     } else if (action === 'check') {
@@ -566,6 +593,10 @@ export class PokerTable {
   }
 
   runout() {
+    if (this.runItTwice && this.activePlayers().filter((s) => !s.player.folded).length === 2) {
+      this.runoutTwice();
+      return;
+    }
     this.street = 'showdown';
     this.actor = null;
     while (this.board.length < 5) {
@@ -577,6 +608,58 @@ export class PokerTable {
     this.showdownDelay = 4200;
     this.nextHandAt = Date.now() + this.showdownDelay;
     this.doShowdown();
+  }
+
+  runoutTwice() {
+    this.street = 'showdown';
+    this.actor = null;
+    this.collectBets();
+    const alive = this.activePlayers().filter((s) => !s.player.folded);
+    const board1 = [];
+    const board2 = [];
+    while (board1.length < 5) board1.push(this.deck.pop());
+    while (board2.length < 5) board2.push(this.deck.pop());
+    const evaluate = (board) => alive.map((s) => {
+      const best = this.omaha ? bestOmaha(s.player.cards, board) : bestHoldem(s.player.cards, board);
+      return { seat: s.index, player: s.player, score: best.score, name: best.name, cards: best.cards };
+    });
+    const scored = [evaluate(board1), evaluate(board2)];
+    const pot = this.pot;
+    const rake = this.computeRake(pot);
+    this.rake = rake;
+    const prize = pot - rake;
+    const results = [];
+    const awardBoard = (sc, amount) => {
+      let best = null;
+      for (const x of sc) if (!best || compareScores(x.score, best.score) > 0) best = x;
+      const winners = sc.filter((x) => compareScores(x.score, best.score) === 0);
+      const share = Math.floor(amount / winners.length);
+      let remainder = amount - share * winners.length;
+      for (const w of winners) {
+        let amt = share;
+        if (remainder > 0) { amt++; remainder--; }
+        w.player.stack += amt;
+        w.player.winAmount += amt;
+        const prior = results.find((r) => r.id === w.player.id);
+        if (prior) prior.amount += amt;
+        else results.push({ id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt, hand: w.name, cards: w.cards.map(cardStr), pot });
+      }
+    };
+    awardBoard(scored[0], Math.floor(prize / 2));
+    awardBoard(scored[1], prize - Math.floor(prize / 2));
+    this.board = board1;
+    this.boards = [board1, board2];
+    const summary = {
+      pot, rake, board: board1.map(cardStr), boards: [board1.map(cardStr), board2.map(cardStr)],
+      winners: results, runItTwice: true, reason: 'showdown',
+      hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
+    };
+    this.result = summary;
+    this.street = 'ended';
+    this.nextHandAt = Date.now() + this.showdownDelay;
+    this.emit({ type: 'win', ...summary });
+    this.saveHand(summary);
+    this.updateMissionProgress(results[0]);
   }
 
   collectBets() {
@@ -637,6 +720,7 @@ export class PokerTable {
       board: this.board.map(cardStr),
       reason: 'fold',
     };
+    for (const s of this.seats) if (s.player) s.player.insurance = false;
     this.result = summary;
     this.street = 'ended';
     this.actor = null;
@@ -952,6 +1036,8 @@ export class PokerTable {
       canStart: this.street === 'idle',
       spin: this.spin ? { multiplier: this.spinMultiplier, prize: this.spinPrize, winner: this.spinWinner } : null,
       straddle: this.straddle,
+      runItTwice: this.runItTwice,
+      boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
       tournament: this.tournament ? { name: this.cfg.name, prizePool: this.tournament.prizePool, level: this.tournament.level || 1, mode: this.tournament.mode || 'STANDARD', bounty: this.tournament.bounty || 0, ticket: this.tournament.ticket || '', winner: this.tournament.winner || null } : null,
     };
   }

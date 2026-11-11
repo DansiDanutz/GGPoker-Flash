@@ -23,6 +23,8 @@ type TableState = {
   spin?: { multiplier: number; prize: number; winner: any } | null;
   tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string } | null;
   straddle?: boolean;
+  runItTwice?: boolean;
+  boards?: string[][] | null;
 };
 
 const POS6 = [[50, 80], [12, 71], [16, 32], [50, 17], [84, 32], [88, 71]];
@@ -64,6 +66,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [noteColor, setNoteColor] = useState('yellow');
   const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
   const [autoMuck, setAutoMuck] = useState(() => localStorage.getItem('ggpoker.automuck') === '1');
+  const [squeeze, setSqueeze] = useState(false);
   const autoRebuyPending = useRef(false);
   const spinSeen = useRef(false);
   const [now, setNow] = useState(Date.now());
@@ -128,6 +131,9 @@ export function TablePage({ tableId }: { tableId: string }) {
         setWaitlistPos(msg.position || 1);
         setObserving(true);
         toast({ kind: 'info', title: 'Waitlist', body: `You are #${msg.position || 1} in line. We will hold the next seat for you.` });
+      } else if (msg.type === 'rush_move') {
+        toast({ kind: 'info', title: 'Rush & Cash', body: 'New table, same stack.' });
+        navigate(`/table/${msg.tableId}?buyin=${msg.stack || 0}`);
       } else if (msg.type === 'event') {
         const e = msg.event;
         if (tableEpoch.current && e.tableEpoch && e.tableEpoch !== tableEpoch.current) { ws.close(); return; }
@@ -230,6 +236,10 @@ export function TablePage({ tableId }: { tableId: string }) {
         window.setTimeout(() => setWinFx(null), 2600);
       }
       if (Array.isArray(evt.cards)) sound.play('show', { volume: .5 });
+    } else if (evt.type === 'insurance_bought') {
+      toast({ kind: 'info', title: 'Insurance bought', body: `Premium ${money(evt.premium)} for the next hand` });
+    } else if (evt.type === 'insurance_paid') {
+      toast({ kind: 'reward', title: 'Insurance paid', body: money(evt.amount) });
     } else if (evt.type === 'bounty') {
       toast({ kind: 'reward', title: evt.mystery ? 'Mystery bounty' : 'Bounty', body: `${evt.winnerNick} wins ${money(evt.amount)} (${evt.bustedNick})` });
       sound.play('coin');
@@ -382,6 +392,13 @@ export function TablePage({ tableId }: { tableId: string }) {
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
 
   useEffect(() => {
+    if (!state?.handNo) return;
+    setSqueeze(true);
+    const id = window.setTimeout(() => setSqueeze(false), 700);
+    return () => window.clearTimeout(id);
+  }, [state?.handNo]);
+
+  useEffect(() => {
     if (!autoRebuy || !me || !state || observing) return;
     if (state.tournament || state.spin) return;
     if (me.inHand) { autoRebuyPending.current = false; return; }
@@ -462,6 +479,8 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
           <button onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Straddle</button>
           <button onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
+          <button onClick={() => send({ type: 'option', tableId, runItTwice: !state?.runItTwice })}>{state?.runItTwice ? '✓ ' : ''}Run it twice</button>
+          {state?.spin && <button onClick={() => send({ type: 'option', tableId, insurance: true })}>Buy Spin insurance (5%)</button>}
           <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
           <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
           <button onClick={() => navigate('/hand-history')}>Hand history</button>
@@ -478,6 +497,11 @@ export function TablePage({ tableId }: { tableId: string }) {
         {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
         <div className="board">
           {(state?.board || []).map((c, i) => <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt style={{ '--dx': '0px', '--dy': '34px', animationDelay: `${i * 0.08}s` } as React.CSSProperties} />)}
+          {state?.boards && state.boards.length > 1 && (
+            <div className="board second-board">
+              {state.boards[1].map((c, i) => <PlayingCard key={`second-${state?.handNo}-${i}-${c}`} card={c} size="mini" />)}
+            </div>
+          )}
           {state && state.board.length === 0 && state.street !== 'idle' && (
             <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 12, letterSpacing: 2 }}>PRE-FLOP</div>
           )}
@@ -518,7 +542,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         return (
           <div
             key={p.seat}
-            className={'seat' + (p.isMe ? ' me' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
+            className={'seat' + (p.isMe ? ' me' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
             style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default' }}
             onClick={() => { if (p.nick) openNote(p); }}
             title={p.nick ? 'Player note' : ''}
