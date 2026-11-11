@@ -1,330 +1,349 @@
-# DanGG.ro Remediation — Post-Review Fixes
+# DanGG.ro Remediation — Bounded Ratchets
 
 *   **Author:** Dan Semenescu
 *   **Status:** Proposed
 *   **Date:** 2026-11-11
-*   **Predecessor context:** `docs/designs/dangro-clone.md`, `docs/designs/reviews/full-2026-11-11/` and the earlier EGM review reports.
+*   **Supersedes:** the first remediation draft and its review.
+*   **Design of record:** [dangro-clone.md](dangro-clone.md)
 
 --------------------------------------------------------------------------------
 
-## Overview
+## Context for a fresh reader
 
-The local GGPoker clone is built, packaged and running. The EGM review found that
-its design-of-record claims more than the code enforces: one admin path bypassed
-the ledger, blackjack settled from a client-supplied amount, a crash strands
-buy-ins, the WebSocket protocol has no state version, and several rules are
-stated as invariants without a mechanism.
+The local GGPoker clone is built, packaged and running. The design-of-record
+claims more than the code enforces. Two defects are already fixed:
 
-Two of the money defects are already fixed in the working tree:
+*   admin balance `set` now writes a delta through `addTransaction`;
+*   blackjack is server-authoritative and the old `settle` action is rejected.
 
-*   `POST /api/admin/users/:id` with `action: "set"` now writes a signed delta
-    through `addTransaction`.
-*   Blackjack is server-authoritative: the server holds the shoe and hand,
-    `hit`/`stand` settle on the server, and the old `settle` action is rejected.
+This document decides the remaining work. It is a **remediation**, not a new
+feature. The rule for including work is: either the code contradicts the
+design-of-record (a defect), or we choose to raise a bound the record already
+accepts (a ratchet). Everything else is out.
 
-This draft covers the remaining fixes. It is a remediation design, not a new
-feature. The goal is to make the design-of-record true, keep the app running,
-and leave a small set of changes that a reviewer can verify.
+The first draft failed because it added two tables, a nonce handshake, a
+WebSocket version protocol, a disconnect state machine, a security programme
+and two modules to fix a local single-user play-money app. This version keeps
+four ratchets and one defect, adds one table, and records the bounds we accept
+instead of building around them.
 
 ## The Problem
 
-The review produced eight concrete defects and three structural gaps:
+The review found eight items. Classified honestly:
 
-1.  A server crash drops live seats while the buy-in stays in the ledger.
-2.  Cashier movements are not replay-protected; a retried request is a second
-    movement.
-3.  A foreign process on port 5198 can answer `/api/lobby` and receive the
-    renderer's bearer token.
-4.  WebSocket snapshots have no version, no resync and no disconnect policy.
-5.  The local threat model is unstated; loopback is treated as a boundary.
-6.  Bots and Spin/battleroyale prizes mint chips without a recorded rule; bots
-    use `Math.random` and cannot be seeded for tests.
-7.  Casino, prop bets, GG Care and leaderboard payouts move balances without
-    per-subsystem invariant rows.
-8.  The router still contains casino/reward domain logic, and several small
-    maintenance defects remain (synthetic lobby counts, `money()` violations,
-    missing `resetpw` audit, dead rake fallback, stale blackjack balance).
+**Defects (code contradicts the record):**
 
-The code stops short of a production-grade money system. The design should
-either fix these or state the accepted risk and bound.
+*   **D1 — Missions are global.** `missions.progress` and `missions.claimed` are
+    shared rows. One account claims a mission and every other account is locked
+    out.
+*   **D2 — Admin `set` bypassed the ledger.** Fixed.
+*   **D3 — Blackjack trusted the client.** Fixed.
+*   **D4 — Current-state text is false.** The record says "no disconnect policy",
+    but a socket close stands and cashes out; events already carry `seq`; bot
+    winnings do reach the ledger at cash-out.
+
+**Ratchets (the record accepted the bound; we choose to raise it):**
+
+*   **R1 — A crash strands a cash buy-in.** The record accepts "one buy-in per
+    seated player per crash".
+*   **R2 — Cashier movements are not replay-protected.** The record accepts a
+    double-click duplicating one movement.
+*   **R3 — A foreign process can occupy port 5198.** The record relies on the
+    single-instance lock only.
+*   **R4 — Bots and Spin mint chips.** The record accepts play-money inflation.
 
 ## Goals
 
-**Must fix before the app is called production-ready:**
+**Release-blocking:**
 
-*   **G1 — Crash-safe cash seats.** A server restart must refund or restore
-    every open buy-in, with a ledger row and a test.
-*   **G2 — Replay-safe cashier.** Deposits, withdrawals and admin credits accept
-    an idempotency key and apply at most once.
-*   **G3 — Port ownership.** The app rejects a foreign listener on 5198 and
-    proves it is talking to its own child server.
-*   **G4 — Recoverable table protocol.** Snapshots carry a monotonic version;
-    reconnect resumes or resyncs; disconnect/timeout rules are explicit.
-*   **G5 — Local threat model.** Origin/Host checks, a token path that is not a
-    query string, login throttling, and a deliberate `sandbox` decision.
-*   **G6 — Testable randomness.** Bots and Spin use an injectable RNG; seeded
-    tests cover conservation with synthetic actors.
+*   **G1 — Crash refunds the total chips put into a seat.** A restart refunds
+    `chips_in` (buy-in plus rebuys) for every open seat, exactly once, through
+    the ledger.
+*   **G2 — Missions are per-user.** Progress and claims are scoped to
+    `(user_id, mission)`; one account cannot lock out another.
+*   **G3 — Port ownership.** The parent loads the window only after its own child
+    reports the listening port; a foreign listener or a failed child produces a
+    blocking error.
+*   **G4 — The fixes are testable.** The server can bind an ephemeral port and
+    report it, so ledger, claim and port tests can run against a temp database.
 
-**Fix when touching the area, not release-blocking:**
+**Follow-up, not release-blocking:**
 
-*   **G7 — Balance-mover coverage.** One invariant and one test row per
-    balance-moving subsystem.
-*   **G8 — Maintainability.** Project lobby occupancy from live tables; add
-    `claimPeriod`; split casino/reward math out of the router; remove dead rake
-    fallback; fix audit and formatting gaps.
+*   **G5 — Maintenance.** Lobby labels synthetic values, rake fallback removal,
+    `resetpw` audit, display-only `money()` cleanup, fresh blackjack balance,
+    and the design-of-record update.
 
 ## Non-Goals
 
-*   Real-money compliance, KYC against a real authority, or payment processing.
-*   Live-dealer video.
-*   A full Stage3D renderer.
-*   Replacing SQLite or the single-process server.
-*   A complete UI rewrite; the existing React surfaces stay.
+*   Cashier replay protection. Accepted bound: a double-click can duplicate one
+    movement; the ledger still makes it attributable.
+*   A new sandbox/Origin/throttling programme. Accepted bound: this is a
+    loopback, single-user play-money app; any local process can read the token
+    and the database.
+*   A WebSocket version/resync protocol. Full snapshots on `join_table` already
+    replace state; the socket is ordered.
+*   A disconnect grace window. The current stand-and-cash-out on socket close
+    stays; no chips are left outside the ledger.
+*   A new session table, nonce, idempotency table, or `casino.js`/`rewards.js`
+    split.
+*   Real-money compliance, live dealer, Stage3D, or multi-machine play.
 
---------------------------------------------------------------------------------
+## Decisions
+
+| ID | Decision | Reason |
+|---|---|---|
+| D1 | Session identity lives in `transactions`, not a new table. | The ledger is already the source of truth for money; a second lifecycle table would drift. |
+| D2 | Crash refunds `chips_in` (buy-in + rebuys). Losses are forgiven; winnings above `chips_in` are not paid. | It makes the player whole on money they put in, without needing stack snapshots. Bound: one stack of winnings can be lost on a crash. |
+| D3 | Cashier replay is accepted, not fixed. | No retry path; a double-click is the only trigger. The ledger still records the movement. |
+| D4 | One new table: `player_claims`. Daily, GG Care, Honeymoon and missions move to it; `daily_claims` is migrated and retired. | One table covers every claim and fixes the global-mission defect. |
+| D5 | The lobby keeps synthetic estimates, flagged in the API as `synthetic: true`; `running` and live seats are real. | Projecting from `LIVE_TABLES` would show 0 for 100 seeded tables. |
+| D6 | Bots and Spin mint play money. Bound: bots mint at most `bots × max_buyin` per table; Spin prizes are capped by the table multiplier. | Removing bots empties the tables; the inflation is part of the demo. |
+| D7 | No disconnect grace window and no protocol version. | The current close path cashes out; a version cursor resets on table recreation and adds a failure mode. |
+| D8 | Port ownership uses the child's stdout and exit code, not a nonce or `/api/health`. | The parent already owns the pipe and the PID; a nonce over HTTP is readable by the same local process. |
+| D9 | `addTransaction` remains the only transaction owner. | Nested `BEGIN` throws; the sweep calls it per row and relies on a unique reference. |
 
 ## Technical Plan
 
-### A. Ledger and cashier integrity
+### A. Ledger session identity (G1)
 
-**Current state.** `addTransaction` is atomic (`BEGIN IMMEDIATE`/`COMMIT`). Admin
-`set` is fixed. `transactions` has no idempotency key and no table-session
-identifier.
+Add two columns to `transactions`:
 
-**Design.**
+*   `session_id TEXT` — a per-seat session, formatted `<tableId>:<uuid>`.
+*   `reference TEXT` — a per-movement idempotency key, unique per user:
+    `UNIQUE(user_id, reference)`.
 
-1.  Add `transactions.reference TEXT` with a unique index on
-    `(user_id, reference)` where `reference IS NOT NULL`.
-2.  Add `idempotency_keys(key TEXT PRIMARY KEY, user_id, kind, amount, currency,
-    created_at, response TEXT)`. Cashier and admin-credit handlers require
-    `Idempotency-Key`; the same key returns the stored response instead of
-    applying a second movement.
-3.  Add `table_sessions(id TEXT PRIMARY KEY, user_id, table_id, buyin, currency,
-    opened_at, closed_at, state)`. `buyin` opens a session; `cashout` closes it.
-    On server start, every `state = 'open'` session is refunded through
-    `addTransaction(..., 'buyin_refund', ...)` and marked `refunded`. Only one
-    open session per user is allowed.
-4.  Admin `set` already writes a delta; add a test that the `balance_after`
-    chain remains continuous after an admin set.
+`addTransaction` gains optional `sessionId` and `reference`. It stays the only
+owner of `BEGIN IMMEDIATE` / `COMMIT`.
 
-### B. Server lifecycle and port ownership
+Session lifecycle:
 
-**Current state.** `requestSingleInstanceLock()` exists. `main.cjs` polls
-`/api/lobby` and accepts any response; `index.js` has no `EADDRINUSE` handler.
+| Trigger | Ledger row | Reference |
+|---|---|---|
+| Seat buy-in | `buyin` (negative), `sessionId` | `in:<session>:1` |
+| Rebuy | `rebuy` (negative), `sessionId` | `in:<session>:<n>` |
+| Cash-out | `cashout` (positive), `sessionId` | `out:<session>` |
+| Failed seat | `refund` (positive), `sessionId` | `refund:<session>` |
+| Seat empties / quit at 0 | `session_close` (0), `sessionId` | `out:<session>` |
+| Startup sweep | `buyin_refund` (positive), `sessionId` | `refund:<session>` |
 
-**Design.**
+`seatHuman` generates the session id before the debit, writes the buy-in with
+it, and refunds with the same id if seating fails. The id is stored on the
+**seat player object** (`seat.player.sessionId`) and captured **before** `stand()` (which nulls
+`seat.player`, as `stack` already is); it is memory-only by design, with the
+ledger as persistence. The key is `(tableId, userId)` because one user can be
+seated at two cash tables. Rebuy uses the seat's session id. The three cash-out
+sites (`leave_table`, socket close, admin close) and the idle teardown — which
+must call the same close path before deleting the table — write the same
+`out:<session>` reference, including when the stack is 0.
 
-1.  Before spawn, probe 5198 with `net.connect`. If occupied, show a blocking
-    dialog and quit instead of starting.
-2.  Generate a per-launch `serverNonce`; pass it to the child as an env var and
-    expose `GET /api/health` returning `{ nonce, pid, dbPath }`. The main process
-    requires a matching nonce before `loadURL`.
-3.  If the child exits, show a blocking error with the data directory and log
-    path; do not load the renderer. No silent auto-restart.
-4.  Keep the single-instance lock; focus the existing window on a second launch.
+`openSessions()` on startup selects sessions with **no** `out:<session>` or
+`refund:<session>` reference (a marker, not an amount comparison), refunds the
+sum of `buyin` + `rebuy`, and writes `refund:<session>`. A session that ended
+down still gets the zero-amount `session_close` marker, so a loss is never
+refunded on the next launch.
 
-### C. Table protocol
+Duplicate handling: `addTransaction` takes `{ onDuplicate: 'skip' }` for
+`reference` conflicts. It predicts `balance_after = current + amount`, inserts
+the ledger row with `ON CONFLICT DO NOTHING`, and only applies the balance
+update when the insert changed a row. It returns `{ applied, balance }` so
+`claim()` and the cashier can answer "already applied" instead of a silent
+`ok`. A duplicate cash-out or refund is a no-op, not an exception. The sweep
+catches per-session errors, logs them, leaves the session open, and keeps the
+server running; it never aborts startup.
 
-**Current state.** `broadcastState` sends a snapshot with `handNo`, `street` and
-`now`; no version, no resume, no disconnect policy.
+Accepted bound: a player who was ahead at the crash loses winnings above
+`chips_in`; a player who was behind is refunded in full.
 
-**Design.**
+### B. Per-user claims (G2)
 
-1.  Add `stateVersion` (monotonic per table) to every snapshot and event.
-2.  Add `{type: "resync", tableId, sinceVersion}`. The server replies with a full
-    snapshot; the client replaces local state and ignores versions it has
-    already applied.
-3.  Disconnect policy: a disconnected seat gets a 30-second grace window, then
-    auto-folds/checks; after the hand, the seat is sat out and the stack stays
-    until cash-out. State this in the design and test it.
-4.  Reject actions that arrive after `actionEndsAt` and log the rejection.
+New table:
 
-### D. Local threat model
+```sql
+CREATE TABLE player_claims (
+  user_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,              -- daily | ggcare | honeymoon | mission
+  period_key TEXT NOT NULL,        -- date, care-date, honey-welcome, mission id
+  progress INTEGER NOT NULL DEFAULT 0,
+  claimed INTEGER NOT NULL DEFAULT 0,
+  amount INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, kind, period_key)
+);
+```
 
-**Current state.** Loopback-only, bearer tokens in `localStorage`, WS token in
-the query string, no Origin/Host check, `sandbox: false`.
+`claim(userId, kind, periodKey, amount, currency)` upserts the
+`player_claims` row, awards with `reference = claim:<kind>:<periodKey>` and
+`onDuplicate: 'skip'`, then marks the row `claimed = 1`; a crash between the
+award and the flag is repaired by the unique reference on retry, and a second
+claim is a no-op. Daily, GG Care,
+Honeymoon and missions call it. Mission progress is written by the existing
+`onHandComplete` hook: the per-seat loop writes `player_claims.progress` for the
+human seat. A second writer is tournament registration, which records the
+`daily-tourney` progress on the same per-user row. The missions list and the
+completion gate join `player_claims` for the requesting user and default to 0;
+no mission read touches the global `missions.progress`/`missions.claimed` flag.
+`daily_claims` is copied into `player_claims` once and retired.
 
-**Design.**
+### C. Port ownership (G3)
 
-1.  Validate `Origin` and `Host` on HTTP and the WS upgrade against
-    `http://127.0.0.1:5198` (and the dev origin when `GGPOKER_DEV=1`).
-2.  Pass the WS token through the `Sec-WebSocket-Protocol` value instead of the
-    query string; keep query support only for the dev harness.
-3.  Throttle login attempts per IP+login (e.g. 10 failures per 5 minutes).
-4.  Enable `sandbox: true` if the preload bridge still works; otherwise record
-    the exact Electron limitation and accept it in writing.
-5.  State that loopback is not a security boundary; the token is the boundary.
+1.  `index.js` listens on `PORT` (default 5198); after `listen` it prints
+    `LISTENING <port>` to stdout.
+2.  `main.cjs` starts the child, waits for the `LISTENING` line, and then loads
+    the window. It never polls HTTP to decide. When `GGPOKER_DEV=1`, the child
+    is the Vite dev server, so the handshake is skipped and the existing dev
+    URL is loaded directly.
+3.  If the child exits before the line, or the line never arrives within 15 s,
+    the parent shows a blocking dialog with the data directory and log, then
+    quits. No window is loaded.
+4.  Keep `requestSingleInstanceLock()`.
 
-### E. Testable randomness and bots
+### D. Testability (G4)
 
-**Current state.** `PokerTable` has no `cfg.rng`; `startHand` uses the crypto
-default; Spin and bot timing/decisions use `Math.random`.
+*   `PORT=0` is supported; the server prints the actual port.
+*   `node:test` spawns the server with `GGPOKER_DATA` set to a temp directory and
+    `PORT=0`, reads the port from stdout, and uses `fetch`/`ws`.
+*   New files: `app/server/ledger-session.test.js`,
+    `app/server/claims.test.js`, `app/server/http.test.js`.
+*   Tournament places 2/3 are tested through the existing `onTournamentPayout` hook
+    with a temp DB; manual/CDP rows are labelled manual.
 
-**Design.**
+### E. Maintenance (G5)
 
-1.  Add `cfg.rng` to `PokerTable`; pass it to `shuffle`, Spin multiplier and bot
-    decisions. Default remains `cryptoRng`.
-2.  Seeded tests create a table with a deterministic RNG, run N scripted hands,
-    and assert chip conservation and no negative stacks.
-3.  Document bots as synthetic liquidity: their stacks are minted, never enter
-    the ledger, and are accepted inflation. If that is not acceptable, the
-    alternative is to remove bots, which makes tables empty; the design chooses
-    to keep them and states the trade-off.
-
-### F. Balance-mover coverage
-
-Add one invariant and one test row for each of:
-
-*   Casino games (slot, roulette, blackjack, baccarat, dragon tiger, sic bo):
-    house edge is not required, but payouts must be server-computed and capped.
-*   Prop bets: settlement once per market, server-decided.
-*   GG Care, Honeymoon, daily and missions: one claim per period key, DB
-    `UNIQUE` constraint.
-*   Leaderboard/GG Pass: one payout per season/user.
-*   Welcome/deposit bonuses: one per account.
-
-### G. Maintainability fixes
-
-1.  Lobby `players`/`avgPot`/`vpip`/`handsPerHour` project from `LIVE_TABLES` and
-    `WAITLISTS`; synthetic columns are explicitly labelled cosmetic.
-2.  Add `claimPeriod(userId, kind, amount, periodKey)` beside `addTransaction`;
-    replace the six claim blocks.
-3.  Split casino outcome math into `app/server/casino.js` and reward claims into
-    `app/server/rewards.js` only after `claimPeriod` lands.
-4.  Replace hand-rolled `/ 100` in `Lobby.tsx` and `Rewards.tsx` with
-    `money()`/`chips()`.
-5.  Add `audit_log` for `resetpw`; remove the dead `3 × bb` rake fallback after
-    making `rake_cap` required.
-6.  Blackjack responses return the fresh balance from `addTransaction`, not the
-    pre-request snapshot.
-
-### H. Documentation
-
-1.  Add a decisions table with IDs; later sections reference rows instead of
-    restating rules.
-2.  Add `INV-*`/`SEC-*` IDs to invariants and map them to test names.
-3.  Update the design-of-record for the fixes above; keep the review reports as
-    the audit trail.
-
---------------------------------------------------------------------------------
+*   Lobby response includes `synthetic: true` on the estimated columns; the
+    Lobby renders a small "estimated" label on those cells. `running` and live
+    seats remain authoritative.
+*   Remove the `3 × bb` fallback; `getSetting('rake_cap', 300)` is the enforced
+    default, and the test uses `rakeCap: 300`.
+*   Audit `resetpw`.
+*   Replace display-only `/ 100` with `money()`/`chips()` in `Lobby.tsx` and
+    `Rewards.tsx`; leave percentage and arithmetic lines alone.
+*   Blackjack returns the balance from the settlement call.
+*   Update the design-of-record for the items above.
 
 ## Alternatives Considered
 
-### Alternative A: leave the clone as a finished local demo
-
-*   **Pros:** no risk to a working app; the review's findings are documented.
-*   **Cons:** the design-of-record remains false on crash recovery, cashier
-    replay and the local threat model; a future change cannot trust it.
-*   **Rejected by author:** the app is used as a local product and the money
-    invariants should be true, not aspirational.
-
-### Alternative B: full rewrite around an event-sourced ledger
-
-*   **Pros:** clean audit, replay, crash recovery by construction.
-*   **Cons:** large migration, new persistence model, high risk for a single-user
-    local app; the current append-only `transactions` table already provides most
-    of the audit value.
-*   **Rejected by author:** over-scoped for the remaining defects.
-
-### Alternative C: keep the single process, add bounded fixes
-
-*   **Pros:** preserves the running app; each fix is testable; the ledger and
-    table engine stay.
-*   **Cons:** the router remains large; the local threat model is bounded, not
-    eliminated.
-*   **Selected.**
-
---------------------------------------------------------------------------------
+| Option | Why not |
+|---|---|
+| **Leave the app as-is and document every bound.** | The mission lockout is a real defect and the crash refund is cheap to fix through the ledger. Two ratchets are worth the cost. |
+| **Event-sourced ledger rewrite.** | It would solve crash recovery and replay by construction, but replaces the persistence model, every money endpoint and the migration path for a single-user local app. Rejected on cost. |
+| **A separate `table_sessions` table.** | The ledger already stores every movement. A second lifecycle table duplicates it, misses rebuys and admin close, and needs reconciliation. Session id in `transactions` is less code. |
+| **Idempotency keys plus a response cache.** | No retry path exists; a second table and a retention policy would be added to guard a double-click. Accepted bound instead. |
+| **Project lobby counts from `LIVE_TABLES`.** | Only human-opened tables are live; 100 seeded tables would show 0. Labelled synthetic estimates are honest for a demo. |
+| **Nonce + `/api/health` for port ownership.** | The nonce is readable by the same local process and the endpoint leaks `pid`/`dbPath`. Child stdout and exit code are sufficient. |
 
 ## Detailed Implementation Plan
 
-### Phase 1 — Money and crash safety
+### Phase 1 — Ledger sessions and crash refund (G1)
 
-**Files:** `app/server/db.js`, `app/server/index.js`, `app/server/table.js`,
-`app/server/ledger.test.js`, `app/server/engine.test.js`.
+**Files:** `app/server/db.js`, `app/server/index.js`, `app/server/ledger-session.test.js`.
 
-1.  `db.js`: add `transactions.reference` (guarded `ALTER TABLE`), unique index,
-    `idempotency_keys`, `table_sessions`; export `openTableSession`,
-    `closeTableSession`, `refundOpenSessions`.
-2.  `index.js`: open a session on `seatHuman`; close it on cash-out; call
-    `refundOpenSessions()` at startup; require `Idempotency-Key` on cashier and
-    admin credit; return the stored response on replay.
-3.  `ledger.test.js`: continuity after admin set; duplicate key applies once;
-    open session refunded on startup.
-4.  `engine.test.js`: places 2/3 payouts with production hooks and a temp DB.
+1.  `db.js`: guarded `ALTER TABLE transactions ADD COLUMN session_id TEXT`;
+    `ADD COLUMN reference TEXT`; unique index `(user_id, reference)`;
+    `addTransaction(..., { sessionId, reference })`; `openSessions()` query and
+    `refundOpenSessions()` that writes one `buyin_refund` per open session with
+    `reference = refund:<session>`.
+2.  `index.js`: `seatHuman` generates `sessionId`, writes the buy-in with it,
+    refunds a failed seat with the same id; rebuy uses the seat's session id;
+    every cash-out path writes `out:<session>`; call `refundOpenSessions()`
+    before listening.
+3.  `ledger-session.test.js`: buy-in + rebuy + crash → one refund of the sum;
+    second sweep is a no-op; failed seat refund; cash-out closes the session.
 
-### Phase 2 — Lifecycle and protocol
+### Phase 2 — Claims and mission scoping (G2)
 
-**Files:** `app/electron/main.cjs`, `app/server/index.js`, `app/server/table.js`,
-`app/src/pages/TablePage.tsx`, `app/src/lib/api.ts`.
+**Files:** `app/server/db.js`, `app/server/index.js`, `app/server/claims.test.js`.
 
-1.  `main.cjs`: port probe, nonce/health check, blocking child-failure error.
-2.  `index.js`: `/api/health` with nonce/pid/dbPath; `stateVersion`; `resync`;
-    reject late actions.
-3.  `TablePage.tsx`: send `sinceVersion` on reconnect; drop stale versions.
-4.  Tests: reconnect/resync, late action rejected, disconnect auto-fold.
+1.  Create `player_claims`; copy `daily_claims`; add `claim()`.
+2.  Switch daily, GG Care, Honeymoon and missions to `claim()`; read mission
+    progress per user; remove reliance on `missions.claimed`.
+3.  `claims.test.js`: two users claim the same mission independently; second
+    claim by the same user is a no-op.
 
-### Phase 3 — Threat model and randomness
+### Phase 3 — Port ownership and testability (G3/G4)
 
-**Files:** `app/server/index.js`, `app/server/poker.js`, `app/server/table.js`,
-`app/electron/main.cjs`.
+**Files:** `app/electron/main.cjs`, `app/server/index.js`, `app/server/http.test.js`, `app/server/ledger.test.js`.
 
-1.  Origin/Host checks; WS token via subprotocol; login throttle.
-2.  `sandbox` decision and preload verification.
-3.  `cfg.rng` plumbing through shuffle, Spin multiplier and bots; seeded test.
+1.  `index.js`: support `PORT=0`, print `LISTENING <port>`, call
+    `refundOpenSessions()` before listen.
+2.  `main.cjs`: wait for the line, exit-code handling, blocking dialog, no
+    nonce.
+3.  `http.test.js`: spawn with temp DB and port 0; assert `/api/lobby` 200,
+    cashier deposit/withdraw, admin set writes a ledger row.
+4.  `ledger.test.js`: add per-currency reconciliation
+    (`balance == SUM(transactions.amount)`) for a test user.
 
-### Phase 4 — Balance movers and maintainability
+### Phase 4 — Maintenance and documentation (G5)
 
-**Files:** `app/server/index.js`, `app/server/db.js`, `app/src/pages/Lobby.tsx`,
-`app/src/pages/Rewards.tsx`, `app/server/casino.js` (new),
-`app/server/rewards.js` (new).
+**Files:** `app/server/index.js`, `app/server/table.js`,
+`app/server/engine.test.js`, `app/src/pages/Lobby.tsx`,
+`app/src/pages/Rewards.tsx`, `app/server/db.js`,
+`docs/designs/dangro-clone.md`, `README.md`.
 
-1.  `claimPeriod` helper; collapse claim blocks.
-2.  Casino module with socket-free outcome functions; ledger call stays in the
-    router.
-3.  Lobby projection; money() cleanup; resetpw audit; rake fallback removal;
-    blackjack fresh balance.
-
-### Phase 5 — Documentation and verification
-
-**Files:** `docs/designs/dangro-clone.md`, `docs/designs/reviews/`,
-`README.md`.
-
-1.  Decisions table, requirement IDs, cross-references.
-2.  Update the verification plan commands and test names.
-3.  Re-run `pnpm test`, build, package and the API/UI checks.
+1.  Lobby `synthetic: true`; rake fallback removal; `resetpw` audit; display-only
+    money cleanup; blackjack balance.
+2.  Update the design-of-record and README; keep this document as the audit
+    trail.
+3.  Re-run `pnpm test`, build, package and the route/API checks.
 
 ## Verification Plan
 
-| Fix | Test |
-|---|---|
-| Open buy-in refunded on restart | temp DB + open session + `refundOpenSessions()` → one `buyin_refund` row |
-| Cashier replay | same idempotency key twice → one transaction, same response |
-| Admin set continuity | ledger test: `balance_after` chain intact |
-| Port ownership | launch with a foreign listener on 5198 → blocking dialog, no window |
-| WS resync | reconnect with `sinceVersion` → full snapshot, stale versions dropped |
-| Origin/Host | request with a foreign Origin → 403 |
-| Seeded bots | deterministic RNG → conservation across N hands |
-| Places 2/3 | production hooks + temp DB → 30%/20%/50% rows |
-| Late action | action after deadline → rejected and logged |
+| Goal | Check | Command / evidence |
+|---|---|---|
+| G1 | Buy-in + rebuy + crash → one refund of `chips_in` | `cd app && pnpm test` (`ledger-session.test.js`) |
+| G1 | Bust the stack, quit, restart → no refund | same |
+| G1 | Second sweep is a no-op, not a crash | same |
+| G2 | Two users claim the same mission independently | `pnpm test` (`claims.test.js`) |
+| G2 | Same user's second claim is a no-op; award survives retry | same |
+| G2 | Mission progress is per user | same |
+| G3 | Child reports port; foreign listener produces a dialog | manual: occupy 5198, launch, expect blocking dialog |
+| G4 | Server binds port 0 and serves `/api/lobby` | `pnpm test` (`http.test.js`) |
+| G4 | Per-currency ledger reconciliation | `pnpm test` (`ledger.test.js`) |
+| G5 | Rake floor/cap, places 2/3, admin set continuity | `pnpm test` (`engine.test.js`, `ledger.test.js`) |
+| G5 | 21 page routes render without console errors | manual/CDP with `GGPOKER_CDP=1` |
+| Build | `pnpm build`, `tsc --noEmit` | `cd app && pnpm build && pnpm exec tsc --noEmit` |
+| Package | Signature and relaunch | `./package_app.sh`; `codesign -dv --verbose=4` |
 
-**Commands:** `cd app && pnpm test`; `cd app && pnpm exec tsc --noEmit`;
-`cd app && pnpm build`; `./package_app.sh`; `curl -fsS
-http://127.0.0.1:5198/api/lobby`.
+## Risks and Limits
 
-## Risks and Open Questions
+*   **Refund fairness:** losses are forgiven and winnings above `chips_in` are
+    lost. Bound: one stack per crash. This is a product choice, not a bug.
+*   **Cashier replay:** a double-click can duplicate one movement. Bound: one
+    duplicate per double-click; the ledger still records it.
+*   **Bot/Spin inflation:** bounded per table by bot stacks and multiplier; not
+    centrally monitored in this build.
+*   **Local threat model:** loopback is not a security boundary; the bearer
+    token and SQLite file are readable by any local process. Accepted.
+*   **Claims migration:** `player_claims` is one new table; a failed copy must
+    leave `daily_claims` intact and be retryable.
+*   **No protocol version:** a client that reconnects receives a full snapshot
+    on `join_table`; stale snapshots are replaced, not replayed.
+*   **No disconnect grace:** a socket close stands and cashes out immediately;
+    the design does not hold chips outside the ledger.
 
-*   **Session identity:** table sessions add a new table and a startup sweep; a
-    crash during the sweep must be idempotent. Use a transaction and a
-    `state = 'refunded'` guard.
-*   **Idempotency storage:** keys grow without bound. Add a 30-day cleanup or a
-    retention row.
-*   **Sandbox:** `sandbox: true` may break the preload bridge; verify on the
-    packaged app before committing.
-*   **Bots:** the chosen synthetic-liquidity model is an accepted inflation.
-    Removing bots is the alternative; it makes tables empty.
-*   **Scope:** Phase 4 is not release-blocking. Phases 1–3 are.
+## Traceability
 
---------------------------------------------------------------------------------
+| ID | Defect/ratchet | Goal | Phase | Verification |
+|---|---|---|---|---|
+| D1 | Missions global | G2 | 2 | claims.test.js |
+| D2 | Admin set bypassed ledger | — | landed | ledger.test.js |
+| D3 | Blackjack trusted client | — | landed | manual/API |
+| D4 | False current-state text | — | 1 doc | review |
+| R1 | Crash strands buy-in | G1 | 1 | ledger-session.test.js |
+| R2 | Cashier replay | accepted | — | bound in Risks |
+| R3 | Port 5198 takeover | G3 | 3 | manual |
+| R4 | Bot/Spin minting | accepted | — | bound in Risks |
 
-*Drafted with EGM*
+## Accepted Bounds (summary)
+
+*   Cashier: no replay protection; one duplicate movement per double-click.
+*   Crash: refund `chips_in`; losses forgiven; winnings above `chips_in` lost.
+*   Bots/Spin: play-money minting, bounded per table; not centrally monitored.
+*   Lobby: synthetic estimates flagged; only `running`/live seats are real.
+*   Threat model: loopback is not a boundary; local processes can read the token
+    and database.
+*   Disconnect: immediate stand and cash-out; no grace window.
+*   Protocol: full snapshot on join; no version/resync.
+
+---
+
+*Drafted with EGM. Replaces the first remediation draft after review.*
