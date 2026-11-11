@@ -37,6 +37,7 @@ export function Tournaments() {
   const [series, setSeries] = useState('all');
   const [detail, setDetail] = useState<any>(null);
   const [detailTab, setDetailTab] = useState<'overview' | 'structure' | 'prizes'>('overview');
+  const [search, setSearch] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
@@ -143,6 +144,7 @@ export function Tournaments() {
         <div className="tourney-toolbar">
           <div className="panel-title" style={{ margin: 0 }}>Upcoming tournaments <small>{list.length} events</small></div>
           <div className="row">
+            <input className="admin-input" style={{ width: 190 }} placeholder="Search tournaments…" value={search} onChange={(e) => setSearch(e.target.value)} />
             <span className="muted small">Balance</span>
             <b className="gold">{money(user?.balance ?? 0)}</b>
           </div>
