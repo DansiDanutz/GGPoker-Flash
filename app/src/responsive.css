@@ -487,3 +487,11 @@ body.electron .app-window::before { display: none; }
 .front-minimal .pcard .rank { font-size: 28px; }
 @media (max-width: 760px) { .card-front-grid { grid-template-columns: 1fr 1fr; } }
 .table-screen.layout-side .quick-bets { grid-template-columns: repeat(2, 1fr); }
+
+.room-bg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; max-width: 620px; }
+.room-bg-choice { display: flex; align-items: center; gap: 9px; padding: 7px; border: 1px solid #2f2f2f; border-radius: 9px; background: #171717; color: #a8b3ab; font-size: 10px; }
+.room-bg-choice span { width: 56px; height: 38px; border-radius: 5px; background-size: cover; background-position: center; flex: 0 0 auto; }
+.room-bg-choice.on { border-color: var(--gold); color: #f1dfb4; background: #211b0f; }
+.room-bg-dark .room-mark { background-image: url('/assets/tables/room_dark.png'); background-position: center 42%; background-size: cover; filter: brightness(1.1) contrast(1.05) saturate(.75); opacity: .95; }
+.room-bg-floor .room-mark { background-image: url('/assets/tables/room_floor.png'); background-position: center 55%; background-size: cover; filter: brightness(1.05) contrast(1.05) saturate(.8); opacity: .95; }
+@media (max-width: 760px) { .room-bg-grid { grid-template-columns: 1fr 1fr; } }

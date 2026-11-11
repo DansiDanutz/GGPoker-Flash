@@ -4,7 +4,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { SwfEffect } from '../components/SwfEffect';
-import { betLabel, betTarget, readBetPrefs, readCardBack, readDealSpeed } from '../lib/tablePrefs';
+import { betLabel, betTarget, readBetPrefs, readCardBack, readDealSpeed, readStackMode, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
@@ -73,11 +73,13 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [topupTarget] = useState(() => Number(localStorage.getItem('ggpoker.topupTarget') || 100));
   const [cardBack] = useState(readCardBack);
   const [cardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'classic');
+  const [roomBg] = useState(() => localStorage.getItem('ggpoker.roomBg') || 'featured');
   const [showHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
   const [hotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
   const [hotkeysOn] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
   const [dealSpeed] = useState(readDealSpeed);
   const [betPrefs] = useState(readBetPrefs);
+  const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
   const [cardAnim, setCardAnim] = useState<'deal' | 'flip' | 'slide' | 'off'>(() => {
     const saved = localStorage.getItem('ggpoker.cardAnim');
     return saved === 'flip' || saved === 'slide' || saved === 'off' ? saved : 'deal';
@@ -421,6 +423,18 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const chip = (v: number | undefined | null) => state?.tournament ? Math.round(v || 0).toLocaleString('en-US') : money(v || 0);
+  const stackLabel = (v: number | undefined | null) => {
+    const raw = Number(v || 0);
+    if (state?.tournament) return chip(raw);
+    const bb = state?.bb || 0;
+    if (stackMode === 'bb' && bb) return `${(raw / bb).toFixed(1)} BB`;
+    if (stackMode === 'both' && bb) return `${chip(raw)} · ${(raw / bb).toFixed(1)} BB`;
+    return chip(raw);
+  };
+  const cycleStackMode = () => {
+    const next: StackMode = stackMode === 'chips' ? 'bb' : stackMode === 'bb' ? 'both' : 'chips';
+    setStackMode(next); localStorage.setItem('ggpoker.stackMode', next);
+  };
   const myCards = me?.cards?.filter((c) => c !== '??') || [];
   const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, state.game === 'omaha' || state.game === 'omaha5') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
@@ -498,7 +512,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   if (!user) return null;
 
   return (
-    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack} front-${cardFront}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
+    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack} front-${cardFront} room-bg-${roomBg}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
       <div className="table-topbar">
         <span className="name">{state?.name || 'Table'}</span>
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>
@@ -632,7 +646,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             </div>
             <div className="plate">
               <div className="nm">{p.nick}</div>
-              <div className="st">{chip(p.stack)}</div>
+              <div className="st" onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">{stackLabel(p.stack)}</div>
             </div>
             {p.nick && notes[p.nick] && <span className="note-dot" title={notes[p.nick].note}>📝</span>}
             {p.lastAction && !p.folded && (
@@ -779,7 +793,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           {hotkeyHints && <span>·</span>}
           <span>Hand #{state?.handNo ?? 0}</span>
           <span>·</span>
-          <span>{me ? `Your stack ${chip(me.stack)}` : ''}</span>
+          <span>{me ? `Your stack ${stackLabel(me.stack)}` : ''}</span>
         </div>
       </div>
       )}

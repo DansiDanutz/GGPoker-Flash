@@ -53,3 +53,10 @@ export function betTarget(v: BetValue, opening: boolean, state: { pot: number; c
   }
   return Math.max(minTo, Math.min(maxTo, target));
 }
+
+
+export type StackMode = 'chips' | 'bb' | 'both';
+export function readStackMode(): StackMode {
+  const v = localStorage.getItem('ggpoker.stackMode');
+  return v === 'bb' || v === 'both' ? v : 'chips';
+}

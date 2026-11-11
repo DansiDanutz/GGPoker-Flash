@@ -5,7 +5,7 @@ import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { useI18n } from '../lib/i18n';
-import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, betLabel, readBetPrefs, readCardBack, type BetPrefs } from '../lib/tablePrefs';
+import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, betLabel, readBetPrefs, readCardBack, readStackMode, type BetPrefs, type StackMode } from '../lib/tablePrefs';
 
 export function Promotions() {
   const { toast, navigate } = useApp();
@@ -88,6 +88,8 @@ export function Settings() {
   const [dealSpeed, setDealSpeed] = useState(() => Number(localStorage.getItem('ggpoker.dealSpeed') || 3));
   const [cardBack, setCardBack] = useState(readCardBack());
   const [cardFront, setCardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'classic');
+  const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
+  const [roomBg, setRoomBg] = useState(() => localStorage.getItem('ggpoker.roomBg') || 'featured');
   const [channels, setChannels] = useState({ ...sound.channels });
   const [buyinPct, setBuyinPct] = useState(() => Number(localStorage.getItem('ggpoker.buyinPct') || 0));
   const [autoTopup, setAutoTopup] = useState(() => localStorage.getItem('ggpoker.autoTopup') === '1');
@@ -236,6 +238,14 @@ export function Settings() {
                 </button>
               ))}
             </div>
+            <div className="panel-title" style={{ marginTop: 18 }}>Room background</div>
+            <div className="room-bg-grid">
+              {([['featured', 'Featured room', 'featured_6ring.png'], ['dark', 'Dark room', 'room_dark.png'], ['floor', 'Stone floor', 'room_floor.png']] as const).map(([id, label, img]) => (
+                <button key={id} className={'room-bg-choice' + (roomBg === id ? ' on' : '')} onClick={() => { setRoomBg(id); persist('ggpoker.roomBg', id); sound.play('click', { volume: .4 }); }}>
+                  <span style={{ backgroundImage: `url('/assets/tables/${img}')` }} /><b>{label}</b>
+                </button>
+              ))}
+            </div>
             <div className="panel-title" style={{ marginTop: 18 }}>Card front</div>
             <div className="card-front-grid">
               {([['classic', 'Classic'], ['jumbo', 'Jumbo index'], ['minimal', 'Minimal'], ['four', 'Four colour']] as const).map(([id, label]) => (
@@ -263,6 +273,12 @@ export function Settings() {
                 <div className="panel-title" style={{ marginTop: 18 }}>Deck</div>
                 <div className="kv"><span>Card fronts</span><b>{fourColor ? 'Four colour' : 'Two colour'}</b></div>
                 <div className="kv"><span>Card back</span><b>{CARD_BACKS.find((b) => b.id === cardBack)?.label}</b></div>
+                <label className="admin-label" style={{ marginTop: 14 }}>Stack display</label>
+                <select className="admin-select" value={stackMode} onChange={(e) => { const v = e.target.value as StackMode; setStackMode(v); persist('ggpoker.stackMode', v); }}>
+                  <option value="chips">Chips</option>
+                  <option value="bb">Big blinds</option>
+                  <option value="both">Both</option>
+                </select>
               </div>
             </div>
           </>

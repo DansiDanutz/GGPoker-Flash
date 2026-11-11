@@ -30,6 +30,8 @@ not a source to copy blindly.
   - betting shortcuts: four pre-flop BB values and four post-flop percentages,
     persisted and previewed;
   - six card-back skins and four card-front styles (classic, jumbo, minimal, four colour);
+  - three official room backgrounds (featured room, dark room, stone floor);
+  - stack display in chips, big blinds, or both (click a stack to cycle);
   - buy-in default as a percentage of table maximum;
   - auto top-up with trigger/target percentages;
   - show-hand-strength toggle;
@@ -49,7 +51,8 @@ not a source to copy blindly.
 - Auto buy-in from the lobby (Codex has this); the default percentage and
   auto top-up exist, but seating still asks for an explicit buy-in.
 - Native six-front artwork; this app has four CSS front styles.
-- Native table background catalogue and per-table appearance overrides.
+- Native full table background catalogue and per-table appearance overrides; this
+  app exposes three official room backdrops globally.
 - Native hotkey remapping; this app has fixed F1–F4 with an enable toggle.
 - Codex's owner-hosted room/tournament console, chat moderation and invitation
   flows are a different architecture; this app has an admin console and local
