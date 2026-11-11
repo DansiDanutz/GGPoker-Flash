@@ -39,14 +39,14 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
 }
 
 const TABS = [
-  { key: 'home', label: 'Home', img: 'tab_home', w: 130 },
-  { key: 'aof', label: 'All-in or Fold', img: 'tab_aof', w: 146 },
-  { key: 'rush', label: 'Rush & Cash', img: 'tab_rush', w: 145 },
-  { key: 'holdem', label: "Hold'em", img: 'tab_holdem', w: 154 },
-  { key: 'plo', label: 'PLO', img: 'tab_plo', w: 156 },
-  { key: 'short', label: 'Short Deck', img: 'tab_short', w: 165 },
-  { key: 'spin', label: 'Spin & Gold', img: 'tab_spin', w: 135 },
-  { key: 'battle', label: 'Mystery Battle Royale', img: 'tab_battle', w: 59 },
+  { key: 'home', label: 'Home', img: 'tab_home', w: 141 },
+  { key: 'aof', label: 'All-in or Fold', img: 'tab_aof', w: 135 },
+  { key: 'rush', label: 'Rush & Cash', img: 'tab_rush', w: 134 },
+  { key: 'holdem', label: "Hold'em", img: 'tab_holdem', w: 135 },
+  { key: 'plo', label: 'PLO', img: 'tab_plo', w: 135 },
+  { key: 'short', label: 'Short Deck', img: 'tab_short', w: 135 },
+  { key: 'spin', label: 'Spin & Gold', img: 'tab_spin', w: 134 },
+  { key: 'battle', label: 'Mystery Battle Royale', img: 'tab_battle', w: 135 },
 ];
 
 export function GameTabs({ active, onChange }: { active: string; onChange: (key: string) => void }) {
@@ -60,7 +60,7 @@ export function GameTabs({ active, onChange }: { active: string; onChange: (key:
           onClick={() => { sound.play('click', { volume: .5 }); onChange(t.key); }}
           title={t.label}
         >
-          <img src={`/assets/chrome/${t.img}.png`} alt={t.label} style={{ opacity: active === t.key && t.key !== 'holdem' ? .0001 : 1 }} />
+          <img src={`/assets/chrome/${t.img}.png?v=5`} alt={t.label} style={{ opacity: active === t.key && t.key !== 'holdem' ? .0001 : 1 }} />
           {active === t.key && t.key !== 'holdem' && <span className="active-plate">{t.label}</span>}
         </button>
       ))}

@@ -272,3 +272,14 @@ body.electron .app-window::before { display: none; }
   .seat { transform: translate(-50%, -50%) scale(.82); }
   .seat:hover { transform: translate(-50%, -50%) scale(.82); }
 }
+.game-tab img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+
+@media (max-width: 760px) {
+  .filter-bar {
+    flex-wrap: wrap; overflow: visible; height: auto; gap: 6px; padding: 7px;
+  }
+  .filter-bar select { flex: 1 1 30%; min-width: 0; max-width: none; }
+  .filter-bar input { flex: 1 1 100%; order: 4; max-width: none; min-width: 0; }
+  .filter-bar .fav-toggle { flex: 0 0 auto; order: 5; }
+  .filter-count { display: none; }
+}
