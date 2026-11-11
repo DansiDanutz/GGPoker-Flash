@@ -35,54 +35,112 @@ export function Login() {
   };
 
   const seed = () => { setLoginId('DansiDanutz'); setPassword('ggpoker'); setMode('login'); };
+  const switchMode = (next: 'login' | 'register') => { setMode(next); setErr(''); };
+
+  const registering = mode === 'register';
 
   return (
     <div className="login-screen">
       <div className="login-art">
         <div className="glow">
+          <div className="glow-eyebrow">Play money poker</div>
           <h2>Let's build the world's biggest poker room</h2>
           <p>Play money · Instant play · No risk</p>
         </div>
       </div>
+
       <div className="login-box">
         <img className="brand-logo" src={brand.logo} alt="DanGG" />
-        <div className="tabs-line">
-          <button className={mode === 'login' ? 'on' : ''} onClick={() => { setMode('login'); setErr(''); }}>Log in</button>
-          <button className={mode === 'register' ? 'on' : ''} onClick={() => { setMode('register'); setErr(''); }}>Create account</button>
+
+        <div className="seg" role="tablist" aria-label="Account access">
+          <button role="tab" aria-selected={!registering} className={!registering ? 'on' : ''} onClick={() => switchMode('login')}>Log in</button>
+          <button role="tab" aria-selected={registering} className={registering ? 'on' : ''} onClick={() => switchMode('register')}>Create account</button>
         </div>
+
+        <div className="auth-head">
+          <h1>{registering ? 'Create your free account' : 'Welcome back'}</h1>
+          <p>
+            {registering
+              ? 'No deposit, no cash value — nothing at risk.'
+              : 'Log in to pick up your seat, your chips and your rewards.'}
+          </p>
+        </div>
+
         {err && <div className="auth-error">{err}</div>}
+
         <form onSubmit={submit}>
           <div className="field">
-            <label>Account ID or nickname</label>
-            <input value={loginId} onChange={(e) => setLoginId(e.target.value)} autoFocus placeholder="Your DanGG.Live ID" />
+            <label htmlFor="login-id">Account ID or nickname</label>
+            <input
+              id="login-id"
+              value={loginId}
+              onChange={(e) => setLoginId(e.target.value)}
+              autoFocus
+              autoComplete="username"
+              placeholder="Your DanGG.Live ID"
+            />
           </div>
-          {mode === 'register' && (
+
+          {registering && (
             <>
               <div className="field">
-                <label>Nickname (shown at the tables)</label>
-                <input value={nick} onChange={(e) => setNick(e.target.value)} placeholder="Pick a nickname" />
+                <label htmlFor="login-nick">Nickname at the tables</label>
+                <input
+                  id="login-nick"
+                  value={nick}
+                  onChange={(e) => setNick(e.target.value)}
+                  placeholder="Pick a nickname"
+                />
               </div>
               <div className="field">
-                <label>Email (optional)</label>
-                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                <label htmlFor="login-email">Email <span className="field-hint">optional</span></label>
+                <input
+                  id="login-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                />
               </div>
             </>
           )}
+
           <div className="field">
-            <label>Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            <label htmlFor="login-password">
+              Password {registering && <span className="field-hint">6+ characters</span>}
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete={registering ? 'new-password' : 'current-password'}
+              placeholder="••••••••"
+            />
           </div>
-          <button className="btn btn-red btn-block" style={{ height: 44, marginTop: 8 }} disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account & play'}
+
+          <button className="btn btn-red btn-block auth-cta" disabled={busy}>
+            {busy ? 'Please wait…' : registering ? 'Create account & play' : 'Log in'}
           </button>
         </form>
+
         <div className="auth-links">
           {demoAccount && <button onClick={seed}>Use demo account</button>}
           <button onClick={() => { enterGuest(); navigate('/'); }}>Play as guest</button>
         </div>
+
+        {registering && (
+          <div className="auth-perks">
+            <span>Instant balance</span>
+            <span>Cash &amp; tournaments</span>
+            <span>Browser or app</span>
+          </div>
+        )}
+
         <div className="login-footer">
-          {demoAccount && <>Demo account: <b>DansiDanutz</b> / <b>ggpoker</b><br /></>}
-          This is a local, offline play-money clone. No real money, deposits or cash value.
+          {!registering && demoAccount && <>Demo account: <b>DansiDanutz</b> / <b>ggpoker</b><br /></>}
+          Play money only — no real money, deposits or cash value.
         </div>
       </div>
     </div>
