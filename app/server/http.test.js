@@ -79,7 +79,7 @@ test('server binds an ephemeral port and serves the API', async () => {
     assert.equal(w2.replayed, true);
     const reg = await fetch(`http://127.0.0.1:${port}/api/auth/register`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ login: 'freshuser', nick: 'Fresh', password: 'fresh' }),
+      body: JSON.stringify({ login: 'freshuser', nick: 'Fresh', password: 'fresh123' }),
     }).then((r) => r.json());
     assert.equal(reg.user.balance, 600000);
     const regCash = await fetch(`http://127.0.0.1:${port}/api/cashier`, {

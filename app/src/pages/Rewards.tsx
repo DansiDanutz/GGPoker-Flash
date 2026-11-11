@@ -73,7 +73,7 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
         toast({ kind: 'reward', title: 'Wheel prize!', body: `You won ${money(res.amount)}` });
         await refreshUser();
       } else {
-        toast({ kind: 'info', title: 'No prize this time', body: 'Spin again after playing more hands.' });
+        toast({ kind: 'info', title: 'No prize this time', body: 'Your next free spin unlocks tomorrow.' });
       }
     } catch (e: any) {
       toast({ kind: 'error', title: 'Spin failed', body: e.message });

@@ -89,6 +89,7 @@ test('uncontested pot is raked and awarded to the last player', () => {
   const p2 = player(2, 'Folder', 800, 200, [], true);
   const t = tableWith([p1, p2]);
   t.pot = 400;
+  t.board = ['Qs', 'Js', '2d'].map(C);
   t.finishByFold(t.seats[0]);
   assert.equal(t.rake, 20);
   assert.equal(p1.stack, 1180);

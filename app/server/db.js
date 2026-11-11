@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { randomUUID, scryptSync, randomBytes } from 'node:crypto';
+import { randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -19,7 +19,9 @@ export function hashPassword(password, salt = randomBytes(16).toString('hex')) {
 export function checkPassword(password, stored) {
   if (!stored || !stored.includes(':')) return false;
   const [salt, hash] = stored.split(':');
-  return scryptSync(password, salt, 32).toString('hex') === hash;
+  const expected = Buffer.from(hash, 'hex');
+  const actual = scryptSync(String(password), salt, 32);
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
 function init() {
@@ -319,6 +321,9 @@ function init() {
            WHEN day LIKE 'care-%' THEN substr(day, 6) ELSE day END,
       0, 1, amount
     FROM daily_claims`).run();
+  db.exec("DELETE FROM sessions WHERE expires_at <= datetime('now')");
+  db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id, id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)');
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
   ensurePloVariants();

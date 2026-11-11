@@ -8,6 +8,7 @@ import { betLabel, betTarget, readBetPrefs, readCardBack, readDealSpeed, readSta
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
+import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/betting';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -27,7 +28,13 @@ type TableState = {
   straddle?: boolean;
   runItTwice?: boolean;
   boards?: string[][] | null;
+  potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; actionTimeMs?: number; rake?: number;
 };
+
+// A decision queued while waiting for the action to come round.
+type PreAction = { kind: 'checkfold' } | { kind: 'check' } | { kind: 'call'; amount: number };
+
+const DEFAULT_ACTION_TIME_MS = 15000;
 
 const POS6 = [[50, 80], [12, 71], [16, 32], [50, 17], [84, 32], [88, 71]];
 const POS9 = [[50, 84], [26, 81], [10, 64], [11, 40], [29, 22], [50, 17], [71, 22], [89, 40], [90, 64]];
@@ -56,7 +63,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [tourneyWin, setTourneyWin] = useState<any>(null);
   const [allInFx, setAllInFx] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [sittingOut, setSittingOut] = useState(false);
+  const [preAction, setPreAction] = useState<PreAction | null>(null);
+  const lastDealtHand = useRef(-1);
+  const clockOffset = useRef(0);
   const [rabbit, setRabbit] = useState<string[]>([]);
   const [fourColor, setFourColor] = useState(() => localStorage.getItem('ggpoker.fourcolor') === '1');
   const [animOff, setAnimOff] = useState(() => localStorage.getItem('ggpoker.animations') === '0');
@@ -153,9 +162,12 @@ export function TablePage({ tableId }: { tableId: string }) {
         lastSeq.current = s.tableVersion || 0;
         stateRef.current = s;
         setState(s);
+        clockOffset.current = s.now - Date.now();
         const mine = s.players.find((p) => p.isMe);
         if (mine) { mySeatRef.current = mine.seat; setMySeat(mine.seat); }
-        if (s.street === 'preflop' && (!state || state.handNo !== s.handNo)) {
+        // Once per hand: this handler closes over stale state, so track the hand in a ref.
+        if (s.street === 'preflop' && lastDealtHand.current !== s.handNo) {
+          lastDealtHand.current = s.handNo;
           sound.play('deal', { volume: .75 });
         }
         if (s.spin && !spinSeen.current) {
@@ -317,6 +329,8 @@ export function TablePage({ tableId }: { tableId: string }) {
     } else if (evt.type === 'timebank') {
       sound.play('timebank', { volume: .6 });
       toast({ kind: 'info', title: 'Time bank', body: `+${evt.seconds || timeBankSeconds} seconds` });
+    } else if (evt.type === 'sit_out') {
+      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: 'You ran out of time twice. Press "I\'m back" to rejoin.' });
     } else if (evt.type === 'blinds_up') {
       sound.play('turn', { volume: .5 });
     } else if (evt.type === 'turn') {
@@ -372,9 +386,34 @@ export function TablePage({ tableId }: { tableId: string }) {
   const me = state?.players.find((p) => p.isMe) || null;
   const myTurn = !!(state && me && state.actor === me.id);
   const tbUsed = (state?.timeBankUsed || []).includes(Number(me?.id));
-  const toCall = state && me ? Math.max(0, state.currentBet - (me.bet || 0)) : 0;
-  const maxTo = me ? (me.bet || 0) + (me.stack || 0) : 0;
-  const minTo = state ? Math.min(maxTo, Math.max(state.currentBet + state.minRaise, state.bb)) : 0;
+  const betCtx: BetContext = {
+    pot: state?.pot || 0, currentBet: state?.currentBet || 0, minRaise: state?.minRaise || 0, bb: state?.bb || 0,
+    myBet: me?.bet || 0, myStack: me?.stack || 0, maxRaiseTo: state?.maxRaiseTo || 0, street: state?.street || 'idle',
+  };
+  const { toCall, minTo, maxTo, allInTo, canRaise } = betLimits(betCtx);
+  // Cash tables are stored in cents and shown in dollars; tournaments use whole chips.
+  const displayUnit = state?.tournament ? 1 : 100;
+  const chipStep = state?.tournament ? 1 : Math.min(100, state?.sb || 100);
+  const presets = state ? sizingPresets(betCtx, chipStep) : [];
+  const odds = myTurn ? potOdds(state?.pot || 0, toCall) : null;
+  const sittingOut = !!me?.sittingOut;
+  const facingShove = !!state?.players.some((p) => !p.empty && !p.isMe && p.allIn && !p.folded);
+  const canPreAct = !!(state && me && !myTurn && me.inHand && !me.folded && !me.allIn
+    && ['preflop', 'flop', 'turn', 'river'].includes(state.street) && !state.allInOrFold);
+
+  useEffect(() => { setPreAction(null); }, [state?.handNo]);
+  // A queued call is only valid for the price it was queued at.
+  useEffect(() => {
+    if (preAction?.kind === 'call' && preAction.amount !== toCall) setPreAction(null);
+    if (preAction?.kind === 'check' && toCall > 0) setPreAction(null);
+  }, [toCall, preAction]);
+  useEffect(() => {
+    if (!myTurn || !preAction) return;
+    if (preAction.kind === 'checkfold') act(toCall > 0 ? 'fold' : 'check');
+    else if (preAction.kind === 'check' && toCall === 0) act('check');
+    else if (preAction.kind === 'call' && preAction.amount === toCall && toCall > 0) act('call');
+    setPreAction(null);
+  }, [myTurn]);
 
   useEffect(() => {
     if (myTurn) setRaiseTo((prev) => (prev >= minTo && prev <= maxTo ? prev : Math.min(maxTo, minTo)));
@@ -420,7 +459,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       const key = normalizeHotkey(e.key);
       if (key === hotkeyMap.fold) { e.preventDefault(); act('fold'); }
       else if (key === hotkeyMap.check) { e.preventDefault(); act(toCall > 0 ? 'call' : 'check'); }
-      else if (key === hotkeyMap.raise) { e.preventDefault(); act(raiseTo >= maxTo ? 'allin' : 'raise', raiseTo); }
+      else if (key === hotkeyMap.raise) { e.preventDefault(); if (canRaise) act(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo); }
       else if (key === hotkeyMap.allin) { e.preventDefault(); act('allin'); }
     };
     window.addEventListener('keydown', onKey);
@@ -458,7 +497,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     setStackMode(next); localStorage.setItem('ggpoker.stackMode', next);
   };
   const myCards = me?.cards?.filter((c) => c !== '??') || [];
-  const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, state.game === 'omaha' || state.game === 'omaha5') : null;
+  const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, state.game === 'omaha' || state.game === 'omaha5', state.game === 'shortdeck') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
 
   useEffect(() => {
@@ -479,11 +518,13 @@ export function TablePage({ tableId }: { tableId: string }) {
     if ((!autoRebuy && !autoTopup) || !me || !state || observing) return;
     if (state.tournament || state.spin) return;
     if (me.inHand) { autoRebuyPending.current = false; return; }
+    const betweenHands = state.street === 'ended' || state.street === 'idle';
+    if (!betweenHands) { autoRebuyPending.current = false; return; }
     const min = state.minBuyin || state.bb * 20;
     const max = state.maxBuyin || Math.max(min, state.bb * 100);
     const trigger = autoTopup ? max * Math.max(0, Math.min(100, topupTrigger)) / 100 : state.bb * 10;
     const target = autoTopup ? max * Math.max(0, Math.min(100, topupTarget)) / 100 : Math.max(min, state.bb * 20);
-    if ((me.stack || 0) < trigger && state.street === 'ended' && !autoRebuyPending.current) {
+    if ((me.stack || 0) < trigger && !autoRebuyPending.current) {
       autoRebuyPending.current = true;
       const amount = Math.max(min, Math.min(max, Math.round((target - (me.stack || 0)) / 100) * 100));
       if (amount > 0) send({ type: 'rebuy', amount });
@@ -519,12 +560,16 @@ export function TablePage({ tableId }: { tableId: string }) {
     } catch (e: any) { toast({ kind: 'error', title: 'Note', body: e.message }); }
   };
 
-  const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - now) / 15000)) : 0;
+  // Compare against the server's clock so a skewed local clock cannot distort the timer.
+  const serverNow = now + clockOffset.current;
+  const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - serverNow) / (state.actionTimeMs || DEFAULT_ACTION_TIME_MS))) : 0;
+  const rebuyMax = Math.max(0, (state?.maxBuyin || 0) - (me?.stack || 0));
+  const rebuyMin = Math.min(rebuyMax, Math.max(state?.bb || 0, (state?.minBuyin || 0) - (me?.stack || 0)));
   const myTurnNow = !!me?.isMe && state?.street !== 'ended';
   useEffect(() => {
     if (!state || !myTurnNow) { timerWarnRef.current = ''; return; }
     const key = `${state.handNo}-${state.street}-${state.actor}`;
-    const remaining = state.actionEndsAt - now;
+    const remaining = state.actionEndsAt - serverNow;
     if (remaining > 0 && remaining <= 5200 && timerWarnRef.current !== key) {
       timerWarnRef.current = key;
       sound.play('winding', { volume: .55 });
@@ -540,7 +585,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       <div className="table-topbar">
         <span className="name">{state?.name || 'Table'}</span>
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>
-        <span className="pill">Blinds {state ? (state.tournament ? `${state.sb}/${state.bb}` : `${chips(state.sb)}/${chips(state.bb)}`) : ''}</span>
+        <span className="pill">Blinds {state ? (state.tournament ? `${state.sb}/${state.bb}` : `${money(state.sb)}/${money(state.bb)}`) : ''}</span>
         <span className="pill">Hand #{state?.handNo ?? '-'}</span>
         {state?.spin && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {money(state.spin.prize)}</span>}
         {state?.tournament && <span className="pill" style={{ color: '#ffd98a' }}>Level {state.tournament.level}{state.tournament.nextBlindAt ? ` · ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000 / 60))}m ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000) % 60).toString().padStart(2, '0')}s` : ''} · Prize {money(state.tournament.prizePool)}</span>}
@@ -575,8 +620,8 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {menuOpen && (
         <div className="table-menu" onClick={() => setMenuOpen(false)}>
-          <button onClick={() => { const next = !sittingOut; setSittingOut(next); send({ type: 'sit_out', value: next }); }}>{sittingOut ? 'Post blinds / sit in' : 'Sit out next hand'}</button>
-          <button onClick={() => { setRebuyAmount(state?.minBuyin || 0); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
+          <button onClick={() => send({ type: 'sit_out', value: !sittingOut })}>{sittingOut ? 'Post blinds / sit in' : 'Sit out next hand'}</button>
+          <button disabled={rebuyMax <= 0 || !!state?.tournament || !!state?.spin} onClick={() => { setRebuyAmount(rebuyMin); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
           <button onClick={() => setSwfEffect('/assets/swf/chip_shuffle.swf')}>Official FX preview</button>
@@ -701,6 +746,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             )}
             {p.folded && <div className="action-badge fold">Fold</div>}
             {p.allIn && <div className="action-badge" style={{ color: '#ffd98a' }}>ALL IN</div>}
+            {(p.disconnected || p.sittingOut) && !p.allIn && <div className="action-badge away">{p.disconnected ? 'Reconnecting' : 'Sitting out'}</div>}
             {emoteFx && emoteFx.userId === (p as any).id && (
               <div key={emoteFx.key} className="emote-bubble" title={emoteFx.nick}>{emoteFx.emote}</div>
             )}
@@ -777,7 +823,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <div className="action-bar">
           <div className="action-row">
             <div style={{ flex: 1, color: '#cfcfcf', fontSize: 13 }}>{waitlistPos > 0 ? `You are #${waitlistPos} on the waitlist. We will hold the next open seat for you.` : 'You are observing this table. Take a seat to join the action.'}</div>
-            <button className={'btn ' + (waitlistPos > 0 ? 'btn-gold' : 'btn-red')} onClick={sitIn}>Take a seat · {chip(state?.minBuyin)}</button>
+            {!state?.tournament && <button className={'btn ' + (waitlistPos > 0 ? 'btn-gold' : 'btn-red')} onClick={sitIn}>Take a seat · {chip(state?.minBuyin)}</button>}
             <button className="btn btn-dark" onClick={() => setConfirmLeave(true)}>Leave</button>
           </div>
         </div>
@@ -786,22 +832,41 @@ export function TablePage({ tableId }: { tableId: string }) {
         {myTurn && (
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}
+        {sittingOut && (
+          <div className="action-row sitout-row">
+            <span>You are sitting out and will not be dealt in.</span>
+            <div className="grow" />
+            <button className="btn btn-gold" onClick={() => send({ type: 'sit_out', value: false })}>I'm back</button>
+          </div>
+        )}
+        {canPreAct && (
+          <div className="action-row preaction-row" role="group" aria-label="Queue an action for your turn">
+            <label><input type="checkbox" checked={preAction?.kind === 'checkfold'} onChange={(e) => setPreAction(e.target.checked ? { kind: 'checkfold' } : null)} /> {toCall > 0 ? 'Fold' : 'Check / Fold'}</label>
+            {toCall === 0 && <label><input type="checkbox" checked={preAction?.kind === 'check'} onChange={(e) => setPreAction(e.target.checked ? { kind: 'check' } : null)} /> Check</label>}
+            {toCall > 0 && <label><input type="checkbox" checked={preAction?.kind === 'call'} onChange={(e) => setPreAction(e.target.checked ? { kind: 'call', amount: toCall } : null)} /> Call {chip(toCall)}</label>}
+          </div>
+        )}
         <div className="action-row">
           <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!myTurn || tbUsed} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (
-            <button className="act-btn act-check" disabled={!myTurn} onClick={() => act('check')}>Check</button>
+            <button className="act-btn act-check" disabled={!myTurn || !!state?.allInOrFold} onClick={() => act('check')}>Check</button>
           ) : (
-            <button className="act-btn act-call" disabled={!myTurn} onClick={() => act('call')}>
-              Call {chip(Math.min(toCall, me?.stack || 0))}
+            <button className="act-btn act-call" disabled={!myTurn || (!!state?.allInOrFold && !facingShove)} onClick={() => act('call')}>
+              Call {chip(toCall)}
             </button>
+          )}
+          {odds && (
+            <span className="pot-odds" title="The pot is laying you this price. Call if you expect to win more often than the percentage shown.">
+              Pot odds {odds.ratio.toFixed(1)}:1 · need {Math.round(odds.equityNeeded * 100)}%
+            </span>
           )}
           <div className="grow" />
           <div className="quick-bets">
             {(state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0) ? betPrefs.opening : betPrefs.normal).map((value, i) => {
               const opening = state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0);
               const target = state ? betTarget(value, opening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo) : minTo;
-              return <button key={`${value}-${i}`} disabled={!myTurn} onClick={() => setRaiseTo(target)}>{betLabel(value, opening)}</button>;
+              return <button key={`${value}-${i}`} disabled={!myTurn || !canRaise} onClick={() => setRaiseTo(target)}>{betLabel(value, opening)}</button>;
             })}
           </div>
           <input
@@ -811,30 +876,30 @@ export function TablePage({ tableId }: { tableId: string }) {
             max={Math.max(minTo, maxTo)}
             step={Math.max(100, state?.bb || 100)}
             value={raiseTo}
-            disabled={!myTurn}
+            disabled={!myTurn || !canRaise}
             onChange={(e) => setRaiseTo(Number(e.target.value))}
           />
           <input
             className="amount-input"
             type="number"
             value={state?.tournament ? raiseTo : Math.round(raiseTo / 100)}
-            disabled={!myTurn}
+            disabled={!myTurn || !canRaise}
             min={state?.tournament ? minTo : Math.round(minTo / 100)}
             max={state?.tournament ? maxTo : Math.round(maxTo / 100)}
             onChange={(e) => setRaiseTo(Math.max(minTo, Math.min(maxTo, Number(e.target.value) * (state?.tournament ? 1 : 100))))}
           />
           <button
-            className={'act-btn ' + (raiseTo >= maxTo ? 'act-allin' : 'act-raise')}
-            disabled={!myTurn || maxTo <= state?.currentBet!}
-            onClick={() => act(raiseTo >= maxTo ? 'allin' : 'raise', raiseTo)}
+            className={'act-btn ' + (raiseTo >= allInTo ? 'act-allin' : 'act-raise')}
+            disabled={!myTurn || maxTo <= (state?.currentBet || 0)}
+            onClick={() => act(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo)}
           >
-            {raiseTo >= maxTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')} {chip(raiseTo)}
+            {raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')} {chip(raiseTo)}
           </button>
         </div>
         <div className="action-row" style={{ color: '#9a9a9a', fontSize: 11.5 }}>
           <span>{myTurn ? 'Your turn — choose an action' : state ? (state.actor ? 'Waiting for opponents…' : state.street === 'ended' ? 'Hand complete' : 'Dealing…') : 'Connecting…'}</span>
           <div className="grow" />
-          {hotkeyHints && <span>{hotkeyMap.fold} Fold · {hotkeyMap.check} Check/Call · {hotkeyMap.raise} Raise · {hotkeyMap.allin} All-in</span>}
+          {hotkeyHints && <span>{state?.potLimit ? 'Pot limit · ' : ''}{hotkeyMap.fold} Fold · {hotkeyMap.check} Check/Call · {hotkeyMap.raise} Raise · {hotkeyMap.allin} {state?.potLimit ? 'Pot' : 'All-in'}</span>}
           {hotkeyHints && <span>·</span>}
           <span>Hand #{state?.handNo ?? 0}</span>
           <span>·</span>
@@ -972,18 +1037,18 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head"><h3>Rebuy</h3></div>
             <div className="modal-body">
-              <p className="muted small">Add chips to your stack between hands. Your stack is {chip(me?.stack)}.</p>
-              <input type="range" min={state?.minBuyin || 0} max={state?.maxBuyin || 0} step={Math.max(100, state?.bb || 100)}
-                value={rebuyAmount} onChange={(e) => setRebuyAmount(Number(e.target.value))} style={{ width: '100%' }} />
+              <p className="muted small">Add chips between hands, up to the table maximum of {chip(state?.maxBuyin)}. Your stack is {chip(me?.stack)}.</p>
+              <input type="range" aria-label="Chips to add" min={rebuyMin} max={rebuyMax} step={Math.max(chipStep, state?.bb || chipStep)}
+                value={rebuyAmount} onChange={(e) => setRebuyAmount(Math.min(rebuyMax, Number(e.target.value)))} style={{ width: '100%' }} />
               <div className="between" style={{ marginTop: 8 }}>
-                <span className="muted small">{chip(state?.minBuyin)}</span>
+                <span className="muted small">{chip(rebuyMin)}</span>
                 <b style={{ color: '#ffd98a' }}>{chip(rebuyAmount)}</b>
-                <span className="muted small">{chip(state?.maxBuyin)}</span>
+                <span className="muted small">{chip(rebuyMax)}</span>
               </div>
             </div>
             <div className="modal-foot">
               <button className="btn btn-dark" onClick={() => setRebuyOpen(false)}>Cancel</button>
-              <button className="btn btn-red" onClick={doRebuy}>Add chips</button>
+              <button className="btn btn-red" disabled={rebuyAmount <= 0 || rebuyAmount > rebuyMax} onClick={doRebuy}>Add chips</button>
             </div>
           </div>
         </div>
