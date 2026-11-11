@@ -12,6 +12,20 @@ services:
       GGPOKER_DATA: /data
     volumes:
       - game-data:/data
+    networks:
+      - default
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=crawdbot-worker_default
+      - traefik.http.routers.dangro.rule=Host(`dangg.live`) || Host(`www.dangg.live`)
+      - traefik.http.routers.dangro.entrypoints=websecure
+      - traefik.http.routers.dangro.tls.certresolver=letsencrypt
+      - traefik.http.routers.dangro-http.rule=Host(`dangg.live`) || Host(`www.dangg.live`)
+      - traefik.http.routers.dangro-http.entrypoints=web
+      - traefik.http.routers.dangro-http.middlewares=dangro-redirect
+      - traefik.http.middlewares.dangro-redirect.redirectscheme.scheme=https
+      - traefik.http.services.dangro.loadbalancer.server.port=5198
     expose:
       - "5198"
     ports:
@@ -44,6 +58,11 @@ services:
       - caddy-config:/config
     security_opt:
       - no-new-privileges:true
+
+networks:
+  traefik:
+    external: true
+    name: crawdbot-worker_default
 
 volumes:
   game-data:

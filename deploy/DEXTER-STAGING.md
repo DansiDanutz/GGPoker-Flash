@@ -1,6 +1,8 @@
-# Dexter staging deployment
+# Dexter public deployment
 
-Status: **running on Dexter as a private staging server**, not public production.
+Status: **live on Dexter** for play-money testing at production scale limits.
+
+Public URL: **https://dangg.live** (and https://www.dangg.live)
 
 ## What is running
 
@@ -8,12 +10,13 @@ Status: **running on Dexter as a private staging server**, not public production
 - Compose project: `dangro`
 - Container: `dangro-game-1`
 - Image: `dangro-game`
-- Port: `127.0.0.1:5198` on Dexter only
+- Port: `127.0.0.1:5198` on Dexter (public traffic enters through Traefik)
 - Database volume: `dangro_game-data`
 - Admin password: generated on the VM in `deploy/.env`
 - Demo accounts: disabled (`GGPOKER_SEED_DEMO=0`)
 - Caddy: **not started** (ports 80/443 belong to the existing Traefik)
-- Traefik: **not modified**
+- Traefik: **routing dangg.live** with Let's Encrypt TLS; shared configuration
+  change is documented in `DNS.md`
 
 ## Verify from Dexter
 
@@ -44,20 +47,24 @@ pkill -9 -x GGPokerClone
 
 ## Player access
 
-Players cannot reach this staging server yet. `dangg.live` still points to
-Namecheap parking and no public TLS route exists. Do not point DNS at Dexter
-until the Traefik TLS decision is made.
+Open:
 
-## Why this is staging
+```text
+https://dangg.live
+```
 
-Dexter is 2 vCPU / 8 GB and ~80% disk after the image build. It already runs
-fleet services. It is acceptable for functional testing and Mac Studio admin
-verification, not the 100–1,000-player production target.
+HTTP redirects to HTTPS. The Let's Encrypt certificate covers `dangg.live` and
+`www.dangg.live`. DNS records and verification commands are in `DNS.md`.
 
-## To expose publicly
+## Capacity
 
-Preferred: a dedicated VM with Caddy (see `README.md` and `SCALE-PLAN.md`).
+Dexter is 2 vCPU / 8 GB with ~18 GB free disk and also runs fleet services. It
+is live for play-money testing, not the recommended host for 100–1,000
+concurrent players. See `README.md` and `SCALE-PLAN.md` before paid acquisition.
 
-Alternative on Dexter: add a Traefik router for `dangg.live` and enable ACME
-TLS in the existing Traefik. That requires a planned Traefik restart and a DNS
-A record; it must be treated as a peer-service change, not an automatic step.
+## Shared Traefik
+
+Traefik now has the Let's Encrypt HTTP challenge resolver enabled. Its previous
+compose file was backed up before the change. After recreating the game
+container, Traefik may need a refresh/restart before it picks up the new
+container address; verify with the commands above.

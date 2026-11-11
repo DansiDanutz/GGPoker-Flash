@@ -13,7 +13,7 @@ import { PokerTable, botName } from './table.js';
 import { normalizeAvatar } from './avatar.js';
 import { makeDeck, shuffle, cardStr } from './poker.js';
 import {
-  isLocalHost, isLocalOrigin, resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
+  resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
 } from './security.js';
 import { toInt, cleanNick, parseTableConfig } from './validate.js';
 import { handForViewer } from './hand-history.js';
@@ -645,10 +645,6 @@ function rewardHandPlayed(table, summary) {
 /* ------------------------------------------------------------------ */
 
 const server = http.createServer(async (req, res) => {
-  if (!isLocalHost(req.headers.host)) {
-    res.writeHead(403, { 'content-type': 'text/plain' });
-    return res.end('Forbidden');
-  }
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname;
 
