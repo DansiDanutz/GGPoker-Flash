@@ -14,6 +14,22 @@ import { makeDeck, shuffle, cardStr } from './poker.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
 const APP_DIR = path.join(__dirname, '..');
+
+function localPort() {
+  return server.address()?.port || PORT;
+}
+
+function originAllowed(req) {
+  const port = localPort();
+  const hosts = [`127.0.0.1:${port}`, `localhost:${port}`];
+  if (process.env.GGPOKER_DEV === '1') hosts.push('127.0.0.1:5199', 'localhost:5199');
+  const host = String(req.headers.host || '').toLowerCase();
+  if (!hosts.includes(host)) return false;
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  const origins = hosts.map((h) => `http://${h}`);
+  return origins.includes(String(origin).toLowerCase());
+}
 const DIST = path.join(APP_DIR, 'dist');
 const PUBLIC = path.join(APP_DIR, 'public');
 
@@ -344,10 +360,11 @@ const server = http.createServer(async (req, res) => {
   const p = url.pathname;
 
   try {
+    if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     // ---------- auth ----------
     if (p === '/api/auth/login' && req.method === 'POST') {
       const body = await readBody(req);
-      const user = db.prepare('SELECT * FROM users WHERE lower(login) = lower(?) OR lower(nick) = lower(?)').get(body.login || '', body.login || '');
+      const user = db.prepare('SELECT * FROM users WHERE (lower(login) = lower(?) OR lower(nick) = lower(?)) AND deleted_at IS NULL').get(body.login || '', body.login || '');
       if (!user || !checkPassword(body.password || '', user.password)) return json(res, 400, { error: 'Invalid account ID or password' });
       if (user.banned) return json(res, 403, { error: 'This account is locked. Contact support.' });
       db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
@@ -1086,7 +1103,7 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/admin/stats') {
       const a = requireAdmin(req, res); if (!a) return;
-      const users = db.prepare('SELECT COUNT(*) c FROM users').get().c;
+      const users = db.prepare('SELECT COUNT(*) c FROM users WHERE deleted_at IS NULL').get().c;
       const hands = db.prepare('SELECT COUNT(*) c FROM hands').get().c;
       const tables = db.prepare('SELECT COUNT(*) c FROM tables').get().c;
       const tourneys = db.prepare('SELECT COUNT(*) c FROM tournaments').get().c;
@@ -1098,7 +1115,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/admin/users') {
       const a = requireAdmin(req, res); if (!a) return;
       const q = (url.searchParams.get('q') || '').toLowerCase();
-      const rows = db.prepare('SELECT * FROM users ORDER BY id').all()
+      const rows = db.prepare('SELECT * FROM users WHERE deleted_at IS NULL ORDER BY id').all()
         .filter((u) => !q || u.login.toLowerCase().includes(q) || u.nick.toLowerCase().includes(q));
       return json(res, 200, { users: rows.map(publicUser) });
     }
@@ -1147,8 +1164,14 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true });
       }
       if (body.action === 'delete' && !target.is_admin) {
-        db.prepare('DELETE FROM users WHERE id = ?').run(id);
-        return json(res, 200, { ok: true });
+        for (const entry of LIVE_TABLES.values()) {
+          if (entry.table.seatOf(id)) cashOutSeat(entry.table, id, 'Account deleted by admin');
+        }
+        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+        db.prepare(`UPDATE users SET banned = 1, deleted_at = datetime('now'),
+          login = ?, nick = ?, email = '' WHERE id = ?`).run(`deleted:${id}:${target.login}`, `Deleted ${id}`, id);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'delete_user', `user ${id}`);
+        return json(res, 200, { ok: true, deleted: true });
       }
       return json(res, 400, { error: 'unknown action' });
     }
@@ -1322,7 +1345,14 @@ const server = http.createServer(async (req, res) => {
 /* WebSocket                                                           */
 /* ------------------------------------------------------------------ */
 
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({
+  server,
+  path: '/ws',
+  verifyClient: (info, cb) => {
+    if (originAllowed(info.req)) cb(true);
+    else cb(false, 403, 'Forbidden');
+  },
+});
 
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, 'http://localhost');

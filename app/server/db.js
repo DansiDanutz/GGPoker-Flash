@@ -203,6 +203,7 @@ function init() {
 
   try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE transactions ADD COLUMN reference TEXT'); } catch { /* already exists */ }
   const refIndex = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_transactions_reference'").get();
@@ -418,12 +419,13 @@ export function openSessions() {
        AND -SUM(CASE WHEN t.kind IN ('buyin','rebuy') THEN t.amount ELSE 0 END) > 0`).all();
 }
 
-export function refundOpenSessions() {
+export function refundOpenSessions(options = {}) {
+  const refund = options.refund || addTransactionEx;
   let refunded = 0;
   for (const s of openSessions()) {
     try {
       const tableId = String(s.session_id).split(':')[0] || 'table';
-      const award = addTransactionEx(s.user_id, 'buyin_refund', s.chips_in, `Crash refund ${tableId}`, 'USD', {
+      const award = refund(s.user_id, 'buyin_refund', s.chips_in, `Crash refund ${tableId}`, 'USD', {
         sessionId: s.session_id, reference: `refund:${s.session_id}`, onDuplicate: 'skip',
       });
       if (award.applied) refunded++;
@@ -499,7 +501,8 @@ export function newSession(userId, device = '') {
 
 export function userByToken(token) {
   if (!token) return null;
-  const row = db.prepare(`SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')`).get(token);
+  const row = db.prepare(`SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
+    WHERE s.token = ? AND s.expires_at > datetime('now') AND u.deleted_at IS NULL`).get(token);
   return row || null;
 }
 

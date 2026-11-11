@@ -38,11 +38,11 @@
 *   Electron main waits for the `LISTENING` line, shows a blocking error and
     quits on failure, and skips the handshake when `GGPOKER_DEV=1`.
 *   Tests: `ledger-session.test.js` (5), `claims.test.js` (3), `http.test.js` (3),
-    `engine.test.js` places 2/3 and spin bust, plus the existing = **27 passing**.
+    `engine.test.js` places 2/3 and spin bust, plus the existing = **29 passing**.
 
 ## Verification
 
-*   `cd app && pnpm test` → 27 passed.
+*   `cd app && pnpm test` → 29 passed.
 *   `pnpm build` → success.
 *   Packaged and relaunched `DanGG.ro.app`; `/api/lobby` → 200.
 *   Production DB migrated: `transactions.session_id`, `transactions.reference`,
@@ -85,8 +85,7 @@ review report is [implementation-review.md](implementation-review.md).
 
 ## Remaining
 
-*   Admin user deletion leaves claims/transactions/session rows behind; the
-    startup sweep logs a per-user failure for the deleted id.
-*   A full Origin policy and WS state versioning remain open.
-*   The refund sweep is fault-injected with one failing session; broader fault
-    injection is not committed.
+*   A hard-purge path is not offered; deletion is intentionally soft.
+*   Full disk/process-kill fault injection is not committed; the sweep has a
+    database-failure injection test.
+*   The router remains large; the placement rule is the boundary, not the shape.

@@ -171,3 +171,14 @@ test('spin award reports the minted prize', () => {
   t.tick(2);
   assert.equal(minted, 250);
 });
+
+
+test('snapshots and events carry a table epoch and monotonic version', () => {
+  const p1 = player(1, 'A', 1000, 0, []);
+  const t = tableWith([p1], { seats: 1 });
+  const before = t.snapshotFor();
+  t.emit({ type: 'test' });
+  const after = t.snapshotFor();
+  assert.equal(before.tableEpoch, after.tableEpoch);
+  assert.equal(after.tableVersion, before.tableVersion + 1);
+});

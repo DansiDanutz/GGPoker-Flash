@@ -43,7 +43,7 @@ instead of building around them.
     with a 300 default; `resetpw` writes an audit row; display-only money
     formatting is cleaned up; blackjack returns the settlement balance; the
     design-of-record is updated.
-*   **Verification:** `cd app && pnpm test` → 27 passed. The packaged app was
+*   **Verification:** `cd app && pnpm test` → 29 passed. The packaged app was
     relaunched, `/api/lobby` returned 200, and a live join/leave produced one
     `buyin` and one `cashout` with the same session id and `in:`/`out:` refs.
 
@@ -101,8 +101,9 @@ The review found eight items. Classified honestly:
     and a retry returns the original balance.
 *   A new Origin/Host/throttling programme. The renderer is sandboxed and carries
     a CSP; a local process can still read the database, which is accepted.
-*   A WebSocket version/resync protocol. Full snapshots on `join_table` already
-    replace state; the socket is ordered.
+*   A resumable event log. Tables expose `tableEpoch`/`tableVersion`; a client
+    that sees an epoch change or a sequence gap reconnects and takes a full
+    snapshot instead of replaying missed events.
 *   A disconnect grace window. The current stand-and-cash-out on socket close
     stays; no chips are left outside the ledger.
 *   A new session table, nonce, idempotency table, or `casino.js`/`rewards.js`
@@ -119,9 +120,10 @@ The review found eight items. Classified honestly:
 | D4 | One new table: `player_claims`. Daily, GG Care, Honeymoon and missions move to it; `daily_claims` is migrated and retired. | One table covers every claim and fixes the global-mission defect. |
 | D5 | The lobby keeps synthetic estimates, flagged in the API as `synthetic: true`; `running` and live seats are real. | Projecting from `LIVE_TABLES` would show 0 for 100 seeded tables. |
 | D6 | Bots and Spin mint play money. Bound: bots mint at most `bots × max_buyin` per table; Spin prizes are capped by the table multiplier. Totals are counted in `mint_bot_total`/`mint_spin_total` and shown in Admin stats. | Removing bots empties the tables; the inflation is part of the demo. |
-| D7 | No disconnect grace window and no protocol version. | The current close path cashes out; a version cursor resets on table recreation and adds a failure mode. |
+| D7 | No disconnect grace window; tables expose an epoch and monotonic version. | The close path cashes out; a new table has a new epoch, so a stale client cannot confuse it with the previous instance. |
 | D8 | Port ownership uses the child's stdout and exit code, not a nonce or `/api/health`. | The parent already owns the pipe and the PID; a nonce over HTTP is readable by the same local process. |
 | D9 | `addTransaction` remains the only transaction owner. | Nested `BEGIN` throws; the sweep calls it per row and relies on a unique reference. |
+| D10 | Admin "delete" is a soft delete. Sessions are revoked, live seats are cashed out, the user is anonymised and banned, and ledger/claim rows are kept. | Hard-deleting the user orphans money and audit history. |
 
 ## Technical Plan
 
@@ -205,7 +207,20 @@ completion gate join `player_claims` for the requesting user and default to 0;
 no mission read touches the global `missions.progress`/`missions.claimed` flag.
 `daily_claims` is copied into `player_claims` once and retired.
 
-### C. Port ownership (G3)
+### C. Origin policy and WebSocket versioning
+
+HTTP and WebSocket requests must carry `Host: 127.0.0.1:<port>` or
+`localhost:<port>`. An `Origin` header, when present, must match the same
+origin; `GGPOKER_DEV=1` additionally allows `localhost:5199`. Absent `Origin`
+(curl, tests) is allowed. A bad request gets `403`; a bad upgrade is rejected
+before the socket opens.
+
+Every `PokerTable` has a `tableEpoch` and a monotonic `tableVersion`. Snapshots
+and events carry both. The client keeps the last epoch/version; an epoch change
+or a sequence gap closes the socket and reconnects, where `join_table` returns a
+full snapshot. There is no event replay and no cross-epoch cursor.
+
+### C2. Port ownership (G3)
 
 1.  `index.js` listens on `PORT` (default 5198); after `listen` it prints
     `LISTENING <port>` to stdout.
@@ -341,8 +356,9 @@ no mission read touches the global `missions.progress`/`missions.claimed` flag.
     process. Accepted.
 *   **Claims migration:** `player_claims` is one new table; a failed copy must
     leave `daily_claims` intact and be retryable.
-*   **No protocol version:** a client that reconnects receives a full snapshot
-    on `join_table`; stale snapshots are replaced, not replayed.
+*   **Protocol versioning:** every table has an epoch and version; a client that
+    sees a new epoch or a gap reconnects for a full snapshot. Events are not
+    replayed.
 *   **No disconnect grace:** a socket close stands and cashes out immediately;
     the design does not hold chips outside the ledger.
 
@@ -368,7 +384,8 @@ no mission read touches the global `missions.progress`/`missions.claimed` flag.
 *   Threat model: loopback is not a boundary; local processes can read the token
     and database.
 *   Disconnect: immediate stand and cash-out; no grace window.
-*   Protocol: full snapshot on join; no version/resync.
+*   Protocol: epoch/version on every snapshot and event; gap triggers a full
+    snapshot on reconnect.
 
 ---
 

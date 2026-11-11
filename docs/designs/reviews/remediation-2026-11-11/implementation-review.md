@@ -3,7 +3,7 @@
 **Date:** 2026-11-11
 **Scope:** `320f00b..2b78993` plus the follow-up fixes in this change set.
 **Reviewers:** fresh-context EGM `codebase_details` and an independent code-review subagent. Both read the working tree, not only the patch.
-**Tests at review:** 20 passing; after fixes: 27 passing.
+**Tests at review:** 20 passing; after follow-ups: 29 passing.
 
 ## Verdict
 

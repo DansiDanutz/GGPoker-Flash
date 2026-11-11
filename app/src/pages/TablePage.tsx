@@ -15,7 +15,7 @@ type PlayerState = {
 };
 
 type TableState = {
-  id: string; name: string; game: string; sb: number; bb: number; ante: number; seats: number;
+  id: string; tableEpoch?: string; tableVersion?: number; name: string; game: string; sb: number; bb: number; ante: number; seats: number;
   button: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
@@ -72,6 +72,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const fxId = useRef(1);
   const retry = useRef<number | null>(null);
   const everJoined = useRef(false);
+  const tableEpoch = useRef<string | null>(null);
+  const lastSeq = useRef(0);
 
   const [theme] = useState(() => localStorage.getItem('ggpoker.theme') || 'Green');
   const query = new URLSearchParams(window.location.hash.split('?')[1] || '');
@@ -97,6 +99,8 @@ export function TablePage({ tableId }: { tableId: string }) {
       try { msg = JSON.parse(ev.data); } catch { return; }
       if (msg.type === 'state') {
         const s: TableState = msg.state;
+        tableEpoch.current = s.tableEpoch || null;
+        lastSeq.current = s.tableVersion || 0;
         stateRef.current = s;
         setState(s);
         const mine = s.players.find((p) => p.isMe);
@@ -123,7 +127,11 @@ export function TablePage({ tableId }: { tableId: string }) {
         setObserving(true);
         toast({ kind: 'info', title: 'Waitlist', body: `You are #${msg.position || 1} in line. We will hold the next seat for you.` });
       } else if (msg.type === 'event') {
-        handleEvent(msg.event);
+        const e = msg.event;
+        if (tableEpoch.current && e.tableEpoch && e.tableEpoch !== tableEpoch.current) { ws.close(); return; }
+        if (e.seq && lastSeq.current && e.seq > lastSeq.current + 1) { ws.close(); return; }
+        if (e.seq) lastSeq.current = e.seq;
+        handleEvent(e);
       } else if (msg.type === 'error') {
         toast({ kind: 'error', title: 'Table', body: msg.error });
       }

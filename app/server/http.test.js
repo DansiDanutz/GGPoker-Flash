@@ -30,11 +30,13 @@ function startServer() {
 }
 
 test('server binds an ephemeral port and serves the API', async () => {
-  const { child, port } = await startServer();
+  const { child, port, data } = await startServer();
   try {
     const lobby = await fetch(`http://127.0.0.1:${port}/api/lobby`).then((r) => r.json());
     assert.ok(Array.isArray(lobby.tables));
     assert.equal(lobby.tables[0].synthetic, true);
+    const badOrigin = await fetch(`http://127.0.0.1:${port}/api/lobby`, { headers: { origin: 'http://evil.example' } });
+    assert.equal(badOrigin.status, 403);
     const login = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ login: 'DansiDanutz', password: 'ggpoker' }),
@@ -90,6 +92,24 @@ test('server binds an ephemeral port and serves the API', async () => {
       body: JSON.stringify({ action: 'credit', amount: 1 }),
     });
     assert.equal(bad.status, 403);
+    const admin = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ login: 'admin', password: 'admin123' }),
+    }).then((r) => r.json());
+    const del = await fetch(`http://127.0.0.1:${port}/api/admin/users/3`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${admin.token}` },
+      body: JSON.stringify({ action: 'delete' }),
+    }).then((r) => r.json());
+    assert.equal(del.ok, true);
+    const guest = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ login: 'guest', password: 'guest' }),
+    });
+    assert.equal(guest.status, 400);
+    const db = new DatabaseSync(path.join(data, 'ggpoker.db'));
+    const deleted = db.prepare('SELECT deleted_at, login FROM users WHERE id = 3').get();
+    assert.ok(deleted.deleted_at);
+    assert.ok(deleted.login.startsWith('deleted:3:'));
   } finally {
     child.kill();
   }

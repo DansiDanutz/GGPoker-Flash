@@ -19,7 +19,7 @@ test('crash refunds the sum of buy-in and rebuy exactly once', () => {
   const start = balance();
   addTransactionEx(user.id, 'buyin', -5000, 'buy-in', 'USD', { sessionId: 't1:s1', reference: 'in:t1:s1:1' });
   addTransactionEx(user.id, 'rebuy', -5000, 'rebuy', 'USD', { sessionId: 't1:s1', reference: 'in:t1:s1:r1' });
-  assert.equal(openSessions().length, 1);
+  assert.equal(openSessions().filter((s) => s.session_id === 't1:s1').length, 1);
   assert.equal(refundOpenSessions(), 1);
   assert.equal(balance(), start);
   assert.equal(refundOpenSessions(), 0);
@@ -64,3 +64,4 @@ test('a failing session does not abort the sweep', () => {
   assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference = 'refund:t4:s1'").get().c, 1);
   assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference = 'refund:bad:s'").get().c, 0);
 });
+

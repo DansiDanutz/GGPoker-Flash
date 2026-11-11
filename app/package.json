@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"node server/index.js\" \"vite --port 5199 --strictPort\"",
+    "dev": "concurrently -k \"GGPOKER_DEV=1 node server/index.js\" \"vite --port 5199 --strictPort\"",
     "build": "vite build",
     "start": "node server/index.js",
     "serve": "node server/index.js",

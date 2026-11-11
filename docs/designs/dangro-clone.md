@@ -100,7 +100,7 @@ without a separate decision.
 **Decided:**
 
 *   **Testing seam**: `node:test` over the pure engine. Committed at
-    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `claims.test.js` and `http.test.js` (27 tests: deck,
+    `app/server/engine.test.js`, `ledger.test.js`, `ledger-session.test.js`, `claims.test.js` and `http.test.js` (29 tests: deck,
     hand ranking, Hold'em/Omaha selection, rake, side pots, uncontested pot,
     tournament payout, ledger atomicity/continuity/rollback, crash refunds,
     claims and the ephemeral-port server). Run with
@@ -152,6 +152,12 @@ without a separate decision.
 *   A server crash refunds `chips_in` (buy-in + rebuys) exactly once. Losses are
     forgiven; winnings above `chips_in` are lost. Bound: one stack per crash.
     There is no silent auto-restart.
+*   HTTP and WebSocket requests are limited to `127.0.0.1`/`localhost` on the
+    bound port; a present `Origin` must match. `GGPOKER_DEV=1` adds port 5199.
+*   Tables expose `tableEpoch`/`tableVersion`; a client that sees an epoch change
+    or a sequence gap reconnects for a full snapshot. Events are not replayed.
+*   Admin "delete" is a soft delete: sessions revoked, live seats cashed out,
+    the account anonymised and banned, ledger/claim rows retained.
 *   **Open**: `app/server/index.js` is a 1,384-line router plus domain logic; the
     placement rule is the intended boundary, not the current shape.
 
@@ -485,7 +491,7 @@ the code has not been written.
     Hold'em/Omaha selection, rake floor/cap, side pots, uncontested pot and
     tournament payout; `app/server/ledger.test.js` covers ledger atomicity,
     continuity and rollback. Run with `pnpm test`.
-*   **Exit**: tests pass (27/27). Crash refunds, claims, cashier replay, places
+*   **Exit**: tests pass (29/29). Crash refunds, claims, cashier replay, places
     2/3, live join/leave session markers and the ephemeral-port server are covered.
     2/3 and the ephemeral-port server are covered.
 
@@ -555,10 +561,10 @@ Additional checks:
 *   **UI flows**: table join/action, waitlist, time bank, admin branding upload,
     verification approval, session revoke.
 
-**Known gaps**: WS state versioning, a full Origin policy, and fault injection
-of the refund sweep beyond a failing session remain open. The renderer is
-sandboxed and CSP-protected; the local database remains readable by a local
-process. Current runtime evidence comes from the committed tests, API
+**Known gaps**: full disk/process-kill fault injection and a hard-purge path
+for deleted users remain open; the product uses soft delete by design. The
+renderer is sandboxed and CSP-protected; the local database remains readable by
+a local process. Current runtime evidence comes from the committed tests, API
 checks and live join/leave runs. See [remediation.md](remediation.md) for the
 bounded remediation record.
 

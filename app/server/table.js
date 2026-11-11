@@ -74,6 +74,8 @@ export class PokerTable {
     }
     this.omaha = cfg.game === 'omaha' || cfg.game === 'omaha5';
     this.messageSeq = 0;
+    this.tableEpoch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    this.tableVersion = 0;
   }
 
   /* ------------------------------ seating ------------------------------ */
@@ -808,6 +810,8 @@ export class PokerTable {
     const now = Date.now();
     return {
       id: this.cfg.id,
+      tableEpoch: this.tableEpoch,
+      tableVersion: this.tableVersion,
       name: this.cfg.name,
       game: this.game,
       sb: this.sb,
@@ -866,7 +870,10 @@ export class PokerTable {
 
   emit(evt) {
     evt.tableId = this.cfg.id;
+    this.tableVersion += 1;
     evt.seq = ++this.messageSeq;
+    evt.tableEpoch = this.tableEpoch;
+    evt.tableVersion = this.tableVersion;
     evt.at = Date.now();
     if (evt.type === 'win') this.lastResult = evt;
     for (const fn of this.listeners) {
