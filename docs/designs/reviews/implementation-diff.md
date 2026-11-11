@@ -1,11 +1,11 @@
 # Implementation Diff — Remediation + Poker Parity (final)
 
 Baseline: 320f00b
-Head: daa2fa5
+Head: 2b0d855
 
 ```diff
 diff --git a/README.md b/README.md
-index 0cbf69d..d24616a 100644
+index 0cbf69d..5188539 100644
 --- a/README.md
 +++ b/README.md
 @@ -83,7 +83,7 @@ the mail icon for notifications, the chat icon for lobby chat, and the gear for
@@ -40,7 +40,7 @@ index 0cbf69d..d24616a 100644
  The review changed the code: `addTransaction` is now a single SQLite
  transaction, the deck shuffle uses `node:crypto`, the app enforces a single
 -instance, CDP is gated to dev, request bodies are capped, and 11 committed
-+instance, CDP is gated to dev, request bodies are capped, and 31 committed
++instance, CDP is gated to dev, request bodies are capped, and 35 committed
  `node:test` cases cover the engine and ledger (`cd app && pnpm test`).
  
  ## Notes / scope
@@ -251,7 +251,7 @@ index 0000000..d11a832
 +  assert.notEqual(w1, w2);
 +});
 diff --git a/app/server/db.js b/app/server/db.js
-index 51482ca..f8638e4 100644
+index 51482ca..abfca5c 100644
 --- a/app/server/db.js
 +++ b/app/server/db.js
 @@ -54,7 +54,7 @@ function init() {
@@ -263,11 +263,27 @@ index 51482ca..f8638e4 100644
      category TEXT NOT NULL,         -- Diamond | Platinum | Gold | Silver ...
      sb INTEGER NOT NULL,
      bb INTEGER NOT NULL,
-@@ -203,11 +203,51 @@ function init() {
+@@ -95,6 +95,9 @@ function init() {
+     starting_stack INTEGER NOT NULL DEFAULT 10000,
+     blind_speed INTEGER NOT NULL DEFAULT 8,
+     format TEXT DEFAULT 'NLH',
++    mode TEXT DEFAULT 'STANDARD',
++    bounty INTEGER DEFAULT 0,
++    ticket TEXT DEFAULT '',
+     banner TEXT DEFAULT '',
+     enabled INTEGER NOT NULL DEFAULT 1
+   );
+@@ -203,11 +206,61 @@ function init() {
  
    try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
    try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
 +  try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
++  try { db.exec("ALTER TABLE tournaments ADD COLUMN mode TEXT DEFAULT 'STANDARD'"); } catch { /* already exists */ }
++  try { db.exec('ALTER TABLE tournaments ADD COLUMN bounty INTEGER DEFAULT 0'); } catch { /* already exists */ }
++  try { db.exec("ALTER TABLE tournaments ADD COLUMN ticket TEXT DEFAULT ''"); } catch { /* already exists */ }
++  db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND (mode IS NULL OR mode='STANDARD')");
++  db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND (mode IS NULL OR mode='STANDARD')");
++  db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND (mode IS NULL OR mode='STANDARD')");
 +  try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
 +  try { db.exec('ALTER TABLE transactions ADD COLUMN reference TEXT'); } catch { /* already exists */ }
 +  const refIndex = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_transactions_reference'").get();
@@ -310,12 +326,30 @@ index 51482ca..f8638e4 100644
 +        500, 1000, 0, 20000, 100000, 6, 'Normal', 0, sort++);
 +    }
 +  }
++  for (let i = 1; i <= 4; i++) {
++    ins.run(`spingold6-${i}`, `Spin & Gold 6-Max ${i}`, 'spingold', 'Spin',
++      500, 1000, 0, 30000, 30000, 6, 'Fast', 0, 950 + i);
++  }
 +}
 +
  function ensureSeries() {
    const tins = db.prepare(`INSERT INTO tournaments (id,name,buyin,fee,gtd,start_at,entrants,format) VALUES (?,?,?,?,?,?,?,?)`);
    for (const [id, name, buyin, fee, gtd, hours, fmt] of [
-@@ -346,22 +386,126 @@ export function setSetting(key, value) {
+@@ -218,6 +271,13 @@ function ensureSeries() {
+       tins.run(id, name, buyin, fee, gtd * 100, new Date(Date.now() + hours * 3600_000).toISOString(), 300 + (gtd % 400), fmt);
+     }
+   }
++  if (!db.prepare("SELECT 1 FROM tournaments WHERE id = 'sat-sunday'").get()) {
++    tins.run('sat-sunday', '$1 Step to Sunday Major', 1000, 100, 0, new Date(Date.now() + 8 * 3600_000).toISOString(), 240, 'NLH');
++    db.prepare("UPDATE tournaments SET mode='SATELLITE', ticket='Sunday Major $250K' WHERE id='sat-sunday'").run();
++  }
++  db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND mode='STANDARD'");
++  db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND mode='STANDARD'");
++  db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND mode='STANDARD'");
+ }
+ 
+ function seed() {
+@@ -346,22 +406,126 @@ export function setSetting(key, value) {
      .run(key, JSON.stringify(value));
  }
  
@@ -446,7 +480,7 @@ index 51482ca..f8638e4 100644
  export function newSession(userId, device = '') {
    const token = randomUUID();
    const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
-@@ -371,7 +515,8 @@ export function newSession(userId, device = '') {
+@@ -371,7 +535,8 @@ export function newSession(userId, device = '') {
  
  export function userByToken(token) {
    if (!token) return null;
@@ -457,7 +491,7 @@ index 51482ca..f8638e4 100644
  }
  
 diff --git a/app/server/engine.test.js b/app/server/engine.test.js
-index 0334242..4504b94 100644
+index 0334242..e29b6a0 100644
 --- a/app/server/engine.test.js
 +++ b/app/server/engine.test.js
 @@ -56,13 +56,17 @@ test('bestOmaha uses exactly two hole cards and three board cards', () => {
@@ -479,7 +513,7 @@ index 0334242..4504b94 100644
  });
  
  test('showdown builds side pots and conserves chips', () => {
-@@ -106,3 +110,85 @@ test('tournament winner receives half the prize pool exactly once and fires the
+@@ -106,3 +110,150 @@ test('tournament winner receives half the prize pool exactly once and fires the
    assert.equal(paid, 1);
    assert.equal(ends, 1);
  });
@@ -564,6 +598,71 @@ index 0334242..4504b94 100644
 +  assert.equal(t5.omahaHole, 5);
 +  const t6 = tableWith([p1, p2], { seats: 2, game: 'omaha6' });
 +  assert.equal(t6.omahaHole, 6);
++});
++
++
++test('Flip & Go marks its first hand all-in', () => {
++  const p1 = player(1, 'A', 10000, 0, []);
++  const p2 = player(2, 'B', 10000, 0, []);
++  const t = tableWith([p1, p2], { seats: 2, tournament: { prizePool: 100000, mode: 'FLIP' } });
++  t.street = 'idle';
++  t.handNo = 0;
++  t.startHand();
++  assert.equal(t.handNo, 1);
++  assert.ok(t.street === 'ended' || t.street === 'showdown' || t.street === 'river');
++});
++
++test('Bounty and satellite tournament modes are wired', () => {
++  const p1 = player(1, 'Winner', 5000, 0, []);
++  const p2 = player(2, 'Busted', 0, 0, []);
++  const p3 = player(3, 'Third', 0, 0, []);
++  const t = tableWith([p1, p2, p3], { seats: 3, tournament: { prizePool: 10000, mode: 'BOUNTY', bounty: 500 } });
++  t.lastAggressor = 1;
++  t.street = 'ended';
++  t.nextHandAt = 1;
++  let paid = 0;
++  t.hooks = { onBounty: (_t, info) => { paid += info.amount; }, onTournamentPayout: () => {}, onTournamentEnd: () => {} };
++  t.tick(2);
++  assert.equal(paid, 1000);
++
++  const sat = tableWith([player(1, 'Seat', 100, 0, [])], { seats: 1, tournament: { prizePool: 0, mode: 'SATELLITE', ticket: 'Sunday Major' } });
++  let ticket = null;
++  sat.hooks = { onTournamentEnd: (table, w) => { ticket = w.ticket; } };
++  sat.awardTournamentWinner();
++  assert.equal(ticket, 'Sunday Major');
++  assert.equal(sat.tournament.winner.prize, 0);
++});
++
++
++test('All-in or Fold asks each player and only accepts all-in or fold', () => {
++  const p1 = player(1, 'A', 1000, 0, []);
++  const p2 = player(2, 'B', 1000, 0, []);
++  const t = tableWith([p1, p2], { seats: 2, game: 'aof' });
++  t.street = 'idle';
++  t.handNo = 0;
++  t.startHand();
++  assert.ok(t.actor);
++  const first = t.actor;
++  assert.equal(t.act(first, 'check').ok, false);
++  assert.equal(t.act(first, 'allin').ok, true);
++  const second = t.actor;
++  if (second) t.act(second, 'fold');
++  assert.ok(['showdown', 'ended', 'river'].includes(t.street));
++});
++
++
++test('straddle posts a third blind and opens action after it', () => {
++  const p1 = player(1, 'A', 10000, 0, []);
++  const p2 = player(2, 'B', 10000, 0, []);
++  const p3 = player(3, 'C', 10000, 0, []);
++  const t = tableWith([p1, p2, p3], { seats: 3, straddle: true });
++  t.street = 'idle';
++  t.handNo = 0;
++  t.startHand();
++  const straddler = [p1, p2, p3].find((p) => p.lastAction?.action === 'Straddle');
++  assert.ok(straddler);
++  assert.equal(straddler.totalBet, 200);
++  assert.ok(t.actor);
 +});
 diff --git a/app/server/http.test.js b/app/server/http.test.js
 new file mode 100644
@@ -746,7 +845,7 @@ index 0000000..2c27320
 +  }
 +});
 diff --git a/app/server/index.js b/app/server/index.js
-index c5c6cff..02bcf72 100644
+index c5c6cff..6783b95 100644
 --- a/app/server/index.js
 +++ b/app/server/index.js
 @@ -2,10 +2,11 @@ import http from 'node:http';
@@ -821,21 +920,41 @@ index c5c6cff..02bcf72 100644
  function lobbyTables() {
    const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 ORDER BY sort ASC').all();
    return rows.map((t) => {
-@@ -122,6 +160,7 @@ function lobbyTables() {
+@@ -122,6 +160,8 @@ function lobbyTables() {
        vpip: players ? 18 + (seed % 45) : 0,
        handsPerHour: 55 + (seed % 80),
        running: LIVE_TABLES.has(t.id),
++      pro: t.game === 'rush',
 +      synthetic: true,
      };
    });
  }
-@@ -209,17 +248,26 @@ function getLiveTable(id) {
-         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize}`);
+@@ -205,21 +245,43 @@ function getLiveTable(id) {
+           db.prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?").run(tid);
+         }
+         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(winner.id);
+-        if (u) addTransaction(u.id, 'tourney_win', winner.prize, `Tournament win: ${table.cfg.name}`);
+-        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize}`);
++        if (u && table.tournament?.mode === 'SATELLITE') {
++          addTransaction(u.id, 'satellite_win', 1, `Satellite ticket: ${table.tournament.ticket || table.cfg.name}`, 'TICKET');
++        } else if (u && winner.prize > 0) {
++          addTransaction(u.id, 'tourney_win', winner.prize, `Tournament win: ${table.cfg.name}`);
++        }
++        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize || 0}`);
        } catch (e) { console.error('tournament end', e); }
      },
 +    onMint: (table, kind, amount) => {
 +      const key = kind === 'bot' ? 'mint_bot_total' : 'mint_spin_total';
 +      setSetting(key, (Number(getSetting(key, 0)) || 0) + Number(amount || 0));
++    },
++    onBounty: (table, info) => {
++      const winner = db.prepare('SELECT * FROM users WHERE id = ?').get(info.winnerId);
++      if (winner) {
++        addTransaction(winner.id, info.mystery ? 'mystery_bounty' : 'bounty', info.amount,
++          `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`);
++      }
++      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bounty',
++        `${table.cfg.name} ${info.winnerNick} ${info.amount} (${info.bustedNick})`);
 +    },
 +    onSeatBusted: (table, player) => {
 +      if (!table.spin) return;
@@ -863,7 +982,7 @@ index c5c6cff..02bcf72 100644
        }
      },
    });
-@@ -232,6 +280,7 @@ function getLiveTable(id) {
+@@ -232,6 +294,7 @@ function getLiveTable(id) {
        if (entry.clients.size === 0) {
          if (!entry.emptySince) entry.emptySince = Date.now();
          else if (Date.now() - entry.emptySince > 45000) {
@@ -871,7 +990,7 @@ index c5c6cff..02bcf72 100644
            clearInterval(entry.timer);
            LIVE_TABLES.delete(id);
          }
-@@ -273,12 +322,35 @@ function seatHuman(table, user, buyin, seatIndex = null) {
+@@ -273,12 +336,35 @@ function seatHuman(table, user, buyin, seatIndex = null) {
    const stack = Number(buyin) || table.cfg.min_buyin;
    if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
    if (user.balance < stack) return { ok: false, error: 'not enough balance' };
@@ -910,7 +1029,7 @@ index c5c6cff..02bcf72 100644
  /* ------------------------------------------------------------------ */
  /* HTTP API                                                            */
  /* ------------------------------------------------------------------ */
-@@ -288,10 +360,11 @@ const server = http.createServer(async (req, res) => {
+@@ -288,10 +374,11 @@ const server = http.createServer(async (req, res) => {
    const p = url.pathname;
  
    try {
@@ -923,7 +1042,7 @@ index c5c6cff..02bcf72 100644
        if (!user || !checkPassword(body.password || '', user.password)) return json(res, 400, { error: 'Invalid account ID or password' });
        if (user.banned) return json(res, 403, { error: 'This account is locked. Contact support.' });
        db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
-@@ -308,9 +381,10 @@ const server = http.createServer(async (req, res) => {
+@@ -308,9 +395,10 @@ const server = http.createServer(async (req, res) => {
        if (db.prepare('SELECT id FROM users WHERE lower(login)=lower(?)').get(login)) return json(res, 400, { error: 'Account already exists' });
        const start = getSetting('default_balance', 5000) + getSetting('welcome_bonus', 100000);
        db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
@@ -937,16 +1056,21 @@ index c5c6cff..02bcf72 100644
        const token = newSession(user.id, req.headers['user-agent'] || '');
        return json(res, 200, { token, user: publicUser(user) });
      }
-@@ -363,7 +437,7 @@ const server = http.createServer(async (req, res) => {
+@@ -362,8 +450,12 @@ const server = http.createServer(async (req, res) => {
+         banners,
          online: sitesStats().online,
          jackpot: getSetting('jackpot', 199026635),
++        recentWinners: Array.from({ length: 5 }, (_, i) => ({
++          nick: botName((hashStr('winner' + i) + i) % 100),
++          amount: 500 + ((hashStr('amount' + i) + i * 733) % 9000),
++        })),
          user: publicUser(u),
 -        missions: db.prepare('SELECT * FROM missions WHERE active = 1 ORDER BY sort').all(),
 +        missions: lobbyMissions(u),
          settings: { site_name: getSetting('site_name', 'GGPoker'), maintenance: getSetting('maintenance', false) },
        });
      }
-@@ -392,7 +466,7 @@ const server = http.createServer(async (req, res) => {
+@@ -392,7 +484,7 @@ const server = http.createServer(async (req, res) => {
        addTransaction(u.id, 'tourney_buyin', -total, `Registration ${t.name}`);
        db.prepare('INSERT INTO tourney_regs (tournament_id,user_id) VALUES (?,?)').run(id, u.id);
        db.prepare('UPDATE tournaments SET entrants = entrants + 1 WHERE id = ?').run(id);
@@ -955,7 +1079,16 @@ index c5c6cff..02bcf72 100644
        return json(res, 200, { ok: true });
      }
  
-@@ -459,17 +533,29 @@ const server = http.createServer(async (req, res) => {
+@@ -419,6 +511,8 @@ const server = http.createServer(async (req, res) => {
+           tournament: {
+             prizePool: Math.max(t.gtd, t.entrants * (t.buyin + t.fee)),
+             level: 1, blindEvery: Math.max(5, t.blind_speed),
++            mode: t.mode || 'STANDARD', bounty: t.bounty || 0, ticket: t.ticket || '',
++            name: t.name,
+           },
+         });
+       }
+@@ -459,17 +553,29 @@ const server = http.createServer(async (req, res) => {
        const body = await readBody(req);
        const amount = Math.round(Number(body.amount || 0));
        if (amount <= 0 || amount > 100000000) return json(res, 400, { error: 'Invalid amount' });
@@ -989,7 +1122,7 @@ index c5c6cff..02bcf72 100644
      }
  
      // ---------- hand history ----------
-@@ -488,7 +574,13 @@ const server = http.createServer(async (req, res) => {
+@@ -488,7 +594,13 @@ const server = http.createServer(async (req, res) => {
      // ---------- missions / rewards ----------
      if (p === '/api/missions') {
        const u = requireUser(req, res); if (!u) return;
@@ -1004,7 +1137,7 @@ index c5c6cff..02bcf72 100644
      }
  
      if (p.startsWith('/api/missions/') && p.endsWith('/claim') && req.method === 'POST') {
-@@ -496,11 +588,13 @@ const server = http.createServer(async (req, res) => {
+@@ -496,11 +608,13 @@ const server = http.createServer(async (req, res) => {
        const id = p.split('/')[3];
        const m = db.prepare('SELECT * FROM missions WHERE id = ?').get(id);
        if (!m) return json(res, 404, { error: 'not found' });
@@ -1023,7 +1156,7 @@ index c5c6cff..02bcf72 100644
      }
  
      if (p === '/api/leaderboard') {
-@@ -511,19 +605,19 @@ const server = http.createServer(async (req, res) => {
+@@ -511,19 +625,19 @@ const server = http.createServer(async (req, res) => {
      if (p === '/api/rewards/daily' && req.method === 'POST') {
        const u = requireUser(req, res); if (!u) return;
        const day = new Date().toISOString().slice(0, 10);
@@ -1050,7 +1183,7 @@ index c5c6cff..02bcf72 100644
      }
  
      if (p === '/api/rewards/spin' && req.method === 'POST') {
-@@ -613,16 +707,17 @@ const server = http.createServer(async (req, res) => {
+@@ -613,16 +727,17 @@ const server = http.createServer(async (req, res) => {
          return sum;
        };
        if (action === 'deal') {
@@ -1070,7 +1203,7 @@ index c5c6cff..02bcf72 100644
          });
        }
        const hand = BJ_HANDS.get(u.id);
-@@ -632,7 +727,8 @@ const server = http.createServer(async (req, res) => {
+@@ -632,7 +747,8 @@ const server = http.createServer(async (req, res) => {
          const pv = bjValue(hand.player), dv = bjValue(hand.dealer);
          if (pv > 21) {
            BJ_HANDS.delete(u.id);
@@ -1080,7 +1213,7 @@ index c5c6cff..02bcf72 100644
          }
          return json(res, 200, { player: hand.player.map(cardStr), playerTotal: pv, dealer: [cardStr(hand.dealer[0]), '??'], done: false });
        }
-@@ -645,9 +741,9 @@ const server = http.createServer(async (req, res) => {
+@@ -645,9 +761,9 @@ const server = http.createServer(async (req, res) => {
          if (pv > 21) { payout = 0; result = 'bust'; }
          else if (dv > 21 || pv > dv) { payout = natural ? Math.floor(hand.bet * 2.5) : hand.bet * 2; result = 'win'; }
          else if (pv === dv) { payout = hand.bet; result = 'push'; }
@@ -1092,7 +1225,7 @@ index c5c6cff..02bcf72 100644
        }
        return json(res, 400, { error: 'unknown action' });
      }
-@@ -844,12 +940,12 @@ const server = http.createServer(async (req, res) => {
+@@ -844,12 +960,12 @@ const server = http.createServer(async (req, res) => {
      // ---------- honeymoon ----------
      if (p === '/api/honeymoon' && req.method === 'GET') {
        const u = requireUser(req, res); if (!u) return;
@@ -1110,7 +1243,7 @@ index c5c6cff..02bcf72 100644
          missions: true,
        });
      }
-@@ -857,32 +953,27 @@ const server = http.createServer(async (req, res) => {
+@@ -857,32 +973,27 @@ const server = http.createServer(async (req, res) => {
        const u = requireUser(req, res); if (!u) return;
        const b = await readBody(req);
        const step = String(b.step || '');
@@ -1154,7 +1287,7 @@ index c5c6cff..02bcf72 100644
      }
  
      // ---------- brand assets ----------
-@@ -1012,19 +1103,19 @@ const server = http.createServer(async (req, res) => {
+@@ -1012,19 +1123,19 @@ const server = http.createServer(async (req, res) => {
  
      if (p === '/api/admin/stats') {
        const a = requireAdmin(req, res); if (!a) return;
@@ -1177,7 +1310,7 @@ index c5c6cff..02bcf72 100644
          .filter((u) => !q || u.login.toLowerCase().includes(q) || u.nick.toLowerCase().includes(q));
        return json(res, 200, { users: rows.map(publicUser) });
      }
-@@ -1036,9 +1127,17 @@ const server = http.createServer(async (req, res) => {
+@@ -1036,9 +1147,17 @@ const server = http.createServer(async (req, res) => {
        const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
        if (!target) return json(res, 404, { error: 'not found' });
        if (body.action === 'credit') {
@@ -1197,7 +1330,7 @@ index c5c6cff..02bcf72 100644
        }
        if (body.action === 'set') {
          const currency = { balance: 'USD', play_chips: 'PLAY', tickets: 'TICKET', gems: 'GEM' };
-@@ -1061,11 +1160,23 @@ const server = http.createServer(async (req, res) => {
+@@ -1061,11 +1180,23 @@ const server = http.createServer(async (req, res) => {
        }
        if (body.action === 'resetpw') {
          db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(String(body.password || 'ggpoker')), id);
@@ -1223,7 +1356,7 @@ index c5c6cff..02bcf72 100644
        }
        return json(res, 400, { error: 'unknown action' });
      }
-@@ -1138,18 +1249,27 @@ const server = http.createServer(async (req, res) => {
+@@ -1138,18 +1269,27 @@ const server = http.createServer(async (req, res) => {
        const a = requireAdmin(req, res); if (!a) return;
        const b = await readBody(req);
        if (b.delete) { db.prepare('DELETE FROM missions WHERE id = ?').run(b.id); return json(res, 200, { ok: true }); }
@@ -1255,7 +1388,7 @@ index c5c6cff..02bcf72 100644
      }
  
      if (p.startsWith('/api/admin/live/') && p.endsWith('/close') && req.method === 'POST') {
-@@ -1158,12 +1278,7 @@ const server = http.createServer(async (req, res) => {
+@@ -1158,12 +1298,7 @@ const server = http.createServer(async (req, res) => {
        const entry = LIVE_TABLES.get(id);
        if (!entry) return json(res, 404, { error: 'not running' });
        for (const s of [...entry.table.seats]) {
@@ -1269,7 +1402,7 @@ index c5c6cff..02bcf72 100644
        }
        clearInterval(entry.timer);
        LIVE_TABLES.delete(id);
-@@ -1235,7 +1350,14 @@ const server = http.createServer(async (req, res) => {
+@@ -1235,7 +1370,14 @@ const server = http.createServer(async (req, res) => {
  /* WebSocket                                                           */
  /* ------------------------------------------------------------------ */
  
@@ -1285,7 +1418,7 @@ index c5c6cff..02bcf72 100644
  
  wss.on('connection', (ws, req) => {
    const url = new URL(req.url, 'http://localhost');
-@@ -1256,12 +1378,19 @@ wss.on('connection', (ws, req) => {
+@@ -1256,12 +1398,19 @@ wss.on('connection', (ws, req) => {
    function handleWsMessage(ws, raw) {
      let msg;
      try { msg = JSON.parse(raw.toString()); } catch { return; }
@@ -1306,7 +1439,24 @@ index c5c6cff..02bcf72 100644
        if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
        if (msg.observe) {
          table.fillBots(Math.max(3, table.cfg.seats - 1));
-@@ -1309,11 +1438,9 @@ wss.on('connection', (ws, req) => {
+@@ -1303,17 +1452,26 @@ wss.on('connection', (ws, req) => {
+       broadcastState(table);
+       return;
+     }
++    if (msg.type === 'option') {
++      const entry = LIVE_TABLES.get(msg.tableId);
++      if (!entry) return;
++      if (msg.straddle != null) {
++        const res = entry.table.setStraddle(!!msg.straddle);
++        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
++      }
++      if (msg.autoMuck != null) entry.table.setAutoMuck(ws.userId, !!msg.autoMuck);
++      broadcastState(entry.table);
++      return;
++    }
+     if (msg.type === 'leave_table') {
+       const entry = LIVE_TABLES.get(msg.tableId);
+       if (entry) {
          entry.clients.delete(ws);
          ws.tables.delete(msg.tableId);
          const table = entry.table;
@@ -1321,7 +1471,7 @@ index c5c6cff..02bcf72 100644
            notifyWaitlist(msg.tableId);
          } else {
            waitlistLeave(msg.tableId, ws.userId);
-@@ -1345,11 +1472,19 @@ wss.on('connection', (ws, req) => {
+@@ -1345,11 +1503,19 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
        if (seat.player.inHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
@@ -1343,7 +1493,7 @@ index c5c6cff..02bcf72 100644
        seat.player.stack += amount;
        broadcastState(table);
        return;
-@@ -1406,9 +1541,7 @@ wss.on('connection', (ws, req) => {
+@@ -1406,9 +1572,7 @@ wss.on('connection', (ws, req) => {
        const seat = table.seatOf(ws.userId);
        if (seat) {
          seat.player.disconnected = true;
@@ -1354,7 +1504,7 @@ index c5c6cff..02bcf72 100644
          notifyWaitlist(id);
        } else {
          waitlistLeave(id, ws.userId);
-@@ -1418,6 +1551,10 @@ wss.on('connection', (ws, req) => {
+@@ -1418,6 +1582,10 @@ wss.on('connection', (ws, req) => {
    });
  });
  
@@ -1495,19 +1645,31 @@ index 0000000..a776859
 +  assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference LIKE 'refund:fault:%'").get().c, 1);
 +});
 diff --git a/app/server/table.js b/app/server/table.js
-index fa07090..c53d38b 100644
+index fa07090..6cfb710 100644
 --- a/app/server/table.js
 +++ b/app/server/table.js
-@@ -64,7 +64,7 @@ export class PokerTable {
+@@ -57,14 +57,19 @@ export class PokerTable {
+     this.showdownDelay = 5000;
+     this.botSpeed = Number(cfg.botSpeed || 900);
+     this.aof = cfg.game === 'aof';
++    this.straddle = !!cfg.straddle;
+     this.spin = cfg.game === 'spingold';
+     this.spinMultiplier = null;
+     this.spinPrize = 0;
+     this.spinWinner = null;
      this.tournament = cfg.tournament || null;
      this.elimination = this.spin || !!this.tournament;
++    this.flip = this.tournament?.mode === 'FLIP';
++    this.bounty = Number(this.tournament?.bounty || 0);
++    this.mystery = this.tournament?.mode === 'MYSTERY';
++    this.satellite = this.tournament?.mode === 'SATELLITE';
      this.rakePercent = cfg.rakePercent ?? 5;
 -    this.rakeCap = cfg.rakeCap ?? 0;
 +    this.rakeCap = Number(cfg.rakeCap) > 0 ? Number(cfg.rakeCap) : 300;
      this.rake = 0;
      this.finished = [];
      if (this.spin) {
-@@ -72,8 +72,11 @@ export class PokerTable {
+@@ -72,8 +77,11 @@ export class PokerTable {
        this.spinMultiplier = options[Math.floor(Math.random() * options.length)];
        this.spinPrize = Math.round(cfg.min_buyin * this.spinMultiplier);
      }
@@ -1520,7 +1682,7 @@ index fa07090..c53d38b 100644
    }
  
    /* ------------------------------ seating ------------------------------ */
-@@ -90,7 +93,7 @@ export class PokerTable {
+@@ -90,7 +98,7 @@ export class PokerTable {
      return this.seats.find((s) => s.player && s.player.id === playerId);
    }
  
@@ -1529,15 +1691,16 @@ index fa07090..c53d38b 100644
      if (this.seatOf(player.id)) return { ok: false, error: 'already seated' };
      let seat = seatIndex != null ? this.seats[seatIndex] : this.seats.find((s) => !s.player);
      if (!seat) return { ok: false, error: 'table full' };
-@@ -119,6 +122,7 @@ export class PokerTable {
+@@ -119,6 +127,8 @@ export class PokerTable {
        joinedAt: Date.now(),
        handsPlayed: 0,
        won: 0,
++      autoMuck: false,
 +      sessionId,
      };
      this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
      this.maybeStart();
-@@ -173,6 +177,7 @@ export class PokerTable {
+@@ -173,6 +183,7 @@ export class PokerTable {
      const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
      if (!w || !w.player) return;
      w.player.stack += this.spinPrize;
@@ -1545,7 +1708,41 @@ index fa07090..c53d38b 100644
      this.spinWinner = { nick: w.player.nick, id: w.player.id, prize: this.spinPrize };
      this.emit({ type: 'spin_win', ...this.spinWinner, multiplier: this.spinMultiplier });
      this.street = 'ended';
-@@ -300,8 +305,7 @@ export class PokerTable {
+@@ -183,6 +194,14 @@ export class PokerTable {
+   awardTournamentWinner() {
+     const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
+     if (!w || !w.player) return;
++    if (this.satellite) {
++      this.tournament.winner = { nick: w.player.nick, id: w.player.id, prize: 0, ticket: this.tournament.ticket };
++      this.emit({ type: 'tourney_win', nick: w.player.nick, id: w.player.id, prize: 0, ticket: this.tournament.ticket, tableName: this.cfg.name });
++      this.street = 'ended';
++      this.nextHandAt = 0;
++      if (this.hooks.onTournamentEnd) this.hooks.onTournamentEnd(this, this.tournament.winner);
++      return;
++    }
+     const prize = Math.round((this.tournament.prizePool || 0) * 0.5);
+     w.player.stack += prize;
+     this.tournament.winner = { nick: w.player.nick, id: w.player.id, prize };
+@@ -285,8 +304,16 @@ export class PokerTable {
+     }
+     this.postBlind(sbSeat, this.sb, 'SB');
+     this.postBlind(bbSeat, this.bb, 'BB');
+-    this.currentBet = this.bb;
+-    this.minRaise = this.bb;
++    let straddleSeat = null;
++    if (this.straddle) {
++      const candidate = this.seats[(bbSeat.index + 1) % this.seats.length];
++      if (candidate?.player && candidate.player.inHand && candidate.player.stack > 0) {
++        straddleSeat = candidate;
++        this.postBlind(straddleSeat, this.bb * 2, 'Straddle');
++      }
++    }
++    this.currentBet = straddleSeat ? this.bb * 2 : this.bb;
++    this.minRaise = straddleSeat ? this.bb * 2 : this.bb;
+ 
+     // deal
+     const dealOrder = postOrder;
+@@ -300,26 +327,28 @@ export class PokerTable {
      if (this.omaha) {
        for (const s of dealOrder) {
          if (s.player && s.player.inHand) {
@@ -1555,7 +1752,91 @@ index fa07090..c53d38b 100644
          }
        }
      }
-@@ -546,8 +550,7 @@ export class PokerTable {
+ 
+     this.emit({ type: 'hand_start', handNo: this.handNo, button: this.button, sbSeat: sbSeat.index, bbSeat: bbSeat.index });
+ 
+-    if (this.aof) {
+-      // Every player is all-in or folds, no action rounds
+-      for (const s of inHand) {
+-        s.player.allIn = true;
+-      }
+-      this.pot = this.pot; // blinds already committed
++    if (this.flip && this.handNo === 1) {
++      for (const s of inHand) s.player.allIn = true;
+       this.setActor(null);
+       this.runout();
+       return;
+     }
+ 
+-    const firstToAct = this.nextActionSeat(this.button);
++    if (this.aof) {
++      // Each player chooses all-in or fold; no postflop betting rounds.
++      const first = this.nextActionSeat(this.button);
++      this.setActor(first ? first.player.id : null);
++      return;
++    }
++
++    const firstToAct = this.nextActionSeat(straddleSeat ? straddleSeat.index : this.button);
+     this.setActor(firstToAct ? firstToAct.player.id : null);
+   }
+ 
+@@ -356,6 +385,18 @@ export class PokerTable {
+     return null;
+   }
+ 
++  setAutoMuck(userId, value) {
++    const seat = this.seatOf(userId);
++    if (seat?.player) seat.player.autoMuck = !!value;
++    return { ok: true };
++  }
++
++  setStraddle(value) {
++    if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };
++    this.straddle = !!value;
++    return { ok: true };
++  }
++
+   setActor(playerId) {
+     this.actor = playerId;
+     if (!playerId) return;
+@@ -393,6 +434,36 @@ export class PokerTable {
+     if (this.actor !== playerId) return { ok: false, error: 'not your turn' };
+     if (p.folded || p.allIn) return { ok: false, error: 'cannot act' };
+ 
++    if (this.aof) {
++      if (action === 'fold') {
++        p.folded = true;
++        p.acted = true;
++        p.lastAction = { action: 'Fold', amount: 0 };
++        this.emit({ type: 'action', seat: seat.index, playerId, action: 'fold' });
++      } else if (action === 'allin') {
++        const paid = this.commit(p, p.stack);
++        p.allIn = true;
++        p.acted = true;
++        p.lastAction = { action: 'All-in', amount: p.bet };
++        this.lastAggressor = p.id;
++        this.emit({ type: 'action', seat: seat.index, playerId, action: 'allin', amount: p.bet, paid, allIn: true });
++      } else {
++        return { ok: false, error: 'all-in or fold only' };
++      }
++      const pending = this.seats.filter((x) => x.player && x.player.inHand && !x.player.folded && !x.player.allIn && !x.player.acted);
++      const live = this.seats.filter((x) => x.player && x.player.inHand && !x.player.folded);
++      if (live.length <= 1) {
++        this.setActor(null);
++        this.finishByFold();
++      } else if (!pending.length) {
++        this.setActor(null);
++        this.runout();
++      } else {
++        this.setActor(pending[0].player.id);
++      }
++      return { ok: true };
++    }
++
+     const call = this.toCall(p);
+     if (action === 'fold') {
+       p.folded = true;
+@@ -546,8 +617,7 @@ export class PokerTable {
    computeRake(pot) {
      if (this.tournament || this.spin) return 0;
      const raw = Math.floor((pot * this.rakePercent) / 100);
@@ -1565,7 +1846,15 @@ index fa07090..c53d38b 100644
    }
  
    finishByFold(winnerSeat) {
-@@ -689,7 +692,10 @@ export class PokerTable {
+@@ -579,7 +649,6 @@ export class PokerTable {
+   doShowdown() {
+     this.collectBets();
+     const alive = this.activePlayers().filter((s) => !s.player.folded);
+-    for (const s of alive) s.player.reveal = true;
+     const scored = alive.map((s) => {
+       const p = s.player;
+       const best = this.omaha ? bestOmaha(p.cards, this.board) : bestHoldem(p.cards, this.board);
+@@ -689,7 +758,10 @@ export class PokerTable {
          this.nextHandAt = 0;
          // remove busted bots, rebuy bots so the table stays alive
          for (const s of this.seats) {
@@ -1577,15 +1866,36 @@ index fa07090..c53d38b 100644
          }
          if (this.elimination) {
            const aliveCount = this.occupiedSeats().filter((x) => x.player && x.player.stack > 0).length;
-@@ -707,6 +713,7 @@ export class PokerTable {
+@@ -707,6 +779,28 @@ export class PokerTable {
                  this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
                  if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
                }
++              if (this.bounty > 0 && (this.mystery || this.tournament.mode === 'BOUNTY')) {
++                const killerSeat = this.lastAggressor ? this.seatOf(this.lastAggressor) : null;
++                const killer = killerSeat?.player && killerSeat.player.stack > 0
++                  ? killerSeat.player
++                  : this.occupiedSeats().find((x) => x.player && x.player.stack > 0)?.player;
++                if (killer && killer.id !== busted.id) {
++                  const tiers = [0.1, 0.25, 0.5, 1, 2, 5, 10];
++                  const amount = this.mystery
++                    ? Math.round(this.bounty * tiers[Math.floor(Math.random() * tiers.length)])
++                    : this.bounty;
++                  this.hooks.onBounty?.(this, {
++                    winnerId: killer.id, winnerNick: killer.nick,
++                    bustedId: busted.id, bustedNick: busted.nick,
++                    amount, mystery: this.mystery,
++                  });
++                  this.emit({
++                    type: 'bounty', seat: s.index, winnerId: killer.id, winnerNick: killer.nick,
++                    bustedNick: busted.nick, amount, mystery: this.mystery,
++                  });
++                }
++              }
 +              try { if (this.hooks.onSeatBusted) this.hooks.onSeatBusted(this, busted); } catch (e) { console.error('seat busted hook', e); }
                s.player = null;
                this.emit({ type: 'stand', seat: s.index });
              }
-@@ -803,6 +810,8 @@ export class PokerTable {
+@@ -803,6 +897,8 @@ export class PokerTable {
      const now = Date.now();
      return {
        id: this.cfg.id,
@@ -1594,7 +1904,15 @@ index fa07090..c53d38b 100644
        name: this.cfg.name,
        game: this.game,
        sb: this.sb,
-@@ -861,7 +870,10 @@ export class PokerTable {
+@@ -855,13 +951,17 @@ export class PokerTable {
+       lastAction: this.lastAction,
+       canStart: this.street === 'idle',
+       spin: this.spin ? { multiplier: this.spinMultiplier, prize: this.spinPrize, winner: this.spinWinner } : null,
+-      tournament: this.tournament ? { name: this.cfg.name, prizePool: this.tournament.prizePool, level: this.tournament.level || 1, winner: this.tournament.winner || null } : null,
++      straddle: this.straddle,
++      tournament: this.tournament ? { name: this.cfg.name, prizePool: this.tournament.prizePool, level: this.tournament.level || 1, mode: this.tournament.mode || 'STANDARD', bounty: this.tournament.bounty || 0, ticket: this.tournament.ticket || '', winner: this.tournament.winner || null } : null,
+     };
+   }
  
    emit(evt) {
      evt.tableId = this.cfg.id;
@@ -1606,18 +1924,19 @@ index fa07090..c53d38b 100644
      if (evt.type === 'win') this.lastResult = evt;
      for (const fn of this.listeners) {
 diff --git a/app/src/lib/api.ts b/app/src/lib/api.ts
-index 34cae72..470dea6 100644
+index 34cae72..dd11061 100644
 --- a/app/src/lib/api.ts
 +++ b/app/src/lib/api.ts
-@@ -34,6 +34,7 @@ export type LobbyTable = {
+@@ -34,6 +34,8 @@ export type LobbyTable = {
    wait: number;
    avgPot: number;
    vpip: number;
 +  synthetic?: boolean;
++  pro?: boolean;
    handsPerHour: number;
    running: boolean;
  };
-@@ -82,8 +83,8 @@ export const api = {
+@@ -82,8 +84,8 @@ export const api = {
    registerTourney: (id: string) => request(`/api/tournaments/${id}/register`, { method: 'POST' }),
    unregisterTourney: (id: string) => request(`/api/tournaments/${id}/unregister`, { method: 'POST' }),
    cashier: () => request<any>('/api/cashier'),
@@ -1628,7 +1947,7 @@ index 34cae72..470dea6 100644
    hands: () => request<{ hands: any[] }>('/api/hands'),
    missions: () => request<{ missions: any[] }>('/api/missions'),
    claimMission: (id: string) => request<any>(`/api/missions/${id}/claim`, { method: 'POST' }),
-@@ -157,6 +158,7 @@ export const GAME_LABEL: Record<string, string> = {
+@@ -157,6 +159,7 @@ export const GAME_LABEL: Record<string, string> = {
    holdem: "Hold'em",
    omaha: 'PLO',
    omaha5: 'PLO5',
@@ -1727,7 +2046,7 @@ index 68ba28e..7e130ed 100644
  
    const tx = data?.transactions || [];
 diff --git a/app/src/pages/Lobby.tsx b/app/src/pages/Lobby.tsx
-index b565b06..10da88b 100644
+index b565b06..af0bd41 100644
 --- a/app/src/pages/Lobby.tsx
 +++ b/app/src/pages/Lobby.tsx
 @@ -11,7 +11,7 @@ const TAB_GAME: Record<string, string[]> = {
@@ -1764,6 +2083,27 @@ index b565b06..10da88b 100644
              </div>
              <div className="list-scroll">
                {viewMode === 'group' ? (
+@@ -272,6 +270,7 @@ export function Lobby() {
+                     <button className={'fav-star' + (favs.includes(t.id) ? ' on' : '')} onClick={(e) => { e.stopPropagation(); toggleFav(t.id); }} title="Favourite">★</button>
+                     <span className={'chip-dot ' + t.category.toLowerCase()} />
+                     <span>{t.name}</span>
++                    {t.pro && <span className="tag pro">PRO</span>}
+                   </div>
+                   <div>{fmtStakes(t)}</div>
+                   <div>{money(t.min_buyin, true)}</div>
+@@ -303,6 +302,12 @@ export function Lobby() {
+             <button className="btn btn-dark btn-block" onClick={() => { if (table) navigate(`/table/${table.id}?observe=1`); }}>Open</button>
+             <button className="btn btn-red btn-block" onClick={() => { if (table) openJoin(table); }}>Join</button>
+           </div>
++          <div className="mini-stats">
++            <div className="between"><span className="muted small">Last jackpot</span><b className="gold">{money(data?.jackpot || 0)}</b></div>
++            {(data?.recentWinners || []).slice(0, 3).map((w: any, i: number) => (
++              <div key={i} className="between"><span className="muted small">{w.nick}</span><span className="small">{money(w.amount)}</span></div>
++            ))}
++          </div>
+           <div style={{ flex: 1 }} />
+           <div style={{ padding: '6px 8px', fontSize: 11, color: '#777', borderTop: '1px solid #222' }}>
+             {table ? GAME_LABEL[table.game] : ''} · {table ? table.speed : ''}
 diff --git a/app/src/pages/Rewards.tsx b/app/src/pages/Rewards.tsx
 index 9ba833e..ecf04c6 100644
 --- a/app/src/pages/Rewards.tsx
@@ -1787,10 +2127,10 @@ index 9ba833e..ecf04c6 100644
                  <button
                    className={'btn btn-sm ' + (m.claimed ? 'btn-ghost' : 'btn-gold')}
 diff --git a/app/src/pages/TablePage.tsx b/app/src/pages/TablePage.tsx
-index 825e4e5..3f87230 100644
+index 825e4e5..c8ff8bf 100644
 --- a/app/src/pages/TablePage.tsx
 +++ b/app/src/pages/TablePage.tsx
-@@ -15,7 +15,7 @@ type PlayerState = {
+@@ -15,13 +15,14 @@ type PlayerState = {
  };
  
  type TableState = {
@@ -1799,7 +2139,23 @@ index 825e4e5..3f87230 100644
    button: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
    minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
    timeBankUsed?: number[];
-@@ -72,6 +72,8 @@ export function TablePage({ tableId }: { tableId: string }) {
+   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number;
+   spin?: { multiplier: number; prize: number; winner: any } | null;
+-  tournament?: { name: string; prizePool: number; level: number; winner: any } | null;
++  tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string } | null;
++  straddle?: boolean;
+ };
+ 
+ const POS6 = [[50, 80], [12, 71], [16, 32], [50, 17], [84, 32], [88, 71]];
+@@ -62,6 +63,7 @@ export function TablePage({ tableId }: { tableId: string }) {
+   const [noteText, setNoteText] = useState('');
+   const [noteColor, setNoteColor] = useState('yellow');
+   const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
++  const [autoMuck, setAutoMuck] = useState(() => localStorage.getItem('ggpoker.automuck') === '1');
+   const autoRebuyPending = useRef(false);
+   const spinSeen = useRef(false);
+   const [now, setNow] = useState(Date.now());
+@@ -72,6 +74,8 @@ export function TablePage({ tableId }: { tableId: string }) {
    const fxId = useRef(1);
    const retry = useRef<number | null>(null);
    const everJoined = useRef(false);
@@ -1808,7 +2164,7 @@ index 825e4e5..3f87230 100644
  
    const [theme] = useState(() => localStorage.getItem('ggpoker.theme') || 'Green');
    const query = new URLSearchParams(window.location.hash.split('?')[1] || '');
-@@ -97,6 +99,8 @@ export function TablePage({ tableId }: { tableId: string }) {
+@@ -97,6 +101,8 @@ export function TablePage({ tableId }: { tableId: string }) {
        try { msg = JSON.parse(ev.data); } catch { return; }
        if (msg.type === 'state') {
          const s: TableState = msg.state;
@@ -1817,7 +2173,7 @@ index 825e4e5..3f87230 100644
          stateRef.current = s;
          setState(s);
          const mine = s.players.find((p) => p.isMe);
-@@ -123,7 +127,11 @@ export function TablePage({ tableId }: { tableId: string }) {
+@@ -123,7 +129,11 @@ export function TablePage({ tableId }: { tableId: string }) {
          setObserving(true);
          toast({ kind: 'info', title: 'Waitlist', body: `You are #${msg.position || 1} in line. We will hold the next seat for you.` });
        } else if (msg.type === 'event') {
@@ -1830,13 +2186,85 @@ index 825e4e5..3f87230 100644
        } else if (msg.type === 'error') {
          toast({ kind: 'error', title: 'Table', body: msg.error });
        }
+@@ -220,6 +230,9 @@ export function TablePage({ tableId }: { tableId: string }) {
+         window.setTimeout(() => setWinFx(null), 2600);
+       }
+       if (Array.isArray(evt.cards)) sound.play('show', { volume: .5 });
++    } else if (evt.type === 'bounty') {
++      toast({ kind: 'reward', title: evt.mystery ? 'Mystery bounty' : 'Bounty', body: `${evt.winnerNick} wins ${money(evt.amount)} (${evt.bustedNick})` });
++      sound.play('coin');
+     } else if (evt.type === 'tourney_payout') {
+       toast({ kind: 'reward', title: `Finished #${evt.place}`, body: `${evt.nick} wins ${money(evt.payout)}` });
+       sound.play('coin');
+@@ -447,6 +460,8 @@ export function TablePage({ tableId }: { tableId: string }) {
+           <button onClick={() => { setRebuyAmount(state?.minBuyin || 0); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
+           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
+           <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
++          <button onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Straddle</button>
++          <button onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
+           <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
+           <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
+           <button onClick={() => navigate('/hand-history')}>Hand history</button>
+@@ -696,7 +711,7 @@ export function TablePage({ tableId }: { tableId: string }) {
+         <div className="spin-overlay win">
+           <div className="spin-title">TOURNAMENT WINNER</div>
+           <div style={{ fontSize: 60, margin: '10px 0' }}>🏆</div>
+-          <div className="spin-prize">{tourneyWin.nick} wins <b>{money(tourneyWin.prize)}</b></div>
++          <div className="spin-prize">{tourneyWin.nick} wins {tourneyWin.ticket ? <b>{tourneyWin.ticket} ticket</b> : <b>{money(tourneyWin.prize)}</b>}</div>
+           <div className="spin-sub">{tourneyWin.tableName}</div>
+           <button className="btn btn-gold" style={{ marginTop: 18 }} onClick={() => navigate('/')}>Back to lobby</button>
+         </div>
+diff --git a/app/src/pages/Tournaments.tsx b/app/src/pages/Tournaments.tsx
+index af10738..fbb7294 100644
+--- a/app/src/pages/Tournaments.tsx
++++ b/app/src/pages/Tournaments.tsx
+@@ -11,6 +11,8 @@ const SERIES = [
+   { key: 'mystery', label: 'Mystery Bounty' },
+   { key: 'spin', label: 'Spin & Gold' },
+   { key: 'flip', label: 'Flip & Go' },
++  { key: 'bounty', label: 'Bounty Hunters' },
++  { key: 'sat', label: 'Satellites' },
+ ];
+ 
+ const SERIES_ART: Record<string, string> = {
+@@ -51,7 +53,7 @@ export function Tournaments() {
+     else if (filter === 'plo') l = l.filter((t: any) => t.format === 'PLO');
+     else if (filter === 'holdem') l = l.filter((t: any) => t.format === 'NLH');
+     if (series !== 'all') {
+-      const needle: Record<string, string> = { wsop: 'WSOP', ggmasters: 'GGMasters', mystery: 'Mystery', spin: 'Spin', flip: 'Flip & Go' };
++      const needle: Record<string, string> = { wsop: 'WSOP', ggmasters: 'GGMasters', mystery: 'Mystery', spin: 'Spin', flip: 'Flip & Go', bounty: 'Bounty', sat: 'Satellite' };
+       l = l.filter((t: any) => t.name.toLowerCase().includes(needle[series].toLowerCase()));
+     }
+     return l;
+@@ -162,7 +164,7 @@ export function Tournaments() {
+                   <span className={'chip-dot ' + (t.buyin >= 10000 ? 'diamond' : t.buyin >= 3000 ? 'platinum' : 'gold')} />
+                   <div>
+                     <b>{t.name}</b>
+-                    <small>{t.format} · {t.starting_stack.toLocaleString()} chips · {t.blind_speed} min blinds</small>
++                    <small>{t.mode && t.mode !== 'STANDARD' ? `${t.mode} · ` : ''}{t.format} · {t.starting_stack.toLocaleString()} chips · {t.blind_speed} min blinds</small>
+                   </div>
+                 </div>
+                 <div className="t-buyin">{t.buyin === 0 ? 'Freeroll' : money(t.buyin + t.fee)}</div>
+@@ -212,6 +214,10 @@ export function Tournaments() {
+                     <div className="kv"><span>Game</span><b>{detail.format}</b></div>
+                     <div className="kv"><span>Start</span><b>{new Date(detail.start_at).toLocaleString('en-GB')}</b></div>
+                     <div className="kv"><span>Late registration</span><b>Until level 12</b></div>
++                    {detail.mode && detail.mode !== 'STANDARD' && <div className="kv"><span>Format</span><b>{detail.mode}</b></div>}
++                    {detail.mode === 'BOUNTY' && <div className="kv"><span>Bounty</span><b className="gold">{money(detail.bounty || 0)}</b></div>}
++                    {detail.mode === 'MYSTERY' && <div className="kv"><span>Mystery bounty</span><b className="gold">up to {money((detail.bounty || 0) * 10)}</b></div>}
++                    {detail.mode === 'SATELLITE' && <div className="kv"><span>Ticket</span><b>{detail.ticket || 'Target event'}</b></div>}
+                   </div>
+                   <p className="muted small" style={{ marginTop: 14 }}>
+                     Play-money tournament. Prizes are credited to your play balance. Blind levels increase every {detail.blind_speed} minutes;
 diff --git a/app/src/styles.css b/app/src/styles.css
-index 8fc54b5..bae972a 100644
+index 8fc54b5..cba793f 100644
 --- a/app/src/styles.css
 +++ b/app/src/styles.css
-@@ -818,3 +818,4 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
+@@ -818,3 +818,6 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
  .series-chip { height: 28px; padding: 0 14px; border-radius: 14px; background: #191919; border: 1px solid #303030; color: #b9b9b9; font-size: 11.5px; white-space: nowrap; }
  .series-chip:hover { border-color: #5a4a22; color: #e8d5a0; }
  .series-chip.on { background: #2b2110; border-color: #8a6a2a; color: #ffe1a0; }
 +.est-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #6d5a2a; margin-left: 3px; vertical-align: middle; cursor: help; }
++.tag.pro { background: #2b3b2e; color: #9fe0a8; border: 1px solid #3e5a42; font-size: 9px; padding: 1px 4px; margin-left: 6px; }
++.mini-stats { padding: 8px 12px; border-top: 1px solid #2b2b2b; display: flex; flex-direction: column; gap: 4px; }
 ```
