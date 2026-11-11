@@ -56,6 +56,19 @@ Admin console: log in as `admin`, then `#/admin` (or Settings → Admin).
 
 ---
 
+## Controls
+
+| Key | Action |
+|---|---|
+| F1 | Fold |
+| F2 | Check / Call |
+| F3 | Raise (current slider amount) |
+| F4 | All-in |
+| Esc | Close menu / dialog |
+
+Lobby: click a row to preview, double-click or **Join** to take a seat, **Group View** for card layout,
+the mail icon for notifications, the chat icon for lobby chat, and the gear for settings.
+
 ## What is implemented
 
 ### Lobby (1:1 chrome, real assets)
@@ -181,6 +194,10 @@ The installed client is an **Adobe AIR/Flash application**:
 
 See [`research/REVERSE_ENGINEERING.md`](research/REVERSE_ENGINEERING.md) for the evidence trail,
 file inventory and the exact commands used.
+
+The public repository contains **source code and tooling only**; the extracted GGPoker artwork,
+sounds and fonts are intentionally not published. Run `bash tools/setup_assets.sh` locally to
+regenerate them from your installed client.
 
 ---
 
