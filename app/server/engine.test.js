@@ -345,3 +345,9 @@ test('tournament blinds advance on the clock, not hand count', () => {
   assert.equal(t.tournament.level, 2);
   assert.ok(t.sb > sb);
 });
+
+test('table snapshot exposes the active hand id for evidence reporting', () => {
+  const t = tableWith([player(1, 'A', 1000, 0, []), player(2, 'B', 1000, 0, [])]);
+  t.handId = 'hand-evidence-42';
+  assert.equal(t.snapshotFor().handId, 'hand-evidence-42');
+});

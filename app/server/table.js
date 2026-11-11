@@ -1043,6 +1043,7 @@ export class PokerTable {
     return {
       id: this.cfg.id,
       tableEpoch: this.tableEpoch,
+      handId: this.handId || null,
       tableVersion: this.tableVersion,
       name: this.cfg.name,
       game: this.game,
