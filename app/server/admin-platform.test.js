@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPlatformReport, diskUsage, healthWarnings, levelBlinds, recoveryHealth, SNAPSHOT_STALE_MS, snapshotAgeMs, tournamentRoomSummary } from './admin-platform.js';
+import { buildHealthSummary, buildPlatformReport, diskUsage, healthWarnings, levelBlinds, recoveryHealth, SNAPSHOT_STALE_MS, snapshotAgeMs, tournamentRoomSummary } from './admin-platform.js';
 
 function fakeRoom(overrides = {}) {
   return {
@@ -120,4 +120,18 @@ test('health warnings cover stale rooms and a nearly full disk', () => {
   assert.deepEqual(healthWarnings({ tournaments: { stale: 0 }, disk: { usedPct: 80 } }), []);
   assert.deepEqual(healthWarnings({ tournaments: { stale: 2 }, disk: { usedPct: 92 } }), ['2 stale tournament rooms', 'disk 92% used']);
   assert.deepEqual(healthWarnings({ tournaments: { stale: 1 }, disk: null }), ['1 stale tournament room']);
+});
+
+const EMPTY_SERVER = { now: 0, wss: undefined, liveTables: new Map(), tournamentRooms: new Map(), db: null, dbPath: null, proc: {} };
+
+test('health summary reports the deployed git commit', () => {
+  const sha = '6861a79c0ffee0123456789abcdef0123456789a';
+  const health = buildHealthSummary({ ...EMPTY_SERVER, versionInfo: { version: '1.1.0', build: '20261112133548', commit: sha } });
+  assert.equal(health.commit, sha);
+  assert.equal(buildPlatformReport({ ...EMPTY_SERVER, versionInfo: { commit: sha } }).server.commit, sha);
+});
+
+test('health summary reports a null commit when the build has none or a malformed one', () => {
+  assert.equal(buildHealthSummary({ ...EMPTY_SERVER, versionInfo: { version: '1.1.0', build: 'dev' } }).commit, null);
+  assert.equal(buildHealthSummary({ ...EMPTY_SERVER, versionInfo: { commit: '<script>' } }).commit, null);
 });

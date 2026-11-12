@@ -165,6 +165,7 @@ export function buildPlatformReport({
       version: versionInfo.version || null,
       build: versionInfo.build || null,
       builtAt: versionInfo.time || null,
+      commit: commitOf(versionInfo),
       node: proc.version || null,
       pid: proc.pid ?? null,
       uptimeSec: Math.round(Number(proc.uptime?.()) || 0),
@@ -202,6 +203,14 @@ export function buildPlatformReport({
 
 
 /** Warnings surfaced by the public health endpoint (and the external monitor). */
+const COMMIT_SHA = /^[0-9a-f]{7,40}$/;
+
+/** The build's git commit when it is a well-formed hex SHA, otherwise null. */
+function commitOf(versionInfo) {
+  const commit = String(versionInfo?.commit || '').toLowerCase();
+  return COMMIT_SHA.test(commit) ? commit : null;
+}
+
 export function healthWarnings(report) {
   const warnings = [];
   const stale = Number(report?.tournaments?.stale) || 0;
@@ -220,6 +229,7 @@ export function buildHealthSummary(args = {}) {
     time: new Date(report.now).toISOString(),
     version: report.server.version,
     build: report.server.build,
+    commit: report.server.commit,
     uptimeSec: report.server.uptimeSec,
     rooms: { total: report.tournaments.rooms, stale: report.tournaments.stale },
     disk: { usedPct: report.disk?.usedPct ?? null, freeBytes: report.disk?.freeBytes ?? null },

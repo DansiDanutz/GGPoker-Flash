@@ -51,33 +51,35 @@ CSS/brand placeholders.
 
 ## Deploying a change
 
-From the Mac, with `main` up to date:
+From the Mac, after the change is merged to `main` and CI is green:
 
 ```bash
-# 0) optional but recommended: tag the running image for rollback
-ssh dexter 'cd ~/dangro/deploy && docker tag dangro-game:latest dangro-game:rollback-$(date +%Y%m%d-%H%M)'
+deploy/deploy.sh --dry-run      # list what would change on Dexter
+deploy/deploy.sh                # deploy origin/main (or: deploy/deploy.sh <sha>)
+```
 
-# 1) copy the changed files (no git on the host; rsync or ssh cat)
-cd app
-for f in src/pages/Login.tsx src/styles.css …; do
-  ssh dexter "cat > ~/dangro/app/$f" < "$f"
-done
+The script:
 
-# 2) rebuild and recreate (build first — the old container keeps serving if it fails)
-ssh dexter 'cd ~/dangro/deploy && docker compose build game && docker compose up -d game'
+1. refuses a commit that is not on `origin/main` or has no successful `ci.yml` run;
+2. tags the running image `dangro-game:rollback-<stamp>`;
+3. exports exactly that commit with `git archive` (never the working copy) and mirrors
+   `app/` and `tools/` to the host with `rsync --delete`, so files removed from Git also
+   leave the host. Extracted client assets, Ruffle and local data are protected;
+   `deploy/` is updated without deletes so `.env`, backups and logs stay;
+4. builds with `GIT_SHA=<sha>` and recreates only the `game` service;
+5. polls `https://dangg.live/healthz` until `commit` equals the deployed SHA (180 s
+   timeout) and prints the rollback command if it does not.
 
-# 3) verify
-curl -fsS https://dangg.live/healthz
-curl -fsS https://dangg.live/api/lobby | head -c 200
-ssh dexter 'cd ~/dangro/deploy && docker compose ps'
+Check what is running at any time:
+
+```bash
+curl -fsS https://dangg.live/healthz   # → {"commit":"<sha>", ...}
 ```
 
 Deployment takes seconds of downtime after a successful build. The service worker
 serves navigation network-first, so browsers and installed apps pick up the new
 bundle on the next launch/reload; hashed assets are immutable.
 
-If a deploy introduces new static files under `app/public/`, copy them before the
-build. Do not copy `node_modules`, `dist`, or `server/data` from the Mac.
 
 ## Rollback
 
