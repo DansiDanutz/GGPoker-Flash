@@ -32,6 +32,16 @@ export function Icon({ name, size = 17 }: { name: string; size?: number }) {
       return <svg {...common}><path d="M4 4h8v2H6v6H4V4zm16 16h-8v-2h6v-6h2v8z" /></svg>;
     case 'chip':
       return <svg {...common}><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 3a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" /></svg>;
+    case 'dice':
+      return (
+        <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+          <rect x="4" y="4" width="16" height="16" rx="3" />
+          <circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none" />
+          <circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none" />
+          <circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none" />
+          <circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none" />
+        </svg>
+      );
     case 'ticket':
       return <svg {...common}><path d="M3 7h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4V7zm4 3v6h2V10H7z" /></svg>;
     default:

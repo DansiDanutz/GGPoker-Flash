@@ -5,6 +5,8 @@ import { Avatar } from './Avatar';
 import { sound } from '../lib/sound';
 
 const LINKS = [
+  { icon: '🎲', label: 'Casino', to: '/casino' },
+  { icon: '🎰', label: 'Slots', to: '/slots' },
   { icon: '🎯', label: 'Prop Bet', to: '/propbet' },
   { icon: '🐟', label: 'GG Left', to: '/rewards' },
   { icon: '🎁', label: 'My Promo', to: '/promotions' },

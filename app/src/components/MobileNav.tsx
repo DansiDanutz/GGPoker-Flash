@@ -5,6 +5,7 @@ import { Icon } from './TitleBar';
 const ITEMS = [
   { key: 'home', label: 'Lobby', icon: 'home', to: '/' },
   { key: 'tournaments', label: 'Events', icon: 'trophy', to: '/tournaments' },
+  { key: 'casino', label: 'Casino', icon: 'dice', to: '/casino' },
   { key: 'cashier', label: 'Cashier', icon: 'chip', to: '/cashier' },
   { key: 'rewards', label: 'Rewards', icon: 'ticket', to: '/rewards' },
   { key: 'me', label: 'My Page', icon: 'user', to: '/my-page' },
