@@ -436,6 +436,7 @@ export class PokerTable {
     if (this.spinStarted()) this.applySpinBlinds();
 
     this.handNo++;
+    this.markMissedBlinds();
     this.deck = shuffle(makeDeck(this.shortDeck));
     this.board = [];
     this.pot = 0;
@@ -518,6 +519,7 @@ export class PokerTable {
     this.postBlind(bbSeat, this.bb, 'BB');
     this.sbSeat = sbSeat ? sbSeat.index : -1;
     this.bbSeat = bbSeat ? bbSeat.index : -1;
+    this.postMissedBlinds(inHand, sbSeat, bbSeat);
     let straddleSeat = null;
     if (this.straddle) {
       const candidate = this.seats[(bbSeat.index + 1) % this.seats.length];
@@ -559,6 +561,31 @@ export class PokerTable {
     // Pre-flop action starts left of the big blind (or of the straddle when one is posted);
     // with two players that is the small blind, as the rules require.
     this.progress(straddleSeat ? straddleSeat.index : bbSeat.index);
+  }
+
+  /** Cash games owe a big blind after sitting out (native SitInCommand PostBlinds). */
+  owesSitInBlind() {
+    return !this.tournament && !this.spin && !this.elimination && !this.aof;
+  }
+
+  // A seat sitting out while a hand is dealt owes a big blind when it comes back.
+  markMissedBlinds() {
+    if (!this.owesSitInBlind()) return;
+    for (const s of this.seats) {
+      if (s.player && s.player.sittingOut && s.player.stack > 0) s.player.missedBlinds = true;
+    }
+  }
+
+  // Returning players post a live big blind unless they already pay a blind this hand;
+  // heads-up has no extra post.
+  postMissedBlinds(inHand, sbSeat, bbSeat) {
+    for (const s of inHand) {
+      const p = s.player;
+      if (!p.missedBlinds) continue;
+      p.missedBlinds = false;
+      if (s === bbSeat || s === sbSeat || inHand.length < 3) continue;
+      this.postBlind(s, this.bb, 'Post');
+    }
   }
 
   postBlind(seat, amount, label) {
