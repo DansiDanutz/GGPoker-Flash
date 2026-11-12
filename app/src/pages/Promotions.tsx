@@ -5,7 +5,7 @@ import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { useI18n } from '../lib/i18n';
-import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, DEFAULT_HOTKEYS, betLabel, readBetPrefs, readCardBack, readHotkeys, readStackMode, normalizeHotkey, type BetPrefs, type HotkeyMap, type StackMode } from '../lib/tablePrefs';
+import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, DEFAULT_HOTKEYS, betLabel, readBetPrefs, readCardBack, readHotkeys, readConfirmBet, readStackMode, normalizeHotkey, type BetPrefs, type HotkeyMap, type StackMode } from '../lib/tablePrefs';
 
 export function Promotions() {
   const { toast, navigate } = useApp();
@@ -82,6 +82,7 @@ export function Settings() {
   const [theme, setTheme] = useState(localStorage.getItem('ggpoker.theme') || 'Green');
   const [volume, setVolume] = useState(Number(localStorage.getItem('ggpoker.volume') || 70));
   const [betting, setBetting] = useState<BetPrefs>(() => readBetPrefs());
+  const [confirmBet, setConfirmBet] = useState(readConfirmBet);
   const [showHand, setShowHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
   const [hotkeyHints, setHotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
   const [hotkeyMap, setHotkeyMap] = useState<HotkeyMap>(readHotkeys);
@@ -351,6 +352,14 @@ export function Settings() {
                   </label>
                 ))}
               </div>
+            </div>
+            <div className="card">
+              <div className="panel-title">Confirming bets</div>
+              <label className="switch-row">
+                <span>Always confirm bets</span>
+                <input type="checkbox" checked={confirmBet} onChange={(e) => { setConfirmBet(e.target.checked); persist('ggpoker.confirmBet', e.target.checked ? '1' : '0'); }} />
+              </label>
+              <p className="muted small">Enter bets the amount on screen. With this on, Enter (and the bet button) asks for confirmation first; Escape cancels.</p>
             </div>
             <div className="card" style={{ gridColumn: '1 / -1' }}>
               <div className="panel-title">Preview</div>

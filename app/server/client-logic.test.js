@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { betLimits, potFractionTarget, sizingPresets, potOdds } from '../src/game/betting.ts';
+import { enterBetRequest } from '../src/lib/tablePrefs.ts';
 import { bestHand } from '../src/game/eval.ts';
 
 const ctx = (over = {}) => ({
@@ -51,4 +52,16 @@ test('client hand label follows short-deck rankings', () => {
   assert.equal(bestHand(hole, board, false, true).name, 'Flush');
   assert.equal(bestHand(['As', '6d'], ['7c', '8h', '9s', '2d', '2c'], false, true).name, 'Straight');
   assert.equal(bestHand(['As', '6d'], ['7c', '8h', '9s', 'Qd', 'Jc'], false, false).name, 'High Card');
+});
+
+test('Enter bets the amount on screen, optionally asking first', () => {
+  assert.deepEqual(enterBetRequest({ myTurn: true, canRaise: true, raiseTo: 450, allInTo: 5000 }),
+    { action: 'raise', amount: 450, confirm: false });
+  assert.deepEqual(enterBetRequest({ myTurn: true, canRaise: true, raiseTo: 450, allInTo: 5000, confirm: true }),
+    { action: 'raise', amount: 450, confirm: true }, 'Always confirm carries the flag through');
+  assert.deepEqual(enterBetRequest({ myTurn: true, canRaise: true, raiseTo: 5000, allInTo: 5000 }),
+    { action: 'allin', amount: 5000, confirm: false }, 'a bet at the ceiling is an all-in');
+  assert.equal(enterBetRequest({ myTurn: false, canRaise: true, raiseTo: 450, allInTo: 5000 }), null);
+  assert.equal(enterBetRequest({ myTurn: true, canRaise: false, raiseTo: 450, allInTo: 5000 }), null);
+  assert.equal(enterBetRequest({ myTurn: true, canRaise: true, raiseTo: 0, allInTo: 5000 }), null);
 });

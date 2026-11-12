@@ -4,7 +4,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { SwfEffect } from '../components/SwfEffect';
-import { betLabel, betTarget, readBetPrefs, readCardBack, readDealSpeed, readStackMode, readHotkeys, normalizeHotkey, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, enterBetRequest, readBetPrefs, readCardBack, readDealSpeed, readStackMode, readHotkeys, readConfirmBet, normalizeHotkey, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
@@ -116,6 +116,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [hotkeysOn] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
   const [hotkeyMap] = useState(readHotkeys);
   const [dealSpeed] = useState(readDealSpeed);
+  const [confirmBets] = useState(readConfirmBet);
+  const [pendingBet, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number } | null>(null);
   const [betPrefs] = useState(readBetPrefs);
   const [timeBankSeconds] = useState(() => Math.max(5, Math.min(60, Number(localStorage.getItem('ggpoker.timeBank') || 10))));
   const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
@@ -463,6 +465,9 @@ export function TablePage({ tableId }: { tableId: string }) {
     else setRaiseTo(minTo);
   }, [myTurn, minTo, maxTo, state?.handNo]);
 
+  // A confirmation is only valid for the exact moment it was raised on.
+  useEffect(() => { setPendingBet(null); }, [state?.handNo, state?.street, myTurn, raiseTo]);
+
   const send = (msg: any) => {
     const ws = wsRef.current;
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ ...msg, tableId }));
@@ -474,6 +479,12 @@ export function TablePage({ tableId }: { tableId: string }) {
     const voice = voices[action];
     if (voice) setTimeout(() => sound.play(voice as any, { volume: .6 }), 120);
     send({ type: 'action', action, amount });
+  };
+
+  // "Always confirm" turns every bet into a two-step action; off, it fires at once.
+  const requestBet = (action: 'raise' | 'allin', amount: number) => {
+    if (confirmBets) setPendingBet({ action, amount });
+    else act(action, amount);
   };
 
   const sitIn = () => {
@@ -496,18 +507,33 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
-      if (e.key === 'Escape') { setMenuOpen(false); setConfirmLeave(false); return; }
+      const tag = target?.tagName;
+      // Chat and nickname fields keep their own Enter; the bet amount is fair game.
+      const typing = tag === 'TEXTAREA' || tag === 'SELECT'
+        || (tag === 'INPUT' && (target as HTMLInputElement).type !== 'number');
+      if (e.key === 'Escape') { setPendingBet(null); setMenuOpen(false); setConfirmLeave(false); return; }
+      if (typing) return;
+      if (e.key === 'Enter') {
+        // Enter is the native bet key, including while the amount field has focus.
+        const request = pendingBet
+          ? { action: pendingBet.action, amount: pendingBet.amount, confirm: false }
+          : enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm: confirmBets });
+        if (!request) return;
+        e.preventDefault();
+        if (request.confirm) setPendingBet({ action: request.action, amount: request.amount });
+        else act(request.action, request.amount);
+        return;
+      }
       if (!hotkeysOn || !myTurn) return;
       const key = normalizeHotkey(e.key);
       if (key === hotkeyMap.fold) { e.preventDefault(); act('fold'); }
       else if (key === hotkeyMap.check) { e.preventDefault(); act(toCall > 0 ? 'call' : 'check'); }
-      else if (key === hotkeyMap.raise) { e.preventDefault(); if (canRaise) act(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo); }
-      else if (key === hotkeyMap.allin) { e.preventDefault(); act('allin'); }
+      else if (key === hotkeyMap.raise) { e.preventDefault(); if (canRaise) requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo); }
+      else if (key === hotkeyMap.allin) { e.preventDefault(); requestBet('allin', allInTo); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [hotkeysOn, hotkeyMap, myTurn, toCall, raiseTo, maxTo, act]);
+  }, [hotkeysOn, hotkeyMap, myTurn, toCall, raiseTo, maxTo, canRaise, allInTo, pendingBet, confirmBets, act, requestBet]);
 
   const seatPosOf = (seat: number): [number, number] => {
     const n = stateRef.current?.seats || 6;
@@ -887,6 +913,16 @@ export function TablePage({ tableId }: { tableId: string }) {
         {myTurn && (
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}
+        {pendingBet && (
+          <div className="action-row" style={{ background: 'rgba(217,168,60,.12)', borderTop: '1px solid #d9a83c', padding: '8px 10px' }}>
+            <span style={{ flex: 1, color: '#ffd98a', fontSize: 13 }}>
+              Confirm {pendingBet.action === 'allin' ? 'all in for' : (state?.currentBet || 0) > 0 ? 'raise to' : 'bet'}{' '}
+              {chip(pendingBet.amount)}?
+            </span>
+            <button className="btn btn-gold btn-sm" onClick={() => { const b = pendingBet; setPendingBet(null); act(b.action, b.amount); }}>Confirm</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setPendingBet(null)}>Cancel</button>
+          </div>
+        )}
         {sittingOut && (
           <div className="action-row sitout-row">
             <span>You are sitting out and will not be dealt in.</span>
@@ -946,7 +982,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button
             className={'act-btn ' + (raiseTo >= allInTo ? 'act-allin' : 'act-raise')}
             disabled={!myTurn || maxTo <= (state?.currentBet || 0)}
-            onClick={() => act(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo)}
+            onClick={() => requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo)}
           >
             {raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')} {chip(raiseTo)}
           </button>
