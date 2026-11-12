@@ -36,3 +36,10 @@ export function shuffleFramePosition(frame: number): { x: number; y: number } {
   const index = Math.max(0, Math.min(255, Math.trunc(frame) - 1));
   return { x: (index % 16) * 100 / 15, y: Math.floor(index / 16) * 100 / 15 };
 }
+
+/** One wheel notch scrubs six frames of the chip shuffle, clamped to its range. */
+export function shuffleScrubFrame(frame: number, deltaY: number): number {
+  if (!deltaY) return Math.max(SHUFFLE_START_FRAME, Math.min(SHUFFLE_END_FRAME, Math.trunc(frame)));
+  const next = Math.trunc(frame) + Math.sign(deltaY) * 6;
+  return Math.max(SHUFFLE_START_FRAME, Math.min(SHUFFLE_END_FRAME, next));
+}

@@ -9,7 +9,7 @@ import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
 import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/betting';
-import { potChipLayout, shuffleFramePosition, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
+import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { showdownComplete, showdownPlan } from '../game/showdown';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
@@ -207,6 +207,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [chipShuffle, setChipShuffle] = useState<{ frame: number; key: number } | null>(null);
   const [showdownReveals, setShowdownReveals] = useState<Record<number, number>>({});
   const chipShuffleTimer = useRef<number | null>(null);
+  const chipShuffleIdle = useRef<number | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const stateRef = useRef<TableState | null>(null);
@@ -551,12 +552,34 @@ export function TablePage({ tableId }: { tableId: string }) {
       if (frame >= SHUFFLE_END_FRAME) {
         if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current);
         chipShuffleTimer.current = null;
+        sound.play('shuffleOther', { volume: .5 });
         window.setTimeout(() => setChipShuffle(null), 200);
         return;
       }
       setChipShuffle({ frame, key: frame });
     }, 10);
   }, [chipShuffleOn]);
+
+  // The native shuffle can be scrubbed with the wheel; the auto-play stops and
+  // the art fades out after a short idle.
+  const onShuffleWheel = (e: React.WheelEvent) => {
+    if (!chipShuffle) return;
+    if ((e.target as HTMLElement).closest('.action-bar, .table-menu')) return;
+    if (chipShuffleTimer.current) { window.clearInterval(chipShuffleTimer.current); chipShuffleTimer.current = null; }
+    if (chipShuffleIdle.current) window.clearTimeout(chipShuffleIdle.current);
+    setChipShuffle((cur) => {
+      const base = cur?.frame ?? SHUFFLE_START_FRAME;
+      const frame = shuffleScrubFrame(base, e.deltaY);
+      if (frame !== base) {
+        sound.play(frame >= 143 && base < 143 ? 'shuffleCombine' : 'shuffleUp', { volume: .45 });
+      }
+      chipShuffleIdle.current = window.setTimeout(() => {
+        setChipShuffle(null);
+        sound.play('shuffleOther', { volume: .5 });
+      }, frame >= SHUFFLE_END_FRAME ? 300 : 2800);
+      return { frame, key: Date.now() };
+    });
+  };
   const nudgeBet = (direction: number) => setRaiseTo((v) => Math.max(minTo, Math.min(maxTo, v + direction * betStep)));
   const presets = state ? sizingPresets(betCtx, chipStep) : [];
   const odds = myTurn ? potOdds(state?.pot || 0, toCall) : null;
@@ -749,7 +772,10 @@ export function TablePage({ tableId }: { tableId: string }) {
     setShowPick([]);
   };
   useEffect(() => { setShowPick([]); setRabbit([]); setShowdownReveals({}); }, [state?.handNo]);
-  useEffect(() => () => { if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current); }, []);
+  useEffect(() => () => {
+    if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current);
+    if (chipShuffleIdle.current) window.clearTimeout(chipShuffleIdle.current);
+  }, []);
 
   // Card squeeze: skip the hand already in progress when the page connects,
   // then peel every fresh deal while the preference is on.
@@ -868,7 +894,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     : null;
 
   return (
-    <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack} front-${cardFront} room-bg-${roomBg}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
+    <div ref={tableRef} onWheel={onShuffleWheel} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack} front-${cardFront} room-bg-${roomBg}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
       <div className="table-topbar">
         <span className="name">{state?.name || 'Table'}</span>
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>

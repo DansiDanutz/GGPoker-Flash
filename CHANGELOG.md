@@ -6,6 +6,13 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Chip shuffle wheel scrub
+- While the chip shuffle is playing, the wheel over the table scrubs the native 16×16
+  frames (six per notch) and pauses the auto-play; the art fades after a short idle. The
+  Other cue now plays when the shuffle finishes or is dismissed.
+- Wheel over the action bar still sizes the bet, so the two gestures do not fight.
+
+## 2026-11-12
 ### Tournament hero art
 - Tournament series without dedicated artwork no longer fall back to the Flipout promo
   art, whose baked "DAILY $100,000 FLIPOUT" text collided with the series title. They use
