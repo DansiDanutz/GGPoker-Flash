@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildHealthSummary, buildPlatformReport, diskUsage, healthWarnings, levelBlinds, recoveryHealth, SNAPSHOT_STALE_MS, snapshotAgeMs, tournamentRoomSummary } from './admin-platform.js';
+import { buildHealthSummary, buildPlatformReport, diskUsage, healthWarnings, DISK_WARN_PCT, levelBlinds, recoveryHealth, SNAPSHOT_STALE_MS, snapshotAgeMs, tournamentRoomSummary } from './admin-platform.js';
 
 function fakeRoom(overrides = {}) {
   return {
@@ -117,7 +117,9 @@ test('snapshots older than five minutes are stale for a room with players', () =
 });
 
 test('health warnings cover stale rooms and a nearly full disk', () => {
-  assert.deepEqual(healthWarnings({ tournaments: { stale: 0 }, disk: { usedPct: 80 } }), []);
+  assert.deepEqual(healthWarnings({ tournaments: { stale: 0 }, disk: { usedPct: 79 } }), []);
+  assert.deepEqual(healthWarnings({ tournaments: { stale: 0 }, disk: { usedPct: DISK_WARN_PCT } }), [`disk ${DISK_WARN_PCT}% used`]);
+  assert.equal(DISK_WARN_PCT, 80);
   assert.deepEqual(healthWarnings({ tournaments: { stale: 2 }, disk: { usedPct: 92 } }), ['2 stale tournament rooms', 'disk 92% used']);
   assert.deepEqual(healthWarnings({ tournaments: { stale: 1 }, disk: null }), ['1 stale tournament room']);
 });

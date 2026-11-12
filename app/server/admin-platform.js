@@ -202,7 +202,6 @@ export function buildPlatformReport({
 }
 
 
-/** Warnings surfaced by the public health endpoint (and the external monitor). */
 const COMMIT_SHA = /^[0-9a-f]{7,40}$/;
 
 /** The build's git commit when it is a well-formed hex SHA, otherwise null. */
@@ -211,12 +210,16 @@ function commitOf(versionInfo) {
   return COMMIT_SHA.test(commit) ? commit : null;
 }
 
+/** Disk use (percent) at which /healthz warns: early enough to prune before builds fail. */
+export const DISK_WARN_PCT = 80;
+
+/** Warnings surfaced by the public health endpoint (and the external monitor). */
 export function healthWarnings(report) {
   const warnings = [];
   const stale = Number(report?.tournaments?.stale) || 0;
   if (stale > 0) warnings.push(`${stale} stale tournament room${stale === 1 ? '' : 's'}`);
   const usedPct = report?.disk?.usedPct;
-  if (Number.isFinite(usedPct) && usedPct >= 90) warnings.push(`disk ${usedPct}% used`);
+  if (Number.isFinite(usedPct) && usedPct >= DISK_WARN_PCT) warnings.push(`disk ${usedPct}% used`);
   return warnings;
 }
 

@@ -13,7 +13,7 @@ backup jobs are described in [`ALWAYS-ON.md`](ALWAYS-ON.md).
 - **TLS expiry**: Let's Encrypt through Traefik auto-renews; check the certificate when
   investigating an edge incident.
 - **Disk**: keep headroom; the SQLite volume, Docker images and build cache are the main
-  growth. Alert at 75% used.
+  growth. `/healthz` warns at 80% used (`DISK_WARN_PCT`), which the Nano monitor relays to Discord;
 - **Backups**: nightly snapshot at 04:15 UTC (14 days on Dexter) and the Nano pull at
   05:00 UTC (30 days). Alert if the newest snapshot is older than 36 hours.
 - **Admin tunnel**: confirm only the Mac Studio can reach `127.0.0.1:5198` on the VM.
