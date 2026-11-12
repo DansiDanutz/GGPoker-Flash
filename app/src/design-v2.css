@@ -572,6 +572,8 @@ body { background: #050706; }
 
 /* Native PlayerCell VPIP badge: small dark square at the avatar's lower left. */
 .vpip-badge { position: absolute; left: -6px; bottom: 4px; z-index: 3; min-width: 20px; padding: 0 3px; height: 16px; line-height: 16px; text-align: center; font-size: 11px; font-weight: 700; color: #fff; background: #2a1a1a; border: 1px solid #5a2a2a; border-radius: 3px; }
+/* Bots are always labelled on their seat plate (REA F05): no bot passes as a human. */
+.bot-badge { display: inline-block; margin-right: 4px; padding: 0 3px; height: 13px; line-height: 13px; vertical-align: 1px; font-size: 9px; font-weight: 800; letter-spacing: .06em; color: var(--bg); background: var(--gold); border-radius: 3px; }
 /* Native per-pot award: chip pile with a moving amount label (MotionView3D.potMoveToWinners). */
 .payout-share { position: absolute; z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; }
 .payout-share i { width: 18px; height: 17px; background: url('/assets/chips/native-chip-25.png') center/100% 100% no-repeat; }

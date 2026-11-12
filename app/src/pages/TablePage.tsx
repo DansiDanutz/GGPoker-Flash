@@ -762,7 +762,8 @@ export function TablePage({ tableId }: { tableId: string }) {
     const voices: Record<string, string> = { fold: 'voiceFold', check: 'voiceCheck', call: 'voiceCall', raise: 'voiceRaise', bet: 'voiceBet', allin: 'voiceAllIn' };
     const voice = voices[action];
     if (voice) setTimeout(() => sound.play(voice as any, { volume: .6 }), 120);
-    send({ type: 'action', action, amount });
+    // The hand number lets the server refuse a click that arrives after this hand ended.
+    send({ type: 'action', action, amount, handNo: stateRef.current?.handNo });
   };
 
   // "Always confirm" turns every bet into a two-step action; off, it fires at once.
@@ -1296,7 +1297,10 @@ export function TablePage({ tableId }: { tableId: string }) {
               {p.nick && <span className="vpip-badge" title="VPIP at this table">{vpipOf(seatVpip, p.nick)}</span>}
             </div>
             <div className="plate">
-              <div className="nm" title={p.nick || undefined}>{seatNick(p.nick)}</div>
+              <div className="nm" title={p.nick || undefined}>
+                {p.isBot && <span className="bot-badge" title="Computer player" aria-label="Bot">BOT</span>}
+                {seatNick(p.nick)}
+              </div>
               <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
                 {isAllInStatus(p) ? 'All-In' : stackLabel(p.stack)}
                 {narrowScreen && (p.bet || 0) > 0 ? <span className="seat-bet-inline"> · {chip(p.bet).replace(/\.00$/, '')}</span> : null}

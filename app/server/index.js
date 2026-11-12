@@ -22,6 +22,9 @@ import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
+import { ensureWaitlistTable, loadWaitlist, saveWaitlist } from './waitlist-store.js';
+import { botFillCount, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, waitingFor } from './bot-seats.js';
+import { staleHandError } from './action-version.js';
 import { waitingForTable } from './sitOut.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createTableStats } from './table-stats.js';
@@ -338,7 +341,9 @@ const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
 const chatStore = createChatStore(db);
 const chatService = createChatService({ db, getEntry: (id) => LIVE_TABLES.get(id), store: chatStore });
 const TOURNAMENT_ROOMS = new Map(); // tournamentId -> TournamentRoom (multi-table flights)
-let waitState = waitlist.createWaitlist(); // pure wait-list model state (see waitlist.js)
+ensureWaitlistTable(db);
+// Pure wait-list model state (see waitlist.js), restored from SQLite so queues survive a restart.
+let waitState = loadWaitlist(db);
 let waitSince = Object.freeze({}); // `queueKey|userId` -> join time, for the admin monitor
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
@@ -374,6 +379,7 @@ function setWaitlist(next) {
   const before = waitState;
   const touched = new Set([...before.offers, ...next.offers].map((o) => o.tableId));
   waitState = next;
+  try { saveWaitlist(db, next); } catch (err) { console.error('waitlist save', err); }
   waitSince = adminWaitlist.trackJoinTimes(waitSince, before, next, Date.now());
   for (const tableId of touched) {
     const table = LIVE_TABLES.get(tableId)?.table;
@@ -766,6 +772,7 @@ function getLiveTable(id) {
     try {
       // A lapsed Take Seat reservation frees its seat for the wait list.
       if (table.expireReservations()) notifyWaitlist(id);
+      releaseSeatsToWaitlist(table);
       table.tick();
       if (Date.now() - entry.lastBroadcast > 450) broadcastState(table);
       sweepDisconnected(entry);
@@ -786,7 +793,21 @@ function getLiveTable(id) {
   LIVE_TABLES.set(id, entry);
   // Re-apply any seat holds an earlier instance of this table left on the wait list.
   table.setHolds(holdsFor(id));
+  // Players still queued (e.g. restored after a restart) get the free seats before anyone else.
+  notifyWaitlist(id);
   return table;
+}
+
+/**
+ * Between hands, a bot stands up for each human queued at this table, and any free seat
+ * is offered to the queue. Group queues are served by offerSeat's fallback instead, so one
+ * group player does not make a bot leave every table of the group.
+ */
+function releaseSeatsToWaitlist(table) {
+  const queued = waitlist.queueSize(waitState, waitlist.tableQueue(table.cfg.id));
+  if (!queued) return;
+  const released = releaseBotsForWaiting(table, queued);
+  if (released || table.offerableSeats().length) notifyWaitlist(table.cfg.id);
 }
 
 // Thin delegates: the pool logic lives in rush-pool.js.
@@ -859,22 +880,31 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   return res;
 }
 
-// Bots only fill empty chairs: a human always takes priority over one. A seat held for a
+// Bots only fill empty chairs: a human always takes priority over one (see bot-seats.js).
+// A bot still holding live cards keeps its seat until the hand ends. A seat held for a
 // wait-listed player counts as free only for that player.
 function makeRoomForHuman(table, wantedSeat, userId) {
   const target = wantedSeat != null ? table.seats[wantedSeat] : null;
   if (target && !target.player) return true;
-  if (target && target.player && !target.player.isBot) return !!table.freeSeatFor(userId) || evictBot(table);
-  if (target && target.player && target.player.isBot) { table.stand(target.player.id); return true; }
+  if (target?.player?.isBot && !holdsLiveCards(table, target)) { table.stand(target.player.id); return true; }
   if (table.freeSeatFor(userId)) return true;
   return evictBot(table);
 }
 
 function evictBot(table) {
-  const bots = table.occupiedSeats().filter((s) => s.player.isBot);
-  if (!bots.length) return false;
-  const idle = bots.find((s) => !table.handInProgress() || !s.player.inHand || s.player.folded);
-  table.stand((idle || bots[0]).player.id);
+  const seat = evictableBotSeat(table);
+  if (!seat) return false;
+  table.stand(seat.player.id);
+  return true;
+}
+
+// Tournament flights keep their earlier rule: a seat is always made for a registered entrant,
+// taking an idle bot first and otherwise any bot (tournament bots hold no wallet chips).
+function evictTournamentBot(table) {
+  if (evictBot(table)) return true;
+  const bot = table.occupiedSeats().find((s) => s.player.isBot);
+  if (!bot) return false;
+  table.stand(bot.player.id);
   return true;
 }
 
@@ -1047,7 +1077,7 @@ function makeTournamentRoom(t) {
         const table = LIVE_TABLES.get(id)?.table;
         if (table) broadcastState(table);
       },
-      evictBot: (table) => evictBot(table),
+      evictBot: (table) => evictTournamentBot(table),
       notifyPlayer: (userId, payload) => {
         for (const client of wss.clients) {
           if (client.readyState === 1 && client.userId === Number(userId)) client.send(JSON.stringify(payload));
@@ -2913,7 +2943,7 @@ wss.on('connection', (ws, req) => {
           return ws.send(JSON.stringify({ type: 'error', error: 'Tables are closed for maintenance' }));
         }
         const held = heldSeatFor(msg.tableId, u.id);
-        const hasRoom = held || table.occupiedSeats().some((s) => s.player.isBot) || table.freeSeatFor(u.id);
+        const hasRoom = held || evictableBotSeat(table) || table.freeSeatFor(u.id);
         if (!hasRoom) {
           const queued = waitlistJoin(msg.tableId, u.id);
           if (queued.status !== 'queued') {
@@ -2936,9 +2966,10 @@ wss.on('connection', (ws, req) => {
         if (held) setWaitlist(held.state);
         waitlistLeave(msg.tableId, u.id);
       }
-      // fill part of the table with bots, always leaving the choice of seats to humans
-      const botsNeeded = Math.max(0, table.cfg.seats - table.occupiedSeats().length);
-      if (!table.tournament) table.fillBots(Math.min(botsNeeded, Math.max(3, Math.ceil(table.cfg.seats / 2))));
+      // Fill part of the table with bots, always leaving the choice of seats to humans; no
+      // bot sits down while anyone is waiting for this table or its group.
+      const bots = botFillCount(table, waitingFor(waitState, table.cfg));
+      if (bots) table.fillBots(bots);
       entry.clients.add(ws);
       ws.tables.add(msg.tableId);
       table.maybeStart();
@@ -3002,6 +3033,8 @@ wss.on('connection', (ws, req) => {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
       const table = entry.table;
+      const stale = staleHandError(table, msg);
+      if (stale) return ws.send(JSON.stringify({ type: 'error', error: stale, stale: true, handNo: table.handNo }));
       const res = table.act(ws.userId, msg.action, msg.amount);
       if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       return;

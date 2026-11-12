@@ -88,6 +88,29 @@ function openSocket(port, token) {
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Seat humans at one table without bots in between: everyone watches, reserves seat i
+ * (Take Seat; bots never take a reserved seat) and then buys in. A bot holding live cards
+ * is never removed mid-hand, so this is how a test fills a table with humans only.
+ * `players` are open sockets; resolves with each player's seat.
+ */
+export async function seatHumans(players, tableId, buyin) {
+  for (const sock of players) {
+    sock.send({ type: 'join_table', tableId, observe: true });
+    await sock.next((m) => m.type === 'joined' && m.tableId === tableId);
+  }
+  for (const [seat, sock] of players.entries()) {
+    sock.send({ type: 'reserve_seat', tableId, seat });
+    await sock.next((m) => m.type === 'seat_reserved' && m.tableId === tableId);
+  }
+  const seats = [];
+  for (const [seat, sock] of players.entries()) {
+    sock.send({ type: 'join_table', tableId, buyin, seat });
+    seats.push((await sock.next((m) => m.type === 'joined' && m.tableId === tableId && m.seat != null)).seat);
+  }
+  return seats;
+}
+
 // Read an SSE stream until a `data:` frame matches `match`.
 export async function nextSseEvent(base, token, match, timeoutMs = 8000) {
   const ctrl = new AbortController();
