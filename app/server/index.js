@@ -30,6 +30,7 @@ import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
 import { createAdminRestoreRoute } from './admin-restore.js';
+import { buildPlatformReport } from './admin-platform.js';
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
@@ -2231,6 +2232,20 @@ const server = http.createServer(async (req, res) => {
       }
       res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="dangro-${kind}.csv"` });
       return res.end('\uFEFF' + csv);
+    }
+
+    if (p === '/api/admin/platform' || p === '/api/admin/tournaments/live') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const report = buildPlatformReport({
+        versionInfo: appVersionInfo(),
+        wss,
+        liveTables: LIVE_TABLES,
+        tournamentRooms: TOURNAMENT_ROOMS,
+        db,
+        dbPath: path.join(DATA_DIR, 'ggpoker.db'),
+      });
+      if (p.endsWith('/live')) return json(res, 200, { ok: true, now: report.now, tournaments: report.tournaments });
+      return json(res, 200, report);
     }
 
     if (p === '/api/admin/stats') {

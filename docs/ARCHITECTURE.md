@@ -50,6 +50,7 @@ Other players ────────────┘                       │
 | `slots.js` | Server-authoritative slot engine |
 | `hand-history.js` | Hand snapshots for the history/replay view |
 | `avatar.js` | PNG validation and avatar normalisation |
+| `admin-platform.js` | Read-only platform report: process, sockets, live tables, tournament rooms, database size (used by the admin Platform section) |
 
 ## Request flow
 
@@ -121,6 +122,88 @@ list of flight tables:
   (`tableId`, `tableIndex`, `tables`, `playersLeft`) so a watcher can open it with
   `?observe=1`; when that table breaks, the watcher re-resolves the same endpoint and
   follows the field.
+
+## Tournament runtime and the player connection path
+
+```
+ Lobby / Tournaments page
+   ├─ POST /api/tournaments/:id/play ──► TournamentRoom.seat(player)
+   │                                      ├─ nextFlightIndex / ensureFlight
+   │                                      └─ Table in LIVE_TABLES
+   └─ WSS /ws (tableId) ───────────────► live Table: seats, hand clock, actions
+                                           │ bust / winner
+                                           ▼
+                                        TournamentRoom.onBust / onFlightSettled
+                                           │ 2 s sweep (balance / break)
+                                           ▼
+                                        table_move → player sockets
+```
+
+- **One process owns both planes.** `index.js` serves HTTP, the static client and the
+  `/ws` hub; `LIVE_TABLES` maps table ids to live tables and `TOURNAMENT_ROOMS` maps
+  tournament ids to rooms. A tournament's flights are ordinary tables whose `cfg` shares
+  one tournament descriptor (blind clock, level, prize pool).
+- **Tournament entry** goes through `/api/tournaments/:id/play`; the room seats the human
+  in the lowest-numbered flight, evicts a bot if needed and returns the table id. The
+  client then opens `/ws` for that table (or follows a `table_move` after balancing).
+- **Blind clock** is shared by every flight: the first table to tick advances
+  `tournament.level` and each flight recalculates its blinds from `baseSb`/`baseBb`
+  (`1.5^(level-1)`). `TournamentRoom.syncLevel` catches a late first flight up.
+- **Reconnect** reuses the same table id; a player whose table broke receives
+  `table_move` and navigates with `?buyin=<stack>`. A stale flight link is redirected to
+  the player's real table.
+- **Restart caveat** — live tables and tournament rooms are in process memory. After a
+  game-container restart, tables are recreated from persisted table config and rooms are
+  re-created on the next `/play`; in-flight hands are not replayed. This is the main
+  availability limitation for a dedicated tournament service (see capacity below).
+
+## Platform administration and observability
+
+The owner console (`#/admin`) has a **Platform** section backed by two admin-only,
+read-only endpoints:
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/admin/platform` | server version/build, Node/PID/uptime/environment, RSS/heap, CPU count/load, WebSocket clients and distinct users, live tables/seats/connections, tournament rooms/players/flights, SQLite size/WAL and row counts |
+| `GET /api/admin/tournaments/live` | the same tournament-room list alone (name, level, current blinds, next level ETA, players left/humans, flights, finishes, winner) |
+
+The UI refreshes every 10 s and can download the report as JSON for an incident. The
+report is assembled only from the running process (`process.memoryUsage`, `wss.clients`,
+`LIVE_TABLES`, `TOURNAMENT_ROOMS`, `fs.statSync`) — it adds no new state and performs no
+mutations. Tournament levels are read through `TournamentRoom.syncLevel(now)`, so the
+report reflects the same shared clock the tables use.
+
+Access is the existing admin boundary: `/api/admin` is restricted by the
+`GGPOKER_ADMIN_ALLOW` network allowlist, requires an `is_admin` account, and admin actions
+are audited. The platform report itself is read-only.
+
+### REA inventory
+
+The server module graph was inventoried with **REA** (`morluto/rea`, the MCP server in
+this session) on 2026-11-12: `analyze_javascript_application` on `app/server` examined
+62 files / 711 items (evidence `ev_21df2f40033fbc25eba5628f75bed6ec6e02764f158b7154857a2141ee001803`,
+summary view `ev_4a1b9723…`). The graph is static and partial (semantic-node ceiling,
+8,801 residual unknowns); it was used to map module boundaries and confirm the
+admin/tournament HTTP surface, not as a runtime monitor. Live values in the Platform
+section come from the server's own process state and the database.
+
+## Capacity and scaling
+
+Today production is one game container on `Dexter` (SQLite WAL, in-memory tables/rooms,
+Traefik in front). This is sufficient for the play-money load but has a single
+failure/scale unit:
+
+- **Vertical first** — the container can use the droplet's CPU/RAM; the keepalive script
+  restarts a hung process; nightly backups and off-host pulls cover data loss.
+- **Horizontal scale is not implemented** — tables, tournament rooms and WebSocket
+  fan-out are process-local. Running two containers would split rooms and require sticky
+  WebSocket routing plus shared state (rooms, queues, table ownership). The Platform
+  report is per-process, so a future multi-process deployment needs an aggregator.
+- **Tournament service separation** — the recommended next architectural move if
+  tournament load grows: extract `TournamentRoom` + table engine behind a room-owner
+  service with durable room state, while `index.js` keeps HTTP auth/lobby and proxies WS.
+  The current module boundary (`tournament-room.js` + `ops` interface) already isolates
+  the seating/sweep logic for that move.
 
 ## Data model
 
