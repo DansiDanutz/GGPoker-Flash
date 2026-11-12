@@ -68,7 +68,7 @@ export function AdminTransactions() {
         <button type="button" className="btn btn-ghost btn-sm" onClick={exportCsv} disabled={isExporting}>⤓ Export CSV</button>
       </form>
       <div className="admin-card" style={{ padding: 0 }}>
-        <table className="admin-table">
+        <table className="admin-table admin-transactions-table">
           <thead><tr><th>#</th><th>User</th><th>Type</th><th>Currency</th><th>Amount</th><th>Balance</th><th>Memo</th><th>Date</th></tr></thead>
           <tbody>
             {(rows ?? []).map((t) => (

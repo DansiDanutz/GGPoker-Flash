@@ -235,6 +235,11 @@ body.electron .app-window::before { display: none; }
   .admin-users-table td { padding: 2px 0; border: 0; }
   .admin-users-table td:nth-child(1), .admin-users-table td:nth-child(3) { display: none; }
   .admin-users-table td:last-child .row { flex-wrap: wrap; gap: 4px; }
+  .admin-transactions-table thead { display: none; }
+  .admin-transactions-table, .admin-transactions-table tbody, .admin-transactions-table tr, .admin-transactions-table td { display: block; width: 100%; }
+  .admin-transactions-table tr { padding: 9px 0; border-bottom: 1px solid #23252b; }
+  .admin-transactions-table td { padding: 2px 0; border: 0; }
+  .admin-transactions-table td:nth-child(4), .admin-transactions-table td:nth-child(6), .admin-transactions-table td:nth-child(7) { display: none; }
   .admin-main { padding: 10px 10px 80px; overflow-x: hidden; }
   .admin-main .between { flex-wrap: wrap; gap: 8px; }
   .admin-main .between .row { flex-wrap: wrap; }
