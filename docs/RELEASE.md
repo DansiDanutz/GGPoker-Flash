@@ -61,9 +61,11 @@ screens, offline retry.
 
 ## Remaining / known gaps
 
-- Multi-table tournament flights/balancing: the seating engine (`app/server/tournament.js`),
-  allocation rule, canonical flight ids and unregistration guard are done and tested; the
-  live scheduler and table-break orchestration still need wiring.
+- Multi-table tournaments are live (flights, field-wide places and payouts, balancing and
+  breaks, `table_move`/`table_break`). Still open: seating absent registrants at the
+  scheduled start, payouts beyond the top three places, and a long bot-play soak test.
+- Spectating is read-only (lobby **Watch**, tournament **Watch live**); native spectator
+  counts and observer-chat rules are not evidenced.
 - KKPoker-specific parity was not verified (client not installed/exposed).
 - Complete native background catalogue.
 - SQLite is a single writer — move to managed PostgreSQL/Redis before a 1,000-concurrent
