@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PokerTable } from './table.js';
 import { createRushPool } from './rush-pool.js';
+import { pointEarners } from './dailyLeaderboard.js';
 
 const STAKE = Object.freeze({ game: 'rush', sb: 5, bb: 10, min_buyin: 100, max_buyin: 5000, rakePercent: 0 });
 
@@ -92,6 +93,24 @@ test('the old table finishes the hand without the folder; their blind stays in t
   assert.equal(row.folded, true);
   assert.equal(row.totalBet, 5);
   assert.equal(row.cards.length, 2);
+});
+
+test('a departed fast folder still counts as a participant of the hand they were dealt (rewards)', () => {
+  const from = rushTable('r1');
+  const to = rushTable('r2');
+  from.sit({ id: 'A', nick: 'A', isBot: true }, 0, 1000);
+  from.sit({ id: 'H', nick: 'H' }, 1, 1000); // small blind
+  from.sit({ id: 'C', nick: 'C', isBot: true }, 2, 1000);
+  from.sit({ id: 'D', nick: 'D', isBot: true }, 3, 1000);
+  from.button = 3; from.nextHandAt = 0; from.startHand();
+  const { pool } = world([from, to]);
+  from.quickFold('H');
+  pool.foldOut(from, 'H');
+  from.sit({ id: 'L', nick: 'L' }, 1, 1000); // a late arrival takes the seat mid-hand
+  const participants = from.handParticipants();
+  assert.deepEqual(participants.map((p) => p.id).sort(), ['A', 'C', 'D', 'H']);
+  assert.equal(participants.find((p) => p.id === 'H').totalBet, 5);
+  assert.deepEqual(pointEarners(from), ['H'], 'the Daily Leaderboard credits the departed folder');
 });
 
 test('Time Bank Cards follow an instant re-seat', () => {

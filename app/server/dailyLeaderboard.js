@@ -21,8 +21,9 @@ export function leaderboardStake(table) {
  * mid-hand (kept as table.ghosts), once each.
  */
 export function pointEarners(table) {
-  const seated = table.seats.map((s) => s.player).filter((p) => p && p.inHand);
-  const ids = [...seated, ...(table.ghosts || [])]
+  const dealt = typeof table.handParticipants === 'function' ? table.handParticipants()
+    : [...table.seats.map((s) => s.player).filter((p) => p && p.inHand), ...(table.ghosts || [])];
+  const ids = dealt
     .filter((p) => !p.isBot && p.totalBet > 0)
     .map((p) => p.id);
   return [...new Set(ids)];

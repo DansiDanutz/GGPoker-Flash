@@ -138,6 +138,24 @@ test('a quick folder who leaves mid-hand forfeits their blind and stays in the h
   assert.equal(row.seat, 2);
 });
 
+test('dead money rule: a quick-folded big blind is never refunded, even at a short all-in showdown', () => {
+  const t = new PokerTable({ ...CFG, game: 'rush' });
+  t.nextHandAt = Date.now() + 1e9;
+  for (const [i, id] of ['A', 'B', 'C', 'D'].entries()) t.sit({ id, nick: id }, i, 1000);
+  player(t, 'A').stack = 4; // button, will be all in for less than the big blind
+  player(t, 'B').stack = 3; // small blind, all in posting 3
+  t.button = 3; t.nextHandAt = 0; t.startHand();
+  const before = chipsOnTable(t);
+  assert.equal(t.quickFold('C').ok, true, 'the unopened big blind folds before D acts and stays seated');
+  t.act('D', 'fold');
+  t.act('A', 'allin'); // 4 all in: everybody left is all in, so the board runs out
+  assert.equal(t.street, 'ended');
+  assert.equal(player(t, 'C').stack, 990, 'the folded big blind gets nothing back');
+  assert.equal(player(t, 'A').stack + player(t, 'B').stack, 17, 'all 17 chips go to the showdown winners');
+  const stacks = t.seats.reduce((a, s) => a + s.player.stack, 0);
+  assert.equal(stacks, before, 'chips are conserved: the settled pot is all back in stacks');
+});
+
 test('the snapshot tells each Rush viewer whether they may quick fold, and only them', () => {
   const t = fourHanded();
   assert.deepEqual(t.snapshotFor('A').quickFold, { allowed: true, canCheck: false });

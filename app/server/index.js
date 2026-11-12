@@ -1127,9 +1127,9 @@ function announceAwaySeats(userId) {
 
 function rewardHandPlayed(table, summary) {
   const raked = (summary?.rake || 0) > 0;
-  for (const s of table.seats) {
-    const p = s.player;
-    if (!p || p.isBot || !p.inHand) continue;
+  // Everyone dealt in, including Rush fast folders who already moved to another table.
+  for (const p of table.handParticipants()) {
+    if (p.isBot) continue;
     const points = raked && p.totalBet > 0 ? 1 : 0;
     db.prepare('UPDATE users SET xp = xp + 1, vip_points = vip_points + ? WHERE id = ?').run(points, p.id);
     if (points) bumpMission(p.id, 'weekly-vip', points);

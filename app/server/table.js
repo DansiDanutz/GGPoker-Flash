@@ -587,6 +587,8 @@ export class PokerTable {
     }
     this.promoteWaitingBigBlind();
     inHand = this.seats.filter((s) => s.player && s.player.inHand);
+    // Who was dealt this hand, so rewards still reach players who leave it (Rush fast folders).
+    this.dealtIds = inHand.map((s) => s.player.id);
     // empty seats are skipped
     const order = (from, pred = (s) => s.player && s.player.inHand) => {
       const out = [];
@@ -1097,6 +1099,21 @@ export class PokerTable {
     return { ok: true };
   }
 
+  /**
+   * Everyone dealt into the current (or just finished) hand, seated or departed mid-hand,
+   * once each: { id, isBot, totalBet }. A player who sat down after the deal is not included.
+   */
+  handParticipants() {
+    const byId = new Map();
+    for (const g of this.ghosts) byId.set(g.id, { id: g.id, isBot: !!g.isBot, totalBet: g.totalBet });
+    for (const s of this.seats) {
+      const p = s.player;
+      if (p?.inHand) byId.set(p.id, { id: p.id, isBot: !!p.isBot, totalBet: p.totalBet });
+    }
+    const dealt = this.dealtIds || [...byId.keys()];
+    return dealt.filter((id) => byId.has(id)).map((id) => byId.get(id));
+  }
+
   totalBets() {
     return this.seats.reduce((a, s) => a + (s.player ? s.player.bet : 0), 0)
       + this.ghosts.reduce((a, g) => a + g.bet, 0);
@@ -1161,9 +1178,12 @@ export class PokerTable {
       ...this.ghosts.filter((g) => g.totalBet > 0).map((g) => ({ key: g, amount: g.totalBet, folded: true })),
     ];
     const { pots, returns } = buildPots(contributions);
+    // Dead money rule: chips a player folded are never returned, whether the folder is still
+    // seated (a Rush quick fold) or has left; their unmatched layer joins the top pot. Only a
+    // live player's unmatched layer goes back to them.
     for (const r of returns) {
       const p = live.find((x) => x.id === r.key);
-      if (p) { p.stack += r.amount; this.pot -= r.amount; }
+      if (p && (!p.folded || !pots.length)) { p.stack += r.amount; this.pot -= r.amount; }
       else if (pots.length) pots[pots.length - 1].amount += r.amount;
     }
     return pots;
@@ -1175,7 +1195,8 @@ export class PokerTable {
       ...this.seats.filter((s) => s.player).map((s) => ({ player: s.player, bet: s.player.bet })),
       ...this.ghosts.map((g) => ({ player: null, bet: g.bet })),
     ].sort((a, b) => b.bet - a.bet);
-    // A folded top bet (a Rush big blind quick-folded before anyone matched it) is dead money.
+    // Dead money rule (see settlementPots): a folded top bet, i.e. a Rush big blind
+    // quick-folded before anyone matched it, is never returned.
     if (bets.length < 2 || !bets[0].player || bets[0].player.folded) return 0;
     const excess = bets[0].bet - bets[1].bet;
     if (excess <= 0) return 0;
