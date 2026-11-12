@@ -32,6 +32,7 @@ import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
+import { canShowHand, showOptions } from '../game/showOptions';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { NATIVE_TABLE_WIDTH, PAYOUT_EASING, PAYOUT_FADE_MS, PAYOUT_HOLD_MS, PAYOUT_STOP_PX, PAYOUT_TRANSFER_MS, payoutShares, potOffset, stopShort, type PayoutShare } from '../game/payoutMotion';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
@@ -187,7 +188,6 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [bettingOptions] = useState(readBettingOptions);
   const confirmBets = bettingOptions.confirm === 'always';
   const [pendingBet, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number } | null>(null);
-  const [showPick, setShowPick] = useState<number[]>([]);
   const actionBarRef = useRef<HTMLDivElement | null>(null);
   const [squeezeEnabled] = useState(readSqueeze);
   const [squeezing, setSqueezing] = useState(false);
@@ -863,14 +863,10 @@ export function TablePage({ tableId }: { tableId: string }) {
   const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(state.game), state.game === 'shortdeck') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
   // After the hand (native ShowMuck) anyone dealt in, folded or not, picks cards to show once.
-  const canShowCards = !!me && state?.street === 'ended' && me.inHand && !me.reveal
-    && (me.cards?.length || 0) > 0 && !(me.cards || []).includes('??')
-    && !(me.shown?.length)
-    && !observing;
+  const canShowCards = canShowHand(me, state?.street, observing);
   const showCards = (indices: number[]) => {
     if (!indices.length) return;
     send({ type: 'show_cards', cards: indices });
-    setShowPick([]);
   };
   const presetOpening = state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0);
   const presetValues = presetOpening ? betPrefs.opening : betPrefs.normal;
@@ -886,7 +882,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     toggleUnits: () => cycleStackMode(),
     showAll: () => { if (canShowCards) showCards((me?.cards || []).map((_, i) => i)); },
   };
-  useEffect(() => { setShowPick([]); setRabbit([]); setShowdownReveals({}); }, [state?.handNo]);
+  useEffect(() => { setRabbit([]); setShowdownReveals({}); }, [state?.handNo]);
   useEffect(() => () => {
     if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current);
     if (chipShuffleIdle.current) window.clearTimeout(chipShuffleIdle.current);
@@ -1201,14 +1197,13 @@ export function TablePage({ tableId }: { tableId: string }) {
               {(p.cards || []).map((c, i) => {
                 const [px, py] = seatPosOf(p.seat!);
                 const pickable = p.isMe && canShowCards && c !== '??';
-                const picked = pickable && showPick.includes(i);
                 const shown = (p.shown || []).includes(i);
                 return (
                   <span
                     key={`${state?.handNo}-${p.seat}-${i}`}
-                    className={'card-slot' + (pickable ? ' pickable' : '') + (picked ? ' picked' : '') + (shown ? ' shown' : '')}
-                    onClick={pickable ? (ev) => { ev.stopPropagation(); setShowPick((cur) => cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i]); } : undefined}
-                    title={pickable ? 'Select this card to show it' : undefined}
+                    className={'card-slot' + (pickable ? ' pickable' : '') + (shown ? ' shown' : '')}
+                    onClick={pickable ? (ev) => { ev.stopPropagation(); showCards([i]); } : undefined}
+                    title={pickable ? 'Show this card' : undefined}
                   >
                     <PlayingCard card={c} size="mini" dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
                       style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
@@ -1339,14 +1334,13 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {canShowCards && (
           <div className="action-row show-row">
-            <span style={{ color: '#ffd98a', fontSize: 12.5 }}>
-              {showPick.length
-                ? `${showPick.length} card${showPick.length > 1 ? 's' : ''} selected — show to everyone?`
-                : 'Hand over: tap your cards to show one or both.'}
-            </span>
+            <span style={{ color: '#ffd98a', fontSize: 12.5 }}>Show your cards?</span>
             <div className="grow" />
-            <button className="btn btn-gold btn-sm" disabled={!showPick.length} onClick={() => showCards(showPick)}>Show</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => showCards((me?.cards || []).map((_, i) => i))}>Show all</button>
+            {showOptions(me?.cards || []).map((o) => (
+              <button key={o.indices.join('-')} className={'btn btn-sm show-opt' + (o.indices.length > 1 ? ' btn-gold' : ' btn-ghost')} onClick={() => showCards(o.indices)}>
+                Show <b>{o.label}</b>
+              </button>
+            ))}
           </div>
         )}
         {me && !state?.tournament && !state?.spin && (me.stack || 0) <= 0 && !me.inHand && (state?.street === 'ended' || state?.street === 'idle' || !!rebuyOffer) && (
