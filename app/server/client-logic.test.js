@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { betLimits, potFractionTarget, sizingPresets, potOdds } from '../src/game/betting.ts';
 import { betUnitOf, enterBetRequest, normalizeBettingOptions } from '../src/lib/tablePrefs.ts';
-import { potChipTiers } from '../src/game/potChips.ts';
+import { potChipLayout, shuffleFramePosition } from '../src/game/potChips.ts';
 import { cardOrdinal, squeezeDragFrame, squeezeWheelFrame } from '../src/game/squeeze.ts';
 import { bestHand } from '../src/game/eval.ts';
 
@@ -68,15 +68,18 @@ test('Enter bets the amount on screen, optionally asking first', () => {
   assert.equal(enterBetRequest({ myTurn: true, canRaise: true, raiseTo: 0, allInTo: 5000 }), null);
 });
 
-test('the middle chip pile grows with the pot and caps at twelve chips', () => {
-  assert.deepEqual(potChipTiers(0, 100), [], 'an empty pot shows no chips');
-  assert.equal(potChipTiers(50, 100).length, 3, 'a small pot still looks like a pile');
-  assert.equal(potChipTiers(400, 100).length, 4, 'a chip per big blind');
-  assert.ok(potChipTiers(2000, 100).length > potChipTiers(1000, 100).length, 'a bigger pot shows more chips');
-  assert.equal(potChipTiers(100000, 100).length, 12, 'the pile is capped');
-  assert.deepEqual(potChipTiers(5000, 100).slice(0, 4), [0, 0, 0, 0]);
-  assert.deepEqual(potChipTiers(5000, 100).slice(4, 8), [1, 1, 1, 1], 'bigger denominations join later');
-  assert.deepEqual(potChipTiers(9000, 100), [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2]);
+test('the pot pile uses native denominations with per-column caps', () => {
+  assert.deepEqual(potChipLayout(0, 200), [], 'an empty pot shows no chips');
+  assert.deepEqual(potChipLayout(2000, 200), [{ denom: 5, count: 2 }], '10 BB is two 5-BB chips');
+  assert.deepEqual(potChipLayout(24000, 200), [{ denom: 5, count: 4 }, { denom: 100, count: 1 }], '120 BB groups by denomination');
+  assert.deepEqual(potChipLayout(180000, 200), [{ denom: 100, count: 9 }], 'a 900 BB pot caps the column');
+  assert.deepEqual(potChipLayout(200000, 200), [{ denom: 25, count: 4 }, { denom: 100, count: 9 }], 'overflow uses the next denomination');
+  for (const col of potChipLayout(10000000, 200)) assert.ok(col.count <= 9);
+  assert.deepEqual(shuffleFramePosition(1), { x: 0, y: 0 });
+  assert.ok(Math.abs(shuffleFramePosition(15).x - 93.3333) < 0.01);
+  assert.deepEqual(shuffleFramePosition(16), { x: 100, y: 0 });
+  assert.equal(shuffleFramePosition(17).x, 0);
+  assert.ok(Math.abs(shuffleFramePosition(17).y - 6.6667) < 0.01);
 });
 
 test('betting options follow the native defaults and reject junk', () => {

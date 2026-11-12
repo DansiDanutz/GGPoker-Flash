@@ -6,6 +6,19 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Chip Shuffle and native pot denominations (ported from the Codex clone)
+- **Shuffle chips** is in the table menu. It plays the clone's native 16×16 chip-shuffle
+  sprite (frames 37–245) over the pot with the Up/Combine sounds, auto-stops, and is
+  broadcast to everyone at the table through a `chip_shuffle` event (3 s rate limit).
+  Settings → Table & cards → **Chip shuffle effects** hides it locally.
+- The middle pot pile now follows the clone's `playChipLayout` idea: the pot is decomposed
+  into **1 / 5 / 25 / 100 BB** denominations, one column per denomination, at most nine
+  chips per column, with gold/red/green/black colours. The label still carries the exact
+  amount. This replaces the earlier one-chip-per-big-blind approximation.
+- Tests: denomination decomposition and per-column caps, plus the 16×16 sprite frame
+  mapping. A headless browser run verifies the pot columns and the shuffle start/mid/stop.
+  Full suite 154/154.
+
 ### Card Squeeze (ported from the Codex clone)
 - The reference clone's **Card Squeeze** is now in DanGG. With **Settings → Table &
   cards → Card squeeze on a fresh deal** enabled, a fresh hand opens the native squeeze

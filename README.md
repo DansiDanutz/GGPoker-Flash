@@ -159,14 +159,16 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
   per press); Enter bets the amount on screen, optionally with **Always confirm**.
 - A cash-table bust holds the next hand for about ten seconds and offers a **Reload**
   prompt with a live countdown; reloading deals as soon as everyone is ready.
-- The chip pile in the middle of the felt grows with the pot (one chip per big blind,
-  three to twelve chips, gold/red/black), so every betting round visibly adds money.
+- The chip pile in the middle of the felt decomposes the pot into native-style 1/5/25/100
+  big-blind denominations with per-column caps, so every betting round visibly adds money.
+- **Chip Shuffle**: the table menu plays the reference clone's native shuffle sprite (with
+  its Up/Combine sounds) over the pot for everyone at the table.
 - **Show one card or both** after the hand: tap hole cards, press Show (or Show all), and
   the table sees exactly those cards; folded players cannot show.
 - **Card Squeeze**: optional peel of your hole cards on a fresh deal, using the reference
   clone's native 61-frame compositor for Hold'em and PLO4/5/6 (wheel, hover, drag or Open;
   actions lock until revealed; reconnects skip it).
-- **Table menu**: sit out next hand, rebuy and auto-rebuy, rabbit hunt, card animation
+- **Table menu**: sit out next hand, rebuy and auto-rebuy, rabbit hunt, shuffle chips, card animation
   (deal/flip/slide/off), button layout (bottom/side/floating), straddle, auto-muck,
   run it twice, four-colour deck, animation toggle, hand history, table settings and the
   official FX preview.

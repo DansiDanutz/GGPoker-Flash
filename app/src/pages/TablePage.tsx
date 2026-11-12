@@ -9,7 +9,7 @@ import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
 import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/betting';
-import { potChipTiers } from '../game/potChips';
+import { potChipLayout, shuffleFramePosition, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 
 type PlayerState = {
@@ -155,6 +155,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const autoRebuyPending = useRef(false);
   const spinSeen = useRef(false);
   const [now, setNow] = useState(Date.now());
+  const [chipShuffleOn] = useState(() => localStorage.getItem('ggpoker.chipShuffle') !== '0');
+  const [chipShuffle, setChipShuffle] = useState<{ frame: number; key: number } | null>(null);
+  const chipShuffleTimer = useRef<number | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const stateRef = useRef<TableState | null>(null);
@@ -395,6 +398,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         toast({ kind: 'info', title: `${evt.nick} shows`, body: (evt.cards || []).join(' ') });
       }
       sound.play('show', { volume: .5 });
+    } else if (evt.type === 'chip_shuffle') {
+      startChipShuffle();
     } else if (evt.type === 'rabbit') {
       setRabbit(evt.cards || []);
     } else if (evt.type === 'waitlist_ready') {
@@ -471,7 +476,25 @@ export function TablePage({ tableId }: { tableId: string }) {
   const displayUnit = state?.tournament ? 1 : 100;
   const chipStep = state?.tournament ? 1 : Math.min(100, state?.sb || 100);
   const betStep = betUnitOf(bettingOptions, state?.sb || 0, state?.bb || 0);
-  const potChips = potChipTiers(state?.pot || 0, state?.bb || 1);
+  const potColumns = potChipLayout(state?.pot || 0, state?.bb || 1);
+  const startChipShuffle = useCallback(() => {
+    if (!chipShuffleOn) return;
+    if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current);
+    let frame = SHUFFLE_START_FRAME;
+    setChipShuffle({ frame, key: Date.now() });
+    sound.play('shuffleUp', { volume: .55 });
+    chipShuffleTimer.current = window.setInterval(() => {
+      frame += 1;
+      if (frame === 143) sound.play('shuffleCombine', { volume: .55 });
+      if (frame >= SHUFFLE_END_FRAME) {
+        if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current);
+        chipShuffleTimer.current = null;
+        window.setTimeout(() => setChipShuffle(null), 200);
+        return;
+      }
+      setChipShuffle({ frame, key: frame });
+    }, 10);
+  }, [chipShuffleOn]);
   const nudgeBet = (direction: number) => setRaiseTo((v) => Math.max(minTo, Math.min(maxTo, v + direction * betStep)));
   const presets = state ? sizingPresets(betCtx, chipStep) : [];
   const odds = myTurn ? potOdds(state?.pot || 0, toCall) : null;
@@ -638,6 +661,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     setShowPick([]);
   };
   useEffect(() => { setShowPick([]); setRabbit([]); }, [state?.handNo]);
+  useEffect(() => () => { if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current); }, []);
 
   // Card squeeze: skip the hand already in progress when the page connects,
   // then peel every fresh deal while the preference is on.
@@ -801,6 +825,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button disabled={!canRabbit} title={canRabbit ? '' : 'Rabbit hunt is available after a hand ends with an incomplete board'} onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
           <button onClick={() => setSwfEffect('/assets/swf/chip_shuffle.swf')}>Official FX preview</button>
+          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'shuffle' })}>Shuffle chips</button>
           {state?.ownerId === user?.id && state.private && (
             <button onClick={async () => { setMuteOpen(true); setMenuOpen(false); try { const r = await api.hostMutes(tableId); setMutes((r.muted || []).map((m) => m.user_id)); } catch { setMutes([]); } }}>Table moderation…</button>
           )}
@@ -842,9 +867,19 @@ export function TablePage({ tableId }: { tableId: string }) {
       <div className="table-watermark" style={{ top: '34%', fontSize: 20, letterSpacing: 5 }}>{state?.name || ''}</div>
       <div className="table-center">
         {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
-        {potChips.length > 0 && (
+        {chipShuffle ? (
+          <div
+            className="chip-shuffle"
+            aria-hidden="true"
+            style={{ backgroundPosition: `${shuffleFramePosition(chipShuffle.frame).x}% ${shuffleFramePosition(chipShuffle.frame).y}%` }}
+          />
+        ) : potColumns.length > 0 && (
           <div className="pot-chips" aria-hidden="true">
-            {potChips.map((tier, i) => <i key={i} className={`chip-${tier}`} />)}
+            {potColumns.map((col) => (
+              <span key={col.denom} className={`pot-chip-col denom-${col.denom}`}>
+                {Array.from({ length: col.count }, (_, i) => <i key={i} />)}
+              </span>
+            ))}
           </div>
         )}
         <div className="board">

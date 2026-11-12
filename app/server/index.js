@@ -2484,6 +2484,17 @@ wss.on('connection', (ws, req) => {
       broadcastState(entry.table);
       return;
     }
+    if (msg.type === 'shuffle') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const seat = entry.table.seatOf(ws.userId);
+      if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'Take a seat first' }));
+      const now = Date.now();
+      if (now - (entry.lastShuffleAt || 0) < 3000) return;
+      entry.lastShuffleAt = now;
+      entry.table.emit({ type: 'chip_shuffle', seat: seat.index, playerId: ws.userId, nick: seat.player.nick });
+      return;
+    }
     if (msg.type === 'show_cards') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
