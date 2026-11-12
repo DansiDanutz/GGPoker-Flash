@@ -1,8 +1,9 @@
 // Generates the original DanGG sound set into app/public/assets/sounds/.
 // Run from the repo root: node tools/original-assets/sounds.mjs
-// Synthesis: deterministic JS DSP (sound-dsp.mjs) + ffmpeg filters/encoding; voices: macOS `say`.
+// Synthesis: deterministic JS DSP (sound-dsp.mjs) + ffmpeg filters/encoding. Voice lines are
+// recorded takes in voice/ (Dan's cloned voice from VoiceStudio; see voice/README.md). Never use a
+// system text-to-speech voice here.
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { SR, edgeFade } from './sound-dsp.mjs';
@@ -16,10 +17,10 @@ const OUT_DIR = path.join(ROOT, 'app/public/assets/sounds');
 const SOUND_TS = path.join(ROOT, 'app/src/lib/sound.ts');
 const MANIFEST = path.join(HERE, 'manifest.json');
 
-const VOICE = 'Samantha';
+const VOICE_DIR = path.join(HERE, 'voice');
 const VOICES = {
-  'VoiceRaise.mp3': 'Raise', 'VoiceAllIn.mp3': 'All in!', 'VoiceCheck.mp3': 'Check',
-  'VoiceFold.mp3': 'Fold', 'VoiceCall.mp3': 'Call', 'VoiceBet.mp3': 'Bet',
+  'VoiceRaise.mp3': 'VoiceRaise.wav', 'VoiceAllIn.mp3': 'VoiceAllIn.wav', 'VoiceCheck.mp3': 'VoiceCheck.wav',
+  'VoiceFold.mp3': 'VoiceFold.wav', 'VoiceCall.mp3': 'VoiceCall.wav', 'VoiceBet.mp3': 'VoiceBet.wav',
 };
 const RECIPES = { ...TABLE, ...FX, 'BgmLobby.mp3': bgm };
 
@@ -69,11 +70,10 @@ function encode(file, data, bitrate) {
     '-map_metadata', '-1', '-fflags', '+bitexact', '-flags:a', '+bitexact', '-y', file], toBuf(data));
 }
 
-/** Speak a word, trim leading/trailing silence, then fit and pad to the target length. */
-function voice(text, target, tmp) {
-  const aiff = path.join(tmp, 'voice.aiff');
-  run('say', ['-v', VOICE, '-r', '175', '-o', aiff, text]);
-  let data = fromBuf(run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', aiff, ...RAW_OUT]));
+/** Load a recorded voice take, trim leading/trailing silence, then fit and pad to the target length. */
+function voice(take, target) {
+  const source = path.join(VOICE_DIR, take);
+  let data = fromBuf(run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', source, ...RAW_OUT]));
   const loud = (x) => Math.abs(x) > 0.01;
   const first = data.findIndex(loud);
   const last = data.length - 1 - [...data].reverse().findIndex(loud);
@@ -105,28 +105,23 @@ function main() {
   if (missing.length) throw new Error(`No recipe for referenced sound(s): ${missing.join(', ')}`);
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dangg-sounds-'));
   const failures = [];
-  try {
-    for (const name of wanted) {
-      const target = originals.get(name);
-      let data;
-      let level = ALERTS.has(name) ? LEVELS.alert : LEVELS.sfx;
-      if (VOICES[name]) data = voice(VOICES[name], target, tmp);
-      else {
-        const recipe = RECIPES[name]();
-        data = recipe.post ? ffFilter(recipe.data, recipe.post) : recipe.data;
-        if (name === 'BgmLobby.mp3') level = LEVELS.music;
-      }
-      const file = path.join(OUT_DIR, name);
-      encode(file, edgeFade(normalise(data, level)), name === 'BgmLobby.mp3' ? '112k' : '96k');
-      const p = probe(file);
-      const ok = p.codec === 'mp3' && p.rate === SR && Math.abs(p.seconds - target) <= target * DURATION_TOLERANCE;
-      if (!ok) failures.push(name);
-      console.log(`${ok ? 'ok  ' : 'FAIL'} ${name.padEnd(34)} ${p.seconds.toFixed(3)}s (orig ${target.toFixed(3)}s) ${p.codec} ${p.rate}Hz ${fs.statSync(file).size}B`);
+  for (const name of wanted) {
+    const target = originals.get(name);
+    let data;
+    let level = ALERTS.has(name) ? LEVELS.alert : LEVELS.sfx;
+    if (VOICES[name]) data = voice(VOICES[name], target);
+    else {
+      const recipe = RECIPES[name]();
+      data = recipe.post ? ffFilter(recipe.data, recipe.post) : recipe.data;
+      if (name === 'BgmLobby.mp3') level = LEVELS.music;
     }
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
+    const file = path.join(OUT_DIR, name);
+    encode(file, edgeFade(normalise(data, level)), name === 'BgmLobby.mp3' ? '112k' : '96k');
+    const p = probe(file);
+    const ok = p.codec === 'mp3' && p.rate === SR && Math.abs(p.seconds - target) <= target * DURATION_TOLERANCE;
+    if (!ok) failures.push(name);
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${name.padEnd(34)} ${p.seconds.toFixed(3)}s (orig ${target.toFixed(3)}s) ${p.codec} ${p.rate}Hz ${fs.statSync(file).size}B`);
   }
   const unused = [...originals.keys()].filter((f) => !wanted.includes(f));
   console.log(`\nGenerated ${wanted.length} files. Unreferenced manifest sounds (not generated): ${unused.length}`);

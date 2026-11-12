@@ -1,6 +1,6 @@
 #!/bin/bash
 # Regenerate app/public/assets from the original DanGG generators in tools/original-assets.
-# Every file is drawn or synthesised locally (headless Chrome, ffmpeg, macOS `say`, cwebp);
+# Every file is drawn or synthesised locally (headless Chrome, ffmpeg, cwebp; voice lines are recorded takes in Dan's cloned voice);
 # nothing is extracted from a third-party client. Output is deterministic and committed.
 #
 #   bash tools/setup_assets.sh            # everything (about 8 minutes)
