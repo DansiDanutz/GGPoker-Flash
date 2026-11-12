@@ -1,0 +1,10 @@
+{
+  "feature": "Bad Beat Jackpot",
+  "method": "Read-only static analysis of the installed GGPoker AIR client: FFDec AS3 export under ~/Sandbox/rea-tools/player-source and Game/assets/languages/string_table.json. REA itself rejects SWF (file_format_rejected), as recorded in straddle-sitout.json.",
+  "evidence": [
+    { "source": "player-source/scripts/com/nsus/iron/helper/HandHistory.as getBadBeatJackpotSummaryVo", "finding": "Recipients are EBadBeatJackpotType Winner (list), Opponent (one, listed even with 0 amount) and TableShare (list); skipped when buyInType is AllInOrFold or the table is featured." },
+    { "source": "HandHistory.as ~line 1996", "finding": "Run It Twice/Three Times bad beats get special handling (isRimtAndBadBeat); DanGG pays on single-board showdowns only." },
+    { "source": "string_table.json", "finding": "BadBeatJackpotCapital 'BAD BEAT JACKPOT', BadBeatJackpotMarkCapital 'BAD BEAT JACKPOT!', BadBeatWinner 'Bad Beat Winner', BadBeatOpponent 'Bad Beat Opponent', BadBeatRestOfPlayers 'Rest of Players', BadBeatPlayersShare '({0} Players Share)', BadBeat1PlayerShare '(1 Player)', BadBeatJackpotTriggerDescription 'Lose with {0} or better', PLOBadBeatJackpotTriggerDescription per PLO/PLO-5/PLO-6." }
+  ],
+  "not_in_client": "Trigger hands, payout fraction, split percentages and accrual rate are server data. DanGG values (server/badBeat.js) are labelled DanGG rules: Hold'em quad 8s+ using both hole cards, Omaha straight flush, 10% of pool paid, 50/25/25 split, 25% of rake accrues."
+}

@@ -32,6 +32,7 @@ import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
+import { BAD_BEAT_BANNER_MS, badBeatRows, type BadBeatHit } from '../game/badBeat';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { NATIVE_TABLE_WIDTH, PAYOUT_EASING, PAYOUT_FADE_MS, PAYOUT_HOLD_MS, PAYOUT_STOP_PX, PAYOUT_TRANSFER_MS, payoutShares, potOffset, stopShort, type PayoutShare } from '../game/payoutMotion';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
@@ -137,6 +138,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const lastDealtHand = useRef(-1);
   const clockOffset = useRef(0);
   const [rabbit, setRabbit] = useState<string[]>([]);
+  const [badBeat, setBadBeat] = useState<BadBeatHit | null>(null);
+  const badBeatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fourColor, setFourColor] = useState(() => localStorage.getItem('ggpoker.fourcolor') === '1');
   const [animOff, setAnimOff] = useState(() => localStorage.getItem('ggpoker.animations') === '0');
   const [observing, setObserving] = useState(false);
@@ -568,6 +571,11 @@ export function TablePage({ tableId }: { tableId: string }) {
       toast({ kind: 'info', title: 'Time bank', body: `+${evt.seconds || timeBankSeconds} seconds` });
     } else if (evt.type === 'sit_out') {
       if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: 'You ran out of time twice. Press "Deal Me In" to rejoin.' });
+    } else if (evt.type === 'bad_beat_jackpot') {
+      sound.play('fireworks', { volume: .8 });
+      setBadBeat({ total: evt.total, shares: evt.shares || [] });
+      if (badBeatTimer.current) clearTimeout(badBeatTimer.current);
+      badBeatTimer.current = setTimeout(() => setBadBeat(null), BAD_BEAT_BANNER_MS);
     } else if (evt.type === 'sit_out_expired') {
       if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Seat released', body: 'You have been removed from your seat: your sit-out time ran out.' });
     } else if (evt.type === 'blinds_up') {
@@ -890,6 +898,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => () => {
     if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current);
     if (chipShuffleIdle.current) window.clearTimeout(chipShuffleIdle.current);
+    if (badBeatTimer.current) clearTimeout(badBeatTimer.current);
   }, []);
 
   // Card squeeze: skip the hand already in progress when the page connects,
@@ -1126,6 +1135,13 @@ export function TablePage({ tableId }: { tableId: string }) {
           )}
           {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
         </div>
+        {badBeat && <div className="bad-beat-banner" role="alert" onClick={() => setBadBeat(null)}>
+          <div className="bbj-title">BAD BEAT JACKPOT!</div>
+          <div className="bbj-total">{money(badBeat.total)}</div>
+          {badBeatRows(badBeat).map((row) => (
+            <div className="bbj-row" key={row.label}><span>{row.label}</span><b>{row.names}</b><em>{money(row.amount)}</em></div>
+          ))}
+        </div>}
         {sitOutText && <div className="sit-out-clock" role="timer" aria-label="Sit-out time left">{sitOutText}</div>}
         <div className="board">
           {(state?.board || []).map((c, i) => {

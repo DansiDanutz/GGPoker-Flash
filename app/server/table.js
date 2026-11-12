@@ -1,6 +1,7 @@
 import { buildPots, oddChipOrder } from './pots.js';
 import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
 import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
+import { badBeatPayout } from './badBeat.js';
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
@@ -1326,6 +1327,8 @@ export class PokerTable {
       })),
       reason: 'showdown',
     };
+    const badBeat = this.payBadBeatJackpot(scored, results);
+    if (badBeat) summary.badBeat = badBeat;
     this.result = this.publicShowdown(summary);
     this.street = 'ended';
     this.actor = null;
@@ -1333,6 +1336,35 @@ export class PokerTable {
     this.emit({ type: 'win', ...this.result });
     this.saveHand(summary);
     this.updateMissionProgress(results[0]);
+  }
+
+  /** Cash Hold'em/Omaha only: native excludes AoF and featured tables (HandHistory.getBadBeatJackpotSummaryVo). */
+  badBeatEligible() {
+    return !this.elimination && !this.aof && !this.shortDeck && typeof this.hooks.jackpotPool === 'function';
+  }
+
+  /** Pays the Bad Beat Jackpot into stacks when a qualifying hand loses at showdown. */
+  payBadBeatJackpot(scored, results) {
+    if (!this.badBeatEligible() || scored.length < 2) return null;
+    const payout = badBeatPayout({
+      pool: this.hooks.jackpotPool(),
+      omaha: this.omaha,
+      winnerIds: results.map((r) => r.id),
+      dealtIn: this.seats.filter((s) => s.player?.inHand).map((s) => s.player.id),
+      scored: scored.map((sc) => ({
+        id: sc.player.id, score: sc.score, hole: sc.player.cards.map(cardStr), best: sc.cards.map(cardStr),
+      })),
+    });
+    if (!payout) return null;
+    const shares = payout.shares.map((share) => {
+      const seat = this.seatOf(share.id);
+      if (seat?.player) seat.player.stack += share.amount;
+      return { ...share, nick: seat?.player?.nick || '', seat: seat?.index ?? -1 };
+    });
+    const badBeat = { total: payout.total, shares };
+    this.hooks.onBadBeatJackpot?.(this, badBeat);
+    this.emit({ type: 'bad_beat_jackpot', ...badBeat });
+    return badBeat;
   }
 
   updateMissionProgress(winner) {

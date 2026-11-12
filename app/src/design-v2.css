@@ -574,3 +574,18 @@ body { background: #050706; }
 .payout-share { position: absolute; z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; }
 .payout-share i { width: 18px; height: 17px; background: url('/assets/chips/native-chip-25.png') center/100% 100% no-repeat; }
 .payout-share span { background: rgba(0, 0, 0, .6); border: 1px solid rgba(255, 215, 130, .3); color: #ffe1a0; padding: 1px 7px; border-radius: 10px; font-size: 11.5px; font-weight: 700; }
+
+/* Native BAD BEAT JACKPOT! banner over the board. */
+.bad-beat-banner {
+  position: absolute; left: 50%; top: 22%; transform: translateX(-50%); z-index: 40;
+  min-width: 320px; padding: 14px 20px 12px; border-radius: 14px; text-align: center; cursor: pointer;
+  background: radial-gradient(ellipse at top, #5a1010 0%, #1e0606 80%); border: 2px solid #e8c15c;
+  box-shadow: 0 0 28px rgba(232, 193, 92, .55), 0 8px 24px rgba(0, 0, 0, .6);
+  animation: bbjIn .45s cubic-bezier(.33, 1, .68, 1);
+}
+.bbj-title { font: 900 22px/1 Georgia, serif; letter-spacing: 1px; color: #ffe6a6; text-shadow: 0 2px 0 #4a0c0c, 0 0 12px #ff5a3a; }
+.bbj-total { margin: 6px 0 10px; font-size: 26px; font-weight: 800; color: #f7dda0; }
+.bbj-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline; padding: 3px 0; font-size: 12px; color: #f0d9a8; text-align: left; }
+.bbj-row b { color: #fff; font-weight: 700; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bbj-row em { font-style: normal; color: #ffe6a6; font-weight: 700; }
+@keyframes bbjIn { from { opacity: 0; transform: translate(-50%, -12px) scale(.9); } to { opacity: 1; transform: translateX(-50%) scale(1); } }

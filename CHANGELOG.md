@@ -6,6 +6,16 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Bad Beat Jackpot that pays
+- The header jackpot now grows: a quarter of the rake from every raked cash hand goes into the pool.
+- When a strong hand loses at showdown (Hold'em: quad 8s or better, using both hole cards; Omaha:
+  a straight flush), 10% of the pool is paid straight into stacks. The player who was beaten gets
+  half, the player who beat them a quarter, and everyone else dealt in shares the last quarter.
+- A native-style "BAD BEAT JACKPOT!" banner shows the total and the Bad Beat Winner, Bad Beat
+  Opponent and Rest of Players rows. Not on AoF, Short Deck, tournaments or Spin & Gold.
+- The roles, labels and exclusions come from the GGPoker client; the trigger hands and the split are
+  server-side there, so these values are DanGG rules.
+
 ### Wait for Blinds and the faster sit-out clock
 - While sitting out you can tick "Wait for Blinds": after Deal Me In you are dealt back in
   when the big blind reaches your seat, and you post only that blind. "Post now" cancels the
