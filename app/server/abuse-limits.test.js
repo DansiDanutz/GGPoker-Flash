@@ -80,3 +80,18 @@ test('the limiter forgets idle keys so its memory stays bounded', () => {
   assert.equal(limiter.size(), 1, 'expired keys are swept once the key cap is reached');
   assert.equal(limiter.isBlocked('fresh', 5001), true);
 });
+
+test('a concurrent burst from one IP cannot exceed the sign-up limit', async () => {
+  const ip = '203.0.113.50';
+  const burst = await Promise.all(Array.from({ length: 8 }, (_, i) => register(`burst_${i}`, ip)));
+  const created = burst.filter((res) => res.status === 200).length;
+  assert.equal(created, 3, `created ${created} accounts`);
+  assert.ok(burst.every((res) => res.status === 200 || res.status === 429));
+});
+
+test('the limiter never holds more than maxKeys keys, even when all are active', () => {
+  const limiter = createRateLimiter({ limit: 5, windowMs: 60_000, maxKeys: 3 });
+  for (let i = 0; i < 10; i++) limiter.record(`live_${i}`, 1000 + i);
+  assert.equal(limiter.size(), 3);
+  assert.equal(limiter.isBlocked('live_9', 1010), false, 'the newest key is kept');
+});

@@ -1189,10 +1189,12 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/auth/register' && req.method === 'POST') {
       const clientKey = abuseClientKey(req);
-      if (clientKey && registerLimiter.isBlocked(clientKey)) {
-        return json(res, 429, { error: 'Too many new accounts from your network. Try again in an hour.' });
-      }
+      const tooManyAccounts = () => json(res, 429, { error: 'Too many new accounts from your network. Try again in an hour.' });
+      if (clientKey && registerLimiter.isBlocked(clientKey)) return tooManyAccounts();
       const body = await readBody(req);
+      // Check again after the await: concurrent requests from one IP all passed the first
+      // check while their bodies were read. From here to record() the handler is synchronous.
+      if (clientKey && registerLimiter.isBlocked(clientKey)) return tooManyAccounts();
       const login = String(body.login || '').trim();
       const nick = cleanNick(body.nick || login);
       if (!/^[A-Za-z0-9_.\-]{3,24}$/.test(login)) return json(res, 400, { error: 'Account ID must be 3-24 letters, digits, dots, dashes or underscores' });

@@ -69,6 +69,8 @@ export const HTML_CSP = [
   "frame-ancestors 'none'",
 ].join('; ');
 
+const SWEEP_INTERVAL_MS = 1000;
+
 /**
  * Sliding-window attempt limiter keyed by an arbitrary string (login name, socket id…).
  * Once more than `maxKeys` keys are held, keys with no attempt inside the window are dropped,
@@ -77,18 +79,25 @@ export const HTML_CSP = [
  */
 export function createRateLimiter({ limit, windowMs, maxKeys = 10_000 }) {
   const attempts = new Map();
+  let lastSweepAt = -Infinity;
   const recent = (key, now) => (attempts.get(key) || []).filter((t) => now - t < windowMs);
-  const sweep = (now) => {
-    for (const key of [...attempts.keys()]) {
-      if (recent(key, now).length === 0) attempts.delete(key);
+  // A full sweep at most once per second; if every key is still active, evict the oldest
+  // (Map keeps insertion order) so the cap holds without an O(n) scan per new key.
+  const makeRoom = (now) => {
+    if (now - lastSweepAt >= SWEEP_INTERVAL_MS) {
+      lastSweepAt = now;
+      for (const key of [...attempts.keys()]) {
+        if (recent(key, now).length === 0) attempts.delete(key);
+      }
     }
+    while (attempts.size >= maxKeys) attempts.delete(attempts.keys().next().value);
   };
   return {
     isBlocked(key, now = Date.now()) {
       return recent(key, now).length >= limit;
     },
     record(key, now = Date.now()) {
-      if (!attempts.has(key) && attempts.size >= maxKeys) sweep(now);
+      if (!attempts.has(key) && attempts.size >= maxKeys) makeRoom(now);
       attempts.set(key, [...recent(key, now), now]);
     },
     reset(key) {
