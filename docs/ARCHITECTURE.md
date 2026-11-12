@@ -50,7 +50,8 @@ Other players ────────────┘                       │
 | `slots.js` | Server-authoritative slot engine |
 | `hand-history.js` | Hand snapshots for the history/replay view |
 | `avatar.js` | PNG validation and avatar normalisation |
-| `admin-platform.js` | Read-only platform report: process, sockets, live tables, tournament rooms, database size (used by the admin Platform section) |
+| `admin-platform.js` | Read-only platform report: process, sockets, live tables, tournament rooms, database/disk size (used by the admin Platform section) |
+| `tournament-state.js` | Durable room snapshot save/load/delete and the settled-hand guard; the persistence boundary for the future room-owner service |
 
 ## Request flow
 
@@ -176,7 +177,14 @@ The UI refreshes every 10 s and can download the report as JSON for an incident.
 tournament table also shows each room's **Recovery** state: the last settled-hand snapshot
 (time and size), whether this process restored the room after a restart, and a red **stale**
 marker (plus `tournaments.stale` and a banner) when a room with players has had no snapshot
-for five minutes. Empty rooms are not flagged. The
+for five minutes. Empty rooms are not flagged.
+
+Two admin actions can force a recovery snapshot: `POST /api/admin/tournaments/:id/snapshot`
+for one room and `POST /api/admin/tournaments/snapshot-all` for every running room (the
+Platform has **Snapshot** per row and **Snapshot all** in the header). Both are audited and
+skip a room with a hand in progress or a finished room rather than writing an inconsistent
+state. Snapshot persistence lives in `tournament-state.js`, separate from `index.js`, so the
+room-owner boundary can move behind a dedicated service without rewriting the admin API. The
 report is assembled only from the running process (`process.memoryUsage`, `wss.clients`,
 `LIVE_TABLES`, `TOURNAMENT_ROOMS`, `fs.statSync`) — it adds no new state and performs no
 mutations. Tournament levels are read through `TournamentRoom.syncLevel(now)`, so the

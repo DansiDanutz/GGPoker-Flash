@@ -6,6 +6,19 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Admin snapshot controls and the room-owner boundary
+- New audited admin actions: **`POST /api/admin/tournaments/:id/snapshot`** and
+  **`POST /api/admin/tournaments/snapshot-all`**. The Platform has a **Snapshot** button per
+  running room and **Snapshot all** in the header; both return bytes/players and skip a hand
+  in progress or a finished room instead of persisting an inconsistent state.
+- Extracted snapshot save/load/delete and the settled-hand guard into `tournament-state.js`,
+  separating the persistence boundary from `index.js` for a future dedicated room-owner
+  service. Tests: settled-room write, mid-hand/finished skip, malformed load, admin-only
+  endpoint and missing-room 404.
+- Verified on the test server: single snapshot `376 B / 2 players`, snapshot-all `4/4 saved`,
+  audit rows `tournament_snapshot` / `tournament_snapshot_all`. Full suite 417/417.
+
+## 2026-11-12
 ### Recovery staleness alert and automated restart soak
 - The Platform report now flags a running room with players as **stale** when its last
   settled-hand snapshot is older than five minutes (or missing): `snapshotAgeMs`/`stale`

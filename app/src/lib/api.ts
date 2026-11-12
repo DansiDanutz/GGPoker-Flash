@@ -318,6 +318,8 @@ export const api = {
     stats: () => request<any>('/api/admin/stats'),
     platform: () => request<any>('/api/admin/platform'),
     tournamentsLive: () => request<any>('/api/admin/tournaments/live'),
+    snapshotTournament: (id: string) => request<any>(`/api/admin/tournaments/${encodeURIComponent(id)}/snapshot`, { method: 'POST' }),
+    snapshotAllTournaments: () => request<any>('/api/admin/tournaments/snapshot-all', { method: 'POST' }),
     users: (filters: Partial<AdminUserFilters> = {}) => {
       const query = usersQuery(filters);
       return request<AdminUserPage>(`/api/admin/users${query ? `?${query}` : ''}`);

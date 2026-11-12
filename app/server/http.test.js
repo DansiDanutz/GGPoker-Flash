@@ -526,3 +526,33 @@ test('admin platform endpoint reports process, sockets and storage', async () =>
     child.kill();
   }
 });
+
+test('admin tournament snapshot endpoints are admin-only and report missing rooms', async () => {
+  const { child, port } = await startServer();
+  try {
+    const anon = await fetch(`http://127.0.0.1:${port}/api/admin/tournaments/snapshot-all`, { method: 'POST' });
+    assert.ok([401, 403].includes(anon.status), 'snapshot-all is admin-only');
+
+    const admin = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ login: 'admin', password: 'admin123' }),
+    }).then((r) => r.json());
+
+    const missing = await fetch(`http://127.0.0.1:${port}/api/admin/tournaments/nope/snapshot`, {
+      method: 'POST', headers: { authorization: `Bearer ${admin.token}` },
+    });
+    assert.equal(missing.status, 404);
+    assert.equal((await missing.json()).error, 'room not running');
+
+    const all = await fetch(`http://127.0.0.1:${port}/api/admin/tournaments/snapshot-all`, {
+      method: 'POST', headers: { authorization: `Bearer ${admin.token}` },
+    });
+    assert.equal(all.status, 200);
+    const body = await all.json();
+    assert.equal(body.ok, true);
+    assert.equal(typeof body.saved, 'number');
+    assert.equal(typeof body.skipped, 'number');
+  } finally {
+    child.kill();
+  }
+});
