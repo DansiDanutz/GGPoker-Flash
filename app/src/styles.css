@@ -559,7 +559,8 @@ a { color: inherit; text-decoration: none; }
 .subnav button:hover { color: #eee; background: #222; }
 .subnav button.on { color: #fff; background: linear-gradient(#3a3a3a, #262626); box-shadow: inset 0 0 0 1px #4a4a4a; }
 .tourney-hero { position: relative; height: 176px; border-radius: 8px; overflow: hidden; margin-bottom: 16px; border: 1px solid #3a2c12; }
-.th-bg { position: absolute; inset: 0; background: url('/assets/chrome/promo.png') center 40%/cover; filter: brightness(.45) saturate(.9); }
+.th-bg { position: absolute; inset: 0; background: url('/assets/tables/room_dark.png') center 42%/cover; filter: brightness(.36) saturate(.85); }
+.th-bg::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 74% 28%, rgba(224, 179, 75, .22), transparent 58%); }
 .tourney-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(12,12,12,.94) 0%, rgba(12,12,12,.55) 60%, rgba(12,12,12,.2)); }
 .th-content { position: relative; z-index: 2; padding: 20px 24px; }
 .th-kicker { color: #e0b34b; font-size: 11px; letter-spacing: 3px; font-weight: 700; }

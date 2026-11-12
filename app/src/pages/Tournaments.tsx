@@ -126,7 +126,7 @@ export function Tournaments() {
     <PageShell activeTop="tournaments">
       <div className="page">
         <div className="tourney-hero">
-          <div className="th-bg" style={{ backgroundImage: `url(${SERIES_ART[filters.category] || brand.promo})` }} />
+          <div className="th-bg" style={SERIES_ART[filters.category] ? { backgroundImage: `url(${SERIES_ART[filters.category]})` } : undefined} />
           <div className="th-content">
             <div className="th-kicker">TOURNAMENT SERIES</div>
             <h1>{featured?.name || 'Daily $100,000 Flipout'}</h1>
