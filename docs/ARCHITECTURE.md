@@ -76,7 +76,7 @@ can hold several tables). Client → server message types:
 
 | Type | Purpose |
 |---|---|
-| `join_table` | Take or observe a seat |
+| `join_table` | Take or observe a seat (`observe: true` is read-only: no seat, no bots, no hand start) |
 | `action` | `fold`, `check`, `call`, `raise` (to amount), `allin` |
 | `sit_out` | Leave the hand rotation and return |
 | `rebuy` | Add chips between hands |
@@ -113,6 +113,10 @@ list of flight tables:
   (`tableId`, `from`, `reason` = `balance` | `break`, `index`, `stack`); the table page
   navigates to the new table with `?buyin=<stack>`. `table_break` informs observers. A
   stale flight link is answered with a `table_move` redirect to the player's real table.
+- **Spectating** — `GET /api/tournaments/:id/watch` returns the busiest live flight
+  (`tableId`, `tableIndex`, `tables`, `playersLeft`) so a watcher can open it with
+  `?observe=1`; when that table breaks, the watcher re-resolves the same endpoint and
+  follows the field.
 
 ## Data model
 

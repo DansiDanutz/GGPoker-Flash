@@ -74,7 +74,7 @@ server, and the service worker is not registered in dev.
 ```bash
 pnpm build          # production bundle → app/dist
 pnpm start          # serve app/dist + API on :5198
-pnpm test           # server suite (140 tests)
+pnpm test           # server suite (144 tests)
 pnpm smoke          # read-only smoke test against a running server
 ```
 
@@ -160,6 +160,11 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
   label, win overlay, chip/card animations, rabbit hunt, sit-out, table chat and emotes,
   hand-history link, ten table themes.
 - Multiple humans can join the same table from different devices; bots fill the rest.
+- **Spectating**: watch any live table from the lobby (**Watch**) or any running tournament
+  (**Watch live**) without taking a seat. A watcher sees the public hand, board, stacks and
+  results, never live hole cards, and cannot bet, change table options or rabbit-hunt;
+  watching a table never adds bots or starts a hand. If the watched tournament table breaks,
+  the view follows the field to the next flight.
 
 ### Tournaments
 - Seeded tournament list with buy-in, guaranteed prize pool, entrants, status and filters.
@@ -282,7 +287,7 @@ package_app.sh         Build, sign and relaunch the desktop app
 cd app
 pnpm install         # dependencies
 pnpm dev             # Vite + API/WebSocket
-pnpm test            # node --test server/*.test.js (140 tests)
+pnpm test            # node --test server/*.test.js (144 tests)
 pnpm exec tsc --noEmit -p tsconfig.json
 pnpm build           # production client
 pnpm smoke           # read-only API smoke test (needs a running server)
@@ -315,7 +320,7 @@ Every push to `main` and every pull request runs the **CI** workflow
 
 | Job | What it runs |
 |---|---|
-| **Server tests** | `node --test server/*.test.js` (140 tests) |
+| **Server tests** | `node --test server/*.test.js` (144 tests) |
 | **Typecheck and build** | `tsc --noEmit`, then `vite build` |
 
 `main` is protected by the `protect-main` ruleset: both checks are required, force-pushes

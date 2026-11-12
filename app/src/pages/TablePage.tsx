@@ -24,7 +24,7 @@ type TableState = {
   timeBankUsed?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
   spin?: { multiplier: number; prize: number; winner: any } | null;
-  tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null } | null;
+  tournament?: { id?: string | null; name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null } | null;
   straddle?: boolean;
   runItTwice?: boolean;
   boards?: string[][] | null;
@@ -221,7 +221,21 @@ export function TablePage({ tableId }: { tableId: string }) {
         });
         navigate(`/table/${msg.tableId}?buyin=${msg.stack || 0}`);
       } else if (msg.type === 'table_break') {
-        toast({ kind: 'info', title: 'Table break', body: 'This table broke; the players were moved to the remaining tables.' });
+        const tournamentId = stateRef.current?.tournament?.id;
+        // `observe` comes from the URL, so it is stable inside this closure.
+        if (observe && tournamentId) {
+          // A watcher follows the field to the busiest remaining flight.
+          fetch(`/api/tournaments/${tournamentId}/watch`, { headers: { authorization: `Bearer ${getToken()}` } })
+            .then((r) => r.json())
+            .then((r) => {
+              if (!r.tableId || r.tableId === tableId) return;
+              toast({ kind: 'info', title: 'Table break', body: 'Following the field to the next table.' });
+              navigate(`/table/${r.tableId}?observe=1`);
+            })
+            .catch(() => { /* stay on the closed table */ });
+        } else {
+          toast({ kind: 'info', title: 'Table break', body: 'This table broke; the players were moved to the remaining tables.' });
+        }
       } else if (msg.type === 'event') {
         const e = msg.event;
         if (tableEpoch.current && e.tableEpoch && e.tableEpoch !== tableEpoch.current) { ws.close(); return; }
@@ -631,6 +645,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {state?.bombPot && <span className="pill" style={{ color: '#ffd98a' }}>BOMB POT</span>}
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
+        {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
         <div className="spacer" />
         <button onClick={() => setChatOpen((v) => !v)}>💬 Chat</button>
         <button onClick={() => setEmoteOpen((v) => !v)} title="Send a reaction">😀</button>

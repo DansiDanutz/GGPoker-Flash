@@ -95,6 +95,19 @@ export function Tournaments() {
     } finally { setBusy(null); }
   };
 
+  // Watch the busiest live flight; an event only has tables once it is running.
+  const watchLive = async (t: any) => {
+    setBusy(t.id);
+    try {
+      const token = localStorage.getItem('ggpoker.token');
+      const r = await fetch(`/api/tournaments/${t.id}/watch`, { headers: { authorization: `Bearer ${token}` } }).then((x) => x.json());
+      if (r.error) throw new Error(r.error);
+      navigate(`/table/${r.tableId}?observe=1`);
+    } catch (e: any) {
+      toast({ kind: 'error', title: 'Nothing to watch yet', body: e.message });
+    } finally { setBusy(null); }
+  };
+
   const unregister = async (t: any) => {
     setBusy(t.id);
     try {
@@ -259,6 +272,9 @@ export function Tournaments() {
             </div>
             <div className="modal-foot">
               <span className="muted small" style={{ marginRight: 'auto' }}>Balance: {money(user?.balance ?? 0)}</span>
+              {detail.status === 'running' && (
+                <button className="btn btn-ghost" disabled={busy === detail.id} onClick={() => watchLive(detail)}>Watch live</button>
+              )}
               {registered.includes(detail.id) ? (
                 <>
                   <button className="btn btn-ghost" onClick={() => unregister(detail)}>Unregister</button>

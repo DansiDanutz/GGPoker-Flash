@@ -450,7 +450,7 @@ export function Lobby() {
             <MiniTable table={table} players={previewPlayers} />
           </div>
           <div className="mini-actions">
-            <button className="btn btn-dark btn-block" onClick={() => { if (table) navigate(`/table/${table.id}?observe=1`); }}>Open</button>
+            <button className="btn btn-dark btn-block" onClick={() => { if (table) navigate(`/table/${table.id}?observe=1`); }}>Watch</button>
             <button className="btn btn-red btn-block" onClick={() => { if (table) openJoin(table); }}>Join</button>
           </div>
           <div className="mini-stats">

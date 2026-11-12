@@ -1190,6 +1190,7 @@ export class PokerTable {
       runItTwice: this.runItTwice,
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
       tournament: this.tournament ? {
+        id: this.cfg.tournamentId || null,
         name: this.cfg.name,
         prizePool: this.tournament.prizePool,
         level: this.tournament.level || 1,
