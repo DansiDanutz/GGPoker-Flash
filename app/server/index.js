@@ -110,6 +110,25 @@ function adminNetworkAllowed(req) {
 }
 const DIST = path.join(APP_DIR, 'dist');
 const PUBLIC = path.join(APP_DIR, 'public');
+const VERSION_FILE = path.join(DIST, 'version.json');
+
+/**
+ * The build identity written by the client build (dist/version.json).
+ * The web client compiles the same values in; a mismatch means the client is
+ * stale and the update gate forces a reload. Falls back to package.json for
+ * test/dev runs where no bundle was built.
+ */
+function appVersionInfo() {
+  try {
+    const data = JSON.parse(fs.readFileSync(VERSION_FILE, 'utf8'));
+    if (data && typeof data.version === 'string' && typeof data.build === 'string') return data;
+  } catch { /* no build output */ }
+  let version = '1.0.0';
+  try {
+    version = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'package.json'), 'utf8')).version || version;
+  } catch { /* keep the default */ }
+  return { version, build: 'dev', time: null };
+}
 
 // How long a seat is held for a player whose connection dropped before they are cashed out.
 const DISCONNECT_GRACE_MS = Number(process.env.GGPOKER_DISCONNECT_GRACE_MS || 60_000);
@@ -1098,6 +1117,11 @@ const server = http.createServer(async (req, res) => {
     if (handleWaitlistRoute(req, res, p)) return;
 
     // ---------- lobby ----------
+    if (p === '/api/version') {
+      res.setHeader('cache-control', 'no-store');
+      return json(res, 200, appVersionInfo());
+    }
+
     if (p === '/api/lobby') {
       const u = userByToken(tokenFrom(req));
       const tables = lobbyTables(u?.id || null);

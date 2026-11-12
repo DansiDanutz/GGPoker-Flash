@@ -474,3 +474,19 @@ test('leaderboard: me rank is counted over all active players, not only the list
     await srv.stop();
   }
 });
+
+test('version endpoint reports the build identity', async () => {
+  const { child, port } = await startServer();
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/version`, { cache: 'no-store' });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    const info = await res.json();
+    assert.equal(typeof info.version, 'string');
+    assert.ok(info.version.length > 0);
+    assert.equal(typeof info.build, 'string');
+    assert.ok(info.build.length > 0);
+  } finally {
+    child.kill();
+  }
+});

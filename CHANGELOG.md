@@ -6,6 +6,20 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Version numbers and forced updates
+- Every build now has a visible version: the app is **v1.1.0** and each deploy stamps a
+  numeric build id (`YYYYMMDDHHmmss`, shown as a readable date/time). The version appears in
+  the login footer and at the bottom of the table menu.
+- The server exposes the deployed identity at `GET /api/version`, and the client compares it
+  on every launch and every time the app returns to the foreground. If the build differs, the
+  client deletes the old caches, unregisters the service worker and reloads itself; if that
+  still cannot bring it current, it blocks the app behind an **Update required** screen with
+  the two build numbers and an update button. There is no way to keep playing a stale build.
+- The Vite build writes `dist/version.json`, compiles the same version/build into the client
+  and stamps the service-worker cache name (`dangro-<build>`), so each deploy is a new worker.
+- Tests: `/api/version` response + no-store header, and build-label formatting.
+
+## 2026-11-12
 ### Mobile table fixes and self-updating installs
 - The phone seat chrome no longer collides: avatar rings clear the hole cards and the
   name plates, and the exact bet amount moved onto the seat's stack line; the felt shows

@@ -6,6 +6,7 @@ import { betUnitOf, enterBetRequest, normalizeBettingOptions } from '../src/lib/
 import { potChipLayout, shuffleFramePosition } from '../src/game/potChips.ts';
 import { cardOrdinal, squeezeDragFrame, squeezeWheelFrame } from '../src/game/squeeze.ts';
 import { showdownComplete, showdownPlan } from '../src/game/showdown.ts';
+import { buildLabel } from '../src/lib/version.ts';
 import { bestHand } from '../src/game/eval.ts';
 import {
   WAITLIST_TABLE_CAP, waitlistActionFor, waitCount,
@@ -796,4 +797,10 @@ test('dealer lines append but never raise the unread badge', () => {
   const s = chatReducer(INITIAL_CHAT, { type: 'append', line: chatLine(1, { kind: 'dealer', userId: 0 }) });
   assert.equal(s.lines.length, 1);
   assert.equal(s.unread, 0);
+});
+
+test('build labels expose the deploy time', () => {
+  assert.equal(buildLabel('20261112121130'), '2026-11-12 12:11:30');
+  assert.equal(buildLabel('202611121211'), '2026-11-12 12:11');
+  assert.equal(buildLabel('dev'), 'dev');
 });
