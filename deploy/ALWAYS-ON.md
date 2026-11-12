@@ -167,7 +167,7 @@ production database or the 5197/5198 servers. Exit code 1 means at least one cyc
 ```
 
 `warnings` contains `N stale tournament room(s)` (a room with players and no settled-hand
-snapshot for five minutes) and `disk N% used` (at 90% or more). The Nano watchdog
+snapshot for five minutes) and `disk N% used` (at 80% or more, `DISK_WARN_PCT`). The Nano watchdog
 (`deploy/nano-uptime-check.sh`) reads the body and sends a Discord alert when the warning
 text changes, in addition to its down/recovered alerts. It needs `python3` on Nano for the
 JSON parse; without it the uptime check still runs and warning alerts are skipped.
