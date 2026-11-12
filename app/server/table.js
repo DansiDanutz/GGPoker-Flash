@@ -1,4 +1,6 @@
 import { buildPots, oddChipOrder } from './pots.js';
+import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
+import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
@@ -76,6 +78,8 @@ export class PokerTable {
     this.aof = cfg.game === 'aof';
     this.rush = isRushGame(cfg.game);
     this.straddle = !!cfg.straddle;
+    this.straddleRound = null;
+    this.pendingDeal = null;
     this.spin = cfg.game === 'spingold';
     this.spinMultiplier = null;
     this.spinPrize = 0;
@@ -220,6 +224,11 @@ export class PokerTable {
     }
     seat.player = null;
     this.emit({ type: 'stand', seat: seat.index });
+    if (this.straddleRound) {
+      this.straddleRound.asked.delete(p.id);
+      if (!this.straddleRound.asked.size) this.closeStraddleRound();
+      return { ok: true, stack: p.stack };
+    }
     if (wasLive) {
       if (wasActor) this.actor = null;
       this.progress(seat.index, { keepActor: !wasActor });
@@ -520,17 +529,69 @@ export class PokerTable {
     this.sbSeat = sbSeat ? sbSeat.index : -1;
     this.bbSeat = bbSeat ? bbSeat.index : -1;
     this.postMissedBlinds(inHand, sbSeat, bbSeat);
-    let straddleSeat = null;
-    if (this.straddle) {
-      const candidate = this.seats[(bbSeat.index + 1) % this.seats.length];
-      if (candidate?.player && candidate.player.inHand && candidate.player.stack > 0) {
-        straddleSeat = candidate;
-        this.postBlind(straddleSeat, this.bb * 2, 'Straddle');
-      }
-    }
-    this.currentBet = straddleSeat ? this.bb * 2 : this.bb;
-    this.minRaise = straddleSeat ? this.bb * 2 : this.bb;
+    this.currentBet = this.bb;
+    this.minRaise = this.bb;
+    this.pendingDeal = { postOrder, sbSeat, bbSeat, straddleSeat: null, straddled: new Set() };
+    if (this.openStraddleRound(this.bb * 2)) return;
+    this.dealAndOpen();
+  }
 
+  /** Native straddle: everyone eligible is asked at once; auto-straddlers post without a prompt. */
+  openStraddleRound(amount) {
+    const d = this.pendingDeal;
+    if (!d || !this.straddle || this.tournament || this.spin || this.bomb || (this.flip && this.handNo === 1)) return false;
+    if (d.postOrder.filter((s) => s.player && s.player.inHand).length <= 2) return false;
+    const candidates = straddleCandidates(this.seats, d.bbSeat.index, d.sbSeat.index, d.straddled);
+    const auto = candidates.find((s) => s.player.autoStraddle && amount < s.player.stack + s.player.bet);
+    if (auto) {
+      this.postStraddle(auto, amount);
+      return this.openStraddleRound(amount * 2);
+    }
+    const asked = candidates.filter((s) => !s.player.isBot && !s.player.sittingOut && !s.player.disconnected);
+    if (!asked.length) return false;
+    this.straddleRound = { amount, asked: new Set(asked.map((s) => s.player.id)), endsAt: Date.now() + STRADDLE_ASK_MS };
+    this.emit({ type: 'straddle_ask', amount, endsAt: this.straddleRound.endsAt });
+    return true;
+  }
+
+  postStraddle(seat, amountTo) {
+    const p = seat.player;
+    const add = Math.min(Math.max(0, amountTo - p.bet), p.stack);
+    this.commit(p, add);
+    p.lastAction = { action: 'Straddle', amount: p.bet };
+    if (p.stack === 0) p.allIn = true;
+    this.pendingDeal.straddled.add(p.id);
+    this.pendingDeal.straddleSeat = seat;
+    if (p.bet > this.currentBet) { this.currentBet = p.bet; this.minRaise = p.bet; }
+  }
+
+  decideStraddle(playerId, decision) {
+    const round = this.straddleRound;
+    if (!round || !round.asked.has(playerId)) return { ok: false, error: 'No straddle to decide' };
+    const seat = this.seatOf(playerId);
+    const p = seat.player;
+    if (decision === 'no') {
+      round.asked.delete(playerId);
+      if (!round.asked.size) this.closeStraddleRound();
+      return { ok: true };
+    }
+    const allInTo = p.stack + p.bet;
+    if (decision === 'yes' && !(round.amount < allInTo)) return { ok: false, error: 'Not enough chips to straddle' };
+    if (decision !== 'yes' && decision !== 'allin') return { ok: false, error: 'Unknown straddle decision' };
+    this.straddleRound = null;
+    this.postStraddle(seat, decision === 'allin' ? allInTo : round.amount);
+    if (!this.openStraddleRound(round.amount * 2)) this.dealAndOpen();
+    return { ok: true };
+  }
+
+  closeStraddleRound() {
+    this.straddleRound = null;
+    this.dealAndOpen();
+  }
+
+  dealAndOpen() {
+    const { postOrder, sbSeat, bbSeat, straddleSeat } = this.pendingDeal;
+    this.pendingDeal = null;
     // deal
     for (let round = 0; round < this.holeCount; round++) {
       for (const s of postOrder) {
@@ -541,7 +602,7 @@ export class PokerTable {
     this.emit({ type: 'hand_start', handNo: this.handNo, button: this.button, sbSeat: sbSeat.index, bbSeat: bbSeat.index });
 
     if (this.flip && this.handNo === 1) {
-      for (const s of inHand) s.player.allIn = true;
+      for (const s of postOrder) if (s.player && s.player.inHand) s.player.allIn = true;
       this.setActor(null);
       this.runout();
       return;
@@ -584,7 +645,7 @@ export class PokerTable {
       if (!p.missedBlinds) continue;
       p.missedBlinds = false;
       if (s === bbSeat || s === sbSeat || inHand.length < 3) continue;
-      this.postBlind(s, this.bb, 'Post');
+      this.postBlind(s, this.bb, 'Post Blind(s)');
     }
   }
 
@@ -663,6 +724,11 @@ export class PokerTable {
     const p = seat?.player;
     if (!p) return { ok: false, error: 'not seated' };
     if (!value) {
+      // Deal Me In needs dealMeInMin chips; native opens Get Chips instead.
+      const min = dealMeInMin({ bb: this.bb, dealMin: Number(this.cfg.deal_min) || 0 });
+      if (p.sittingOut && !this.tournament && !this.spin && p.stack < min) {
+        return { ok: false, error: `You need at least ${min} chips to be dealt in. Top up first.` };
+      }
       p.sittingOut = false;
       p.sitOutNextHand = false;
       this.maybeStart();
@@ -671,6 +737,42 @@ export class PokerTable {
     if (this.handInProgress() && p.inHand && !p.folded) p.sitOutNextHand = true;
     else p.sittingOut = true;
     return { ok: true };
+  }
+
+  /** Cash sit-out countdown (native KickOutTime): starts when a seat sits out, clears on return. */
+  refreshSitOutClocks(now = Date.now()) {
+    const cash = !this.tournament && !this.spin;
+    for (const seat of this.seats) {
+      const p = seat.player;
+      if (!p || p.isBot) continue;
+      if (cash && p.sittingOut) { if (!p.kickOutAt) p.kickOutAt = now + SIT_OUT_KICK_MS; }
+      else p.kickOutAt = 0;
+    }
+  }
+
+  /** Seats whose sit-out time ran out and that are not in a live hand (SitOutTimeExpired). */
+  expiredSitOuts(now = Date.now()) {
+    if (this.tournament || this.spin) return [];
+    return this.seats
+      .map((s) => s.player)
+      .filter((p) => p && p.sittingOut && p.kickOutAt && now >= p.kickOutAt && !(this.handInProgress() && p.inHand && !p.folded))
+      .map((p) => p.id);
+  }
+
+  setAutoStraddle(userId, value) {
+    const seat = this.seatOf(userId);
+    if (!seat?.player) return { ok: false, error: 'Take a seat first' };
+    seat.player.autoStraddle = !!value;
+    return { ok: true };
+  }
+
+  straddleAskFor(viewerId) {
+    const round = this.straddleRound;
+    if (!round || !viewerId || !round.asked.has(viewerId)) return null;
+    const p = this.seatOf(viewerId)?.player;
+    if (!p) return null;
+    const allInTo = p.stack + p.bet;
+    return { amount: round.amount, allInTo, canStraddle: round.amount < allInTo, endsAt: round.endsAt };
   }
 
   setAutoMuck(userId, value) {
@@ -843,6 +945,7 @@ export class PokerTable {
   // Decide what happens after the player at `fromIndex` acted (or left): finish the hand,
   // close the betting round, or hand the action to the next player who owes a decision.
   progress(fromIndex, { keepActor = false } = {}) {
+    if (this.straddleRound) return;
     if (!this.handInProgress()) return;
     const alive = this.activePlayers();
     if (alive.length <= 1) { this.finishByFold(alive[0]); return; }
@@ -1351,6 +1454,10 @@ export class PokerTable {
       }
       return;
     }
+    if (this.straddleRound) {
+      if (now >= this.straddleRound.endsAt) this.closeStraddleRound();
+      return;
+    }
     // Self-heal: a live hand must always have someone to act.
     if (!this.actor) { this.progress(this.button); return; }
     const seat = this.seatOf(this.actor);
@@ -1504,6 +1611,7 @@ export class PokerTable {
           disconnected: p.disconnected,
           sitOutNext: !!p.sitOutNextHand,
           timeBank: p.timeBank,
+          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0 } : {}),
         };
       }),
       log: this.log.slice(-40),
@@ -1517,6 +1625,7 @@ export class PokerTable {
         bigBlind: this.spinLevel ? this.bb : null,
       } : null,
       straddle: this.straddle,
+      straddleAsk: this.straddleAskFor(viewerId),
       runItTwice: this.runItTwice,
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
       tournament: this.tournament ? {

@@ -1,0 +1,106 @@
+{
+ "tools": {
+  "primary_attempt": "rea 6.8.0: `rea capabilities` (no ActionScript/SWF provider listed); `rea inspect-artifact <IronDesktop.swf>` and `rea search <swf> PostStraddle` both returned code=target_unavailable, constraint=file_format_rejected (unsupported binary format). No Evidence ids produced because REA rejected the target.",
+  "fallback": "(1) existing FFDec AS3 export under ~/Sandbox/rea-tools/{player-source,reserve-action-source,aof-reserve-source}/scripts (SitInCommand.as sha256 28f24276219110c4...); (2) own read-only ABC disassembler (python, scratchpad/rea-straddle/tools-abc-disassembler/abc.py) run on the live SWF file on disk, because no Java runtime exists for ffdec. Disk reads only."
+ },
+ "swf": {
+  "path": "~/Library/Application Support/com.nsuslab.ncf.launcher.live.ggpcom/Game/51/IronDesktop.swf",
+  "sha256": "2bf08ebadf070b588feae5d0b8823629aed2e109a126e3bf4ae6ae363c1c32a1",
+  "note": "Game/37 copy has sha256 99c460da27dc8339b7a4ce5180785f2e7f85044c8a8956b60a13621acfaa7368 (not analysed)"
+ },
+ "straddle": [
+  {
+   "rule": "Straddle is offered via a server-driven ask, not a client position rule. Server push NotifyAskingForStraddle (msg 4066: ActionId, Count, AmountToStraddle) -> OnAskingForStraddle shows StraddleDecideView for the user only if user isLive and balance>0; every live player with chips gets setStraddleTurn(true). Client has NO position check; UI text key MobileYouWillBeAbleToStraddle = 'You will be able to straddle at any position'.",
+   "evidence": "OnAskingForStraddle.onDispatch; StraddleDecideView.init (pushstring 'MobileYouWillBeAbleToStraddle'); no position test in TableMenu3D.isStraddleButtonVisible",
+   "confidence": "high for client; server who-is-eligible UNKNOWN"
+  },
+  {
+   "rule": "Amount is server-computed (AmountToStraddle). Client sends Count=straddleAskCount (number of straddles so far) in DecideStraddleRequest (msg 3137); this is the doubling counter. Observed 4->8->16->32 is therefore server logic (2xBB then x2 each re-straddle); client does not compute it.",
+   "evidence": "DecideStraddle.onRequest (Type, Count=playInfo.straddleAskCount); OnAskingForStraddle sets straddleAskCount=Count",
+   "confidence": "medium (doubling inferred from observation + Count field)"
+  },
+  {
+   "rule": "Popup buttons: 'Straddle to $X' (MobileStraddleToOne) sends EStraddleDecideType.Yes; 'All-in to $Y' (MobileAllinToOne) sends AllIn; close sends No. All-in amount = user.balance + user.committedAmount; the Straddle-to button is visible only when AmountToStraddle < allInAmount (short stack sees only All-in).",
+   "evidence": "StraddleDecideView.onButtonHandler/onClose/update (lessthan -> _raiseStraddleButton.visible)",
+   "confidence": "high"
+  },
+  {
+   "rule": "Timer is server-driven: OnTimeBank with ETimeBankActionType.Straddle calls tableMediator.showStraddleTimer; StraddleDecideView hosts UserTimeBank/TimeBankChip/ExtraTimeBank widgets. Duration (~5s observed) is NOT in client code.",
+   "evidence": "OnTimeBank.onDispatch (ifstricteq Straddle -> showStraddleTimer); ETimeBankActionType {None,Betting,AII,Straddle}",
+   "confidence": "high that server-driven; value 5s UNKNOWN in static code"
+  },
+  {
+   "rule": "Resolution: NotifyStraddleDecided (4067) with Type=No clears that player's straddle turn (and hides own UI); Yes/AllIn hides the UI and clears straddle turn for ALL players (one decision closes the ask round; likely next ask follows with higher Count). AllIn marks player.straddleAllIn.",
+   "evidence": "OnStraddleDecided.onDispatch",
+   "confidence": "medium-high (concurrent-ask vs sequential-ask not distinguishable)"
+  },
+  {
+   "rule": "Straddle is posted as a blind before cards, in the Blinds list: BlindType Straddle (or MandatoryStraddle) in NotifyTableBlindsPosted -> counted as live bet (committedAmount += BlindAmount; Dead/Ante go to pot instead). playInfo.lastStraddlePlayer set; straddleAllIn=true if balance==0 after post; seat shows balloon (showStraddleBalloon amount) = yellow 'Straddle to $X' sign.",
+   "evidence": "OnBlindsPosted.onDispatch; PlayInfo.lastStraddlePlayer; TableMediator.showStraddleBalloon",
+   "confidence": "high"
+  },
+  {
+   "rule": "Straddler acts last preflop / action order: NOT determined client-side (server sends AskAction). Only client use of lastStraddlePlayer is betting-shortcut selection in OnAskAction (no straddle player + PreFlop + not button-blind game).",
+   "evidence": "OnAskAction.onDispatch ~1813",
+   "confidence": "UNKNOWN for order; observation in clone should rely on live capture"
+  },
+  {
+   "rule": "Max number of straddles: not in client. Only evidence is the ask counter (Count) and all-in short circuit (isAllPlayersAllInStraddle when every playing player is all-in straddled). UNKNOWN cap.",
+   "evidence": "PlayInfo.isAllPlayersAllInStraddle",
+   "confidence": "UNKNOWN"
+  },
+  {
+   "rule": "Bottom-left 'Straddle' toggle = persistent auto-straddle preference, NOT a prompt trigger. StraddleCommand sets userPlayer.isOnStraddle, shows/hides the 'Straddle' badge on the seat, and sends setAutoActionFlags(EAutoActionFlag.PostStraddle(8192), on). Hotkey HotKey.STRADDLE sends SEND_STRADDLE(!isOnStraddle). Button visible only if isUserPlaying && tableInfo.straddle>0 && dealtPlayerCount>2; disabled in bomb-pot hands. Auto-cleared (STRADDLE false) when dealtPlayerCount<=2 (heads-up). When sitting back in, SitInCommand sends PostStraddle instead of PostBlinds if isOnStraddle.",
+   "evidence": "StraddleCommand.execute; TableMenu3D.isStraddleButtonVisible/straddleHotKey; TableMediator.refreshStraddleStatus; PlayInfo.isStraddleEnabled (dealtPlayerCount>2 && !isBombPotHand); SitInCommand.execute",
+   "confidence": "high"
+  },
+  {
+   "rule": "Table-level enabling: TableInfo.straddle (from stake.Straddle) must be >0 for the toggle; stake also carries CanMandatoryStraddle (isCanMandatoryStraddle) and mandatoryStraddle amount (table name 'sb/bb/straddle'). Mandatory straddle is a separate table type (EBlindType.MandatoryStraddle).",
+   "evidence": "TableInfo.syncStake; TableName.getTableBlind(s)",
+   "confidence": "high"
+  }
+ ],
+ "sitout": [
+  {
+   "rule": "Sit-out countdown is server-provided: KickOutTime in NotifyTableSitOut (msg 4009) -> TablePlayer.kickOutEndTime; remaining = endTime - now (SitOutView shows mm:ss, 'Deal Me In' button has progress ring). Duration comes from timeBankInfo.sitoutTimeBank (TableInfo.sitOutTime; -1 = unlimited; rush/VIP HU/tourney/spin treated unlimited). Observed 02:00 = server value; not hard-coded in client.",
+   "evidence": "OnSitOut.onDispatch; TablePlayer.kickOutTimeRemaining; SitOutView.loop/setRemainingTime; TableInfo.sitOutTime/isUnlimitedSitoutTime",
+   "confidence": "high mechanism; 120s default is UNKNOWN statically (observed only)"
+  },
+  {
+   "rule": "Timer speed-up: sitOutTimeSpeed=2 (hurry) when playInfo.waitingPlayersCount>0, else 1; remaining time shrinks by elapsed since hurryTimeStart (counts down at 2x while someone waits for a seat). Sit-out state emoticons (Smoking/Toilet/Drink/Charge) add time (sitOutAddedDuration).",
+   "evidence": "OnSitOut.onDispatch; TablePlayer.kickOutTimeRemaining",
+   "confidence": "high"
+  },
+  {
+   "rule": "At 0: server removes the player from the seat with ELeaveSeatReason.SitOutTimeExpired; desktop client shows alert 'YouHaveBeenRemovedYourSeat' (seat vacated, chips cashed to balance by server).",
+   "evidence": "OnLeaveSeat.onDispatch",
+   "confidence": "high for stand-up; chip handling server-side UNKNOWN"
+  },
+  {
+   "rule": "Deal Me In (red button) -> GlobalSitInData{isAll,isFromDealMeIn} -> SitInCommand -> SitIn request (msg 3108) with AutoActionFlags = PostBlinds(1) [or PostStraddle(8192) if isOnStraddle] | timebank option | autoRemoveChip | autoRebuy. Client first clears sitOutReserved and the SitOutNextHand reservation. Requires balance >= TableInfo.dealMeInMin else OPEN_GET_CHIPS (ErrorNotEnoughBalance also opens Get Chips). dealMeInMin = stake.DealMin if >0, else 4xbuttonBlind if button-blind game, else 2xthirdBlind, else 2xBB.",
+   "evidence": "SitOutView.onDealMeInButtonClick; SitInCommand.execute; SitIn.onRequest/onResponse; TableInfo.dealMeInMin",
+   "confidence": "high"
+  },
+  {
+   "rule": "Wait for Blinds checkbox = EAutoActionFlag.WaitForBlinds(256) toggled through AUTO_ACTION (NewWaitForButton; same flag whether waiting for big blind or straddle). It is the default on take-seat (CheckTakeSeatCommand passes WaitForBlinds). Semantics: player is dealt in only when the BB reaches them (no immediate post); PostBlinds (Deal Me In) instead posts now. Server enforcement UNKNOWN.",
+   "evidence": "NewWaitForButton.onWaitForBigBlind/onWaitForStraddle; ReserveWaitingBlindUI.onButtonHandler; CheckTakeSeatCommand",
+   "confidence": "high on flag wiring; wait-for-BB semantics medium (name-based)"
+  },
+  {
+   "rule": "'Post Blind(s)' seat label: PlayerCell3D.setLabelBlind shows it for blind types Big, Small, Third or Dead posted by that seat (TableMediator.postBlinds -> setBlindType). Amount/dead-vs-live is server-supplied per blind in NotifyTableBlindsPosted; Dead blinds go to the pot not the bet (not live). Missed-blind accrual (debt) is server-side; client only tracks ActionHistoryInfo._hasMissedBlind/missedBlindAction for history.",
+   "evidence": "PlayerCell3D.setLabelBlind; OnBlindsPosted.onDispatch; NewPlayerLabel3D.refreshLabels (key 'PostBlinds'); ActionHistoryInfo.addActionHistory",
+   "confidence": "high for display; BB-only vs BB+dead SB amount UNKNOWN"
+  },
+  {
+   "rule": "After manual sit-out on a normal Hold'em/Omaha cash table, if balance < 4xbuttonBlind (button-blind) or < 2xBB the client opens Get Chips.",
+   "evidence": "OnSitOut.onDispatch tail",
+   "confidence": "high"
+  }
+ ],
+ "unknowns": [
+  "Server rule for who may straddle, order of asks, max straddle count, straddler acting last",
+  "Straddle prompt timer value (5s) and default sit-out duration (120s) - server-supplied",
+  "Exact missed-blind amount (BB vs BB+dead SB) and whether debt accrues",
+  "Localised strings (e.g. 'Straddle to $8') live in language packs, not examined"
+ ]
+}

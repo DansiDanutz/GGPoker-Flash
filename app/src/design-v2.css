@@ -557,3 +557,14 @@ body { background: #050706; }
 .seat .plate .nm { font-weight: 400; }
 .seat.me .plate .nm { color: #ff8932; }
 .seat .plate .st.st-allin { color: #fb3737; font-weight: 800; }
+
+/* Native StraddleDecideView: dark panel, red title, TIME badge, green Straddle / red All-in. */
+.straddle-ask { background: rgba(8, 8, 8, .92); border-top: 1px solid #333; padding: 8px 10px; }
+.straddle-ask-head { display: flex; align-items: center; gap: 10px; }
+.straddle-ask-head b { color: #fb3737; flex: 1; }
+.straddle-time { background: #f5c518; color: #111; font-weight: 800; border-radius: 4px; padding: 1px 6px; font-size: 12px; }
+.straddle-ask-note { color: #bdbdbd; font-size: 12px; margin: 2px 0 6px; }
+.btn.btn-green { background: #2f8f3a; color: #fff; }
+
+/* Native SitOutView: a large mm:ss countdown over the board while you sit out. */
+.sit-out-clock { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); z-index: 5; background: rgba(0, 0, 0, .78); color: #fff; font-size: 30px; font-weight: 700; padding: 4px 16px; border-radius: 8px; letter-spacing: 1px; pointer-events: none; }

@@ -700,6 +700,7 @@ function getLiveTable(id) {
       table.tick();
       if (Date.now() - entry.lastBroadcast > 450) broadcastState(table);
       sweepDisconnected(entry);
+      sweepExpiredSitOuts(entry);
       if (entry.clients.size === 0) {
         if (!entry.emptySince) entry.emptySince = Date.now();
         else if (Date.now() - entry.emptySince > Math.max(45000, DISCONNECT_GRACE_MS)) {
@@ -845,6 +846,17 @@ function hasLiveSocket(entry, userId, except = null) {
 
 // Cash out players whose connection has been gone longer than the grace period
 // (tournament players are blinded out instead; their seat is never forfeited).
+/** Native SitOutTimeExpired: a cash seat that sat out past its countdown is cashed out. */
+function sweepExpiredSitOuts(entry) {
+  const table = entry.table;
+  table.refreshSitOutClocks();
+  for (const id of table.expiredSitOuts()) {
+    table.emit({ type: 'sit_out_expired', playerId: id });
+    cashOutSeat(table, id, `Sit-out time expired at ${table.cfg.name}`);
+    notifyWaitlist(table.cfg.id);
+  }
+}
+
 function sweepDisconnected(entry) {
   const table = entry.table;
   const now = Date.now();
@@ -2814,6 +2826,7 @@ wss.on('connection', (ws, req) => {
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
       if (msg.autoMuck != null) entry.table.setAutoMuck(ws.userId, !!msg.autoMuck);
+      if (msg.autoStraddle != null) entry.table.setAutoStraddle(ws.userId, !!msg.autoStraddle);
       if (msg.insurance != null) {
         const res = entry.table.setInsurance(ws.userId, !!msg.insurance);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
@@ -2909,6 +2922,14 @@ wss.on('connection', (ws, req) => {
       if (now - (entry.lastShuffleAt || 0) < 3000) return;
       entry.lastShuffleAt = now;
       entry.table.emit({ type: 'chip_shuffle', seat: seat.index, playerId: ws.userId, nick: seat.player.nick });
+      return;
+    }
+    if (msg.type === 'straddle_decide') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const res = entry.table.decideStraddle(ws.userId, String(msg.decision || ''));
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      broadcastState(entry.table);
       return;
     }
     if (msg.type === 'show_cards') {

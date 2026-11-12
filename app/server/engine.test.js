@@ -247,10 +247,12 @@ test('All-in or Fold asks each player and only accepts all-in or fold', () => {
 });
 
 
-test('straddle posts a third blind and opens action after it', () => {
+test('an auto-straddle posts a third blind and opens action after it', () => {
   const p1 = player(1, 'A', 10000, 0, []);
   const p2 = player(2, 'B', 10000, 0, []);
   const p3 = player(3, 'C', 10000, 0, []);
+  // Native PostStraddle auto-action flag: the straddle posts without a prompt.
+  for (const p of [p1, p2, p3]) p.autoStraddle = true;
   const t = tableWith([p1, p2, p3], { seats: 3, straddle: true });
   t.street = 'idle';
   t.handNo = 0;
