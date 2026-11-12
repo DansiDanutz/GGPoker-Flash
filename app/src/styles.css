@@ -1337,3 +1337,8 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .note-label-row .note-swatch { cursor: default; }
 .note-label-row input { flex: 1; min-width: 0; background: #121212; border: 1px solid #343434; border-radius: 5px; color: #eee; padding: 6px 8px; font: inherit; font-size: 12.5px; }
 .note-dot { text-shadow: 0 0 6px var(--note-color, transparent); }
+
+/* SB/BB position markers beside the blind seats for the current hand. */
+.blind-marker { position: absolute; transform: translate(-50%, -50%); z-index: 6; min-width: 22px; height: 16px; padding: 0 4px; border-radius: 8px; font: 700 9.5px/16px Roboto, system-ui, sans-serif; letter-spacing: .4px; text-align: center; color: #1b1b1b; box-shadow: 0 1px 3px rgba(0, 0, 0, .55); pointer-events: none; }
+.blind-marker.sb { background: linear-gradient(#e8e8e8, #a9a9a9); }
+.blind-marker.bb { background: linear-gradient(#ffe08a, #c9962f); }

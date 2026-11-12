@@ -33,6 +33,9 @@ export class PokerTable {
       player: null,
     }));
     this.button = -1;
+    // Seats that posted the blinds this hand (SB/BB markers); -1 before the first deal.
+    this.sbSeat = -1;
+    this.bbSeat = -1;
     this.handNo = 0;
     this.street = 'idle'; // idle | preflop | flop | turn | river | showdown | ended
     this.board = [];
@@ -505,6 +508,8 @@ export class PokerTable {
     }
     this.postBlind(sbSeat, this.sb, 'SB');
     this.postBlind(bbSeat, this.bb, 'BB');
+    this.sbSeat = sbSeat ? sbSeat.index : -1;
+    this.bbSeat = bbSeat ? bbSeat.index : -1;
     let straddleSeat = null;
     if (this.straddle) {
       const candidate = this.seats[(bbSeat.index + 1) % this.seats.length];
@@ -1387,6 +1392,8 @@ export class PokerTable {
       private: !!this.cfg.private,
       bombPot: !!this.bomb,
       button: this.button,
+      sbSeat: this.sbSeat,
+      bbSeat: this.bbSeat,
       handNo: this.handNo,
       street: this.street,
       board: this.board.map(cardStr),

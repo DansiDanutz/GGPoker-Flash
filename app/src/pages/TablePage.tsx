@@ -37,7 +37,7 @@ type PlayerState = {
 
 type TableState = {
   id: string; tableEpoch?: string; tableVersion?: number; name: string; game: string; sb: number; bb: number; ante: number; seats: number;
-  button: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
+  button: number; sbSeat?: number; bbSeat?: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
@@ -1130,6 +1130,15 @@ export function TablePage({ tableId }: { tableId: string }) {
         const dy = rowSeat ? y : y + (y < 45 ? 4.5 : -4.5);
         return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }} />;
       })()}
+
+      {state && state.street !== 'idle' && ([['SB', state.sbSeat], ['BB', state.bbSeat]] as const).map(([label, seat]) => {
+        if (seat == null || seat < 0) return null;
+        const [x, y] = seatPos(seat);
+        // Toward the felt centre from the seat, clear of the dealer disc.
+        const dx = x + (50 - x) * 0.2;
+        const dy = y + (45 - y) * 0.32;
+        return <div key={label} className={`blind-marker ${label.toLowerCase()}`} style={{ left: `${dx}%`, top: `${dy}%` }} aria-label={label === 'SB' ? 'Small blind' : 'Big blind'}>{label}</div>;
+      })}
 
       {(state?.players || []).filter((p) => p && !p.empty && (p.bet || 0) > 0).map((p) => {
         const [x, y] = seatPos(p.seat!);
