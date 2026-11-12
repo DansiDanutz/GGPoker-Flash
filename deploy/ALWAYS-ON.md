@@ -67,8 +67,15 @@ Nano's existing key, which is trusted by Dexter's `authorized_keys`, and needs o
 firewall rule on Dexter: `ufw allow from 157.230.23.158 to any port 22` (Nano's
 public IP only).
 
-Restore: copy any `backup-*.db` back into the `game-data` volume as
-`ggpoker.db` and restart the container.
+Snapshots are encrypted (`backup-<stamp>.db.cms`, OpenSSL CMS, RSA-OAEP + AES-256-GCM)
+to `deploy/backup-recipient.pem`. The private key exists only on the Mac (Keychain item
+"DanGG backup private key", plus `~/.config/dangg/backup-key.pem`), so neither droplet
+can read the backups it holds. **Losing that key makes every backup unreadable**: keep the
+Keychain synced or exported to a second safe place.
+
+Restore: on the Mac, `tools/backup-decrypt.sh backup-<stamp>.db.cms` (decrypts and runs
+`PRAGMA integrity_check`), copy the `.db` into the `game-data` volume as `ggpoker.db`
+and restart the container.
 
 ## External monitoring (Nano)
 
