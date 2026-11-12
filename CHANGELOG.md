@@ -6,6 +6,21 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Welcome and login: the DanGG Poker Lounge design
+- The welcome/login screen now uses the approved **Poker Lounge** artwork: the lounge
+  hero (headline “The table is waiting.”) on the left of the desktop layout and a
+  full-width hero above the card on phones, with the mobile art taken from the approved
+  mobile composition.
+- The card was rebuilt to the design: Log in / Create account tabs, “Welcome back”,
+  account and password fields with icons and a show/hide control, **Remember me**
+  (persists the login id), Forgot password, the red **Log in →** CTA, the “or” divider,
+  **Play as guest**, and the play-money disclaimer.
+- Working chrome: **Help** (support details), a **language** menu (all 30 languages),
+  **Terms** and **Privacy** dialogs, and a footer with the hairline segments.
+- Login and guest flows were exercised in headless Chrome; the mobile layout scrolls to
+  the card bottom and footer at 390×844. The artwork is host-local (gitignored) and copied
+  to the deploy host like the other official art.
+
 ### Mobile table layout and the native turn clock
 - The table now genuinely fits **portrait phones, landscape phones and tablets**:
   - portrait 390×844: two-row action bar, scaled seat rings/cards, no overflow;

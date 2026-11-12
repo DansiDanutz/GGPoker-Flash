@@ -169,6 +169,9 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
   move; anticipatory Fold/Check-Fold/Check/Call use the native reserved-action artwork.
 - **Native turn clock** on the acting player, and a table that fits portrait phones
   (390×844), landscape phones (844×390) and tablets (768×1024) without overflow.
+- **Welcome and login**: the Poker Lounge design with the lounge hero art on desktop and a
+  full-width mobile hero, account/password fields with show-hide, remember me, guest play,
+  language menu and terms/privacy dialogs.
 - **Card Squeeze**: optional peel of your hole cards on a fresh deal, using the reference
   clone's native 61-frame compositor for Hold'em and PLO4/5/6 (wheel, hover, drag or Open;
   actions lock until revealed; reconnects skip it).
