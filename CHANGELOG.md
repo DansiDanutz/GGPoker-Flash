@@ -6,6 +6,18 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Betting
+- **Enter-to-bet, with the native "Always confirm" option.** While it is your turn,
+  Enter bets the amount on screen (all-in at the ceiling), including from the amount
+  field; chat and nickname inputs keep their own Enter. A new Settings → Betting switch,
+  **Always confirm bets**, makes Enter and the bet button ask first — the table shows a
+  confirm bar with Confirm/Cancel and Escape cancels. Off by default, so the previous
+  one-click behaviour is unchanged.
+- A pending confirmation is cleared when the hand, street, turn or amount changes, so a
+  stale Enter can never fire a bet from an earlier decision.
+- Tests: a pure `enterBetRequest` case covers the turn/raise/ceiling/confirm decisions.
+  Full suite 145/145.
+
 ### Spectating
 - Watching a table is now truly read-only. `join_table` with `observe: true` no longer seeds
   bots or starts a hand, so opening a quiet private table no longer spawns a bot game and

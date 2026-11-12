@@ -31,7 +31,7 @@ native comparison or an explicit statement of what could not be observed.
 | --- | --- |
 | Seated action geometry | Native button placement unmeasured; Codex explicitly leaves this open |
 | Card geometry / anti-aliasing | Six official sprites exist in DanGG; pixel match unverified |
-| Betting/settings parity | Codex verified defaults (2/3/4BB preflop, 33/50/75/100% postflop). DanGG implements shortcuts; "Always confirm" Enter-to-bet is documented natively and not implemented here |
+| Betting/settings parity | Codex verified defaults (2/3/4BB preflop, 33/50/75/100% postflop); DanGG implements the shortcuts. Enter-to-bet and the "Always confirm" option shipped 2026-11-12 (Settings → Betting), off by default. Still unverified: the native confirmation dialog's exact shape and whether it covers non-Enter bet paths |
 | Spectator mode | Shipped 2026-11-12: lobby **Watch** and tournament **Watch live** open a read-only view (public hand, board, stacks, results; hole cards hidden; no betting, table options or rabbit hunt; watching never seeds bots). Four HTTP/WebSocket tests; the watcher follows the field when a tournament table breaks. Not verified: native spectator counts or observer-chat rules |
 | Cross-room leaderboard | Codex: private room standings only; cross-room identity ranking missing in both |
 | Owner console | Multi-user permissions and in-app restore absent in both |
@@ -49,7 +49,7 @@ Not a gap: the cashier. GGPoker has a wallet; DanGG is play-money by design.
 1. ~~Multi-table tournament seating~~ — **done 2026-11-12** (flights, field-wide places,
    balancing/breaks, `table_move`/`table_break`, client rebinding).
 2. ~~Spectator mode~~ — **done 2026-11-12** (read-only watch path and tournament watch entry).
-3. "Always confirm" Enter-to-bet.
+3. ~~"Always confirm" Enter-to-bet~~ — **done 2026-11-12** (Enter-to-bet plus the confirm option).
 4. Wait lists, then Rush stakes and Cash Drops.
 5. Spin & Gold gameplay once the multiplier mapping is evidenced.
 6. Battle Royale last; rules unobserved.

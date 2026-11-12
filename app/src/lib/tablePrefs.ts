@@ -84,3 +84,28 @@ export function readHotkeys(): HotkeyMap {
     return out;
   } catch { return { ...DEFAULT_HOTKEYS }; }
 }
+
+/** The native "Always confirm" option: ask before chips leave the stack. */
+export function readConfirmBet(): boolean {
+  return localStorage.getItem('ggpoker.confirmBet') === '1';
+}
+
+export type BetRequest = { action: 'raise' | 'allin'; amount: number; confirm: boolean };
+
+/**
+ * What one Enter press should do on my turn. The native client documents
+ * Enter-to-bet plus an "Always confirm" option, so this returns the action and
+ * whether the caller must ask first. Null when there is nothing to bet.
+ */
+export function enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm = false }: {
+  myTurn: boolean;
+  canRaise: boolean;
+  raiseTo: number;
+  allInTo: number;
+  confirm?: boolean;
+}): BetRequest | null {
+  if (!myTurn || !canRaise) return null;
+  if (!Number.isFinite(raiseTo) || raiseTo <= 0) return null;
+  const amount = Math.round(raiseTo);
+  return { action: amount >= allInTo ? 'allin' : 'raise', amount, confirm: !!confirm };
+}
