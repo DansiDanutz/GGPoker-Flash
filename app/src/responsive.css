@@ -667,10 +667,85 @@ body.electron .app-window::before { display: none; }
   .app-content { padding-bottom: 0; }
   /* A landscape phone has ~390px of height: shrink the seats so the hero's
      stack plate clears the action bar. */
-  .seat { transform: translate(-50%, -50%) scale(.82); }
-  .table-center { top: 42%; }
+  .seat { transform: translate(-50%, -50%) scale(.78); }
+  .table-center { top: 48%; }
   .felt { top: 44%; height: 50%; }
   /* Secondary action rows would push the bar over the hero; the table menu
      still offers "Post blinds / sit in" on these screens. */
   .action-bar .sitout-row, .action-bar .preaction-row { display: none; }
+}
+
+/* ---- Table chrome on phones: fit the ring and action bar, no overlaps ---- */
+@media (max-width: 760px) {
+  .seat .avatar-wrap { width: 44px; height: 44px; }
+  .seat .avatar-wrap .seat-ring { width: 58px; height: 58px; }
+  .seat .avatar-wrap .face { width: 38px; height: 38px; margin: 3px; font-size: 16px; }
+  .seat .cards .pcard.mini { width: 40px; height: 56px; }
+  .seat.me .cards .pcard.mini { width: 44px; height: 62px; }
+  .seat .cards .pcard.mini .rank { font-size: 15px; }
+  .seat .cards .pcard.mini .suit { font-size: 18px; }
+  .seat .plate { min-width: 70px; padding: 2px 5px; }
+  .seat .plate .nm, .seat .plate .st { font-size: 9.5px; }
+  .native-win { width: 100px; top: -70px; }
+  .action-bar { padding: 4px 6px calc(6px + env(safe-area-inset-bottom, 0)); gap: 4px; }
+  .action-row { gap: 4px; }
+  .action-row .grow { display: none; }
+  .act-btn { min-width: 0; height: 38px; font-size: 12px; padding: 0 8px; flex: 1 1 auto; }
+  .tb-btn { min-width: 0; height: 38px; padding: 0 8px; flex: 0 0 auto; }
+  .pot-odds { display: none; }
+  .bet-slider { flex: 1 1 70px; min-width: 0; }
+  .bet-stepper { flex: 0 0 auto; }
+  .quick-bets { display: none; }
+  .native-clock { width: 54px; height: 24px; top: -22px; }
+  .native-clock .clock-digit { height: 18px; }
+}
+@media (max-width: 420px) {
+  .seat .cards .pcard.mini { width: 36px; height: 50px; }
+  .seat.me .cards .pcard.mini { width: 40px; height: 56px; }
+  .act-btn { font-size: 11px; padding: 0 5px; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .seat .avatar-wrap .seat-ring { width: 54px; height: 54px; }
+  .seat { transform: translate(-50%, -50%) scale(.78); }
+  .action-bar { padding: 3px 6px 4px; gap: 3px; }
+  .action-bar .status-row, .action-bar .sitout-row, .action-bar .preaction-row,
+  .quick-bets, .pot-odds { display: none !important; }
+  .action-bar .action-row { flex-wrap: nowrap; }
+  .act-btn { height: 34px; min-width: 0; font-size: 11.5px; }
+  .tb-btn { height: 34px; padding: 0 7px; }
+  .bet-slider { min-width: 0; flex: 1 1 60px; }
+  .amount-input { width: 54px; height: 28px; }
+  .native-win { width: 90px; top: -62px; }
+  .native-clock { width: 48px; height: 21px; top: -18px; }
+}
+@media (min-width: 761px) and (max-width: 980px) {
+  .action-row { flex-wrap: wrap; }
+  .act-btn { min-width: 78px; }
+  .bet-slider { flex: 1 1 90px; min-width: 0; }
+  .quick-bets { display: none; }
+}
+
+/* Landscape phones: the top and hero seats lie on their side so the whole ring
+   fits above the action bar, and the board drops its empty reserved height. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .table-center { top: 48%; }
+  .board { min-height: 0; }
+  .board .pcard { width: 42px; height: 60px; }
+  .board .pcard.mini { width: 26px; height: 38px; }
+  .seat-row { width: auto; flex-direction: row; gap: 6px; }
+  .seat-row .cards { margin-bottom: 0; }
+  .seat-row .avatar-wrap { width: 40px; height: 40px; }
+  .seat-row .avatar-wrap .seat-ring { width: 52px; height: 52px; }
+  .seat-row .avatar-wrap .face { width: 34px; height: 34px; margin: 3px; font-size: 14px; }
+  .seat-row .cards .pcard.mini { width: 34px; height: 47px; }
+  .seat-row .cards .pcard.mini .rank { font-size: 13px; }
+  .seat-row .cards .pcard.mini .suit { font-size: 16px; }
+  .seat-row .plate { min-width: 64px; padding: 2px 5px; }
+  .seat-row .plate .nm, .seat-row .plate .st { font-size: 9px; }
+  .seat-row .native-clock { top: 50%; left: -10px; transform: translate(-100%, -50%); }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .seat-row.me .cards .pcard.mini { width: 38px; height: 52px; }
+  .seat-row.me .cards .pcard.mini .rank { font-size: 14px; }
+  .seat-row.me .cards .pcard.mini .suit { font-size: 17px; }
 }

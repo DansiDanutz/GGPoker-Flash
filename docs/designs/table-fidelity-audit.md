@@ -47,3 +47,14 @@ Exact native seat anchors at very wide/narrow aspect ratios, portrait/name-plate
 clock digits and bet-widget artwork, AOF/Rush reserved layouts, and frame-exact board
 timings. The clone's own `network-browser-test.mjs` remains the best source for those
 pixel checks.
+
+## Mobile pass (2026-11-12)
+
+Tested at 390×844, 844×390 and 768×1024 in headless Chrome with the flop on screen.
+Found and fixed: oversized seat rings overlapping cards and plates, a 126px portrait bar,
+a 200px landscape bar with a vertical quick-bet column, a clipped raise button on tablet,
+the hero plate under the bar, and wager pills under the nameplates. Landscape now uses
+horizontal rows for the top and hero seats, and the board drops its empty reserved height.
+Added the clone's native turn clock (frame + digit glyphs, hot under five seconds). The
+remaining mobile gap is frame-exact native motion and the bet-widget art; the layout itself
+now has zero overflow at all three sizes.
