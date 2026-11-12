@@ -2,7 +2,7 @@
    shell usable on a flaky connection. Navigation is network-first so a new
    deployment is picked up on the next launch; hashed build assets are
    cache-first because their URL changes with every build. */
-const VERSION = 'dangro-v1';
+const VERSION = 'dangro-v2';
 const SHELL = '/';
 
 self.addEventListener('install', (event) => {

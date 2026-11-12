@@ -6,6 +6,17 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Mobile table fixes and self-updating installs
+- The phone seat chrome no longer collides: avatar rings clear the hole cards and the
+  name plates, and the exact bet amount moved onto the seat's stack line; the felt shows
+  only the chip pile, so wager pills can never touch the pot or the plates.
+- Phones that were still showing an old cached build now update themselves: the service
+  worker cache version was bumped, the client checks for an update on load and reloads once
+  when the new worker takes over, and `index.html` plus `sw.js` are served with `no-store`.
+  The stale build showed the old white dealer pill, gold pot coins, small cards and the
+  desktop “Pop out”/status rows — all gone after the update.
+
+## 2026-11-12
 ### Battle Royale
 - Mystery Battle Royale is disabled, capture-gated (P0 slice B0). The `br-*` rows played as plain Hold'em under the label; the native rules and payout format have not been captured, so no format is invented. New `app/server/battleroyale.js`: new databases seed no `battleroyale` tables, and every boot runs `disableBattleRoyaleTables` (`UPDATE … SET enabled = 0 WHERE game = 'battleroyale' AND enabled = 1`; idempotent, rows kept, other games untouched). `lobbyTables()` (so `/api/lobby` and `/api/tables`) never lists a `battleroyale` row even if one is re-enabled; `join_table` (seat or observe) answers `Battle Royale rules are not available in DanGG yet` before any buy-in; `getLiveTable` never builds a live Battle Royale table, so none can start; `parseTableConfig` (admin table save) rejects the game with the same error, and private hosting already only allows cash games. The lobby's Mystery Battle Royale tab shows an honest empty state ("Battle Royale is not available in DanGG yet" / "Native rules and payout format have not been captured; no format is invented here.") with no rows, list header or Join (`UNAVAILABLE_TABS` in `app/src/lib/lobbyFilters.ts`; `filterTables` also drops `battleroyale` rows from every tab). Tests: new `battleroyale.test.js` (6 cases: migration unit + idempotence, validation, boot seeds none and disables legacy rows across reboots, lobby with a force-re-enabled row, join/observe refused with no chips moved, admin create refused) and `client-logic.test.js` +1 (empty-state copy, no Battle or Home rows).
 

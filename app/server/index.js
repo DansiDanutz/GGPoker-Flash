@@ -205,7 +205,7 @@ function serveFile(res, file) {
     'content-type': MIME[ext] || 'application/octet-stream',
     'content-length': stat.size,
     // The service worker must be revalidated so a deploy can replace it.
-    'cache-control': ext === '.html' || path.basename(file) === 'sw.js' ? 'no-cache' : 'public, max-age=3600',
+    'cache-control': ext === '.html' || path.basename(file) === 'sw.js' ? 'no-store' : 'public, max-age=3600',
   });
   fs.createReadStream(file).pipe(res);
 }
