@@ -490,3 +490,39 @@ test('version endpoint reports the build identity', async () => {
     child.kill();
   }
 });
+
+test('admin platform endpoint reports process, sockets and storage', async () => {
+  const { child, port } = await startServer();
+  try {
+    const admin = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ login: 'admin', password: 'admin123' }),
+    }).then((r) => r.json());
+    assert.ok(admin.token, 'seeded admin can log in');
+
+    const anon = await fetch(`http://127.0.0.1:${port}/api/admin/platform`);
+    assert.ok([401, 403].includes(anon.status), 'platform report is admin-only');
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/admin/platform`, {
+      headers: { authorization: `Bearer ${admin.token}` },
+    });
+    assert.equal(res.status, 200);
+    const report = await res.json();
+    assert.equal(report.ok, true);
+    assert.equal(typeof report.server.node, 'string');
+    assert.equal(typeof report.server.uptimeSec, 'number');
+    assert.equal(report.sockets.total, 0);
+    assert.equal(report.tables.live, 0);
+    assert.equal(report.tournaments.rooms, 0);
+    assert.equal(typeof report.db.users, 'number');
+    assert.ok(report.db.sizeBytes > 0, 'the SQLite file is measured');
+
+    const live = await fetch(`http://127.0.0.1:${port}/api/admin/tournaments/live`, {
+      headers: { authorization: `Bearer ${admin.token}` },
+    }).then((r) => r.json());
+    assert.equal(live.ok, true);
+    assert.deepEqual(live.tournaments.items, []);
+  } finally {
+    child.kill();
+  }
+});

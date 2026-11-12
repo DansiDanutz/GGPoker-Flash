@@ -316,6 +316,8 @@ export const api = {
     hand: (id: string) => request<{ hand: any }>(`/api/admin/hands/${encodeURIComponent(id)}`),
     reportAction: (id: number, action: 'resolve' | 'dismiss') => request<any>(`/api/admin/reports/${id}`, { method: 'POST', body: JSON.stringify({ action }) }),
     stats: () => request<any>('/api/admin/stats'),
+    platform: () => request<any>('/api/admin/platform'),
+    tournamentsLive: () => request<any>('/api/admin/tournaments/live'),
     users: (filters: Partial<AdminUserFilters> = {}) => {
       const query = usersQuery(filters);
       return request<AdminUserPage>(`/api/admin/users${query ? `?${query}` : ''}`);

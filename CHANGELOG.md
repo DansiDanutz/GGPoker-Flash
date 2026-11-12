@@ -6,6 +6,23 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Platform administration: live server and tournament observability
+- New admin-only, read-only endpoints **`GET /api/admin/platform`** and
+  **`GET /api/admin/tournaments/live`**, surfaced in a new **Platform** section of the owner
+  console: version/build, Node/PID/uptime/environment, RSS/heap, CPU/load, WebSocket clients
+  and distinct users, live tables/seats/connections, tournament rooms with level, current
+  blinds, next-level ETA, players/humans left, flights, finishes and winner, plus SQLite
+  size/WAL and row counts. The section refreshes every 10 s and can download the report as
+  JSON.
+- The report is assembled only from the running process and database (no new state, no
+  mutations); tournament levels are read through the same `syncLevel` clock the tables use.
+- Architecture: documented the tournament runtime and player connection path, the admin
+  observability boundary, a static REA inventory of the server (62 files / 711 items, with
+  its evidence id and limitations) and the capacity/scale-out caveats (in-memory rooms,
+  single process, why a dedicated tournament service would need durable room state).
+- Tests: platform report unit tests and an admin-only HTTP test. Full suite 409/409.
+
+## 2026-11-12
 ### All-in-or-Fold tables now play by AoF rules
 - AoF tables were showing the full preflop bar (Call, bet presets, slider, Raise), which the
   engine rejects. They now show only **Fold** and **All-in** (with the stack), the F1/F4
