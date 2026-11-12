@@ -747,6 +747,7 @@ export function Admin() {
                   {['sb', 'bb', 'ante', 'min_buyin', 'max_buyin', 'seats'].map((f) => (
                     <Field key={f} label={`${f} (cents where money)`}><input className="admin-input" type="number" value={local[f] ?? 0} onChange={(e) => setLocal({ ...local, [f]: Number(e.target.value) })} /></Field>
                   ))}
+                  <Field label="Action time (s, 5-300; blank = 15)"><input className="admin-input" type="number" min={5} max={300} value={local.action_seconds ?? ''} onChange={(e) => setLocal({ ...local, action_seconds: e.target.value === '' ? null : Number(e.target.value) })} /></Field>
                   <Field label="Featured"><input type="checkbox" checked={!!local.featured} onChange={(e) => setLocal({ ...local, featured: e.target.checked })} /></Field>
                   <Field label="Enabled"><input type="checkbox" checked={local.enabled !== false} onChange={(e) => setLocal({ ...local, enabled: e.target.checked })} /></Field>
                 </div>

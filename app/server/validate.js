@@ -39,6 +39,17 @@ export function cleanNick(value) {
  * @param {Record<string, unknown>} body
  * @returns {{ ok: true, value: object } | { ok: false, error: string }}
  */
+/** Owner-set seconds per decision on a cash table; null keeps the default. */
+export const ACTION_SECONDS = Object.freeze({ min: 5, max: 300, default: 15 });
+
+/** @returns {number | null | undefined} seconds, null for "use default", undefined when invalid */
+export function parseActionSeconds(raw) {
+  if (raw == null || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < ACTION_SECONDS.min || n > ACTION_SECONDS.max) return undefined;
+  return n;
+}
+
 export function parseTableConfig(body) {
   const game = String(body.game || 'holdem');
   if (!GAMES.includes(game)) return { ok: false, error: `Unknown game "${game}"` };
@@ -55,6 +66,8 @@ export function parseTableConfig(body) {
   if (minBuyin > maxBuyin) return { ok: false, error: 'Minimum buy-in cannot exceed the maximum' };
   if (minBuyin < bb) return { ok: false, error: 'Minimum buy-in must cover at least one big blind' };
   if (seats === null) return { ok: false, error: `Seats must be between ${MIN_SEATS} and ${MAX_SEATS}` };
+  const actionSeconds = parseActionSeconds(body.action_seconds);
+  if (actionSeconds === undefined) return { ok: false, error: `Action time must be ${ACTION_SECONDS.min}-${ACTION_SECONDS.max} seconds` };
   return {
     ok: true,
     value: {
@@ -64,6 +77,7 @@ export function parseTableConfig(body) {
       speed: String(body.speed || 'Normal').slice(0, 20),
       featured: body.featured ? 1 : 0, enabled: body.enabled === false ? 0 : 1,
       sort: toInt(body.sort, { min: 0, max: 1e6 }) ?? 999,
+      action_seconds: actionSeconds,
     },
   };
 }

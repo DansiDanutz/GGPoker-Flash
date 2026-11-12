@@ -4,7 +4,7 @@ import {
 import { randomInt } from 'node:crypto';
 import { payoutFor, payoutTable } from './tournament.js';
 import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
-import { isRushGame } from './validate.js';
+import { ACTION_SECONDS, isRushGame, parseActionSeconds } from './validate.js';
 
 const BOT_NAMES = [
   'SpewySally', 'NitWizard', 'CallStation', 'RiverRat', 'TiltLord', 'GTOBOT', 'BluffKing',
@@ -55,7 +55,7 @@ export class PokerTable {
     this.log = [];
     this.result = null;
     this.handId = null;
-    this.actionTimeMs = 15000;
+    this.actionTimeMs = (parseActionSeconds(cfg.action_seconds) || ACTION_SECONDS.default) * 1000;
     this.handStartStack = {};
     this.listeners = new Set();
     this.lastAction = null;

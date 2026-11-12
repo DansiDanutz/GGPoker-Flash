@@ -15,7 +15,7 @@ import { makeDeck, shuffle, cardStr } from './poker.js';
 import {
   resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
 } from './security.js';
-import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey, isRushGame } from './validate.js';
+import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey, isRushGame, ACTION_SECONDS } from './validate.js';
 import { handForViewer } from './hand-history.js';
 import { spinSlots } from './slots.js';
 import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
@@ -2404,6 +2404,10 @@ const server = http.createServer(async (req, res) => {
         sb=excluded.sb, bb=excluded.bb, ante=excluded.ante, min_buyin=excluded.min_buyin, max_buyin=excluded.max_buyin,
         seats=excluded.seats, speed=excluded.speed, featured=excluded.featured, enabled=excluded.enabled`)
         .run(id, t.name, t.game, t.category, t.sb, t.bb, t.ante, t.min_buyin, t.max_buyin, t.seats, t.speed, t.featured, t.enabled, t.sort);
+      db.prepare('UPDATE tables SET action_seconds = ? WHERE id = ?').run(t.action_seconds, id);
+      // A running table picks the new action length up from its next decision.
+      const live = LIVE_TABLES.get(id)?.table;
+      if (live) live.actionTimeMs = (t.action_seconds || ACTION_SECONDS.default) * 1000;
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'save_table', id);
       return json(res, 200, { ok: true, id });
     }
