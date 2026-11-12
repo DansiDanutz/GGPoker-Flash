@@ -31,6 +31,7 @@ import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
 import { createAdminRestoreRoute } from './admin-restore.js';
 import { buildHealthSummary, buildPlatformReport } from './admin-platform.js';
+import { advanceRoomLevel } from './tournament-controls.js';
 import { deleteRoomSnapshot, loadRoomSnapshot, saveRoomSnapshot } from './tournament-state.js';
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
@@ -2323,6 +2324,22 @@ const server = http.createServer(async (req, res) => {
       if (!room) return json(res, 404, { error: 'room not running' });
       const result = saveTournamentRoom(room);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'tournament_snapshot', `${id}: ${result.ok ? `${result.bytes} bytes` : result.reason}`);
+      return json(res, 200, result);
+    }
+
+    if (p.startsWith('/api/admin/tournaments/') && p.endsWith('/level') && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const id = decodeURIComponent(p.split('/')[4]);
+      const room = TOURNAMENT_ROOMS.get(id);
+      if (!room) return json(res, 404, { error: 'room not running' });
+      const body = await readBody(req);
+      const result = advanceRoomLevel(room, { delta: body.delta ?? 1, liveTables: LIVE_TABLES });
+      if (result.ok) {
+        saveTournamentRoom(room);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'tournament_level', `${id}: L${result.level}`);
+      } else {
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'tournament_level', `${id}: skipped ${result.reason}`);
+      }
       return json(res, 200, result);
     }
 

@@ -573,3 +573,23 @@ test('healthz exposes the service and operational warnings', async () => {
     child.kill();
   }
 });
+
+test('admin tournament level endpoint is admin-only and 404s without a room', async () => {
+  const { child, port } = await startServer();
+  try {
+    const anon = await fetch(`http://127.0.0.1:${port}/api/admin/tournaments/nope/level`, { method: 'POST' });
+    assert.ok([401, 403].includes(anon.status));
+    const admin = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ login: 'admin', password: 'admin123' }),
+    }).then((r) => r.json());
+    const missing = await fetch(`http://127.0.0.1:${port}/api/admin/tournaments/nope/level`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${admin.token}` },
+      body: JSON.stringify({ delta: 1 }),
+    });
+    assert.equal(missing.status, 404);
+    assert.equal((await missing.json()).error, 'room not running');
+  } finally {
+    child.kill();
+  }
+});

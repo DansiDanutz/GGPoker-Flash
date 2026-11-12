@@ -320,6 +320,7 @@ export const api = {
     tournamentsLive: () => request<any>('/api/admin/tournaments/live'),
     snapshotTournament: (id: string) => request<any>(`/api/admin/tournaments/${encodeURIComponent(id)}/snapshot`, { method: 'POST' }),
     snapshotAllTournaments: () => request<any>('/api/admin/tournaments/snapshot-all', { method: 'POST' }),
+    advanceTournamentLevel: (id: string, delta = 1) => request<any>(`/api/admin/tournaments/${encodeURIComponent(id)}/level`, { method: 'POST', body: JSON.stringify({ delta }) }),
     users: (filters: Partial<AdminUserFilters> = {}) => {
       const query = usersQuery(filters);
       return request<AdminUserPage>(`/api/admin/users${query ? `?${query}` : ''}`);

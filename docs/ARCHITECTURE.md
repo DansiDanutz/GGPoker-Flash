@@ -184,7 +184,12 @@ for one room and `POST /api/admin/tournaments/snapshot-all` for every running ro
 Platform has **Snapshot** per row and **Snapshot all** in the header). Both are audited and
 skip a room with a hand in progress or a finished room rather than writing an inconsistent
 state. Snapshot persistence lives in `tournament-state.js`, separate from `index.js`, so the
-room-owner boundary can move behind a dedicated service without rewriting the admin API. The
+room-owner boundary can move behind a dedicated service without rewriting the admin API.
+
+Admins can also advance the shared blind level with
+`POST /api/admin/tournaments/:id/level` (**Level +1**, with a confirmation). It is audited,
+refuses a hand in progress or a finished room, resets `levelStartedAt`, applies the new
+blinds to every flight and then writes a recovery snapshot. The
 report is assembled only from the running process (`process.memoryUsage`, `wss.clients`,
 `LIVE_TABLES`, `TOURNAMENT_ROOMS`, `fs.statSync`) — it adds no new state and performs no
 mutations. Tournament levels are read through `TournamentRoom.syncLevel(now)`, so the
