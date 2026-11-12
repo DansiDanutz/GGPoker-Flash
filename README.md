@@ -74,7 +74,7 @@ server, and the service worker is not registered in dev.
 ```bash
 pnpm build          # production bundle → app/dist
 pnpm start          # serve app/dist + API on :5198
-pnpm test           # server suite (153 tests)
+pnpm test           # server suite (154 tests)
 pnpm smoke          # read-only smoke test against a running server
 ```
 
@@ -163,6 +163,9 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
   three to twelve chips, gold/red/black), so every betting round visibly adds money.
 - **Show one card or both** after the hand: tap hole cards, press Show (or Show all), and
   the table sees exactly those cards; folded players cannot show.
+- **Card Squeeze**: optional peel of your hole cards on a fresh deal, using the reference
+  clone's native 61-frame compositor for Hold'em and PLO4/5/6 (wheel, hover, drag or Open;
+  actions lock until revealed; reconnects skip it).
 - **Table menu**: sit out next hand, rebuy and auto-rebuy, rabbit hunt, card animation
   (deal/flip/slide/off), button layout (bottom/side/floating), straddle, auto-muck,
   run it twice, four-colour deck, animation toggle, hand history, table settings and the
@@ -301,7 +304,7 @@ package_app.sh         Build, sign and relaunch the desktop app
 cd app
 pnpm install         # dependencies
 pnpm dev             # Vite + API/WebSocket
-pnpm test            # node --test server/*.test.js (153 tests)
+pnpm test            # node --test server/*.test.js (154 tests)
 pnpm exec tsc --noEmit -p tsconfig.json
 pnpm build           # production client
 pnpm smoke           # read-only API smoke test (needs a running server)
@@ -334,7 +337,7 @@ Every push to `main` and every pull request runs the **CI** workflow
 
 | Job | What it runs |
 |---|---|
-| **Server tests** | `node --test server/*.test.js` (153 tests) |
+| **Server tests** | `node --test server/*.test.js` (154 tests) |
 | **Typecheck and build** | `tsc --noEmit`, then `vite build` |
 
 `main` is protected by the `protect-main` ruleset: both checks are required, force-pushes

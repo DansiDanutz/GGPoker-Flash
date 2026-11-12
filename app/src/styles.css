@@ -1102,3 +1102,16 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
   .welcome-title, .reconnect-title { font-size: 22px; }
   .welcome-card, .reconnect-card { padding: 20px 15px 16px; }
 }
+
+/* Card Squeeze (ported panel) */
+.squeeze-host { position: absolute; inset: 0; z-index: 40; pointer-events: none; }
+.cardSqueeze { position: absolute; left: 50%; bottom: 0; width: min(92vw, 652px); aspect-ratio: 652 / 484; transform: translateX(-50%); pointer-events: auto; touch-action: none; animation: squeezeIn .3s ease-out; }
+.cardSqueeze > img { position: absolute; left: 0; top: 6.2%; width: 100%; height: 89.7%; pointer-events: none; }
+.cardSqueeze canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.cardSqueeze canvas:active { cursor: grabbing; }
+.cardSqueeze .squeezeOpen { position: absolute; right: 4%; bottom: 9%; width: 24%; height: 20%; border: 0; border-radius: 6px; padding: 0; background: url('/assets/squeeze/native-squeeze-open.png') center/100% 100% no-repeat; font: 700 clamp(16px, 2.2vw, 26px) Arial; color: #fff; cursor: pointer; }
+.cardSqueeze .squeezeOpen:active { background-image: url('/assets/squeeze/native-squeeze-open-down.png'); color: #00ff66; }
+.cardSqueeze.squeezeClosing { animation: squeezeOut .3s ease-in forwards; pointer-events: none; }
+@keyframes squeezeIn { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+@keyframes squeezeOut { from { transform: translate(-50%, 0); } to { transform: translate(-50%, 100%); } }
+.squeeze-lock { pointer-events: none; opacity: .55; }

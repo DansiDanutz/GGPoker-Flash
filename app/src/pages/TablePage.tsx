@@ -4,12 +4,13 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { SwfEffect } from '../components/SwfEffect';
-import { betLabel, betTarget, betUnitOf, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readStackMode, readHotkeys, normalizeHotkey, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, betUnitOf, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readHotkeys, normalizeHotkey, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
 import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/betting';
 import { potChipTiers } from '../game/potChips';
+import { createSqueezePanel } from '../game/squeeze';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -123,6 +124,11 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [pendingBet, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number } | null>(null);
   const [showPick, setShowPick] = useState<number[]>([]);
   const actionBarRef = useRef<HTMLDivElement | null>(null);
+  const [squeezeEnabled] = useState(readSqueeze);
+  const [squeezing, setSqueezing] = useState(false);
+  const squeezeHostRef = useRef<HTMLDivElement | null>(null);
+  const squeezeHandRef = useRef<number | null>(null);
+  const firstStateRef = useRef(true);
   const [betPrefs] = useState(readBetPrefs);
   const [timeBankSeconds] = useState(() => Math.max(5, Math.min(60, Number(localStorage.getItem('ggpoker.timeBank') || 10))));
   const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
@@ -542,8 +548,8 @@ export function TablePage({ tableId }: { tableId: string }) {
       // Chat and nickname fields keep their own Enter; the bet amount is fair game.
       const typing = tag === 'TEXTAREA' || tag === 'SELECT'
         || (tag === 'INPUT' && (target as HTMLInputElement).type !== 'number');
-      if (e.key === 'Escape') { setPendingBet(null); setMenuOpen(false); setConfirmLeave(false); return; }
-      if (typing) return;
+      if (e.key === 'Escape') { setPendingBet(null); setMenuOpen(false); setConfirmLeave(false); if (squeezing) setSqueezing(false); return; }
+      if (typing || squeezing) return;
       if (e.key === 'Enter') {
         // Enter is the native bet key, including while the amount field has focus.
         const request = pendingBet
@@ -564,7 +570,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [hotkeysOn, hotkeyMap, myTurn, toCall, raiseTo, maxTo, canRaise, allInTo, pendingBet, confirmBets, act, requestBet]);
+  }, [hotkeysOn, hotkeyMap, myTurn, toCall, raiseTo, maxTo, canRaise, allInTo, pendingBet, confirmBets, squeezing, act, requestBet]);
 
   // Mouse wheel changes the bet by the chosen unit, in the chosen direction.
   useEffect(() => {
@@ -632,6 +638,29 @@ export function TablePage({ tableId }: { tableId: string }) {
     setShowPick([]);
   };
   useEffect(() => { setShowPick([]); setRabbit([]); }, [state?.handNo]);
+
+  // Card squeeze: skip the hand already in progress when the page connects,
+  // then peel every fresh deal while the preference is on.
+  useEffect(() => {
+    if (!state) return;
+    if (firstStateRef.current) { firstStateRef.current = false; squeezeHandRef.current = state.handNo; return; }
+    if (!squeezeEnabled || observing || !me?.inHand) return;
+    if (state.street !== 'preflop') return;
+    if (!['holdem', 'omaha', 'omaha5', 'omaha6'].includes(state.game)) return;
+    if (squeezeHandRef.current === state.handNo) return;
+    const cards = (me.cards || []).filter((c) => c !== '??');
+    if (![2, 4, 5, 6].includes(cards.length) || cards.length !== (me.cards || []).length) return;
+    squeezeHandRef.current = state.handNo;
+    setSqueezing(true);
+  }, [state?.handNo, state?.street, state?.game, observing, squeezeEnabled, me?.inHand, me?.cards?.length]);
+
+  useEffect(() => {
+    if (!squeezing) return;
+    const host = squeezeHostRef.current;
+    const cards = (me?.cards || []).filter((c) => c !== '??');
+    if (!host || ![2, 4, 5, 6].includes(cards.length)) { setSqueezing(false); return; }
+    return createSqueezePanel(host, cards, () => setSqueezing(false), () => sound.play('deal', { volume: .5 }));
+  }, [squeezing]);
 
   useEffect(() => {
     if (state?.spin && state.handNo === 1 && !spinIntroSeen.current) {
@@ -872,7 +901,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           >
             {p.winAmount ? <div className="win-amount">+{chip(p.winAmount)}</div> : null}
             {isActor && !p.folded ? <div className="timer" style={{ animationDuration: '1.4s' }} /> : null}
-            <div className="cards">
+            {!(p.isMe && squeezing) && <div className="cards">
               {(p.cards || []).map((c, i) => {
                 const [px, py] = seatPosOf(p.seat!);
                 const pickable = p.isMe && canShowCards && c !== '??';
@@ -890,7 +919,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                   </span>
                 );
               })}
-            </div>
+            </div>}
             <div className="avatar-wrap">
               <img className="seat-ring" src={(p.winAmount || 0) > 0 ? '/assets/table/ring_gold.png' : isActor ? '/assets/table/ring_gold.png' : '/assets/table/ring_silver.png'} alt="" />
               <div className="face">
@@ -938,6 +967,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         const [x, y] = seatPos(f.seat);
         return <div key={f.id} className="float-chip" style={{ left: `${x}%`, top: `${y - 9}%` }}>{chip(f.amount)}</div>;
       })}
+
+      <div className="squeeze-host" ref={squeezeHostRef} />
 
       {winFx && (
         <div className="win-overlay">
@@ -991,7 +1022,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         </div>
       ) : (
-      <div className="action-bar" ref={actionBarRef}>
+      <div className={'action-bar' + (squeezing ? ' squeeze-lock' : '')} ref={actionBarRef}>
         {myTurn && (
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}

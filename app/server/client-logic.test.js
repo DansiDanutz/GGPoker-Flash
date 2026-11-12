@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { betLimits, potFractionTarget, sizingPresets, potOdds } from '../src/game/betting.ts';
 import { betUnitOf, enterBetRequest, normalizeBettingOptions } from '../src/lib/tablePrefs.ts';
 import { potChipTiers } from '../src/game/potChips.ts';
+import { cardOrdinal, squeezeDragFrame, squeezeWheelFrame } from '../src/game/squeeze.ts';
 import { bestHand } from '../src/game/eval.ts';
 
 const ctx = (over = {}) => ({
@@ -92,4 +93,16 @@ test('betting options follow the native defaults and reject junk', () => {
   assert.equal(betUnitOf({ unit: 'bb' }, 50, 100), 100);
   assert.equal(betUnitOf({ unit: 'sb' }, 50, 100), 50);
   assert.equal(betUnitOf({ unit: 'bb' }, 0, 0), 1, 'never returns a zero step');
+});
+
+test('card squeeze frames follow the native wheel and drag curves', () => {
+  assert.equal(cardOrdinal('2c'), 0);
+  assert.equal(cardOrdinal('As'), 51);
+  assert.throws(() => cardOrdinal('1x'));
+  assert.equal(squeezeWheelFrame(0, 1), 6, 'one wheel notch peels six frames');
+  assert.equal(squeezeWheelFrame(58, 1), 60);
+  assert.equal(squeezeWheelFrame(30, 0), 30);
+  assert.equal(squeezeDragFrame(0, 400, 0), 60, 'a 400px drag fully opens');
+  assert.ok(squeezeDragFrame(0, 100, 0) > 0 && squeezeDragFrame(0, 100, 0) < 60);
+  assert.equal(squeezeDragFrame(50, 10, 0), 50, 'dragging back never re-closes the peel');
 });

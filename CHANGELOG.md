@@ -6,6 +6,22 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Card Squeeze (ported from the Codex clone)
+- The reference clone's **Card Squeeze** is now in DanGG. With **Settings → Table &
+  cards → Card squeeze on a fresh deal** enabled, a fresh hand opens the native squeeze
+  panel: the 61-frame compositor, per-format masks and the inner card-face sheet are the
+  clone's own assets (Hold'em, PLO4, PLO5, PLO6), with wheel, hover, press and drag
+  gestures and the green **Open** button.
+- Your seat cards stay hidden and the action bar plus hotkeys are locked while the cards
+  are closed; the panel fades out after the reveal and play resumes. Escape dismisses it,
+  and a hand already in progress when the page connects never replays the effect.
+- The setting is off by default. The squeeze artwork is official host-local art (like the
+  table assets), so it is not committed; the deploy copies `app/public/assets/squeeze/` to
+  the host.
+- Tests: the ported frame helpers (`cardOrdinal`, wheel/drag curves) plus a headless
+  browser run of the panel (frame 0 → Open → frame 60 → close and unlock). Full suite
+  154/154.
+
 ### Table menu
 - Every item in the table **Menu** now does what it says:
   - **Sit out next hand** finishes the current hand and sits out at the next deal,
