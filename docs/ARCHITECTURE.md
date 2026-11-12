@@ -52,6 +52,7 @@ Other players ────────────┘                       │
 | `avatar.js` | PNG validation and avatar normalisation |
 | `admin-platform.js` | Read-only platform report: process, sockets, live tables, tournament rooms, database/disk size (used by the admin Platform section) |
 | `tournament-state.js` | Durable room snapshot save/load/delete and the settled-hand guard; the persistence boundary for the future room-owner service |
+| `tournament-room-owner.js` | Owns the live room map and lifecycle (create, restart restore, snapshot scheduling, sweeps, dispose); server-specific table/DB/socket work is injected |
 
 ## Request flow
 
@@ -185,6 +186,11 @@ Platform has **Snapshot** per row and **Snapshot all** in the header). Both are 
 skip a room with a hand in progress or a finished room rather than writing an inconsistent
 state. Snapshot persistence lives in `tournament-state.js`, separate from `index.js`, so the
 room-owner boundary can move behind a dedicated service without rewriting the admin API.
+
+`TournamentRoomOwner` now owns the live room map and lifecycle (construction, restore,
+snapshot scheduling, sweep, dispose). `index.js` injects `makeRoom` and the snapshot
+callbacks, so moving room ownership into a dedicated process is an implementation change
+behind that boundary rather than a client/admin-API rewrite.
 
 Admins can also advance the shared blind level with
 `POST /api/admin/tournaments/:id/level` (**Level +1**, with a confirmation). It is audited,
