@@ -124,9 +124,26 @@ ssh dexter 'ls -lh ~/dangro/deploy/backups | tail -5'
 - The Discord webhook accepted a labelled test message (HTTP 204).
 - Certificate valid to 2027-02-09, issued by Let's Encrypt.
 
+## Restore drill (2026-11-12)
+
+Run from the Mac against the **off-host** copy, as after losing Dexter:
+
+1. `scp nano:~/dangro-backups/<newest>.db.cms .` (488 KB, 1 s).
+2. `DANGG_BACKUP_KEY=/nonexistent tools/backup-decrypt.sh <file> data/ggpoker.db`: key taken
+   from the Keychain only; `integrity_check` ok, 7 users, 148 tables (1 s).
+3. `GGPOKER_DATA=$PWD/data PORT=5299 node app/server/index.js` at the deployed commit:
+   `/healthz` 200 with all 15 rooms recovered.
+4. Registered a new account and signed in against the restored data (users 7 → 8).
+
+Total: about **21 seconds** from fetch to a working sign-in. The decrypted copy was deleted
+afterwards. To restore production, stop `game`, copy the checked `ggpoker.db` into the
+`dangro_game-data` volume (keep the failed database), and start `game` again.
+
+Repeat the drill after any change to `backup.sh`, the key, or the database schema.
+
 ## Known risk: disk headroom
 
-Dexter sits at **~85% disk (≈15 GiB free)** while also running Grafana,
+Dexter sat at ~85% disk in early November and at 74–75% after the 2026-11-12 cleanup, while also running Grafana,
 Prometheus, Nomad, Postgres/Redis and a crawler. A full disk takes the site down
 in a way no watchdog can fix. Keep an eye on `df -h /` and prune old backups if
 it drops further.
