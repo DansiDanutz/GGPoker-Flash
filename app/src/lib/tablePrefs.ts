@@ -131,6 +131,11 @@ export function betUnitOf(options: Pick<BettingOptions, 'unit'>, sb: number, bb:
   return Math.max(1, Number(value) || 1);
 }
 
+/** Card squeeze on a fresh deal: off by default, opt-in from Table & cards. */
+export function readSqueeze(): boolean {
+  return localStorage.getItem('ggpoker.squeeze') === '1';
+}
+
 /** The native "Always confirm" option: ask before chips leave the stack. */
 export function readConfirmBet(): boolean {
   return readBettingOptions().confirm === 'always';
