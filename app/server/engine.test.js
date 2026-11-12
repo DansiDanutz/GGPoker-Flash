@@ -320,23 +320,24 @@ test('run it twice handles a multiway side pot and conserves chips', () => {
   assert.equal(paid, 665);
 });
 
-test('time bank extension is clamped and usable once per hand', () => {
+test('time bank cards add fixed seconds and are limited per action', () => {
   const t = tableWith([player(1, 'A', 1000, 0, []), player(2, 'B', 1000, 0, [])]);
   t.street = 'river';
   t.actor = 1;
   t.actionEndsAt = Date.now();
-  t.timeBankUsed = new Set();
-  const first = t.useTimeBank(1, 30);
+  t.seats[0].player.timeBankCards = 3;
+  const first = t.useTimeBank(1, 999);
   assert.equal(first.ok, true);
-  assert.equal(first.seconds, 30);
-  assert.ok(first.endsAt >= Date.now() + 29000);
-  const second = t.useTimeBank(1, 30);
-  assert.equal(second.ok, false);
-  const clamped = tableWith([player(3, 'C', 1000, 0, []), player(4, 'D', 1000, 0, [])]);
-  clamped.actor = 3;
-  clamped.actionEndsAt = Date.now();
-  clamped.timeBankUsed = new Set();
-  assert.equal(clamped.useTimeBank(3, 999).seconds, 60);
+  assert.equal(first.seconds, 15, 'a card is worth fixed seconds whatever the client asks');
+  assert.equal(first.cards, 2);
+  assert.ok(first.endsAt >= Date.now() + 14000);
+  assert.equal(t.useTimeBank(1).ok, true);
+  assert.equal(t.useTimeBank(1).ok, false, 'two cards per action');
+  const empty = tableWith([player(3, 'C', 1000, 0, []), player(4, 'D', 1000, 0, [])]);
+  empty.actor = 3;
+  empty.actionEndsAt = Date.now();
+  empty.seats[0].player.timeBankCards = 0;
+  assert.equal(empty.useTimeBank(3).ok, false);
 });
 
 test('tournament blinds advance on the clock, not hand count', () => {
