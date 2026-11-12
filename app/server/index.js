@@ -21,7 +21,7 @@ import { spinSlots } from './slots.js';
 import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
 import {
   addChipsLimits, cancelPendingTopUp, inLiveHand, refundPendingTopUp, removeChips, setAutoReduce,
-  setPendingTopUp, settleBeforeDeal,
+  setPendingTopUp, settleBeforeDeal, noteTopUpApplied, topUpRequestError,
 } from './chip-moves.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
@@ -3140,10 +3140,10 @@ wss.on('connection', (ws, req) => {
       const seat = table.seatOf(ws.userId);
       if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
       if (table.tournament || table.spin) return ws.send(JSON.stringify({ type: 'error', error: 'Rebuys are not available here' }));
-      // Optimistic check (F14 version): a retried or stale request never stacks a second top-up.
-      if (toInt(msg.basePending ?? 0, { min: 0 }) !== (seat.player.pendingTopUp || 0)) {
-        return ws.send(JSON.stringify({ type: 'error', error: 'Your pending chips changed; check the amount and try again' }));
-      }
+      // Optimistic check (F14 version): the pending amount and the seat's top-up version the client
+      // saw. The version never resets, so a request replayed after its top-up settled is refused.
+      const stale = topUpRequestError(seat.player, { basePending: msg.basePending, topUpVersion: msg.topUpVersion });
+      if (stale) return ws.send(JSON.stringify({ type: 'error', error: stale }));
       // In a live hand (or with chips already pending) the request becomes the pending top-up.
       if (inLiveHand(table, seat.player) || seat.player.pendingTopUp > 0) return queueTopUp(ws, table, seat.player, msg.amount, msg.idempotencyKey);
       if (toInt(msg.amount) === 0) return;
@@ -3165,6 +3165,7 @@ wss.on('connection', (ws, req) => {
       if (!award.applied) return broadcastState(table);
       seat.player.rebuyCount = rebuyNo;
       seat.player.stack += amount;
+      noteTopUpApplied(seat.player);
       // Reloading clears the bust prompt; the deal can resume sooner.
       table.clearRebuyHold(ws.userId);
       broadcastState(table);

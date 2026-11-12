@@ -20,6 +20,20 @@ export function addChipsLimits({ stack, pending = 0, minBuyin, maxBuyin, balance
   return { min, max };
 }
 
+export interface ChipControlsInput { editable: boolean; stack: number; pending: number; maxBuyin: number }
+export interface ChipControls { addChips: boolean; cancelPending: boolean }
+
+/**
+ * Which table-bar chip controls to show. Add Chips needs room under the table maximum; Cancel
+ * pending shows whenever chips are queued, so it stays reachable when they reach the maximum.
+ */
+export function chipControls({ editable, stack, pending, maxBuyin }: ChipControlsInput): ChipControls {
+  return {
+    addChips: editable && stack + pending < maxBuyin,
+    cancelPending: editable && pending > 0,
+  };
+}
+
 /** Only the surplus above the table minimum buy-in can leave the table. */
 export function removeChipsLimits({ stack, minBuyin }: { stack: number; minBuyin: number }): ChipRange {
   return { min: 0, max: whole(stack - minBuyin) };

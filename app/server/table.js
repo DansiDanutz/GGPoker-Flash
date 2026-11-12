@@ -1906,7 +1906,7 @@ export class PokerTable {
           sitOutNext: !!p.sitOutNextHand,
           timeBank: p.timeBank,
           timeBankCards: p.timeBankCards ?? 0,
-          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p), leaveAfterHand: !!p.leaveAfterHand, sitOutNextBigBlind: !!p.sitOutNextBigBlind, sitOutAll: !!p.sitOutAll, pendingTopUp: p.pendingTopUp || 0, autoReduceBB: p.autoReduceBB || 0 } : {}),
+          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p), leaveAfterHand: !!p.leaveAfterHand, sitOutNextBigBlind: !!p.sitOutNextBigBlind, sitOutAll: !!p.sitOutAll, pendingTopUp: p.pendingTopUp || 0, topUpVersion: p.topUpVersion || 0, autoReduceBB: p.autoReduceBB || 0 } : {}),
         };
       }),
       log: this.log.slice(-40),

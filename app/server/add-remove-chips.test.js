@@ -7,7 +7,7 @@ import { PokerTable } from './table.js';
 import {
   addChipsLimits, removeChipsLimits, autoReduceOptions, setPendingTopUp, settlePendingTopUp,
   refundPendingTopUp, cancelPendingTopUp, removeChips, setAutoReduce, applyAutoReduce, inLiveHand,
-  settleBeforeDeal,
+  settleBeforeDeal, noteTopUpApplied, topUpRequestError,
 } from './chip-moves.js';
 import * as client from '../src/game/chipMoves.ts';
 
@@ -300,4 +300,56 @@ test('before a deal, auto-reduce runs first and then the pending top-up lands', 
   settleBeforeDeal({ player: p, bb: 10, minBuyin: 400, maxBuyin: 1000, handNo: 3, ledger: ledger.write });
   assert.equal(p.stack, 600);
   assert.equal(p.pendingTopUp, 0);
+});
+
+/* ------------------------- replay protection ------------------------- */
+
+test('a keyed top-up replayed after the deal settled it hits the same reference and is not paid twice', () => {
+  const ledger = fakeLedger();
+  const p = seated(500);
+  const ref = 'in:t:s1:k:submit-1';
+  const first = setPendingTopUp({ player: p, total: 200, minBuyin: 400, maxBuyin: 1000, balance: ledger.state.balance, ledger: ledger.write, chargeReference: ref });
+  assert.equal(first.ok, true);
+  settlePendingTopUp({ player: p, maxBuyin: 1000, ledger: ledger.write });
+  assert.equal(p.pendingTopUp, 0);
+  const replay = setPendingTopUp({ player: p, total: 200, minBuyin: 400, maxBuyin: 1000, balance: ledger.state.balance, ledger: ledger.write, chargeReference: ref });
+  assert.equal(replay.duplicate, true);
+  assert.equal(ledger.rows.filter((r) => r.kind === 'rebuy').length, 1);
+  assert.equal(p.pendingTopUp, 0, 'the replay queues nothing');
+  assert.equal(ledger.state.balance, 9800);
+});
+
+test('the top-up version only moves forward: set, cancel and settle each bump it', () => {
+  const ledger = fakeLedger();
+  const p = seated(500);
+  assert.equal(p.topUpVersion, undefined);
+  setPendingTopUp({ player: p, total: 200, minBuyin: 400, maxBuyin: 1000, balance: 10000, ledger: ledger.write });
+  assert.equal(p.topUpVersion, 1);
+  cancelPendingTopUp({ player: p, ledger: ledger.write });
+  assert.equal(p.topUpVersion, 2);
+  setPendingTopUp({ player: p, total: 100, minBuyin: 400, maxBuyin: 1000, balance: 10000, ledger: ledger.write });
+  settlePendingTopUp({ player: p, maxBuyin: 1000, ledger: ledger.write });
+  assert.equal(p.topUpVersion, 4, 'settling at the deal is a new version even though pending is 0 again');
+  assert.equal(settlePendingTopUp({ player: p, maxBuyin: 1000, ledger: ledger.write }), 0);
+  assert.equal(p.topUpVersion, 4, 'nothing to settle leaves the version alone');
+  noteTopUpApplied(p);
+  assert.equal(p.topUpVersion, 5, 'a between-hands rebuy bumps it too');
+});
+
+test('topUpRequestError refuses a stale pending amount or top-up version', () => {
+  const p = seated(500, { pendingTopUp: 0, topUpVersion: 3 });
+  assert.equal(topUpRequestError(p, { basePending: 0, topUpVersion: 3 }), null);
+  assert.match(topUpRequestError(p, { basePending: 0, topUpVersion: 2 }), /pending chips changed/);
+  assert.match(topUpRequestError(p, { basePending: 0 }), /pending chips changed/, 'a request without the version is stale once one exists');
+  assert.match(topUpRequestError(p, { basePending: 100, topUpVersion: 3 }), /pending chips changed/);
+  assert.equal(topUpRequestError(seated(500), {}), null, 'a fresh seat starts at version 0');
+});
+
+test('pending-chip controls: cancel stays reachable at the table maximum', () => {
+  const at = { editable: true, stack: 800, pending: 200, maxBuyin: 1000 };
+  assert.deepEqual(client.chipControls(at), { addChips: false, cancelPending: true });
+  assert.deepEqual(client.chipControls({ ...at, stack: 500 }), { addChips: true, cancelPending: true });
+  assert.deepEqual(client.chipControls({ ...at, pending: 0 }), { addChips: true, cancelPending: false });
+  assert.deepEqual(client.chipControls({ ...at, stack: 1000, pending: 0 }), { addChips: false, cancelPending: false });
+  assert.deepEqual(client.chipControls({ ...at, editable: false }), { addChips: false, cancelPending: false });
 });
