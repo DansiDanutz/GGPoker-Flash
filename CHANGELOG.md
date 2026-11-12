@@ -6,6 +6,11 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Native emote artwork
+- The three table reactions (Angry, Listening, Laughing) now show GGPoker's own emoticon art at the
+  seat and in the React menu instead of text chips. `tools/setup_assets.sh` extracts them, with the
+  Take Seat textures, from the installed client; like all client art they are not committed.
+
 ### Bad Beat Jackpot that pays
 - The header jackpot now grows: a quarter of the rake from every raked cash hand goes into the pool.
 - When a strong hand loses at showdown (Hold'em: quad 8s or better, using both hole cards; Omaha:
