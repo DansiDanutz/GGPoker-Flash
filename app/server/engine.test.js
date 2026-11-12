@@ -277,14 +277,16 @@ test('run it twice deals two boards and splits the pot', () => {
 });
 
 
-test('Spin insurance charges a premium and arms a payout', () => {
-  const p1 = player(1, 'A', 15000, 0, []);
-  const p2 = player(2, 'B', 15000, 0, []);
-  const t = tableWith([p1, p2], { seats: 2, game: 'spingold', min_buyin: 15000 });
+test('Spin insurance is disabled until native settlement is observed', () => {
+  const p1 = player(1, 'A', 5000, 0, []);
+  const p2 = player(2, 'B', 5000, 0, []);
+  const t = tableWith([p1, p2], { seats: 2, game: 'spingold', min_buyin: 5000 });
   t.street = 'idle';
-  assert.equal(t.setInsurance(1, true).ok, true);
-  assert.equal(p1.stack, 14250);
-  assert.equal(p1.insurance, true);
+  const res = t.setInsurance(1, true);
+  assert.equal(res.ok, false);
+  assert.match(res.error, /not available/i);
+  assert.equal(p1.stack, 5000);
+  assert.ok(!p1.insurance);
 });
 
 test('a Rush fold queues a cross-table move', () => {
