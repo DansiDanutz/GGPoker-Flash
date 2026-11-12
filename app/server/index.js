@@ -19,6 +19,10 @@ import { toInt, cleanNick, cleanGrantReason, GRANT_REASON, parseTableConfig, par
 import { createHandHistoryStore } from './hand-history-store.js';
 import { spinSlots } from './slots.js';
 import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
+import {
+  addChipsLimits, cancelPendingTopUp, inLiveHand, refundPendingTopUp, removeChips, setAutoReduce,
+  setPendingTopUp, settleBeforeDeal,
+} from './chip-moves.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
@@ -726,6 +730,7 @@ function getLiveTable(id) {
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bounty',
         `${table.cfg.name} ${info.winnerNick} ${info.amount} (${info.bustedNick})`);
     },
+    beforeDeal: (table) => settleChipMoves(table),
     onSeatBusted: (table, player) => {
       if (!table.spin) return;
       const seat = table.seatOf(player.id);
@@ -910,11 +915,34 @@ function evictTournamentBot(table) {
   return true;
 }
 
+/** Wallet writer for one seat's chip moves (Add / Remove Chips): idempotent by reference. */
+function seatLedger(table, player) {
+  return ({ kind, amount, memo, reference }) => addTransactionEx(player.id, kind, amount, `${memo} ${table.cfg.name}`, 'USD', {
+    sessionId: player.sessionId, reference, onDuplicate: 'skip',
+  });
+}
+
+/** Before each cash deal: trim stacks set to auto-reduce, then land pending top-ups. */
+function settleChipMoves(table) {
+  if (table.tournament || table.spin) return;
+  for (const player of table.humans()) {
+    if (!player.sessionId) continue;
+    try {
+      settleBeforeDeal({
+        player, bb: table.bb, minBuyin: table.cfg.min_buyin, maxBuyin: table.cfg.max_buyin, handNo: table.handNo,
+        ledger: seatLedger(table, player),
+      });
+    } catch (e) { console.error('chip moves before deal', table.cfg.id, player.id, e); }
+  }
+}
+
 function cashOutSeat(table, userId, reason) {
   const seat = table.seatOf(userId);
   if (!seat || !seat.player) return;
   const sessionId = seat.player.sessionId;
   saveTimeBank(db, table, seat.player);
+  // Chips paid for the next deal never reached the table: they go back before the cash-out.
+  if (sessionId && !table.tournament && !table.spin) refundPendingTopUp({ player: seat.player, ledger: seatLedger(table, seat.player) });
   if (table.spinStarted()) {
     // Spin chips are not cash: leaving takes the lowest open place (paid by onSpinPayout),
     // and this close is skipped when that payout already closed the session.
@@ -933,6 +961,32 @@ function cashOutSeat(table, userId, reason) {
   addTransactionEx(userId, stack > 0 ? 'cashout' : 'session_close', stack, reason, 'USD', {
     sessionId: sid, reference: `out:${sid}`, onDuplicate: 'skip',
   });
+}
+
+/** The keyed rebuy reference for a valid client key, else null (never the unkeyed counter form). */
+function keyedRebuyReference(sessionId, idempotencyKey) {
+  const ref = rebuyReference(sessionId, 0, idempotencyKey);
+  return ref.includes(':k:') ? ref : null;
+}
+
+/** Add Chips during a hand: pay now, land at the next deal (REA F14). `amount` is added to what is pending. */
+function queueTopUp(ws, table, player, rawAmount, idempotencyKey) {
+  const amount = toInt(rawAmount, { min: 0 });
+  if (amount === null) return ws.send(JSON.stringify({ type: 'error', error: 'Choose whole chips' }));
+  const u = db.prepare('SELECT balance FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(player.id);
+  if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
+  if (!player.sessionId) player.sessionId = `${table.cfg.id}:${randomUUID()}`;
+  const res = setPendingTopUp({
+    player, total: (player.pendingTopUp || 0) + amount, minBuyin: table.cfg.min_buyin, maxBuyin: table.cfg.max_buyin,
+    balance: u.balance, ledger: seatLedger(table, player),
+    // Same keyed reference as a between-hands rebuy: one Add Chips submission is paid once.
+    chargeReference: keyedRebuyReference(player.sessionId, idempotencyKey),
+  });
+  if (res.duplicate) return broadcastState(table);
+  if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+  // A bust that queued chips no longer holds up the deal.
+  table.clearRebuyHold(player.id);
+  broadcastState(table);
 }
 
 function consumeTournamentEntry(table, userId) {
@@ -3010,6 +3064,11 @@ wss.on('connection', (ws, req) => {
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
       if (msg.autoMuck != null) entry.table.setAutoMuck(ws.userId, !!msg.autoMuck);
+      if (msg.autoReduceBB !== undefined && !entry.table.tournament && !entry.table.spin) {
+        const t = entry.table;
+        const res = setAutoReduce({ player: t.seatOf(ws.userId).player, value: msg.autoReduceBB === null ? null : toInt(msg.autoReduceBB), minBuyin: t.cfg.min_buyin, maxBuyin: t.cfg.max_buyin, bb: t.bb });
+        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      }
       if (msg.autoStraddle != null) entry.table.setAutoStraddle(ws.userId, !!msg.autoStraddle);
       if (msg.waitForBlinds != null) entry.table.setWaitForBlinds(ws.userId, !!msg.waitForBlinds);
       for (const kind of RESERVATION_KINDS.filter((k) => msg[k] != null)) {
@@ -3070,15 +3129,21 @@ wss.on('connection', (ws, req) => {
       const seat = table.seatOf(ws.userId);
       if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
       if (table.tournament || table.spin) return ws.send(JSON.stringify({ type: 'error', error: 'Rebuys are not available here' }));
-      const inLiveHand = table.handInProgress() && seat.player.inHand && !seat.player.folded;
-      if (inLiveHand) return ws.send(JSON.stringify({ type: 'error', error: 'Finish the hand first' }));
+      // Optimistic check (F14 version): a retried or stale request never stacks a second top-up.
+      if (toInt(msg.basePending ?? 0, { min: 0 }) !== (seat.player.pendingTopUp || 0)) {
+        return ws.send(JSON.stringify({ type: 'error', error: 'Your pending chips changed; check the amount and try again' }));
+      }
+      // In a live hand (or with chips already pending) the request becomes the pending top-up.
+      if (inLiveHand(table, seat.player) || seat.player.pendingTopUp > 0) return queueTopUp(ws, table, seat.player, msg.amount, msg.idempotencyKey);
+      if (toInt(msg.amount) === 0) return;
       const amount = toInt(msg.amount, { min: 1 });
-      const stackAfter = seat.player.stack + (amount || 0);
-      if (amount === null || stackAfter < table.cfg.min_buyin || stackAfter > table.cfg.max_buyin) {
+      const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
+      if (!u || (amount !== null && u.balance < amount)) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
+      // F14 limits: up to the table maximum; at least the table minimum, or all the wallet holds.
+      const limits = addChipsLimits({ stack: seat.player.stack, minBuyin: table.cfg.min_buyin, maxBuyin: table.cfg.max_buyin, balance: u.balance });
+      if (amount === null || amount < limits.min || amount > limits.max) {
         return ws.send(JSON.stringify({ type: 'error', error: 'Top-up must bring your stack within the table buy-in limits' }));
       }
-      const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
-      if (!u || u.balance < amount) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
       if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
       const sessionId = seat.player.sessionId;
       const rebuyNo = (seat.player.rebuyCount || 0) + 1;
@@ -3091,6 +3156,21 @@ wss.on('connection', (ws, req) => {
       seat.player.stack += amount;
       // Reloading clears the bust prompt; the deal can resume sooner.
       table.clearRebuyHold(ws.userId);
+      broadcastState(table);
+      return;
+    }
+    if (msg.type === 'cancel_topup' || msg.type === 'remove_chips') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const table = entry.table;
+      const seat = table.seatOf(ws.userId);
+      if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'not seated' }));
+      if (table.tournament || table.spin || !seat.player.sessionId) return ws.send(JSON.stringify({ type: 'error', error: 'Chips cannot change here' }));
+      const ledger = seatLedger(table, seat.player);
+      const res = msg.type === 'cancel_topup'
+        ? cancelPendingTopUp({ player: seat.player, ledger })
+        : removeChips({ table, player: seat.player, amount: toInt(msg.amount), key: typeof msg.key === 'string' ? msg.key : null, ledger });
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
       broadcastState(table);
       return;
     }
