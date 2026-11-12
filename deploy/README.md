@@ -1,168 +1,154 @@
-# DanGG.ro production deployment
+# Production deployment (Dexter)
 
-This directory is the VM-ready deployment for the existing Node/SQLite game
-server. It is intentionally separate from the Mac-local Electron shell.
+This directory contains the production stack for the play-money room at
+**https://dangg.live**. It is separate from the Mac-local desktop shell; the same
+repository builds both.
 
 ## Current live deployment
 
-Play-money site: **https://dangg.live**  
-Admin: private SSH tunnel only (`ssh -N -L 5198:127.0.0.1:5198 dexter`)  
-Host: Dexter (2 vCPU / 8 GB) — live for testing, not yet the recommended
-100–1,000-player production host. See `DEXTER-STAGING.md` and `DNS.md`.
+| | |
+|---|---|
+| Site | https://dangg.live and https://www.dangg.live |
+| Host | Dexter — DigitalOcean FRA1, 2 vCPU / 8 GB, 96 GB disk, `46.101.219.116` |
+| SSH alias | `dexter` (key-based; see `~/.ssh/config` on the Mac) |
+| App path | `/home/Dexter1981/dangro` |
+| Compose project | `dangro` → `dangro-game-1` |
+| Image | `dangro-game:latest` |
+| Port | `127.0.0.1:5198` only (public traffic enters via Traefik) |
+| Database | `dangro_game-data` volume → `/data/ggpoker.db` (SQLite WAL) |
+| Edge | Shared **Traefik v3** on the host, Let's Encrypt, HTTP→HTTPS |
+| Docker network | `crawdbot-worker_default` (external) |
+| Admin | Loopback + SSH tunnel only; no public admin hostname |
+| Demo accounts | Disabled (`GGPOKER_SEED_DEMO=0`, `NODE_ENV=production`) |
 
-## Fleet assessment (2026-11-11)
+Related runbooks:
 
-Existing DigitalOcean droplets reachable over Tailscale:
+- [`ALWAYS-ON.md`](ALWAYS-ON.md) — restart policy, watchdog, backups, uptime checks.
+- [`DNS.md`](DNS.md) — DNS records, TLS and Traefik routing.
+- [`MONITORING.md`](MONITORING.md) — monitoring checklist and incident rules.
+- [`SCALE-PLAN.md`](SCALE-PLAN.md) — capacity planning beyond one SQLite writer.
+- [`DEXTER-STAGING.md`](DEXTER-STAGING.md) — host-specific notes.
 
-| Host | CPU / RAM | Disk | Role |
-|---|---|---|---|
-| Dexter | 2 vCPU / 8 GB | 96 GB, ~78% used | fleet gateway, Grafana, Prometheus, Nomad, Postgres/Redis, crawler |
-| Nano | 2 vCPU / 8 GB | 96 GB, ~76% used | NERVIX, n8n/worker, Nginx, Docker, Redis |
+> Dexter also runs peer services (Grafana, Prometheus, Nomad, Postgres/Redis,
+> Traefik). Never restart or reconfigure those as part of a DanGG deploy; the
+> disk is the main shared constraint (~18–22 GB free).
 
-They are **not suitable as the production poker host**:
+## How the host is laid out
 
-- both are already running peer production services;
-- both have only ~22–24 GB free;
-- 2 vCPU / 8 GB is not enough headroom for 100–1,000 concurrent players,
-  tournament workers and WebSocket traffic;
-- putting a public game server next to the fleet increases blast radius and makes
-  upgrades/restarts unsafe.
+The host copy is **not a git checkout** — it is a file copy of the repository.
+Deploys copy changed source files from the Mac and rebuild the image:
 
-Recommended dedicated host for the first production phase:
-
-- **DigitalOcean Frankfurt (FRA1)**, 8 vCPU / 16 GB / 160 GB SSD, dedicated CPU
-  if the budget allows;
-- private VPC, DO Cloud Firewall allowing only 22 (restricted), 80 and 443;
-- Caddy on the host for TLS;
-- Docker Compose for the game + Caddy;
-- optional managed PostgreSQL + Redis at the next scale step.
-
-A 4 vCPU / 8 GB host is adequate for staging and an early play-money launch.
-For a real 1,000-concurrent target, move the database to managed PostgreSQL and
-use Redis for sessions/queues/leader election; do not run 1,000 players on one
-SQLite writer.
-
-## DNS state
-
-`dangg.live` is registered at **Namecheap** and currently parked:
-
-```text
-NS   dns1.registrar-servers.com / dns2.registrar-servers.com
-A    dangg.live -> 162.255.119.244 (parking page)
-MX   eforward*.registrar-servers.com
-SPF  v=spf1 include:spf.efwd.registrar-servers.com ~all
+```
+~/dangro/
+  app/            source (src/, server/, public/, package.json, pnpm-lock.yaml)
+  deploy/         compose.yml, .env, backup.sh, keepalive.sh, docs
+  backups/        nightly SQLite snapshots (also pulled by Nano)
 ```
 
-Once the VM has a public IPv4, replace only the parking A record:
+The official extracted assets (`app/public/assets/*`) are intentionally gitignored.
+They must exist on the host for the real table art; otherwise the build falls back to
+CSS/brand placeholders.
 
-```text
-A  dangg.live         <VM public IPv4>   TTL 300
-CNAME www            dangg.live.         TTL 300
-```
+## Deploying a change
 
-`admin.dangg.live` is intentionally **not** exposed. Admin access uses an SSH
-tunnel from the Mac Studio to the loopback-only game port.
-
-Do not remove the MX/SPF records unless the domain's email is being retired.
-Caddy obtains certificates automatically once DNS resolves.
-
-## DigitalOcean access blocker
-
-`doctl` is installed, but its current context returns **401 Unauthorized** for
-both droplet listing and account lookup. A DigitalOcean API token with
-`droplet:read` and `droplet:create` (or an existing SSH-reachable new VM) is
-required before a new host can be provisioned.
-
-## Deploy
-
-On the new Ubuntu VM:
+From the Mac, with `main` up to date:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl git
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker "$USER"
-# log out/in, then:
-git clone <repo> dangro
-cd dangro/deploy
-cp .env.example .env
-# edit DOMAIN, GGPOKER_ADMIN_ALLOW and GGPOKER_ADMIN_PASSWORD
-# production refuses to seed with a password shorter than 16 characters
-# The official extracted assets are intentionally gitignored.
-# From the Mac Studio, copy them to the VM before building:
-#   rsync -az app/public/ root@<VM_IP>:/opt/dangro/app/public/
-docker compose up -d --build
-docker compose ps
+# 0) optional but recommended: tag the running image for rollback
+ssh dexter 'cd ~/dangro/deploy && docker tag dangro-game:latest dangro-game:rollback-$(date +%Y%m%d-%H%M)'
+
+# 1) copy the changed files (no git on the host; rsync or ssh cat)
+cd app
+for f in src/pages/Login.tsx src/styles.css …; do
+  ssh dexter "cat > ~/dangro/app/$f" < "$f"
+done
+
+# 2) rebuild and recreate (build first — the old container keeps serving if it fails)
+ssh dexter 'cd ~/dangro/deploy && docker compose build game && docker compose up -d game'
+
+# 3) verify
 curl -fsS https://dangg.live/healthz
-curl -fsS https://dangg.live/api/lobby
+curl -fsS https://dangg.live/api/lobby | head -c 200
+ssh dexter 'cd ~/dangro/deploy && docker compose ps'
 ```
 
-The game container is only exposed on loopback for the SSH admin tunnel. Caddy
-owns 80/443. Do not publish `5198` publicly.
+Deployment takes seconds of downtime after a successful build. The service worker
+serves navigation network-first, so browsers and installed apps pick up the new
+bundle on the next launch/reload; hashed assets are immutable.
 
-The official card/table/audio assets are not in git. If the VM is built from a
-fresh clone, sync `app/public/` from the Mac before `docker compose build`;
-otherwise the app falls back to CSS/brand placeholders.
+If a deploy introduces new static files under `app/public/`, copy them before the
+build. Do not copy `node_modules`, `dist`, or `server/data` from the Mac.
 
-## Mac Studio admin — private SSH tunnel
-
-Admin is not published on a public hostname. From the Mac Studio:
+## Rollback
 
 ```bash
-ssh -N -L 5198:127.0.0.1:5198 root@<VM_PUBLIC_IP>
+ssh dexter 'cd ~/dangro/deploy && \
+  docker tag dangro-game:rollback-<stamp> dangro-game:latest && \
+  docker compose up -d game'
 ```
 
-Leave that running, then open:
-
-```text
-http://127.0.0.1:5198
-```
-
-The server sees a localhost request, so the admin allowlist admits it; public
-players cannot reach the loopback port. The admin account is `admin` with the
-`GGPOKER_ADMIN_PASSWORD` set in `deploy/.env`.
-
-The player site is `https://dangg.live`.
-
-If you later want a Tailscale-hosted admin URL, add Tailscale Serve on the VM
-and keep the loopback port private. Do not add a public `admin.dangg.live`
-record.
-
-## Desktop client in remote mode
-
-The signed Electron app can use the VM instead of spawning a local server:
-
-```bash
-GGPOKER_SERVER_URL=https://dangg.live \
-  "$HOME/Applications/DanGG.ro.app/Contents/MacOS/GGPokerClone"
-```
-
-For a packaged app launched from Finder, create a small wrapper or launchd agent
-that sets `GGPOKER_SERVER_URL=https://dangg.live`. In remote mode the Electron
-process does not start or own a local game server and its CSP is limited to the
-configured HTTPS/WSS origin.
-
-The Mac Studio admin should use the SSH tunnel above; there is no public admin hostname.
+Alternatively restore the latest verified SQLite backup into the volume. Keep the
+failed database for analysis before overwriting it.
 
 ## Backups
 
-The SQLite volume is `game-data`. Take a consistent backup before upgrades:
+Nightly (04:15 UTC) via `backup.sh` using SQLite `VACUUM INTO`, 14-day retention on
+Dexter; Nano pulls the snapshots at 05:00 UTC with 30-day retention. Manual snapshot
+before an upgrade:
 
 ```bash
-mkdir -p backups
-docker compose exec -T game node --input-type=module \
-  -e "import { DatabaseSync } from 'node:sqlite'; const db = new DatabaseSync('/data/ggpoker.db'); db.exec(\"VACUUM INTO '/data/backup-$(date +%Y%m%d-%H%M%S).db'\"); db.close();"
-docker compose cp game:/data/backup-$(date +%Y%m%d-%H%M%S).db backups/
+cd ~/dangro/deploy
+docker compose exec -T game node --input-type=module -e "import { DatabaseSync } from 'node:sqlite'; const db = new DatabaseSync('/data/ggpoker.db'); db.exec(\"VACUUM INTO '/data/backup-$(date +%Y%m%d-%H%M%S).db'\"); db.close();"
+docker compose cp game:/data/backup-YYYYmmdd-HHMMSS.db backups/
 ```
 
-Also enable DigitalOcean weekly volume snapshots and copy backups off the VM.
+## Admin access
+
+There is no public admin hostname. From the Mac:
+
+```bash
+ssh -N -L 5198:127.0.0.1:5198 dexter
+# then open http://127.0.0.1:5198 and log in as admin
+```
+
+The server sees a loopback request, which the `GGPOKER_ADMIN_ALLOW` allowlist admits.
+The admin password is `GGPOKER_ADMIN_PASSWORD` in `deploy/.env` (≥16 characters).
+Do not add an `admin.dangg.live` DNS record.
+
+## Environment (`deploy/.env`)
+
+| Key | Purpose |
+|---|---|
+| `DOMAIN` | Public domain used by the edge (`dangg.live`) |
+| `GGPOKER_PUBLIC_ORIGIN` | Allowed public origin (`https://dangg.live`) |
+| `GGPOKER_ALLOWED_HOSTS` | Additional host allowlist entries |
+| `GGPOKER_TRUST_PROXY` | Trust proxy headers from Traefik |
+| `GGPOKER_ADMIN_ALLOW` | CIDR allowlist for admin endpoints |
+| `GGPOKER_ADMIN_PASSWORD` | Admin password (required, ≥16 chars) |
+| `GGPOKER_SEED_DEMO` | `0` in production (no demo/guest accounts) |
+| `NODE_ENV` | `production` |
+| `PORT` | `5198` |
+| `GGPOKER_BIND` | Bind address inside the container |
+
+Keep `.env` out of git. Rotate the admin password and the DigitalOcean API token after
+any provisioning work.
+
+## Desktop client in remote mode
+
+The signed desktop app can use the live server instead of starting a local one:
+
+```bash
+GGPOKER_SERVER_URL=https://dangg.live \
+  "$HOME/Applications/DanGG.app/Contents/MacOS/GGPokerClone"
+```
+
+In remote mode the Electron shell does not spawn a local server and its CSP is limited
+to the configured HTTPS/WSS origin. Admin should still use the tunnel.
 
 ## Security notes
 
-- Keep `deploy/.env` out of git.
-- Keep admin on the loopback SSH tunnel; never expose `/api/admin` publicly.
-- Use DO Cloud Firewall, not only UFW, because Docker publishes ports outside
-  UFW.
-- Rotate the DigitalOcean API token after provisioning.
-- Play-money only for this phase. Selling chips for real money requires payment
-  integration, terms, age/geolocation checks and legal review before launch.
+- Keep admin on the loopback SSH tunnel; never publish `/api/admin`.
+- Use the DigitalOcean Cloud Firewall as well as UFW — Docker publishes ports outside
+  UFW's default rules.
+- Play money only for this phase. Selling chips for real money requires payment
+  integration, terms, age/geolocation checks and legal review first.
