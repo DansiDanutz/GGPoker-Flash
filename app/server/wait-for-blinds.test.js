@@ -73,3 +73,31 @@ test('the sit-out countdown runs twice as fast while players wait for a seat', (
   assert.equal(P(t, 1).kickOutAt, 20_000 + (SIT_OUT_KICK_MS - 30_000));
   assert.deepEqual(t.expiredSitOuts(20_000 + SIT_OUT_KICK_MS - 30_000), ['p1']);
 });
+
+test('waiting players on alternating seats come back within an orbit (Codex review #59)', () => {
+  const t = table(4);
+  for (const i of [1, 3]) { P(t, i).sittingOut = true; }
+  t.button = 3; t.startHand();
+  endHand(t);
+  for (const id of ['p1', 'p3']) { t.setWaitForBlinds(id, true); t.requestSitOut(id, false); }
+  let back = false;
+  for (let h = 0; h < 6 && !back; h++) {
+    t.startHand();
+    back = P(t, 1).inHand || P(t, 3).inHand;
+    endHand(t);
+  }
+  assert.ok(back, 'a waiting player is dealt back in instead of waiting forever');
+});
+
+test('Post now restarts an idle table (Codex review #59)', () => {
+  const t = new PokerTable({ id: 'wb2', name: 'Wb2', game: 'holdem', sb: 1, bb: 2, seats: 2, min_buyin: 10, max_buyin: 1000 });
+  for (let i = 0; i < 2; i++) {
+    t.seats[i].player = { id: 'q' + i, nick: 'Q' + i, stack: 100, isBot: false, sittingOut: false, inHand: false, cards: [], bet: 0, totalBet: 0 };
+  }
+  t.street = 'idle';
+  const q1 = t.seats[1].player;
+  Object.assign(q1, { missedBlinds: true, waitForBlinds: true });
+  assert.equal(t.readySeats().length, 1, 'the waiting player is not ready');
+  t.setWaitForBlinds('q1', false);
+  assert.equal(t.street, 'preflop', 'Post now deals the next hand');
+});
