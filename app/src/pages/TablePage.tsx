@@ -167,6 +167,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [rebuyAmount, setRebuyAmount] = useState(0);
   const [rebuyOffer, setRebuyOffer] = useState<{ min: number; max: number; until: number } | null>(null);
+  // Add Chips idempotency: a fresh key each time the dialog opens, reused by any resend.
+  const rebuyKey = useRef('');
+  useEffect(() => { if (rebuyOpen) rebuyKey.current = crypto.randomUUID(); }, [rebuyOpen]);
   const [notes, setNotes] = useState<Record<string, { note: string; color: string }>>({});
   const [noteTarget, setNoteTarget] = useState<PlayerState | null>(null);
   const [playerProfile, setPlayerProfile] = useState<any>(null);
@@ -775,7 +778,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const doRebuy = () => {
-    send({ type: 'rebuy', amount: rebuyAmount });
+    // One key per dialog submission: a resent message cannot debit the wallet twice.
+    send({ type: 'rebuy', amount: rebuyAmount, idempotencyKey: rebuyKey.current || crypto.randomUUID() });
     setRebuyOpen(false);
     setRebuyOffer(null);
     sound.play('coin');
@@ -974,7 +978,8 @@ export function TablePage({ tableId }: { tableId: string }) {
     const amount = autoTopUpAmount({ stack: me.stack || 0, trigger, target, min, max });
     if (amount > 0 && !autoRebuyPending.current) {
       autoRebuyPending.current = true;
-      send({ type: 'rebuy', amount });
+      // One automatic top-up per hand: a resend for the same hand is the same request.
+      send({ type: 'rebuy', amount, idempotencyKey: `auto-${state.handNo ?? 0}-${amount}` });
     }
   }, [autoRebuy, autoTopup, topupTrigger, topupTarget, me?.stack, me?.inHand, state?.street, state?.handNo, state?.minBuyin, state?.maxBuyin, state?.bb]);
 
@@ -993,7 +998,11 @@ export function TablePage({ tableId }: { tableId: string }) {
     try {
       await fetch('/api/notes', {
         method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ target: noteTarget.nick, note: noteText, color: noteColor }),
+        // The server stores the note by account id (bots by nick); the nick is the fallback.
+        body: JSON.stringify({
+          target: noteTarget.nick, targetId: noteTarget.isBot ? undefined : noteTarget.id, tableId,
+          note: noteText, color: noteColor,
+        }),
       });
       setNotes((prev) => {
         const next = { ...prev };
@@ -1633,7 +1642,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                   </div>
                 </div>
               )}
-              {noteTarget?.nick && user && <OpponentHud tableId={tableId} nick={noteTarget.nick} formatChips={chip} />}
+              {noteTarget?.nick && user && <OpponentHud tableId={tableId} nick={noteTarget.nick} playerId={noteTarget.id} formatChips={chip} />}
               {playerProfile?.stats && (
                 <div className="player-stats-row"><span><b>{playerProfile.stats.played}</b> hands</span><span><b>{playerProfile.stats.won}</b> wins</span><span><b>{chip(playerProfile.stats.biggest)}</b> biggest</span></div>
               )}
