@@ -33,6 +33,7 @@ import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
+import { NATIVE_TABLE_WIDTH, PAYOUT_EASING, PAYOUT_FADE_MS, PAYOUT_HOLD_MS, PAYOUT_STOP_PX, PAYOUT_TRANSFER_MS, payoutShares, potOffset, stopShort, type PayoutShare } from '../game/payoutMotion';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
 type PlayerState = {
@@ -404,6 +405,34 @@ export function TablePage({ tableId }: { tableId: string }) {
     window.setTimeout(() => chipEl.remove(), COLLECT_MS + 20);
   };
 
+  const awardPot = (share: PayoutShare) => {
+    const el = tableRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const [ox, oy] = potOffset(share.potIndex, r.width);
+    const from: [number, number] = [r.width * 0.5 + ox, r.height * 0.45 + oy];
+    const [sx, sy] = seatPosOf(share.seat);
+    const to = stopShort(from, [(r.width * sx) / 100, (r.height * sy) / 100], PAYOUT_STOP_PX * (r.width / NATIVE_TABLE_WIDTH));
+    const node = document.createElement('div');
+    node.className = 'payout-share';
+    node.style.left = `${from[0]}px`;
+    node.style.top = `${from[1]}px`;
+    const label = document.createElement('span');
+    label.textContent = chip(share.amount);
+    node.appendChild(document.createElement('i'));
+    node.appendChild(label);
+    el.appendChild(node);
+    const total = PAYOUT_TRANSFER_MS + PAYOUT_HOLD_MS + PAYOUT_FADE_MS;
+    const at = `translate(calc(-50% + ${to[0] - from[0]}px), calc(-50% + ${to[1] - from[1]}px))`;
+    node.animate([
+      { transform: 'translate(-50%,-50%)', opacity: 1, easing: PAYOUT_EASING },
+      { transform: at, opacity: 1, offset: PAYOUT_TRANSFER_MS / total },
+      { transform: at, opacity: 1, offset: (PAYOUT_TRANSFER_MS + PAYOUT_HOLD_MS) / total },
+      { transform: at, opacity: 0 },
+    ], { duration: total, fill: 'forwards' });
+    window.setTimeout(() => node.remove(), total + 50);
+  };
+
   const flyChips = (from: [number, number], to: [number, number], count = 3, color = '#d9a83c') => {
     const el = tableRef.current;
     if (!el) return;
@@ -460,13 +489,11 @@ export function TablePage({ tableId }: { tableId: string }) {
         setShowdownReveals(Object.fromEntries(plan.map((r) => [r.seat, r.at])));
         window.setTimeout(() => setShowdownReveals({}), fxAt + 700);
       }
-      for (const w of evt.winners || []) {
-        const pl = s?.players.find((x) => x.id === w.id);
-        if (pl) {
-          const pos = seatPosOf(pl.seat);
-          window.setTimeout(() => flyChips([50, 45], pos, 7), fxAt + 220);
-          window.setTimeout(() => pushStack(pos), fxAt + 160);
-        }
+      // Native per-pot awards: one transfer per pot share from that pot's own position.
+      const withSeats = (evt.winners || []).map((w: any) => ({ ...w, seat: typeof w.seat === 'number' ? w.seat : s?.players.find((x) => x.id === w.id)?.seat }));
+      for (const share of payoutShares(withSeats)) {
+        window.setTimeout(() => awardPot(share), fxAt);
+        window.setTimeout(() => pushStack(seatPosOf(share.seat)), fxAt + PAYOUT_TRANSFER_MS);
       }
       window.setTimeout(() => sound.play('win', { volume: .9 }), fxAt);
       window.setTimeout(() => sound.play('gather', { volume: .6 }), fxAt + 450);
