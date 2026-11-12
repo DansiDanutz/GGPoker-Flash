@@ -479,6 +479,13 @@ body { background: #050706; }
 /* Showdown reveal order and native reserved-action artwork */
 .seat .cards.showdown-reveal .pcard { animation: showdownFlip .3s cubic-bezier(.2, .85, .3, 1.05) both; animation-delay: var(--reveal-delay, 0ms); }
 @keyframes showdownFlip { 0% { transform: rotateY(88deg) scale(.92); opacity: .35; } 100% { transform: none; opacity: 1; } }
+/* Rush Fast Fold: always available before the turn; amber confirm when a check is free. */
+.fast-fold-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 2px 0; }
+.fast-fold-btn { min-width: 150px; transition: transform .12s ease, opacity .2s ease; }
+.fast-fold-btn:active:not(:disabled) { transform: scale(.96); }
+.fast-fold-btn:disabled { opacity: .55; cursor: default; }
+.fast-fold-btn.confirming { background: linear-gradient(180deg, #8a5a12, #5a3a08); }
+.fast-fold-warning { color: #f3c969; font-size: 13px; }
 .reserved-actions { display: flex; gap: 10px; justify-content: center; padding: 2px 0; }
 .reserved-actions button { position: relative; width: 170px; height: 62px; padding: 0; color: #999; background: transparent; border: 16px solid transparent; border-radius: 0; border-image: url('/assets/reserved/native-reserved-background.png') 20 19 19 20 fill / 16px 15px 15px 16px stretch; font: 22px Arial; cursor: pointer; }
 .reserved-actions .reserve-text { position: absolute; left: 12px; top: -2px; width: 146px; height: 32px; line-height: 32px; text-align: center; white-space: nowrap; }

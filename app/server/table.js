@@ -24,6 +24,7 @@ const BOT_NAMES = [
 const MAX_MISSED_TURNS = 2;
 // A cash-table player who busts gets this long to reload before the next deal.
 const REBUY_WINDOW_MS = 10_000;
+const BETTING_STREETS = Object.freeze(['preflop', 'flop', 'turn', 'river']);
 const OMAHA_EQUITY_ITERATIONS = 60;
 
 let handSeq = Date.now() % 100000;
@@ -250,22 +251,30 @@ export class PokerTable {
     return this.street !== 'idle' && this.street !== 'ended';
   }
 
-  stand(playerId) {
+  /**
+   * opts.forfeit (Rush fast-fold departure of a player who already folded): every chip they
+   * bet stays in the pot, as for any fold, and the hand history still records their hand.
+   */
+  stand(playerId, { forfeit = false } = {}) {
     const seat = this.seatOf(playerId);
     if (!seat) return { ok: false };
     const p = seat.player;
     const wasLive = this.handInProgress() && p.inHand;
     const wasActor = this.actor === p.id;
     if (wasLive) {
+      const isForfeit = forfeit && p.folded;
       if (!p.folded) {
         p.folded = true;
         this.log.push({ nick: p.nick, action: 'fold', street: this.street });
       }
       // The part of the leaver's bet that nobody matched goes back with their stack (native
       // splitPots: only matched chips can be won), so nobody has to answer a departed bet.
-      this.returnLeaverExcess(p);
+      if (!isForfeit) this.returnLeaverExcess(p);
       // Keep the departed player's matched chips in the pot instead of losing them with the seat.
-      this.ghosts.push({ id: p.id, nick: p.nick, bet: p.bet, totalBet: p.totalBet, isBot: !!p.isBot });
+      this.ghosts.push({
+        id: p.id, nick: p.nick, bet: p.bet, totalBet: p.totalBet, isBot: !!p.isBot,
+        ...(isForfeit ? { history: { seat: seat.index, stack: p.stack, cards: p.cards } } : {}),
+      });
     }
     seat.player = null;
     this.emit({ type: 'stand', seat: seat.index });
@@ -593,6 +602,8 @@ export class PokerTable {
     }
     this.promoteWaitingBigBlind();
     inHand = this.seats.filter((s) => s.player && s.player.inHand);
+    // Who was dealt this hand, so rewards still reach players who leave it (Rush fast folders).
+    this.dealtIds = inHand.map((s) => s.player.id);
     // empty seats are skipped
     const order = (from, pred = (s) => s.player && s.player.inHand) => {
       const out = [];
@@ -1012,11 +1023,7 @@ export class PokerTable {
     const call = this.toCall(p);
     if (this.aof && action === 'call' && !this.lastAggressor) return { ok: false, error: 'all-in or fold only' };
     if (action === 'fold') {
-      p.folded = true;
-      p.lastAction = { action: 'Fold', amount: 0 };
-      if (this.rush && !p.isBot) p.rushQueued = true;
-      this.log.push({ nick: p.nick, action: 'fold', street: this.street });
-      this.emit({ type: 'action', seat: seat.index, playerId, action: 'fold' });
+      this.markFolded(seat);
     } else if (action === 'check') {
       if (call > 0) return { ok: false, error: 'cannot check' };
       p.lastAction = { action: 'Check', amount: 0 };
@@ -1083,6 +1090,61 @@ export class PokerTable {
     return { ok: true };
   }
 
+  /** Fold the seat's player: logged and announced, and queued for a Rush move. */
+  markFolded(seat) {
+    const p = seat.player;
+    p.folded = true;
+    p.lastAction = { action: 'Fold', amount: 0 };
+    if (this.rush && !p.isBot) p.rushQueued = true;
+    this.log.push({ nick: p.nick, action: 'fold', street: this.street });
+    this.emit({ type: 'action', seat: seat.index, playerId: p.id, action: 'fold' });
+  }
+
+  /**
+   * Rush quick fold (Fast Fold): may this player fold now, before their turn?
+   * Rule from the native-derived Codex replica (engine canQuickFold): a live Rush player with
+   * chips may quick fold when facing a bet, or as the unopened big blind preflop even though
+   * a check is free (`canCheck` lets the client warn). Any other free check uses Check/Fold.
+   */
+  quickFoldState(playerId) {
+    const denied = { allowed: false, canCheck: false };
+    if (!this.rush || this.straddleRound || !BETTING_STREETS.includes(this.street)) return denied;
+    const seat = this.seatOf(playerId);
+    const p = seat?.player;
+    if (!p || !p.inHand || p.folded || p.allIn || p.stack <= 0) return denied;
+    if (this.toCall(p) > 0) return { allowed: true, canCheck: false };
+    const bigBlindOption = this.street === 'preflop' && seat.index === this.bbSeat && !p.acted;
+    return bigBlindOption ? { allowed: true, canCheck: true } : denied;
+  }
+
+  /**
+   * Fold out of turn on a Rush table. Chips already bet stay in the pot; the folder is
+   * skipped when the action comes round. On the player's own turn it is a plain fold.
+   */
+  quickFold(playerId) {
+    if (!this.quickFoldState(playerId).allowed) return { ok: false, error: 'cannot quick fold' };
+    if (this.actor === playerId) return this.act(playerId, 'fold');
+    const seat = this.seatOf(playerId);
+    this.markFolded(seat);
+    this.progress(seat.index, { keepActor: true });
+    return { ok: true };
+  }
+
+  /**
+   * Everyone dealt into the current (or just finished) hand, seated or departed mid-hand,
+   * once each: { id, isBot, totalBet }. A player who sat down after the deal is not included.
+   */
+  handParticipants() {
+    const byId = new Map();
+    for (const g of this.ghosts) byId.set(g.id, { id: g.id, isBot: !!g.isBot, totalBet: g.totalBet });
+    for (const s of this.seats) {
+      const p = s.player;
+      if (p?.inHand) byId.set(p.id, { id: p.id, isBot: !!p.isBot, totalBet: p.totalBet });
+    }
+    const dealt = this.dealtIds || [...byId.keys()];
+    return dealt.filter((id) => byId.has(id)).map((id) => byId.get(id));
+  }
+
   totalBets() {
     return this.seats.reduce((a, s) => a + (s.player ? s.player.bet : 0), 0)
       + this.ghosts.reduce((a, g) => a + g.bet, 0);
@@ -1147,9 +1209,12 @@ export class PokerTable {
       ...this.ghosts.filter((g) => g.totalBet > 0).map((g) => ({ key: g, amount: g.totalBet, folded: true })),
     ];
     const { pots, returns } = buildPots(contributions);
+    // Dead money rule: chips a player folded are never returned, whether the folder is still
+    // seated (a Rush quick fold) or has left; their unmatched layer joins the top pot. Only a
+    // live player's unmatched layer goes back to them.
     for (const r of returns) {
       const p = live.find((x) => x.id === r.key);
-      if (p) { p.stack += r.amount; this.pot -= r.amount; }
+      if (p && (!p.folded || !pots.length)) { p.stack += r.amount; this.pot -= r.amount; }
       else if (pots.length) pots[pots.length - 1].amount += r.amount;
     }
     return pots;
@@ -1161,7 +1226,9 @@ export class PokerTable {
       ...this.seats.filter((s) => s.player).map((s) => ({ player: s.player, bet: s.player.bet })),
       ...this.ghosts.map((g) => ({ player: null, bet: g.bet })),
     ].sort((a, b) => b.bet - a.bet);
-    if (bets.length < 2 || !bets[0].player) return 0;
+    // Dead money rule (see settlementPots): a folded top bet, i.e. a Rush big blind
+    // quick-folded before anyone matched it, is never returned.
+    if (bets.length < 2 || !bets[0].player || bets[0].player.folded) return 0;
     const excess = bets[0].bet - bets[1].bet;
     if (excess <= 0) return 0;
     const p = bets[0].player;
@@ -1505,6 +1572,14 @@ export class PokerTable {
       win: s.player.winAmount, totalBet: s.player.totalBet,
       seat: s.index, isBot: s.player.isBot, showed: !!s.player.reveal || (s.player.shown || []).length > 0,
     }));
+    // Rush fast folders left mid-hand for a new table; the hand they folded is still theirs.
+    for (const g of this.ghosts) {
+      if (!g.history) continue;
+      players.push({
+        id: g.id, nick: g.nick, stack: g.history.stack, cards: g.history.cards.map(cardStr), folded: true, inHand: true,
+        win: 0, totalBet: g.totalBet, seat: g.history.seat, isBot: g.isBot, showed: false,
+      });
+    }
     const hero = this.humans()[0];
     if (this.hooks.onHandSave) {
       this.hooks.onHandSave({
@@ -1846,6 +1921,7 @@ export class PokerTable {
       } : null,
       straddle: this.straddle,
       straddleAsk: this.straddleAskFor(viewerId),
+      quickFold: this.rush && viewerId != null ? this.quickFoldState(viewerId) : null,
       runItTwice: this.runItTwice,
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
       tournament: this.tournament ? {
