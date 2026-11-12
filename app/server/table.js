@@ -504,11 +504,13 @@ export class PokerTable {
       bbSeat = postOrder[1];
     }
 
-    // antes
+    // Antes are dead money: straight into the pot, not part of the live bet to call (native
+    // posts the ante and resets bets before the blinds). totalBet keeps them for side pots.
     if (this.ante > 0) {
       for (const s of inHand) {
-        const amt = Math.min(this.ante, s.player.stack);
-        this.commit(s.player, amt);
+        const amt = this.commit(s.player, this.ante);
+        s.player.bet -= amt;
+        this.pot += amt;
         if (s.player.stack === 0) s.player.allIn = true;
       }
     }
