@@ -6,6 +6,18 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Room-owner boundary extracted
+- `TournamentRoomOwner` now owns the live room map and its lifecycle: creation, restart
+  restore, snapshot scheduling, sweeps, snapshot-all and disposal. `index.js` injects
+  `makeRoom` and the snapshot callbacks, so a future dedicated room-owner process is an
+  implementation change behind this boundary instead of a rewrite of the admin/tournament
+  APIs.
+- Behavior preserved: the crash/restart soak passed **2/2** cycles after the refactor
+  (players, stacks, level and table id restored), and the test server restored its rooms.
+  New unit tests cover ensure/restore, completed events, dispose, snapshot/all, missing
+  rooms and sweep-triggered saves. Full suite 428/428.
+
+## 2026-11-12
 ### Admin blind-level control
 - New audited **`POST /api/admin/tournaments/:id/level`** (body `delta`, 1–20): advances the
   shared blind level between hands. It refuses a room with a hand in progress or a finished
