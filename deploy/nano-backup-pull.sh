@@ -26,6 +26,6 @@ rsync -az \
   "$HOST:$SRC" "$DEST/" || { echo "$(date -Is) FAILED"; exit 1; }
 
 # Keep a month locally; Dexter keeps two weeks.
-find "$DEST" -name 'backup-*.db' -type f -mtime +"$KEEP_DAYS" -delete
+find "$DEST" -name 'backup-*.db*' -type f -mtime +"$KEEP_DAYS" -delete
 
-echo "$(date -Is) ok: $(find "$DEST" -name 'backup-*.db' | wc -l | tr -d ' ') snapshot(s), $(du -sh "$DEST" | cut -f1) total"
+echo "$(date -Is) ok: $(find "$DEST" -name 'backup-*.db*' | wc -l | tr -d ' ') snapshot(s), $(du -sh "$DEST" | cut -f1) total"

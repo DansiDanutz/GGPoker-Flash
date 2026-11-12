@@ -94,15 +94,16 @@ failed database for analysis before overwriting it.
 
 ## Backups
 
-Nightly (04:15 UTC) via `backup.sh` using SQLite `VACUUM INTO`, 14-day retention on
-Dexter; Nano pulls the snapshots at 05:00 UTC with 30-day retention. Manual snapshot
-before an upgrade:
+Nightly (04:15 UTC) via `backup.sh` using SQLite `VACUUM INTO`, encrypted to
+`backup-recipient.pem` (`backups/backup-<stamp>.db.cms`), 14-day retention on Dexter;
+Nano pulls the snapshots at 05:00 UTC with 30-day retention. Manual snapshot before an
+upgrade:
 
 ```bash
-cd ~/dangro/deploy
-docker compose exec -T game node --input-type=module -e "import { DatabaseSync } from 'node:sqlite'; const db = new DatabaseSync('/data/ggpoker.db'); db.exec(\"VACUUM INTO '/data/backup-$(date +%Y%m%d-%H%M%S).db'\"); db.close();"
-docker compose cp game:/data/backup-YYYYmmdd-HHMMSS.db backups/
+ssh dexter 'cd ~/dangro/deploy && ./backup.sh'
 ```
+
+Decrypt on the Mac with `tools/backup-decrypt.sh <file>.db.cms` (see `ALWAYS-ON.md`).
 
 ## Admin access
 
