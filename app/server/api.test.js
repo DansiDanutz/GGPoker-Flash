@@ -4,7 +4,7 @@ import http from 'node:http';
 import { startServer, sleep, nextSseEvent } from './test-helpers.js';
 import { handForViewer } from './hand-history.js';
 import { isLocalHost, isLocalOrigin, resolveInside, createRateLimiter } from './security.js';
-import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey } from './validate.js';
+import { toInt, cleanNick, cleanGrantReason, parseTableConfig, parseTableId, parseGroupKey } from './validate.js';
 
 const TABLE = 'nlh-bronze-01';
 const MIN_BUYIN = 2000;
@@ -119,7 +119,7 @@ test('admin money actions reject non-numeric and overdraft amounts', async () =>
   assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: 'lots' } })).status, 400);
   assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: -1e11 } })).status, 400);
   assert.equal((await srv.post(route, { token: admin, body: { action: 'set', balance: 'NaN' } })).status, 400);
-  assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: 500 } })).status, 200);
+  assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: 500, reason: 'Test credit' } })).status, 200);
   assert.equal((await srv.post('/api/admin/tables', { token: admin, body: { name: 'Bad', seats: 40 } })).status, 400);
   assert.equal((await srv.post('/api/admin/tables', { token: admin, body: { name: 'Bad', sb: 500, bb: 100 } })).status, 400);
   assert.equal((await srv.post('/api/admin/tables', { token: admin, body: { name: 'Good', game: 'omaha', sb: 50, bb: 100, min_buyin: 2000, max_buyin: 10000, seats: 6 } })).status, 200);
@@ -361,4 +361,35 @@ test('wait-list route params are validated', () => {
   for (const bad of ['holdem:200/100:6', 'holdem:1/2:1', 'holdem:1/2:10', 'HOLDEM:1/2:6', 'holdem:0/2:6', 'holdem-1-2-6', '%zz']) {
     assert.equal(parseGroupKey(bad), null, bad);
   }
+});
+
+test('owner grants require a 3-200 character reason, stored in the memo and the audit row', async () => {
+  const me = (await srv.get('/api/me', { token: player })).data.user;
+  const route = `/api/admin/users/${me.id}`;
+  const before = await srv.balance(player);
+  for (const reason of [undefined, '', '  ab  ', 'x'.repeat(201)]) {
+    const res = await srv.post(route, { token: admin, body: { action: 'credit', amount: 700, reason } });
+    assert.equal(res.status, 400, `reason ${JSON.stringify(reason)} is refused`);
+    assert.match(res.data.error, /reason/i);
+  }
+  assert.equal(await srv.balance(player), before, 'a refused grant moves no money');
+  const reference = `grant-reason-${Date.now()}`;
+  const body = { action: 'credit', amount: 700, reason: '  Tournament   payout fix  ', reference };
+  assert.equal((await srv.post(route, { token: admin, body })).status, 200);
+  const retry = await srv.post(route, { token: admin, body });
+  assert.equal(retry.data.replayed, true, 'a retry with the same dialog key is not applied twice');
+  assert.equal(await srv.balance(player), before + 700);
+  const txn = (await lastTransactions(player)).find((t) => t.kind === 'admin' && t.amount === 700);
+  assert.match(txn.memo, /Tournament payout fix$/);
+  const audit = (await srv.get('/api/admin/audit?action=credit', { token: admin })).data.log;
+  assert.ok(audit.some((r) => r.detail === `user ${me.id} 700: Tournament payout fix`));
+});
+
+test('grant reasons are trimmed, collapsed and bounded', () => {
+  assert.equal(cleanGrantReason('  a  b c '), 'a b c');
+  assert.equal(cleanGrantReason('ab'), null);
+  assert.equal(cleanGrantReason(42), null);
+  assert.equal(cleanGrantReason('x'.repeat(200)), 'x'.repeat(200));
+  assert.equal(cleanGrantReason('x'.repeat(201)), null);
+  assert.equal(cleanGrantReason('line\nbreak'), 'line break');
 });
