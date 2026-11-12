@@ -6,6 +6,20 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Recovery staleness alert and automated restart soak
+- The Platform report now flags a running room with players as **stale** when its last
+  settled-hand snapshot is older than five minutes (or missing): `snapshotAgeMs`/`stale`
+  per room, `tournaments.stale` in the summary, a red “stale” marker in the Recovery column
+  and a warning banner. Empty rooms are not flagged.
+- `tools/tournament-soak.mjs` is an automated crash/restart soak: it starts disposable
+  servers on random ports with temp databases, creates a two-player event, waits for a
+  settled snapshot, `SIGKILL`s it, restarts on the same data and asserts the room, players,
+  level and original table id. Two cycles passed locally (players 9,900/10,100, 382-byte
+  snapshot, `restoredAt` set, same `tourney-soak-*` table); documented in
+  `deploy/ALWAYS-ON.md`.
+- Tests: staleness unit test (fresh/old/missing snapshot, empty room). Full suite 413/413.
+
+## 2026-11-12
 ### Disk pressure: admin visibility and weekly cleanup
 - The Platform report now includes the filesystem backing the container (`disk`:
   total/free bytes and used %); the admin shows a **Disk free** stat and a `Server → Disk`

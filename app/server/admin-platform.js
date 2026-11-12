@@ -10,6 +10,23 @@ export function levelBlinds(tournament = {}, level = 1) {
   return { sb: Math.round(baseSb * factor), bb: Math.round(baseBb * factor) };
 }
 
+export const SNAPSHOT_STALE_MS = 5 * 60_000;
+
+/** Age of a tourney_state snapshot in ms; null when the timestamp is missing/invalid. */
+export function snapshotAgeMs(snapshot, now = Date.now()) {
+  if (!snapshot?.at) return null;
+  const text = String(snapshot.at);
+  const at = Date.parse(text.includes('T') ? text : `${text.replace(' ', 'T')}Z`);
+  return Number.isFinite(at) ? Math.max(0, now - at) : null;
+}
+
+/** A room with players but no recent settled-hand snapshot is at risk after a crash. */
+export function recoveryHealth(room, snapshot, now = Date.now()) {
+  const age = snapshotAgeMs(snapshot, now);
+  const stale = (Number(room?.playersLeft) || 0) > 0 && (age == null || age > SNAPSHOT_STALE_MS);
+  return { snapshotAgeMs: age, stale };
+}
+
 /**
  * A read-only summary of one live TournamentRoom. `now` is explicit so the
  * next level countdown is testable.
@@ -29,7 +46,7 @@ export function tournamentRoomSummary(room, now = Date.now(), snapshot = null) {
   try { flights = typeof room.flightState === 'function' ? room.flightState() : []; } catch { /* closed room */ }
   let stats = {};
   try { stats = typeof room.stats === 'function' ? room.stats() : {}; } catch { /* closed room */ }
-  return {
+  const summary = {
     id: room.id,
     name: tournament.name || room.id,
     mode: tournament.mode || null,
@@ -55,6 +72,7 @@ export function tournamentRoomSummary(room, now = Date.now(), snapshot = null) {
       inHand: Array.isArray(flight.players) ? flight.players.filter((p) => p.inHand).length : 0,
     })),
   };
+  return { ...summary, ...recoveryHealth(summary, snapshot, now) };
 }
 
 function statSize(file) {
@@ -168,6 +186,7 @@ export function buildPlatformReport({
     tournaments: {
       rooms: rooms.length,
       snapshots: snapshots.size,
+      stale: rooms.filter((room) => room.stale).length,
       playersLeft: rooms.reduce((sum, r) => sum + (r.playersLeft || 0), 0),
       tables: rooms.reduce((sum, r) => sum + (r.tables || 0), 0),
       items: rooms,
