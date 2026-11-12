@@ -88,10 +88,11 @@ test('the last standing player wins across flights and the event closes', () => 
   table.handNo = 1;
   bust(table, 'p2');
 
-  assert.deepEqual(calls.busts.map((b) => [b.place, b.payout]), [[2, 3000]]);
+  // DanGG rule, two-player band: 62.5% / 37.5%, the whole pool paid out.
+  assert.deepEqual(calls.busts.map((b) => [b.place, b.payout]), [[2, 3750]]);
   assert.equal(room.winner.id, 'p1');
   assert.equal(calls.winners.length, 1);
-  assert.equal(calls.winners[0].prize, 5000);
+  assert.equal(calls.winners[0].prize, 6250);
 });
 
 test('a balancing move carries the stack to the real target table', () => {

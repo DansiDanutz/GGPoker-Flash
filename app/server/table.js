@@ -1,6 +1,7 @@
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
+import { payoutFor, payoutTable } from './tournament.js';
 
 const BOT_NAMES = [
   'SpewySally', 'NitWizard', 'CallStation', 'RiverRat', 'TiltLord', 'GTOBOT', 'BluffKing',
@@ -287,13 +288,29 @@ export class PokerTable {
       if (this.hooks.onTournamentEnd) this.hooks.onTournamentEnd(this, this.tournament.winner);
       return;
     }
-    const prize = Math.round((this.tournament.prizePool || 0) * 0.5);
+    const prize = payoutFor(this.tournamentPayouts(this.tournamentField()), 1);
     w.player.stack += prize;
     this.tournament.winner = { nick: w.player.nick, id: w.player.id, prize };
     this.emit({ type: 'tourney_win', nick: w.player.nick, id: w.player.id, prize, tableName: this.cfg.name });
     this.street = 'ended';
     this.nextHandAt = 0;
     if (this.hooks.onTournamentEnd) this.hooks.onTournamentEnd(this, this.tournament.winner);
+  }
+
+  /** Single-table field size: everyone seated plus everyone already out. */
+  tournamentField() {
+    return Math.max(Number(this.tournament?.entrants) || 0, this.occupiedSeats().length + this.finished.length);
+  }
+
+  /**
+   * Paid places for this event (DanGG rule, tournament.js). A multi-table room
+   * publishes the field-wide table on `tournament.payouts`; a single table
+   * derives it from its own field.
+   */
+  tournamentPayouts(field = this.tournamentField()) {
+    if (!this.tournament) return [];
+    if (this.tournament.managed && Array.isArray(this.tournament.payouts)) return this.tournament.payouts;
+    return payoutTable(field, this.tournament.prizePool, { mode: this.tournament.mode, ticket: this.tournament.ticket });
   }
 
   startHand() {
@@ -1111,6 +1128,8 @@ export class PokerTable {
         }
         if (this.elimination) {
           const aliveCount = this.occupiedSeats().filter((x) => x.player && x.player.stack > 0).length;
+          // Busted seats are cleared inside the loop, so size the field first.
+          const field = this.tournamentField();
           let batch = 0;
           for (const s of [...this.seats]) {
             if (s.player && s.player.stack <= 0) {
@@ -1121,9 +1140,7 @@ export class PokerTable {
                 const alive = aliveCount;
                 const place = alive + 1 + batch;
                 batch++;
-                const pool = this.tournament.prizePool || 0;
-                const pct = place === 2 ? 0.3 : place === 3 ? 0.2 : 0;
-                const payout = Math.round(pool * pct);
+                const payout = payoutFor(this.tournamentPayouts(field), place);
                 this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
                 if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
               }
@@ -1336,6 +1353,7 @@ export class PokerTable {
         tableIndex: Number(this.cfg.flightIndex) || 1,
         tables: Number(this.cfg.flightCount) || 1,
         playersLeft: this.tournament.playersLeft ?? null,
+        payouts: this.tournamentPayouts(),
       } : null,
     };
   }

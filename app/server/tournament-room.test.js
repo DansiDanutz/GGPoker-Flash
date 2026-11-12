@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TournamentRoom, MAX_FLIGHTS, payoutFor } from './tournament-room.js';
+import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
+import { payoutTable } from './tournament.js';
 import { PokerTable } from './table.js';
 
 // A fake PokerTable with just the surface the room uses. Bots are only added
@@ -181,12 +182,7 @@ test('players busting in the same hand still get distinct places', () => {
   assert.equal(room.finished.length, 2);
 });
 
-test('payouts follow the place: 30% for second, 20% for third, 50% for the win', () => {
-  assert.equal(payoutFor(10000, 1), 5000);
-  assert.equal(payoutFor(10000, 2), 3000);
-  assert.equal(payoutFor(10000, 3), 2000);
-  assert.equal(payoutFor(10000, 4), 0);
-
+test('a bust is recorded once with its field-wide place', () => {
   const { room, tables } = harness();
   for (let i = 1; i <= 3; i += 1) room.seat(player(i), { stack: 1000 });
   const table = tables.get('tourney-t1');
@@ -194,6 +190,48 @@ test('payouts follow the place: 30% for second, 20% for third, 50% for the win',
   table.seatOf('p3').player.stack = 0;
   assert.equal(room.onBust('tourney-t1', player(3)).place, 3);
   assert.equal(room.onBust('tourney-t1', player(3)), null, 'a bust is only recorded once');
+});
+
+test('20 entrants: every paid place is credited exactly once and the ledger equals the pool', () => {
+  const prizePool = 123457;
+  const { room, tables, calls } = harness({ prizePool });
+  for (let i = 1; i <= 20; i += 1) room.seat(player(i), { stack: 1000 });
+  for (const table of tables.values()) table.handNo = 1;
+
+  // Bust p20 down to p2, one at a time; p1 is the last player standing.
+  for (let i = 20; i >= 2; i -= 1) {
+    const id = `p${i}`;
+    const table = room.tableOf(id);
+    table.seatOf(id).player.stack = 0;
+    room.onBust(table.cfg.id, player(i));
+    table.stand(id);
+  }
+  room.checkWinner();
+
+  const ledger = [
+    ...calls.busts.filter((b) => b.payout > 0).map((b) => ({ place: b.place, amount: b.payout })),
+    ...calls.winners.map((w) => ({ place: w.place, amount: w.prize })),
+  ].sort((a, b) => a.place - b.place);
+  assert.deepEqual(ledger, payoutTable(20, prizePool));
+  assert.deepEqual(ledger.map((row) => row.place), [1, 2, 3], 'each paid place exactly once');
+  assert.equal(ledger.reduce((total, row) => total + row.amount, 0), prizePool);
+  assert.deepEqual(calls.busts.map((b) => b.place), Array.from({ length: 19 }, (_, i) => 20 - i));
+  assert.equal(room.winner.id, 'p1');
+});
+
+test('a satellite room pays the seat as a ticket and no chips down the field', () => {
+  const { room, tables, calls } = harness({ mode: 'SATELLITE' });
+  for (let i = 1; i <= 4; i += 1) room.seat(player(i), { stack: 1000 });
+  tables.get('tourney-t1').handNo = 1;
+  for (let i = 4; i >= 2; i -= 1) {
+    const table = room.tableOf(`p${i}`);
+    table.seatOf(`p${i}`).player.stack = 0;
+    room.onBust(table.cfg.id, player(i));
+    table.stand(`p${i}`);
+  }
+  room.checkWinner();
+  assert.ok(calls.busts.every((b) => b.payout === 0));
+  assert.equal(calls.winners[0].prize, 0);
 });
 
 test('balancing moves a player off the bigger table and tells their client', () => {
@@ -268,10 +306,11 @@ test('the last player standing wins the whole prize pool once play has started',
   room.onBust('tourney-t1', player(2));
   room.sweep();
   assert.equal(room.winner.id, 'p1');
-  assert.equal(room.winner.prize, 5000);
+  // Two entrants: DanGG rule two-player band, 62.5% to the winner.
+  assert.equal(room.winner.prize, 6250);
   assert.equal(calls.winners.length, 1);
   assert.equal(calls.winners[0].playerId, 'p1');
-  assert.equal(calls.winners[0].prize, 5000);
+  assert.equal(calls.winners[0].prize, 6250);
 });
 
 test('a satellite winner gets a ticket instead of a cash prize', () => {

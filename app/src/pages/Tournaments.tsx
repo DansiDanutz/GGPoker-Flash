@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { api, money } from '../lib/api';
+import { api, money, TournamentDetail } from '../lib/api';
+import { bubbleLabel, ordinal, placesPaidLabel, prizeText } from '../lib/tournamentPrizes';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { Countdown, PageShell } from '../components/PageShell';
@@ -21,6 +22,7 @@ export function Tournaments() {
   const [filters, setFilters] = useState<TournamentFilters>(() => readTournamentFilters());
   const [detail, setDetail] = useState<any>(null);
   const [detailTab, setDetailTab] = useState<'overview' | 'structure' | 'prizes'>('overview');
+  const [prizes, setPrizes] = useState<TournamentDetail | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
@@ -106,15 +108,19 @@ export function Tournaments() {
 
   const featured = list.length ? list.reduce((a: any, b: any) => (b.gtd > a.gtd ? b : a), list[0]) : data?.tournaments?.[0];
 
-  const prizeRows = (t: any) => {
-    if (!t) return [];
-    const pool = Math.max(t.gtd, t.entrants * (t.buyin + t.fee));
-    const places = Math.min(36, Math.max(9, Math.round(t.entrants / 12)));
-    const weights: number[] = [];
-    for (let i = 1; i <= places; i++) weights.push(1 / Math.pow(i, 1.25));
-    const tot = weights.reduce((a, b) => a + b, 0);
-    return weights.map((w, i) => ({ place: i + 1, amount: Math.round((pool * w) / tot) }));
-  };
+  // The payout table comes from the server (DanGG rule) so the Prizes tab shows
+  // exactly what settlement will credit.
+  const detailId = detail?.id;
+  useEffect(() => {
+    setPrizes(null);
+    if (!detailId) return;
+    let cancelled = false;
+    api.tournament(detailId)
+      .then((r) => { if (!cancelled) setPrizes(r); })
+      .catch((e) => { if (!cancelled) toast({ kind: 'error', title: 'Prizes', body: e.message }); });
+    return () => { cancelled = true; };
+  }, [detailId]);
+  const bubble = prizes && detail?.status === 'running' ? bubbleLabel(prizes.payouts, prizes.playersLeft) : null;
 
   return (
     <PageShell activeTop="tournaments">
@@ -253,12 +259,24 @@ export function Tournaments() {
                 </table>
               )}
               {detailTab === 'prizes' && (
-                <table className="admin-table">
-                  <thead><tr><th>Place</th><th>Prize</th></tr></thead>
-                  <tbody>
-                    {prizeRows(detail).map((p) => <tr key={p.place}><td>{p.place}</td><td className="gold">{money(p.amount)}</td></tr>)}
-                  </tbody>
-                </table>
+                prizes ? (
+                  <>
+                    <div className="grid g2" style={{ marginBottom: 12 }}>
+                      <div className="kv"><span>Prize pool</span><b className="gold">{money(prizes.prizePool)}</b></div>
+                      <div className="kv"><span>Places paid</span><b>{placesPaidLabel(prizes.payouts)}</b></div>
+                      {prizes.playersLeft != null && <div className="kv"><span>Players left</span><b>{prizes.playersLeft.toLocaleString()}</b></div>}
+                      {bubble && <div className="kv"><span>Bubble</span><b className="gold">{bubble}</b></div>}
+                    </div>
+                    <table className="admin-table">
+                      <thead><tr><th>Place</th><th>Prize</th></tr></thead>
+                      <tbody>
+                        {prizes.payouts.map((p) => (
+                          <tr key={p.place}><td>{ordinal(p.place)}</td><td className="gold">{prizeText(p, (n) => money(n))}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                ) : <p className="muted small">Loading prizes…</p>
               )}
             </div>
             <div className="modal-foot">

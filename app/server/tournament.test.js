@@ -13,6 +13,13 @@ import {
   nextFlightIndex,
   tournamentTableIds,
   flightTableId,
+  DANGG_PAYOUT_BANDS,
+  payoutBand,
+  payoutTable,
+  payoutFor,
+  bubblePlace,
+  prizePoolOf,
+  ordinal,
 } from './tournament.js';
 
 const field = (n, stack = 1000) => Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, stack }));
@@ -174,4 +181,64 @@ test('balancing never moves a player the caller cannot move', () => {
   // Balance-all honours the predicate too.
   const { tables: after } = balanceAll(tables, { canMove: (p) => !p.inHand });
   assert.equal(after.find((t) => t.id === 'a').players.length, 6);
+});
+
+/* ------------------------------ payout table ------------------------------ */
+
+const sum = (rows) => rows.reduce((total, row) => total + row.amount, 0);
+
+test('DanGG rule bands cover every field from 2 players up and sum to 100%', () => {
+  for (const band of DANGG_PAYOUT_BANDS) {
+    assert.equal(band.sharesBp.reduce((a, b) => a + b, 0), 10000);
+  }
+  assert.deepEqual(payoutBand(2).sharesBp, [6250, 3750]);
+  assert.deepEqual(payoutBand(3).sharesBp, [5000, 3000, 2000]);
+  assert.deepEqual(payoutBand(1000).sharesBp, [5000, 3000, 2000]);
+  assert.equal(payoutBand(1), null);
+});
+
+test('payoutTable pays the exact prize pool in whole chips for 2..1000 entrants', () => {
+  const pools = [0, 1, 7, 100, 10000, 123457, 999999];
+  for (let entrants = 2; entrants <= 1000; entrants += 1) {
+    for (const pool of pools) {
+      const rows = payoutTable(entrants, pool);
+      assert.equal(sum(rows), pool, `${entrants} entrants, pool ${pool}`);
+      assert.ok(rows.length <= entrants, 'never more places than the field');
+      rows.forEach((row, index) => {
+        assert.equal(row.place, index + 1);
+        assert.ok(Number.isInteger(row.amount) && row.amount >= 0);
+        if (index > 0) assert.ok(row.amount <= rows[index - 1].amount, `monotonic at ${entrants}/${pool}`);
+      });
+    }
+  }
+});
+
+test('payoutTable keeps 50/30/20 and gives the rounding remainder to 1st', () => {
+  assert.deepEqual(payoutTable(20, 10000), [
+    { place: 1, amount: 5000 }, { place: 2, amount: 3000 }, { place: 3, amount: 2000 },
+  ]);
+  assert.deepEqual(payoutTable(20, 10001).map((r) => r.amount), [5001, 3000, 2000]);
+  assert.deepEqual(payoutTable(2, 10000).map((r) => r.amount), [6250, 3750]);
+  assert.deepEqual(payoutTable(1, 500), [{ place: 1, amount: 500 }], 'a lone entrant takes the pool');
+  assert.deepEqual(payoutTable(5, -40).map((r) => r.amount), [0, 0, 0], 'a negative pool pays nothing');
+});
+
+test('satellites still pay a ticket to 1st and no chips', () => {
+  for (const entrants of [2, 20, 500]) {
+    const rows = payoutTable(entrants, 50000, { mode: 'SATELLITE', ticket: 'Sunday Major $250K' });
+    assert.deepEqual(rows, [{ place: 1, amount: 0, ticket: 'Sunday Major $250K' }]);
+  }
+  assert.equal(payoutTable(9, 100, { mode: 'SATELLITE' })[0].ticket, 'Satellite ticket');
+});
+
+test('payout lookups, bubble, prize pool and ordinals', () => {
+  const rows = payoutTable(20, 10000);
+  assert.equal(payoutFor(rows, 1), 5000);
+  assert.equal(payoutFor(rows, 3), 2000);
+  assert.equal(payoutFor(rows, 4), 0);
+  assert.equal(bubblePlace(rows), 4);
+  assert.equal(prizePoolOf({ gtd: 5000, entrants: 10, buyin: 100, fee: 10 }), 5000);
+  assert.equal(prizePoolOf({ gtd: 0, entrants: 100, buyin: 100, fee: 10 }), 11000);
+  assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111].map(ordinal),
+    ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '101st', '111th']);
 });

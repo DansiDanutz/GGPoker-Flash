@@ -100,7 +100,7 @@ test('tournament winner receives half the prize pool exactly once and fires the 
   let paid = 0;
   let ends = 0;
   const p = player(1, 'Winner', 1000, 0, []);
-  const t = tableWith([p], { seats: 1, tournament: { prizePool: 3000 } });
+  const t = tableWith([p], { seats: 1, tournament: { prizePool: 3000, entrants: 3 } }); // 3+ field: DanGG 50% band
   t.hooks = {
     onTournamentEnd: () => { ends++; paid++; },
     onHandComplete: () => { throw new Error('should not fire'); },

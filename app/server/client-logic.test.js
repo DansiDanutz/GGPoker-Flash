@@ -18,6 +18,10 @@ import {
   activeFilterCount, resetExtraFilters, SEARCH_MAX,
 } from '../src/lib/lobbyFilters.ts';
 
+import {
+  ordinal as prizeOrdinal, prizeText, placesPaidLabel, bubbleLabel, finishToast, finishTitle,
+} from '../src/lib/tournamentPrizes.ts';
+
 const ctx = (over = {}) => ({
   pot: 300, currentBet: 0, minRaise: 100, bb: 100, myBet: 0, myStack: 5000, maxRaiseTo: 0, street: 'flop', ...over,
 });
@@ -543,4 +547,36 @@ test('chat counter shows only in the last 40 characters; sender role marks self'
   assert.equal(senderRole({ userId: 4 }, 4), 'self');
   assert.equal(senderRole({ userId: 4 }, 5), 'other');
   assert.equal(senderRole({ userId: 4 }, null), 'other');
+});
+
+/* ---------------------------- tournament prizes ---------------------------- */
+
+const fmt = (n) => `$${n}`;
+const paid3 = [{ place: 1, amount: 5000 }, { place: 2, amount: 3000 }, { place: 3, amount: 2000 }];
+
+test('prize rows format places, tickets and the places-paid count', () => {
+  assert.deepEqual([1, 2, 3, 4, 11, 21, 112].map(prizeOrdinal), ['1st', '2nd', '3rd', '4th', '11th', '21st', '112th']);
+  assert.equal(prizeText(paid3[1], fmt), '$3000');
+  assert.equal(prizeText({ place: 1, amount: 0, ticket: 'Sunday Major' }, fmt), 'Sunday Major ticket');
+  assert.equal(placesPaidLabel(paid3), '3 places paid');
+  assert.equal(placesPaidLabel([{ place: 1, amount: 0, ticket: 'X' }]), '1 place paid');
+});
+
+test('bubble line: the first unpaid place, then in the money, hidden when unknown or decided', () => {
+  assert.equal(bubbleLabel(paid3, 20), 'Bubble: 4th');
+  assert.equal(bubbleLabel(paid3, 4), 'Bubble: 4th');
+  assert.equal(bubbleLabel(paid3, 3), 'In the money');
+  assert.equal(bubbleLabel(paid3, 1), null);
+  assert.equal(bubbleLabel(paid3, null), null);
+  assert.equal(bubbleLabel([], 10), null);
+  assert.equal(bubbleLabel([{ place: 1, amount: 0, ticket: 'X' }], 9), 'Bubble: 2nd', 'a satellite bubbles at 2nd');
+});
+
+test('finish toast and presentation show the real place and amount', () => {
+  assert.deepEqual(finishToast({ nick: 'Dan', place: 3, payout: 2000 }, fmt), { title: 'Finished 3rd', body: 'Dan wins $2000' });
+  assert.deepEqual(finishToast({ nick: 'Dan', place: 1, prize: 0, ticket: 'Major' }, fmt), { title: 'Finished 1st', body: 'Dan wins Major ticket' });
+  assert.equal(finishTitle(1), 'TOURNAMENT WINNER');
+  assert.equal(finishTitle(undefined), 'TOURNAMENT WINNER');
+  assert.equal(finishTitle(2), 'FINISHED 2ND');
+  assert.equal(finishTitle(3), 'FINISHED 3RD');
 });

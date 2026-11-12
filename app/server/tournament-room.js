@@ -15,17 +15,11 @@ import {
   nextFlightIndex,
   tablesToBreak,
   MIN_TABLE_SIZE,
+  payoutFor,
+  payoutTable,
 } from './tournament.js';
 
 export const MAX_FLIGHTS = 24;
-
-/** Share of the prize pool paid to a finish place (1st, 2nd, 3rd). */
-export const PAYOUT_SHARES = { 1: 0.5, 2: 0.3, 3: 0.2 };
-
-export function payoutFor(prizePool, place) {
-  const share = PAYOUT_SHARES[place] || 0;
-  return share > 0 ? Math.round(Number(prizePool || 0) * share) : 0;
-}
 
 export class TournamentRoom {
   /**
@@ -81,6 +75,17 @@ export class TournamentRoom {
         })) : [],
       };
     });
+  }
+
+  /**
+   * The paid places for this field (DanGG rule, see tournament.js). The field
+   * is the registered entrants, or everyone seated or busted so far if more;
+   * `minField` covers a bust that is not recorded yet.
+   */
+  payouts(minField = 0) {
+    const seen = this.alivePlayers().length + this.finished.length;
+    const field = Math.max(Number(this.tournament.entrants) || 0, seen, minField);
+    return payoutTable(field, this.tournament.prizePool, { mode: this.tournament.mode, ticket: this.tournament.ticket });
   }
 
   /** Field-wide status for the table snapshot and the lobby. */
@@ -246,7 +251,8 @@ export class TournamentRoom {
     // every hook ran, so count the busts already recorded in this batch too.
     const batch = this.finished.filter((record) => this.tableOf(record.id)).length;
     const place = alive + 1 + batch;
-    const payout = payoutFor(this.tournament.prizePool, place);
+    // The busted player is neither alive nor finished yet: count them in.
+    const payout = payoutFor(this.payouts(alive + this.finished.length + 1), place);
     const record = { id: player.id, nick: player.nick, place, payout };
     this.finished.push(record);
     this.ops.persistBust({
@@ -303,7 +309,7 @@ export class TournamentRoom {
     this.winner = {
       id: winner.id,
       nick: winner.nick,
-      prize: this.tournament.mode === 'SATELLITE' ? 0 : payoutFor(this.tournament.prizePool, 1),
+      prize: payoutFor(this.payouts(), 1),
       tableId: winner.tableId,
       place: 1,
     };

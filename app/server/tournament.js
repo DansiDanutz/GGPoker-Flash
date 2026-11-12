@@ -178,3 +178,70 @@ export function flightTableId(tournamentId, index) {
   if (!Number.isInteger(index) || index < 1) throw new Error('index must be a positive integer');
   return tournamentTableIds(tournamentId, index)[index - 1];
 }
+
+/* -------------------------------- payouts -------------------------------- */
+
+/**
+ * DanGG rule — tournament payout bands by field size.
+ *
+ * The native GGPoker payout bands are not captured yet (plan slice T0), so this
+ * keeps DanGG's long-standing 50/30/20 split and expresses it as a field-size
+ * band table. When T0 lands, only this table changes. Shares are in basis
+ * points (1/100 of a percent) so each band sums to exactly 10000.
+ *
+ * - 2 entrants: the 50/30 split for the two places, renormalised (62.5/37.5).
+ * - 3+ entrants: 50/30/20 for the top three.
+ */
+export const DANGG_PAYOUT_BANDS = Object.freeze([
+  Object.freeze({ minEntrants: 2, maxEntrants: 2, sharesBp: Object.freeze([6250, 3750]) }),
+  Object.freeze({ minEntrants: 3, maxEntrants: Infinity, sharesBp: Object.freeze([5000, 3000, 2000]) }),
+]);
+
+const BASIS_POINTS = 10000;
+
+/** The DanGG band that covers a field of `entrants`, or null below two players. */
+export function payoutBand(entrants) {
+  const field = Math.floor(Number(entrants) || 0);
+  return DANGG_PAYOUT_BANDS.find((band) => field >= band.minEntrants && field <= band.maxEntrants) || null;
+}
+
+/**
+ * Every paid place for a field: [{ place, amount, ticket? }], 1st first.
+ *
+ * Amounts are whole chips that sum exactly to the prize pool (the rounding
+ * remainder goes to 1st) and never increase down the table. A satellite pays a
+ * single seat — 1st wins the ticket — and no chips. A field under two players
+ * pays the whole pool to 1st.
+ */
+export function payoutTable(entrants, prizePool, { mode = 'STANDARD', ticket = '' } = {}) {
+  if (mode === 'SATELLITE') return [{ place: 1, amount: 0, ticket: ticket || 'Satellite ticket' }];
+  const pool = Math.max(0, Math.floor(Number(prizePool) || 0));
+  const band = payoutBand(entrants);
+  if (!band) return [{ place: 1, amount: pool }];
+  const amounts = band.sharesBp.map((bp) => Math.floor((pool * bp) / BASIS_POINTS));
+  const remainder = pool - amounts.reduce((sum, amount) => sum + amount, 0);
+  return amounts.map((amount, index) => ({ place: index + 1, amount: index === 0 ? amount + remainder : amount }));
+}
+
+/** The chip amount a place earns from a payout table (0 when unpaid). */
+export function payoutFor(table, place) {
+  return table.find((row) => row.place === place)?.amount || 0;
+}
+
+/** The first unpaid place: the bubble ("Bubble: 4th"). */
+export function bubblePlace(table) {
+  return table.length + 1;
+}
+
+/** The prize pool of a tournament row: the guarantee or the collected buy-ins. */
+export function prizePoolOf(t) {
+  return Math.max(Number(t.gtd) || 0, (Number(t.entrants) || 0) * ((Number(t.buyin) || 0) + (Number(t.fee) || 0)));
+}
+
+/** 1 → "1st", 2 → "2nd", 11 → "11th", 22 → "22nd". */
+export function ordinal(n) {
+  const value = Math.floor(Number(n) || 0);
+  const teen = value % 100;
+  if (teen >= 11 && teen <= 13) return `${value}th`;
+  return `${value}${{ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] || 'th'}`;
+}

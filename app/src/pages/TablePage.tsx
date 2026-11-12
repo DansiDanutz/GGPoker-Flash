@@ -20,6 +20,7 @@ import { SeatReaction } from '../components/table/SeatReaction';
 import { ReportPlayerModal } from '../components/table/ReportPlayerModal';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
+import { bubbleLabel, finishTitle, finishToast, PayoutRow } from '../lib/tournamentPrizes';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -35,7 +36,7 @@ type TableState = {
   timeBankUsed?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
   spin?: { multiplier: number; prize: number; winner: any } | null;
-  tournament?: { id?: string | null; name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null } | null;
+  tournament?: { id?: string | null; name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null; payouts?: PayoutRow[] } | null;
   straddle?: boolean;
   runItTwice?: boolean;
   boards?: string[][] | null;
@@ -427,11 +428,17 @@ export function TablePage({ tableId }: { tableId: string }) {
       toast({ kind: 'reward', title: evt.mystery ? 'Mystery bounty' : 'Bounty', body: `${evt.winnerNick} wins ${money(evt.amount)} (${evt.bustedNick})` });
       sound.play('coin');
     } else if (evt.type === 'tourney_payout') {
-      toast({ kind: 'reward', title: `Finished #${evt.place}`, body: `${evt.nick} wins ${money(evt.payout)}` });
+      toast({ kind: 'reward', ...finishToast(evt, (n) => money(n)) });
       sound.play('coin');
+      // Any paid place gets the finish presentation with its real place and amount.
+      const heroNow = stateRef.current?.players.find((p) => p && !p.empty && p.isMe);
+      if (heroNow && String(evt.id) === String(heroNow.id)) {
+        setTourneyWin({ ...evt, prize: evt.payout, tableName: stateRef.current?.name || '' });
+      }
     } else if (evt.type === 'tourney_win') {
       if (!evt.ticket) setSwfEffect('/assets/swf/win_effect.swf');
-      setTourneyWin(evt);
+      // Keep the hero's own paid-place presentation if it is already showing.
+      setTourneyWin((prev: any) => (prev && prev.place > 1 ? prev : evt));
       sound.play('tournamentWin');
       setTimeout(() => sound.play('fireworks', { volume: .7 }), 600);
     } else if (evt.type === 'rebuy_offer') {
@@ -839,6 +846,13 @@ export function TablePage({ tableId }: { tableId: string }) {
   const reportTarget = chatReport
     ? { id: chatReport.userId, nick: chatReport.nick }
     : noteTarget && playerProfile?.user ? { id: Number(playerProfile.user.id), nick: String(playerProfile.user.nick) } : null;
+  // Bubble line during play: the room's field-wide count, or this table's own field.
+  const tableBubble = state?.tournament && !state.tournament.winner
+    ? bubbleLabel(
+      state.tournament.payouts || [],
+      state.tournament.playersLeft ?? state.players.filter((p) => p && !p.empty && Number(p.stack) > 0).length,
+    )
+    : null;
 
   return (
     <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack} front-${cardFront} room-bg-${roomBg}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
@@ -855,6 +869,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             {state.tournament.playersLeft != null ? ` · ${state.tournament.playersLeft} left` : ''}
           </span>
         )}
+        {tableBubble && <span className="pill" style={{ color: '#ffd98a' }}>{tableBubble}</span>}
         {state?.bombPot && <span className="pill" style={{ color: '#ffd98a' }}>BOMB POT</span>}
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
@@ -1275,8 +1290,8 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {tourneyWin && (
         <div className="spin-overlay win">
-          <div className="spin-title">TOURNAMENT WINNER</div>
-          <div style={{ fontSize: 60, margin: '10px 0' }}>🏆</div>
+          <div className="spin-title">{finishTitle(tourneyWin.place)}</div>
+          <div style={{ fontSize: 60, margin: '10px 0' }}>{!tourneyWin.place || tourneyWin.place === 1 ? '🏆' : '🏅'}</div>
           <div className="spin-prize">{tourneyWin.nick} wins {tourneyWin.ticket ? <b>{tourneyWin.ticket} ticket</b> : <b>{money(tourneyWin.prize)}</b>}</div>
           <div className="spin-sub">{tourneyWin.tableName}</div>
           <button className="btn btn-gold" style={{ marginTop: 18 }} onClick={() => navigate('/')}>Back to lobby</button>

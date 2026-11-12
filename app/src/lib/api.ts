@@ -122,7 +122,7 @@ export const api = {
   hostTournament: (data: any) => request<{ id: string }>('/api/tournaments/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTournaments: () => request<{ tournaments: any[] }>('/api/tournaments/host'),
   deleteHostTournament: (id: string) => request<any>(`/api/tournaments/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  tournament: (id: string) => request<{ tournament: any }>(`/api/tournaments/${encodeURIComponent(id)}`),
+  tournament: (id: string) => request<TournamentDetail>(`/api/tournaments/${encodeURIComponent(id)}`),
   deleteHostTable: (id: string) => request<any>(`/api/tables/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   hostMutes: (id: string) => request<{ muted: any[] }>(`/api/tables/host/${encodeURIComponent(id)}/mutes`),
   muteHostPlayer: (id: string, userId: number, muted: boolean) => request<any>(`/api/tables/host/${encodeURIComponent(id)}/mutes`, { method: 'POST', body: JSON.stringify({ userId, muted }) }),
@@ -241,3 +241,13 @@ export const GAME_LABEL: Record<string, string> = {
   battleroyale: 'Mystery Battle Royale',
   flipandgo: 'Flip & Go',
 };
+
+/** GET /api/tournaments/:id — the row plus its payout table (DanGG rule). */
+export interface TournamentDetail {
+  tournament: any;
+  prizePool: number;
+  payouts: { place: number; amount: number; ticket?: string }[];
+  placesPaid: number;
+  bubble: number;
+  playersLeft: number | null;
+}

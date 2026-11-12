@@ -19,7 +19,7 @@ import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey } from 
 import { handForViewer } from './hand-history.js';
 import { spinSlots } from './slots.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
-import { flightTableId, tournamentTableIds } from './tournament.js';
+import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService } from './chat.js';
@@ -507,7 +507,7 @@ function getLiveTable(id) {
     onTournamentPayout: (table, p) => {
       try {
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(p.id);
-        if (u) addTransaction(u.id, 'tourney_payout', p.payout, `${table.cfg.name} — finished ${p.place}${p.place === 2 ? 'nd' : 'rd'}`);
+        if (u) addTransaction(u.id, 'tourney_payout', p.payout, `${table.cfg.name} — finished ${ordinal(p.place)}`);
         table.emit({ type: 'tourney_payout', ...p });
       } catch (e) { console.error('tourney payout', e); }
     },
@@ -690,6 +690,7 @@ function broadcastState(table) {
     if (room) {
       const stats = room.stats();
       table.tournament.playersLeft = stats.playersLeft;
+      table.tournament.payouts = room.payouts();
       table.cfg.flightCount = stats.tables;
     }
   }
@@ -817,7 +818,8 @@ function clearTable(id) {
 function tournamentDescriptor(t) {
   const bb = Math.max(20, Math.round(Number(t.starting_stack || 10000) / 100));
   return {
-    prizePool: Math.max(Number(t.gtd) || 0, Number(t.entrants) * (Number(t.buyin) + Number(t.fee))),
+    prizePool: prizePoolOf(t),
+    entrants: Number(t.entrants) || 0,
     level: 1,
     blindEvery: Math.max(5, Number(t.blind_speed) || 10),
     mode: t.mode || 'STANDARD',
@@ -884,8 +886,7 @@ function ensureTournamentRoom(t) {
         if (table) table.finished.push({ id: playerId, nick, place, payout });
         if (payout <= 0) return;
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(playerId);
-        const suffix = place === 2 ? 'nd' : place === 3 ? 'rd' : 'th';
-        if (u) addTransaction(u.id, 'tourney_payout', payout, `${t.name} — finished ${place}${suffix}`);
+        if (u) addTransaction(u.id, 'tourney_payout', payout, `${t.name} — finished ${ordinal(place)}`);
         if (table) table.emit({ type: 'tourney_payout', id: playerId, nick, place, payout });
       },
       persistWinner: ({ playerId, nick, prize, tableId }) => {
@@ -1234,7 +1235,16 @@ const server = http.createServer(async (req, res) => {
       const id = decodeURIComponent(p.slice('/api/tournaments/'.length));
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ? AND enabled = 1').get(id);
       if (!t) return json(res, 404, { error: 'not found' });
-      return json(res, 200, { tournament: t });
+      const room = t.status === 'running' ? TOURNAMENT_ROOMS.get(id) : null;
+      const payouts = room ? room.payouts() : payoutTable(t.entrants, prizePoolOf(t), { mode: t.mode, ticket: t.ticket });
+      return json(res, 200, {
+        tournament: t,
+        prizePool: prizePoolOf(t),
+        payouts,
+        placesPaid: payouts.length,
+        bubble: bubblePlace(payouts),
+        playersLeft: room ? room.stats().playersLeft : null,
+      });
     }
 
     if (p.startsWith('/api/tournaments/') && p.endsWith('/register') && req.method === 'POST') {
