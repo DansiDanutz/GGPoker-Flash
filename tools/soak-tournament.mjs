@@ -165,6 +165,9 @@ function seatIndex(harness) {
 
 function checkSweepInvariants(harness, ctx, label) {
   const breaches = [];
+  // Once the winner exists the room is tearing tables down; final invariants
+  // (places, payouts, winner stack) are checked by checkFinish instead.
+  if (harness.room.winner) return breaches;
   const total = [...harness.tables.values()].reduce((sum, table) => sum + chipsOn(table), 0);
   if (total !== ctx.totalChips) {
     breaches.push(`${label}: chip conservation broken, ${total} on tables vs ${ctx.totalChips} issued (diff ${total - ctx.totalChips})`);
