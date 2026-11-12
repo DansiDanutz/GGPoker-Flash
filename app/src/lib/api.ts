@@ -224,6 +224,11 @@ export function backupFilenameFrom(disposition: string | null): string {
 export const RESTORE_MAX_BYTES = 6 * 1024 * 1024;
 export const RESTORE_CONFIRM_WORD = 'RESTORE';
 
+/** One server-side snapshot (GET /api/admin/backups): newest first. */
+export type AdminSnapshot = { id: string; size: number; createdAt: string };
+export type AdminSnapshotList = { snapshots: AdminSnapshot[]; retention: number };
+export type AdminSnapshotCreated = { snapshot: AdminSnapshot & { integrity: 'ok' }; pruned: string[]; retention: number };
+
 /** Strip the `data:<mime>;base64,` prefix from a FileReader data URL. */
 export function base64FromDataUrl(dataUrl: string): string {
   const comma = dataUrl.indexOf(',');
@@ -391,6 +396,23 @@ export const api = {
       const data = await readFileBase64(file);
       return request('/api/admin/restore', { method: 'POST', body: JSON.stringify({ data, confirm }) });
     },
+    /** Server-side snapshots: list, create (integrity checked and pruned), download, delete, restore. */
+    snapshots: () => request<AdminSnapshotList>('/api/admin/backups'),
+    createSnapshot: () => request<AdminSnapshotCreated>('/api/admin/backups', { method: 'POST' }),
+    deleteSnapshot: (id: string) => request<{ ok: true; deleted: string }>(`/api/admin/backups/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    restoreSnapshot: (id: string, confirm: string) => request<{ ok: true; requiresRestart: true; snapshot: string }>(
+      `/api/admin/backups/${encodeURIComponent(id)}/restore`, { method: 'POST', body: JSON.stringify({ confirm }) },
+    ),
+    downloadSnapshot: async (id: string): Promise<void> => {
+      const r = await fetch(`/api/admin/backups/${encodeURIComponent(id)}`, { headers: { authorization: `Bearer ${getToken()}` } });
+      if (!r.ok) throw new Error(r.status === 404 ? 'Snapshot not found' : `Download failed (${r.status})`);
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = id; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    },
+    /** Copy a cash table to a new, disabled "(copy)" table; resolves with the new id and name. */
+    duplicateTable: (id: string) => request<{ ok: true; id: string; name: string }>('/api/admin/tables/duplicate', { method: 'POST', body: JSON.stringify({ id }) }),
     exportCsv: async (kind: string) => {
       const r = await fetch(`/api/admin/export/${kind}`, { headers: { authorization: `Bearer ${getToken()}` } });
       if (!r.ok) throw new Error('Export failed');

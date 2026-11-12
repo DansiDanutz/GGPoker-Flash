@@ -10,6 +10,7 @@ import { AdminChatModeration } from '../components/AdminChatModeration';
 import { AdminAuditLog } from '../components/AdminAuditLog';
 import { AdminTransactions } from '../components/AdminTransactions';
 import { AdminRestore } from '../components/AdminRestore';
+import { AdminSnapshots } from '../components/AdminSnapshots';
 import {
   CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
   CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
@@ -28,6 +29,7 @@ const SECTIONS = [
   { key: 'chatmod', label: 'Chat moderation', icon: '💬' },
   { key: 'missions', label: 'Missions', icon: '📋' },
   { key: 'settings', label: 'Game settings', icon: '⚙️' },
+  { key: 'snapshots', label: 'Snapshots', icon: '💾' },
   { key: 'transactions', label: 'Transactions', icon: '💳' },
   { key: 'audit', label: 'Audit log', icon: '📜' },
   { key: 'chat', label: 'Announcements', icon: '📣' },
@@ -366,6 +368,7 @@ export function Admin() {
                           <div className="row" style={{ gap: 3 }}>
                             <button className="btn btn-ghost btn-sm" onClick={() => { setEditing({ kind: 'table' }); setLocal({ ...t, enabled: !!t.enabled, featured: !!t.featured }); }}>Edit</button>
                             <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.saveTable({ ...t, enabled: !t.enabled }); loadAll(); }}>{t.enabled ? 'Disable' : 'Enable'}</button>
+                            <button className="btn btn-ghost btn-sm" onClick={async () => { try { const c = await api.admin.duplicateTable(t.id); toast({ kind: 'success', title: 'Table duplicated', body: `${c.name} is disabled; edit and enable it when ready` }); loadAll(); } catch (e: any) { toast({ kind: 'error', title: 'Duplicate failed', body: e.message }); } }}>Duplicate</button>
                             <button className="btn btn-ghost btn-sm" onClick={async () => { if (confirm('Delete table ' + t.name + '?')) { await api.admin.saveTable({ delete: true, id: t.id }); loadAll(); } }}>Delete</button>
                           </div>
                         </td>
@@ -657,6 +660,7 @@ export function Admin() {
           )}
 
           {section === 'audit' && <AdminAuditLog />}
+          {section === 'snapshots' && <AdminSnapshots />}
 
           {section === 'chat' && (
             <>
