@@ -25,7 +25,17 @@ createRoot(document.getElementById('root')!).render(
 // keeps the shell available on a weak connection. It stays out of the Vite dev
 // server so HMR is never served from a cache.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    // A new worker means a new app build; reload once so the phone leaves the
+    // old cached bundle behind.
+    window.location.reload();
+  });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => { /* installable features stay optional */ });
+    navigator.serviceWorker.register('/sw.js?v=2')
+      .then((registration) => registration.update().catch(() => undefined))
+      .catch(() => { /* installable features stay optional */ });
   });
 }

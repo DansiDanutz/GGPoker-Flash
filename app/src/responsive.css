@@ -771,3 +771,36 @@ body.electron .app-window::before { display: none; }
   .seat-row.me .cards .pcard.mini .rank { font-size: 14px; }
   .seat-row.me .cards .pcard.mini .suit { font-size: 17px; }
 }
+
+/* Portrait table chrome: the avatar ring must not cover the hole cards or the
+   name plate, and wagers sit halfway to the pot so they clear the seat. */
+@media (max-width: 760px) {
+  .seat { gap: 8px; }
+  .seat .cards { margin-bottom: 4px; }
+  .seat .plate { margin-top: 2px; }
+  .seat .avatar-wrap .seat-ring { width: 54px; height: 54px; }
+  .seat .cards .pcard.mini { width: 38px; height: 53px; }
+  .seat.me .cards .pcard.mini { width: 42px; height: 59px; }
+  .seat .cards .pcard.mini .rank { font-size: 14px; }
+  .seat .cards .pcard.mini .suit { font-size: 17px; }
+}
+
+/* Narrow phones: keep the pot label and the wager pills small enough to sit
+   between the seat plate and the pot without touching either. */
+@media (max-width: 760px) {
+  .pot-label { font-size: 11px; padding: 2px 8px 2px 18px; }
+  .table-bet { gap: 2px; }
+  .wager-amount { font-size: 9.5px; padding: 1px 4px; }
+  .wager-col i { width: 13px; height: 12px; }
+  .wager-col i + i { margin-top: -8px; }
+}
+
+/* On phones the exact bet amount lives on the seat plate; the felt shows only
+   the chip pile, so the wide amount pill can never collide with the pot. */
+@media (max-width: 760px) {
+  .seat .plate .st { white-space: nowrap; }
+  .seat-bet-inline { color: #ffd98a; }
+  .table-bet { background: none; border: 0; box-shadow: none; padding: 0; }
+  .wager-amount { display: none; }
+  .pot-label { font-size: 11px; }
+}

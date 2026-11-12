@@ -1063,7 +1063,10 @@ export function TablePage({ tableId }: { tableId: string }) {
             </div>
             <div className="plate">
               <div className="nm">{p.nick}</div>
-              <div className="st" onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">{stackLabel(p.stack)}</div>
+              <div className="st" onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
+                {stackLabel(p.stack)}
+                {narrowScreen && (p.bet || 0) > 0 ? <span className="seat-bet-inline"> · {chip(p.bet).replace(/\.00$/, '')}</span> : null}
+              </div>
             </div>
             {p.nick && notes[p.nick] && <span className="note-dot" title={notes[p.nick].note}>📝</span>}
             {p.lastAction && !p.folded && (
@@ -1091,7 +1094,7 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {(state?.players || []).filter((p) => p && !p.empty && (p.bet || 0) > 0).map((p) => {
         const [x, y] = seatPos(p.seat!);
-        const pull = narrowScreen ? 0.3 : 0.2;
+        const pull = narrowScreen ? 0.42 : 0.2;
         const bx = x + (50 - x) * pull;
         const by = y + (45 - y) * pull;
         const betCols = potChipLayout(p.bet || 0, state?.bb || 1, 4);
