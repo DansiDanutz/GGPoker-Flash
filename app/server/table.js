@@ -190,8 +190,9 @@ export class PokerTable {
       winAmount: 0,
       seat: seat.index,
       timeBank: 30,
-      timeBankCards: TB_START_CARDS,
-      timeBankHands: 0,
+      // Automatic moves (Rush, tournament balancing) carry the balance; a fresh seat starts full.
+      timeBankCards: Number.isInteger(player.timeBankCards) ? player.timeBankCards : TB_START_CARDS,
+      timeBankHands: Number.isInteger(player.timeBankHands) ? player.timeBankHands : 0,
       joinedAt: Date.now(),
       handsPlayed: 0,
       won: 0,
