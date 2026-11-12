@@ -2,18 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
-import { Countdown, PageShell, SubNav } from '../components/PageShell';
-
-const SERIES = [
-  { key: 'all', label: 'All series' },
-  { key: 'wsop', label: 'WSOP Express' },
-  { key: 'ggmasters', label: 'GGMasters' },
-  { key: 'mystery', label: 'Mystery Bounty' },
-  { key: 'spin', label: 'Spin & Gold' },
-  { key: 'flip', label: 'Flip & Go' },
-  { key: 'bounty', label: 'Bounty Hunters' },
-  { key: 'sat', label: 'Satellites' },
-];
+import { Countdown, PageShell } from '../components/PageShell';
+import { TournamentCategoryRail, TournamentFilterBar } from '../components/TournamentFilterBar';
+import {
+  emptyTournamentMessage, filterTournaments, phaseOf, PHASE_LABEL, readTournamentFilters, resetTournamentFilters,
+  TournamentFilters, tournamentFilterCount, withTournamentFilters, writeTournamentFilters,
+} from '../lib/tournamentFilters';
 
 const SERIES_ART: Record<string, string> = {
   wsop: '/assets/ui/discover/Bg_Discover_WSOPExpress_Promo1_EN.png',
@@ -21,23 +15,12 @@ const SERIES_ART: Record<string, string> = {
   spin: '/assets/ui/discover/Bg_Discover_SpinNGold.png',
 };
 
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'registering', label: 'Register now' },
-  { key: 'running', label: 'Running' },
-  { key: 'holdem', label: 'Hold’em' },
-  { key: 'plo', label: 'PLO' },
-  { key: 'freeroll', label: 'Freeroll' },
-];
-
 export function Tournaments() {
   const { user, refreshUser, toast, navigate, brand } = useApp();
   const [data, setData] = useState<any>(null);
-  const [filter, setFilter] = useState('all');
-  const [series, setSeries] = useState('all');
+  const [filters, setFilters] = useState<TournamentFilters>(() => readTournamentFilters());
   const [detail, setDetail] = useState<any>(null);
   const [detailTab, setDetailTab] = useState<'overview' | 'structure' | 'prizes'>('overview');
-  const [search, setSearch] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
@@ -50,22 +33,24 @@ export function Tournaments() {
     api.tournament(id).then((r) => setDetail(r.tournament)).catch((e) => toast({ kind: 'error', title: 'Tournament', body: e.message }));
   }, []);
 
-  const list = useMemo(() => {
-    if (!data) return [];
-    let l = data.tournaments;
-    if (filter === 'registering') l = l.filter((t: any) => t.status === 'registering');
-    else if (filter === 'running') l = l.filter((t: any) => t.status === 'running');
-    else if (filter === 'freeroll') l = l.filter((t: any) => t.buyin === 0);
-    else if (filter === 'plo') l = l.filter((t: any) => t.format === 'PLO');
-    else if (filter === 'holdem') l = l.filter((t: any) => t.format === 'NLH');
-    if (series !== 'all') {
-      const needle: Record<string, string> = { wsop: 'WSOP', ggmasters: 'GGMasters', mystery: 'Mystery', spin: 'Spin', flip: 'Flip & Go', bounty: 'Bounty', sat: 'Satellite' };
-      l = l.filter((t: any) => t.name.toLowerCase().includes(needle[series].toLowerCase()));
-    }
-    return l;
-  }, [data, filter, series]);
-
   const registered: string[] = data?.registered || [];
+  const list = useMemo(
+    () => (data ? filterTournaments(data.tournaments, { ...filters, registered: data.registered || [], nowMs: Date.now() }) : []),
+    [data, filters],
+  );
+
+  const updateFilters = (patch: Partial<TournamentFilters>) => {
+    setFilters((prev) => {
+      const next = withTournamentFilters(prev, patch);
+      writeTournamentFilters(next);
+      return next;
+    });
+  };
+  const resetFilters = () => {
+    const next = resetTournamentFilters();
+    writeTournamentFilters(next);
+    setFilters(next);
+  };
 
   const register = async (t: any) => {
     if (!user) { navigate('/login'); return; }
@@ -132,10 +117,10 @@ export function Tournaments() {
   };
 
   return (
-    <PageShell activeTop="tournaments" subnav={<SubNav items={FILTERS} active={filter} onChange={setFilter} />}>
+    <PageShell activeTop="tournaments">
       <div className="page">
         <div className="tourney-hero">
-          <div className="th-bg" style={{ backgroundImage: `url(${SERIES_ART[series] || brand.promo})` }} />
+          <div className="th-bg" style={{ backgroundImage: `url(${SERIES_ART[filters.category] || brand.promo})` }} />
           <div className="th-content">
             <div className="th-kicker">TOURNAMENT SERIES</div>
             <h1>{featured?.name || 'Daily $100,000 Flipout'}</h1>
@@ -153,20 +138,17 @@ export function Tournaments() {
           </div>
         </div>
 
-        <div className="series-bar">
-          {SERIES.map((s2) => (
-            <button key={s2.key} className={'series-chip' + (series === s2.key ? ' on' : '')} onClick={() => setSeries(s2.key)}>{s2.label}</button>
-          ))}
-        </div>
+        <TournamentCategoryRail active={filters.category} onChange={(category) => updateFilters({ category })} />
 
         <div className="tourney-toolbar">
           <div className="panel-title" style={{ margin: 0 }}>Upcoming tournaments <small>{list.length} events</small></div>
           <div className="row">
-            <input className="admin-input" style={{ width: 190 }} placeholder="Search tournaments…" value={search} onChange={(e) => setSearch(e.target.value)} />
             <span className="muted small">Balance</span>
             <b className="gold">{money(user?.balance ?? 0)}</b>
           </div>
         </div>
+
+        <TournamentFilterBar filters={filters} onChange={updateFilters} onReset={resetFilters} />
 
         <div className="tourney-list">
           <div className="tourney-row head">
@@ -190,7 +172,7 @@ export function Tournaments() {
                 <div className="t-buyin">{t.buyin === 0 ? 'Freeroll' : money(t.buyin + t.fee)}</div>
                 <div className="t-gtd">{money(t.gtd, true)}</div>
                 <div>{(t.entrants || 0).toLocaleString()}</div>
-                <div><span className={'tag ' + (t.status === 'running' ? 'live' : 'reg')}>{t.status === 'running' ? 'Running' : 'Registering'}</span></div>
+                <div><span className={'tag ' + (t.status === 'running' ? 'live' : 'reg')}>{PHASE_LABEL[phaseOf(t, Date.now())]}</span></div>
                 <div style={{ textAlign: 'right' }}>
                   {isReg ? (
                     <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
@@ -204,7 +186,16 @@ export function Tournaments() {
               </div>
             );
           })}
-          {!list.length && <div className="empty-state">No tournaments match this filter.</div>}
+          {data && !list.length && (
+            <div className="empty-state">
+              <div>
+                <p>{emptyTournamentMessage(filters)}</p>
+                {tournamentFilterCount(filters) > 0 && (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={resetFilters}>Reset filters</button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

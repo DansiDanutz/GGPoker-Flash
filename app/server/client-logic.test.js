@@ -366,3 +366,110 @@ test('Hide full, Has seats and search persist per tab and survive a round trip',
   const long = filtersForTab(withTabFilters({}, 'holdem', { search: 'a'.repeat(500) }), 'holdem');
   assert.equal(long.search.length, SEARCH_MAX, 'stored search is capped');
 });
+
+// ---- W6: tournament categories and filters ------------------------------------------------
+import {
+  DEFAULT_TOURNAMENT_FILTERS, filterTournaments, gameOf, buyinBandOf, speedOf, phaseOf, inCategory,
+  tournamentFilterCount, resetTournamentFilters, withTournamentFilters, parseTournamentFilters,
+  readTournamentFilters, writeTournamentFilters, emptyTournamentMessage, TOURNAMENT_FILTERS_KEY, TOURNAMENT_SEARCH_MAX,
+} from '../src/lib/tournamentFilters.ts';
+
+const T_NOW = Date.parse('2026-11-12T12:00:00Z');
+const tourney = (over = {}) => ({
+  id: 't', name: 'Daily Main', status: 'registering', start_at: '2026-11-12T14:00:00Z',
+  buyin: 1000, fee: 100, format: 'NLH', mode: 'STANDARD', blind_speed: 8, late_reg: 90, ...over,
+});
+const TOURNEYS = [
+  tourney({ id: 'nlh-reg', name: 'Sunday Major', buyin: 20000, fee: 2000 }),
+  tourney({ id: 'plo-reg', name: 'PLO Classic', format: 'PLO', buyin: 300, fee: 30 }),
+  tourney({ id: 'free', name: 'Freeroll $2,000', buyin: 0, fee: 0 }),
+  tourney({ id: 'late', name: 'Turbo $15K', status: 'running', start_at: '2026-11-12T11:30:00Z', buyin: 750, fee: 75 }),
+  tourney({ id: 'run', name: 'Mystery Bounty $50K', mode: 'MYSTERY', status: 'running', start_at: '2026-11-12T09:00:00Z', blind_speed: 3 }),
+  tourney({ id: 'flip', name: 'Flip & Go $20K', mode: 'FLIP', buyin: 2000, fee: 200 }),
+];
+const tq = (over = {}) => ({ ...DEFAULT_TOURNAMENT_FILTERS, registered: [], nowMs: T_NOW, ...over });
+
+test('tournament game filter splits NLH and PLO (PLO-5/PLO-6 count as PLO)', () => {
+  assert.equal(gameOf(tourney({ format: 'PLO5' })), 'plo');
+  assert.equal(gameOf(tourney({ format: null })), 'nlh');
+  assert.deepEqual(ids(filterTournaments(TOURNEYS, tq({ game: 'plo' }))), ['plo-reg']);
+  assert.equal(filterTournaments(TOURNEYS, tq({ game: 'nlh' })).length, 5);
+});
+
+test('tournament buy-in bands use buy-in plus fee in cents', () => {
+  assert.equal(buyinBandOf(tourney({ buyin: 0, fee: 0 })), 'free');
+  assert.equal(buyinBandOf(tourney({ buyin: 450, fee: 50 })), 'micro', '$5 is the top of micro');
+  assert.equal(buyinBandOf(tourney({ buyin: 2300, fee: 200 })), 'low');
+  assert.equal(buyinBandOf(tourney({ buyin: 9000, fee: 1000 })), 'mid');
+  assert.equal(buyinBandOf(tourney({ buyin: 20000, fee: 2000 })), 'high');
+  assert.deepEqual(ids(filterTournaments(TOURNEYS, tq({ buyin: 'free' }))), ['free']);
+  assert.deepEqual(ids(filterTournaments(TOURNEYS, tq({ buyin: 'high' }))), ['nlh-reg']);
+});
+
+test('tournament status separates registering, late reg and running', () => {
+  assert.equal(phaseOf(TOURNEYS[3], T_NOW), 'late', 'started 30 min ago with 90 min late reg');
+  assert.equal(phaseOf(TOURNEYS[4], T_NOW), 'running', 'late reg closed');
+  assert.equal(phaseOf(tourney({ status: 'completed' }), T_NOW), 'completed');
+  assert.deepEqual(ids(filterTournaments(TOURNEYS, tq({ status: 'late' }))), ['late']);
+  assert.deepEqual(ids(filterTournaments(TOURNEYS, tq({ status: 'running' }))), ['run']);
+  assert.equal(filterTournaments(TOURNEYS, tq({ status: 'registering' })).length, 4);
+});
+
+test('tournament speed comes from blind levels with a name override', () => {
+  assert.equal(speedOf(tourney({ blind_speed: 8 })), 'regular');
+  assert.equal(speedOf(tourney({ blind_speed: 5 })), 'turbo');
+  assert.equal(speedOf(tourney({ blind_speed: 2 })), 'hyper');
+  assert.equal(speedOf(tourney({ name: 'Hyper Sunday', blind_speed: 10 })), 'hyper');
+  assert.deepEqual(ids(filterTournaments(TOURNEYS, tq({ speed: 'turbo' }))), ['late']);
+  assert.deepEqual(ids(filterTournaments(TOURNEYS, tq({ speed: 'hyper' }))), ['run']);
+});
+
+test('registered only keeps the events the player entered', () => {
+  const list = filterTournaments(TOURNEYS, tq({ registeredOnly: true, registered: ['free', 'late'] }));
+  assert.deepEqual(ids(list), ['free', 'late']);
+  assert.deepEqual(filterTournaments(TOURNEYS, tq({ registeredOnly: true })), []);
+});
+
+test('tournament categories match mode first and fall back to the name', () => {
+  assert.equal(inCategory(tourney({ name: 'Weekly', mode: 'BOUNTY' }), 'bounty'), true);
+  assert.equal(inCategory(tourney({ name: 'Mystery Bounty $10K', mode: 'MYSTERY' }), 'bounty'), false);
+  assert.equal(inCategory(tourney({ name: 'WSOP Express $30K' }), 'wsop'), true);
+  assert.equal(inCategory(tourney(), 'unknown'), true, 'unknown category lists everything');
+  assert.deepEqual(ids(filterTournaments(TOURNEYS, tq({ category: 'flip' }))), ['flip']);
+});
+
+test('tournament filters combine with case-insensitive search', () => {
+  const list = filterTournaments(TOURNEYS, tq({ search: '  turbo ', status: 'late', registeredOnly: true, registered: ['late'] }));
+  assert.deepEqual(ids(list), ['late']);
+  assert.deepEqual(filterTournaments(TOURNEYS, tq({ search: 'turbo', game: 'plo' })), []);
+});
+
+test('tournament filter count, immutable updates and reset', () => {
+  assert.equal(tournamentFilterCount(DEFAULT_TOURNAMENT_FILTERS), 0);
+  const f = withTournamentFilters(DEFAULT_TOURNAMENT_FILTERS, { game: 'plo', status: 'late', registeredOnly: true, search: ' x ' });
+  assert.equal(tournamentFilterCount(f), 4);
+  assert.equal(DEFAULT_TOURNAMENT_FILTERS.game, 'all', 'defaults are not mutated');
+  assert.equal(withTournamentFilters(f, { speed: 'warp' }).speed, 'all', 'invalid values fall back');
+  assert.deepEqual(resetTournamentFilters(), DEFAULT_TOURNAMENT_FILTERS);
+});
+
+test('tournament filters persist through storage and survive bad data', () => {
+  const store = new Map();
+  const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
+  const f = withTournamentFilters(DEFAULT_TOURNAMENT_FILTERS, { category: 'sat', buyin: 'mid', speed: 'turbo' });
+  writeTournamentFilters(f, storage);
+  assert.ok(store.has(TOURNAMENT_FILTERS_KEY));
+  assert.deepEqual(readTournamentFilters(storage), f);
+  assert.deepEqual(parseTournamentFilters('not json'), DEFAULT_TOURNAMENT_FILTERS);
+  assert.deepEqual(parseTournamentFilters('[1,2]'), DEFAULT_TOURNAMENT_FILTERS);
+  assert.equal(parseTournamentFilters(JSON.stringify({ search: 'x'.repeat(200) })).search.length, TOURNAMENT_SEARCH_MAX);
+  const broken = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } };
+  assert.deepEqual(readTournamentFilters(broken), DEFAULT_TOURNAMENT_FILTERS);
+  assert.doesNotThrow(() => writeTournamentFilters(f, broken));
+});
+
+test('tournament empty-state copy names the filters', () => {
+  assert.match(emptyTournamentMessage(DEFAULT_TOURNAMENT_FILTERS), /No tournaments scheduled/);
+  assert.match(emptyTournamentMessage(withTournamentFilters(DEFAULT_TOURNAMENT_FILTERS, { game: 'plo' })), /this filter/);
+  assert.match(emptyTournamentMessage(withTournamentFilters(DEFAULT_TOURNAMENT_FILTERS, { game: 'plo', status: 'late' })), /these 2 filters/);
+});
