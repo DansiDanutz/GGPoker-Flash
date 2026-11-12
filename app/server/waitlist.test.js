@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createWaitlist, join, leave, position, offer, accept, expire, groupKey,
-  tableQueue, groupQueue, HOLD_MS, TABLE_CAP, GROUP_CAP, MAX_QUEUES_PER_PLAYER,
+  tableQueue, groupQueue, queueSize, queuesOf, changedQueues, HOLD_MS, TABLE_CAP, GROUP_CAP, MAX_QUEUES_PER_PLAYER,
 } from './waitlist.js';
 
 const T = 'nlh-bronze-01';
@@ -142,4 +142,20 @@ test('a table offer falls back to the group queue and expiry stays in that queue
 test('groupKey combines game, stakes and seats', () => {
   assert.equal(groupKey({ game: 'nlh', sb: 1, bb: 2, seats: 6 }), 'nlh:1/2:6');
   assert.notEqual(groupKey({ game: 'nlh', sb: 1, bb: 2, seats: 9 }), groupKey({ game: 'nlh', sb: 1, bb: 2, seats: 6 }));
+});
+
+test('queueSize, queuesOf and changedQueues describe queue state for the API', () => {
+  const g = groupKey({ game: 'holdem', sb: 1, bb: 2, seats: 6 });
+  const s1 = joinAll(createWaitlist(), ['a', 'b'], { tableId: T });
+  const s2 = join(s1, 'b', { groupKey: g, tables: [] }).state;
+  assert.equal(queueSize(s2, Q), 2);
+  assert.equal(queueSize(s2, 't:nobody'), 0);
+  assert.deepEqual(queuesOf(s2, 'b'), [
+    { queueKey: groupQueue(g), position: 1, size: 1 },
+    { queueKey: Q, position: 2, size: 2 },
+  ]);
+  assert.deepEqual(queuesOf(s2, 'zed'), []);
+  assert.deepEqual(changedQueues(s1, s2), [groupQueue(g)]);
+  assert.deepEqual(changedQueues(s2, s2), []);
+  assert.deepEqual(changedQueues(s2, leave(s2, 'a', Q).state), [Q]);
 });

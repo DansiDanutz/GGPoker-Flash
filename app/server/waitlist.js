@@ -142,3 +142,21 @@ export function expire(state, now) {
       : acc;
   }, { state: base, expired, offers: [] });
 }
+
+/** Number of players waiting in a queue. */
+export function queueSize(state, queueKey) {
+  return queueOf(state, queueKey).length;
+}
+
+/** Every queue the player is in, with 1-based position and queue size, in key order. */
+export function queuesOf(state, userId) {
+  return Object.keys(state.queues).sort()
+    .map((queueKey) => ({ queueKey, position: position(state, userId, queueKey), size: queueOf(state, queueKey).length }))
+    .filter((q) => q.position > 0);
+}
+
+/** Queue keys whose list differs (by identity) between two states. */
+export function changedQueues(before, after) {
+  const keys = new Set([...Object.keys(before.queues), ...Object.keys(after.queues)]);
+  return [...keys].filter((key) => before.queues[key] !== after.queues[key]);
+}

@@ -59,3 +59,34 @@ export function parseTableConfig(body) {
     },
   };
 }
+
+const TABLE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const GROUP_KEY_PATTERN = /^([a-z0-9]{1,20}):(\d{1,10})\/(\d{1,10}):(\d)$/;
+
+/**
+ * Decode and validate a table id taken from a URL path segment.
+ * @param {unknown} raw still percent-encoded
+ * @returns {string | null}
+ */
+export function parseTableId(raw) {
+  let id;
+  try { id = decodeURIComponent(String(raw ?? '')); } catch { return null; }
+  return TABLE_ID_PATTERN.test(id) ? id : null;
+}
+
+/**
+ * Decode and validate a lobby group key (`game:sb/bb:seats`, see waitlist.groupKey).
+ * @param {unknown} raw still percent-encoded
+ * @returns {{ key: string, game: string, sb: number, bb: number, seats: number } | null}
+ */
+export function parseGroupKey(raw) {
+  let key;
+  try { key = decodeURIComponent(String(raw ?? '')); } catch { return null; }
+  const m = GROUP_KEY_PATTERN.exec(key);
+  if (!m) return null;
+  const sb = toInt(m[2], { min: 1, max: 1e9 });
+  const bb = toInt(m[3], { min: 1, max: 1e9 });
+  const seats = toInt(m[4], { min: MIN_SEATS, max: MAX_SEATS });
+  if (sb === null || bb === null || seats === null || sb > bb) return null;
+  return { key, game: m[1], sb, bb, seats };
+}

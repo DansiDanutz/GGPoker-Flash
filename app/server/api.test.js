@@ -1,10 +1,10 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { startServer, sleep } from './test-helpers.js';
+import { startServer, sleep, nextSseEvent } from './test-helpers.js';
 import { handForViewer } from './hand-history.js';
 import { isLocalHost, isLocalOrigin, resolveInside, createRateLimiter } from './security.js';
-import { toInt, cleanNick, parseTableConfig } from './validate.js';
+import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey } from './validate.js';
 
 const TABLE = 'nlh-bronze-01';
 const MIN_BUYIN = 2000;
@@ -280,33 +280,6 @@ test('a clean shutdown settles seats at their real stack, not a buy-in refund', 
   } finally { await second.stop(); }
 });
 
-// Read an SSE stream until a `data:` frame matches `match`.
-async function nextSseEvent(base, token, match, timeoutMs = 8000) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  const res = await fetch(`${base}/api/notifications/stream?token=${encodeURIComponent(token)}`, { signal: ctrl.signal });
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  try {
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) throw new Error('SSE stream ended');
-      buffer += decoder.decode(value, { stream: true });
-      const frames = buffer.split('\n\n');
-      buffer = frames.pop();
-      for (const frame of frames) {
-        const line = frame.split('\n').find((l) => l.startsWith('data: '));
-        const evt = line ? JSON.parse(line.slice(6)) : null;
-        if (evt && match(evt)) return evt;
-      }
-    }
-  } finally {
-    clearTimeout(timer);
-    ctrl.abort();
-  }
-}
-
 test('wait list: a full table queues, holds a freed seat from bots and passes an expired offer to #2', async () => {
   const wsrv = await startServer({ env: { GGPOKER_WAITLIST_HOLD_MS: '2500' } });
   const tableId = 'nlh-silver-07';
@@ -376,5 +349,15 @@ test('wait list: a full table queues, holds a freed seat from bots and passes an
   } finally {
     await Promise.all(sockets.map((s) => s.close()));
     await wsrv.stop();
+  }
+});
+
+test('wait-list route params are validated', () => {
+  assert.equal(parseTableId('nlh-silver-07'), 'nlh-silver-07');
+  assert.equal(parseTableId(encodeURIComponent('home-3-abc_1')), 'home-3-abc_1');
+  for (const bad of ['', '../etc', 'a b', '%E0%A4%A', 'x'.repeat(65), null]) assert.equal(parseTableId(bad), null, String(bad));
+  assert.deepEqual(parseGroupKey(encodeURIComponent('holdem:100/200:6')), { key: 'holdem:100/200:6', game: 'holdem', sb: 100, bb: 200, seats: 6 });
+  for (const bad of ['holdem:200/100:6', 'holdem:1/2:1', 'holdem:1/2:10', 'HOLDEM:1/2:6', 'holdem:0/2:6', 'holdem-1-2-6', '%zz']) {
+    assert.equal(parseGroupKey(bad), null, bad);
   }
 });

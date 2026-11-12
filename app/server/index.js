@@ -15,12 +15,13 @@ import { makeDeck, shuffle, cardStr } from './poker.js';
 import {
   resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
 } from './security.js';
-import { toInt, cleanNick, parseTableConfig } from './validate.js';
+import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey } from './validate.js';
 import { handForViewer } from './hand-history.js';
 import { spinSlots } from './slots.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { flightTableId, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
+import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -111,6 +112,8 @@ const SICBO_TOTAL_PAYS = Object.freeze({
 });
 const loginLimiter = createRateLimiter({ limit: 10, windowMs: 10 * 60_000 });
 const chatLimiter = createRateLimiter({ limit: 6, windowMs: 5_000 });
+// Wait-list joins and leaves per player (DanGG choice: generous for clicks, blocks scripted spam).
+const waitlistLimiter = createRateLimiter({ limit: 10, windowMs: 10_000 });
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -210,8 +213,7 @@ function occupancyFor(t) {
     let players = 1 + (h % t.seats);
     if (h % 5 === 0) players = t.seats;
     if (t.game === 'spingold') players = 1 + (h % 2);
-    const wait = players >= t.seats ? 1 + (h % 3) : 0;
-    TABLE_OCCUPANCY.set(t.id, { players, wait });
+    TABLE_OCCUPANCY.set(t.id, { players });
   }
   return TABLE_OCCUPANCY.get(t.id);
 }
@@ -239,7 +241,10 @@ function lobbyTables(userId = null) {
       sb: t.sb, bb: t.bb, ante: t.ante, min_buyin: t.min_buyin, max_buyin: t.max_buyin,
       seats: t.seats, speed: t.speed, featured: !!t.featured,
       private: !!t.private, owner_id: t.owner_id || null,
-      players, wait: occ.wait,
+      players,
+      // Real queue length and the caller's 1-based position (0 = not queued), from waitlist.js.
+      wait: waitlist.queueSize(waitState, waitlist.tableQueue(t.id)),
+      myWait: userId ? waitlist.position(waitState, userId, waitlist.tableQueue(t.id)) : 0,
       avgPot: players ? avgPot : 0,
       vpip: players ? 18 + (seed % 45) : 0,
       handsPerHour: 55 + (seed % 80),
@@ -293,11 +298,30 @@ setInterval(() => {
 const holdsFor = (tableId) => waitState.offers.filter((o) => o.tableId === tableId).map((o) => [o.seat, o.userId]);
 
 function setWaitlist(next) {
-  const touched = new Set([...waitState.offers, ...next.offers].map((o) => o.tableId));
+  const before = waitState;
+  const touched = new Set([...before.offers, ...next.offers].map((o) => o.tableId));
   waitState = next;
   for (const tableId of touched) {
     const table = LIVE_TABLES.get(tableId)?.table;
     if (table) table.setHolds(holdsFor(tableId));
+  }
+  announceQueueChanges(before, next);
+}
+
+/**
+ * Tell every player in (or just removed from) a changed queue their new position over
+ * the notification stream. Position 0 means they are no longer queued there.
+ */
+function announceQueueChanges(before, after) {
+  for (const queueKey of waitlist.changedQueues(before, after)) {
+    const members = new Set([...(before.queues[queueKey] || []), ...(after.queues[queueKey] || [])]);
+    const size = waitlist.queueSize(after, queueKey);
+    for (const userId of members) {
+      notifyUser(userId, {
+        type: 'waitlist_update', queueKey, ...queueTarget(queueKey),
+        position: waitlist.position(after, userId, queueKey), size,
+      });
+    }
   }
 }
 
@@ -330,11 +354,17 @@ function waitlistJoin(tableId, userId) {
   return res;
 }
 
-/** Leave a table queue; a seat the player was holding is passed to the next player. */
-function waitlistLeave(tableId, userId) {
-  const res = waitlist.leave(waitState, userId, waitlist.tableQueue(tableId));
+/** Leave a queue; a seat the player was holding is passed to the next player. */
+function waitlistLeaveQueue(queueKey, userId) {
+  const wasQueued = waitlist.position(waitState, userId, queueKey) > 0;
+  const res = waitlist.leave(waitState, userId, queueKey);
   setWaitlist(res.state);
   for (const released of res.released) offerSeat(released.tableId, released.seat);
+  return wasQueued || res.released.length > 0;
+}
+
+function waitlistLeave(tableId, userId) {
+  return waitlistLeaveQueue(waitlist.tableQueue(tableId), userId);
 }
 
 /** Offer a freed seat to the head of the table queue (then its group queue). */
@@ -371,6 +401,11 @@ function sweepWaitlists(now = Date.now()) {
   for (const made of res.offers) announceOffer(made);
 }
 setInterval(sweepWaitlists, WAITLIST_SWEEP_MS).unref();
+
+const handleWaitlistRoute = createWaitlistRoutes({
+  json, requireUser, limiter: waitlistLimiter, db, liveTables: LIVE_TABLES,
+  getState: () => waitState, commit: setWaitlist, leaveQueue: waitlistLeaveQueue,
+});
 
 const CUSTOM_CFG = new Map(); // tournament tables not stored in the cash-game table list
 
@@ -953,6 +988,9 @@ const server = http.createServer(async (req, res) => {
       db.prepare('UPDATE users SET nick = ? WHERE id = ?').run(nick, u.id);
       return json(res, 200, { ok: true, nick });
     }
+
+    // ---------- wait lists (waitlist-http.js) ----------
+    if (handleWaitlistRoute(req, res, p)) return;
 
     // ---------- lobby ----------
     if (p === '/api/lobby') {

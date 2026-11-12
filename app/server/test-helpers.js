@@ -48,6 +48,7 @@ function makeClient(child, port, dataDir, exited) {
     child, port, base, dataDir, exited,
     get: (route, opts) => call('GET', route, opts),
     post: (route, opts) => call('POST', route, opts),
+    del: (route, opts) => call('DELETE', route, opts),
     login: async (login, password) => (await call('POST', '/api/auth/login', { body: { login, password } })).data.token,
     balance: async (token) => (await call('GET', '/api/me', { token })).data.user.balance,
     socket: (token) => openSocket(port, token),
@@ -85,3 +86,30 @@ function openSocket(port, token) {
 }
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Read an SSE stream until a `data:` frame matches `match`.
+export async function nextSseEvent(base, token, match, timeoutMs = 8000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const res = await fetch(`${base}/api/notifications/stream?token=${encodeURIComponent(token)}`, { signal: ctrl.signal });
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) throw new Error('SSE stream ended');
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split('\n\n');
+      buffer = frames.pop();
+      for (const frame of frames) {
+        const line = frame.split('\n').find((l) => l.startsWith('data: '));
+        const evt = line ? JSON.parse(line.slice(6)) : null;
+        if (evt && match(evt)) return evt;
+      }
+    }
+  } finally {
+    clearTimeout(timer);
+    ctrl.abort();
+  }
+}

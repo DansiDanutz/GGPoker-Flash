@@ -35,7 +35,10 @@ export type LobbyTable = {
   private?: boolean;
   owner_id?: number | null;
   players: number;
+  /** Players in this table's wait list (real queue length). */
   wait: number;
+  /** Caller's 1-based position in this table's wait list; 0 when not queued. */
+  myWait?: number;
   avgPot: number;
   vpip: number;
   synthetic?: boolean;
@@ -43,6 +46,25 @@ export type LobbyTable = {
   handsPerHour: number;
   running: boolean;
 };
+
+/** Where a wait-list queue points: one table, or any table in a lobby group (`game:sb/bb:seats`). */
+export type WaitlistTarget =
+  | { kind: 'table'; tableId: string; groupKey?: undefined }
+  | { kind: 'group'; groupKey: string; tableId?: undefined };
+
+/** Join answer: room was found (join the table over the socket) or the caller was queued. */
+export type WaitlistJoinResult =
+  | { status: 'seat'; tableId: string; seat?: number }
+  | ({ status: 'queued'; position: number; size: number; queueKey: string } & WaitlistTarget);
+
+export type WaitlistQueue = { queueKey: string; position: number; size: number; tableName?: string } & WaitlistTarget;
+
+export type WaitlistOffer = { tableId: string; tableName: string; seat: number; deadline: number; holdMs: number };
+
+export type MyWaitlists = { queues: WaitlistQueue[]; offers: WaitlistOffer[] };
+
+/** SSE `waitlist_update` from /api/notifications/stream. Position 0 = no longer queued. */
+export type WaitlistUpdateEvent = { type: 'waitlist_update'; queueKey: string; position: number; size: number } & WaitlistTarget;
 
 const TOKEN_KEY = 'ggpoker.token';
 
@@ -76,6 +98,15 @@ export const api = {
   hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number; bombPot?: boolean }) =>
     request<{ id: string }>('/api/tables/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTables: () => request<{ tables: any[] }>('/api/tables/host'),
+  joinTableWaitlist: (tableId: string) =>
+    request<WaitlistJoinResult>(`/api/tables/${encodeURIComponent(tableId)}/waitlist`, { method: 'POST' }),
+  leaveTableWaitlist: (tableId: string) =>
+    request<{ ok: true; left: boolean }>(`/api/tables/${encodeURIComponent(tableId)}/waitlist`, { method: 'DELETE' }),
+  joinGroupWaitlist: (groupKey: string) =>
+    request<WaitlistJoinResult>(`/api/lobby/groups/${encodeURIComponent(groupKey)}/waitlist`, { method: 'POST' }),
+  leaveGroupWaitlist: (groupKey: string) =>
+    request<{ ok: true; left: boolean }>(`/api/lobby/groups/${encodeURIComponent(groupKey)}/waitlist`, { method: 'DELETE' }),
+  myWaitlists: () => request<MyWaitlists>('/api/waitlists/me'),
   hostTournament: (data: any) => request<{ id: string }>('/api/tournaments/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTournaments: () => request<{ tournaments: any[] }>('/api/tournaments/host'),
   deleteHostTournament: (id: string) => request<any>(`/api/tournaments/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
