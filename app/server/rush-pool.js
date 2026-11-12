@@ -155,6 +155,22 @@ export const RUSH_MAX_PASSES = 2;
 const SETTLED_STREETS = Object.freeze(['ended', 'idle']);
 const NO_QUEUE = Object.freeze([]);
 
+/**
+ * Per-seat settings that follow a player to the next Rush table: Time Bank Cards, and the
+ * auto-reduce target (valid there too, since a move never leaves the pool's stake).
+ */
+function carriedSettings(player) {
+  return Object.freeze({
+    timeBank: Object.freeze({ timeBankCards: player?.timeBankCards, timeBankHands: player?.timeBankHands }),
+    autoReduceBB: player?.autoReduceBB || 0,
+  });
+}
+
+function applySettings(target, userId, carried) {
+  const seated = target.seatOf(userId)?.player;
+  if (seated && carried.autoReduceBB) seated.autoReduceBB = carried.autoReduceBB;
+}
+
 /** FIFO by arrival time, then by arrival sequence for equal timestamps. */
 function byArrival(a, b) {
   return a.since - b.since || a.seq - b.seq;
@@ -258,11 +274,12 @@ export function createRushPool(deps) {
       return 'queued';
     }
     dequeue(userId);
-    // Time Bank Cards follow the player to the next Rush table.
-    const timeBank = { timeBankCards: seat.player.timeBankCards, timeBankHands: seat.player.timeBankHands };
+    const carried = carriedSettings(seat.player);
+    // The cash-out also refunds any pending Add Chips top-up to the wallet (server cashOutSeat).
     deps.cashOutSeat(table, userId, 'Rush transfer', { forfeit: true });
-    const res = deps.seatHuman(target, { ...user, ...timeBank }, Math.min(stack, target.cfg.max_buyin), null);
+    const res = deps.seatHuman(target, { ...user, ...carried.timeBank }, Math.min(stack, target.cfg.max_buyin), null);
     if (!res.ok) { seat.player && (seat.player.rushQueued = false); return null; }
+    applySettings(target, userId, carried);
     notifyClient(deps.getEntry(table.cfg.id), userId,
       { type: 'rush_move', tableId: target.cfg.id, stack: Math.min(stack, target.cfg.max_buyin) });
     deps.broadcastState(target);
@@ -311,11 +328,13 @@ export function createRushPool(deps) {
   function seatFromQueue(wait, fromEntry, target) {
     dequeue(wait.userId);
     const from = fromEntry.table.seatOf(wait.userId)?.player;
-    const timeBank = { timeBankCards: from?.timeBankCards, timeBankHands: from?.timeBankHands };
+    const carried = carriedSettings(from);
+    // The live stack, not the one at queue time: a top-up may have landed or auto-reduce trimmed it.
+    const stack = Math.min(from?.stack ?? wait.stack, target.cfg.max_buyin);
     deps.cashOutSeat(fromEntry.table, wait.userId, 'Rush queue transfer', { forfeit: true });
-    const stack = Math.min(wait.stack, target.cfg.max_buyin);
-    const res = deps.seatHuman(target, { ...wait.user, ...timeBank }, stack, null);
+    const res = deps.seatHuman(target, { ...wait.user, ...carried.timeBank }, stack, null);
     if (!res.ok) return false;
+    applySettings(target, wait.userId, carried);
     notifyClient(fromEntry, wait.userId, { type: 'rush_move', tableId: target.cfg.id, stack });
     return true;
   }

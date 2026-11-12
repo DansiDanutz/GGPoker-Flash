@@ -2,6 +2,8 @@
 // the pool at once, and the folded hand is still in your history. Non-Rush tables refuse it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { startServer } from './test-helpers.js';
 
 const RUSH_TABLE = 'rush-platinum-1';
@@ -30,11 +32,18 @@ test('quick fold over the socket: instant move, and the folded hand stays in his
     sock.send({ type: 'action', tableId: RUSH_TABLE, action: 'quickfold', handNo: handNo - 1 });
     const stale = await sock.next((m) => m.type === 'error' && m.stale, 5000);
     assert.equal(stale.handNo, handNo);
+    // Add Chips in a live hand is held as a pending top-up; then the hero fast folds.
+    sock.send({ type: 'rebuy', tableId: RUSH_TABLE, amount: 10_000, basePending: 0, idempotencyKey: 'qf-topup-1' });
     sock.send({ type: 'action', tableId: RUSH_TABLE, action: 'quickfold', handNo });
     const moved = await sock.next((m) => m.type === 'rush_move' || m.type === 'rush_queued', 5000);
     if (moved.type === 'rush_move') {
       assert.notEqual(moved.tableId, RUSH_TABLE);
-      assert.ok(moved.stack > 0 && moved.stack <= 20_000, 'the stack moves, minus what was bet');
+      assert.ok(moved.stack > 0 && moved.stack <= 20_000, 'the stack moves, minus what was bet; pending chips do not');
+      const db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
+      const kinds = db.prepare('SELECT kind, amount FROM transactions WHERE user_id = ? AND kind IN (?, ?) ORDER BY id')
+        .all(id, 'rebuy', 'chips_refund').map((r) => [r.kind, r.amount]);
+      db.close();
+      assert.deepEqual(kinds, [['rebuy', -10_000], ['chips_refund', 10_000]], 'the pending top-up is refunded on the move');
     }
     // The old hand finishes without the hero; then it is in their history.
     let mine = null;

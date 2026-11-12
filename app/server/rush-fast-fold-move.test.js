@@ -129,6 +129,30 @@ test('a departed fast folder still counts as a participant of the hand they were
   assert.deepEqual(pointEarners(from), ['H'], 'the Daily Leaderboard credits the departed folder');
 });
 
+test('the auto-reduce setting follows a Rush move (same stake), instant or from the queue', () => {
+  const from = rushTable('r1');
+  const to = rushTable('r2');
+  handWithHero(from);
+  const { pool } = world([from, to]);
+  player(from, 'H').autoReduceBB = 50;
+  from.quickFold('H');
+  pool.foldOut(from, 'H');
+  assert.equal(player(to, 'H').autoReduceBB, 50);
+
+  const from2 = rushTable('s1');
+  const full = rushTable('s2', 2);
+  full.sit({ id: 'X', nick: 'X', isBot: true }, 0, 1000);
+  full.sit({ id: 'Y', nick: 'Y', isBot: true }, 1, 1000);
+  handWithHero(from2);
+  const w2 = world([from2, full]);
+  player(from2, 'H').autoReduceBB = 40;
+  from2.quickFold('H');
+  assert.equal(w2.pool.foldOut(from2, 'H'), 'queued');
+  full.stand('Y');
+  w2.pool.flush();
+  assert.equal(player(full, 'H').autoReduceBB, 40);
+});
+
 test('Time Bank Cards follow an instant re-seat', () => {
   const from = rushTable('r1');
   const to = rushTable('r2');
@@ -153,9 +177,11 @@ test('with no open seat the fast folder joins the pool queue now and moves as so
   assert.deepEqual(pool.waitingList().map((w) => [w.userId, w.fromTable]), [['H', 'r1']]);
   assert.deepEqual(sent, [{ type: 'rush_queued' }]);
 
+  player(from, 'H').stack = 1200; // e.g. a pending Add Chips top-up landed while H waited
   full.stand('Y');
   pool.flush(); // the old hand is still running, but H already folded it
   assert.ok(full.seatOf('H'), 'served while their old table is mid-hand');
+  assert.equal(player(full, 'H').stack, 1200, 'the live stack moves, not the one at queue time');
   assert.equal(from.seatOf('H'), undefined);
   assert.deepEqual(pool.waitingList(), []);
 });
