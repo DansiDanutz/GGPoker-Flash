@@ -1390,3 +1390,11 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 /* 18+ notice on casino-style games */
 .age-notice { display: flex; align-items: center; gap: 8px; margin: -10px 0 16px; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .age-notice-badge { flex: none; padding: 1px 6px; border: 1px solid currentColor; border-radius: 4px; font-weight: 700; font-size: 11px; letter-spacing: .04em; }
+
+/* Settings draft: Apply / OK save, Cancel / Escape discard */
+.settings-actions { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 8px; margin-top: 18px; padding: 10px 12px; border-top: 1px solid rgba(255, 255, 255, .08); background: rgba(16, 16, 18, .94); backdrop-filter: blur(6px); }
+.channel-row { padding: 2px 0 6px; border-bottom: 1px solid rgba(255, 255, 255, .05); }
+.channel-volume { gap: 8px; align-items: center; }
+.channel-volume input[type="range"] { flex: 1; }
+.channel-volume .muted { width: 38px; text-align: right; }
+.hotkey-group-title.switch-row { padding: 0; }

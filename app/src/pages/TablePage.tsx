@@ -18,7 +18,10 @@ import { autoTopUpAmount } from '../lib/autoTopUp';
 import { DEFAULT_NOTE_COLOR, noteColorHex, noteColorTitle, normalizeLabels } from '../lib/noteColors';
 import { NoteColorPicker } from '../components/NoteColorPicker';
 import { OpponentHud } from '../components/OpponentHud';
-import { actionForCombo, comboFromEvent, readHotkeys, type HotkeyAction } from '../lib/hotkeys';
+import { HOTKEYS_ENABLED_KEY, HOTKEYS_KEY, HOTKEY_PREF_KEYS, comboFromEvent, readHotkeyPrefs, readHotkeys, resolveHotkey, showCardIndices, type HotkeyAction } from '../lib/hotkeys';
+import { amountLabel, betInputUnit, fromInputValue, toInputValue } from '../lib/chipDisplay';
+import { usePref } from '../lib/usePref';
+import { saveSettings } from '../lib/settingsStore';
 import { LOOK_KEY, ROOM_BGS, TABLE_THEMES, parseLookOverrides, resolveLook, withLookOverride, type LookOverride, type LookOverrides } from '../lib/tableLook';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { useWaitlist } from '../lib/waitlistState';
@@ -79,6 +82,9 @@ type PreAction = { kind: 'checkfold' } | { kind: 'check' } | { kind: 'call'; amo
 // Observed Spin & Gold multipliers (server/spin.js), shown on the intro wheel.
 const SPIN_WHEEL_MULTIPLIERS = [2, 3, 4, 5, 10, 50, 100, 20000];
 const DEFAULT_ACTION_TIME_MS = 15000;
+const HOTKEY_HINT_KEYS = ['ggpoker.hotkeyHints'];
+const HOTKEY_MAP_KEYS = [HOTKEYS_KEY];
+const STACK_MODE_KEYS = ['ggpoker.stackMode'];
 
 const POS6 = [[50, 76], [12, 68], [16, 32], [50, 17], [84, 32], [88, 68]];
 const POS9 = [[50, 80], [26, 77], [10, 62], [11, 40], [29, 22], [50, 17], [71, 22], [89, 40], [90, 62]];
@@ -189,9 +195,10 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [cardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'official');
   const [globalRoomBg] = useState(() => localStorage.getItem('ggpoker.roomBg') || 'featured');
   const [showHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
-  const [hotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
-  const [hotkeysOn] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
-  const [hotkeyMap] = useState(readHotkeys);
+  // Hotkey preferences are live: Settings → Apply (or the table menu) in any window updates them.
+  const hotkeyHints = usePref(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0', HOTKEY_HINT_KEYS);
+  const hotkeyPrefs = usePref(readHotkeyPrefs, HOTKEY_PREF_KEYS);
+  const hotkeyMap = usePref(readHotkeys, HOTKEY_MAP_KEYS);
   // Latest handlers for hotkeys that are not table actions (kept in refs so the key
   // listener does not re-subscribe on every render).
   const hotkeyAnyTimeRef = useRef<Partial<Record<HotkeyAction, () => void>>>({});
@@ -207,7 +214,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const squeezeHandRef = useRef<number | null>(null);
   const firstStateRef = useRef(true);
   const [betPrefs] = useState(readBetPrefs);
-  const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
+  const stackMode = usePref<StackMode>(readStackMode, STACK_MODE_KEYS);
   const [cardAnim, setCardAnim] = useState<'deal' | 'flip' | 'slide' | 'off'>(() => {
     const saved = localStorage.getItem('ggpoker.cardAnim');
     return saved === 'flip' || saved === 'slide' || saved === 'off' ? saved : 'deal';
@@ -813,8 +820,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         else act(request.action, request.amount);
         return;
       }
-      if (!hotkeysOn) return;
-      const action = actionForCombo(hotkeyMap, comboFromEvent(e));
+      const action = resolveHotkey(hotkeyMap, hotkeyPrefs, comboFromEvent(e));
       if (!action) return;
       // Functions and options work any time; table actions only on your turn.
       const anyTime = hotkeyAnyTimeRef.current[action];
@@ -829,7 +835,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [hotkeysOn, hotkeyMap, myTurn, toCall, raiseTo, maxTo, canRaise, allInTo, pendingBet, confirmBets, squeezing, state?.allInOrFold, act, requestBet]);
+  }, [hotkeyPrefs, hotkeyMap, myTurn, toCall, raiseTo, maxTo, canRaise, allInTo, pendingBet, confirmBets, squeezing, state?.allInOrFold, act, requestBet]);
 
   // Mouse wheel changes the bet by the chosen unit, in the chosen direction.
   useEffect(() => {
@@ -885,17 +891,19 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const chip = (v: number | undefined | null) => state?.tournament ? Math.round(v || 0).toLocaleString('en-US') : money(v || 0);
-  const stackLabel = (v: number | undefined | null) => {
-    const raw = Number(v || 0);
-    if (state?.tournament) return chip(raw);
-    const bb = state?.bb || 0;
-    if (stackMode === 'bb' && bb) return `${(raw / bb).toFixed(1)} BB`;
-    if (stackMode === 'both' && bb) return `${chip(raw)} · ${(raw / bb).toFixed(1)} BB`;
-    return chip(raw);
-  };
+  // Chips/BB display applies to stacks, bets, pots and the bet controls; amounts sent stay in chips.
+  const amountOpts = { mode: stackMode, bb: state?.bb || 0, tournament: !!state?.tournament };
+  const amt = (v: number | undefined | null) => amountLabel(Number(v || 0), { ...amountOpts, formatChips: chip });
+  const stackLabel = amt;
+  const betUnit = betInputUnit(amountOpts);
   const cycleStackMode = () => {
     const next: StackMode = stackMode === 'chips' ? 'bb' : stackMode === 'bb' ? 'both' : 'chips';
-    setStackMode(next); localStorage.setItem('ggpoker.stackMode', next);
+    saveSettings({ 'ggpoker.stackMode': next }).catch((error) => console.warn('Chip display not synced to the account', error));
+  };
+  const toggleHotkeys = () => {
+    const on = !hotkeyPrefs.enabled;
+    saveSettings({ [HOTKEYS_ENABLED_KEY]: on ? '1' : '0' }).catch((error) => console.warn('Hotkey switch not synced to the account', error));
+    toast({ kind: 'info', title: on ? 'Hotkeys on' : 'Hotkeys off' });
   };
   const myCards = me?.cards?.filter((c) => c !== '??') || [];
   const winnerFocus = state && state.street === 'ended' && focusReady ? showdownFocus(state.result, state.board, state.game) : null;
@@ -920,6 +928,8 @@ export function TablePage({ tableId }: { tableId: string }) {
     history: () => navigate('/hand-history'),
     toggleUnits: () => cycleStackMode(),
     showAll: () => { if (canShowCards) showCards((me?.cards || []).map((_, i) => i)); },
+    showLeft: () => { if (canShowCards) showCards(showCardIndices('showLeft', me?.cards?.length || 0)); },
+    showRight: () => { if (canShowCards) showCards(showCardIndices('showRight', me?.cards?.length || 0)); },
   };
   useEffect(() => { setRabbit([]); setShowdownReveals({}); }, [state?.handNo]);
   useEffect(() => () => {
@@ -1104,6 +1114,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           {state?.ownerId === user?.id && state.private && (
             <button onClick={async () => { setMuteOpen(true); setMenuOpen(false); try { const r = await api.hostMutes(tableId); setMutes((r.muted || []).map((m) => m.user_id)); } catch { setMutes([]); } }}>Table moderation…</button>
           )}
+          <button aria-pressed={hotkeyPrefs.enabled} title="Turn table hotkeys on or off in every table window" onClick={toggleHotkeys}>{hotkeyPrefs.enabled ? '✓ ' : ''}Hotkeys</button>
           <div className="menu-section">Card animation</div>
           <div className="anim-switch">
             {([['deal', 'Deal'], ['flip', 'Flip'], ['slide', 'Slide'], ['off', 'Off']] as const).map(([key, label]) => (
@@ -1169,7 +1180,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               ))}
             </div>
           )}
-          {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
+          {!winFx && <div className="pot-label">Total Pot : {amt(state?.pot)}</div>}
         </div>
         {!winFx && livePots.length > 1 && <div className="live-pots">{livePots.map((amount, i) => {
             const [x, y] = potOffset(i, tableRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);
@@ -1182,7 +1193,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                     </span>
                   ))}
                 </div>}
-                <span className="live-pot-label">{i === 0 ? 'Main' : `Side ${i}`} {chip(amount)}</span>
+                <span className="live-pot-label">{i === 0 ? 'Main' : `Side ${i}`} {amt(amount)}</span>
               </div>
             );
         })}</div>}
@@ -1303,7 +1314,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               </div>
               <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
                 {isAllInStatus(p) ? 'All-In' : stackLabel(p.stack)}
-                {narrowScreen && (p.bet || 0) > 0 ? <span className="seat-bet-inline"> · {chip(p.bet).replace(/\.00$/, '')}</span> : null}
+                {narrowScreen && (p.bet || 0) > 0 ? <span className="seat-bet-inline"> · {amt(p.bet).replace(/\.00$/, '')}</span> : null}
               </div>
             </div>
             {p.nick && notes[p.nick] && <span className="note-dot" title={`${noteColorTitle(notes[p.nick].color, noteLabels)}: ${notes[p.nick].note}`} style={{ '--note-color': noteColorHex(notes[p.nick].color) } as React.CSSProperties}>📝</span>}
@@ -1353,7 +1364,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 </span>
               ))}
             </span>
-            <span className="wager-amount">{chip(p.bet)}</span>
+            <span className="wager-amount">{amt(p.bet)}</span>
           </div>
         );
       })}
@@ -1408,7 +1419,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="action-row" style={{ background: 'rgba(217,168,60,.12)', borderTop: '1px solid #d9a83c', padding: '8px 10px' }}>
             <span style={{ flex: 1, color: '#ffd98a', fontSize: 13 }}>
               Confirm {pendingBet.action === 'allin' ? 'all in for' : (state?.currentBet || 0) > 0 ? 'raise to' : 'bet'}{' '}
-              {chip(pendingBet.amount)}?
+              {amt(pendingBet.amount)}?
             </span>
             <button className="btn btn-gold btn-sm" onClick={() => { const b = pendingBet; setPendingBet(null); act(b.action, b.amount); }}>Confirm</button>
             <button className="btn btn-ghost btn-sm" onClick={() => setPendingBet(null)}>Cancel</button>
@@ -1469,7 +1480,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 type="button"
                 aria-pressed={preAction?.kind === 'call' && preAction.amount === toCall}
                 onClick={() => setPreAction(preAction?.kind === 'call' && preAction.amount === toCall ? null : { kind: 'call', amount: toCall })}
-              ><span className="reserve-text">Call {chip(toCall)}</span></button>
+              ><span className="reserve-text">Call {amt(toCall)}</span></button>
             )}
           </div>
         )}
@@ -1477,7 +1488,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="action-row aof-row">
             <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} title={`Spend a Time Bank Card: +${TB_CARD_SECONDS} seconds`}>⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'} <b className="tb-cards">×{tbCards}</b></button>
             <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
-            <button className="act-btn act-allin" disabled={!myTurn} onClick={() => act('allin')}>All-in{me?.stack ? ` ${chip(me.stack)}` : ''}</button>
+            <button className="act-btn act-allin" disabled={!myTurn} onClick={() => act('allin')}>All-in{me?.stack ? ` ${amt(me.stack)}` : ''}</button>
             <div className="grow" />
             <span className="aof-note">All-in or fold only</span>
           </div>
@@ -1489,7 +1500,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <button className="act-btn act-check" disabled={!myTurn || !!state?.allInOrFold} onClick={() => act('check')}>Check</button>
           ) : (
             <button className="act-btn act-call" disabled={!myTurn || (!!state?.allInOrFold && !facingShove)} onClick={() => act('call')}>
-              Call {chip(toCall)}
+              Call {amt(toCall)}
             </button>
           )}
           {odds && (
@@ -1512,6 +1523,9 @@ export function TablePage({ tableId }: { tableId: string }) {
             max={Math.max(minTo, maxTo)}
             step={Math.max(100, state?.bb || 100)}
             value={raiseTo}
+            aria-label="Bet amount"
+            aria-valuetext={amt(raiseTo)}
+            title={`${amt(minTo)} – ${amt(Math.max(minTo, maxTo))}`}
             disabled={!myTurn || !canRaise}
             onChange={(e) => setRaiseTo(Number(e.target.value))}
           />
@@ -1526,15 +1540,17 @@ export function TablePage({ tableId }: { tableId: string }) {
             <input
               className="amount-input"
               type="number"
-              value={state?.tournament ? raiseTo : Math.round(raiseTo / 100)}
+              value={toInputValue(raiseTo, betUnit.divisor)}
+              aria-label={betUnit.suffix ? `Bet amount in ${betUnit.suffix}` : 'Bet amount'}
+              title={betUnit.suffix ? `Amount in big blinds (${amt(raiseTo)})` : undefined}
               disabled={!myTurn || !canRaise}
-              min={state?.tournament ? minTo : Math.round(minTo / 100)}
-              max={state?.tournament ? maxTo : Math.round(maxTo / 100)}
-              step={state?.tournament ? betStep : betStep / 100}
+              min={toInputValue(minTo, betUnit.divisor)}
+              max={toInputValue(maxTo, betUnit.divisor)}
+              step={toInputValue(betStep, betUnit.divisor)}
               // Native bet input: focus selects the amount so typing replaces it; while typing
               // only the maximum applies, and the minimum is enforced on blur and on betting.
               onFocus={(e) => e.currentTarget.select()}
-              onChange={(e) => setRaiseTo(Math.min(maxTo, Math.max(0, Number(e.target.value) * (state?.tournament ? 1 : 100))))}
+              onChange={(e) => setRaiseTo(Math.min(maxTo, Math.max(0, fromInputValue(Number(e.target.value), betUnit.divisor))))}
               onBlur={() => setRaiseTo((v) => Math.max(minTo, Math.min(maxTo, v)))}
             />
             <button
@@ -1550,7 +1566,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             disabled={!myTurn || maxTo <= (state?.currentBet || 0)}
             onClick={() => requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo)}
           >
-            {raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')} {chip(raiseTo)}
+            {raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')} {amt(raiseTo)}
           </button>
         </div>
         )}

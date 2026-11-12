@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import dict from './i18n-dict.json';
+import { subscribePrefs } from './prefsSync';
 
 export const LANGS: { code: string; label: string }[] = [
   { code: 'en', label: 'English' }, { code: 'ro', label: 'Română' }, { code: 'de', label: 'Deutsch' },
@@ -159,6 +160,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     if (lang === 'en') return text;
     return DICT[text]?.[lang] || text;
   }, [lang]);
+
+  // A language restored from the account or chosen in another window applies here too.
+  useEffect(() => subscribePrefs(['ggpoker.language'], () => {
+    const saved = localStorage.getItem('ggpoker.language') || 'en';
+    if (saved !== langRef.current) setLang(saved);
+  }), [setLang]);
 
   const value = useMemo<Ctx>(() => ({ lang, setLang, t, languages: LANGS }), [lang, setLang, t]);
   return <I18nCtx.Provider value={value}>{children}</I18nCtx.Provider>;
