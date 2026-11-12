@@ -23,7 +23,7 @@ import { HOTKEYS_ENABLED_KEY, HOTKEYS_KEY, HOTKEY_PREF_KEYS, comboFromEvent, rea
 import { amountLabel, betInputUnit, fromInputValue, toInputValue } from '../lib/chipDisplay';
 import { usePref } from '../lib/usePref';
 import { saveSettings } from '../lib/settingsStore';
-import { addChipsLimits, autoReduceOptions, removeChipsLimits } from '../game/chipMoves';
+import { addChipsLimits, autoReduceOptions, chipControls, removeChipsLimits } from '../game/chipMoves';
 import { LOOK_KEY, ROOM_BGS, TABLE_THEMES, parseLookOverrides, resolveLook, withLookOverride, type LookOverride, type LookOverrides } from '../lib/tableLook';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { useWaitlist } from '../lib/waitlistState';
@@ -54,7 +54,7 @@ type PlayerState = {
   winAmount?: number; empty?: boolean; reserved?: boolean; mine?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
   leaveAfterHand?: boolean; sitOutNextBigBlind?: boolean; sitOutAll?: boolean;
   /** Own seat only: chips paid for the next deal, and the auto-reduce target in BB (0 = off). */
-  pendingTopUp?: number; autoReduceBB?: number;
+  pendingTopUp?: number; topUpVersion?: number; autoReduceBB?: number;
 };
 
 type TableState = {
@@ -792,9 +792,12 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const doRebuy = () => {
-    // One key per dialog submission plus the pending total it saw: a resent or stale
-    // message can neither debit the wallet twice nor stack a second pending top-up.
-    send({ type: 'rebuy', amount: rebuyAmount, idempotencyKey: rebuyKey.current || crypto.randomUUID(), basePending: me?.pendingTopUp || 0 });
+    // One key per dialog submission plus the pending total and top-up version it saw: a resent
+    // or stale message can neither debit the wallet twice nor stack a second pending top-up.
+    send({
+      type: 'rebuy', amount: rebuyAmount, idempotencyKey: rebuyKey.current || crypto.randomUUID(),
+      basePending: me?.pendingTopUp || 0, topUpVersion: me?.topUpVersion || 0,
+    });
     setRebuyOpen(false);
     setRebuyOffer(null);
     sound.play('coin');
@@ -998,7 +1001,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     if (amount > 0 && !autoRebuyPending.current) {
       autoRebuyPending.current = true;
       // One automatic top-up per hand: a resend for the same hand is the same request.
-      send({ type: 'rebuy', amount, idempotencyKey: `auto-${state.handNo ?? 0}-${amount}`, basePending: me.pendingTopUp || 0 });
+      send({ type: 'rebuy', amount, idempotencyKey: `auto-${state.handNo ?? 0}-${amount}`, basePending: me.pendingTopUp || 0, topUpVersion: me.topUpVersion || 0 });
     }
   }, [autoRebuy, autoTopup, topupTrigger, topupTarget, me?.stack, me?.inHand, state?.street, state?.handNo, state?.minBuyin, state?.maxBuyin, state?.bb]);
 
@@ -1055,7 +1058,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   // A bust offer only narrows the range; the wallet still caps it.
   const rebuyFloor = rebuyOffer ? Math.min(rebuyMax, Math.max(rebuyMin, rebuyOffer.min)) : rebuyMin;
   const rebuyCeil = rebuyOffer ? Math.max(rebuyFloor, Math.min(rebuyMax, rebuyOffer.max)) : rebuyMax;
-  const canAddChips = chipsEditable && (me?.stack || 0) + myPending < (state?.maxBuyin || 0);
+  const chipButtons = chipControls({ editable: chipsEditable, stack: me?.stack || 0, pending: myPending, maxBuyin: state?.maxBuyin || 0 });
+  const canAddChips = chipButtons.addChips;
+  const cancelPending = () => { send({ type: 'cancel_topup' }); setRebuyOpen(false); };
   // Remove Chips (REA F15): between hands only, down to the table minimum buy-in.
   const meLive = !!me?.inHand && !me?.folded && state?.street !== 'ended' && state?.street !== 'idle';
   const removeMax = removeChipsLimits({ stack: me?.stack || 0, minBuyin: state?.minBuyin || 0 }).max;
@@ -1630,6 +1635,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <span>·</span>
           <span>{me ? `Your stack ${stackLabel(me.stack)}${myPending > 0 ? ` (+${stackLabel(myPending)} next hand)` : ''}` : ''}</span>
           {canAddChips && <button className="btn btn-gold btn-sm" title={hotkeyMap.addChips ? `Add chips (${hotkeyMap.addChips})` : 'Add chips'} onClick={openAddChips}>Add Chips</button>}
+          {chipButtons.cancelPending && <button className="btn btn-dark btn-sm" title="Refund the chips waiting for the next hand" onClick={cancelPending}>Cancel pending</button>}
           {canRemoveChips && <button className="btn btn-dark btn-sm" onClick={openRemoveChips}>Remove Chips</button>}
         </div>
       </div>
@@ -1768,7 +1774,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             </div>
             <div className="modal-foot">
               <button className="btn btn-dark" onClick={() => { setRebuyOpen(false); setRebuyOffer(null); }}>Cancel</button>
-              {myPending > 0 && <button className="btn btn-dark" onClick={() => { send({ type: 'cancel_topup' }); setRebuyOpen(false); }}>Cancel pending</button>}
+              {chipButtons.cancelPending && <button className="btn btn-dark" onClick={cancelPending}>Cancel pending</button>}
               <button className="btn btn-red" disabled={rebuyAmount <= 0 || rebuyAmount > rebuyCeil || rebuyAmount < rebuyFloor} onClick={doRebuy}>{rebuyAmount <= 0 ? 'Nothing to add' : 'Add chips'}</button>
             </div>
           </div>

@@ -39,6 +39,29 @@ export function autoReduceOptions({ minBuyin, maxBuyin, bb }) {
   return out;
 }
 
+export const STALE_TOP_UP = 'Your pending chips changed; check the amount and try again';
+
+/**
+ * The seat's top-up version: it only moves forward, once for every top-up that is applied,
+ * changed, cancelled or settled at the deal. Pending chips return to 0 after a deal, so the
+ * pending amount alone cannot tell a replayed request from a new one; the version can.
+ */
+export function noteTopUpApplied(player) {
+  player.topUpVersion = (player.topUpVersion || 0) + 1;
+}
+
+/**
+ * Optimistic check for an Add Chips request: the client echoes the pending amount and the top-up
+ * version it saw. A mismatch on either means the request is stale or a replay. Returns an error or null.
+ */
+export function topUpRequestError(player, { basePending, topUpVersion }) {
+  const pending = player.pendingTopUp || 0;
+  const version = player.topUpVersion || 0;
+  const sentPending = Number(basePending ?? 0);
+  const sentVersion = Number(topUpVersion ?? 0);
+  return sentPending === pending && sentVersion === version ? null : STALE_TOP_UP;
+}
+
 /** Chips in front of a player still in the hand cannot change until the hand is over. */
 export function inLiveHand(table, player) {
   return table.handInProgress() && !!player.inHand && !player.folded;
@@ -70,6 +93,7 @@ export function setPendingTopUp({ player, total, minBuyin, maxBuyin, balance, le
   if (!res.applied) return { ...fail('Add chips already applied'), duplicate: true };
   player.topUpSeq = seq;
   player.pendingTopUp = total;
+  noteTopUpApplied(player);
   return { ok: true, pending: total, moved: -diff };
 }
 
@@ -95,6 +119,7 @@ export function settlePendingTopUp({ player, maxBuyin, ledger }) {
   }
   player.stack += added;
   player.pendingTopUp = 0;
+  noteTopUpApplied(player);
   return added;
 }
 
@@ -107,6 +132,7 @@ export function refundPendingTopUp({ player, ledger }) {
     reference: `topup:${player.sessionId}:${player.topUpSeq || 0}:leave`,
   });
   player.pendingTopUp = 0;
+  noteTopUpApplied(player);
   return pending;
 }
 

@@ -86,3 +86,43 @@ test('leave-after-hand reservation refunds the pending top-up when the seat is c
     await server.stop();
   }
 });
+
+test('a top-up replayed after the next deal settled it is refused, not charged twice', { timeout: 60000 }, async () => {
+  const server = await startServer();
+  try {
+    const token = await server.login('DansiDanutz', 'ggpoker');
+    const sock = server.socket(token);
+    await sock.opened;
+    sock.send({ type: 'join_table', tableId: TABLE });
+    const live = await sock.next((m) => m.type === 'state'
+      && m.state.players.some((p) => p.isMe && p.inHand && !p.folded) && !['idle', 'ended'].includes(m.state.street), 10000);
+    const me = live.state.players.find((p) => p.isMe);
+    const amount = Math.min(live.state.maxBuyin - me.stack, live.state.bb * 10);
+    assert.ok(amount > 0);
+    // No idempotency key: only the per-seat top-up version can tell this replay apart.
+    const request = { type: 'rebuy', tableId: TABLE, amount, basePending: 0, topUpVersion: me.topUpVersion };
+    sock.send(request);
+    await sock.next((m) => m.type === 'state' && m.state.players.some((p) => p.isMe && p.pendingTopUp === amount));
+    sock.ws.on('message', (raw) => {
+      const m = JSON.parse(String(raw));
+      const mine = m.type === 'state' && m.state.players.find((p) => p.isMe);
+      if (mine && m.state.actor === mine.id) sock.send({ type: 'action', tableId: TABLE, action: 'fold', amount: 0 });
+    });
+    // The next deal settles the pending chips, so pending is back to 0 and basePending matches again.
+    await sock.next((m) => m.type === 'state' && m.state.handNo > live.state.handNo
+      && m.state.players.some((p) => p.isMe && (p.pendingTopUp || 0) === 0), 45000);
+
+    sock.send(request);
+    await sleep(800);
+    const db = new DatabaseSync(path.join(server.dataDir, 'ggpoker.db'));
+    const debits = db.prepare("SELECT amount, reference FROM transactions WHERE kind = 'rebuy' ORDER BY id").all();
+    db.close();
+    assert.equal(debits.length, 1, JSON.stringify(debits));
+    assert.equal(debits[0].amount, -amount);
+    const refused = await sock.next((m) => m.type === 'error' && /changed/.test(m.error), 1000);
+    assert.match(refused.error, /pending chips changed/);
+    await sock.close();
+  } finally {
+    await server.stop();
+  }
+});
