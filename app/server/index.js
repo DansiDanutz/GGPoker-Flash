@@ -572,7 +572,7 @@ const RUSH_POOL = createRushPool({
   getLiveTable: (id) => getLiveTable(id),
   getEntry: (id) => LIVE_TABLES.get(id),
   findUser: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
-  cashOutSeat: (table, userId, reason) => cashOutSeat(table, userId, reason),
+  cashOutSeat: (table, userId, reason, opts) => cashOutSeat(table, userId, reason, opts),
   seatHuman: (table, user, buyin, seat) => seatHuman(table, user, buyin, seat),
   broadcastState: (table) => broadcastState(table),
   isRealUser: (id) => !!db.prepare('SELECT 1 FROM users WHERE id = ?').get(id),
@@ -866,7 +866,8 @@ function evictBot(table) {
   return true;
 }
 
-function cashOutSeat(table, userId, reason) {
+// opts.forfeit: a Rush fast folder leaving mid-hand keeps every chip they bet in the pot.
+function cashOutSeat(table, userId, reason, opts = {}) {
   const seat = table.seatOf(userId);
   if (!seat || !seat.player) return;
   const sessionId = seat.player.sessionId;
@@ -878,7 +879,7 @@ function cashOutSeat(table, userId, reason) {
     return;
   }
   // stand() folds a live hand first, so the returned stack is what the player really keeps.
-  const { stack } = table.stand(userId);
+  const { stack } = table.stand(userId, opts);
   if (table.tournament) {
     // Leaving a tournament forfeits the entry; it cannot be re-used for a fresh stack.
     consumeTournamentEntry(table, userId);
@@ -2987,8 +2988,15 @@ wss.on('connection', (ws, req) => {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
       const table = entry.table;
-      const res = table.act(ws.userId, msg.action, msg.amount);
+      // `quickfold` (Rush Fast Fold) is the one action valid before the player's turn.
+      const isQuickFold = msg.action === 'quickfold';
+      const res = isQuickFold ? table.quickFold(ws.userId) : table.act(ws.userId, msg.action, msg.amount);
       if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      else if (table.rush && (isQuickFold || msg.action === 'fold')) {
+        // Instant re-seat: leave the running hand now for a new table of the pool.
+        RUSH_POOL.foldOut(table, ws.userId);
+        broadcastState(table);
+      }
       return;
     }
     if (msg.type === 'rebuy') {

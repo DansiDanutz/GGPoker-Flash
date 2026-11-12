@@ -1858,6 +1858,7 @@ export class PokerTable {
       } : null,
       straddle: this.straddle,
       straddleAsk: this.straddleAskFor(viewerId),
+      quickFold: this.rush && viewerId != null ? this.quickFoldState(viewerId) : null,
       runItTwice: this.runItTwice,
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
       tournament: this.tournament ? {

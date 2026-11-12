@@ -138,6 +138,14 @@ test('a quick folder who leaves mid-hand forfeits their blind and stays in the h
   assert.equal(row.seat, 2);
 });
 
+test('the snapshot tells each Rush viewer whether they may quick fold, and only them', () => {
+  const t = fourHanded();
+  assert.deepEqual(t.snapshotFor('A').quickFold, { allowed: true, canCheck: false });
+  assert.deepEqual(t.snapshotFor('C').quickFold, { allowed: true, canCheck: true });
+  assert.equal(t.snapshotFor(null).quickFold, null, 'watchers get nothing');
+  assert.equal(fourHanded('holdem').snapshotFor('A').quickFold, null);
+});
+
 test('an ordinary leaver still takes back an unmatched bet (no forfeit)', () => {
   const t = fourHanded();
   t.act('D', 'fold'); t.act('A', 'fold');

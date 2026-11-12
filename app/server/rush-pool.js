@@ -233,45 +233,72 @@ export function createRushPool(deps) {
     return target;
   }
 
+  /**
+   * Move one queued human from `table` to a seat in the pool now, or park them in the pool
+   * queue. Returns 'moved', 'queued', 'waiting' (already queued from this table) or null.
+   * A player who folded a running hand leaves it as a forfeit: their bets stay in the pot.
+   */
+  function rehome(table, userId, pool) {
+    const seat = table.seatOf(userId);
+    const stack = seat?.player?.stack || 0;
+    const user = deps.findUser(userId);
+    if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; return null; }
+    const waiting = findWaiting(userId);
+    // Already queued from this table: keep their place; flush() serves the queue in order.
+    if (waiting && waiting.pool.key === pool.key && waiting.fromTable === table.cfg.id) return 'waiting';
+    // Nobody may take a seat ahead of players already waiting in this pool.
+    const target = queueFor(pool.key).length ? null : pickTarget(pool, table.cfg.id);
+    if (!target) {
+      enqueue({ user, stack, pool, fromTable: table.cfg.id });
+      seat.player.rushQueued = true;
+      seat.player.sittingOut = true;
+      notifyClient(deps.getEntry(table.cfg.id), userId, { type: 'rush_queued' });
+      return 'queued';
+    }
+    dequeue(userId);
+    // Time Bank Cards follow the player to the next Rush table.
+    const timeBank = { timeBankCards: seat.player.timeBankCards, timeBankHands: seat.player.timeBankHands };
+    deps.cashOutSeat(table, userId, 'Rush transfer', { forfeit: true });
+    const res = deps.seatHuman(target, { ...user, ...timeBank }, Math.min(stack, target.cfg.max_buyin), null);
+    if (!res.ok) { seat.player && (seat.player.rushQueued = false); return null; }
+    notifyClient(deps.getEntry(table.cfg.id), userId,
+      { type: 'rush_move', tableId: target.cfg.id, stack: Math.min(stack, target.cfg.max_buyin) });
+    deps.broadcastState(target);
+    return 'moved';
+  }
+
   /** After a hand: transfer every queued human on a Rush table, or park them in the pool queue. */
   function moveQueued(table) {
     if (!table.rush) return;
     const pool = poolOf(table);
     const queued = table.humans().filter((p) => table.seatOf(p.id)?.player?.rushQueued);
-    for (const p of queued) {
-      const seat = table.seatOf(p.id);
-      const stack = seat?.player?.stack || 0;
-      const user = deps.findUser(p.id);
-      if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; continue; }
-      const waiting = findWaiting(p.id);
-      // Already queued from this table: keep their place; flush() serves the queue in order.
-      if (waiting && waiting.pool.key === pool.key && waiting.fromTable === table.cfg.id) continue;
-      // Nobody may take a seat ahead of players already waiting in this pool.
-      const target = queueFor(pool.key).length ? null : pickTarget(pool, table.cfg.id);
-      if (!target) {
-        enqueue({ user, stack, pool, fromTable: table.cfg.id });
-        seat.player.rushQueued = true;
-        seat.player.sittingOut = true;
-        notifyClient(deps.getEntry(table.cfg.id), p.id, { type: 'rush_queued' });
-        continue;
-      }
-      dequeue(p.id);
-      // Time Bank Cards follow the player to the next Rush table.
-      const timeBank = { timeBankCards: seat.player.timeBankCards, timeBankHands: seat.player.timeBankHands };
-      deps.cashOutSeat(table, p.id, 'Rush transfer');
-      const res = deps.seatHuman(target, { ...user, ...timeBank }, Math.min(stack, target.cfg.max_buyin), null);
-      if (!res.ok) { seat.player && (seat.player.rushQueued = false); continue; }
-      notifyClient(deps.getEntry(table.cfg.id), p.id,
-        { type: 'rush_move', tableId: target.cfg.id, stack: Math.min(stack, target.cfg.max_buyin) });
-      deps.broadcastState(target);
-    }
+    for (const p of queued) rehome(table, p.id, pool);
   }
 
-  /** Where a waiting player stands: gone from their old seat, mid-hand there, or free to move. */
+  /**
+   * Instant re-seat (Fast Fold): a human who just folded a hand that is still running leaves
+   * it now for a new table of the pool, or joins the pool's FIFO queue. When the fold ended
+   * the hand, moveQueued() has already handled them and this does nothing.
+   */
+  function foldOut(table, userId) {
+    if (!table.rush || SETTLED_STREETS.includes(table.street)) return null;
+    const p = table.seatOf(userId)?.player;
+    if (!p || p.isBot || !p.inHand || !p.folded) return null;
+    // A short stack cannot buy in elsewhere; it waits for the hand end (and a rebuy) here.
+    if (p.stack < (Number(table.cfg.min_buyin) || 0)) return null;
+    return rehome(table, userId, poolOf(table));
+  }
+
+  /**
+   * Where a waiting player stands: gone from their old seat, mid-hand there, or free to move.
+   * A player who folded the hand still running at their old table is free to move.
+   */
   function readiness(wait) {
     const fromEntry = deps.getEntry(wait.fromTable);
-    if (!fromEntry || !fromEntry.table.seatOf(wait.userId)?.player) return { state: 'stale' };
-    if (!SETTLED_STREETS.includes(fromEntry.table.street)) return { state: 'busy', fromEntry };
+    const from = fromEntry?.table.seatOf(wait.userId)?.player;
+    if (!from) return { state: 'stale' };
+    const foldedThisHand = from.inHand && from.folded;
+    if (!SETTLED_STREETS.includes(fromEntry.table.street) && !foldedThisHand) return { state: 'busy', fromEntry };
     return { state: 'ready', fromEntry };
   }
 
@@ -279,7 +306,7 @@ export function createRushPool(deps) {
     dequeue(wait.userId);
     const from = fromEntry.table.seatOf(wait.userId)?.player;
     const timeBank = { timeBankCards: from?.timeBankCards, timeBankHands: from?.timeBankHands };
-    deps.cashOutSeat(fromEntry.table, wait.userId, 'Rush queue transfer');
+    deps.cashOutSeat(fromEntry.table, wait.userId, 'Rush queue transfer', { forfeit: true });
     const stack = Math.min(wait.stack, target.cfg.max_buyin);
     const res = deps.seatHuman(target, { ...wait.user, ...timeBank }, stack, null);
     if (!res.ok) return false;
@@ -336,5 +363,5 @@ export function createRushPool(deps) {
     }));
   }
 
-  return Object.freeze({ moveQueued, flush, settleHand, waitingList, poolQueue });
+  return Object.freeze({ moveQueued, foldOut, flush, settleHand, waitingList, poolQueue });
 }
