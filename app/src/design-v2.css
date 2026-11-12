@@ -473,3 +473,21 @@ body { background: #050706; }
   display: block; overflow: hidden;
 }
 .swf-effect ruffle-player, .swf-effect ruffle-embed { width: 100% !important; height: 100% !important; background: transparent !important; }
+
+/* Showdown reveal order and native reserved-action artwork */
+.seat .cards.showdown-reveal .pcard { animation: showdownFlip .3s cubic-bezier(.2, .85, .3, 1.05) both; animation-delay: var(--reveal-delay, 0ms); }
+@keyframes showdownFlip { 0% { transform: rotateY(88deg) scale(.92); opacity: .35; } 100% { transform: none; opacity: 1; } }
+.reserved-actions { display: flex; gap: 10px; justify-content: center; padding: 2px 0; }
+.reserved-actions button { position: relative; width: 170px; height: 62px; padding: 0; color: #999; background: transparent; border: 16px solid transparent; border-radius: 0; border-image: url('/assets/reserved/native-reserved-background.png') 20 19 19 20 fill / 16px 15px 15px 16px stretch; font: 22px Arial; cursor: pointer; }
+.reserved-actions .reserve-text { position: absolute; left: 12px; top: -2px; width: 146px; height: 32px; line-height: 32px; text-align: center; white-space: nowrap; }
+.reserved-actions button:before { content: ''; position: absolute; left: -6px; top: 4px; width: 22px; height: 22px; background: url('/assets/reserved/native-reserved-box.png') center/100% 100%; }
+.reserved-actions button:hover { filter: brightness(1.1); color: #ccc; }
+.reserved-actions button:hover:before, .reserved-actions button:active:before { background-image: url('/assets/reserved/native-reserved-hover.png'); }
+.reserved-actions button[aria-pressed="true"] { color: #ffbd32; }
+.reserved-actions button[aria-pressed="true"]:before { background-image: url('/assets/reserved/native-reserved-selected.png'); }
+.reserved-actions button[aria-pressed="true"]:after { content: ''; position: absolute; left: -4px; top: 9px; width: 19px; height: 14px; background: #ffbd32; -webkit-mask: url('/assets/reserved/native-reserved-check.png') center/100% 100%; mask: url('/assets/reserved/native-reserved-check.png') center/100% 100%; }
+@media (max-width: 620px) {
+  .reserved-actions { gap: 4px; }
+  .reserved-actions button { width: 31%; height: 48px; border-width: 13px 12px; font-size: 14px; }
+  .reserved-actions .reserve-text { left: 0; width: 100%; height: 24px; line-height: 24px; }
+}
