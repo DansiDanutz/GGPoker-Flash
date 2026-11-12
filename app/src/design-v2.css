@@ -570,6 +570,8 @@ body { background: #050706; }
 .sit-out-clock { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); z-index: 5; background: rgba(0, 0, 0, .78); color: #fff; font-size: 30px; font-weight: 700; padding: 4px 16px; border-radius: 8px; letter-spacing: 1px; pointer-events: none; }
 .wait-blinds { display: inline-flex; align-items: center; gap: 6px; color: #ddd; font-size: 13px; margin-right: 10px; cursor: pointer; }
 
+/* Native PlayerCell VPIP badge: small dark square at the avatar's lower left. */
+.vpip-badge { position: absolute; left: -6px; bottom: 4px; z-index: 3; min-width: 20px; padding: 0 3px; height: 16px; line-height: 16px; text-align: center; font-size: 11px; font-weight: 700; color: #fff; background: #2a1a1a; border: 1px solid #5a2a2a; border-radius: 3px; }
 /* Native per-pot award: chip pile with a moving amount label (MotionView3D.potMoveToWinners). */
 .payout-share { position: absolute; z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; }
 .payout-share i { width: 18px; height: 17px; background: url('/assets/chips/native-chip-25.png') center/100% 100% no-repeat; }

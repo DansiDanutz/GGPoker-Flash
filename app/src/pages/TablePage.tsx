@@ -34,6 +34,7 @@ import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
 import { canShowHand, showOptions } from '../game/showOptions';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
+import { vpipOf } from '../game/seatVpip';
 import { NATIVE_TABLE_WIDTH, PAYOUT_EASING, PAYOUT_FADE_MS, PAYOUT_HOLD_MS, PAYOUT_STOP_PX, PAYOUT_TRANSFER_MS, payoutShares, potOffset, stopShort, type PayoutShare } from '../game/payoutMotion';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
@@ -831,6 +832,19 @@ export function TablePage({ tableId }: { tableId: string }) {
     return [p[0], p[1]];
   };
 
+  // Native seat badge: each player's VPIP % at this table, refreshed once per hand.
+  const [seatVpip, setSeatVpip] = useState<Record<string, number>>({});
+  const vpipHand = state?.street === 'ended' ? state?.handNo : (state?.handNo ?? 0) - 1;
+  useEffect(() => {
+    if (!tableId) return;
+    const controller = new AbortController();
+    fetch(`/api/tables/${encodeURIComponent(tableId)}/vpip`, { headers: { authorization: `Bearer ${getToken()}` }, signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.vpip) setSeatVpip(d.vpip); })
+      .catch(() => { /* badge keeps its last value; the table works without it */ });
+    return () => controller.abort();
+  }, [tableId, vpipHand]);
+
   const narrowScreen = useNarrowScreen();
   const landscapePhone = useLandscapePhone();
   const layout = state
@@ -1216,6 +1230,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <div className="face">
                 <Avatar name={p.nick || '?'} src={p.avatar} size={54} />
               </div>
+              {p.nick && <span className="vpip-badge" title="VPIP at this table">{vpipOf(seatVpip, p.nick)}</span>}
             </div>
             <div className="plate">
               <div className="nm" title={p.nick || undefined}>{seatNick(p.nick)}</div>
