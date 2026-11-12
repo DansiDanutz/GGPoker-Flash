@@ -371,8 +371,8 @@ export function Lobby() {
               <div>Buy-in</div>
               <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Players <i className="est-dot" title="Estimated demo value; not live" /></div>
               <div>Wait</div>
-              <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>AvgPot <i className="est-dot" title="Estimated demo value; not live" /></div>
-              <div>VPIP% <i className="est-dot" title="Estimated demo value; not live" /></div><div>H/hr <i className="est-dot" title="Estimated demo value; not live" /></div>
+              <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Average pot over the last 20 hands">AvgPot</span></div>
+              <div title="Voluntarily put chips in preflop, last 20 hands">VPIP%</div><div title="Hands dealt in the last hour">H/hr</div>
             </div>}
             <div className="list-scroll">
               {unavailable ? (
@@ -407,7 +407,7 @@ export function Lobby() {
                   <div className="wait-cell">{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
                   <div className={t.avgPot ? '' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
                   <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
-                  <div>{t.handsPerHour}</div>
+                  <div className={t.handsPerHour ? '' : 'zero'}>{t.handsPerHour || '-'}</div>
                 </div>
               ))}
               {!tables.length && !unavailable && (

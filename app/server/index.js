@@ -23,6 +23,7 @@ import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
+import { createTableStats } from './table-stats.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService, createChatStore, dealerResultText, dealerStartText } from './chat.js';
@@ -268,9 +269,8 @@ function lobbyTables(userId = null) {
   const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND game != ? AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(BATTLE_ROYALE_GAME, userId);
   return rows.map((t) => {
     const occ = occupancyFor(t);
-    const seed = [...t.id].reduce((a, c) => a + c.charCodeAt(0), 0);
     const players = occ.players;
-    const avgPot = Math.round((t.bb * (8 + (seed % 60))) / 10) * 10;
+    const stats = TABLE_STATS(t.id);
     return {
       id: t.id, name: t.name, game: t.game, category: t.category,
       sb: t.sb, bb: t.bb, ante: t.ante, min_buyin: t.min_buyin, max_buyin: t.max_buyin,
@@ -280,12 +280,12 @@ function lobbyTables(userId = null) {
       // Real queue length and the caller's 1-based position (0 = not queued), from waitlist.js.
       wait: waitlist.queueSize(waitState, waitlist.tableQueue(t.id)),
       myWait: userId ? waitlist.position(waitState, userId, waitlist.tableQueue(t.id)) : 0,
-      avgPot: players ? avgPot : 0,
-      vpip: players ? 18 + (seed % 45) : 0,
-      handsPerHour: 55 + (seed % 80),
+      // Measured from the last 20 recorded hands (table-stats.js), not seeded demo values.
+      avgPot: stats.avgPot,
+      vpip: stats.vpip,
+      handsPerHour: stats.handsPerHour,
       running: LIVE_TABLES.has(t.id),
       pro: isRushGame(t.game),
-      synthetic: true,
     };
   });
 }
@@ -503,6 +503,7 @@ const LEADERBOARD = createLeaderboard(db);
 // Rush pools (rush-pool.js): fold-and-move queue per pool (game + sb + bb) and the Cash Drop.
 // Rush pool lobby (rush-lobby.js): real hands/hr per pool table and today's Rush leaderboard.
 const RUSH_LOBBY = createRushLobby(db);
+const TABLE_STATS = createTableStats(db);
 
 /** `/api/lobby` `rushPools`: one row per Rush pool, with the pool's group wait-list queue. */
 function lobbyRushPools(tables) {
@@ -566,6 +567,7 @@ function getLiveTable(id) {
           h.handId || null, h.handNo, h.tableId, h.tableName, h.game, JSON.stringify(h.players),
           h.board.join(' '), h.pot, JSON.stringify(h.result), h.heroCards || '', JSON.stringify(h.actions || [])
         );
+        TABLE_STATS.invalidate(h.tableId);
         const winners = h.result?.winners || [];
         for (const p of (h.players || [])) {
           if (!p || !p.id || p.inHand === false) continue;

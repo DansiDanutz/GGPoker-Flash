@@ -42,7 +42,6 @@ export type LobbyTable = {
   myWait?: number;
   avgPot: number;
   vpip: number;
-  synthetic?: boolean;
   pro?: boolean;
   handsPerHour: number;
   running: boolean;

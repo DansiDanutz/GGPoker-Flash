@@ -331,6 +331,8 @@ function init() {
   db.exec("DELETE FROM sessions WHERE expires_at <= datetime('now')");
   db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id, id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)');
+  // Lobby AvgPot/VPIP/H-hr read the newest hands per table (table-stats.js).
+  db.exec('CREATE INDEX IF NOT EXISTS idx_hands_table ON hands(table_id, id)');
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
   ensurePloVariants();
