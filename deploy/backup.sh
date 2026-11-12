@@ -15,6 +15,10 @@ db.close();
 
 docker compose cp "game:/data/backup-${STAMP}.db" "backups/backup-${STAMP}.db"
 chmod 600 "backups/backup-${STAMP}.db"
+
+# The snapshot is now outside the container; remove every snapshot left in the live data
+# volume (including ones from older runs), so plaintext copies do not pile up there.
+docker compose exec -T game sh -c 'rm -f /data/backup-*.db'
 ls -lh "backups/backup-${STAMP}.db"
 
 # Keep two weeks of local backups; off-host copies handle longer retention.

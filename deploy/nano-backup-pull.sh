@@ -19,7 +19,9 @@ KEEP_DAYS="${DANGGRO_KEEP_DAYS:-30}"
 mkdir -p "$DEST"
 
 echo "$(date -Is) pulling $HOST:$SRC -> $DEST"
-rsync -az --delete \
+# No --delete: Dexter prunes after 14 days, and mirroring that would cap this copy at 14
+# days too. Retention here is the find below.
+rsync -az \
   -e "ssh -i $KEY -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10" \
   "$HOST:$SRC" "$DEST/" || { echo "$(date -Is) FAILED"; exit 1; }
 
