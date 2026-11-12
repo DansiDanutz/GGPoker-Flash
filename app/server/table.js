@@ -268,7 +268,15 @@ export class PokerTable {
     if (this.hooks.onHandComplete) this.hooks.onHandComplete({ table: this, winner: { id: w.player.id } });
   }
 
+  /** Clear the per-hand `inHand` flag once a hand is over and its delay ran out. */
+  clearHandFlags() {
+    for (const seat of this.seats) {
+      if (seat.player) seat.player.inHand = false;
+    }
+  }
+
   awardTournamentWinner() {
+    this.clearHandFlags();
     const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
     if (!w || !w.player) return;
     if (this.tournament?.managed) {
@@ -1119,6 +1127,9 @@ export class PokerTable {
         // Give a fresh bust a reload window before the next deal.
         if (this.openRebuyWindow(now)) return;
         this.nextHandAt = 0;
+        // The hand is fully resolved: nobody is in it any more, so the room
+        // may balance or break this table before the next deal.
+        this.clearHandFlags();
         // remove busted bots, rebuy bots so the table stays alive
         for (const s of this.seats) {
           if (s.player && s.player.isBot && s.player.stack <= 0 && !this.elimination) {

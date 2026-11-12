@@ -63,6 +63,7 @@ export class TournamentRoom {
   flightState() {
     return this.flights.map((flight) => {
       const table = this.ops.table(flight.id);
+      const handLive = !!table?.handInProgress();
       return {
         id: flight.id,
         index: flight.index,
@@ -72,6 +73,7 @@ export class TournamentRoom {
           stack: seat.player.stack,
           isBot: !!seat.player.isBot,
           inHand: !!seat.player.inHand,
+          movable: isMovable(seat.player, handLive),
         })) : [],
       };
     });
@@ -242,23 +244,78 @@ export class TournamentRoom {
   /**
    * Record a bust across the whole field: places run from the field size down,
    * so the first player out of a twelve-player event finishes 12th, not 6th.
+   *
+   * Every busted player waiting to be cleared on any settled flight is ranked
+   * in the same pass, so busts that land together on different tables get
+   * unique places: the smaller starting stack finishes lower, then the seat
+   * farther clockwise from its button (see `compareBustOrder`). A table that
+   * reports a player the room already ranked gets `null`.
    */
   onBust(tableId, player) {
     if (this.winner) return null;
-    if (this.finished.some((f) => f.id === player.id)) return null;
-    const alive = this.alivePlayers().length;
-    // A hand can bust several players at once: the seats are cleared only after
-    // every hook ran, so count the busts already recorded in this batch too.
-    const batch = this.finished.filter((record) => this.tableOf(record.id)).length;
-    const place = alive + 1 + batch;
-    // The busted player is neither alive nor finished yet: count them in.
-    const payout = payoutFor(this.payouts(alive + this.finished.length + 1), place);
-    const record = { id: player.id, nick: player.nick, place, payout };
+    if (this.isFinished(player.id)) return null;
+    const pending = this.pendingBusts();
+    if (!pending.some((bust) => bust.id === player.id)) {
+      // Reported by a table the room cannot see as settled: rank it first (lowest).
+      pending.unshift({ id: player.id, nick: player.nick, tableId, startStack: -1, seatOrder: Infinity, flightIndex: Infinity });
+    }
+    const ordered = [...pending].sort(compareBustOrder);
+    const remaining = this.playersRemaining() + (this.tableOf(player.id) ? 0 : 1);
+    const field = remaining + this.finished.length;
+    const records = ordered.map((bust, i) => this.recordBust(bust, remaining - i, field));
+    return records.find((record) => record.id === player.id) || null;
+  }
+
+  recordBust(bust, place, field) {
+    const payout = payoutFor(this.payouts(field), place);
+    const record = { id: bust.id, nick: bust.nick, place, payout };
     this.finished.push(record);
     this.ops.persistBust({
-      tournamentId: this.id, tableId, playerId: player.id, nick: player.nick, place, payout,
+      tournamentId: this.id, tableId: bust.tableId, playerId: bust.id, nick: bust.nick, place, payout,
     });
     return record;
+  }
+
+  isFinished(playerId) {
+    return this.finished.some((record) => record.id === playerId);
+  }
+
+  /** Seated players not yet recorded out: the places still to be given. */
+  playersRemaining() {
+    let count = 0;
+    for (const flight of this.flights) {
+      const table = this.ops.table(flight.id);
+      if (!table) continue;
+      count += table.occupiedSeats().filter((seat) => seat.player && !this.isFinished(seat.player.id)).length;
+    }
+    return count;
+  }
+
+  /**
+   * Players with no chips at a flight whose hand is over, not yet ranked.
+   * They are out; their table clears the seat on its next tick.
+   */
+  pendingBusts() {
+    const pending = [];
+    for (const flight of this.flights) {
+      const table = this.ops.table(flight.id);
+      if (!table || table.handInProgress()) continue;
+      const size = Number(table.cfg?.seats) || 1;
+      const button = Number.isInteger(table.button) ? table.button : -1;
+      for (const seat of table.occupiedSeats()) {
+        const p = seat.player;
+        if (!p || Number(p.stack) > 0 || this.isFinished(p.id)) continue;
+        pending.push({
+          id: p.id,
+          nick: p.nick,
+          tableId: flight.id,
+          startStack: Number(table.handStartStack?.[p.id]) || 0,
+          seatOrder: (((seat.index - button - 1) % size) + size) % size,
+          flightIndex: flight.index,
+        });
+      }
+    }
+    return pending;
   }
 
   /**
@@ -303,6 +360,9 @@ export class TournamentRoom {
     // Chips leave the stack when they are bet, so wait for every table to be
     // between hands before calling anyone the last player standing.
     if (this.anyHandInProgress()) return null;
+    // The final hand is resolved only once its table cleared the post-hand
+    // delay and every bust from it is ranked, so 2nd place is always paid.
+    if (this.anyHandPending() || this.pendingBusts().length) return null;
     const alive = this.alivePlayers();
     if (alive.length !== 1) return null;
     const winner = alive[0];
@@ -323,6 +383,11 @@ export class TournamentRoom {
     });
     this.closeEmptyFlights();
     return this.winner;
+  }
+
+  /** A flight between hands whose showdown delay has not run out yet. */
+  anyHandPending() {
+    return this.flights.some((flight) => Number(this.ops.table(flight.id)?.nextHandAt) > 0);
   }
 
   anyHandDealt() {
@@ -359,7 +424,7 @@ export class TournamentRoom {
     const moves = [];
     if (this.flights.length < 2) return moves;
     const snapshot = this.flightState();
-    const { moves: plan } = balanceAll(snapshot, { canMove: (p) => !p.inHand });
+    const { moves: plan } = balanceAll(snapshot, { canMove: (p) => p.movable });
     for (const move of plan) {
       const applied = this.movePlayer(move, 'balance');
       if (applied) moves.push(applied);
@@ -392,6 +457,8 @@ export class TournamentRoom {
     if (!source || source.handInProgress()) return false;
     const players = source.occupiedSeats().map((seat) => seat.player);
     if (!players.length) return this.closeFlight(tableId);
+    // A busted seat is cleared on the table's next tick; break after that, never halfway.
+    if (players.some((player) => !isMovable(player, false))) return false;
     const recipients = this.flights
       .filter((flight) => flight.id !== tableId)
       .map((flight) => this.ops.table(flight.id))
@@ -418,7 +485,7 @@ export class TournamentRoom {
     const seat = source.seatOf(playerId);
     if (!seat?.player) return null;
     const player = seat.player;
-    if (player.inHand) return null;
+    if (!isMovable(player, source.handInProgress())) return null;
     if (target.occupiedSeats().length >= target.cfg.seats) return null;
     const profile = { id: player.id, nick: player.nick, avatar: player.avatar, isBot: !!player.isBot };
     const stack = player.stack;
@@ -477,4 +544,26 @@ export class TournamentRoom {
     }
     this.flights = [];
   }
+}
+
+/**
+ * A player can change tables when they hold chips and are not in a running
+ * hand. `inHand` alone is not enough: it describes the last hand dealt.
+ */
+function isMovable(player, handLive) {
+  return Number(player.stack) > 0 && !(handLive && player.inHand);
+}
+
+/**
+ * Order simultaneous busts from the lowest finish to the highest: a smaller
+ * starting stack finishes lower; on equal stacks, the seat farther clockwise
+ * from the button finishes lower (the first seat after the button ranks
+ * highest). Ties across flights fall back to flight index, then player id, so
+ * the order is always deterministic.
+ */
+export function compareBustOrder(a, b) {
+  if (a.startStack !== b.startStack) return a.startStack - b.startStack;
+  if (a.seatOrder !== b.seatOrder) return b.seatOrder - a.seatOrder;
+  if (a.flightIndex !== b.flightIndex) return b.flightIndex - a.flightIndex;
+  return String(b.id).localeCompare(String(a.id));
 }
