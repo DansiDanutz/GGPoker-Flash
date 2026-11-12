@@ -28,6 +28,7 @@ import { createChatService, createChatStore, dealerResultText, dealerStartText }
 import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
+import { createAdminRestoreRoute } from './admin-restore.js';
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
@@ -463,6 +464,11 @@ const handleAdminTransactionsRoute = createAdminTransactionsRoute({ db, json, re
 const handleAdminUsersListRoute = createAdminUsersListRoute({ db, json, requireAdmin, publicUser });
 // Snapshots go to the OS temp dir (override with GGPOKER_BACKUP_TMP); never inside DATA_DIR.
 const handleAdminBackupRoute = createAdminBackupRoute({
+  db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
+});
+// Restore uploads are validated in the temp dir and staged as DATA_DIR/restore-pending.db;
+// db.js applies them on the next start. The live DB is never swapped while running.
+const handleAdminRestoreRoute = createAdminRestoreRoute({
   db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
 });
 
@@ -2128,6 +2134,7 @@ const server = http.createServer(async (req, res) => {
     /* ---------------- admin ---------------- */
     if (await handleAdminWaitlistRoute(req, res, p)) return;
     if (await handleAdminBackupRoute(req, res, url)) return;
+    if (await handleAdminRestoreRoute(req, res, url)) return;
     if (handleAdminChatRoute(req, res, url)) return;
     if (p === '/api/admin/verifications' && req.method === 'GET') {
       const a = requireAdmin(req, res); if (!a) return;

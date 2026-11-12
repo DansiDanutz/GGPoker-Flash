@@ -7,7 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = process.env.GGPOKER_DATA || path.join(__dirname, 'data');
 
 import fs from 'node:fs';
+import { applyPendingRestore } from './admin-restore.js';
 fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// A restore queued from the admin console is applied here, before the live DB is opened.
+const RESTORE_RESULT = applyPendingRestore({ dataDir: DATA_DIR });
 
 export const db = new DatabaseSync(path.join(DATA_DIR, 'ggpoker.db'));
 db.exec('PRAGMA journal_mode = WAL;');
@@ -529,6 +533,11 @@ function seed() {
 }
 
 init();
+
+if (RESTORE_RESULT.applied) {
+  db.prepare(`INSERT INTO audit_log (actor,action,detail) VALUES ('system','restore_applied',?)`)
+    .run(RESTORE_RESULT.backupName ? `previous database kept as ${RESTORE_RESULT.backupName}` : 'no previous database');
+}
 
 export function getSetting(key, fallback = null) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);

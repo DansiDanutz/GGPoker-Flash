@@ -221,6 +221,30 @@ export function backupFilenameFrom(disposition: string | null): string {
   return m ? m[1] : BACKUP_FALLBACK_NAME;
 }
 
+/** Restore uploads above this size are refused by the server (decoded bytes). */
+export const RESTORE_MAX_BYTES = 6 * 1024 * 1024;
+export const RESTORE_CONFIRM_WORD = 'RESTORE';
+
+/** Strip the `data:<mime>;base64,` prefix from a FileReader data URL. */
+export function base64FromDataUrl(dataUrl: string): string {
+  const comma = dataUrl.indexOf(',');
+  if (!dataUrl.startsWith('data:') || comma < 0 || !dataUrl.slice(0, comma).endsWith(';base64')) {
+    throw new Error('Could not read the backup file');
+  }
+  return dataUrl.slice(comma + 1);
+}
+
+function readFileBase64(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read the backup file'));
+    reader.onload = () => {
+      try { resolve(base64FromDataUrl(String(reader.result))); } catch (e) { reject(e); }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export const api = {
   hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number; bombPot?: boolean }) =>
     request<{ id: string }>('/api/tables/host', { method: 'POST', body: JSON.stringify(data) }),
@@ -361,6 +385,12 @@ export const api = {
       a.href = url; a.download = filename; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
       return filename;
+    },
+    /** Queue a backup restore; the server applies it on its next restart. */
+    restore: async (file: Blob, confirm: string): Promise<{ ok: true; requiresRestart: true }> => {
+      if (file.size > RESTORE_MAX_BYTES) throw new Error('Backup larger than 6 MB');
+      const data = await readFileBase64(file);
+      return request('/api/admin/restore', { method: 'POST', body: JSON.stringify({ data, confirm }) });
     },
     exportCsv: async (kind: string) => {
       const r = await fetch(`/api/admin/export/${kind}`, { headers: { authorization: `Bearer ${getToken()}` } });

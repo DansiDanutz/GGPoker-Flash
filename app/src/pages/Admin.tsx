@@ -9,6 +9,7 @@ import { AdminWaitlists } from '../components/AdminWaitlists';
 import { AdminChatModeration } from '../components/AdminChatModeration';
 import { AdminAuditLog } from '../components/AdminAuditLog';
 import { AdminTransactions } from '../components/AdminTransactions';
+import { AdminRestore } from '../components/AdminRestore';
 import {
   CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
   CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
@@ -236,6 +237,7 @@ export function Admin() {
                     <button key={k} className="btn btn-ghost btn-sm" onClick={async () => { try { await api.admin.exportCsv(k); toast({ kind: 'success', title: 'Export ready', body: `${k}.csv` }); } catch (e: any) { toast({ kind: 'error', title: 'Export failed', body: e.message }); } }}>⤓ {k}</button>
                   ))}
                   <button className="btn btn-ghost btn-sm" onClick={async () => { try { const name = await api.admin.backup(); toast({ kind: 'success', title: 'Backup downloaded', body: name }); } catch (e: any) { toast({ kind: 'error', title: 'Backup failed', body: e.message }); } }}>⤓ Download backup</button>
+                  <AdminRestore />
                 </div>
               </div>
               <div className="stat-grid">
