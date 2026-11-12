@@ -302,7 +302,7 @@ export function Leaderboard() {
         </div>
         {me && <p className="page-sub">Your rank: <b className="gold">#{me.rank}</b> · {metricValueLabel(metric, me.value)}</p>}
         {error && <p className="empty-state">{error}</p>}
-        <div className="grid g3" style={{ marginBottom: 18 }}>
+        <div className="grid g3 leaderboard-podium" style={{ marginBottom: 18 }}>
           {leaders.slice(0, 3).map((l, i) => (
             <div key={l.nick} className="card" style={{ textAlign: 'center', borderColor: i === 0 ? '#6b5320' : '#2a2a2a' }}>
               <div style={{ fontSize: 28 }}>{['🥇', '🥈', '🥉'][i]}</div>

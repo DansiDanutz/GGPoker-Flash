@@ -204,6 +204,13 @@ body.electron .app-window::before { display: none; }
   .page { padding: 12px 12px calc(76px + env(safe-area-inset-bottom, 0)); }
   .page-title { font-size: 19px; }
   .g2, .g3, .g4, .stat-grid, .promo-grid, .theme-grid, .slot-row { grid-template-columns: 1fr; }
+  .leaderboard-podium { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 6px; }
+  .leaderboard-podium > .card { padding: 8px 5px; min-width: 0; }
+  .leaderboard-podium > .card > div:nth-child(2) { width: 36px !important; margin: 5px auto !important; }
+  .leaderboard-podium > .card > div:nth-child(2) > div,
+  .leaderboard-podium > .card > div:nth-child(2) > img { width: 36px !important; height: 36px !important; font-size: 13px !important; }
+  .leaderboard-podium > .card b { display: block; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .leaderboard-podium > .card .gold { font-size: 10px; }
   .card, .admin-card { border-radius: 9px; }
   .modal { width: calc(100vw - 20px); max-height: 90vh; }
   .tourney-row { grid-template-columns: 48px 1fr 66px; padding: 9px 8px; }
