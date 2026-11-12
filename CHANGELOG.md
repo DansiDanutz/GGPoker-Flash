@@ -6,6 +6,18 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Public operational health and external warning alerts
+- `GET /healthz` now returns a compact, non-sensitive summary: version/build, uptime,
+  `rooms: {total, stale}`, `disk: {usedPct, freeBytes}` and a `warnings` array. Warnings are
+  a room with players and no settled-hand snapshot for five minutes, and disk ≥90% used.
+- The Nano watchdog (`deploy/nano-uptime-check.sh`) reads the body and sends a Discord alert
+  when the warning text changes, including a cleared-warnings notice, alongside its
+  down/recovered state alerts (python3 on Nano for the JSON parse; uptime still works
+  without it). Runbook documents the payload.
+- Tests: health warnings unit test and a `/healthz` HTTP test (version/uptime/rooms/disk/
+  warnings). Full suite 419/419.
+
+## 2026-11-12
 ### Admin snapshot controls and the room-owner boundary
 - New audited admin actions: **`POST /api/admin/tournaments/:id/snapshot`** and
   **`POST /api/admin/tournaments/snapshot-all`**. The Platform has a **Snapshot** button per
