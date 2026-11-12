@@ -2814,6 +2814,7 @@ wss.on('connection', (ws, req) => {
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
       if (msg.autoMuck != null) entry.table.setAutoMuck(ws.userId, !!msg.autoMuck);
+      if (msg.autoStraddle != null) entry.table.setAutoStraddle(ws.userId, !!msg.autoStraddle);
       if (msg.insurance != null) {
         const res = entry.table.setInsurance(ws.userId, !!msg.insurance);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
@@ -2909,6 +2910,14 @@ wss.on('connection', (ws, req) => {
       if (now - (entry.lastShuffleAt || 0) < 3000) return;
       entry.lastShuffleAt = now;
       entry.table.emit({ type: 'chip_shuffle', seat: seat.index, playerId: ws.userId, nick: seat.player.nick });
+      return;
+    }
+    if (msg.type === 'straddle_decide') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const res = entry.table.decideStraddle(ws.userId, String(msg.decision || ''));
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      broadcastState(entry.table);
       return;
     }
     if (msg.type === 'show_cards') {

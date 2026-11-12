@@ -31,6 +31,7 @@ import { CashDropBanner } from '../components/table/CashDropBanner';
 import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
+import { straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
@@ -38,7 +39,7 @@ type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
   reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; lastAction?: { action: string; amount: number } | null;
-  winAmount?: number; empty?: boolean; disconnected?: boolean;
+  winAmount?: number; empty?: boolean; disconnected?: boolean; autoStraddle?: boolean;
 };
 
 type TableState = {
@@ -58,6 +59,7 @@ type TableState = {
   } | null;
   tournament?: { id?: string | null; name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null; payouts?: PayoutRow[] } | null;
   straddle?: boolean;
+  straddleAsk?: StraddleAsk | null;
   runItTwice?: boolean;
   boards?: string[][] | null;
   potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; actionTimeMs?: number; rake?: number;
@@ -945,6 +947,7 @@ export function TablePage({ tableId }: { tableId: string }) {
 
   // Compare against the server's clock so a skewed local clock cannot distort the timer.
   const serverNow = now + clockOffset.current;
+  const straddleModel = straddlePrompt(state?.straddleAsk, serverNow);
   const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - serverNow) / (state.actionTimeMs || DEFAULT_ACTION_TIME_MS))) : 0;
   const clockSeconds = state?.actor ? Math.max(0, Math.ceil((state.actionEndsAt - serverNow) / 1000)) : null;
   // Native: the Time bank button and hotkey exist only in the final ten seconds of your turn.
@@ -1046,7 +1049,8 @@ export function TablePage({ tableId }: { tableId: string }) {
               <button key={key} className={buttonLayout === key ? 'on' : ''} aria-pressed={buttonLayout === key} onClick={() => chooseLayout(key)}>{label}</button>
             ))}
           </div>
-          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Straddle</button>
+          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Allow straddles at this table</button>
+          {state?.straddle && <button disabled={!me} title="Post a straddle automatically whenever you are asked" onClick={() => send({ type: 'option', tableId, autoStraddle: !me?.autoStraddle })}>{me?.autoStraddle ? '✓ ' : ''}Auto-straddle</button>}
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItTwice: !state?.runItTwice })}>{state?.runItTwice ? '✓ ' : ''}Run it twice</button>
           {state?.spin && <button disabled title="Insurance is not available in DanGG yet">Insurance — not available</button>}
@@ -1273,6 +1277,20 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       ) : (
       <div className={'action-bar' + (squeezing ? ' squeeze-lock' : '')} ref={actionBarRef}>
+        {straddleModel && (
+          <div className="straddle-ask" role="dialog" aria-label="Straddle">
+            <div className="straddle-ask-head">
+              <b>Straddle to {chip(straddleModel.amount)}</b>
+              <span className="straddle-time">TIME {straddleModel.secondsLeft}</span>
+              <button className="title-icon" aria-label="Don't straddle" onClick={() => send({ type: 'straddle_decide', tableId, decision: 'no' })}>✕</button>
+            </div>
+            <div className="straddle-ask-note">You will be able to straddle at any position.</div>
+            <div className="action-row">
+              {straddleModel.showStraddle && <button className="btn btn-green" onClick={() => send({ type: 'straddle_decide', tableId, decision: 'yes' })}>Straddle to {chip(straddleModel.amount)}</button>}
+              <button className="btn btn-red" onClick={() => send({ type: 'straddle_decide', tableId, decision: 'allin' })}>All-in to {chip(straddleModel.allInTo)}</button>
+            </div>
+          </div>
+        )}
         {myTurn && (
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}
