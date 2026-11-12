@@ -773,6 +773,13 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .hh-action.on { color: #d8d8d8; background: #202020; }
 .hh-action b { color: #e8c15c; font-weight: 600; }
 .hh-street { text-transform: uppercase; font-size: 10px; letter-spacing: 1px; color: #6f6f6f; }
+.hh-streets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+.hh-street-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 6px; border-radius: 4px; background: #161616; font-size: 12px; color: #7a7a7a; }
+.hh-street-col.on { color: #d8d8d8; background: #202020; }
+.hh-street-col .hh-street { margin-bottom: 2px; }
+.hh-action-row { display: flex; flex-direction: column; overflow-wrap: anywhere; }
+.hh-action-row b { color: #e8c15c; font-weight: 600; }
+@media (max-width: 640px) { .hh-streets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .modal.wide { max-height: 90vh; display: flex; flex-direction: column; }
 .modal.wide .modal-body { overflow-y: auto; }
 .seat-picker { display: flex; gap: 6px; flex-wrap: wrap; }

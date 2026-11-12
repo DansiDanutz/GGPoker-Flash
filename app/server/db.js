@@ -290,6 +290,7 @@ function init() {
   try { db.exec('ALTER TABLE tables ADD COLUMN action_seconds INTEGER'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE reports ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE hands ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE hands ADD COLUMN meta TEXT'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE elo_history ADD COLUMN game TEXT NOT NULL DEFAULT 'all'"); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
