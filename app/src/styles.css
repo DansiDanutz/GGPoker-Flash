@@ -1344,3 +1344,6 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .blind-marker.bb { background: linear-gradient(#ffe08a, #c9962f); }
 .table-menu .look-row { display: flex; gap: 6px; padding: 4px 10px 6px; }
 .table-menu .look-row select { flex: 1; min-width: 0; background: #151515; color: #eee; border: 1px solid #3a3a3a; border-radius: 4px; padding: 4px; font: inherit; font-size: 12px; }
+.hotkey-group { margin-top: 6px; }
+.hotkey-group-title { text-transform: uppercase; letter-spacing: .6px; font-size: 10.5px; margin: 6px 0 2px; }
+.hotkey-binding.unassigned { opacity: .55; font-style: italic; }

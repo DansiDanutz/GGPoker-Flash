@@ -4,7 +4,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { SwfEffect } from '../components/SwfEffect';
-import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readHotkeys, normalizeHotkey, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval';
@@ -15,6 +15,7 @@ import { showdownComplete, showdownPlan } from '../game/showdown';
 import { turnUrgencyClass } from '../game/turnClock';
 import { DEFAULT_NOTE_COLOR, noteColorHex, noteColorTitle, normalizeLabels } from '../lib/noteColors';
 import { NoteColorPicker } from '../components/NoteColorPicker';
+import { actionForCombo, comboFromEvent, readHotkeys, type HotkeyAction } from '../lib/hotkeys';
 import { LOOK_KEY, ROOM_BGS, TABLE_THEMES, parseLookOverrides, resolveLook, withLookOverride, type LookOverride, type LookOverrides } from '../lib/tableLook';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { useWaitlist } from '../lib/waitlistState';
@@ -171,6 +172,10 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [hotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
   const [hotkeysOn] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
   const [hotkeyMap] = useState(readHotkeys);
+  // Latest handlers for hotkeys that are not table actions (kept in refs so the key
+  // listener does not re-subscribe on every render).
+  const hotkeyAnyTimeRef = useRef<Partial<Record<HotkeyAction, () => void>>>({});
+  const hotkeyPresetRef = useRef<(index: number) => void>(() => {});
   const [dealSpeed] = useState(readDealSpeed);
   const [bettingOptions] = useState(readBettingOptions);
   const confirmBets = bettingOptions.confirm === 'always';
@@ -719,12 +724,19 @@ export function TablePage({ tableId }: { tableId: string }) {
         else act(request.action, request.amount);
         return;
       }
-      if (!hotkeysOn || !myTurn) return;
-      const key = normalizeHotkey(e.key);
-      if (key === hotkeyMap.fold) { e.preventDefault(); act('fold'); }
-      else if (key === hotkeyMap.check) { e.preventDefault(); if (!state?.allInOrFold) act(toCall > 0 ? 'call' : 'check'); }
-      else if (key === hotkeyMap.raise) { e.preventDefault(); if (!state?.allInOrFold && canRaise) requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo); }
-      else if (key === hotkeyMap.allin) { e.preventDefault(); if (state?.allInOrFold) act('allin'); else requestBet('allin', allInTo); }
+      if (!hotkeysOn) return;
+      const action = actionForCombo(hotkeyMap, comboFromEvent(e));
+      if (!action) return;
+      // Functions and options work any time; table actions only on your turn.
+      const anyTime = hotkeyAnyTimeRef.current[action];
+      if (anyTime) { e.preventDefault(); anyTime(); return; }
+      if (!myTurn) return;
+      e.preventDefault();
+      if (action === 'fold') act('fold');
+      else if (action === 'check') { if (!state?.allInOrFold) act(toCall > 0 ? 'call' : 'check'); }
+      else if (action === 'raise') { if (!state?.allInOrFold && canRaise) requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo); }
+      else if (action === 'allin') { if (state?.allInOrFold) act('allin'); else requestBet('allin', allInTo); }
+      else if (action.startsWith('preset')) hotkeyPresetRef.current(Number(action.slice(6)) - 1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -796,6 +808,20 @@ export function TablePage({ tableId }: { tableId: string }) {
     if (!indices.length) return;
     send({ type: 'show_cards', cards: indices });
     setShowPick([]);
+  };
+  const presetOpening = state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0);
+  const presetValues = presetOpening ? betPrefs.opening : betPrefs.normal;
+  hotkeyPresetRef.current = (index: number) => {
+    const value = presetValues[index];
+    if (!state || value == null || !canRaise) return;
+    setRaiseTo(betTarget(value, presetOpening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo, roundUnit));
+  };
+  hotkeyAnyTimeRef.current = {
+    timebank: () => { if (myTurn && !tbUsed) send({ type: 'timebank', seconds: timeBankSeconds }); },
+    sitout: () => { if (me) send({ type: 'sit_out', value: !(sittingOut || sitOutNext) }); },
+    history: () => navigate('/hand-history'),
+    toggleUnits: () => cycleStackMode(),
+    showAll: () => { if (canShowCards) showCards((me?.cards || []).map((_, i) => i)); },
   };
   useEffect(() => { setShowPick([]); setRabbit([]); setShowdownReveals({}); }, [state?.handNo]);
   useEffect(() => () => {
