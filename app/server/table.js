@@ -1075,7 +1075,7 @@ export class PokerTable {
       }
     }
     const results = [];
-    for (const pot of pots) {
+    for (const [potIndex, pot] of pots.entries()) {
       if (!pot.eligible.length) continue;
       let best = null;
       for (const sc of pot.eligible) {
@@ -1091,7 +1091,7 @@ export class PokerTable {
         w.player.winAmount += amt;
         results.push({
           id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt,
-          hand: w.name, cards: w.cards.map(cardStr), pot: pot.amount,
+          hand: w.name, cards: w.cards.map(cardStr), pot: pot.amount, potIndex,
         });
       }
     }

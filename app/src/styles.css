@@ -1316,3 +1316,13 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
   .aof-row .aof-note { display: none; }
   .aof-row .tb-btn { flex: 0 0 auto; }
 }
+
+/* Showdown best-five focus (native Card3D: unselected brightness 0.6, selected
+   community cards lift 30 units over 400 ms cubic; ported via the Codex clone). */
+.pcard.focus-on, .pcard.focus-off { transition: translate 400ms cubic-bezier(.33, 1, .68, 1), filter 400ms ease-out; }
+.board .pcard.focus-on { translate: 0 -12px; }
+.cards .pcard.focus-on { translate: 0 -6px; }
+.pcard.focus-off { filter: brightness(.6); }
+@media (prefers-reduced-motion: reduce) {
+  .pcard.focus-on, .pcard.focus-off { transition: none; }
+}

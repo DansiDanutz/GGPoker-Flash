@@ -99,3 +99,82 @@ export function describeHole(hole: string[]): string {
   const suited = a.s === b.s ? ' suited' : ' offsuit';
   return `${a.r}${b.r}${suited}`;
 }
+
+export type FiveFocus = { hole: number[]; board: number[] };
+
+const SUIT_ORDER = 'chds';
+const VALID_CARD = /^[2-9TJQKA][cdhs]$/;
+const VALID_SHORT_CARD = /^[6-9TJQKA][cdhs]$/;
+
+function focusInputValid(hole: string[], board: string[], omaha: boolean, shortDeck: boolean): boolean {
+  const all = [...hole, ...board];
+  const pattern = shortDeck ? VALID_SHORT_CARD : VALID_CARD;
+  const holeSizes = omaha ? [4, 5, 6] : [2];
+  return holeSizes.includes(hole.length) && board.length === 5
+    && new Set(all).size === all.length && all.every((c) => pattern.test(c));
+}
+
+/**
+ * Indices of the winner's best five cards, for the showdown focus (selected cards lift,
+ * the rest dim). Ported from the Codex clone's REA-recovered native rule: equal hands are
+ * broken by the sum of rank*4 + suit ordinal (c0 h1 d2 s3), and Hold'em candidates are
+ * visited in the native exclusion order. Returns null when cards are hidden or incomplete.
+ */
+export function bestFiveFocus(hole: string[], board: string[], omaha = false, shortDeck = false): FiveFocus | null {
+  if (!Array.isArray(hole) || !Array.isArray(board) || !focusInputValid(hole, board, omaha, shortDeck)) return null;
+  const cardOrdinal = (c: string) => RANKS.indexOf(c[0]) * 4 + SUIT_ORDER.indexOf(c[1]);
+  let high: { score: number[]; ordinal: number; focus: FiveFocus } | null = null;
+  const consider = (holes: number[], boards: number[]) => {
+    const cards = [...holes.map((i) => hole[i]), ...boards.map((i) => board[i])];
+    const score = score5(cards.map(parseCard) as Card[], shortDeck);
+    const ordinal = cards.reduce((sum, c) => sum + cardOrdinal(c), 0);
+    const cmp = high ? compare(score, high.score) : 1;
+    if (cmp > 0 || (cmp === 0 && ordinal > high!.ordinal)) high = { score, ordinal, focus: { hole: holes, board: boards } };
+  };
+  if (omaha) {
+    for (const pair of combos([...hole.keys()], 2)) for (const trio of combos([0, 1, 2, 3, 4], 3)) consider(pair, trio);
+  } else {
+    // Native exclusion order: drop cards (q, w) from the seven, highest indices first.
+    for (let q = 6; q > 0; q--) for (let w = q - 1; w >= 0; w--) {
+      const kept = [0, 1, 2, 3, 4, 5, 6].filter((i) => i !== q && i !== w);
+      consider(kept.filter((i) => i < 2), kept.filter((i) => i >= 2).map((i) => i - 2));
+    }
+  }
+  return high ? (high as { focus: FiveFocus }).focus : null;
+}
+
+const OMAHA_GAMES = ['omaha', 'omaha5', 'omaha6', 'rushplo'];
+
+type ShowdownWinner = { seat?: number; cards?: string[]; potIndex?: number };
+type ShowdownResult = { reason?: string; runItTwice?: boolean; winners?: ShowdownWinner[] } | null | undefined;
+export type ShowdownFocus = { board: number[]; hole: Record<number, number[]> };
+
+/**
+ * Native winner focus: the main-pot winners' best five cards stay bright and lift,
+ * everything else dims. Board indices are the union across tied main-pot winners.
+ * Hidden cards, fold wins, run-it-twice and incomplete boards give no focus.
+ */
+export function showdownFocus(result: ShowdownResult, board: string[], game: string): ShowdownFocus | null {
+  if (!result || result.reason !== 'showdown' || result.runItTwice || !Array.isArray(board) || board.length !== 5) return null;
+  const winners = result.winners || [];
+  const mainPot = Math.min(...winners.map((w) => w.potIndex ?? 0));
+  const omaha = OMAHA_GAMES.includes(game);
+  const shortDeck = game === 'shortdeck';
+  const boardSet = new Set<number>();
+  const hole: Record<number, number[]> = {};
+  for (const w of winners) {
+    if ((w.potIndex ?? 0) !== mainPot || typeof w.seat !== 'number' || !w.cards) continue;
+    const focus = bestFiveFocus(w.cards, board, omaha, shortDeck);
+    if (!focus) continue;
+    focus.board.forEach((i) => boardSet.add(i));
+    hole[w.seat] = focus.hole;
+  }
+  if (!boardSet.size && !Object.keys(hole).length) return null;
+  return { board: [...boardSet].sort((a, b) => a - b), hole };
+}
+
+/** Card class for the winner focus: no focus → '', selected → lifted, otherwise dimmed. */
+export function focusClass(selected: number[] | undefined, index: number): string {
+  if (!selected) return '';
+  return selected.includes(index) ? 'focus-on' : 'focus-off';
+}

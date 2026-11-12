@@ -7,7 +7,7 @@ import { SwfEffect } from '../components/SwfEffect';
 import { betLabel, betTarget, betUnitOf, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readHotkeys, normalizeHotkey, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
-import { bestHand, describeHole } from '../game/eval';
+import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval';
 import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/betting';
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
@@ -206,6 +206,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [chipShuffleOn] = useState(() => localStorage.getItem('ggpoker.chipShuffle') !== '0');
   const [chipShuffle, setChipShuffle] = useState<{ frame: number; key: number } | null>(null);
   const [showdownReveals, setShowdownReveals] = useState<Record<number, number>>({});
+  // Best-five winner focus starts when the reveal sequence completes (native WIN timing).
+  const [focusReady, setFocusReady] = useState(false);
   const chipShuffleTimer = useRef<number | null>(null);
   const chipShuffleIdle = useRef<number | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -399,6 +401,8 @@ export function TablePage({ tableId }: { tableId: string }) {
       const revealSeats = isShowdown ? (evt.hands || []).map((h: any) => h.seat) : [];
       const plan = isShowdown ? showdownPlan(revealSeats) : [];
       const fxAt = isShowdown ? showdownComplete(revealSeats) : 0;
+      setFocusReady(false);
+      if (isShowdown) window.setTimeout(() => setFocusReady(true), fxAt);
       if (plan.length) {
         setShowdownReveals(Object.fromEntries(plan.map((r) => [r.seat, r.at])));
         window.setTimeout(() => setShowdownReveals({}), fxAt + 700);
@@ -759,6 +763,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     setStackMode(next); localStorage.setItem('ggpoker.stackMode', next);
   };
   const myCards = me?.cards?.filter((c) => c !== '??') || [];
+  const winnerFocus = state && state.street === 'ended' && focusReady ? showdownFocus(state.result, state.board, state.game) : null;
   const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(state.game), state.game === 'shortdeck') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
   // After the hand I can reveal one card or both to the table.
@@ -999,7 +1004,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             const [dxp, dyp] = state && state.button >= 0 ? seatPos(state.button) : [50, 12];
             const fromX = Math.round((50 - dxp) * 4);
             const fromY = Math.round((45 - dyp) * 3);
-            return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: `${(i < 3 ? i : 0) * 0.07}s` } as React.CSSProperties} />;
+            return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt className={focusClass(winnerFocus?.board, i)} style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: `${(i < 3 ? i : 0) * 0.07}s` } as React.CSSProperties} />;
           })}
           {state?.boards && state.boards.length > 1 && (
             <div className="board second-board">
@@ -1077,7 +1082,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                     onClick={pickable ? (ev) => { ev.stopPropagation(); setShowPick((cur) => cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i]); } : undefined}
                     title={pickable ? 'Select this card to show it' : undefined}
                   >
-                    <PlayingCard card={c} size="mini" dim={p.folded} dealt
+                    <PlayingCard card={c} size="mini" dim={p.folded} dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
                       style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
                   </span>
                 );
