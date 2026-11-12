@@ -682,6 +682,12 @@ function getLiveTable(id) {
     jackpotPool: () => Number(getSetting('jackpot', JACKPOT_SEED)) || 0,
     onBadBeatJackpot: (table, badBeat) => {
       setSetting('jackpot', Math.max(0, (Number(getSetting('jackpot', JACKPOT_SEED)) || 0) - badBeat.total));
+      // A dealt-in player who already left gets the share in their wallet (bots have none).
+      for (const share of badBeat.shares) {
+        if (!share.departed || share.amount <= 0) continue;
+        if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(share.id)) continue;
+        addTransaction(share.id, 'bad_beat_jackpot', share.amount, `Bad Beat Jackpot (${share.role}): ${table.cfg.name}`);
+      }
       const who = badBeat.shares.map((s) => `${s.nick}:${s.role}:${s.amount}`).join(' ');
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bad_beat_jackpot', `${table.cfg.name} ${badBeat.total} ${who}`);
     },

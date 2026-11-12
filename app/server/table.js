@@ -1327,7 +1327,7 @@ export class PokerTable {
       })),
       reason: 'showdown',
     };
-    const badBeat = this.payBadBeatJackpot(scored, results);
+    const badBeat = this.payBadBeatJackpot(scored, pots, results);
     if (badBeat) summary.badBeat = badBeat;
     this.result = this.publicShowdown(summary);
     this.street = 'ended';
@@ -1344,22 +1344,32 @@ export class PokerTable {
   }
 
   /** Pays the Bad Beat Jackpot into stacks when a qualifying hand loses at showdown. */
-  payBadBeatJackpot(scored, results) {
+  payBadBeatJackpot(scored, pots, results) {
     if (!this.badBeatEligible() || scored.length < 2) return null;
+    // Players who folded and left mid-hand are kept as ghosts; they were dealt in too.
+    const departed = new Map(this.ghosts.map((g) => [g.id, g]));
+    const seated = this.seats.filter((s) => s.player?.inHand).map((s) => s.player.id);
     const payout = badBeatPayout({
       pool: this.hooks.jackpotPool(),
       omaha: this.omaha,
-      winnerIds: results.map((r) => r.id),
-      dealtIn: this.seats.filter((s) => s.player?.inHand).map((s) => s.player.id),
+      pots: pots.map((pot, potIndex) => ({
+        eligibleIds: pot.eligible.map((sc) => sc.player.id),
+        winnerIds: results.filter((r) => r.potIndex === potIndex).map((r) => r.id),
+      })),
+      dealtIn: [...new Set([...seated, ...departed.keys()])],
       scored: scored.map((sc) => ({
         id: sc.player.id, score: sc.score, hole: sc.player.cards.map(cardStr), best: sc.cards.map(cardStr),
       })),
     });
     if (!payout) return null;
+    // Seated recipients are paid into their stack; departed ones through onBadBeatJackpot (wallet).
     const shares = payout.shares.map((share) => {
       const seat = this.seatOf(share.id);
-      if (seat?.player) seat.player.stack += share.amount;
-      return { ...share, nick: seat?.player?.nick || '', seat: seat?.index ?? -1 };
+      if (seat?.player) {
+        seat.player.stack += share.amount;
+        return { ...share, nick: seat.player.nick, seat: seat.index, departed: false };
+      }
+      return { ...share, nick: departed.get(share.id)?.nick || '', seat: -1, departed: true };
     });
     const badBeat = { total: payout.total, shares };
     this.hooks.onBadBeatJackpot?.(this, badBeat);

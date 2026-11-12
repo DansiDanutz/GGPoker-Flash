@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { badBeatPayout, jackpotAccrual, BBJ_PAYOUT_FRACTION } from './badBeat.js';
+import { badBeatPayout as rawPayout, jackpotAccrual, BBJ_PAYOUT_FRACTION } from './badBeat.js';
+
+// One pot everybody at showdown contested, won by winnerIds.
+const badBeatPayout = ({ winnerIds, pots, ...hand }) => rawPayout({
+  ...hand, pots: pots || [{ eligibleIds: hand.scored.map((c) => c.id), winnerIds }],
+});
 
 const quads = (rank) => [7, rank, 2];
 const sf = (high) => [8, high];
@@ -72,6 +77,22 @@ test('empty pool or no showdown loser pays nothing', () => {
   assert.equal(badBeatPayout({ pool: 1000, omaha: false, scored, winnerIds: ['a'], dealtIn: ['a'] }), null);
 });
 
+test('a hand that loses the main pot but wins a side pot is still beaten', () => {
+  const out = badBeatPayout({
+    pool: 100000, omaha: false, dealtIn: ['short', 'aces', 'kings'],
+    scored: [
+      { id: 'short', score: sf(9), hole: ['9h', '8h'], best: ['9h', '8h', '7h', '6h', '5h'] },
+      { id: 'aces', score: quads(14), hole: ['As', 'Ac'], best: ['As', 'Ac', 'Ah', 'Ad', '7h'] },
+      { id: 'kings', score: [6, 14, 13], hole: ['Ks', 'Kd'], best: [] },
+    ],
+    pots: [
+      { eligibleIds: ['short', 'aces', 'kings'], winnerIds: ['short'] },
+      { eligibleIds: ['aces', 'kings'], winnerIds: ['aces'] },
+    ],
+  });
+  assert.deepEqual(out.shares.map((s) => [s.id, s.role]), [['aces', 'winner'], ['short', 'opponent'], ['kings', 'table']]);
+});
+
 test('accrual takes a share of the rake, never negative', () => {
   assert.equal(jackpotAccrual(100), 25);
   assert.equal(jackpotAccrual(3), 0);
@@ -122,4 +143,16 @@ test('table: no jackpot in tournaments or without a pool hook', () => {
   const aof = showdownTable({ jackpotPool: () => 100000 }, { game: 'aof' });
   aof.doShowdown();
   assert.equal(aof.result.badBeat, undefined);
+});
+
+test('table: a player who folded and left mid-hand still gets their table share', () => {
+  let paid = null;
+  const t = showdownTable({ jackpotPool: () => 100000, onBadBeatJackpot: (_t, bb) => { paid = bb; } });
+  const leaver = t.seats[2].player;
+  t.seats[2].player = null;
+  t.ghosts.push({ id: leaver.id, nick: leaver.nick, bet: 0, totalBet: leaver.totalBet });
+  t.doShowdown();
+  const rest = paid.shares.find((s) => s.role === 'table');
+  assert.deepEqual([rest.id, rest.nick, rest.seat, rest.departed, rest.amount], ['rest', 'rest', -1, true, 2500]);
+  assert.equal(paid.shares.find((s) => s.role === 'winner').amount, 5000);
 });

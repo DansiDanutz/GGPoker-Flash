@@ -32,18 +32,29 @@ const better = (a, b) => (!b || compareScores(a.score, b.score) > 0 ? a : b);
 
 /**
  * Bad Beat Jackpot payout for a single-board showdown, or null when it does not hit.
- * @param {{ pool: number, omaha: boolean, winnerIds: string[], dealtIn: string[],
+ * A hand is beaten when it loses a pot it was eligible for, even if it wins a side pot.
+ * @param {{ pool: number, omaha: boolean, dealtIn: string[],
+ *   pots: { eligibleIds: string[], winnerIds: string[] }[],
  *   scored: { id: string, score: number[], hole: string[], best: string[] }[] }} hand
  * @returns {{ total: number, shares: { id: string, role: 'winner'|'opponent'|'table', amount: number }[] } | null}
  */
-export function badBeatPayout({ pool, omaha, scored, winnerIds, dealtIn }) {
+export function badBeatPayout({ pool, omaha, scored, pots, dealtIn }) {
   const total = Math.floor(Math.max(0, Number(pool) || 0) * BBJ_PAYOUT_FRACTION);
   if (total <= 0) return null;
-  const won = new Set(winnerIds);
-  const beaten = scored.filter((c) => !won.has(c.id) && qualifies(c, omaha)).reduce((b, c) => better(c, b), null);
+  const byId = new Map(scored.map((c) => [c.id, c]));
+  let beaten = null;
+  let opponent = null;
+  for (const pot of pots) {
+    const won = new Set(pot.winnerIds);
+    const top = pot.winnerIds.map((id) => byId.get(id)).filter(Boolean).reduce((b, c) => better(c, b), null);
+    if (!top) continue;
+    for (const id of pot.eligibleIds) {
+      const c = byId.get(id);
+      if (!c || won.has(id) || !qualifies(c, omaha) || compareScores(top.score, c.score) <= 0) continue;
+      if (better(c, beaten) === c) { beaten = c; opponent = top; }
+    }
+  }
   if (!beaten) return null;
-  const opponent = scored.filter((c) => won.has(c.id)).reduce((b, c) => better(c, b), null);
-  if (!opponent || compareScores(opponent.score, beaten.score) <= 0) return null;
 
   const rest = dealtIn.filter((id) => id !== beaten.id && id !== opponent.id);
   const opponentAmount = Math.floor(total * BBJ_SPLIT.opponent);
