@@ -18,3 +18,17 @@ test('counts open guest sockets and skips closed ones', () => {
 test('returns 0 when nobody is connected', () => {
   assert.equal(countOnline([]), 0);
 });
+
+test('lobby users seen recently count once, together with their table sockets', () => {
+  const clients = [{ readyState: OPEN, userId: 7 }];
+  assert.equal(countOnline(clients, [7, 8]), 2);
+});
+
+test('presence forgets users after the window', async () => {
+  const { createPresence } = await import('./online-count.js');
+  const presence = createPresence(1000);
+  presence.touch(5, 0);
+  presence.touch(6, 900);
+  assert.deepEqual(presence.recent(1500), [6]);
+  assert.deepEqual(presence.recent(5000), []);
+});

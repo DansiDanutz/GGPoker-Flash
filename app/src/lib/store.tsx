@@ -111,7 +111,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [soundOn, setSoundOn] = useState(sound.enabled);
   const [animations, setAnimations] = useState(() => localStorage.getItem('ggpoker.animations') !== '0');
   const [openingTable, setOpeningTable] = useState<string | null>(null);
-  const [meta, setMeta] = useState({ online: 192203, jackpot: 199026635 });
+  const [meta, setMeta] = useState({ online: 0, jackpot: 199026635 });
   const [brand, setBrand] = useState({ logo: '/assets/brand/logo.png?v=20261111', promo: '/assets/chrome/promo.png' });
   const [dmUnread, setDmUnread] = useState(0);
   const toastId = useRef(1);
