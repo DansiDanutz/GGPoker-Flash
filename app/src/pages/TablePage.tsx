@@ -418,7 +418,9 @@ export function TablePage({ tableId }: { tableId: string }) {
     node.style.left = `${from[0]}px`;
     node.style.top = `${from[1]}px`;
     const label = document.createElement('span');
-    label.textContent = chip(share.amount);
+    // The socket handler keeps the first render's closures: read the live table state here.
+    const tourney = !!stateRef.current?.tournament;
+    label.textContent = tourney ? Math.round(share.amount).toLocaleString('en-US') : money(share.amount);
     node.appendChild(document.createElement('i'));
     node.appendChild(label);
     el.appendChild(node);
