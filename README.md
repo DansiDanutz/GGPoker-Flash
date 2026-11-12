@@ -167,6 +167,8 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
   the table sees exactly those cards; folded players cannot show.
 - **Showdown sequencing**: revealed hands turn in seat order before the win badge and pot
   move; anticipatory Fold/Check-Fold/Check/Call use the native reserved-action artwork.
+- **Native turn clock** on the acting player, and a table that fits portrait phones
+  (390×844), landscape phones (844×390) and tablets (768×1024) without overflow.
 - **Card Squeeze**: optional peel of your hole cards on a fresh deal, using the reference
   clone's native 61-frame compositor for Hold'em and PLO4/5/6 (wheel, hover, drag or Open;
   actions lock until revealed; reconnects skip it).

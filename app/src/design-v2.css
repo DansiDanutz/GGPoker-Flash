@@ -528,3 +528,8 @@ body { background: #050706; }
   .seat .cards .pcard.mini .rank { font-size: 17px; }
   .seat .cards .pcard.mini .suit { font-size: 20px; }
 }
+
+/* Native turn clock on the acting seat */
+.native-clock { position: absolute; left: -22px; top: 24%; transform: translateX(-100%); width: 64px; height: 28px; background: url('/assets/table/clock/frame.png') center/100% 100% no-repeat; display: flex; align-items: center; justify-content: center; gap: 1px; z-index: 11; pointer-events: none; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .6)); }
+.native-clock .clock-digit { height: 20px; width: auto; }
+.native-clock.clock-right { left: auto; right: -22px; transform: translateX(100%); }

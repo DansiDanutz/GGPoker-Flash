@@ -39,12 +39,29 @@ type PreAction = { kind: 'checkfold' } | { kind: 'check' } | { kind: 'call'; amo
 
 const DEFAULT_ACTION_TIME_MS = 15000;
 
-const POS6 = [[50, 80], [12, 71], [16, 32], [50, 17], [84, 32], [88, 71]];
-const POS9 = [[50, 84], [26, 81], [10, 64], [11, 40], [29, 22], [50, 17], [71, 22], [89, 40], [90, 64]];
+const POS6 = [[50, 76], [12, 68], [16, 32], [50, 17], [84, 32], [88, 68]];
+const POS9 = [[50, 80], [26, 77], [10, 62], [11, 40], [29, 22], [50, 17], [71, 22], [89, 40], [90, 62]];
 // Portrait phones lose the bottom of the screen to the action bar, so the two
 // lowest seats move up to keep the hero's avatar, cards and stack visible.
 const POS6_PHONE = [[50, 65], [12, 63], [16, 31], [50, 17], [84, 31], [88, 63]];
 const POS9_PHONE = [[50, 68], [26, 69], [10, 58], [11, 38], [29, 21], [50, 16], [71, 21], [89, 38], [90, 58]];
+// Landscape phones are short: pull the top seat clear of the bar and drop the
+// hero above the action bar while leaving the pot and board room.
+const POS6_LANDSCAPE = [[50, 76], [13, 66], [17, 30], [50, 20], [83, 30], [87, 66]];
+const POS9_LANDSCAPE = [[50, 74], [26, 70], [10, 56], [11, 34], [29, 23], [50, 20], [71, 23], [89, 34], [90, 56]];
+
+function useLandscapePhone() {
+  const query = '(max-height: 520px) and (orientation: landscape)';
+  const [on, setOn] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setOn(mq.matches);
+    onChange();
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+  return on;
+}
 
 function useNarrowScreen(maxWidth = 760) {
   // Also compact the ring on phones held sideways (short viewport, wide width).
@@ -635,10 +652,11 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const narrowScreen = useNarrowScreen();
+  const landscapePhone = useLandscapePhone();
   const layout = state
     ? state.seats >= 7
-      ? (narrowScreen ? POS9_PHONE : POS9)
-      : (narrowScreen ? POS6_PHONE : POS6)
+      ? (narrowScreen ? (landscapePhone ? POS9_LANDSCAPE : POS9_PHONE) : POS9)
+      : (narrowScreen ? (landscapePhone ? POS6_LANDSCAPE : POS6_PHONE) : POS6)
     : POS6;
   const seatPos = (seat: number) => {
     const n = state?.seats || 6;
@@ -762,6 +780,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   // Compare against the server's clock so a skewed local clock cannot distort the timer.
   const serverNow = now + clockOffset.current;
   const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - serverNow) / (state.actionTimeMs || DEFAULT_ACTION_TIME_MS))) : 0;
+  const clockSeconds = state?.actor ? Math.max(0, Math.ceil((state.actionEndsAt - serverNow) / 1000)) : null;
   const rebuyMax = Math.max(0, (state?.maxBuyin || 0) - (me?.stack || 0));
   const rebuyMin = Math.min(rebuyMax, Math.max(state?.bb || 0, (state?.minBuyin || 0) - (me?.stack || 0)));
   // A bust offer carries the exact allowed range, so the modal works before the next snapshot.
@@ -949,11 +968,18 @@ export function TablePage({ tableId }: { tableId: string }) {
         return (
           <div
             key={p.seat}
-            className={'seat' + (p.isMe ? ' me' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
+            className={'seat' + (p.isMe ? ' me' : '') + (landscapePhone && (y < 25 || y > 70) ? ' seat-row' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
             style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default' }}
             onClick={() => { if (p.nick) openNote(p); }}
             title={p.nick ? 'Player note' : ''}
           >
+            {isActor && clockSeconds != null && (
+              <div className={`native-clock${clockSeconds <= 5 ? ' hot' : ''}${x < 30 ? ' clock-right' : ''}`} aria-hidden="true">
+                {String(Math.min(99, clockSeconds)).split('').map((d, i) => (
+                  <img key={i} className="clock-digit" src={`/assets/table/clock/${d}${clockSeconds <= 5 ? '-hot' : ''}.png`} alt="" />
+                ))}
+              </div>
+            )}
             {p.winAmount ? <div className="win-amount">+{chip(p.winAmount)}</div> : null}
             {p.winAmount ? <img className="native-win" src={animOff ? '/assets/table/native-win-final.png' : '/assets/table/native-win-effect.png'} alt="" /> : null}
             {isActor && !p.folded ? <div className="timer" style={{ animationDuration: '1.4s' }} /> : null}
@@ -1010,15 +1036,17 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {state && state.button >= 0 && (() => {
         const [x, y] = seatPos(state.button);
-        const dx = x + (x <= 50 ? 6.2 : -6.2);
-        const dy = y + (y < 45 ? 4.5 : -4.5);
+        const rowSeat = landscapePhone && (y < 25 || y > 70);
+        const dx = rowSeat ? x + 13 : x + (x <= 50 ? 6.2 : -6.2);
+        const dy = rowSeat ? y : y + (y < 45 ? 4.5 : -4.5);
         return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }} />;
       })()}
 
       {(state?.players || []).filter((p) => p && !p.empty && (p.bet || 0) > 0).map((p) => {
         const [x, y] = seatPos(p.seat!);
-        const bx = x + (50 - x) * 0.2;
-        const by = y + (45 - y) * 0.2;
+        const pull = narrowScreen ? 0.3 : 0.2;
+        const bx = x + (50 - x) * pull;
+        const by = y + (45 - y) * pull;
         const betCols = potChipLayout(p.bet || 0, state?.bb || 1, 4);
         return (
           <div key={'bet' + p.seat} className="table-bet" style={{ left: `${bx}%`, top: `${by}%` }}>

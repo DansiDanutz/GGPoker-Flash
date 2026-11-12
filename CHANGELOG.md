@@ -6,6 +6,23 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Mobile table layout and the native turn clock
+- The table now genuinely fits **portrait phones, landscape phones and tablets**:
+  - portrait 390×844: two-row action bar, scaled seat rings/cards, no overflow;
+  - landscape 844×390: the top and hero seats lie on their side as compact rows, the
+    board drops its empty reserved height, and the action bar is a single 48px row;
+  - tablet 768×1024: compact seats and a wrapped action bar with no clipped raise button.
+  Verified in headless Chrome at all three sizes with the flop on screen: zero overflowing
+  controls, the pot above the board and the hero above the bar.
+- The dealer button and native clock stay on-screen for seats at the left edge, and the
+  wager pills pull further toward the pot on narrow screens so they no longer sit under the
+  nameplates.
+- **Native turn clock**: the acting player now shows the clone's clock frame with its LED
+  digit glyphs (hot/orange under five seconds), fed by the existing action deadline.
+- The desktop hero moved up slightly so their stack plate clears the action bar.
+- Full suite 155/155.
+
+## 2026-11-12
 ### Table fidelity: taking the best of both
 - Audited the reference clone's table view against DanGG's
   (`docs/designs/table-fidelity-audit.md`) and adopted the native pieces DanGG lacked while
