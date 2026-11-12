@@ -113,7 +113,7 @@ ssh -N -L 5198:127.0.0.1:5198 dexter
 # then open http://127.0.0.1:5198 and log in as admin
 ```
 
-The server sees a loopback request, which the `GGPOKER_ADMIN_ALLOW` allowlist admits.
+Through Docker's published port the request arrives from a Docker network gateway (inside `172.16.0.0/12`), which the `GGPOKER_ADMIN_ALLOW` allowlist admits.
 The admin password is `GGPOKER_ADMIN_PASSWORD` in `deploy/.env` (≥16 characters).
 Do not add an `admin.dangg.live` DNS record.
 
@@ -125,7 +125,7 @@ Do not add an `admin.dangg.live` DNS record.
 | `GGPOKER_PUBLIC_ORIGIN` | Allowed public origin (`https://dangg.live`) |
 | `GGPOKER_ALLOWED_HOSTS` | Additional host allowlist entries |
 | `GGPOKER_TRUST_PROXY` | Trust proxy headers from Traefik |
-| `GGPOKER_ADMIN_ALLOW` | CIDR allowlist for admin endpoints |
+| `GGPOKER_ADMIN_ALLOW` | CIDR allowlist for admin endpoints. If unset in production, only loopback and Docker networks (`172.16.0.0/12`, the SSH tunnel path) are admitted |
 | `GGPOKER_ADMIN_PASSWORD` | Admin password (required, ≥16 chars) |
 | `GGPOKER_SEED_DEMO` | `0` in production (no demo/guest accounts) |
 | `NODE_ENV` | `production` |

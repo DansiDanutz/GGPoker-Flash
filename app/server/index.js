@@ -114,8 +114,19 @@ function ipMatches(ip, rule) {
   return (toInt(ip) & mask) === (toInt(base) & mask);
 }
 
-function adminNetworkAllowed(req) {
+// Used in production when GGPOKER_ADMIN_ALLOW is unset, so a rebuilt host never exposes the
+// admin API to the internet. The SSH tunnel reaches the container through Docker's published
+// port, which arrives from a Docker network gateway inside 172.16.0.0/12, so it keeps working.
+const PRODUCTION_ADMIN_ALLOW_FALLBACK = Object.freeze(['127.0.0.1', '::1', '172.16.0.0/12']);
+
+function adminAllowRules() {
   const rules = String(process.env.GGPOKER_ADMIN_ALLOW || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (rules.length || process.env.NODE_ENV !== 'production') return rules;
+  return PRODUCTION_ADMIN_ALLOW_FALLBACK;
+}
+
+function adminNetworkAllowed(req) {
+  const rules = adminAllowRules();
   if (!rules.length) return true;
   const ip = requestIp(req);
   return rules.some((rule) => ipMatches(ip, rule));
@@ -3133,4 +3144,7 @@ server.listen(PORT, process.env.GGPOKER_BIND || '127.0.0.1', () => {
   const port = server.address().port;
   console.log(`LISTENING ${port}`);
   console.log(`GGPoker clone server: http://127.0.0.1:${port}`);
+  if (process.env.NODE_ENV === 'production' && !String(process.env.GGPOKER_ADMIN_ALLOW || '').trim()) {
+    console.warn(`GGPOKER_ADMIN_ALLOW is unset; admin API limited to ${PRODUCTION_ADMIN_ALLOW_FALLBACK.join(', ')}`);
+  }
 });

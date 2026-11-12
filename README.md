@@ -335,7 +335,7 @@ Useful environment variables:
 | `GGPOKER_DEV` | Development mode (allows Vite origin) |
 | `GGPOKER_SEED_DEMO` | Seed demo/guest accounts (on unless `0`; always off in production) |
 | `GGPOKER_ADMIN_PASSWORD` | Admin password (≥16 chars in production) |
-| `GGPOKER_ADMIN_ALLOW` | CIDR allowlist for admin endpoints |
+| `GGPOKER_ADMIN_ALLOW` | CIDR allowlist for admin endpoints. If unset in production, only loopback and Docker networks (`172.16.0.0/12`, the SSH tunnel path) are admitted |
 | `GGPOKER_PUBLIC_ORIGIN` / `GGPOKER_ALLOWED_HOSTS` | Origin/host allowlists |
 | `GGPOKER_BIND` | Bind address (default `127.0.0.1`) |
 | `GGPOKER_DISCONNECT_GRACE_MS` | Seat hold after a dropped connection |
