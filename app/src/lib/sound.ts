@@ -1,4 +1,6 @@
 // Sound engine using the original GGPoker client audio files.
+import { savedVolume, VOLUME_KEY } from './volume';
+
 const BASE = '/assets/sounds/';
 
 const FILES = {
@@ -59,6 +61,8 @@ class SoundEngine {
     try {
       const saved = localStorage.getItem('ggpoker.sound');
       if (saved != null) this.enabled = saved === '1';
+      // The Settings page saves the master volume as 0-100 under this key.
+      this.volume = savedVolume(localStorage.getItem(VOLUME_KEY));
       const channels = JSON.parse(localStorage.getItem('ggpoker.soundChannels') || '{}');
       this.channels = { ...DEFAULT_CHANNELS, ...channels };
     } catch { /* ignore */ }

@@ -27,6 +27,10 @@ import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createTableStats } from './table-stats.js';
 import { createDailyLeaderboard, leaderboardStake, pointEarners } from './dailyLeaderboard.js';
 import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
+import { createPlayerNotes } from './player-notes.js';
+import { occupancyOf } from './lobby-occupancy.js';
+import { checkDeposit, depositedToday, depositLimits, rebuyReference } from './play-money.js';
+import { loadTimeBank, saveTimeBank } from './time-bank-store.js';
 import { spinInfo } from './spin.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
@@ -278,23 +282,10 @@ function serveFile(res, file) {
 /* lobby data                                                          */
 /* ------------------------------------------------------------------ */
 
-const TABLE_OCCUPANCY = new Map();
-
 function hashStr(str) {
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
   return Math.abs(h);
-}
-
-function occupancyFor(t) {
-  if (!TABLE_OCCUPANCY.has(t.id)) {
-    const h = hashStr(t.id + t.name);
-    let players = 1 + (h % t.seats);
-    if (h % 5 === 0) players = t.seats;
-    if (t.game === 'spingold') players = 1 + (h % 2);
-    TABLE_OCCUPANCY.set(t.id, { players });
-  }
-  return TABLE_OCCUPANCY.get(t.id);
 }
 
 function lobbyMissions(user) {
@@ -312,15 +303,15 @@ function lobbyTables(userId = null) {
   // Battle Royale is capture-gated (B0): never listed for join, even if a row is re-enabled.
   const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND game != ? AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(BATTLE_ROYALE_GAME, userId);
   return rows.map((t) => {
-    const occ = occupancyFor(t);
-    const players = occ.players;
+    // Real seats from the live table (bots included, and reported as `bots`); 0 when not running.
+    const { players, bots, seated } = occupancyOf(LIVE_TABLES.get(t.id)?.table);
     const stats = TABLE_STATS(t.id);
     return {
       id: t.id, name: t.name, game: t.game, category: t.category,
       sb: t.sb, bb: t.bb, ante: t.ante, min_buyin: t.min_buyin, max_buyin: t.max_buyin,
       seats: t.seats, speed: t.speed, featured: !!t.featured,
       private: !!t.private, owner_id: t.owner_id || null,
-      players,
+      players, bots, seated,
       // Real queue length and the caller's 1-based position (0 = not queued), from waitlist.js.
       wait: waitlist.queueSize(waitState, waitlist.tableQueue(t.id)),
       myWait: userId ? waitlist.position(waitState, userId, waitlist.tableQueue(t.id)) : 0,
@@ -557,6 +548,25 @@ const DAILY_LEADERBOARD = createDailyLeaderboard(db, {
     addTransactionEx(userId, 'daily_leaderboard', amount, memo, 'USD', { reference, onDuplicate: 'skip' }),
 });
 const PLAYER_LABELS = createPlayerLabels(db);
+// The seated player behind a nick: the given live table first, then any live table.
+function findSeatedByNick(nick, tableId = null) {
+  const entries = tableId && LIVE_TABLES.has(tableId) ? [LIVE_TABLES.get(tableId), ...LIVE_TABLES.values()] : LIVE_TABLES.values();
+  for (const entry of entries) {
+    const seat = entry.table.occupiedSeats().find((s) => s.player.nick === nick);
+    if (seat) return seat.player;
+  }
+  return null;
+}
+const PLAYER_NOTES = createPlayerNotes(db, { findSeated: findSeatedByNick });
+// HUD subject: an explicit id, else the player seated at this table under that nick, else
+// the account currently holding it; a nick with no account (an old bot) stays a nick.
+function hudIdentity(tableId, { id, nick }) {
+  if (id) return { id, nick };
+  const seat = LIVE_TABLES.get(tableId)?.table.occupiedSeats().find((s) => s.player.nick === nick);
+  if (seat) return { id: seat.player.id, nick };
+  const account = /^u:(\d+)$/.exec(PLAYER_NOTES.resolveKey({ target: nick }) || '');
+  return account ? { id: Number(account[1]), nick } : nick;
+}
 
 /** `/api/lobby` `rushPools`: one row per Rush pool, with the pool's group wait-list queue. */
 function lobbyRushPools(tables) {
@@ -737,7 +747,9 @@ function getLiveTable(id) {
       // mission progress for humans who were dealt in
       moveRushPlayers(table);
       for (const s of table.seats) {
-        if (!s.player || s.player.isBot || !s.player.inHand) continue;
+        if (!s.player || s.player.isBot) continue;
+        saveTimeBank(db, table, s.player);
+        if (!s.player.inHand) continue;
         bumpMission(s.player.id, 'daily-hands');
         if (winner && winner.id === s.player.id) bumpMission(s.player.id, 'daily-win');
         if (table.board.length >= 3) bumpMission(s.player.id, 'daily-flop');
@@ -834,7 +846,7 @@ function seatHuman(table, user, buyin, seatIndex = null) {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
   });
   const res = table.sit({
-    id: user.id, nick: user.nick, avatar: user.avatar, timeBankCards: user.timeBankCards, timeBankHands: user.timeBankHands,
+    id: user.id, nick: user.nick, avatar: user.avatar, ...loadTimeBank(table, user),
   }, wantedSeat, stack, sessionId);
   if (!res.ok) {
     addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
@@ -870,6 +882,7 @@ function cashOutSeat(table, userId, reason) {
   const seat = table.seatOf(userId);
   if (!seat || !seat.player) return;
   const sessionId = seat.player.sessionId;
+  saveTimeBank(db, table, seat.player);
   if (table.spinStarted()) {
     // Spin chips are not cash: leaving takes the lowest open place (paid by onSpinPayout),
     // and this close is skipped when that payout already closed the session.
@@ -1201,13 +1214,16 @@ const server = http.createServer(async (req, res) => {
       if (!nick) return json(res, 400, { error: 'Nickname must be 2-20 letters, digits, spaces, dots, dashes or underscores' });
       if (String(body.password || '').length < 6) return json(res, 400, { error: 'Password must be at least 6 characters' });
       if (identityTaken(login) || identityTaken(nick)) return json(res, 400, { error: 'That account ID or nickname is already taken' });
-      const start = getSetting('default_balance', 5000) + getSetting('welcome_bonus', 100000);
+      const welcome = getSetting('welcome_bonus', 100000);
+      const start = getSetting('default_balance', 5000) + welcome;
       db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
         .run(login, nick, hashPassword(String(body.password)), String(body.email || '').slice(0, 120), 0, 5);
       const created = db.prepare('SELECT id FROM users WHERE login = ?').get(login);
       // The account starts at zero and the ledger entry carries the whole opening balance,
       // so the balance and the ledger agree (it used to be credited twice).
       addTransaction(created.id, 'welcome', start, 'Welcome bonus');
+      // The opening credit is the welcome bonus: record the claim so the Cashier cannot pay it again.
+      db.prepare("INSERT OR IGNORE INTO bonus_claims (user_id,claim_key,amount) VALUES (?,'welcome',?)").run(created.id, welcome);
       // Count only accounts actually created, so typos in the form do not use up the allowance.
       if (clientKey) registerLimiter.record(clientKey);
       const user = db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
@@ -1546,7 +1562,8 @@ const server = http.createServer(async (req, res) => {
         { id: 'reload', title: 'Weekly reload', subtitle: 'Once per week', amount: 50000, claimed: claimed.has(weekKey) },
         { id: 'daily', title: 'Daily freebie', subtitle: 'Once per day', amount: 1000, claimed: claimed.has(`daily:${day}`) },
       ];
-      return json(res, 200, { user: publicUser(u), transactions: tx, bonuses });
+      const depositLimitInfo = { ...depositLimits(getSetting), today: depositedToday(db, u.id) };
+      return json(res, 200, { user: publicUser(u), transactions: tx, bonuses, depositLimits: depositLimitInfo });
     }
 
     if (p === '/api/cashier/bonus' && req.method === 'POST') {
@@ -1587,6 +1604,9 @@ const server = http.createServer(async (req, res) => {
         if (existing.amount !== amount) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
         return json(res, 200, { ok: true, balance: u.balance, replayed: true });
       }
+      // Play money is free, so minting is capped per request and per UTC day.
+      const limit = checkDeposit({ amount, ...depositLimits(getSetting), today: depositedToday(db, u.id) });
+      if (!limit.ok) return json(res, limit.status, { error: limit.error });
       const award = addTransactionEx(u.id, 'deposit', amount, String(body.method || 'Instant bank transfer').slice(0, 60), 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
       return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
     }
@@ -2206,9 +2226,10 @@ const server = http.createServer(async (req, res) => {
       if (m && req.method === 'GET') {
         const u = requireUser(req, res); if (!u) return;
         const nick = String(url.searchParams.get('nick') || '').slice(0, 40);
-        if (!nick) return json(res, 400, { error: 'missing nick' });
+        const id = String(url.searchParams.get('id') || '').slice(0, 64);
+        if (!nick && !id) return json(res, 400, { error: 'missing nick' });
         if (!db.prepare('SELECT 1 FROM tables WHERE id = ?').get(m[1])) return json(res, 404, { error: 'table not found' });
-        return json(res, 200, { hud: TABLE_STATS.hud(m[1], nick) });
+        return json(res, 200, { hud: TABLE_STATS.hud(m[1], hudIdentity(m[1], { id, nick })) });
       }
     }
     // ---------- seat VPIP badges (native PlayerCell number; public table information) ----------
@@ -2218,8 +2239,8 @@ const server = http.createServer(async (req, res) => {
         const u = requireUser(req, res); if (!u) return;
         const live = LIVE_TABLES.get(m[1]);
         if (!live) return json(res, 404, { error: 'table not found' });
-        const nicks = live.table.occupiedSeats().map((s) => s.player.nick).filter(Boolean);
-        return json(res, 200, { vpip: TABLE_STATS.vpips(m[1], nicks) });
+        const seated = live.table.occupiedSeats().filter((s) => s.player.nick).map((s) => ({ id: s.player.id, nick: s.player.nick }));
+        return json(res, 200, { vpip: TABLE_STATS.vpips(m[1], seated) });
       }
     }
     // ---------- table Daily Leaderboard ribbon (native "{0} Daily Leaderboard", Total Prize, My Points) ----------
@@ -2237,9 +2258,7 @@ const server = http.createServer(async (req, res) => {
     // ---------- player notes ----------
     if (p === '/api/notes' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
-      const rows = db.prepare('SELECT target, note, color, updated_at FROM player_notes WHERE user_id = ?').all(u.id)
-        .map((r) => ({ ...r, color: normalizeNoteColor(r.color) || 'c9' }));
-      return json(res, 200, { notes: rows, labels: PLAYER_LABELS.get(u.id) });
+      return json(res, 200, { notes: PLAYER_NOTES.list(u.id), labels: PLAYER_LABELS.get(u.id) });
     }
     if (p === '/api/notes/labels' && req.method === 'PUT') {
       const u = requireUser(req, res); if (!u) return;
@@ -2250,16 +2269,12 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/notes' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const b = await readBody(req);
-      const target = String(b.target || '').slice(0, 40);
-      const note = String(b.note || '').slice(0, 1000);
-      if (!target) return json(res, 400, { error: 'missing target' });
       const color = normalizeNoteColor(b.color);
       if (!color) return json(res, 400, { error: 'unknown note colour' });
-      if (!note.trim()) { db.prepare('DELETE FROM player_notes WHERE user_id = ? AND target = ?').run(u.id, target); return json(res, 200, { ok: true, deleted: true }); }
-      db.prepare(`INSERT INTO player_notes (user_id,target,note,color) VALUES (?,?,?,?)
-        ON CONFLICT(user_id,target) DO UPDATE SET note=excluded.note, color=excluded.color, updated_at=datetime('now')`)
-        .run(u.id, target, note, color);
-      return json(res, 200, { ok: true });
+      // Stored by account id; a bare nick is resolved to the seated player server-side.
+      const saved = PLAYER_NOTES.save(u.id, { key: b.key, targetId: b.targetId, target: b.target, tableId: b.tableId }, b.note, color);
+      if (!saved.ok) return json(res, 400, { error: saved.error });
+      return json(res, 200, saved);
     }
 
     // ---------- chat ----------
@@ -3010,10 +3025,11 @@ wss.on('connection', (ws, req) => {
       if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
       const sessionId = seat.player.sessionId;
       const rebuyNo = (seat.player.rebuyCount || 0) + 1;
+      // A client key (one per Add Chips submission) makes a retried message a no-op replay.
       const award = addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
-        sessionId, reference: `in:${sessionId}:r${rebuyNo}`, onDuplicate: 'skip',
+        sessionId, reference: rebuyReference(sessionId, rebuyNo, msg.idempotencyKey), onDuplicate: 'skip',
       });
-      if (!award.applied) return ws.send(JSON.stringify({ type: 'error', error: 'Rebuy already applied' }));
+      if (!award.applied) return broadcastState(table);
       seat.player.rebuyCount = rebuyNo;
       seat.player.stack += amount;
       // Reloading clears the bust prompt; the deal can resume sooner.

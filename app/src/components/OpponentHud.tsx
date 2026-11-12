@@ -5,24 +5,26 @@ import { PlayingCard } from './Card';
 type HudHand = { handNo: number; pot: number; won: number; board: string[]; cards: string[] | null };
 type Hud = { hands: number; vpip: number; pfr: number; wins: number; recent: HudHand[] };
 
-type Props = { tableId: string; nick: string; formatChips: (n: number) => string };
+/** `playerId` (account or bot seat id) keys the stats; the nick is the fallback. */
+type Props = { tableId: string; nick: string; playerId?: string | number | null; formatChips: (n: number) => string };
 
 /** Room-scoped opponent stats and recent hands at this table (public information only). */
-export function OpponentHud({ tableId, nick, formatChips }: Props) {
+export function OpponentHud({ tableId, nick, playerId, formatChips }: Props) {
   const [hud, setHud] = useState<Hud | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     setHud(null); setFailed(false);
-    fetch(`/api/tables/${encodeURIComponent(tableId)}/hud?nick=${encodeURIComponent(nick)}`, {
+    const who = playerId != null && playerId !== '' ? `id=${encodeURIComponent(String(playerId))}&` : '';
+    fetch(`/api/tables/${encodeURIComponent(tableId)}/hud?${who}nick=${encodeURIComponent(nick)}`, {
       headers: { authorization: `Bearer ${getToken()}` }, signal: controller.signal,
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d) => setHud(d.hud))
       .catch((e) => { if (e?.name !== 'AbortError') setFailed(true); });
     return () => controller.abort();
-  }, [tableId, nick]);
+  }, [tableId, nick, playerId]);
 
   if (failed) return <div className="opp-hud muted small">Table stats are unavailable right now.</div>;
   if (!hud) return <div className="opp-hud muted small">Loading table stats…</div>;

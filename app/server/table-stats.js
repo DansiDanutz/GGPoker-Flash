@@ -62,20 +62,38 @@ const HUD_RECENT = 5;
 const RAISES = new Set(['bet', 'raise', 'all-in', 'allin']);
 
 /**
+ * Identity a HUD is built for: a bare nick (legacy callers, bots without a stable id) or
+ * `{ id, nick }`. With an id, each recorded hand is matched by player id and the action
+ * log by that player's nick in that hand, so a rename keeps the stats and a new account
+ * taking an old nick does not inherit them.
+ * @param {string | { id?: unknown, nick?: string }} who
+ */
+function matcherFor(who) {
+  if (who && typeof who === 'object' && who.id != null && who.id !== '') {
+    const id = String(who.id);
+    return (p) => p && p.id != null && String(p.id) === id;
+  }
+  const nick = who && typeof who === 'object' ? who.nick : who;
+  return (p) => p && p.nick === nick;
+}
+
+/**
  * Room-scoped opponent HUD (Codex clone hud-room/hud-history): hands dealt, VPIP, PFR and
- * wins for one nickname at this table, plus the latest hands. Hole cards are included
+ * wins for one player at this table, plus the latest hands. Hole cards are included
  * only when the player showed them; everything else is public table information.
  * @param {Array<{hand_no:number,pot:number,board?:string,players?:string,actions?:string|null}>} rows newest first
+ * @param {string | { id?: unknown, nick?: string }} who
  */
-export function playerHud(rows, nick) {
+export function playerHud(rows, who) {
+  const isPlayer = matcherFor(who);
   const mine = [];
   for (const row of rows.slice(0, HUD_WINDOW)) {
     const players = parseList(row.players) || [];
-    const me = players.find((p) => p && p.nick === nick && Array.isArray(p.cards) && p.cards.length > 0);
+    const me = players.find((p) => isPlayer(p) && Array.isArray(p.cards) && p.cards.length > 0);
     if (me) mine.push({ row, me, actions: parseList(row.actions) || [] });
   }
   if (!mine.length) return { hands: 0, vpip: 0, pfr: 0, wins: 0, recent: [] };
-  const pre = ({ actions }, set) => actions.some((a) => a && a.nick === nick && a.street === 'preflop' && set.has(String(a.action).toLowerCase()));
+  const pre = ({ actions, me }, set) => actions.some((a) => a && a.nick === me.nick && a.street === 'preflop' && set.has(String(a.action).toLowerCase()));
   const pct = (n) => Math.round((n / mine.length) * 100);
   return {
     hands: mine.length,
@@ -92,10 +110,16 @@ export function playerHud(rows, nick) {
   };
 }
 
-/** VPIP % for each nick at this table (native seat badge); 0 for a player with no hands. */
-export function seatVpips(rows, nicks) {
+/**
+ * VPIP % for each seated player (native seat badge), keyed by current nick; 0 for a player
+ * with no hands. Entries are nicks or `{ id, nick }` identities.
+ */
+export function seatVpips(rows, players) {
   const out = Object.create(null); // nicks like __proto__ must stay plain keys
-  for (const nick of nicks) out[nick] = playerHud(rows, nick).vpip;
+  for (const who of players) {
+    const nick = who && typeof who === 'object' ? who.nick : who;
+    out[nick] = playerHud(rows, who).vpip;
+  }
   return out;
 }
 
@@ -128,8 +152,8 @@ export function createTableStats(db, now = () => Date.now()) {
   const hudHands = db.prepare(
     `SELECT hand_no, pot, board, players, actions FROM hands WHERE table_id = ? ORDER BY id DESC LIMIT ${HUD_WINDOW}`,
   );
-  statsFor.hud = (tableId, nick) => playerHud(hudHands.all(tableId), nick);
-  statsFor.vpips = (tableId, nicks) => seatVpips(hudHands.all(tableId), nicks);
+  statsFor.hud = (tableId, who) => playerHud(hudHands.all(tableId), who);
+  statsFor.vpips = (tableId, players) => seatVpips(hudHands.all(tableId), players);
 
   /** Drop a table's cached stats after a new hand is recorded. */
   statsFor.invalidate = (tableId) => cache.delete(tableId);
