@@ -7,7 +7,7 @@ import { TitleBar } from '../components/TitleBar';
 import { Avatar } from '../components/Avatar';
 import { WaitlistSideActions } from '../components/WaitlistSideActions';
 import { waitCount } from '../lib/waitlist';
-import { DEFAULT_TAB_FILTERS, filterTables, filtersForTab, FilterPrefs, readFilterPrefs, resetExtraFilters, sortTables, SortKey, TabFilters, UNAVAILABLE_TABS, withTabFilters, writeFilterPrefs } from '../lib/lobbyFilters';
+import { DEFAULT_TAB_FILTERS, filterTables, filtersForTab, pillsFor, FilterPrefs, readFilterPrefs, resetExtraFilters, sortTables, SortKey, TabFilters, UNAVAILABLE_TABS, withTabFilters, writeFilterPrefs } from '../lib/lobbyFilters';
 import { LobbyPills } from '../components/LobbyPills';
 import { LobbyFiltersPopover } from '../components/LobbyFiltersPopover';
 import { LobbyGroupRows } from '../components/LobbyGroupRows';
@@ -330,7 +330,7 @@ export function Lobby() {
             </div>
           )}
           <div
-            className={'promo-wrap' + (promoPaused ? ' paused' : '') + (gameTab === 'rush' ? ' rush-hidden' : '')}
+            className={'promo-wrap' + (PROMOS[promoIdx]?.full ? ' full-art' : '') + (promoPaused ? ' paused' : '') + (gameTab === 'rush' ? ' rush-hidden' : '')}
             onMouseEnter={() => setPromoPaused(true)}
             onMouseLeave={() => setPromoPaused(false)}
             onClick={() => { sound.play('click'); navigate(PROMOS[promoIdx]?.to || '/promotions'); }}
@@ -358,6 +358,7 @@ export function Lobby() {
             </div>
           </div>
           <div className="filter-bar">
+            {!pillsFor(gameTab).length && <span className="filter-label">Tables</span>}
             <LobbyPills tab={gameTab} value={filters.pill} onChange={(pill) => setFilter({ pill })} />
             <span className="filter-spacer" />
             <button className="host-table-btn" onClick={openHost}>+ Host</button>
