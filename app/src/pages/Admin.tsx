@@ -5,12 +5,14 @@ import { sound } from '../lib/sound';
 import { PageShell } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { PlayingCard } from '../components/Card';
+import { AdminWaitlists } from '../components/AdminWaitlists';
 
 const SECTIONS = [
   { key: 'dashboard', label: 'Dashboard', icon: '📊' },
   { key: 'users', label: 'Users', icon: '👥' },
   { key: 'tables', label: 'Cash tables', icon: '🃏' },
   { key: 'tournaments', label: 'Tournaments', icon: '🏆' },
+  { key: 'waitlists', label: 'Wait lists', icon: '⏳' },
   { key: 'banners', label: 'Promotions', icon: '🎁' },
   { key: 'branding', label: 'Branding', icon: '🎨' },
   { key: 'verifications', label: 'Verifications', icon: '🪪' },
@@ -318,6 +320,8 @@ export function Admin() {
               </div>
             </>
           )}
+
+          {section === 'waitlists' && <AdminWaitlists />}
 
           {section === 'banners' && (
             <>

@@ -66,6 +66,18 @@ export type MyWaitlists = { queues: WaitlistQueue[]; offers: WaitlistOffer[] };
 /** SSE `waitlist_update` from /api/notifications/stream. Position 0 = no longer queued. */
 export type WaitlistUpdateEvent = { type: 'waitlist_update'; queueKey: string; position: number; size: number } & WaitlistTarget;
 
+/** Admin monitor (GET /api/admin/waitlists): one non-empty table or group queue. */
+export type AdminWaitlistQueue = {
+  queueKey: string;
+  name: string;
+  length: number;
+  positions: { userId: number; nick: string; position: number; waitingMs: number }[];
+  held: { userId: number; nick: string; tableId: string; tableName: string; seat: number; deadline: number; remainingMs: number }[];
+  oldestWaitMs: number;
+} & WaitlistTarget;
+
+export type AdminWaitlists = { queues: AdminWaitlistQueue[]; totals: { queues: number; waiting: number; held: number } };
+
 const TOKEN_KEY = 'ggpoker.token';
 
 export function getToken() {
@@ -179,6 +191,9 @@ export const api = {
     saveSettings: (body: any) => request('/api/admin/settings', { method: 'POST', body: JSON.stringify(body) }),
     audit: () => request<{ log: any[] }>('/api/admin/audit'),
     transactions: () => request<{ transactions: any[] }>('/api/admin/transactions'),
+    waitlists: () => request<AdminWaitlists>('/api/admin/waitlists'),
+    clearWaitlist: (target: { tableId: string } | { groupKey: string }) =>
+      request<{ ok: true; removed: number; released: number }>('/api/admin/waitlists/clear', { method: 'POST', body: JSON.stringify(target) }),
     chat: (message: string) => request('/api/admin/chat', { method: 'POST', body: JSON.stringify({ message }) }),
     saveBrand: (slot: string, dataUrl: string) => request('/api/admin/brand', { method: 'POST', body: JSON.stringify({ slot, dataUrl }) }),
     resetBrand: (slot: string) => request(`/api/admin/brand/${slot}`, { method: 'DELETE' }),

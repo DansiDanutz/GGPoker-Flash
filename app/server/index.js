@@ -23,6 +23,7 @@ import { flightTableId, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService } from './chat.js';
+import * as adminWaitlist from './admin-waitlist.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -269,6 +270,7 @@ const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
 const chatService = createChatService({ db, getEntry: (id) => LIVE_TABLES.get(id) });
 const TOURNAMENT_ROOMS = new Map(); // tournamentId -> TournamentRoom (multi-table flights)
 let waitState = waitlist.createWaitlist(); // pure wait-list model state (see waitlist.js)
+let waitSince = Object.freeze({}); // `queueKey|userId` -> join time, for the admin monitor
 const RUSH_WAITING = new Map(); // userId -> { user, stack, bb, fromTable, since }
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
@@ -303,6 +305,7 @@ function setWaitlist(next) {
   const before = waitState;
   const touched = new Set([...before.offers, ...next.offers].map((o) => o.tableId));
   waitState = next;
+  waitSince = adminWaitlist.trackJoinTimes(waitSince, before, next, Date.now());
   for (const tableId of touched) {
     const table = LIVE_TABLES.get(tableId)?.table;
     if (table) table.setHolds(holdsFor(tableId));
@@ -344,8 +347,8 @@ function announceOffer(offer) {
   notifyUser(offer.userId, { ...event, type: 'waitlist_offer' });
 }
 
-function announceExpired(offer) {
-  const event = { type: 'waitlist_expired', tableId: offer.tableId, seat: offer.seat };
+function announceExpired(offer, reason) {
+  const event = { type: 'waitlist_expired', tableId: offer.tableId, seat: offer.seat, ...(reason ? { reason } : {}) };
   sendToUser(offer.userId, { type: 'event', event });
   notifyUser(offer.userId, event);
 }
@@ -407,6 +410,34 @@ setInterval(sweepWaitlists, WAITLIST_SWEEP_MS).unref();
 const handleWaitlistRoute = createWaitlistRoutes({
   json, requireUser, limiter: waitlistLimiter, db, liveTables: LIVE_TABLES,
   getState: () => waitState, commit: setWaitlist, leaveQueue: waitlistLeaveQueue,
+});
+
+/**
+ * Admin: empty a queue and release the seats it holds. Waiting players get a
+ * `waitlist_update` (position 0) from setWaitlist; seat holders get `waitlist_expired`.
+ * A released seat is offered on as usual (e.g. to the group queue of that table).
+ */
+function clearWaitlistQueue(queueKey, admin) {
+  const res = adminWaitlist.clearQueue(waitState, queueKey);
+  setWaitlist(res.state);
+  for (const old of res.released) {
+    announceExpired(old, 'cleared');
+    offerSeat(old.tableId, old.seat);
+  }
+  db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(admin.login, 'waitlist_clear',
+    `${queueKey} · ${res.removed.length} waiting · ${res.released.length} held released`);
+  return res;
+}
+
+const handleAdminWaitlistRoute = adminWaitlist.createAdminWaitlistRoutes({
+  json, requireAdmin, readBody,
+  isActive: (queueKey) => adminWaitlist.activeQueueKeys(waitState).includes(queueKey),
+  clear: clearWaitlistQueue,
+  summarize: () => adminWaitlist.summarizeQueues(waitState, {
+    joinedAt: waitSince, now: Date.now(),
+    nickOf: (id) => db.prepare('SELECT nick FROM users WHERE id = ?').get(id)?.nick || `#${id}`,
+    tableNameOf: (id) => LIVE_TABLES.get(id)?.table.cfg.name || db.prepare('SELECT name FROM tables WHERE id = ?').get(id)?.name || id,
+  }),
 });
 
 const CUSTOM_CFG = new Map(); // tournament tables not stored in the cash-game table list
@@ -2029,6 +2060,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     /* ---------------- admin ---------------- */
+    if (await handleAdminWaitlistRoute(req, res, p)) return;
     if (p === '/api/admin/verifications' && req.method === 'GET') {
       const a = requireAdmin(req, res); if (!a) return;
       const rows = db.prepare(`SELECT v.id, v.user_id, u.nick, u.login, v.full_name, v.dob, v.country, v.doc_type, v.status, v.note, v.created_at, v.reviewed_at
