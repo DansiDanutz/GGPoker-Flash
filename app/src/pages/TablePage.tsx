@@ -12,6 +12,7 @@ import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/bett
 import { potChipLayout, shuffleFramePosition, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { showdownComplete, showdownPlan } from '../game/showdown';
+import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { useWaitlist } from '../lib/waitlistState';
 import { formatCountdown, queuePositionLabel } from '../lib/waitlist';
 import { useOfferSeconds } from '../components/SeatOfferModal';
@@ -932,6 +933,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button onClick={() => navigate('/hand-history')}>Hand history</button>
           <button onClick={() => { sessionStorage.setItem('ggpoker.settingsTab', 'table'); navigate('/settings'); }}>Table settings</button>
           <button onClick={() => setConfirmLeave(true)}>Leave table</button>
+          <div className="menu-version">v{APP_VERSION} · build {buildLabel(APP_BUILD)}</div>
         </div>
       )}
 

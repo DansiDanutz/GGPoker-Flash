@@ -1,7 +1,7 @@
 {
   "name": "ggpoker-desktop-clone",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"GGPOKER_DEV=1 node server/index.js\" \"vite --port 5199 --strictPort\"",

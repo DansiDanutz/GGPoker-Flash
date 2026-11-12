@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { useI18n } from '../lib/i18n';
+import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 
 const UserIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
@@ -224,6 +225,7 @@ export function Login() {
           )}
 
           <p className="login2-foot-note">Play money only. No real money, deposits or cash value.</p>
+          <p className="login2-version">v{APP_VERSION} · build {buildLabel(APP_BUILD)}</p>
         </div>
       </div>
 

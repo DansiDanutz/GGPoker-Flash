@@ -1282,3 +1282,17 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
   .login2-guest { height: 44px; }
   .login2-foot-note { margin-top: 12px; }
 }
+
+/* Forced update gate and visible build numbers */
+.version-gate { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; padding: 24px; background: radial-gradient(700px 500px at 50% 40%, #191314, #0a0909 70%); color: #eee; }
+.version-gate-card { width: min(430px, 100%); text-align: center; }
+.version-gate-brand { font-family: var(--head-font); font-size: 36px; letter-spacing: -.5px; color: #f4efe7; }
+.version-gate-brand b { color: #d8b15f; }
+.version-gate-card h1 { margin: 22px 0 8px; font-family: var(--head-font); font-size: 24px; color: #fff; }
+.version-gate-card p { margin: 0 0 12px; color: #b6afa9; font-size: 13.5px; line-height: 1.6; }
+.version-gate-spinner { width: 26px; height: 26px; margin: 26px auto 14px; border: 3px solid #362f31; border-top-color: #d8b15f; border-radius: 50%; animation: spin 1s linear infinite; }
+.version-gate-versions { margin: 16px 0 18px !important; padding: 10px 12px; background: #141112; border: 1px solid #332d30; border-radius: 8px; color: #d8d1cb !important; font-variant-numeric: tabular-nums; font-size: 12px !important; }
+.version-gate-card button { height: 44px; padding: 0 22px; border-radius: 8px; background: linear-gradient(#c02535, #941a26); color: #fff; font-weight: 800; font-size: 14px; }
+.version-gate-hint { margin-top: 14px !important; font-size: 11.5px !important; color: #837d78 !important; }
+.login2-version { margin: 8px auto 0; text-align: center; color: #746e69; font-size: 10.5px; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+.menu-version { margin-top: 6px; padding: 7px 10px 2px; border-top: 1px solid #2a2628; color: #7d7772; font-size: 10.5px; font-variant-numeric: tabular-nums; }
