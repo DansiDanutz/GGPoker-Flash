@@ -60,6 +60,7 @@ import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
 import { JACKPOT_SEED, jackpotAccrual } from './badBeat.js';
+import { countOnline } from './online-count.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -332,9 +333,9 @@ function lobbyTables(userId = null) {
   });
 }
 
+// Real connections only: the header used to show an invented 'online_base' figure.
 function sitesStats() {
-  const base = getSetting('online_base', 192000);
-  return { online: base + Math.floor(Math.sin(Date.now() / 60000) * 900) + 203 };
+  return { online: countOnline(wss.clients) };
 }
 
 /* ------------------------------------------------------------------ */
