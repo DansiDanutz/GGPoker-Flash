@@ -65,3 +65,15 @@ test('a failing session does not abort the sweep', () => {
   assert.equal(db.prepare("SELECT COUNT(*) c FROM transactions WHERE reference = 'refund:bad:s'").get().c, 0);
 });
 
+test('pending-chip refunds and removed chips lower the crash refund', () => {
+  const start = balance();
+  addTransactionEx(user.id, 'buyin', -5000, 'buy-in', 'USD', { sessionId: 't9:s9', reference: 'in:t9:s9:1' });
+  addTransactionEx(user.id, 'rebuy', -3000, 'add chips', 'USD', { sessionId: 't9:s9', reference: 'topup:t9:s9:1' });
+  addTransactionEx(user.id, 'chips_refund', 1000, 'pending refund', 'USD', { sessionId: 't9:s9', reference: 'topup:t9:s9:2' });
+  addTransactionEx(user.id, 'remove_chips', 2000, 'remove chips', 'USD', { sessionId: 't9:s9', reference: 'remove:t9:s9:1' });
+  const open = openSessions().find((s) => s.session_id === 't9:s9');
+  assert.equal(open.chips_in, 5000, 'chips already returned are not refunded again');
+  refundOpenSessions();
+  assert.equal(balance(), start);
+});
+
