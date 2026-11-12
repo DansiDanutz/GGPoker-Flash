@@ -1386,3 +1386,7 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .daily-lb-list .prize { color: #7fe0a0; }
 .daily-lb-list .daily-lb-empty { display: block; color: #aaa; }
 @media (max-width: 700px) { .daily-lb { top: 38px; left: 6px; width: 220px; font-size: 10px; } }
+
+/* 18+ notice on casino-style games */
+.age-notice { display: flex; align-items: center; gap: 8px; margin: -10px 0 16px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.age-notice-badge { flex: none; padding: 1px 6px; border: 1px solid currentColor; border-radius: 4px; font-weight: 700; font-size: 11px; letter-spacing: .04em; }
