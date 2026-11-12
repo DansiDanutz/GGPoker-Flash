@@ -432,9 +432,8 @@ function offerSeat(tableId, seat, now = Date.now()) {
 function notifyWaitlist(tableId) {
   const table = LIVE_TABLES.get(tableId)?.table;
   if (!table) return;
-  for (const s of table.seats) {
-    if (!s.player && !table.holds.has(s.index)) offerSeat(tableId, s.index);
-  }
+  // A seat reserved through Take Seat is not offered while the reservation lasts.
+  for (const seat of table.offerableSeats()) offerSeat(tableId, seat);
 }
 
 /** Accept the caller's held seat at `tableId`, if any: { seat } or null. */
@@ -720,6 +719,8 @@ function getLiveTable(id) {
   entry.emptySince = null;
   entry.timer = setInterval(() => {
     try {
+      // A lapsed Take Seat reservation frees its seat for the wait list.
+      if (table.expireReservations()) notifyWaitlist(id);
       table.tick();
       if (Date.now() - entry.lastBroadcast > 450) broadcastState(table);
       sweepDisconnected(entry);
@@ -2778,6 +2779,23 @@ wss.on('connection', (ws, req) => {
         try { ws.close(4001, 'account unavailable'); } catch { /* ignore */ }
         return;
       }
+    }
+    if (msg.type === 'reserve_seat' || msg.type === 'cancel_reservation') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry || !ws.userId) return;
+      const table = entry.table;
+      if (msg.type === 'cancel_reservation') {
+        table.cancelReservation(ws.userId);
+        notifyWaitlist(msg.tableId);
+        broadcastState(table);
+        return;
+      }
+      if (table.tournament || table.spin) return ws.send(JSON.stringify({ type: 'error', error: 'seats are assigned at this table' }));
+      const res = table.reserveSeat(toInt(msg.seat, { min: 0, max: table.cfg.seats - 1 }) ?? -1, ws.userId);
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      ws.send(JSON.stringify({ type: 'seat_reserved', tableId: msg.tableId, seat: res.seat, until: res.until }));
+      broadcastState(table);
+      return;
     }
     if (msg.type === 'join_table') {
       if (isBattleRoyale(tableRow(msg.tableId)?.game)) {

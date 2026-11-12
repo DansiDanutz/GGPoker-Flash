@@ -13,6 +13,12 @@ The project started as a local desktop clone and became the live play-money room
   500 big blinds, paid to the top ten (30/20/15/10/8/6/4/3/2/2%) once the day is over.
   Tournaments, Spins and private tables do not count.
 
+### Take Seat and reserved seats
+- Watching a cash table, every empty seat shows GGPoker's Take Seat control. Clicking it holds the
+  seat for you for 30 seconds and opens the buy-in dialog; Cancel releases it.
+- Everyone else sees a reserved seat marked "R", and bots never take it. How long GGPoker holds a
+  seat is not in the client, so the 30 seconds is a DanGG rule.
+
 ### Native emote artwork
 - The three table reactions (Angry, Listening, Laughing) now show GGPoker's own emoticon art at the
   seat and in the React menu instead of text chips. `tools/setup_assets.sh` extracts them, with the
