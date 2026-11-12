@@ -5,6 +5,8 @@ import { sound } from '../lib/sound';
 import { AppHeader, GameTabs } from '../components/AppHeader';
 import { TitleBar } from '../components/TitleBar';
 import { Avatar } from '../components/Avatar';
+import { WaitlistSideActions } from '../components/WaitlistSideActions';
+import { waitCount } from '../lib/waitlist';
 
 const TAB_GAME: Record<string, string[]> = {
   home: [],
@@ -430,7 +432,7 @@ export function Lobby() {
                       <i key={i} className={i < t.players ? 'on' : ''} />
                     ))}
                   </div>
-                  <div className={t.wait ? '' : 'zero'}>{t.wait ? t.wait : '-'}</div>
+                  <div className="wait-cell">{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
                   <div className={t.avgPot ? '' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
                   <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
                   <div>{t.handsPerHour}</div>
@@ -449,10 +451,7 @@ export function Lobby() {
           <div className="mini-table-wrap">
             <MiniTable table={table} players={previewPlayers} />
           </div>
-          <div className="mini-actions">
-            <button className="btn btn-dark btn-block" onClick={() => { if (table) navigate(`/table/${table.id}?observe=1`); }}>Watch</button>
-            <button className="btn btn-red btn-block" onClick={() => { if (table) openJoin(table); }}>Join</button>
-          </div>
+          <WaitlistSideActions table={table} onJoin={openJoin} onWatch={(t) => navigate(`/table/${t.id}?observe=1`)} onChanged={load} />
           <div className="mini-stats">
             <div className="between"><span className="muted small">Last jackpot</span><b className="gold">{money(data?.jackpot || 0)}</b></div>
             {(data?.recentWinners || []).slice(0, 3).map((w: any, i: number) => (

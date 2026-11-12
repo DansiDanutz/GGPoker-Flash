@@ -7,6 +7,7 @@ import { potChipLayout, shuffleFramePosition } from '../src/game/potChips.ts';
 import { cardOrdinal, squeezeDragFrame, squeezeWheelFrame } from '../src/game/squeeze.ts';
 import { showdownComplete, showdownPlan } from '../src/game/showdown.ts';
 import { bestHand } from '../src/game/eval.ts';
+import { WAITLIST_TABLE_CAP, waitlistActionFor, waitCount } from '../src/lib/waitlist.ts';
 
 const ctx = (over = {}) => ({
   pot: 300, currentBet: 0, minRaise: 100, bb: 100, myBet: 0, myStack: 5000, maxRaiseTo: 0, street: 'flop', ...over,
@@ -121,4 +122,27 @@ test('showdown reveals run in seat order and finish before the badge', () => {
   assert.equal(showdownComplete([5, 1, 3]), 2700);
   assert.deepEqual(showdownPlan([]), []);
   assert.equal(showdownComplete([]), 0);
+});
+
+test('wait-list action: join while seats are free, else join the queue, leave it, or full', () => {
+  const t = (over = {}) => ({ players: 6, seats: 6, wait: 0, myWait: 0, ...over });
+  assert.equal(waitlistActionFor(t({ players: 4 })), 'join', 'free seat means a plain join');
+  assert.equal(waitlistActionFor(t({ players: 4, wait: 3 })), 'join', 'a queue does not hide a free seat');
+  assert.equal(waitlistActionFor(t()), 'joinWait', 'a full table offers the wait list');
+  assert.equal(waitlistActionFor(t({ wait: WAITLIST_TABLE_CAP - 1 })), 'joinWait');
+  assert.equal(waitlistActionFor(t({ wait: WAITLIST_TABLE_CAP })), 'full', 'queue at the cap');
+  assert.equal(waitlistActionFor(t({ wait: 2, myWait: 2 })), 'queued', 'already queued');
+  assert.equal(waitlistActionFor(t({ wait: WAITLIST_TABLE_CAP, myWait: 4 })), 'queued', 'queued wins over full');
+  assert.equal(waitlistActionFor(t({ players: 5, wait: 1, myWait: 1 })), 'queued', 'queued wins over a seat being held');
+  assert.equal(waitlistActionFor(t({ myWait: 0 }), 3), 'queued', 'an explicit position overrides the row');
+  assert.equal(waitlistActionFor(null), 'join', 'no table selected');
+});
+
+test('wait count is a whole number and 0 when empty', () => {
+  assert.equal(waitCount({ wait: 3 }), 3);
+  assert.equal(waitCount({ wait: 0 }), 0);
+  assert.equal(waitCount({}), 0);
+  assert.equal(waitCount({ wait: -2 }), 0);
+  assert.equal(waitCount({ wait: Number.NaN }), 0);
+  assert.equal(waitCount(null), 0);
 });
