@@ -15,7 +15,7 @@ test('native defaults: F1-F4 and Ctrl+1..4 for the four amount presets', () => {
   for (let i = 1; i <= 4; i++) assert.equal(DEFAULT_HOTKEYS[`preset${i}`], `Ctrl+${i}`);
   assert.equal(DEFAULT_HOTKEYS.timebank, '');
   const groups = new Set(HOTKEY_ACTIONS.map((a) => a.group));
-  assert.deepEqual([...groups], ['Table actions', 'Functions', 'Options']);
+  assert.deepEqual([...groups], ['Table actions', 'Bet sizing', 'Functions', 'Options']);
 });
 
 test('comboFromEvent orders modifiers and ignores bare modifiers and IME input', () => {
