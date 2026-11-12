@@ -138,7 +138,9 @@ test('heads-up: when the opponent leaves, the remaining player wins the pot', ()
   t.stand(2);
   assert.equal(t.street, 'ended');
   assert.equal(events.filter((e) => e.type === 'win').length, 1);
-  assert.equal(p(0).stack, START + 100, 'wins the big blind the leaver had posted');
+  // Native splitPots: the 50 of the big blind that the small blind never matched goes back
+  // to the leaver; the remaining player wins only the matched chips.
+  assert.equal(p(0).stack, START + 50, 'wins the matched part of the big blind');
 });
 
 test('when the actor leaves, the action moves to the next player', () => {

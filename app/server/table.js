@@ -211,7 +211,10 @@ export class PokerTable {
         p.folded = true;
         this.log.push({ nick: p.nick, action: 'fold', street: this.street });
       }
-      // Keep the departed player's chips in the pot instead of losing them with the seat.
+      // The part of the leaver's bet that nobody matched goes back with their stack (native
+      // splitPots: only matched chips can be won), so nobody has to answer a departed bet.
+      this.returnLeaverExcess(p);
+      // Keep the departed player's matched chips in the pot instead of losing them with the seat.
       this.ghosts.push({ id: p.id, nick: p.nick, bet: p.bet, totalBet: p.totalBet });
     }
     seat.player = null;
@@ -823,6 +826,23 @@ export class PokerTable {
       const s = this.seats[(fromIndex + i) % this.seats.length];
       if (pending.includes(s)) { this.setActor(s.player.id); return; }
     }
+  }
+
+  /** Return a departing player's bet above everyone else's, and lower the bet to match. */
+  returnLeaverExcess(p) {
+    const others = [
+      ...this.seats.filter((s) => s.player && s.player !== p && s.player.inHand).map((s) => s.player.bet),
+      ...this.ghosts.map((g) => g.bet),
+    ];
+    const highest = others.length ? Math.max(...others) : 0;
+    const excess = Math.max(0, p.bet - highest);
+    if (excess > 0) {
+      p.bet -= excess;
+      p.totalBet -= excess;
+      p.stack += excess;
+      this.emit({ type: 'uncalled', seat: p.seat, playerId: p.id, amount: excess });
+    }
+    this.currentBet = Math.min(this.currentBet, Math.max(highest, p.bet));
   }
 
   // Give back the part of the largest bet that nobody matched, so it is never raked or contested.
