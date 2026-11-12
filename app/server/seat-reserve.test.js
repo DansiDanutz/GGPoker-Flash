@@ -49,3 +49,13 @@ test('table: reservations lapse on tick and can be cancelled', () => {
   t.cancelReservation('u1');
   assert.equal(t.reservations.size, 0);
 });
+
+test('table: wait-list offers skip reserved seats until the reservation lapses', () => {
+  const t = table();
+  t.sit({ id: 'p1', nick: 'P' }, 1, 1000);
+  t.reserveSeat(0, 'u1', 0);
+  t.setHolds([[2, 'w9']]);
+  assert.deepEqual(t.offerableSeats(1000), [], 'seat 0 reserved, seat 1 taken, seat 2 held');
+  assert.deepEqual(t.offerableSeats(RESERVE_MS + 1), [0]);
+  assert.equal(t.expireReservations(RESERVE_MS + 1), 1);
+});

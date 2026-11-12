@@ -431,9 +431,8 @@ function offerSeat(tableId, seat, now = Date.now()) {
 function notifyWaitlist(tableId) {
   const table = LIVE_TABLES.get(tableId)?.table;
   if (!table) return;
-  for (const s of table.seats) {
-    if (!s.player && !table.holds.has(s.index)) offerSeat(tableId, s.index);
-  }
+  // A seat reserved through Take Seat is not offered while the reservation lasts.
+  for (const seat of table.offerableSeats()) offerSeat(tableId, seat);
 }
 
 /** Accept the caller's held seat at `tableId`, if any: { seat } or null. */
@@ -715,6 +714,8 @@ function getLiveTable(id) {
   entry.emptySince = null;
   entry.timer = setInterval(() => {
     try {
+      // A lapsed Take Seat reservation frees its seat for the wait list.
+      if (table.expireReservations()) notifyWaitlist(id);
       table.tick();
       if (Date.now() - entry.lastBroadcast > 450) broadcastState(table);
       sweepDisconnected(entry);
@@ -2761,6 +2762,7 @@ wss.on('connection', (ws, req) => {
       const table = entry.table;
       if (msg.type === 'cancel_reservation') {
         table.cancelReservation(ws.userId);
+        notifyWaitlist(msg.tableId);
         broadcastState(table);
         return;
       }

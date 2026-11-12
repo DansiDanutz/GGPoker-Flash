@@ -178,8 +178,18 @@ export class PokerTable {
     this.reservations = withoutPlayer(this.reservations, playerId);
   }
 
+  /** Drops lapsed reservations; returns how many seats that freed. */
   expireReservations(now = Date.now()) {
+    const before = this.reservations.size;
     this.reservations = activeReservations(this.reservations, now);
+    return before - this.reservations.size;
+  }
+
+  /** Empty seats free to offer to the wait list: no wait-list hold, no live reservation. */
+  offerableSeats(now = Date.now()) {
+    return this.seats
+      .filter((s) => !s.player && !this.holds.has(s.index) && !((this.reservations.get(s.index)?.until || 0) > now))
+      .map((s) => s.index);
   }
 
   /** First empty seat `playerId` may take (held seats only go to their holder). */
