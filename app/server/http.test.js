@@ -6,7 +6,7 @@ import WebSocket from 'ws';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startServer as startTestServer, nextSseEvent, sleep } from './test-helpers.js';
+import { startServer as startTestServer, nextSseEvent, seatHumans, sleep } from './test-helpers.js';
 
 const root = path.resolve(import.meta.dirname, '..');
 
@@ -235,14 +235,13 @@ test('wait-list API: a full table queues, lobby shows the real wait and myWait, 
     assert.equal(created.status, 200);
     const [a, b, c] = [await register(srv, 'wl_a'), await register(srv, 'wl_b'), await register(srv, 'wl_c')];
 
-    // Two humans fill the heads-up table (the second replaces the bot).
+    // Two humans fill the heads-up table.
     for (const u of [a, b]) {
       const sock = srv.socket(u.token);
       sockets.push(sock);
       await sock.opened;
-      sock.send({ type: 'join_table', tableId, buyin: 2000 });
-      assert.notEqual((await sock.next((m) => m.type === 'joined' && m.tableId === tableId)).seat, null);
     }
+    await seatHumans(sockets, tableId, 2000);
     assert.equal((await srv.post(tableRoute(tableId), { token: a.token })).status, 409, 'seated players cannot queue');
 
     const sseJoin = nextSseEvent(srv.base, c.token, (e) => e.type === 'waitlist_update' && e.tableId === tableId);

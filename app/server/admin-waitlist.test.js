@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as waitlist from './waitlist.js';
 import { trackJoinTimes, summarizeQueues, clearQueue, parseClearTarget, groupName } from './admin-waitlist.js';
-import { startServer, nextSseEvent, sleep } from './test-helpers.js';
+import { startServer, nextSseEvent, seatHumans, sleep } from './test-helpers.js';
 
 /* ------------------------------ pure helpers ------------------------------ */
 
@@ -113,9 +113,8 @@ test('admin wait-list routes: list counts and positions, clear releases held sea
       const sock = srv.socket(u.token);
       sockets.push(sock);
       await sock.opened;
-      sock.send({ type: 'join_table', tableId, buyin: 2000 });
-      assert.notEqual((await sock.next((m) => m.type === 'joined' && m.tableId === tableId)).seat, null);
     }
+    await seatHumans(sockets, tableId, 2000);
     for (const u of [c, d]) assert.equal((await srv.post(tableRoute(tableId), { token: u.token })).data.status, 'queued');
     assert.equal((await srv.post(groupRoute(groupKey), { token: e.token })).data.status, 'queued');
 

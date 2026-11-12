@@ -1,7 +1,7 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { startServer, sleep, nextSseEvent } from './test-helpers.js';
+import { startServer, sleep, nextSseEvent, seatHumans } from './test-helpers.js';
 import { handForViewer } from './hand-history.js';
 import { isLocalHost, isLocalOrigin, resolveInside, createRateLimiter } from './security.js';
 import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey } from './validate.js';
@@ -199,9 +199,9 @@ test('a dropped connection keeps the seat; leaving cashes out exactly once', asy
   await popout.close();
 });
 
-test('a human takes a seat from a bot instead of queueing behind bots', async () => {
+test('a human takes a free seat or an idle bot\'s seat instead of queueing behind bots', async () => {
   const tokens = [];
-  for (const n of [1, 2, 3, 4]) {
+  for (const n of [1, 2, 3]) {
     const res = await srv.post('/api/auth/register', { body: { login: `seat_user${n}`, nick: `SeatUser${n}`, password: 'secret12' } });
     tokens.push(res.data.token);
   }
@@ -211,7 +211,7 @@ test('a human takes a seat from a bot instead of queueing behind bots', async ()
     await s.opened;
     s.send({ type: 'join_table', tableId: 'nlh-bronze-02', buyin: MIN_BUYIN });
     const joined = await s.nextType('joined');
-    assert.equal(typeof joined.seat, 'number', 'every human is seated, none is wait-listed');
+    assert.equal(typeof joined.seat, 'number', 'free seats go to humans, none is wait-listed');
     sockets.push(s);
   }
   for (const s of sockets) { s.send({ type: 'leave_table', tableId: 'nlh-bronze-02' }); }
@@ -299,12 +299,8 @@ test('wait list: a full table queues, holds a freed seat from bots and passes an
     const [first, second, , , , , seventh, eighth] = users;
     const joinTable = (u, extra = {}) => u.sock.send({ type: 'join_table', tableId, buyin, ...extra });
 
-    // Six humans fill the 6-max table (each one replaces a bot).
-    for (const u of users.slice(0, 6)) {
-      joinTable(u);
-      const joined = await u.sock.next((m) => m.type === 'joined' && m.tableId === tableId);
-      assert.notEqual(joined.seat, null);
-    }
+    // Six humans fill the 6-max table.
+    await seatHumans(users.slice(0, 6).map((u) => u.sock), tableId, buyin);
 
     // The 7th and 8th humans queue instead of taking a seat.
     joinTable(seventh);
