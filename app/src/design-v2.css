@@ -591,3 +591,4 @@ body { background: #050706; }
 .bbj-row b { color: #fff; font-weight: 700; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bbj-row em { font-style: normal; color: #ffe6a6; font-weight: 700; }
 @keyframes bbjIn { from { opacity: 0; transform: translate(-50%, -12px) scale(.9); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+.tb-btn .tb-cards { margin-left: 4px; font-size: 11px; color: #ffd27a; }

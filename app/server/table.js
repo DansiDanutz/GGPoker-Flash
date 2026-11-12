@@ -2,6 +2,7 @@ import { buildPots, oddChipOrder } from './pots.js';
 import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
 import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
 import { badBeatPayout } from './badBeat.js';
+import { TB_CARD_SECONDS, TB_START_CARDS, canSpendCard, refillAfterHand } from './timeBankCards.js';
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
@@ -189,6 +190,8 @@ export class PokerTable {
       winAmount: 0,
       seat: seat.index,
       timeBank: 30,
+      timeBankCards: TB_START_CARDS,
+      timeBankHands: 0,
       joinedAt: Date.now(),
       handsPlayed: 0,
       won: 0,
@@ -881,19 +884,40 @@ export class PokerTable {
     } else {
       this.botActAt = 0;
     }
+    // Time Bank Cards are limited per action; a new turn starts a fresh count.
+    this.timeBankAction = null;
+    const actorCards = this.seatOf(playerId)?.player?.timeBankCards ?? 0;
+    this.timeBankUsed = new Set(actorCards > 0 ? [] : [playerId]);
     this.emit({ type: 'turn', playerId, endsAt: this.actionEndsAt });
   }
 
-  useTimeBank(playerId, seconds = 10) {
+  /** Spends one Time Bank Card on the current action (native TimeBankCardInfo1/2). */
+  useTimeBank(playerId) {
     const seat = this.seatOf(playerId);
     if (!seat || !seat.player) return { ok: false, error: 'not seated' };
     if (this.actor !== playerId) return { ok: false, error: 'not your turn' };
-    if (this.timeBankUsed.has(playerId)) return { ok: false, error: 'time bank already used' };
-    const add = Math.max(5, Math.min(60, Math.round(Number(seconds) || 10)));
-    this.timeBankUsed.add(playerId);
-    this.actionEndsAt += add * 1000;
-    this.emit({ type: 'timebank', playerId, seconds: add, endsAt: this.actionEndsAt });
-    return { ok: true, seconds: add, endsAt: this.actionEndsAt };
+    const p = seat.player;
+    const usedThisAction = this.timeBankAction?.playerId === playerId ? this.timeBankAction.used : 0;
+    if (!canSpendCard({ cards: p.timeBankCards ?? 0, usedThisAction })) {
+      return { ok: false, error: (p.timeBankCards ?? 0) > 0 ? 'time bank limit for this action' : 'no time bank cards' };
+    }
+    p.timeBankCards -= 1;
+    this.timeBankAction = { playerId, used: usedThisAction + 1 };
+    if (!canSpendCard({ cards: p.timeBankCards, usedThisAction: usedThisAction + 1 })) this.timeBankUsed.add(playerId);
+    this.actionEndsAt += TB_CARD_SECONDS * 1000;
+    this.emit({ type: 'timebank', playerId, seconds: TB_CARD_SECONDS, cards: p.timeBankCards, endsAt: this.actionEndsAt });
+    return { ok: true, seconds: TB_CARD_SECONDS, cards: p.timeBankCards, endsAt: this.actionEndsAt };
+  }
+
+  /** Every dealt-in player moves one hand closer to the next free card. */
+  refillTimeBanks() {
+    for (const s of this.seats) {
+      const p = s.player;
+      if (!p?.inHand) continue;
+      const next = refillAfterHand({ cards: p.timeBankCards ?? TB_START_CARDS, hands: p.timeBankHands ?? 0 });
+      p.timeBankCards = next.cards;
+      p.timeBankHands = next.hands;
+    }
   }
 
   toCall(player) {
@@ -1378,6 +1402,7 @@ export class PokerTable {
   }
 
   updateMissionProgress(winner) {
+    this.refillTimeBanks();
     if (this.hooks.onHandComplete) {
       this.hooks.onHandComplete({ table: this, winner, summary: this.result });
     }
@@ -1711,6 +1736,7 @@ export class PokerTable {
           disconnected: p.disconnected,
           sitOutNext: !!p.sitOutNextHand,
           timeBank: p.timeBank,
+          timeBankCards: p.timeBankCards ?? 0,
           ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p) } : {}),
         };
       }),
