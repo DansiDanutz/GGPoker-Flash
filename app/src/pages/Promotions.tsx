@@ -8,6 +8,7 @@ import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { useI18n } from '../lib/i18n';
 import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, betLabel, readBetPrefs, readBettingOptions, readCardBack, readStackMode, readShowChatBubbles, readShowReactions, CHAT_BUBBLES_KEY, REACTIONS_KEY, type BetPrefs, type BettingOptions, type StackMode } from '../lib/tablePrefs';
+import { TB_CARD_SECONDS, TB_CARDS_PER_ACTION, TB_MAX_CARDS, TB_REFILL_HANDS, TB_START_CARDS } from '../game/timeBankRules';
 
 export function Promotions() {
   const { toast, navigate } = useApp();
@@ -107,7 +108,6 @@ export function Settings() {
   const [channels, setChannels] = useState({ ...sound.channels });
   const [buyinPct, setBuyinPct] = useState(() => Number(localStorage.getItem('ggpoker.buyinPct') || 0));
   const [autoTopup, setAutoTopup] = useState(() => localStorage.getItem('ggpoker.autoTopup') === '1');
-  const [timeBankSec, setTimeBankSec] = useState(() => Math.max(5, Math.min(60, Number(localStorage.getItem('ggpoker.timeBank') || 10))));
   const [autoBuyin, setAutoBuyin] = useState(() => localStorage.getItem('ggpoker.autoBuyin') === '1');
   const [newWindowTables, setNewWindowTables] = useState(() => localStorage.getItem('ggpoker.newWindowTables') === '1');
   const [topupTrigger, setTopupTrigger] = useState(() => Number(localStorage.getItem('ggpoker.topupTrigger') || 25));
@@ -333,9 +333,8 @@ export function Settings() {
               </div>
               <div className="card">
                 <div className="panel-title">Time bank</div>
-                <div className="kv"><span>Time bank seconds</span><b>{timeBankSec}s</b></div>
-                <input type="range" min={5} max={60} value={timeBankSec} style={{ width: '100%' }} onChange={(e) => { const v = Number(e.target.value); setTimeBankSec(v); persist('ggpoker.timeBank', String(v)); }} />
-                <p className="muted small">One extension per hand. The server clamps it to 5–60 seconds.</p>
+                <div className="kv"><span>Time Bank Card</span><b>+{TB_CARD_SECONDS}s</b></div>
+                <p className="muted small">You start with {TB_START_CARDS} cards. One card is added every {TB_REFILL_HANDS} hands, up to {TB_MAX_CARDS} held. Up to {TB_CARDS_PER_ACTION} cards can be used per action.</p>
                 <div className="panel-title" style={{ marginTop: 18 }}>Deck</div>
                 <div className="kv"><span>Card fronts</span><b>{fourColor ? 'Four colour' : 'Two colour'}</b></div>
                 <div className="kv"><span>Card back</span><b>{CARD_BACKS.find((b) => b.id === cardBack)?.label}</b></div>

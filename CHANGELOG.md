@@ -12,6 +12,13 @@ The project started as a local desktop clone and became the live play-money room
 - Everyone else sees a reserved seat marked "R", and bots never take it. How long GGPoker holds a
   seat is not in the client, so the 30 seconds is a DanGG rule.
 
+### Time Bank Cards that refill
+- The time bank is now a set of cards, as in GGPoker cash games: you start with 3, one more is added
+  every 20 hands you are dealt in, up to 5 held. Each card adds 15 seconds, and up to 2 can be used
+  on one decision. The Time bank button shows how many cards you have.
+- The old per-player seconds slider in Settings is replaced by these rules. The native labels come
+  from the GGPoker client; the numbers are server-side there, so these values are DanGG rules.
+
 ### Bad Beat Jackpot that pays
 - The header jackpot now grows: a quarter of the rake from every raked cash hand goes into the pool.
 - When a strong hand loses at showdown (Hold'em: quad 8s or better, using both hole cards; Omaha:

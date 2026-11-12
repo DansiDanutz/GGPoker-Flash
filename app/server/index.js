@@ -795,7 +795,9 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   addTransactionEx(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`, 'USD', {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
   });
-  const res = table.sit({ id: user.id, nick: user.nick, avatar: user.avatar }, wantedSeat, stack, sessionId);
+  const res = table.sit({
+    id: user.id, nick: user.nick, avatar: user.avatar, timeBankCards: user.timeBankCards, timeBankHands: user.timeBankHands,
+  }, wantedSeat, stack, sessionId);
   if (!res.ok) {
     addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
       sessionId, reference: `refund:${sessionId}`, onDuplicate: 'skip',
@@ -2907,7 +2909,7 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'timebank') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
-      const res = entry.table.useTimeBank(ws.userId, msg.seconds);
+      const res = entry.table.useTimeBank(ws.userId);
       if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       else broadcastState(entry.table);
       return;

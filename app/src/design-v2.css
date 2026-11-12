@@ -601,3 +601,4 @@ body { background: #050706; }
 .take-seat-label { position: absolute; left: 0; right: 0; top: 50%; font-size: 12px; font-weight: 700; color: #fff; text-align: center; }
 .seat-take .take-seat.reserved { cursor: default; display: flex; align-items: center; justify-content: center; }
 .take-seat-r { font-size: 34px; font-weight: 800; color: #fff; text-shadow: 0 2px 4px rgba(0, 0, 0, .6); }
+.tb-btn .tb-cards { margin-left: 4px; font-size: 11px; color: #ffd27a; }
