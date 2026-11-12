@@ -773,6 +773,13 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .hh-action.on { color: #d8d8d8; background: #202020; }
 .hh-action b { color: #e8c15c; font-weight: 600; }
 .hh-street { text-transform: uppercase; font-size: 10px; letter-spacing: 1px; color: #6f6f6f; }
+.hh-streets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+.hh-street-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 6px; border-radius: 4px; background: #161616; font-size: 12px; color: #7a7a7a; }
+.hh-street-col.on { color: #d8d8d8; background: #202020; }
+.hh-street-col .hh-street { margin-bottom: 2px; }
+.hh-action-row { display: flex; flex-direction: column; overflow-wrap: anywhere; }
+.hh-action-row b { color: #e8c15c; font-weight: 600; }
+@media (max-width: 640px) { .hh-streets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .modal.wide { max-height: 90vh; display: flex; flex-direction: column; }
 .modal.wide .modal-body { overflow-y: auto; }
 .seat-picker { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -1316,3 +1323,50 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
   .aof-row .aof-note { display: none; }
   .aof-row .tb-btn { flex: 0 0 auto; }
 }
+
+/* Showdown best-five focus (native Card3D: unselected brightness 0.6, selected
+   community cards lift 30 units over 400 ms cubic; ported via the Codex clone). */
+.pcard.focus-on, .pcard.focus-off { transition: translate 400ms cubic-bezier(.33, 1, .68, 1), filter 400ms ease-out; }
+.board .pcard.focus-on { translate: 0 -12px; }
+.cards .pcard.focus-on { translate: 0 -6px; }
+.pcard.focus-off { filter: brightness(.6); }
+@media (prefers-reduced-motion: reduce) {
+  .pcard.focus-on, .pcard.focus-off { transition: none; }
+}
+
+/* Native player-note palette and private label titles. */
+.note-colors { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.note-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(0, 0, 0, .35); padding: 0; cursor: pointer; flex-shrink: 0; }
+.note-swatch.selected { border-color: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, .25); }
+.note-color-name { font-size: 12px; color: #cfcfcf; margin-left: 4px; }
+.note-label-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.note-label-row { display: flex; align-items: center; gap: 8px; }
+.note-label-row .note-swatch { cursor: default; }
+.note-label-row input { flex: 1; min-width: 0; background: #121212; border: 1px solid #343434; border-radius: 5px; color: #eee; padding: 6px 8px; font: inherit; font-size: 12.5px; }
+.note-dot { text-shadow: 0 0 6px var(--note-color, transparent); }
+
+/* SB/BB position markers beside the blind seats for the current hand. */
+.blind-marker { position: absolute; transform: translate(-50%, -50%); z-index: 6; min-width: 22px; height: 16px; padding: 0 4px; border-radius: 8px; font: 700 9.5px/16px Roboto, system-ui, sans-serif; letter-spacing: .4px; text-align: center; color: #1b1b1b; box-shadow: 0 1px 3px rgba(0, 0, 0, .55); pointer-events: none; }
+.blind-marker.sb { background: linear-gradient(#e8e8e8, #a9a9a9); }
+.blind-marker.bb { background: linear-gradient(#ffe08a, #c9962f); }
+.table-menu .look-row { display: flex; gap: 6px; padding: 4px 10px 6px; }
+.table-menu .look-row select { flex: 1; min-width: 0; background: #151515; color: #eee; border: 1px solid #3a3a3a; border-radius: 4px; padding: 4px; font: inherit; font-size: 12px; }
+.hotkey-group { margin-top: 6px; }
+.hotkey-group-title { text-transform: uppercase; letter-spacing: .6px; font-size: 10.5px; margin: 6px 0 2px; }
+.hotkey-binding.unassigned { opacity: .55; font-style: italic; }
+.opp-hud { margin: 8px 0; }
+.opp-hud-recent { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.opp-hud-recent li { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 8px; }
+.opp-hud-cards { display: flex; gap: 2px; min-height: 18px; }
+.opp-hud-cards .pcard.mini { transform: scale(.7); transform-origin: left center; margin-right: -10px; }
+.opp-hud-recent .won { color: #7fdc8c; font-weight: 600; }
+
+/* Spin & Gold lobby side panel. */
+.spin-info { padding: 6px 8px; display: grid; gap: 6px; overflow-x: auto; }
+.spin-info-tabs { display: flex; gap: 4px; }
+.spin-info-tabs button { flex: 1; background: #1a1a1a; color: #bbb; border: 1px solid #2c2c2c; border-radius: 4px; padding: 4px 2px; font: inherit; font-size: 11px; cursor: pointer; }
+.spin-info-tabs button.on { background: #3a2c12; color: #f0c96a; border-color: #6b5320; }
+.spin-info-body p { margin: 0 0 6px; }
+.spin-info-table { width: 100%; border-collapse: collapse; }
+.spin-info-table th, .spin-info-table td { text-align: left; padding: 2px 4px; border-bottom: 1px solid #222; white-space: nowrap; }
+.spin-info-table th { color: #888; font-weight: 600; }

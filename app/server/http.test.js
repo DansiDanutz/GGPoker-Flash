@@ -35,7 +35,10 @@ test('server binds an ephemeral port and serves the API', async () => {
   try {
     const lobby = await fetch(`http://127.0.0.1:${port}/api/lobby`).then((r) => r.json());
     assert.ok(Array.isArray(lobby.tables));
-    assert.equal(lobby.tables[0].synthetic, true);
+    // Lobby stats are measured from recorded hands; a fresh room has none.
+    assert.equal(lobby.tables[0].synthetic, undefined);
+    assert.equal(lobby.tables[0].avgPot, 0);
+    assert.equal(lobby.tables[0].vpip, 0);
     // The login screen only offers the demo shortcut when this account exists.
     assert.equal(lobby.demoAccount, true);
     const badOrigin = await fetch(`http://127.0.0.1:${port}/api/lobby`, { headers: { origin: 'http://evil.example' } });
@@ -347,6 +350,33 @@ test('lobby rushPools: one row per pool, players summed, PLO pools separate, sta
       assert.ok(a.bb > b.bb || (a.bb === b.bb && a.sb >= b.sb), `${a.poolKey} before ${b.poolKey}`);
     }
     assert.deepEqual(data.rushLeaderboard, [], 'empty leaderboard on a fresh server');
+  } finally {
+    await srv.stop();
+  }
+});
+
+test('lobby AvgPot/VPIP/H-hr come from the table\'s recorded hands', async () => {
+  const srv = await startTestServer();
+  try {
+    const db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
+    let table;
+    try {
+      table = db.prepare("SELECT id, name, game FROM tables WHERE enabled = 1 AND COALESCE(private,0) = 0 AND game = 'holdem' ORDER BY sort LIMIT 1").get();
+      const add = db.prepare(`INSERT INTO hands (hand_no,table_id,table_name,game,players,board,pot,result,actions)
+        VALUES (?,?,?,?,?,'',?,'{}',?)`);
+      const players = JSON.stringify([{ nick: 'a', cards: ['As', 'Ks'] }, { nick: 'b', cards: ['2c', '7d'] }]);
+      add.run(1, table.id, table.name, table.game, players, 300, JSON.stringify([
+        { nick: 'a', action: 'raise', amount: 60, street: 'preflop' }, { nick: 'b', action: 'call', amount: 60, street: 'preflop' }]));
+      add.run(2, table.id, table.name, table.game, players, 100, JSON.stringify([
+        { nick: 'a', action: 'raise', amount: 60, street: 'preflop' }, { nick: 'b', action: 'fold', street: 'preflop' }]));
+    } finally {
+      db.close();
+    }
+    const { data } = await srv.get('/api/lobby');
+    const row = data.tables.find((t) => t.id === table.id);
+    assert.equal(row.avgPot, 200);
+    assert.equal(row.vpip, 75, '3 voluntary entries out of 4 dealt seats');
+    assert.equal(row.handsPerHour, 2);
   } finally {
     await srv.stop();
   }

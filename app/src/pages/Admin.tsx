@@ -11,6 +11,7 @@ import { AdminChatModeration } from '../components/AdminChatModeration';
 import { AdminAuditLog } from '../components/AdminAuditLog';
 import { AdminTransactions } from '../components/AdminTransactions';
 import { AdminRestore } from '../components/AdminRestore';
+import { AdminSnapshots } from '../components/AdminSnapshots';
 import {
   CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
   CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
@@ -30,6 +31,7 @@ const SECTIONS = [
   { key: 'chatmod', label: 'Chat moderation', icon: '💬' },
   { key: 'missions', label: 'Missions', icon: '📋' },
   { key: 'settings', label: 'Game settings', icon: '⚙️' },
+  { key: 'snapshots', label: 'Snapshots', icon: '💾' },
   { key: 'transactions', label: 'Transactions', icon: '💳' },
   { key: 'audit', label: 'Audit log', icon: '📜' },
   { key: 'chat', label: 'Announcements', icon: '📣' },
@@ -548,6 +550,7 @@ export function Admin() {
                           <div className="row" style={{ gap: 3 }}>
                             <button className="btn btn-ghost btn-sm" onClick={() => { setEditing({ kind: 'table' }); setLocal({ ...t, enabled: !!t.enabled, featured: !!t.featured }); }}>Edit</button>
                             <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.saveTable({ ...t, enabled: !t.enabled }); loadAll(); }}>{t.enabled ? 'Disable' : 'Enable'}</button>
+                            <button className="btn btn-ghost btn-sm" onClick={async () => { try { const c = await api.admin.duplicateTable(t.id); toast({ kind: 'success', title: 'Table duplicated', body: `${c.name} is disabled; edit and enable it when ready` }); loadAll(); } catch (e: any) { toast({ kind: 'error', title: 'Duplicate failed', body: e.message }); } }}>Duplicate</button>
                             <button className="btn btn-ghost btn-sm" onClick={async () => { if (confirm('Delete table ' + t.name + '?')) { await api.admin.saveTable({ delete: true, id: t.id }); loadAll(); } }}>Delete</button>
                           </div>
                         </td>
@@ -839,6 +842,7 @@ export function Admin() {
           )}
 
           {section === 'audit' && <AdminAuditLog />}
+          {section === 'snapshots' && <AdminSnapshots />}
 
           {section === 'chat' && (
             <>
@@ -929,6 +933,7 @@ export function Admin() {
                   {['sb', 'bb', 'ante', 'min_buyin', 'max_buyin', 'seats'].map((f) => (
                     <Field key={f} label={`${f} (cents where money)`}><input className="admin-input" type="number" value={local[f] ?? 0} onChange={(e) => setLocal({ ...local, [f]: Number(e.target.value) })} /></Field>
                   ))}
+                  <Field label="Action time (s, 5-300; blank = 15)"><input className="admin-input" type="number" min={5} max={300} value={local.action_seconds ?? ''} onChange={(e) => setLocal({ ...local, action_seconds: e.target.value === '' ? null : Number(e.target.value) })} /></Field>
                   <Field label="Featured"><input type="checkbox" checked={!!local.featured} onChange={(e) => setLocal({ ...local, featured: e.target.checked })} /></Field>
                   <Field label="Enabled"><input type="checkbox" checked={local.enabled !== false} onChange={(e) => setLocal({ ...local, enabled: e.target.checked })} /></Field>
                 </div>

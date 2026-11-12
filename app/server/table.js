@@ -1,10 +1,11 @@
+import { buildPots, oddChipOrder } from './pots.js';
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
 import { randomInt } from 'node:crypto';
 import { payoutFor, payoutTable } from './tournament.js';
 import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
-import { isRushGame } from './validate.js';
+import { ACTION_SECONDS, isRushGame, parseActionSeconds } from './validate.js';
 
 const BOT_NAMES = [
   'SpewySally', 'NitWizard', 'CallStation', 'RiverRat', 'TiltLord', 'GTOBOT', 'BluffKing',
@@ -33,6 +34,9 @@ export class PokerTable {
       player: null,
     }));
     this.button = -1;
+    // Seats that posted the blinds this hand (SB/BB markers); -1 before the first deal.
+    this.sbSeat = -1;
+    this.bbSeat = -1;
     this.handNo = 0;
     this.street = 'idle'; // idle | preflop | flop | turn | river | showdown | ended
     this.board = [];
@@ -52,7 +56,7 @@ export class PokerTable {
     this.log = [];
     this.result = null;
     this.handId = null;
-    this.actionTimeMs = 15000;
+    this.actionTimeMs = (parseActionSeconds(cfg.action_seconds) || ACTION_SECONDS.default) * 1000;
     this.handStartStack = {};
     this.listeners = new Set();
     this.lastAction = null;
@@ -208,7 +212,10 @@ export class PokerTable {
         p.folded = true;
         this.log.push({ nick: p.nick, action: 'fold', street: this.street });
       }
-      // Keep the departed player's chips in the pot instead of losing them with the seat.
+      // The part of the leaver's bet that nobody matched goes back with their stack (native
+      // splitPots: only matched chips can be won), so nobody has to answer a departed bet.
+      this.returnLeaverExcess(p);
+      // Keep the departed player's matched chips in the pot instead of losing them with the seat.
       this.ghosts.push({ id: p.id, nick: p.nick, bet: p.bet, totalBet: p.totalBet });
     }
     seat.player = null;
@@ -429,6 +436,7 @@ export class PokerTable {
     if (this.spinStarted()) this.applySpinBlinds();
 
     this.handNo++;
+    this.markMissedBlinds();
     this.deck = shuffle(makeDeck(this.shortDeck));
     this.board = [];
     this.pot = 0;
@@ -446,6 +454,8 @@ export class PokerTable {
     this.handStartStack = {};
     this.ghosts = [];
     this.rake = 0;
+    // Blinds in force at the deal; a tournament level change mid-hand must not rewrite this hand's record.
+    this.handBlinds = { sb: this.sb, bb: this.bb, ante: this.ante };
 
     for (const s of this.seats) {
       const p = s.player;
@@ -495,16 +505,21 @@ export class PokerTable {
       bbSeat = postOrder[1];
     }
 
-    // antes
+    // Antes are dead money: straight into the pot, not part of the live bet to call (native
+    // posts the ante and resets bets before the blinds). totalBet keeps them for side pots.
     if (this.ante > 0) {
       for (const s of inHand) {
-        const amt = Math.min(this.ante, s.player.stack);
-        this.commit(s.player, amt);
+        const amt = this.commit(s.player, this.ante);
+        s.player.bet -= amt;
+        this.pot += amt;
         if (s.player.stack === 0) s.player.allIn = true;
       }
     }
     this.postBlind(sbSeat, this.sb, 'SB');
     this.postBlind(bbSeat, this.bb, 'BB');
+    this.sbSeat = sbSeat ? sbSeat.index : -1;
+    this.bbSeat = bbSeat ? bbSeat.index : -1;
+    this.postMissedBlinds(inHand, sbSeat, bbSeat);
     let straddleSeat = null;
     if (this.straddle) {
       const candidate = this.seats[(bbSeat.index + 1) % this.seats.length];
@@ -546,6 +561,31 @@ export class PokerTable {
     // Pre-flop action starts left of the big blind (or of the straddle when one is posted);
     // with two players that is the small blind, as the rules require.
     this.progress(straddleSeat ? straddleSeat.index : bbSeat.index);
+  }
+
+  /** Cash games owe a big blind after sitting out (native SitInCommand PostBlinds). */
+  owesSitInBlind() {
+    return !this.tournament && !this.spin && !this.elimination && !this.aof;
+  }
+
+  // A seat sitting out while a hand is dealt owes a big blind when it comes back.
+  markMissedBlinds() {
+    if (!this.owesSitInBlind()) return;
+    for (const s of this.seats) {
+      if (s.player && s.player.sittingOut && s.player.stack > 0) s.player.missedBlinds = true;
+    }
+  }
+
+  // Returning players post a live big blind unless they already pay a blind this hand;
+  // heads-up has no extra post.
+  postMissedBlinds(inHand, sbSeat, bbSeat) {
+    for (const s of inHand) {
+      const p = s.player;
+      if (!p.missedBlinds) continue;
+      p.missedBlinds = false;
+      if (s === bbSeat || s === sbSeat || inHand.length < 3) continue;
+      this.postBlind(s, this.bb, 'Post');
+    }
   }
 
   postBlind(seat, amount, label) {
@@ -590,12 +630,18 @@ export class PokerTable {
     const seat = this.seatOf(playerId);
     const p = seat?.player;
     if (!p) return { ok: false, error: 'not seated' };
-    if (!p.inHand || p.folded) return { ok: false, error: 'Only a player still in the hand can show cards' };
+    // Native ShowMuck: anyone dealt into the hand may show, folded or not, once per hand.
+    if (!p.inHand || !p.cards.length) return { ok: false, error: 'Only a player dealt into the hand can show cards' };
     if (!Array.isArray(indices) || !indices.length) return { ok: false, error: 'Pick a card first' };
     const picked = [...new Set(indices.map(Number))]
-      .filter((i) => Number.isInteger(i) && i >= 0 && i < p.cards.length);
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < p.cards.length)
+      .sort((a, b) => a - b);
     if (!picked.length) return { ok: false, error: 'Pick a card first' };
-    p.shown = [...new Set([...(p.shown || []), ...picked])].sort((a, b) => a - b);
+    if (p.shown?.length) {
+      const same = p.shown.length === picked.length && p.shown.every((i, k) => i === picked[k]);
+      return same ? { ok: true, shown: p.shown } : { ok: false, error: 'Cards already selected' };
+    }
+    p.shown = picked;
     if (p.shown.length >= p.cards.length) p.reveal = true;
     this.emit({
       type: 'cards_shown',
@@ -818,6 +864,43 @@ export class PokerTable {
     }
   }
 
+  /** Return a departing player's bet above everyone else's, and lower the bet to match. */
+  returnLeaverExcess(p) {
+    const others = [
+      ...this.seats.filter((s) => s.player && s.player !== p && s.player.inHand).map((s) => s.player.bet),
+      ...this.ghosts.map((g) => g.bet),
+    ];
+    const highest = others.length ? Math.max(...others) : 0;
+    const excess = Math.max(0, p.bet - highest);
+    if (excess > 0) {
+      p.bet -= excess;
+      p.totalBet -= excess;
+      p.stack += excess;
+      this.emit({ type: 'uncalled', seat: p.seat, playerId: p.id, amount: excess });
+    }
+    this.currentBet = Math.min(this.currentBet, Math.max(highest, p.bet));
+  }
+
+  /**
+   * Pots for settlement from every contribution this hand, including departed seats.
+   * A layer only one live player paid into is credited straight back to them; a departed
+   * seat cannot take chips back, so its (rare) unmatched layer stays in the top pot.
+   */
+  settlementPots() {
+    const live = this.seats.filter((s) => s.player && s.player.totalBet > 0).map((s) => s.player);
+    const contributions = [
+      ...live.map((p) => ({ key: p.id, amount: p.totalBet, folded: !!p.folded })),
+      ...this.ghosts.filter((g) => g.totalBet > 0).map((g) => ({ key: g, amount: g.totalBet, folded: true })),
+    ];
+    const { pots, returns } = buildPots(contributions);
+    for (const r of returns) {
+      const p = live.find((x) => x.id === r.key);
+      if (p) { p.stack += r.amount; this.pot -= r.amount; }
+      else if (pots.length) pots[pots.length - 1].amount += r.amount;
+    }
+    return pots;
+  }
+
   // Give back the part of the largest bet that nobody matched, so it is never raked or contested.
   returnUncalledBet() {
     const bets = [
@@ -871,24 +954,8 @@ export class PokerTable {
     });
     const scored = [evaluate(board1), evaluate(board2)];
 
-    const contributions = this.seats
-      .filter((s) => s.player && s.player.totalBet > 0)
-      .map((s) => ({ player: s.player, amount: s.player.totalBet, folded: s.player.folded }));
-    const levels = [...new Set(contributions.map((c) => c.amount))].sort((a, b) => a - b);
-    const pots = [];
-    let prev = 0;
-    for (const level of levels) {
-      let amount = 0;
-      for (const c of contributions) amount += Math.max(0, Math.min(c.amount, level) - prev);
-      const ids = contributions
-        .filter((c) => !c.folded && c.amount >= level)
-        .map((c) => c.player.id);
-      if (amount > 0 && ids.length) pots.push({ amount, ids });
-      prev = level;
-    }
-    const totalContrib = contributions.reduce((a, c) => a + c.amount, 0);
-    const potsTotal = pots.reduce((a, p) => a + p.amount, 0);
-    if (totalContrib > potsTotal) pots.push({ amount: totalContrib - potsTotal, ids: alive.map((s) => s.player.id) });
+    // Same native settlement as a single board, including chips left by departed seats.
+    const pots = this.settlementPots().map((pot) => ({ amount: pot.amount, ids: pot.eligible }));
     const rake = this.computeRake(this.pot);
     this.rake = rake;
     let remain = rake;
@@ -906,7 +973,9 @@ export class PokerTable {
       if (!candidates.length) return;
       let best = null;
       for (const sc of candidates) if (!best || compareScores(sc.score, best.score) > 0) best = sc;
-      const winners = candidates.filter((sc) => compareScores(sc.score, best.score) === 0);
+      const tied = candidates.filter((sc) => compareScores(sc.score, best.score) === 0);
+      const order = oddChipOrder(tied.map((sc) => sc.seat), this.button, this.seats.length);
+      const winners = order.map((seat) => tied.find((sc) => sc.seat === seat));
       const share = Math.floor(amount / winners.length);
       let remainder = amount - share * winners.length;
       for (const w of winners) {
@@ -945,10 +1014,10 @@ export class PokerTable {
       winners: results, runItTwice: true, reason: 'showdown',
       hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
     };
-    this.result = summary;
+    this.result = this.publicShowdown(summary);
     this.street = 'ended';
     this.nextHandAt = Date.now() + this.showdownDelay;
-    this.emit({ type: 'win', ...summary });
+    this.emit({ type: 'win', ...this.result });
     this.saveHand(summary);
     this.updateMissionProgress(results[0] || null);
   }
@@ -1039,30 +1108,11 @@ export class PokerTable {
       const best = this.omaha ? bestOmaha(p.cards, this.board) : bestHoldem(p.cards, this.board, this.shortDeck);
       return { seat: s.index, player: p, score: best.score, name: best.name, cards: best.cards };
     });
-    // side pots from totalBet contributions
-    const contributions = [
-      ...this.seats.filter((s) => s.player && s.player.totalBet > 0)
-        .map((s) => ({ id: s.player.id, amount: s.player.totalBet })),
-      ...this.ghosts.filter((g) => g.totalBet > 0).map((g) => ({ id: g.id, amount: g.totalBet })),
-    ];
-    const levels = [...new Set(contributions.map((c) => c.amount))].sort((a, b) => a - b);
-    let prev = 0;
-    const pots = [];
-    for (const level of levels) {
-      let amount = 0;
-      for (const c of contributions) {
-        amount += Math.max(0, Math.min(c.amount, level) - prev);
-      }
-      const eligible = scored.filter((sc) => contributions.find((c) => c.id === sc.player.id && c.amount >= level));
-      if (amount > 0) pots.push({ amount, eligible });
-      prev = level;
-    }
-    // handle any dead money
-    const totalContrib = contributions.reduce((a, c) => a + c.amount, 0);
-    const potsTotal = pots.reduce((a, p) => a + p.amount, 0);
-    if (totalContrib > potsTotal) {
-      pots.push({ amount: totalContrib - potsTotal, eligible: scored });
-    }
+    // Native settlement (server/pots.js): merged contribution layers, unmatched layers returned.
+    const pots = this.settlementPots().map((pot) => ({
+      amount: pot.amount,
+      eligible: scored.filter((sc) => pot.eligible.includes(sc.player.id)),
+    }));
     const rake = this.rakeFor(this.pot);
     this.rake = rake;
     if (rake > 0 && pots.length) {
@@ -1075,13 +1125,16 @@ export class PokerTable {
       }
     }
     const results = [];
-    for (const pot of pots) {
+    for (const [potIndex, pot] of pots.entries()) {
       if (!pot.eligible.length) continue;
       let best = null;
       for (const sc of pot.eligible) {
         if (!best || compareScores(sc.score, best.score) > 0) best = sc;
       }
-      const winners = pot.eligible.filter((sc) => compareScores(sc.score, best.score) === 0);
+      const tied = pot.eligible.filter((sc) => compareScores(sc.score, best.score) === 0);
+      // Odd chips go clockwise from the first winner left of the button (native settlePots).
+      const order = oddChipOrder(tied.map((sc) => sc.seat), this.button, this.seats.length);
+      const winners = order.map((seat) => tied.find((sc) => sc.seat === seat));
       const share = Math.floor(pot.amount / winners.length);
       let remainder = pot.amount - share * winners.length;
       for (const w of winners) {
@@ -1091,7 +1144,7 @@ export class PokerTable {
         w.player.winAmount += amt;
         results.push({
           id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt,
-          hand: w.name, cards: w.cards.map(cardStr), pot: pot.amount,
+          hand: w.name, cards: w.cards.map(cardStr), pot: pot.amount, potIndex,
         });
       }
     }
@@ -1112,11 +1165,11 @@ export class PokerTable {
       })),
       reason: 'showdown',
     };
-    this.result = summary;
+    this.result = this.publicShowdown(summary);
     this.street = 'ended';
     this.actor = null;
     this.nextHandAt = Date.now() + this.showdownDelay;
-    this.emit({ type: 'win', ...summary });
+    this.emit({ type: 'win', ...this.result });
     this.saveHand(summary);
     this.updateMissionProgress(results[0]);
   }
@@ -1125,6 +1178,19 @@ export class PokerTable {
     if (this.hooks.onHandComplete) {
       this.hooks.onHandComplete({ table: this, winner, summary: this.result });
     }
+  }
+
+  /**
+   * The showdown summary every listener may see: hands that were mucked keep their
+   * seat (for the reveal order) but lose their cards. The full summary is only saved
+   * to hand history, which filters per viewer on read.
+   */
+  publicShowdown(summary) {
+    const revealed = (seat) => !!this.seats[seat]?.player?.reveal;
+    return {
+      ...summary,
+      hands: (summary.hands || []).map((h) => (revealed(h.seat) ? h : { ...h, cards: null, hand: null })),
+    };
   }
 
   saveHand(summary) {
@@ -1141,6 +1207,7 @@ export class PokerTable {
         players, board: this.board.map(cardStr), pot: summary.pot, result: summary,
         heroCards: hero ? hero.cards.map(cardStr).join(' ') : '',
         actions: this.log || [],
+        meta: { button: this.button, blinds: this.handBlinds || null },
       });
     }
   }
@@ -1387,6 +1454,8 @@ export class PokerTable {
       private: !!this.cfg.private,
       bombPot: !!this.bomb,
       button: this.button,
+      sbSeat: this.sbSeat,
+      bbSeat: this.bbSeat,
       handNo: this.handNo,
       street: this.street,
       board: this.board.map(cardStr),

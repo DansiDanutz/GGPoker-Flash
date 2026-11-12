@@ -4,7 +4,7 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
-import { PlayingCard } from '../components/Card';
+import { HandDetailModal } from '../components/HandDetailModal';
 import { avatarChoices, fileToAvatar } from '../lib/avatar';
 
 export function Profile() {
@@ -129,22 +129,11 @@ export function HandHistory() {
   const { user } = useApp();
   const [hands, setHands] = useState<any[]>([]);
   const [detail, setDetail] = useState<any>(null);
-  const [replay, setReplay] = useState(0);
-  const [playing, setPlaying] = useState(true);
   const [q, setQ] = useState('');
   const [resFilter, setResFilter] = useState('all');
   const [gameFilter, setGameFilter] = useState('all');
 
   useEffect(() => { api.hands().then((r) => setHands(r.hands)).catch(() => {}); }, []);
-
-  useEffect(() => {
-    if (!detail || !playing) return;
-    setReplay((r) => (r >= 5 ? r : r));
-    const t = setInterval(() => setReplay((r) => (r >= 5 ? 5 : r + 1)), 700);
-    return () => clearInterval(t);
-  }, [detail, playing]);
-
-  useEffect(() => { if (detail) { setReplay(0); setPlaying(true); } }, [detail]);
 
   const filtered = hands.filter((h) => {
     if (q && !(`${h.tableName} ${h.game}`.toLowerCase().includes(q.toLowerCase()))) return false;
@@ -202,61 +191,7 @@ export function HandHistory() {
         </div>
       </div>
 
-      {detail && (
-        <div className="modal-backdrop" onClick={() => setDetail(null)}>
-          <div className="modal wide" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head"><h3>{detail.tableName} · hand #{detail.handNo}</h3><button className="title-icon" onClick={() => setDetail(null)}>✕</button></div>
-            <div className="modal-body">
-              <div className="between" style={{ marginBottom: 12 }}>
-                <span className="muted">Pot</span><b className="gold">{money(detail.pot)}</b>
-              </div>
-              <div className="board" style={{ marginBottom: 14 }}>
-                {(detail.board || '').split(' ').filter(Boolean).map((c: string, i: number) => (
-                  <PlayingCard key={i} card={i < replay ? c : '??'} />
-                ))}
-              </div>
-              <div className="table-scroll">
-              <table className="admin-table">
-                <thead><tr><th>Player</th><th>Cards</th><th>Stack</th><th>Won</th></tr></thead>
-                <tbody>
-                  {(detail.players || []).map((p: any, i: number) => (
-                    <tr key={i} style={p.id === user?.id ? { background: '#2a2311' } : undefined}>
-                      <td>{p.nick}{p.id === user?.id ? ' (you)' : ''}</td>
-                      <td>{p.cards?.join(' ')}</td>
-                      <td>{money(p.stack)}</td>
-                      <td className="gold">{p.win ? money(p.win) : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-              <div className="row" style={{ marginTop: 12 }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => { setReplay(0); setPlaying(true); }}>Replay</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setPlaying((v) => !v)}>{playing ? 'Pause' : 'Play'}</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setReplay(5)}>Show all</button>
-                <span className="muted small">Board revealed {replay}/5</span>
-              </div>
-              {!!detail.actions?.length && (
-                <>
-                  <div className="panel-title" style={{ marginTop: 16 }}>Action</div>
-                  <div className="hh-actions">
-                    {detail.actions.map((a: any, i: number) => {
-                      const streetCount = a.street === 'preflop' ? 0 : a.street === 'flop' ? 3 : a.street === 'turn' ? 4 : 5;
-                      return (
-                        <div key={i} className={'hh-action' + (streetCount <= replay ? ' on' : '')}>
-                          <span className="hh-street">{a.street || 'preflop'}</span>
-                          <b>{a.nick}</b>
-                          <span>{a.action}{a.amount ? ` · ${money(a.amount)}` : ''}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {detail && <HandDetailModal key={detail.id} hand={detail} userId={user?.id} onClose={() => setDetail(null)} />}
     </PageShell>
   );
 }

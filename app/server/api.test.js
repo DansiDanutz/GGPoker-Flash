@@ -156,9 +156,10 @@ test('hand history only shows a player their own hands and cards that were shown
   assert.equal(theirs.heroCards, '7c 2d');
   assert.deepEqual(theirs.players[0].cards, ['Ah', 'Ad'], 'shown at showdown');
   assert.equal(handForViewer(row, 99), null, 'spectators and strangers get nothing');
+  // Legacy rows do not record who mucked, so a non-winning showdown participant stays hidden.
   const legacy = handForViewer({ ...row, players: row.players.replaceAll(/,"showed":(true|false)/g, '') }, 1);
   assert.deepEqual(legacy.players[1].cards, []);
-  assert.deepEqual(legacy.players[2].cards, ['Kh', 'Ks']);
+  assert.deepEqual(legacy.players[2].cards, []);
 });
 
 test('a dropped connection keeps the seat; leaving cashes out exactly once', async () => {

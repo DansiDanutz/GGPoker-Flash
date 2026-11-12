@@ -103,14 +103,14 @@ test('the pot pile uses native denominations with per-column caps', () => {
 });
 
 test('betting options follow the native defaults and reject junk', () => {
-  assert.deepEqual(normalizeBettingOptions(null), { wheelUp: 'increase', unit: 'bb', confirm: 'always' });
+  assert.deepEqual(normalizeBettingOptions(null), { wheelUp: 'increase', unit: 'bb', confirm: 'always', dontRound: false });
   assert.deepEqual(
     normalizeBettingOptions({ wheelUp: 'decrease', unit: 'sb', confirm: 'never' }),
-    { wheelUp: 'decrease', unit: 'sb', confirm: 'never' },
+    { wheelUp: 'decrease', unit: 'sb', confirm: 'never', dontRound: false },
   );
   assert.deepEqual(
     normalizeBettingOptions({ wheelUp: 'sideways', unit: 'usd', confirm: 'maybe' }),
-    { wheelUp: 'increase', unit: 'bb', confirm: 'always' },
+    { wheelUp: 'increase', unit: 'bb', confirm: 'always', dontRound: false },
     'unknown values fall back to the native defaults',
   );
   assert.equal(betUnitOf({ unit: 'bb' }, 50, 100), 100);

@@ -13,6 +13,7 @@ import { LobbyFiltersPopover } from '../components/LobbyFiltersPopover';
 import { LobbyGroupRows } from '../components/LobbyGroupRows';
 import { RushPoolRows } from '../components/RushPoolRow';
 import { RushInfoDialog, RushSidePanel } from '../components/RushSidePanel';
+import { SpinInfoPanel } from '../components/SpinInfoPanel';
 import { visiblePools } from '../lib/rushPools';
 import { CASHDROP_RULE_LABEL, cashDropRateLabel } from '../lib/cashDrop';
 
@@ -371,8 +372,8 @@ export function Lobby() {
               <div>Buy-in</div>
               <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Players <i className="est-dot" title="Estimated demo value; not live" /></div>
               <div>Wait</div>
-              <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>AvgPot <i className="est-dot" title="Estimated demo value; not live" /></div>
-              <div>VPIP% <i className="est-dot" title="Estimated demo value; not live" /></div><div>H/hr <i className="est-dot" title="Estimated demo value; not live" /></div>
+              <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Average pot over the last 20 hands">AvgPot</span></div>
+              <div title="Voluntarily put chips in preflop, last 20 hands">VPIP%</div><div title="Hands dealt in the last hour">H/hr</div>
             </div>}
             <div className="list-scroll">
               {unavailable ? (
@@ -407,7 +408,7 @@ export function Lobby() {
                   <div className="wait-cell">{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
                   <div className={t.avgPot ? '' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
                   <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
-                  <div>{t.handsPerHour}</div>
+                  <div className={t.handsPerHour ? '' : 'zero'}>{t.handsPerHour || '-'}</div>
                 </div>
               ))}
               {!tables.length && !unavailable && (
@@ -433,7 +434,8 @@ export function Lobby() {
             </>
           )}
           {isRushTab && <RushSidePanel leaderboard={data?.rushLeaderboard} myId={user?.id} onShowInfo={() => setRushInfoOpen(true)} />}
-          {!isRushTab && <div className="mini-stats">
+          {gameTab === 'spin' && <SpinInfoPanel buyIn={table && table.game === 'spingold' ? table.min_buyin : null} formatChips={(n) => money(n)} />}
+          {!isRushTab && gameTab !== 'spin' && <div className="mini-stats">
             <div className="between"><span className="muted small">Last jackpot</span><b className="gold">{money(data?.jackpot || 0)}</b></div>
             {(data?.recentWinners || []).slice(0, 3).map((w: any, i: number) => (
               <div key={i} className="between"><span className="muted small">{w.nick}</span><span className="small">{money(w.amount)}</span></div>

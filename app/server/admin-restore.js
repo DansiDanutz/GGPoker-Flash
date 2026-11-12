@@ -31,7 +31,7 @@ export function utcStamp(date = new Date()) {
     + `-${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}`;
 }
 
-class RestoreError extends Error {
+export class RestoreError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
@@ -118,6 +118,18 @@ export async function stagePendingRestore(buf, { dataDir, tempRoot = os.tmpdir()
 }
 
 /**
+ * Validate and stage `buf` as the pending restore, then audit it. Shared by the upload route and
+ * the snapshot restore so both take the same path. `source` prefixes the audit detail when set.
+ * @returns {Promise<{ size: number }>} throws RestoreError when the bytes are not a usable DB
+ */
+export async function queueRestore({ db, dataDir, tempRoot, buf, actor, source = '' }) {
+  const { size } = await stagePendingRestore(buf, { dataDir, tempRoot });
+  db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)')
+    .run(actor, 'restore_queued', `${source ? `${source}; ` : ''}${size} bytes; applies on next restart`);
+  return { size };
+}
+
+/**
  * @param {{ db: any, json: Function, requireAdmin: Function, dataDir: string, tempRoot?: string, log?: Function }} deps
  */
 export function createAdminRestoreRoute({ db, json, requireAdmin, dataDir, tempRoot, log = console.error }) {
@@ -129,9 +141,7 @@ export function createAdminRestoreRoute({ db, json, requireAdmin, dataDir, tempR
     if (req.method !== 'POST') { json(res, 405, { error: 'method not allowed' }); return true; }
     try {
       const buf = decodeRestorePayload(await readJsonBody(req));
-      const { size } = await stagePendingRestore(buf, { dataDir, tempRoot });
-      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)')
-        .run(admin.login, 'restore_queued', `${size} bytes; applies on next restart`);
+      await queueRestore({ db, dataDir, tempRoot, buf, actor: admin.login });
       json(res, 200, { ok: true, requiresRestart: true });
     } catch (err) {
       if (err instanceof RestoreError) { json(res, err.status, { error: err.message }); return true; }

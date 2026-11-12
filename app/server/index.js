@@ -15,7 +15,7 @@ import { makeDeck, shuffle, cardStr } from './poker.js';
 import {
   resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
 } from './security.js';
-import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey, isRushGame } from './validate.js';
+import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey, isRushGame, ACTION_SECONDS } from './validate.js';
 import { handForViewer } from './hand-history.js';
 import { spinSlots } from './slots.js';
 import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
@@ -23,6 +23,9 @@ import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
+import { createTableStats } from './table-stats.js';
+import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
+import { spinInfo } from './spin.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService, createChatStore, dealerResultText, dealerStartText } from './chat.js';
@@ -30,6 +33,8 @@ import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
 import { createAdminRestoreRoute } from './admin-restore.js';
+import { createAdminSnapshotRoutes, isValidRetention, RETENTION_SETTING } from './admin-snapshots.js';
+import { createAdminTableDuplicateRoute } from './admin-table-duplicate.js';
 import { buildHealthSummary, buildPlatformReport } from './admin-platform.js';
 import { advanceRoomLevel } from './tournament-controls.js';
 import { TournamentRoomOwner } from './tournament-room-owner.js';
@@ -272,9 +277,8 @@ function lobbyTables(userId = null) {
   const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND game != ? AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(BATTLE_ROYALE_GAME, userId);
   return rows.map((t) => {
     const occ = occupancyFor(t);
-    const seed = [...t.id].reduce((a, c) => a + c.charCodeAt(0), 0);
     const players = occ.players;
-    const avgPot = Math.round((t.bb * (8 + (seed % 60))) / 10) * 10;
+    const stats = TABLE_STATS(t.id);
     return {
       id: t.id, name: t.name, game: t.game, category: t.category,
       sb: t.sb, bb: t.bb, ante: t.ante, min_buyin: t.min_buyin, max_buyin: t.max_buyin,
@@ -284,12 +288,12 @@ function lobbyTables(userId = null) {
       // Real queue length and the caller's 1-based position (0 = not queued), from waitlist.js.
       wait: waitlist.queueSize(waitState, waitlist.tableQueue(t.id)),
       myWait: userId ? waitlist.position(waitState, userId, waitlist.tableQueue(t.id)) : 0,
-      avgPot: players ? avgPot : 0,
-      vpip: players ? 18 + (seed % 45) : 0,
-      handsPerHour: 55 + (seed % 80),
+      // Measured from the last 20 recorded hands (table-stats.js), not seeded demo values.
+      avgPot: stats.avgPot,
+      vpip: stats.vpip,
+      handsPerHour: stats.handsPerHour,
       running: LIVE_TABLES.has(t.id),
       pro: isRushGame(t.game),
-      synthetic: true,
     };
   });
 }
@@ -497,6 +501,11 @@ const handleAdminBackupRoute = createAdminBackupRoute({
 const handleAdminRestoreRoute = createAdminRestoreRoute({
   db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
 });
+// Bounded server-side snapshots under DATA_DIR/backups; restore from one goes through the same queue.
+const handleAdminSnapshotRoutes = createAdminSnapshotRoutes({
+  db, json, requireAdmin, readBody, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined, getSetting,
+});
+const handleAdminTableDuplicateRoute = createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody });
 
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
@@ -507,6 +516,8 @@ const LEADERBOARD = createLeaderboard(db);
 // Rush pools (rush-pool.js): fold-and-move queue per pool (game + sb + bb) and the Cash Drop.
 // Rush pool lobby (rush-lobby.js): real hands/hr per pool table and today's Rush leaderboard.
 const RUSH_LOBBY = createRushLobby(db);
+const TABLE_STATS = createTableStats(db);
+const PLAYER_LABELS = createPlayerLabels(db);
 
 /** `/api/lobby` `rushPools`: one row per Rush pool, with the pool's group wait-list queue. */
 function lobbyRushPools(tables) {
@@ -565,11 +576,13 @@ function getLiveTable(id) {
     },
     onHandSave: (h) => {
       try {
-        db.prepare(`INSERT INTO hands (hand_id,hand_no,table_id,table_name,game,players,board,pot,result,hero_cards,actions)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
+        db.prepare(`INSERT INTO hands (hand_id,hand_no,table_id,table_name,game,players,board,pot,result,hero_cards,actions,meta)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(
           h.handId || null, h.handNo, h.tableId, h.tableName, h.game, JSON.stringify(h.players),
-          h.board.join(' '), h.pot, JSON.stringify(h.result), h.heroCards || '', JSON.stringify(h.actions || [])
+          h.board.join(' '), h.pot, JSON.stringify(h.result), h.heroCards || '', JSON.stringify(h.actions || []),
+          JSON.stringify(h.meta || {})
         );
+        TABLE_STATS.invalidate(h.tableId);
         const winners = h.result?.winners || [];
         for (const p of (h.players || [])) {
           if (!p || !p.id || p.inHand === false) continue;
@@ -2093,11 +2106,33 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    if (p === '/api/spin/info' && req.method === 'GET') {
+      const buyIn = Number(url.searchParams.get('buyin'));
+      try { return json(res, 200, { info: spinInfo(buyIn) }); } catch { return json(res, 400, { error: 'unknown Spin & Gold stake' }); }
+    }
+    // ---------- opponent HUD (room-scoped, public information only) ----------
+    {
+      const m = /^\/api\/tables\/([\w-]{1,64})\/hud$/.exec(p);
+      if (m && req.method === 'GET') {
+        const u = requireUser(req, res); if (!u) return;
+        const nick = String(url.searchParams.get('nick') || '').slice(0, 40);
+        if (!nick) return json(res, 400, { error: 'missing nick' });
+        if (!db.prepare('SELECT 1 FROM tables WHERE id = ?').get(m[1])) return json(res, 404, { error: 'table not found' });
+        return json(res, 200, { hud: TABLE_STATS.hud(m[1], nick) });
+      }
+    }
     // ---------- player notes ----------
     if (p === '/api/notes' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
-      const rows = db.prepare('SELECT target, note, color, updated_at FROM player_notes WHERE user_id = ?').all(u.id);
-      return json(res, 200, { notes: rows });
+      const rows = db.prepare('SELECT target, note, color, updated_at FROM player_notes WHERE user_id = ?').all(u.id)
+        .map((r) => ({ ...r, color: normalizeNoteColor(r.color) || 'c9' }));
+      return json(res, 200, { notes: rows, labels: PLAYER_LABELS.get(u.id) });
+    }
+    if (p === '/api/notes/labels' && req.method === 'PUT') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      if (!PLAYER_LABELS.set(u.id, b.labels)) return json(res, 400, { error: 'Use ten single-line label titles, each at most 20 characters' });
+      return json(res, 200, { ok: true, labels: PLAYER_LABELS.get(u.id) });
     }
     if (p === '/api/notes' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
@@ -2105,10 +2140,12 @@ const server = http.createServer(async (req, res) => {
       const target = String(b.target || '').slice(0, 40);
       const note = String(b.note || '').slice(0, 1000);
       if (!target) return json(res, 400, { error: 'missing target' });
+      const color = normalizeNoteColor(b.color);
+      if (!color) return json(res, 400, { error: 'unknown note colour' });
       if (!note.trim()) { db.prepare('DELETE FROM player_notes WHERE user_id = ? AND target = ?').run(u.id, target); return json(res, 200, { ok: true, deleted: true }); }
       db.prepare(`INSERT INTO player_notes (user_id,target,note,color) VALUES (?,?,?,?)
         ON CONFLICT(user_id,target) DO UPDATE SET note=excluded.note, color=excluded.color, updated_at=datetime('now')`)
-        .run(u.id, target, note, String(b.color || 'yellow'));
+        .run(u.id, target, note, color);
       return json(res, 200, { ok: true });
     }
 
@@ -2224,6 +2261,8 @@ const server = http.createServer(async (req, res) => {
     if (await handleAdminWaitlistRoute(req, res, p)) return;
     if (await handleAdminBackupRoute(req, res, url)) return;
     if (await handleAdminRestoreRoute(req, res, url)) return;
+    if (await handleAdminSnapshotRoutes(req, res, url)) return;
+    if (await handleAdminTableDuplicateRoute(req, res, url)) return;
     if (handleAdminChatRoute(req, res, url)) return;
     if (p === '/api/admin/verifications' && req.method === 'GET') {
       const a = requireAdmin(req, res); if (!a) return;
@@ -2472,6 +2511,10 @@ const server = http.createServer(async (req, res) => {
         sb=excluded.sb, bb=excluded.bb, ante=excluded.ante, min_buyin=excluded.min_buyin, max_buyin=excluded.max_buyin,
         seats=excluded.seats, speed=excluded.speed, featured=excluded.featured, enabled=excluded.enabled`)
         .run(id, t.name, t.game, t.category, t.sb, t.bb, t.ante, t.min_buyin, t.max_buyin, t.seats, t.speed, t.featured, t.enabled, t.sort);
+      db.prepare('UPDATE tables SET action_seconds = ? WHERE id = ?').run(t.action_seconds, id);
+      // A running table picks the new action length up from its next decision.
+      const live = LIVE_TABLES.get(id)?.table;
+      if (live) live.actionTimeMs = (t.action_seconds || ACTION_SECONDS.default) * 1000;
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'save_table', id);
       return json(res, 200, { ok: true, id });
     }
@@ -2572,6 +2615,9 @@ const server = http.createServer(async (req, res) => {
       if (!b || typeof b !== 'object' || Array.isArray(b)) return json(res, 400, { error: 'Settings must be an object' });
       const invalid = validateCashDropSettings(b);
       if (invalid.length) return json(res, 400, { error: invalid.join('; '), errors: invalid });
+      if (RETENTION_SETTING in b && !isValidRetention(b[RETENTION_SETTING])) {
+        return json(res, 400, { error: `${RETENTION_SETTING} must be a whole number from 1 to 50` });
+      }
       for (const [k, v] of Object.entries(b)) setSetting(k, v);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'settings', JSON.stringify(b));
       return json(res, 200, { ok: true });

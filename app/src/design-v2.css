@@ -265,7 +265,8 @@ body { background: #050706; }
 .seat.active .avatar-wrap {
   background: conic-gradient(#fff0c2, #c99a37, #f7dda2, #8f6a1e, #fff0c2);
   box-shadow: 0 0 0 3px rgba(245, 221, 162, .2), 0 0 30px rgba(245, 209, 139, .45);
-  animation: activePulse 1.8s ease-in-out infinite;
+  /* Native turn glow: 500 ms half-period (1 s cycle). */
+  animation: activePulse 1s ease-in-out infinite;
 }
 .action-bar {
   background: linear-gradient(transparent, rgba(3, 6, 5, .82) 35%, rgba(2, 4, 3, .94));
@@ -505,6 +506,7 @@ body { background: #050706; }
 
 /* Native wager piles, dealer disc and WIN artwork */
 .table-bet { background: none; border: 0; box-shadow: none; padding: 0; flex-direction: column; gap: 3px; }
+.collect-chip { position: absolute; z-index: 6; width: 16px; height: 15px; pointer-events: none; background: url('/assets/chips/native-chip-25.png') center/100% 100% no-repeat; }
 .wager-chips { display: flex; align-items: flex-end; gap: 4px; }
 .wager-col { display: flex; flex-direction: column; }
 .wager-col i { width: 16px; height: 15px; background: url('/assets/chips/native-chip-1.png') center/100% 100% no-repeat; }
@@ -533,3 +535,25 @@ body { background: #050706; }
 .native-clock { position: absolute; left: -22px; top: 24%; transform: translateX(-100%); width: 64px; height: 28px; background: url('/assets/table/clock/frame.png') center/100% 100% no-repeat; display: flex; align-items: center; justify-content: center; gap: 1px; z-index: 11; pointer-events: none; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .6)); }
 .native-clock .clock-digit { height: 20px; width: auto; }
 .native-clock.clock-right { left: auto; right: -22px; transform: translateX(100%); }
+
+/* Final five seconds of the viewer's own turn (native PlayerTurnEffect3D: glow tinted
+   #ff7f7f, toggling at a 200 ms half-period). Opponents keep the normal glow. */
+.seat.active.urgent .avatar-wrap {
+  background: conic-gradient(#ffd0d0, #ff7f7f, #ffe0e0, #c25a5a, #ffd0d0);
+  box-shadow: 0 0 0 3px rgba(255, 127, 127, .3), 0 0 30px rgba(255, 127, 127, .6);
+  animation: urgentPulse .2s steps(1, end) infinite alternate;
+}
+@keyframes urgentPulse { from { filter: brightness(1); } to { filter: brightness(1.35); } }
+@media (prefers-reduced-motion: reduce) { .seat.active.urgent .avatar-wrap { animation: none; } }
+
+/* Native fold dimming (REA fold-dimming, PlayerCell3D.activateDim): avatar and ring RGB
+   x0.75, name and stack text alpha .6. Plate, cards and note marker keep full opacity. */
+.seat.folded { opacity: 1; }
+.seat.folded .avatar-wrap { filter: brightness(.75); }
+.seat.folded .plate .nm, .seat.folded .plate .st { opacity: .6; }
+
+/* Native nameplate (REA seat-labels / stack-status): regular weight, own name #ff8932;
+   a zero balance reads All-In in bold red #fb3737. */
+.seat .plate .nm { font-weight: 400; }
+.seat.me .plate .nm { color: #ff8932; }
+.seat .plate .st.st-allin { color: #fb3737; font-weight: 800; }

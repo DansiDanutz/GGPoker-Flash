@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { DEFAULT_HOTKEYS, HOTKEY_ACTIONS, HOTKEYS_KEY, assignHotkey, comboFromEvent, hotkeyCaption, readHotkeys, type HotkeyAction, type HotkeyMap } from '../lib/hotkeys';
+import { TABLE_THEMES } from '../lib/tableLook';
 import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { useI18n } from '../lib/i18n';
-import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, DEFAULT_HOTKEYS, betLabel, readBetPrefs, readBettingOptions, readCardBack, readHotkeys, readStackMode, normalizeHotkey, readShowChatBubbles, readShowReactions, CHAT_BUBBLES_KEY, REACTIONS_KEY, type BetPrefs, type BettingOptions, type HotkeyMap, type StackMode } from '../lib/tablePrefs';
+import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, betLabel, readBetPrefs, readBettingOptions, readCardBack, readStackMode, readShowChatBubbles, readShowReactions, CHAT_BUBBLES_KEY, REACTIONS_KEY, type BetPrefs, type BettingOptions, type StackMode } from '../lib/tablePrefs';
 
 export function Promotions() {
   const { toast, navigate } = useApp();
@@ -72,7 +74,7 @@ export function Promotions() {
 }
 
 const LANGS = ['English', 'Romanian', 'German', 'French', 'Spanish', 'Portuguese', 'Russian', 'Ukrainian', 'Polish', 'Turkish', 'Japanese', 'Korean', 'Chinese (Simplified)', 'Chinese (Traditional)', 'Thai', 'Vietnamese', 'Indonesian', 'Hindi', 'Arabic', 'Hebrew'];
-const THEMES = ['Green', 'Black', 'Red', 'Navy', 'Purple', 'Gray', 'Brown', 'Cobalt', 'Cooper', 'ChocoBrown'];
+const THEMES = TABLE_THEMES;
 
 export function Settings() {
   const { user, refreshUser, toast, soundOn, toggleSound, animations, setAnimations } = useApp();
@@ -94,7 +96,8 @@ export function Settings() {
   const [reactions, setReactions] = useState(readShowReactions);
   const [hotkeyHints, setHotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
   const [hotkeyMap, setHotkeyMap] = useState<HotkeyMap>(readHotkeys);
-  const [capturingKey, setCapturingKey] = useState<keyof HotkeyMap | null>(null);
+  const [capturingKey, setCapturingKey] = useState<HotkeyAction | null>(null);
+  const [hotkeyNotice, setHotkeyNotice] = useState('');
   const [hotkeys, setHotkeys] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
   const [dealSpeed, setDealSpeed] = useState(() => Number(localStorage.getItem('ggpoker.dealSpeed') || 3));
   const [cardBack, setCardBack] = useState(readCardBack());
@@ -120,10 +123,13 @@ export function Settings() {
     const onKey = (event: KeyboardEvent) => {
       event.preventDefault();
       if (event.key === 'Escape') { setCapturingKey(null); return; }
-      const key = normalizeHotkey(event.key);
-      const next = { ...hotkeyMap, [capturingKey]: key };
-      setHotkeyMap(next);
-      localStorage.setItem('ggpoker.hotkeysMap', JSON.stringify(next));
+      const combo = event.key === 'Backspace' || event.key === 'Delete' ? '' : comboFromEvent(event);
+      if (combo == null) return; // a bare modifier: wait for the real key
+      const { map, displaced } = assignHotkey(hotkeyMap, capturingKey, combo);
+      setHotkeyMap(map);
+      localStorage.setItem(HOTKEYS_KEY, JSON.stringify(map));
+      const moved = displaced ? HOTKEY_ACTIONS.find((a) => a.id === displaced)?.label : '';
+      setHotkeyNotice(moved ? `${combo} moved from “${moved}”, which is now unassigned.` : '');
       setCapturingKey(null);
     };
     window.addEventListener('keydown', onKey);
@@ -305,13 +311,21 @@ export function Settings() {
                 <label className="switch-row"><span>Chip shuffle effects</span><input type="checkbox" checked={chipShuffle} onChange={(e) => { setChipShuffle(e.target.checked); persist('ggpoker.chipShuffle', e.target.checked ? '1' : '0'); }} /></label>
                 <p className="muted small">Peel your hole cards with the mouse, the wheel or Open. Reconnects and hands already in progress skip the effect.</p>
                 <div className="admin-label" style={{ marginTop: 12 }}>Hotkey bindings</div>
-                {([['fold', 'Fold'], ['check', 'Check / Call'], ['raise', 'Raise'], ['allin', 'All-in']] as const).map(([action, label]) => (
-                  <div key={action} className="kv">
-                    <span>{label}</span>
-                    <button className="hotkey-binding" onClick={() => setCapturingKey(action)}>{capturingKey === action ? 'Press a key…' : hotkeyMap[action]}</button>
+                {(['Table actions', 'Functions', 'Options'] as const).map((group) => (
+                  <div key={group} className="hotkey-group">
+                    <div className="muted small hotkey-group-title">{group}</div>
+                    {HOTKEY_ACTIONS.filter((a) => a.group === group).map((a) => (
+                      <div key={a.id} className="kv">
+                        <span>{a.label}</span>
+                        <button className={'hotkey-binding' + (hotkeyMap[a.id] ? '' : ' unassigned')} onClick={() => setCapturingKey(a.id)}>
+                          {capturingKey === a.id ? 'Press a key… (Delete clears)' : hotkeyCaption(hotkeyMap[a.id])}
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 ))}
-                <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => { setHotkeyMap({ ...DEFAULT_HOTKEYS }); localStorage.removeItem('ggpoker.hotkeysMap'); }}>Reset defaults</button>
+                {hotkeyNotice && <p className="muted small" role="status">{hotkeyNotice}</p>}
+                <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => { setHotkeyMap(DEFAULT_HOTKEYS); setHotkeyNotice(''); localStorage.removeItem(HOTKEYS_KEY); }}>Reset defaults</button>
                 <div className="admin-label" style={{ marginTop: 14 }}>Dealer animation speed</div>
                 <input type="range" min={1} max={5} value={dealSpeed} style={{ width: '100%' }}
                   onChange={(e) => { const v = Number(e.target.value); setDealSpeed(v); persist('ggpoker.dealSpeed', String(v)); }} />
@@ -390,7 +404,12 @@ export function Settings() {
                 <option value="always">Always confirm</option>
                 <option value="never">Never confirm</option>
               </select>
-              <p className="muted small">Mouse wheel and the arrow keys move the amount by the chosen unit; Enter bets it. Always confirm asks first; Escape cancels.</p>
+              <label className="admin-label" style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input type="checkbox" checked={bettingOptions.dontRound}
+                  onChange={(e) => saveBettingOptions({ ...bettingOptions, dontRound: e.target.checked })} />
+                Don't round to nearest blind
+              </label>
+              <p className="muted small">Mouse wheel and the arrow keys move the amount by the chosen unit; Enter bets it. Always confirm asks first; Escape cancels. Pot-fraction shortcuts round up to the small blind unless Don't round is on.</p>
             </div>
             <div className="card" style={{ gridColumn: '1 / -1' }}>
               <div className="panel-title">Preview</div>

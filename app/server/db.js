@@ -291,8 +291,11 @@ function init() {
   try { db.exec('ALTER TABLE tables ADD COLUMN owner_id INTEGER'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tables ADD COLUMN private INTEGER DEFAULT 0'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tables ADD COLUMN bomb_pot INTEGER DEFAULT 0'); } catch { /* already exists */ }
+  // Owner-set seconds per decision (null = default 15 s).
+  try { db.exec('ALTER TABLE tables ADD COLUMN action_seconds INTEGER'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE reports ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE hands ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE hands ADD COLUMN meta TEXT'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE elo_history ADD COLUMN game TEXT NOT NULL DEFAULT 'all'"); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
@@ -336,6 +339,8 @@ function init() {
   db.exec("DELETE FROM sessions WHERE expires_at <= datetime('now')");
   db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id, id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)');
+  // Lobby AvgPot/VPIP/H-hr read the newest hands per table (table-stats.js).
+  db.exec('CREATE INDEX IF NOT EXISTS idx_hands_table ON hands(table_id, id)');
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
   ensurePloVariants();
