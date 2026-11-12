@@ -2484,6 +2484,13 @@ wss.on('connection', (ws, req) => {
       }
       return;
     }
+    if (msg.type === 'show_cards') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const res = entry.table.showCards(ws.userId, msg.cards);
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      return;
+    }
     if (msg.type === 'rabbit') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;

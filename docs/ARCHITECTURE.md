@@ -82,13 +82,16 @@ can hold several tables). Client → server message types:
 | `rebuy` | Add chips between hands |
 | `timebank` | Spend the once-per-hand time bank |
 | `rabbit` | Reveal undealt board cards after a fold-out |
+| `show_cards` | After the hand, reveal the listed hole-card indices (`cards: number[]`) to the table |
 | `option` | Table options (run it twice, auto-muck, straddle, insurance); seat required |
 | `chat`, `emote` | Table chat and reactions (moderation enforced) |
 | `ping` | Latency/liveness |
 
 Server → client: a `state` snapshot (players, stacks, bets, board, pot, actor, action
 deadline, result) plus event frames that drive sounds, animations and overlays, including
-`rebuy_offer` when a cash-table bust opens the reload window. Every
+`rebuy_offer` when a cash-table bust opens the reload window and `cards_shown` when a
+player reveals hole cards. Player snapshots carry a public `shown` index list, so a partial
+reveal renders one real card and one face-down slot. Every
 state change is pushed; the client never guesses outcomes.
 
 ## Multi-table tournaments

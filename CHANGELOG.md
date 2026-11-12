@@ -6,6 +6,17 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Showing cards
+- **Show one card or both.** After a hand ends, a player who was dealt in can tap any of
+  their hole cards and press **Show** (or **Show all**) to reveal them to the whole table.
+  A partial reveal shows exactly the picked cards and keeps the rest face down for everyone
+  else; the owner always sees their own hand. Folded players cannot show, and the option is
+  gone as soon as the next hand is dealt.
+- The table announces the reveal ("Nick shows A♠ K♥") and marks shown cards with a green
+  ring; showing is merged per card, so a player can show one card now and the other later.
+- Tests: engine case covering the hand-over gate, folded players, partial and full reveals
+  and the broadcast payload. Full suite 149/149.
+
 ### Table controls
 - **Bet steppers.** − and + buttons now sit either side of the bet amount and move it one
   big blind per press, clamped to the legal raise range; the number field's own arrows use
