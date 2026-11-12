@@ -731,3 +731,24 @@ test('rush leaderboard rows: rank, flag, nick, chips won, and the viewer marked'
   ]);
   assert.deepEqual(leaderboardRows(undefined), []);
 });
+
+import { LEADER_METRICS, metricInfo, formatMetricValue, metricValueLabel } from '../src/lib/leaderboard.ts';
+
+test('leaderboard metrics: tab order, labels, VIP fallback for unknown metrics', () => {
+  assert.deepEqual(LEADER_METRICS.map((m) => [m.key, m.tab, m.column]), [
+    ['vip', 'VIP points', 'VIP points'], ['elo', 'Elo', 'Elo'], ['xp', 'XP', 'XP'],
+  ]);
+  assert.match(metricInfo('elo').subtitle, /Elo/);
+  assert.equal(metricInfo('chips').key, 'vip');
+  assert.ok(Object.isFrozen(LEADER_METRICS));
+});
+
+test('leaderboard metrics: values formatted with separators and unit', () => {
+  assert.equal(formatMetricValue(1234567), '1,234,567');
+  assert.equal(formatMetricValue(12.9), '12');
+  assert.equal(formatMetricValue(undefined), '0');
+  assert.equal(formatMetricValue(Number.NaN), '0');
+  assert.equal(metricValueLabel('vip', 12500), '12,500 pts');
+  assert.equal(metricValueLabel('elo', 1240), '1,240 Elo');
+  assert.equal(metricValueLabel('xp', 900), '900 XP');
+});

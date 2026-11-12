@@ -22,6 +22,7 @@ import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
+import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService, createChatStore } from './chat.js';
 import { createAdminChatRoutes } from './admin-chat.js';
@@ -455,6 +456,9 @@ const handleAdminChatRoute = createAdminChatRoutes({
 
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
+
+// Cross-room leaderboard (leaderboard.js): VIP points, Elo or XP.
+const LEADERBOARD = createLeaderboard(db);
 
 // Rush pools (rush-pool.js): fold-and-move queue per pool (game + sb + bb) and the Cash Drop.
 // Rush pool lobby (rush-lobby.js): real hands/hr per pool table and today's Rush leaderboard.
@@ -1448,8 +1452,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/leaderboard') {
-      const rows = db.prepare('SELECT nick, vip_level, xp, vip_points, avatar FROM users WHERE banned = 0 ORDER BY vip_points DESC LIMIT 50').all();
-      return json(res, 200, { leaders: rows.map((r, i) => ({ rank: i + 1, ...r })) });
+      const metric = parseMetric(url.searchParams.get('metric'));
+      if (!metric) return json(res, 400, { error: `metric must be one of ${LEADERBOARD_METRICS.join(', ')}` });
+      const u = userByToken(tokenFrom(req));
+      return json(res, 200, LEADERBOARD.read(metric, u?.id ?? null));
     }
 
     if (p === '/api/rewards/daily' && req.method === 'POST') {

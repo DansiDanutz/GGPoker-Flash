@@ -1,3 +1,4 @@
+import type { LeaderMetric, LeaderboardResponse } from './leaderboard';
 export type User = {
   id: number;
   login: string;
@@ -202,7 +203,7 @@ export const api = {
   hands: () => request<{ hands: any[] }>('/api/hands'),
   missions: () => request<{ missions: any[] }>('/api/missions'),
   claimMission: (id: string) => request<any>(`/api/missions/${id}/claim`, { method: 'POST' }),
-  leaderboard: () => request<{ leaders: any[] }>('/api/leaderboard'),
+  leaderboard: (metric: LeaderMetric = 'vip') => request<LeaderboardResponse>(`/api/leaderboard?metric=${metric}`),
   ocean: () => request<any>('/api/ocean'),
   buyOcean: (item: string) => request<any>('/api/ocean/buy', { method: 'POST', body: JSON.stringify({ item }) }),
   sessions: () => request<{ sessions: any[] }>('/api/sessions'),

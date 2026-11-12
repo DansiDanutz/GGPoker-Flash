@@ -4,6 +4,7 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
+import { LEADER_METRICS, formatMetricValue, metricInfo, metricValueLabel, type LeaderMetric, type LeaderboardResponse } from '../lib/leaderboard';
 
 const WHEEL = [
   { label: '500', amount: 500 }, { label: '2.5K', amount: 2500 }, { label: '1K', amount: 1000 },
@@ -275,34 +276,55 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
 
 export function Leaderboard() {
   const { user } = useApp();
-  const [leaders, setLeaders] = useState<any[]>([]);
-  useEffect(() => { api.leaderboard().then((r) => setLeaders(r.leaders)).catch(() => {}); }, []);
+  const [metric, setMetric] = useState<LeaderMetric>('vip');
+  const [board, setBoard] = useState<LeaderboardResponse | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let live = true;
+    setError('');
+    api.leaderboard(metric)
+      .then((r) => { if (live) setBoard(r); })
+      .catch((e: unknown) => { if (live) setError(e instanceof Error ? e.message : 'Could not load the leaderboard'); });
+    return () => { live = false; };
+  }, [metric]);
+  const info = metricInfo(metric);
+  const leaders = board?.metric === metric ? board.leaders : [];
+  const me = board?.metric === metric ? board.me : null;
   return (
     <PageShell activeTop="poker">
       <div className="page">
         <h1 className="page-title">Leaderboard</h1>
-        <p className="page-sub">Top players by VIP points this month</p>
+        <p className="page-sub">{info.subtitle}</p>
+        <div className="seg" role="tablist" aria-label="Leaderboard metric">
+          {LEADER_METRICS.map((m) => (
+            <button key={m.key} role="tab" aria-selected={m.key === metric} className={m.key === metric ? 'on' : ''} onClick={() => setMetric(m.key)}>{m.tab}</button>
+          ))}
+        </div>
+        {me && <p className="page-sub">Your rank: <b className="gold">#{me.rank}</b> · {metricValueLabel(metric, me.value)}</p>}
+        {error && <p className="empty-state">{error}</p>}
         <div className="grid g3" style={{ marginBottom: 18 }}>
           {leaders.slice(0, 3).map((l, i) => (
-            <div key={l.rank} className="card" style={{ textAlign: 'center', borderColor: i === 0 ? '#6b5320' : '#2a2a2a' }}>
+            <div key={l.nick} className="card" style={{ textAlign: 'center', borderColor: i === 0 ? '#6b5320' : '#2a2a2a' }}>
               <div style={{ fontSize: 28 }}>{['🥇', '🥈', '🥉'][i]}</div>
-              <div style={{ margin: '8px auto', width: 54 }}><Avatar name={l.nick} src={l.avatar} size={54} /></div>
+              <div style={{ margin: '8px auto', width: 54 }}><Avatar name={l.nick} src={l.avatar ?? undefined} size={54} /></div>
               <b style={{ color: '#fff' }}>{l.nick}</b>
-              <div className="gold" style={{ fontWeight: 800 }}>{l.vip_points.toLocaleString()} pts</div>
+              <div className="gold" style={{ fontWeight: 800 }}>{metricValueLabel(metric, l.value)}</div>
             </div>
           ))}
         </div>
         <div className="card" style={{ padding: 0 }}>
           <table className="admin-table">
-            <thead><tr><th>#</th><th>Player</th><th>VIP</th><th>XP</th><th>Points</th></tr></thead>
+            <thead><tr><th>#</th><th>Player</th><th>VIP</th><th>{info.column}</th></tr></thead>
             <tbody>
               {leaders.map((l) => (
-                <tr key={l.rank} style={l.nick === user?.nick ? { background: '#2a2311' } : undefined}>
+                <tr key={l.nick} aria-current={l.nick === user?.nick ? 'true' : undefined} style={l.nick === user?.nick ? { background: '#2a2311' } : undefined}>
                   <td>{l.rank}</td>
-                  <td><div className="row"><Avatar name={l.nick} src={l.avatar} size={22} />{l.nick}</div></td>
-                  <td>VIP {l.vip_level}</td><td>{l.xp.toLocaleString()}</td><td className="gold">{l.vip_points.toLocaleString()}</td>
+                  <td><div className="row"><Avatar name={l.nick} src={l.avatar ?? undefined} size={22} />{l.nick}</div></td>
+                  <td>VIP {l.vip_level}</td>
+                  <td className="gold">{formatMetricValue(l.value)}</td>
                 </tr>
               ))}
+              {board && !leaders.length && !error && <tr><td colSpan={4} className="empty-state">Leaderboard is empty.</td></tr>}
             </tbody>
           </table>
         </div>

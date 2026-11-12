@@ -382,3 +382,95 @@ test('lobby rushLeaderboard: today\'s Cash Drops and Rush pot wins per real play
     await srv.stop();
   }
 });
+
+/* ------------------------------ cross-room leaderboard metrics ------------------------------ */
+
+test('leaderboard: vip/elo/xp ordering, nick tie-break, default vip, banned/deleted excluded, me rank', async () => {
+  const srv = await startTestServer();
+  try {
+    const nicks = ['lb_a', 'lb_b', 'lb_c', 'lb_banned', 'lb_gone'];
+    const users = {};
+    for (const n of nicks) users[n] = await register(srv, n);
+    const db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
+    try {
+      const set = db.prepare('UPDATE users SET vip_points = ?, elo = ?, xp = ? WHERE id = ?');
+      set.run(900000003, 9002, 900000007, users.lb_a.id);
+      set.run(900000002, 9001, 900000009, users.lb_b.id);
+      set.run(900000002, 9003, 900000008, users.lb_c.id); // ties lb_b on VIP points: nick decides
+      set.run(999999999, 9999, 999999999, users.lb_banned.id);
+      set.run(999999998, 9998, 999999998, users.lb_gone.id);
+      db.prepare('UPDATE users SET banned = 1 WHERE id = ?').run(users.lb_banned.id);
+      db.prepare("UPDATE users SET deleted_at = datetime('now') WHERE id = ?").run(users.lb_gone.id);
+    } finally {
+      db.close();
+    }
+    const top3 = (data) => data.leaders.slice(0, 3).map(({ rank, nick, value }) => ({ rank, nick, value }));
+
+    const vip = await srv.get('/api/leaderboard?metric=vip', { token: users.lb_c.token });
+    assert.equal(vip.status, 200);
+    assert.equal(vip.data.metric, 'vip');
+    assert.deepEqual(top3(vip.data), [
+      { rank: 1, nick: 'lb_a', value: 900000003 },
+      { rank: 2, nick: 'lb_b', value: 900000002 },
+      { rank: 3, nick: 'lb_c', value: 900000002 },
+    ]);
+    assert.deepEqual(vip.data.me, { rank: 3, value: 900000002 });
+    const first = vip.data.leaders[0];
+    assert.equal(first.vip_points, 900000003, 'old vip_points field kept');
+    assert.equal(first.xp, 900000007, 'old xp field kept');
+    for (const key of ['avatar', 'vip_level']) assert.ok(key in first, `${key} present`);
+    assert.ok(vip.data.leaders.length <= 50);
+
+    const byDefault = await srv.get('/api/leaderboard');
+    assert.equal(byDefault.data.metric, 'vip', 'vip is the default metric');
+    assert.deepEqual(top3(byDefault.data), top3(vip.data));
+    assert.equal(byDefault.data.me, null, 'anonymous callers get no me');
+
+    const elo = await srv.get('/api/leaderboard?metric=elo', { token: users.lb_a.token });
+    assert.deepEqual(top3(elo.data), [
+      { rank: 1, nick: 'lb_c', value: 9003 },
+      { rank: 2, nick: 'lb_a', value: 9002 },
+      { rank: 3, nick: 'lb_b', value: 9001 },
+    ]);
+    assert.deepEqual(elo.data.me, { rank: 2, value: 9002 });
+
+    const xp = await srv.get('/api/leaderboard?metric=xp', { token: users.lb_a.token });
+    assert.deepEqual(top3(xp.data), [
+      { rank: 1, nick: 'lb_b', value: 900000009 },
+      { rank: 2, nick: 'lb_c', value: 900000008 },
+      { rank: 3, nick: 'lb_a', value: 900000007 },
+    ]);
+    assert.deepEqual(xp.data.me, { rank: 3, value: 900000007 });
+
+    for (const data of [vip.data, elo.data, xp.data]) {
+      const listed = data.leaders.map((l) => l.nick);
+      assert.ok(!listed.includes('lb_banned') && !listed.includes('lb_gone'), 'banned and deleted users excluded');
+    }
+    const asBanned = await srv.get('/api/leaderboard?metric=xp', { token: users.lb_banned.token });
+    assert.equal(asBanned.data.me, null, 'a banned caller has no rank');
+
+    const bad = await srv.get('/api/leaderboard?metric=chips');
+    assert.equal(bad.status, 400);
+  } finally {
+    await srv.stop();
+  }
+});
+
+test('leaderboard: me rank is counted over all active players, not only the listed rows', async () => {
+  const srv = await startTestServer();
+  try {
+    const me = await register(srv, 'lb_low');
+    const db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
+    let expected;
+    try {
+      db.prepare('UPDATE users SET xp = -1 WHERE id = ?').run(me.id);
+      expected = db.prepare('SELECT COUNT(*) AS n FROM users WHERE banned = 0 AND deleted_at IS NULL').get().n;
+    } finally {
+      db.close();
+    }
+    const { data } = await srv.get('/api/leaderboard?metric=xp', { token: me.token });
+    assert.deepEqual(data.me, { rank: Number(expected), value: -1 }, 'lowest XP ranks last among active players');
+  } finally {
+    await srv.stop();
+  }
+});
