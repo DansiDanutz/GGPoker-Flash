@@ -363,6 +363,7 @@ export function Admin() {
                     <div className="stat"><span>Live tables</span><b>{platform.tables?.live ?? '—'}</b></div>
                     <div className="stat"><span>Tournament rooms</span><b>{platform.tournaments?.rooms ?? '—'}</b></div>
                     <div className="stat"><span>Database</span><b>{fmtBytes(platform.db?.sizeBytes)}</b></div>
+                    <div className="stat"><span>Disk free</span><b>{fmtBytes(platform.disk?.freeBytes)}</b><div className="muted small">{platform.disk?.usedPct != null ? `${platform.disk.usedPct}% used` : '—'}</div></div>
                   </div>
                   <div className="grid g2">
                     <div className="admin-card">
@@ -371,6 +372,7 @@ export function Admin() {
                       <div className="kv"><span>Node / PID</span><b>{platform.server?.node ?? '—'} · {platform.server?.pid ?? '—'}</b></div>
                       <div className="kv"><span>Environment</span><b>{platform.server?.env ?? '—'} · {platform.server?.platform}/{platform.server?.arch}</b></div>
                       <div className="kv"><span>CPU / load</span><b>{platform.server?.cpus ?? '—'} cores · {(platform.server?.load || []).map((n: number) => n.toFixed(2)).join(' / ') || '—'}</b></div>
+                      <div className="kv"><span>Disk</span><b>{fmtBytes(platform.disk?.freeBytes)} free of {fmtBytes(platform.disk?.totalBytes)} ({platform.disk?.usedPct ?? '—'}%)</b></div>
                       <div className="kv"><span>Database</span><b>{fmtBytes(platform.db?.sizeBytes)} + {fmtBytes(platform.db?.walBytes)} WAL</b></div>
                       <div className="kv"><span>Users / hands</span><b>{platform.db?.users ?? '—'} / {platform.db?.hands ?? '—'}</b></div>
                       <div className="kv"><span>Tables / tournaments</span><b>{platform.db?.tables ?? '—'} / {platform.db?.tournaments ?? '—'}</b></div>

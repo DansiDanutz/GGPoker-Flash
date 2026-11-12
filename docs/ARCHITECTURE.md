@@ -169,7 +169,7 @@ read-only endpoints:
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/admin/platform` | server version/build, Node/PID/uptime/environment, RSS/heap, CPU count/load, WebSocket clients and distinct users, live tables/seats/connections, tournament rooms/players/flights plus each room's recovery snapshot (`snapshot`/`restoredAt`), SQLite size/WAL and row counts |
+| `GET /api/admin/platform` | server version/build, Node/PID/uptime/environment, RSS/heap, CPU count/load, disk free/total/used %, WebSocket clients and distinct users, live tables/seats/connections, tournament rooms/players/flights plus each room's recovery snapshot (`snapshot`/`restoredAt`), SQLite size/WAL and row counts |
 | `GET /api/admin/tournaments/live` | the same tournament-room list alone (name, level, current blinds, next level ETA, players left/humans, flights, finishes, winner) |
 
 The UI refreshes every 10 s and can download the report as JSON for an incident. The
@@ -208,6 +208,10 @@ Today production is one game container on `Dexter` (SQLite WAL, in-memory tables
 Traefik in front). This is sufficient for the play-money load but has a single
 failure/scale unit:
 
+- **Disk headroom** — every deploy adds a `dangro-game:rollback-*` image and the build cache
+  grows; `deploy/prune-docker.sh` keeps the newest three rollbacks and prunes the cache on a
+  weekly Monday cron, and the Platform section shows disk free/used %. A full disk makes
+  `docker compose build` fail while the previous container keeps serving.
 - **Vertical first** — the container can use the droplet's CPU/RAM; the keepalive script
   restarts a hung process; nightly backups and off-host pulls cover data loss.
 - **Horizontal scale is not implemented** — tables, tournament rooms and WebSocket

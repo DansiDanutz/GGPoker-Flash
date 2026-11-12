@@ -61,6 +61,16 @@ function statSize(file) {
   try { return fs.statSync(file).size; } catch { return null; }
 }
 
+/** Free/total bytes of the filesystem backing the process (container overlay on the host). */
+export function diskUsage(path = '/') {
+  try {
+    const s = fs.statfsSync(path);
+    const total = Number(s.blocks) * Number(s.bsize);
+    const free = Number(s.bavail) * Number(s.bsize);
+    return { path, totalBytes: total, freeBytes: free, usedPct: total ? Math.round((1 - free / total) * 100) : null };
+  } catch { return null; }
+}
+
 /**
  * The platform health report behind /api/admin/platform. Pure inputs (wss,
  * maps, db, version) keep it testable without a live socket server.
@@ -147,6 +157,7 @@ export function buildPlatformReport({
       load: os.loadavg(),
     },
     memory,
+    disk: diskUsage(),
     sockets: { total: clients.length, users: userIds.size },
     tables: {
       live: tables.length,
