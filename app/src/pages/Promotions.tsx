@@ -5,7 +5,7 @@ import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { useI18n } from '../lib/i18n';
-import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, DEFAULT_HOTKEYS, betLabel, readBetPrefs, readBettingOptions, readCardBack, readHotkeys, readStackMode, normalizeHotkey, type BetPrefs, type BettingOptions, type HotkeyMap, type StackMode } from '../lib/tablePrefs';
+import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, DEFAULT_HOTKEYS, betLabel, readBetPrefs, readBettingOptions, readCardBack, readHotkeys, readStackMode, normalizeHotkey, readShowChatBubbles, readShowReactions, CHAT_BUBBLES_KEY, REACTIONS_KEY, type BetPrefs, type BettingOptions, type HotkeyMap, type StackMode } from '../lib/tablePrefs';
 
 export function Promotions() {
   const { toast, navigate } = useApp();
@@ -90,6 +90,8 @@ export function Settings() {
   const [squeeze, setSqueeze] = useState(() => localStorage.getItem('ggpoker.squeeze') === '1');
   const [chipShuffle, setChipShuffle] = useState(() => localStorage.getItem('ggpoker.chipShuffle') !== '0');
   const [showHand, setShowHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
+  const [chatBubbles, setChatBubbles] = useState(readShowChatBubbles);
+  const [reactions, setReactions] = useState(readShowReactions);
   const [hotkeyHints, setHotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
   const [hotkeyMap, setHotkeyMap] = useState<HotkeyMap>(readHotkeys);
   const [capturingKey, setCapturingKey] = useState<keyof HotkeyMap | null>(null);
@@ -298,6 +300,8 @@ export function Settings() {
                 <label className="switch-row"><span>Enable table hotkeys</span><input type="checkbox" checked={hotkeys} onChange={(e) => { setHotkeys(e.target.checked); persist('ggpoker.hotkeys', e.target.checked ? '1' : '0'); }} /></label>
                 <label className="switch-row"><span>Show keyboard hints</span><input type="checkbox" checked={hotkeyHints} onChange={(e) => { setHotkeyHints(e.target.checked); persist('ggpoker.hotkeyHints', e.target.checked ? '1' : '0'); }} /></label>
                 <label className="switch-row"><span>Card squeeze on a fresh deal</span><input type="checkbox" checked={squeeze} onChange={(e) => { setSqueeze(e.target.checked); persist('ggpoker.squeeze', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Show chat bubbles</span><input type="checkbox" checked={chatBubbles} onChange={(e) => { setChatBubbles(e.target.checked); persist(CHAT_BUBBLES_KEY, e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Show reactions</span><input type="checkbox" checked={reactions} onChange={(e) => { setReactions(e.target.checked); persist(REACTIONS_KEY, e.target.checked ? '1' : '0'); }} /></label>
                 <label className="switch-row"><span>Chip shuffle effects</span><input type="checkbox" checked={chipShuffle} onChange={(e) => { setChipShuffle(e.target.checked); persist('ggpoker.chipShuffle', e.target.checked ? '1' : '0'); }} /></label>
                 <p className="muted small">Peel your hole cards with the mouse, the wheel or Open. Reconnects and hands already in progress skip the effect.</p>
                 <div className="admin-label" style={{ marginTop: 12 }}>Hotkey bindings</div>

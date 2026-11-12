@@ -9,6 +9,7 @@ import './design-v2.css';
 import './responsive.css';
 import './lobby-filters.css';
 import './tournament-filters.css';
+import './table-chat.css';
 
 createRoot(document.getElementById('root')!).render(
   <I18nProvider>

@@ -473,3 +473,74 @@ test('tournament empty-state copy names the filters', () => {
   assert.match(emptyTournamentMessage(withTournamentFilters(DEFAULT_TOURNAMENT_FILTERS, { game: 'plo' })), /this filter/);
   assert.match(emptyTournamentMessage(withTournamentFilters(DEFAULT_TOURNAMENT_FILTERS, { game: 'plo', status: 'late' })), /these 2 filters/);
 });
+
+// ---- Table chat reducer (P0 slice C3) ----
+import {
+  chatReducer, INITIAL_CHAT, CHAT_HISTORY_LIMIT, chatLineFrom, reactionLineFrom, chatCounter, senderRole,
+} from '../src/lib/tableChat.ts';
+
+const chatLine = (n, over = {}) => ({ id: `c:${n}`, kind: 'chat', userId: 7, nick: 'Bo', text: `m${n}`, at: n, ...over });
+
+test('chat reducer appends a line and counts it unread while the panel is closed', () => {
+  const s = chatReducer(INITIAL_CHAT, { type: 'append', line: chatLine(1) });
+  assert.equal(s.lines.length, 1);
+  assert.equal(s.unread, 1);
+  assert.equal(INITIAL_CHAT.lines.length, 0, 'the previous state is not mutated');
+  const own = chatReducer(s, { type: 'append', line: chatLine(2), own: true });
+  assert.equal(own.unread, 1, 'my own lines are never unread');
+  const dup = chatReducer(own, { type: 'append', line: chatLine(2) });
+  assert.equal(dup, own, 'a repeated id is ignored');
+});
+
+test('chat reducer keeps only the latest 50 lines', () => {
+  let s = INITIAL_CHAT;
+  for (let i = 1; i <= 60; i++) s = chatReducer(s, { type: 'append', line: chatLine(i) });
+  assert.equal(s.lines.length, CHAT_HISTORY_LIMIT);
+  assert.equal(s.lines[0].id, 'c:11');
+  assert.equal(s.lines.at(-1).id, 'c:60');
+});
+
+test('chat history merges with live lines, dedupes by id and stays in time order', () => {
+  const live = chatReducer(INITIAL_CHAT, { type: 'append', line: chatLine(5) });
+  const merged = chatReducer(live, { type: 'history', lines: [chatLine(3), chatLine(4), chatLine(5)] });
+  assert.deepEqual(merged.lines.map((l) => l.id), ['c:3', 'c:4', 'c:5']);
+  assert.equal(merged.unread, live.unread, 'history is backlog, not unread');
+  const again = chatReducer(merged, { type: 'history', lines: [chatLine(3), chatLine(4)] });
+  assert.equal(again, merged, 'a replayed history changes nothing');
+  const many = Array.from({ length: 70 }, (_, i) => chatLine(i + 1));
+  assert.equal(chatReducer(INITIAL_CHAT, { type: 'history', lines: many }).lines.length, CHAT_HISTORY_LIMIT);
+});
+
+test('opening the chat resets unread; lines while open are not unread', () => {
+  let s = INITIAL_CHAT;
+  s = chatReducer(s, { type: 'append', line: chatLine(1) });
+  s = chatReducer(s, { type: 'append', line: chatLine(2) });
+  assert.equal(s.unread, 2);
+  s = chatReducer(s, { type: 'open' });
+  assert.equal(s.unread, 0);
+  assert.equal(s.open, true);
+  s = chatReducer(s, { type: 'append', line: chatLine(3) });
+  assert.equal(s.unread, 0);
+  s = chatReducer(s, { type: 'close' });
+  s = chatReducer(s, { type: 'append', line: chatLine(4) });
+  assert.equal(s.unread, 1);
+});
+
+test('chat frames parse into lines; unknown reactions and malformed rows are dropped', () => {
+  assert.deepEqual(chatLineFrom({ id: 9, userId: 2, nick: 'A', message: '<img src=x>', at: 5 }),
+    { id: 'c:9', kind: 'chat', userId: 2, nick: 'A', text: '<img src=x>', at: 5 });
+  assert.equal(chatLineFrom({ message: 'no id' }), null);
+  const r = reactionLineFrom({ reactionId: 3, userId: 2, nick: 'A', at: 8 });
+  assert.equal(r.text, 'Laughing');
+  assert.equal(r.kind, 'reaction');
+  for (const bad of ['3', 4, null, 1.5]) assert.equal(reactionLineFrom({ reactionId: bad, userId: 2, at: 1 }), null);
+});
+
+test('chat counter shows only in the last 40 characters; sender role marks self', () => {
+  assert.equal(chatCounter('x'.repeat(240)), null);
+  assert.equal(chatCounter('x'.repeat(241)), 39);
+  assert.equal(chatCounter('x'.repeat(280)), 0);
+  assert.equal(senderRole({ userId: 4 }, 4), 'self');
+  assert.equal(senderRole({ userId: 4 }, 5), 'other');
+  assert.equal(senderRole({ userId: 4 }, null), 'other');
+});

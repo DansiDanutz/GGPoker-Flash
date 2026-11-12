@@ -4,7 +4,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { SwfEffect } from '../components/SwfEffect';
-import { betLabel, betTarget, betUnitOf, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readHotkeys, normalizeHotkey, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, betUnitOf, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readHotkeys, normalizeHotkey, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
@@ -15,6 +15,11 @@ import { showdownComplete, showdownPlan } from '../game/showdown';
 import { useWaitlist } from '../lib/waitlistState';
 import { formatCountdown, queuePositionLabel } from '../lib/waitlist';
 import { useOfferSeconds } from '../components/SeatOfferModal';
+import { TableChat } from '../components/table/TableChat';
+import { SeatReaction } from '../components/table/SeatReaction';
+import { ReportPlayerModal } from '../components/table/ReportPlayerModal';
+import { useTableChatStore } from '../lib/useTableChat';
+import type { ChatLine, ReactionId } from '../lib/tableChat';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -86,14 +91,12 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [connected, setConnected] = useState(false);
   const [mySeat, setMySeat] = useState<number | null>(null);
   const [raiseTo, setRaiseTo] = useState(0);
-  const [chat, setChat] = useState<{ nick: string; message: string }[]>([]);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [emoteOpen, setEmoteOpen] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [emoteFx, setEmoteFx] = useState<{ userId: number; nick: string; emote: string; key: number } | null>(null);
-  const emoteTimer = useRef<number | null>(null);
-  const [chatFx, setChatFx] = useState<{ userId: number; nick: string; message: string; key: number } | null>(null);
-  const chatFxTimer = useRef<number | null>(null);
+  // Chat lives in its own store so incoming lines never re-render this page (C3).
+  const chatStore = useTableChatStore();
+  chatStore.setSelf(user?.id ?? null);
+  const [showChatBubbles] = useState(readShowChatBubbles);
+  const [showReactions] = useState(readShowReactions);
+  const [chatReport, setChatReport] = useState<ChatLine | null>(null);
   const timerWarnRef = useRef<string>('');
   const [fx, setFx] = useState<{ id: number; seat: number; amount: number }[]>([]);
   const [winFx, setWinFx] = useState<{ id: number; amount: number; nick: string } | null>(null);
@@ -133,9 +136,6 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [playerProfile, setPlayerProfile] = useState<any>(null);
   const [friendAdded, setFriendAdded] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState('Abusive chat');
-  const [reportDetail, setReportDetail] = useState('');
-  const [reportBusy, setReportBusy] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
   const [mutes, setMutes] = useState<number[]>([]);
   const [noteText, setNoteText] = useState('');
@@ -299,6 +299,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         if (e.seq && lastSeq.current && e.seq > lastSeq.current + 1) { ws.close(); return; }
         if (e.seq) lastSeq.current = e.seq;
         handleEvent(e);
+      } else if (msg.type === 'chat_history') {
+        if (msg.tableId === tableId) chatStore.receiveHistory(msg.lines);
       } else if (msg.type === 'error') {
         toast({ kind: 'error', title: 'Table', body: msg.error });
       }
@@ -466,17 +468,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         const me = stateRef.current.players.find((p) => p.id === evt.playerId);
         if (me?.isMe) sound.play('turn', { volume: .55 });
       }
-    } else if (evt.type === 'chat') {
-      setChat((prev) => [...prev.slice(-30), { nick: evt.nick, message: evt.message }]);
-      setChatFx({ userId: evt.userId, nick: evt.nick, message: evt.message, key: Date.now() });
-      sound.play('click', { volume: .35 });
-      if (chatFxTimer.current) window.clearTimeout(chatFxTimer.current);
-      chatFxTimer.current = window.setTimeout(() => setChatFx(null), 4500);
-    } else if (evt.type === 'emote') {
-      setEmoteFx({ userId: evt.userId, nick: evt.nick, emote: evt.emote, key: Date.now() });
-      sound.play('bubble', { volume: .55 });
-      if (emoteTimer.current) window.clearTimeout(emoteTimer.current);
-      emoteTimer.current = window.setTimeout(() => setEmoteFx(null), 2300);
+    } else {
+      chatStore.receiveEvent(evt);
     }
   };
 
@@ -580,6 +573,31 @@ export function TablePage({ tableId }: { tableId: string }) {
     const ws = wsRef.current;
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ ...msg, tableId }));
   };
+
+  // Stable chat callbacks keep the memoised chat panel from re-rendering with the table.
+  const sendChat = useCallback((message: string) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'chat', message, tableId }));
+  }, [tableId]);
+  const sendReaction = useCallback((id: ReactionId) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'reaction', id, tableId }));
+  }, [tableId]);
+  const muteChatLine = useCallback((line: ChatLine) => {
+    chatStore.mute(line.userId);
+    // The host's mute is the table mute (table_mutes); anyone else hides the player locally.
+    if (user && stateRef.current?.ownerId === user.id) {
+      api.muteHostPlayer(tableId, line.userId, true)
+        .then(() => setMutes((xs) => (xs.includes(line.userId) ? xs : [...xs, line.userId])))
+        .catch((e: any) => toast({ kind: 'error', title: 'Could not mute', body: e?.message || 'Try again' }));
+    }
+    toast({ kind: 'info', title: 'Player muted', body: `${line.nick}'s chat and reactions are hidden.` });
+  }, [chatStore, tableId, toast, user]);
+  const reportChatLine = useCallback((line: ChatLine) => {
+    setChatReport(line);
+    setReportOpen(true);
+  }, []);
+  const closeReport = () => { setReportOpen(false); setChatReport(null); };
 
   const act = (action: string, amount = 0) => {
     if (!myTurn) return;
@@ -816,9 +834,11 @@ export function TablePage({ tableId }: { tableId: string }) {
     }
   }, [now, state?.handNo, state?.street, state?.actor, state?.actionEndsAt, myTurnNow]);
 
-  const emotes = ['😂', '😎', '😭', '🔥', '👏', '🐟', '🤡', '💪', '🍀', '😱'];
-
   if (!user) return null;
+
+  const reportTarget = chatReport
+    ? { id: chatReport.userId, nick: chatReport.nick }
+    : noteTarget && playerProfile?.user ? { id: Number(playerProfile.user.id), nick: String(playerProfile.user.nick) } : null;
 
   return (
     <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack} front-${cardFront} room-bg-${roomBg}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
@@ -839,21 +859,11 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
         <div className="spacer" />
-        <button onClick={() => setChatOpen((v) => !v)}>💬 Chat</button>
-        <button onClick={() => setEmoteOpen((v) => !v)} title="Send a reaction">😀</button>
         <button onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
         <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
         <button onClick={() => setMenuOpen((v) => !v)}>Menu</button>
         <button onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
-
-      {emoteOpen && (
-        <div className="emote-tray" onClick={(e) => e.stopPropagation()}>
-          {['😀', '😂', '😎', '😱', '😡', '🍀', '🎉', '🐟'].map((e) => (
-            <button key={e} onClick={() => { send({ type: 'emote', emote: e }); setEmoteOpen(false); sound.play('bubble', { volume: .45 }); }}>{e}</button>
-          ))}
-        </div>
-      )}
 
       {cashDrop && (
         <div className="cashdrop-overlay">
@@ -1043,11 +1053,8 @@ export function TablePage({ tableId }: { tableId: string }) {
             {p.folded && <div className="action-badge fold">Fold</div>}
             {p.allIn && <div className="action-badge" style={{ color: '#ffd98a' }}>ALL IN</div>}
             {(p.disconnected || p.sittingOut) && !p.allIn && <div className="action-badge away">{p.disconnected ? 'Reconnecting' : 'Sitting out'}</div>}
-            {emoteFx && emoteFx.userId === (p as any).id && (
-              <div key={emoteFx.key} className="emote-bubble" title={emoteFx.nick}>{emoteFx.emote}</div>
-            )}
-            {chatFx && chatFx.userId === (p as any).id && (
-              <div key={chatFx.key} className="chat-bubble">{chatFx.message}</div>
+            {p.id != null && (
+              <SeatReaction store={chatStore} userId={Number(p.id)} showBubbles={showChatBubbles} showReactions={showReactions} />
             )}
           </div>
         );
@@ -1097,39 +1104,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       )}
 
-      {chatOpen && (
-        <div className="chat-panel">
-          <div className="chat-log">
-            {chat.slice(-12).map((c, i) => <div key={i}><b>{c.nick}:</b> {c.message}</div>)}
-            {!chat.length && <div className="muted">Table chat — say hello 👋</div>}
-          </div>
-          <div className="emote-row">
-            {emotes.map((e) => (
-              <button key={e} onClick={() => {
-                send({ type: 'emote', emote: e });
-                if (user) {
-                  setEmoteFx({ userId: user.id, nick: user.nick, emote: e, key: Date.now() });
-                  sound.play('bubble', { volume: .5 });
-                  if (emoteTimer.current) window.clearTimeout(emoteTimer.current);
-                  emoteTimer.current = window.setTimeout(() => setEmoteFx(null), 2300);
-                }
-              }}>{e}</button>
-            ))}
-          </div>
-          <form
-            className="chat-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!chatInput.trim()) return;
-              send({ type: 'chat', message: chatInput });
-              setChatInput('');
-            }}
-          >
-            <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message…" maxLength={120} />
-            <button className="btn btn-ghost btn-sm" type="submit">Send</button>
-          </form>
-        </div>
-      )}
+      <TableChat store={chatStore} selfId={user?.id ?? null} readOnly={observing}
+        onSend={sendChat} onReact={sendReaction} onMute={muteChatLine} onReport={reportChatLine} />
 
       {observing ? (
         <div className="action-bar">
@@ -1378,31 +1354,9 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       )}
 
-      {reportOpen && noteTarget && playerProfile?.user && (
-        <div className="modal-backdrop" onClick={() => setReportOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head"><h3>Report {playerProfile.user.nick}</h3></div>
-            <div className="modal-body">
-              <label className="admin-label">Reason</label>
-              <select className="admin-select" style={{ width: '100%' }} value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
-                {['Abusive chat', 'Collusion', 'Slow play', 'Chip dumping', 'Offensive nickname', 'Other'].map((r) => <option key={r}>{r}</option>)}
-              </select>
-              <label className="admin-label" style={{ marginTop: 10 }}>Details</label>
-              <textarea value={reportDetail} onChange={(e) => setReportDetail(e.target.value)} rows={4} maxLength={500} placeholder="What happened?"
-                style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10, fontFamily: 'inherit' }} />
-              <p className="muted small">Reports are reviewed by the local administrator. False reports may be actioned.</p>
-            </div>
-            <div className="modal-foot">
-              <button className="btn btn-dark" onClick={() => setReportOpen(false)}>Cancel</button>
-              <button className="btn btn-red" disabled={reportBusy} onClick={async () => {
-                setReportBusy(true);
-                try { await api.reportPlayer(playerProfile.user.id, reportReason, reportDetail, state?.handId || undefined); setReportOpen(false); setReportDetail(''); toast({ kind: 'success', title: 'Report submitted', body: `Reported ${playerProfile.user.nick}` }); }
-                catch (e: any) { toast({ kind: 'error', title: 'Could not report', body: e.message }); }
-                finally { setReportBusy(false); }
-              }}>Submit report</button>
-            </div>
-          </div>
-        </div>
+      {reportOpen && reportTarget && (
+        <ReportPlayerModal target={reportTarget} handId={state?.handId} onClose={closeReport}
+          initialDetail={chatReport ? `Chat: "${chatReport.text}"` : ''} />
       )}
 
       {rebuyOpen && (

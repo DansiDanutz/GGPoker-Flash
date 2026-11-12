@@ -160,3 +160,13 @@ export function enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm = 
   const amount = Math.round(raiseTo);
   return { action: amount >= allInTo ? 'allin' : 'raise', amount, confirm: !!confirm };
 }
+
+/** Settings → Table: chat bubbles over seats and seat reactions (both on by default). */
+export const CHAT_BUBBLES_KEY = 'ggpoker.chatBubbles';
+export const REACTIONS_KEY = 'ggpoker.reactions';
+export function readShowChatBubbles(): boolean {
+  return localStorage.getItem(CHAT_BUBBLES_KEY) !== '0';
+}
+export function readShowReactions(): boolean {
+  return localStorage.getItem(REACTIONS_KEY) !== '0';
+}
