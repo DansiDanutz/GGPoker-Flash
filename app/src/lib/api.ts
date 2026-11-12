@@ -171,6 +171,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+const BACKUP_FALLBACK_NAME = 'dangg-backup.db';
+
+/** Pull a safe `dangg-backup-*.db` name out of a content-disposition header. */
+export function backupFilenameFrom(disposition: string | null): string {
+  const m = disposition?.match(/filename="(dangg-backup-\d{8}-\d{6}\.db)"/);
+  return m ? m[1] : BACKUP_FALLBACK_NAME;
+}
+
 export const api = {
   hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number; bombPot?: boolean }) =>
     request<{ id: string }>('/api/tables/host', { method: 'POST', body: JSON.stringify(data) }),
@@ -285,6 +293,17 @@ export const api = {
       const r = await fetch(`/api/admin/verifications/${id}/doc`, { headers: { authorization: `Bearer ${getToken()}` } });
       if (!r.ok) throw new Error('Document unavailable');
       return r.text();
+    },
+    /** Download a consistent SQLite snapshot; resolves with the server-chosen filename. */
+    backup: async (): Promise<string> => {
+      const r = await fetch('/api/admin/backup', { headers: { authorization: `Bearer ${getToken()}` } });
+      if (!r.ok) throw new Error(r.status === 403 ? 'Admin access required' : `Backup failed (${r.status})`);
+      const filename = backupFilenameFrom(r.headers.get('content-disposition'));
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      return filename;
     },
     exportCsv: async (kind: string) => {
       const r = await fetch(`/api/admin/export/${kind}`, { headers: { authorization: `Bearer ${getToken()}` } });

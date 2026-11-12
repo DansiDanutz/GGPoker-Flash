@@ -194,6 +194,7 @@ export function Admin() {
                   {['users', 'transactions', 'hands', 'tournaments'].map((k) => (
                     <button key={k} className="btn btn-ghost btn-sm" onClick={async () => { try { await api.admin.exportCsv(k); toast({ kind: 'success', title: 'Export ready', body: `${k}.csv` }); } catch (e: any) { toast({ kind: 'error', title: 'Export failed', body: e.message }); } }}>⤓ {k}</button>
                   ))}
+                  <button className="btn btn-ghost btn-sm" onClick={async () => { try { const name = await api.admin.backup(); toast({ kind: 'success', title: 'Backup downloaded', body: name }); } catch (e: any) { toast({ kind: 'error', title: 'Backup failed', body: e.message }); } }}>⤓ Download backup</button>
                 </div>
               </div>
               <div className="stat-grid">

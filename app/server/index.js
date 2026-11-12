@@ -27,6 +27,7 @@ import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService, createChatStore } from './chat.js';
 import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
+import { createAdminBackupRoute } from './admin-backup.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
@@ -456,6 +457,10 @@ const handleAdminChatRoute = createAdminChatRoutes({
 });
 
 const handleAdminAuditRoute = createAdminAuditRoute({ db, json, requireAdmin });
+// Snapshots go to the OS temp dir (override with GGPOKER_BACKUP_TMP); never inside DATA_DIR.
+const handleAdminBackupRoute = createAdminBackupRoute({
+  db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
+});
 
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
@@ -2103,6 +2108,7 @@ const server = http.createServer(async (req, res) => {
 
     /* ---------------- admin ---------------- */
     if (await handleAdminWaitlistRoute(req, res, p)) return;
+    if (await handleAdminBackupRoute(req, res, url)) return;
     if (handleAdminChatRoute(req, res, url)) return;
     if (p === '/api/admin/verifications' && req.method === 'GET') {
       const a = requireAdmin(req, res); if (!a) return;
