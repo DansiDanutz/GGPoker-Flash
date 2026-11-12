@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { createDailyLeaderboard, dayOf, leaderboardStake, PRIZE_SPLIT, prizeShares, stakeKey, TOTAL_PRIZE_BB } from './dailyLeaderboard.js';
+import { createDailyLeaderboard, dayOf, leaderboardStake, pointEarners, PRIZE_SPLIT, prizeShares, stakeKey, TOTAL_PRIZE_BB } from './dailyLeaderboard.js';
 
 const DAY = Date.UTC(2026, 10, 12, 12);
 const NEXT = DAY + 24 * 3600 * 1000;
@@ -50,7 +50,7 @@ test('a new day pays yesterday\'s leaders once, and the board starts empty', () 
   const total = 200 * TOTAL_PRIZE_BB;
   assert.deepEqual(paid.map((p) => [p.userId, p.amount]), [[2, total * 0.3], [1, total * 0.2]]);
   assert.match(paid[0].memo, /Daily Leaderboard/);
-  assert.equal(new Set(paid.map((p) => p.reference)).size, 2);
+  assert.equal(new Set(paid.map((p) => `${p.userId}|${p.reference}`)).size, 2);
   assert.deepEqual(board.view({ stake, userId: 3, now: NEXT }).top.map((r) => r.nick), ['Cy']);
 });
 
@@ -60,4 +60,40 @@ test('only public cash tables count', () => {
   assert.equal(leaderboardStake({ cfg, tournament: {} }), null);
   assert.equal(leaderboardStake({ cfg, spin: true }), null);
   assert.equal(leaderboardStake({ cfg: { ...cfg, private: 1 } }), null);
+});
+
+test('players who left mid-hand still earn their point, once; bots and non-contributors do not', () => {
+  const seat = (player) => ({ player });
+  const table = {
+    seats: [
+      seat({ id: 1, inHand: true, totalBet: 200 }),
+      seat({ id: 2, inHand: true, totalBet: 0 }),
+      seat({ id: 90, isBot: true, inHand: true, totalBet: 200 }),
+      seat(null),
+    ],
+    ghosts: [{ id: 3, totalBet: 100 }, { id: 1, totalBet: 50 }, { id: 91, isBot: true, totalBet: 100 }],
+  };
+  assert.deepEqual(pointEarners(table), [1, 3]);
+});
+
+test('ties rank by account, not nickname, so a rename cannot reorder or re-pay a finished day', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec('CREATE TABLE users (id INTEGER PRIMARY KEY, nick TEXT)');
+  db.prepare("INSERT INTO users VALUES (1, 'Zed'), (2, 'Amy')").run();
+  const paid = new Map();
+  const pay = (userId, amount, memo, reference) => {
+    const key = `${userId}|${reference}`;
+    if (!paid.has(key)) paid.set(key, amount);
+  };
+  const board = createDailyLeaderboard(db, { pay });
+  const stake = { key: 'holdem:100/200', bb: 200 };
+  board.record({ stake, userIds: [1, 2], now: DAY });
+  assert.deepEqual(board.view({ stake, userId: 2, now: DAY }).top.map((r) => r.nick), ['Zed', 'Amy']);
+  assert.equal(board.view({ stake, userId: 2, now: DAY }).myRank, 2);
+  // Interrupted settlement: Zed was paid, then Zed renames before the retry.
+  pay(1, 200 * TOTAL_PRIZE_BB * 0.3, '', 'daily-lb:2026-11-12:holdem:100/200');
+  db.prepare("UPDATE users SET nick = 'Aaa' WHERE id = 1").run();
+  board.settle(NEXT);
+  const total = [...paid.values()].reduce((a, b) => a + b, 0);
+  assert.equal(total, 200 * TOTAL_PRIZE_BB * 0.5);
 });

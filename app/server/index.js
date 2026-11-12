@@ -25,7 +25,7 @@ import * as waitlist from './waitlist.js';
 import { waitingForTable } from './sitOut.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createTableStats } from './table-stats.js';
-import { createDailyLeaderboard, leaderboardStake } from './dailyLeaderboard.js';
+import { createDailyLeaderboard, leaderboardStake, pointEarners } from './dailyLeaderboard.js';
 import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
 import { spinInfo } from './spin.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
@@ -1102,8 +1102,7 @@ function rewardHandPlayed(table, summary) {
   // Daily Leaderboard: the same raked, chips-in hands earn one point at this stake.
   const stake = raked ? leaderboardStake(table) : null;
   if (!stake) return;
-  const userIds = table.seats.map((s) => s.player)
-    .filter((p) => p && !p.isBot && p.inHand && p.totalBet > 0).map((p) => p.id);
+  const userIds = pointEarners(table);
   if (userIds.length) DAILY_LEADERBOARD.record({ stake, userIds });
 }
 

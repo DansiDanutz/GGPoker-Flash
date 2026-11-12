@@ -16,6 +16,18 @@ export function leaderboardStake(table) {
   return { key: stakeKey(cfg), bb: cfg.bb };
 }
 
+/**
+ * Humans who earn a point for this hand: everyone who put chips in, including players who left
+ * mid-hand (kept as table.ghosts), once each.
+ */
+export function pointEarners(table) {
+  const seated = table.seats.map((s) => s.player).filter((p) => p && p.inHand);
+  const ids = [...seated, ...(table.ghosts || [])]
+    .filter((p) => !p.isBot && p.totalBet > 0)
+    .map((p) => p.id);
+  return [...new Set(ids)];
+}
+
 export const dayOf = (now) => new Date(now).toISOString().slice(0, 10);
 
 /** Prize per place for the first `places` finishers (floored, so never above the total). */
@@ -36,11 +48,10 @@ export function createDailyLeaderboard(db, { pay }) {
   const add = db.prepare(`INSERT INTO daily_points (day, stake, bb, user_id, points) VALUES (?, ?, ?, ?, 1)
     ON CONFLICT(day, stake, user_id) DO UPDATE SET points = points + 1`);
   const top = db.prepare(`SELECT d.user_id, d.points, u.nick FROM daily_points d JOIN users u ON u.id = d.user_id
-    WHERE d.day = ? AND d.stake = ? ORDER BY d.points DESC, u.nick ASC LIMIT ${BOARD_SIZE}`);
+    WHERE d.day = ? AND d.stake = ? ORDER BY d.points DESC, d.user_id ASC LIMIT ${BOARD_SIZE}`);
   const mine = db.prepare('SELECT points FROM daily_points WHERE day = ? AND stake = ? AND user_id = ?');
-  const ahead = db.prepare(`SELECT COUNT(*) AS n FROM daily_points d JOIN users u ON u.id = d.user_id
-    WHERE d.day = ? AND d.stake = ? AND (d.points > ? OR (d.points = ? AND u.nick < ?))`);
-  const nickOf = db.prepare('SELECT nick FROM users WHERE id = ?');
+  const ahead = db.prepare(`SELECT COUNT(*) AS n FROM daily_points
+    WHERE day = ? AND stake = ? AND (points > ? OR (points = ? AND user_id < ?))`);
   const unsettled = db.prepare('SELECT DISTINCT day, stake, bb FROM daily_points WHERE day < ? AND settled = 0');
   const markSettled = db.prepare('UPDATE daily_points SET settled = 1 WHERE day = ? AND stake = ?');
 
@@ -49,10 +60,11 @@ export function createDailyLeaderboard(db, { pay }) {
     for (const { day, stake, bb } of unsettled.all(dayOf(now))) {
       const leaders = top.all(day, stake);
       const shares = prizeShares(bb * TOTAL_PRIZE_BB, leaders.length);
-      // Pay first with an idempotent reference, then mark settled: a crash in between re-runs safely.
+      // Past days never change and ties break on user id, so a retry sees the same order. The reference
+      // is per user, so whatever happens between paying and marking settled, nobody is paid twice.
       leaders.forEach((row, i) => {
         if (shares[i] > 0) {
-          pay(row.user_id, shares[i], `Daily Leaderboard ${stake} ${day}: #${i + 1}`, `daily-lb:${day}:${stake}:${i + 1}`);
+          pay(row.user_id, shares[i], `Daily Leaderboard ${stake} ${day}: #${i + 1}`, `daily-lb:${day}:${stake}`);
         }
       });
       markSettled.run(day, stake);
@@ -74,8 +86,7 @@ export function createDailyLeaderboard(db, { pay }) {
       const leaders = top.all(day, stake.key);
       const shares = prizeShares(totalPrize, leaders.length);
       const myPoints = Number(mine.get(day, stake.key, userId)?.points || 0);
-      const nick = nickOf.get(userId)?.nick || '';
-      const myRank = myPoints > 0 ? Number(ahead.get(day, stake.key, myPoints, myPoints, nick).n) + 1 : null;
+      const myRank = myPoints > 0 ? Number(ahead.get(day, stake.key, myPoints, myPoints, userId).n) + 1 : null;
       return {
         day, stake: stake.key, totalPrize, myPoints, myRank,
         top: leaders.map((r, i) => ({ rank: i + 1, nick: r.nick, points: Number(r.points), prize: shares[i] })),
