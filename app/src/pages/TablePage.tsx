@@ -4,7 +4,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { SwfEffect } from '../components/SwfEffect';
-import { betLabel, betTarget, enterBetRequest, readBetPrefs, readCardBack, readDealSpeed, readStackMode, readHotkeys, readConfirmBet, normalizeHotkey, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, betUnitOf, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readStackMode, readHotkeys, normalizeHotkey, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
@@ -118,9 +118,11 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [hotkeysOn] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
   const [hotkeyMap] = useState(readHotkeys);
   const [dealSpeed] = useState(readDealSpeed);
-  const [confirmBets] = useState(readConfirmBet);
+  const [bettingOptions] = useState(readBettingOptions);
+  const confirmBets = bettingOptions.confirm === 'always';
   const [pendingBet, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number } | null>(null);
   const [showPick, setShowPick] = useState<number[]>([]);
+  const actionBarRef = useRef<HTMLDivElement | null>(null);
   const [betPrefs] = useState(readBetPrefs);
   const [timeBankSeconds] = useState(() => Math.max(5, Math.min(60, Number(localStorage.getItem('ggpoker.timeBank') || 10))));
   const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
@@ -458,7 +460,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   // Cash tables are stored in cents and shown in dollars; tournaments use whole chips.
   const displayUnit = state?.tournament ? 1 : 100;
   const chipStep = state?.tournament ? 1 : Math.min(100, state?.sb || 100);
-  const betStep = Math.max(1, state?.bb || (state?.tournament ? 1 : 100));
+  const betStep = betUnitOf(bettingOptions, state?.sb || 0, state?.bb || 0);
   const potChips = potChipTiers(state?.pot || 0, state?.bb || 1);
   const nudgeBet = (direction: number) => setRaiseTo((v) => Math.max(minTo, Math.min(maxTo, v + direction * betStep)));
   const presets = state ? sizingPresets(betCtx, chipStep) : [];
@@ -557,6 +559,23 @@ export function TablePage({ tableId }: { tableId: string }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [hotkeysOn, hotkeyMap, myTurn, toCall, raiseTo, maxTo, canRaise, allInTo, pendingBet, confirmBets, act, requestBet]);
+
+  // Mouse wheel changes the bet by the chosen unit, in the chosen direction.
+  useEffect(() => {
+    const el = actionBarRef.current;
+    if (!el) return;
+    const onWheel = (ev: WheelEvent) => {
+      if (!ev.deltaY || !myTurn || !canRaise) return;
+      const target = ev.target as HTMLElement | null;
+      if (!target?.closest('.quick-bets, .bet-slider, .bet-stepper')) return;
+      ev.preventDefault();
+      const up = ev.deltaY < 0;
+      const increase = bettingOptions.wheelUp === 'increase' ? up : !up;
+      setRaiseTo((v) => Math.max(minTo, Math.min(maxTo, v + (increase ? betStep : -betStep))));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [myTurn, canRaise, minTo, maxTo, betStep, bettingOptions.wheelUp]);
 
   const seatPosOf = (seat: number): [number, number] => {
     const n = stateRef.current?.seats || 6;
@@ -962,7 +981,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         </div>
       ) : (
-      <div className="action-bar">
+      <div className="action-bar" ref={actionBarRef}>
         {myTurn && (
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}

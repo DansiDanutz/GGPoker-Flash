@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { betLimits, potFractionTarget, sizingPresets, potOdds } from '../src/game/betting.ts';
-import { enterBetRequest } from '../src/lib/tablePrefs.ts';
+import { betUnitOf, enterBetRequest, normalizeBettingOptions } from '../src/lib/tablePrefs.ts';
 import { potChipTiers } from '../src/game/potChips.ts';
 import { bestHand } from '../src/game/eval.ts';
 
@@ -76,4 +76,20 @@ test('the middle chip pile grows with the pot and caps at twelve chips', () => {
   assert.deepEqual(potChipTiers(5000, 100).slice(0, 4), [0, 0, 0, 0]);
   assert.deepEqual(potChipTiers(5000, 100).slice(4, 8), [1, 1, 1, 1], 'bigger denominations join later');
   assert.deepEqual(potChipTiers(9000, 100), [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2]);
+});
+
+test('betting options follow the native defaults and reject junk', () => {
+  assert.deepEqual(normalizeBettingOptions(null), { wheelUp: 'increase', unit: 'bb', confirm: 'always' });
+  assert.deepEqual(
+    normalizeBettingOptions({ wheelUp: 'decrease', unit: 'sb', confirm: 'never' }),
+    { wheelUp: 'decrease', unit: 'sb', confirm: 'never' },
+  );
+  assert.deepEqual(
+    normalizeBettingOptions({ wheelUp: 'sideways', unit: 'usd', confirm: 'maybe' }),
+    { wheelUp: 'increase', unit: 'bb', confirm: 'always' },
+    'unknown values fall back to the native defaults',
+  );
+  assert.equal(betUnitOf({ unit: 'bb' }, 50, 100), 100);
+  assert.equal(betUnitOf({ unit: 'sb' }, 50, 100), 50);
+  assert.equal(betUnitOf({ unit: 'bb' }, 0, 0), 1, 'never returns a zero step');
 });

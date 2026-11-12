@@ -85,9 +85,55 @@ export function readHotkeys(): HotkeyMap {
   } catch { return { ...DEFAULT_HOTKEYS }; }
 }
 
+/**
+ * Betting behaviour, ported from the reference clone's Betting options:
+ * wheel direction, the unit a wheel/step changes, and whether Enter asks
+ * first. Native defaults are wheel-up increases, big blinds and Always
+ * confirm.
+ */
+export type BettingOptions = {
+  wheelUp: 'increase' | 'decrease';
+  unit: 'bb' | 'sb';
+  confirm: 'always' | 'never';
+};
+
+export const DEFAULT_BETTING_OPTIONS: BettingOptions = {
+  wheelUp: 'increase',
+  unit: 'bb',
+  confirm: 'always',
+};
+
+export function normalizeBettingOptions(raw: unknown): BettingOptions {
+  const p = (raw || {}) as Partial<BettingOptions>;
+  return {
+    wheelUp: p.wheelUp === 'decrease' ? 'decrease' : 'increase',
+    unit: p.unit === 'sb' ? 'sb' : 'bb',
+    confirm: p.confirm === 'never' ? 'never' : 'always',
+  };
+}
+
+export function readBettingOptions(): BettingOptions {
+  try {
+    const raw = localStorage.getItem('ggpoker.bettingOptions');
+    if (raw != null) return normalizeBettingOptions(JSON.parse(raw));
+    // Migration from the earlier single switch; only an explicit '0' turns
+    // confirmation off, otherwise follow the native Always-confirm default.
+    if (localStorage.getItem('ggpoker.confirmBet') === '0') {
+      return { ...DEFAULT_BETTING_OPTIONS, confirm: 'never' };
+    }
+  } catch { /* fall through to defaults */ }
+  return { ...DEFAULT_BETTING_OPTIONS };
+}
+
+/** The chip amount one wheel notch or +/- press moves. */
+export function betUnitOf(options: Pick<BettingOptions, 'unit'>, sb: number, bb: number): number {
+  const value = options.unit === 'sb' ? sb : bb;
+  return Math.max(1, Number(value) || 1);
+}
+
 /** The native "Always confirm" option: ask before chips leave the stack. */
 export function readConfirmBet(): boolean {
-  return localStorage.getItem('ggpoker.confirmBet') === '1';
+  return readBettingOptions().confirm === 'always';
 }
 
 export type BetRequest = { action: 'raise' | 'allin'; amount: number; confirm: boolean };
