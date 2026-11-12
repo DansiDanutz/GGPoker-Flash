@@ -1,0 +1,414 @@
+// Live multi-table tournament room.
+//
+// `tournament.js` is the pure seating engine: it decides who belongs at which
+// table. A room is the live counterpart: it owns the flights of one tournament,
+// moves real players between live tables, assigns finish places across the
+// whole field and calls back into the server for persistence and sockets.
+//
+// Every table operation goes through `ops`, so the room is testable with fake
+// tables (see tournament-room.test.js) and the server keeps all database and
+// transport code in index.js. Stacks live on the tables, never in the room.
+
+import {
+  balanceAll,
+  flightTableId,
+  nextFlightIndex,
+  tablesToBreak,
+  MIN_TABLE_SIZE,
+} from './tournament.js';
+
+export const MAX_FLIGHTS = 24;
+
+/** Share of the prize pool paid to a finish place (1st, 2nd, 3rd). */
+export const PAYOUT_SHARES = { 1: 0.5, 2: 0.3, 3: 0.2 };
+
+export function payoutFor(prizePool, place) {
+  const share = PAYOUT_SHARES[place] || 0;
+  return share > 0 ? Math.round(Number(prizePool || 0) * share) : 0;
+}
+
+export class TournamentRoom {
+  /**
+   * @param {object} options
+   * @param {string} options.id                tournament id
+   * @param {number} options.seats             seats per flight
+   * @param {object} options.tournament        shared descriptor handed to every flight table
+   * @param {number} [options.maxTables]       flight cap for this event
+   * @param {object} options.ops               server operations (see index.js)
+   */
+  constructor({ id, seats, tournament, maxTables = MAX_FLIGHTS, ops }) {
+    if (!id) throw new Error('id is required');
+    if (!Number.isInteger(seats) || seats < 2) throw new Error('seats must be at least 2');
+    if (!ops) throw new Error('ops are required');
+    this.id = id;
+    this.seats = seats;
+    this.maxTables = maxTables;
+    this.tournament = tournament || {};
+    this.ops = ops;
+    this.tournament.managed = true;
+    this.flights = []; // [{ index, id }] ascending by index
+    this.finished = []; // busted players, newest last: { id, nick, place, payout }
+    this.winner = null;
+  }
+
+  /* ------------------------------ inventory ------------------------------ */
+
+  flightIndexOf(tableId) {
+    return this.flights.find((f) => f.id === tableId)?.index ?? null;
+  }
+
+  tableOf(playerId) {
+    for (const flight of this.flights) {
+      const table = this.ops.table(flight.id);
+      if (table?.seatOf(playerId)) return table;
+    }
+    return null;
+  }
+
+  /** Seats per flight, read from the live tables. */
+  flightState() {
+    return this.flights.map((flight) => {
+      const table = this.ops.table(flight.id);
+      return {
+        id: flight.id,
+        index: flight.index,
+        players: table ? table.occupiedSeats().map((seat) => ({
+          id: seat.player.id,
+          nick: seat.player.nick,
+          stack: seat.player.stack,
+          isBot: !!seat.player.isBot,
+          inHand: !!seat.player.inHand,
+        })) : [],
+      };
+    });
+  }
+
+  /** Field-wide status for the table snapshot and the lobby. */
+  stats() {
+    const alive = this.alivePlayers();
+    return {
+      tables: this.flights.length,
+      playersLeft: alive.length,
+      humansLeft: alive.filter((p) => !p.isBot).length,
+      finished: this.finished.length,
+      winner: this.winner,
+    };
+  }
+
+  /* -------------------------------- seating -------------------------------- */
+
+  /**
+   * Catch the blind clock up when the first flight of an event opens after its
+   * scheduled start. Every flight shares the descriptor, so one clock rules all.
+   */
+  syncLevel(now = Date.now()) {
+    const interval = Number(this.tournament.blindEvery) * 60000;
+    const startedAt = Number(this.tournament.levelStartedAt);
+    if (!interval || !startedAt) return this.tournament.level || 1;
+    const elapsed = now - startedAt;
+    if (elapsed >= interval) {
+      const levels = Math.floor(elapsed / interval);
+      this.tournament.level = (Number(this.tournament.level) || 1) + levels;
+      this.tournament.levelStartedAt = startedAt + levels * interval;
+    }
+    return this.tournament.level || 1;
+  }
+
+  /** Create a flight table if it is not open yet. */
+  ensureFlight(index) {
+    const existing = this.flights.find((f) => f.index === index);
+    if (existing) {
+      const open = this.ops.table(existing.id);
+      if (open) return open;
+      // The table was closed underneath us (an admin close, an idle sweep):
+      // forget the stale flight and open a fresh table at the same index.
+      this.flights = this.flights.filter((f) => f.index !== index);
+    }
+    if (index > this.maxTables) return null;
+    this.syncLevel();
+    const tableId = flightTableId(this.id, index);
+    const table = this.ops.createTable({ tableId, index, tournament: this.tournament, room: this });
+    if (!table) return null;
+    this.flights.push({ index, id: tableId });
+    this.flights.sort((a, b) => a.index - b.index);
+    return table;
+  }
+
+  /**
+   * Seat a human. Humans fill a flight before another one is opened, even when
+   * that flight is already full of bots: a bot makes room. Returns the table id
+   * so the caller can send the client there.
+   */
+  seat(player, { stack } = {}) {
+    if (this.winner) return { ok: false, error: 'This tournament has finished' };
+    const seated = this.tableOf(player.id);
+    if (seated) {
+      return {
+        ok: true,
+        tableId: seated.cfg.id,
+        index: this.flightIndexOf(seated.cfg.id),
+        seat: seated.seatOf(player.id)?.index ?? null,
+        reconnect: true,
+      };
+    }
+    const humansByIndex = new Map();
+    for (const flight of this.flights) {
+      const table = this.ops.table(flight.id);
+      humansByIndex.set(flight.index, table ? table.humans().length : 0);
+    }
+    const index = nextFlightIndex(humansByIndex, this.seats, this.maxTables);
+    if (index == null) return { ok: false, error: 'This tournament is full' };
+    const table = this.ensureFlight(index);
+    if (!table) return { ok: false, error: 'No table available' };
+    if (table.occupiedSeats().length >= table.cfg.seats && !this.ops.evictBot(table)) {
+      return { ok: false, error: 'No seat available at this table' };
+    }
+    const result = table.sit({ id: player.id, nick: player.nick, avatar: player.avatar || '' }, null, stack);
+    if (!result.ok) return result;
+    // Keep the flight full the way the single-table tournament did.
+    const free = table.cfg.seats - table.occupiedSeats().length;
+    if (free > 0) table.fillBots(free);
+    table.maybeStart();
+    this.ops.broadcast(table.cfg.id);
+    return { ok: true, tableId: table.cfg.id, index, seat: result.seat };
+  }
+
+  /* ------------------------------ elimination ------------------------------ */
+
+  /**
+   * Record a bust across the whole field: places run from the field size down,
+   * so the first player out of a twelve-player event finishes 12th, not 6th.
+   */
+  onBust(tableId, player) {
+    if (this.winner) return null;
+    if (this.finished.some((f) => f.id === player.id)) return null;
+    const alive = this.alivePlayers().length;
+    // A hand can bust several players at once: the seats are cleared only after
+    // every hook ran, so count the busts already recorded in this batch too.
+    const batch = this.finished.filter((record) => this.tableOf(record.id)).length;
+    const place = alive + 1 + batch;
+    const payout = payoutFor(this.tournament.prizePool, place);
+    const record = { id: player.id, nick: player.nick, place, payout };
+    this.finished.push(record);
+    this.ops.persistBust({
+      tournamentId: this.id, tableId, playerId: player.id, nick: player.nick, place, payout,
+    });
+    return record;
+  }
+
+  /**
+   * Everyone still in the event. A player with no chips is only out once their
+   * table has settled: mid-hand an all-in player has 0 behind but is very much
+   * still in, so a table with a running hand counts all of its seats.
+   */
+  alivePlayers() {
+    const alive = [];
+    for (const flight of this.flights) {
+      const table = this.ops.table(flight.id);
+      if (!table) continue;
+      const handLive = table.handInProgress();
+      for (const seat of table.occupiedSeats()) {
+        const p = seat.player;
+        if (!p) continue;
+        if (handLive || Number(p.stack) > 0) {
+          alive.push({ id: p.id, nick: p.nick, isBot: !!p.isBot, stack: p.stack, tableId: flight.id, index: flight.index });
+        }
+      }
+    }
+    return alive;
+  }
+
+  anyHandInProgress() {
+    return this.flights.some((flight) => this.ops.table(flight.id)?.handInProgress());
+  }
+
+  /** A flight ran out of opponents; the room decides whether the event is over. */
+  onFlightSettled() {
+    this.sweep();
+  }
+
+  /**
+   * The last player standing wins the whole field once play has started. The
+   * guard keeps a freshly seated field from "winning" before a hand is dealt,
+   * and covers a field emptied by forfeits rather than by busts.
+   */
+  checkWinner() {
+    if (this.winner) return this.winner;
+    if (!this.finished.length && !this.anyHandDealt()) return null;
+    // Chips leave the stack when they are bet, so wait for every table to be
+    // between hands before calling anyone the last player standing.
+    if (this.anyHandInProgress()) return null;
+    const alive = this.alivePlayers();
+    if (alive.length !== 1) return null;
+    const winner = alive[0];
+    this.winner = {
+      id: winner.id,
+      nick: winner.nick,
+      prize: this.tournament.mode === 'SATELLITE' ? 0 : payoutFor(this.tournament.prizePool, 1),
+      tableId: winner.tableId,
+      place: 1,
+    };
+    this.ops.persistWinner({
+      tournamentId: this.id,
+      playerId: winner.id,
+      nick: winner.nick,
+      prize: this.winner.prize,
+      tableId: winner.tableId,
+      place: 1,
+    });
+    this.closeEmptyFlights();
+    return this.winner;
+  }
+
+  anyHandDealt() {
+    return this.flights.some((flight) => {
+      const table = this.ops.table(flight.id);
+      return table && Number(table.handNo) > 0;
+    });
+  }
+
+  /* ------------------------- balancing and breaks ------------------------- */
+
+  /**
+   * Run one balance pass and break every short table that can be absorbed.
+   * Players in a running hand are never moved; the next sweep retries.
+   */
+  sweep() {
+    if (this.winner) return { moves: [], broken: [] };
+    this.pruneClosedFlights();
+    this.checkWinner();
+    if (this.winner) return { moves: [], broken: [] };
+    const moves = this.balance();
+    const broken = this.breakShortTables();
+    return { moves, broken };
+  }
+
+  /** Drop flights whose table was closed by something other than the room. */
+  pruneClosedFlights() {
+    const before = this.flights.length;
+    this.flights = this.flights.filter((flight) => this.ops.table(flight.id));
+    return before - this.flights.length;
+  }
+
+  balance() {
+    const moves = [];
+    if (this.flights.length < 2) return moves;
+    const snapshot = this.flightState();
+    const { moves: plan } = balanceAll(snapshot, { canMove: (p) => !p.inHand });
+    for (const move of plan) {
+      const applied = this.movePlayer(move, 'balance');
+      if (applied) moves.push(applied);
+    }
+    return moves;
+  }
+
+  breakShortTables() {
+    const broken = [];
+    const snapshot = this.flightState();
+    const idle = snapshot.filter((flight) => {
+      const table = this.ops.table(flight.id);
+      return table && !table.handInProgress();
+    });
+    for (const id of tablesToBreak(idle)) {
+      // A previous break in this loop may already have topped this table up.
+      const source = this.ops.table(id);
+      if (!source || source.occupiedSeats().length >= MIN_TABLE_SIZE) continue;
+      if (this.breakFlight(id)) broken.push(id);
+    }
+    return broken;
+  }
+
+  /**
+   * Move every player from one idle flight into the others. The table only
+   * closes once every player found a seat, so chips can never vanish.
+   */
+  breakFlight(tableId) {
+    const source = this.ops.table(tableId);
+    if (!source || source.handInProgress()) return false;
+    const players = source.occupiedSeats().map((seat) => seat.player);
+    if (!players.length) return this.closeFlight(tableId);
+    const recipients = this.flights
+      .filter((flight) => flight.id !== tableId)
+      .map((flight) => this.ops.table(flight.id))
+      .filter(Boolean);
+    const free = recipients.reduce((sum, table) => sum + Math.max(0, table.cfg.seats - table.occupiedSeats().length), 0);
+    if (free < players.length) return false; // keep the table alive rather than drop players
+    for (const player of players) {
+      const target = recipients
+        .filter((table) => table.occupiedSeats().length < table.cfg.seats)
+        .sort((a, b) => a.occupiedSeats().length - b.occupiedSeats().length)[0];
+      if (!target) return false;
+      if (!this.movePlayer({ playerId: player.id, from: tableId, to: target.cfg.id }, 'break')) return false;
+    }
+    // Tell anyone still watching (an unseated observer) before the table goes away.
+    source.emit({ type: 'table_break', tableId, moved: players.map((p) => ({ id: p.id, nick: p.nick })) });
+    return this.closeFlight(tableId);
+  }
+
+  /** Move one player with their stack and connection flags intact. */
+  movePlayer({ playerId, from, to }, reason) {
+    const source = this.ops.table(from);
+    const target = this.ops.table(to);
+    if (!source || !target || source.cfg.id === target.cfg.id) return null;
+    const seat = source.seatOf(playerId);
+    if (!seat?.player) return null;
+    const player = seat.player;
+    if (player.inHand) return null;
+    if (target.occupiedSeats().length >= target.cfg.seats) return null;
+    const profile = { id: player.id, nick: player.nick, avatar: player.avatar, isBot: !!player.isBot };
+    const stack = player.stack;
+    const flags = {
+      disconnected: player.disconnected,
+      disconnectedAt: player.disconnectedAt,
+      sittingOut: player.sittingOut,
+    };
+    source.stand(player.id);
+    const result = target.sit(profile, null, stack);
+    if (!result.ok) {
+      // Put the player back where they came from; nothing changed.
+      source.sit(profile, seat.index, stack);
+      return null;
+    }
+    const moved = target.seatOf(player.id)?.player;
+    if (moved) Object.assign(moved, flags);
+    target.maybeStart();
+    this.ops.broadcast(from);
+    this.ops.broadcast(to);
+    if (!player.isBot) {
+      this.ops.notifyPlayer(player.id, {
+        type: 'table_move',
+        tableId: to,
+        from,
+        reason,
+        index: this.flightIndexOf(to),
+        stack,
+      });
+    }
+    return { playerId, from, to, reason, index: this.flightIndexOf(to) };
+  }
+
+  closeFlight(tableId) {
+    const table = this.ops.table(tableId);
+    if (table?.humans().length) return false; // never strand a human on a closing table
+    this.flights = this.flights.filter((flight) => flight.id !== tableId);
+    this.ops.closeTable(tableId);
+    return true;
+  }
+
+  closeEmptyFlights() {
+    for (const flight of [...this.flights]) {
+      const table = this.ops.table(flight.id);
+      if (table && !table.humans().length) this.closeFlight(flight.id);
+    }
+  }
+
+  /** Tear down every flight. `force` is only for an already-settled event. */
+  dispose({ force = false } = {}) {
+    for (const flight of [...this.flights]) {
+      const table = this.ops.table(flight.id);
+      if (!force && table?.humans().length) continue;
+      this.ops.closeTable(flight.id);
+    }
+    this.flights = [];
+  }
+}

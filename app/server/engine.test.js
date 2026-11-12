@@ -347,6 +347,27 @@ test('tournament blinds advance on the clock, not hand count', () => {
   assert.ok(t.sb > sb);
 });
 
+test('flights of one tournament share the blind level and clock', () => {
+  const shared = { blindEvery: 0.001, level: 1, prizePool: 10000 };
+  const cfg = { game: 'holdem', sb: 50, bb: 100, seats: 2, min_buyin: 1000, max_buyin: 10000, tournament: shared };
+  const a = new PokerTable({ id: 'flight-a', name: 'A', ...cfg });
+  const b = new PokerTable({ id: 'flight-b', name: 'B', ...cfg });
+  a.street = 'ended';
+  b.street = 'ended';
+  const at = Date.now() + 100;
+  a.tick(at); // the first flight to tick advances the shared clock
+  assert.equal(shared.level, 2);
+  assert.equal(a.sb, 75);
+  b.tick(at); // a flight that ticked later catches up without double-advancing
+  assert.equal(shared.level, 2);
+  assert.equal(b.sb, a.sb);
+  assert.equal(b.bb, a.bb);
+  // A flight opened after the level moved starts on the current blinds.
+  const late = new PokerTable({ id: 'flight-c', name: 'C', ...cfg });
+  assert.equal(late.sb, a.sb);
+  assert.equal(late.bb, a.bb);
+});
+
 test('table snapshot exposes the active hand id for evidence reporting', () => {
   const t = tableWith([player(1, 'A', 1000, 0, []), player(2, 'B', 1000, 0, [])]);
   t.handId = 'hand-evidence-42';

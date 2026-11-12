@@ -7,17 +7,34 @@ The project started as a local desktop clone and became the live play-money room
 ## 2026-11-12
 
 ### Tournaments
-- Added the multi-table tournament seating engine (`app/server/tournament.js`):
-  flights sized within one seat of each other, chip-preserving balancing moves off the
-  biggest table, whole-field balancing, and table breaks that retire a short table only
-  when every player has a seat elsewhere. Nine tests cover the invariants, including chip
-  conservation and the unbreakable-table case.
-- Added the flight **allocation rule** (`nextTableIndex`): fill a table before opening the
-  next, never exceed the flight cap; and the canonical `tournamentTableIds` helper that
-  keeps the legacy `tourney-<id>` table first and covers every flight index.
-- Unregistration now checks **every flight**, not just the legacy table, so a seated
-  player cannot unregister out of a running tournament. Full suite 109/109.
-- Wiring the seating engine into the live scheduler and table-break flow is the next step.
+- **Multi-table tournaments are live.** The pure seating engine (`app/server/tournament.js`)
+  is now driven by a tournament room (`app/server/tournament-room.js`) against the live
+  tables:
+  - humans fill flight 1 before flight 2 opens, and a bot steps aside for a human; flight
+    1 keeps the legacy `tourney-<id>` id, later flights are `tourney-<id>-<n>`;
+  - every flight shares one blind level and clock, so a flight opened late starts on the
+    current level instead of level 1;
+  - finish places and payouts are computed field-wide: a twenty-player event pays
+    20th … 1st, not 6th … 1st, with the same 50/30/20 % shares (tickets for satellites);
+  - balancing runs every 2 s: a flight two or more players bigger sends one across, and a
+    table under three players breaks into the others. A player in a running hand is never
+    moved, a table only closes after every player found a seat, and stacks plus connection
+    state travel with the player;
+  - the last player standing is only crowned when every flight is between hands, so an
+    all-in player with nothing behind still counts as alive;
+  - a moved player gets a `table_move` socket message and the table view follows
+    automatically; a stale flight link redirects to the player's real table, and the
+    header shows **Table 2/3 · 14 left** for multi-flight events.
+- The scheduled-start scheduler opens the room at the start time so the blind clock begins
+  then; `/play` seats the player through the same room and unregistration checks every
+  flight.
+- The engine itself was added in this pass too: flights sized within one seat of each
+  other, chip-preserving balancing moves off the biggest table, the `nextTableIndex`
+  allocation rule, canonical `tournamentTableIds`/`flightTableId`, and table breaks that
+  retire a short table only when every player has a seat elsewhere.
+- Tests: 31 new cases across the allocation helpers, the tournament room, an engine↔room
+  integration test and a live HTTP/WebSocket test that seats eight entrants onto two
+  flights, checks the snapshot counters and the stale-link redirect. Full suite 140/140.
 
 ### Design
 - Added the consolidated replica gap analysis (Codex evidence → DanGG build plan) in

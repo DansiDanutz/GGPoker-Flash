@@ -10,7 +10,9 @@ import {
   tablesToBreak,
   breakTables,
   nextTableIndex,
+  nextFlightIndex,
   tournamentTableIds,
+  flightTableId,
 } from './tournament.js';
 
 const field = (n, stack = 1000) => Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, stack }));
@@ -133,4 +135,43 @@ test('tournamentTableIds keeps the legacy id first and covers every flight', () 
   assert.equal(ids[0], 'tourney-abc');
   assert.deepEqual(ids.slice(1), ['tourney-abc-1', 'tourney-abc-2', 'tourney-abc-3']);
   assert.equal(new Set(ids).size, ids.length);
+});
+
+test('flightTableId keeps flight 1 on the legacy id and numbers the rest', () => {
+  assert.equal(flightTableId('abc', 1), 'tourney-abc');
+  assert.equal(flightTableId('abc', 2), 'tourney-abc-1');
+  assert.equal(flightTableId('abc', 3), 'tourney-abc-2');
+  assert.throws(() => flightTableId('abc', 0), /positive integer/);
+  // Every flight id is one the unregistration check already covers.
+  const ids = tournamentTableIds('abc', 12);
+  for (let i = 1; i <= 12; i += 1) assert.ok(ids.includes(flightTableId('abc', i)));
+});
+
+test('nextFlightIndex fills flights in order, then opens the lowest free index', () => {
+  assert.equal(nextFlightIndex(new Map(), 6, 4), 1);
+  assert.equal(nextFlightIndex(new Map([[1, 6]]), 6, 4), 2);
+  assert.equal(nextFlightIndex(new Map([[1, 6], [2, 3]]), 6, 4), 2);
+  // A broken table leaves a gap; the gap is reused before a later flight grows.
+  assert.equal(nextFlightIndex(new Map([[1, 6], [3, 2]]), 6, 4), 2);
+  // Plain-object input is accepted for JSON-shaped callers.
+  assert.equal(nextFlightIndex({ 1: 6, 2: 6 }, 6, 4), 3);
+});
+
+test('nextFlightIndex refuses to open more flights than the cap', () => {
+  assert.equal(nextFlightIndex(new Map([[1, 6], [2, 6], [3, 6]]), 6, 3), null);
+  assert.throws(() => nextFlightIndex(new Map(), 0, 3), /seats/);
+  assert.throws(() => nextFlightIndex(new Map(), 6, 0), /maxTables/);
+});
+
+test('balancing never moves a player the caller cannot move', () => {
+  const tables = [
+    { id: 'a', players: [{ id: 'busy', stack: 1000, inHand: true }, ...field(5).map((p) => ({ ...p, inHand: true }))] },
+    { id: 'b', players: field(3) },
+  ];
+  assert.equal(nextBalancingMove(tables, { canMove: (p) => !p.inHand }), null);
+  const relaxed = nextBalancingMove(tables);
+  assert.equal(relaxed.from, 'a');
+  // Balance-all honours the predicate too.
+  const { tables: after } = balanceAll(tables, { canMove: (p) => !p.inHand });
+  assert.equal(after.find((t) => t.id === 'a').players.length, 6);
 });

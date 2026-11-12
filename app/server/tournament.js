@@ -39,14 +39,15 @@ export function totalChips(tables) {
 /**
  * The single next move that would balance the field, or null when it is balanced.
  * Moves are considered only between tables whose sizes differ by 2 or more.
+ * `canMove` lets the live server refuse to pull a player out of a running hand.
  */
-export function nextBalancingMove(tables) {
+export function nextBalancingMove(tables, { canMove = () => true } = {}) {
   if (tables.length < 2) return null;
   const sorted = [...tables].sort((a, b) => a.players.length - b.players.length);
   const smallest = sorted[0];
   const largest = sorted[sorted.length - 1];
   if (largest.players.length - smallest.players.length < 2) return null;
-  const player = largest.players[largest.players.length - 1];
+  const player = [...largest.players].reverse().find((p) => canMove(p));
   if (!player) return null;
   return { playerId: player.id, from: largest.id, to: smallest.id };
 }
@@ -68,11 +69,11 @@ export function applyMove(tables, move) {
 }
 
 /** Repeatedly balance until no move is possible. */
-export function balanceAll(tables) {
+export function balanceAll(tables, options = {}) {
   let current = tables;
   const moves = [];
   for (let guard = 0; guard < 10_000; guard += 1) {
-    const move = nextBalancingMove(current);
+    const move = nextBalancingMove(current, options);
     if (!move) break;
     moves.push(move);
     current = applyMove(current, move);
@@ -139,9 +140,41 @@ export function nextTableIndex(occupancies, seats, maxTables) {
   return occupancies.length + 1;
 }
 
+/**
+ * Pick the flight for a joining human when flights may have been broken.
+ *
+ * Unlike `nextTableIndex`, the input is keyed by flight index so a gap left by
+ * a broken table is reused instead of shifting every later table. Indices are
+ * scanned in order and the first one that can take the player wins: an open
+ * flight with human room, or the lowest unopened index. Returns null when the
+ * flight cap is reached.
+ */
+export function nextFlightIndex(humansByIndex, seats, maxTables) {
+  if (seats <= 0) throw new Error('seats must be positive');
+  if (maxTables <= 0) throw new Error('maxTables must be positive');
+  const counts = humansByIndex instanceof Map
+    ? humansByIndex
+    : new Map(Object.entries(humansByIndex || {}).map(([key, value]) => [Number(key), Number(value)]));
+  for (let i = 1; i <= maxTables; i += 1) {
+    const count = counts.get(i);
+    if (count == null) return i;
+    if (count < seats) return i;
+  }
+  return null;
+}
+
 /** Table ids for a tournament's flights, oldest naming first for compatibility. */
 export function tournamentTableIds(tournamentId, maxTables = 12) {
   const ids = [`tourney-${tournamentId}`];
   for (let i = 1; i <= maxTables; i += 1) ids.push(`tourney-${tournamentId}-${i}`);
   return ids;
+}
+
+/**
+ * The live table id of one flight. Flight 1 keeps the legacy `tourney-<id>` id
+ * so existing links, registrations and sockets keep working.
+ */
+export function flightTableId(tournamentId, index) {
+  if (!Number.isInteger(index) || index < 1) throw new Error('index must be a positive integer');
+  return tournamentTableIds(tournamentId, index)[index - 1];
 }

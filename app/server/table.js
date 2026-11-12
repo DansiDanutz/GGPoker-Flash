@@ -71,6 +71,20 @@ export class PokerTable {
     this.spinWinner = null;
     this.tournament = cfg.tournament || null;
     this.levelStartedAt = this.tournament ? Date.now() : 0;
+    if (this.tournament) {
+      // Every flight of a multi-table event shares one tournament descriptor,
+      // so blinds and the level clock stay in step across tables.
+      this.tournament.level = Math.max(1, Number(this.tournament.level) || 1);
+      this.tournament.baseSb = Number(this.tournament.baseSb) || Number(cfg.sb);
+      this.tournament.baseBb = Number(this.tournament.baseBb) || Number(cfg.bb);
+      this.tournament.levelStartedAt = Number(this.tournament.levelStartedAt) || this.levelStartedAt;
+      this.appliedLevel = this.tournament.level;
+      const level = this.tournament.level - 1;
+      this.sb = Math.round(this.tournament.baseSb * 1.5 ** level);
+      this.bb = Math.round(this.tournament.baseBb * 1.5 ** level);
+      this.minRaise = this.bb;
+      this.levelStartedAt = this.tournament.levelStartedAt;
+    }
     this.elimination = this.spin || !!this.tournament;
     this.flip = this.tournament?.mode === 'FLIP';
     this.bounty = Number(this.tournament?.bounty || 0);
@@ -232,6 +246,15 @@ export class PokerTable {
   awardTournamentWinner() {
     const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
     if (!w || !w.player) return;
+    if (this.tournament?.managed) {
+      // The tournament room owns the field: this table only reports that it is
+      // down to one player, and the room decides the overall winner.
+      this.street = 'ended';
+      this.nextHandAt = 0;
+      this.emit({ type: 'flight_settled', seat: w.index, nick: w.player.nick });
+      if (this.hooks.onFlightSettled) this.hooks.onFlightSettled(this, { id: w.player.id, nick: w.player.nick });
+      return;
+    }
     if (this.satellite) {
       this.tournament.winner = { nick: w.player.nick, id: w.player.id, prize: 0, ticket: this.tournament.ticket };
       this.emit({ type: 'tourney_win', nick: w.player.nick, id: w.player.id, prize: 0, ticket: this.tournament.ticket, tableName: this.cfg.name });
@@ -920,17 +943,34 @@ export class PokerTable {
 
   /* ------------------------------ tick / bots ------------------------------ */
 
+  /** Recompute this flight's blinds when the shared tournament level moved. */
+  applyTournamentLevel() {
+    if (!this.tournament) return;
+    const level = Math.max(1, Number(this.tournament.level) || 1);
+    if (this.appliedLevel === level) return;
+    this.appliedLevel = level;
+    const baseSb = Number(this.tournament.baseSb) || this.sb;
+    const baseBb = Number(this.tournament.baseBb) || this.bb;
+    this.sb = Math.round(baseSb * 1.5 ** (level - 1));
+    this.bb = Math.round(baseBb * 1.5 ** (level - 1));
+    this.minRaise = this.bb;
+    this.levelStartedAt = Number(this.tournament.levelStartedAt) || this.levelStartedAt;
+    const nextBlindAt = this.levelStartedAt + Number(this.tournament.blindEvery || 0) * 60000;
+    this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb, level, nextBlindAt });
+  }
+
   tick(now = Date.now()) {
-    if (this.tournament && this.levelStartedAt && this.tournament.blindEvery > 0) {
+    if (this.tournament) {
+      // Flights share one level clock; the first table to tick advances it and
+      // every other flight picks the new level up on its own next tick.
       const interval = Number(this.tournament.blindEvery) * 60000;
-      if (now - this.levelStartedAt >= interval) {
-        this.sb = Math.round(this.sb * 1.5);
-        this.bb = Math.round(this.bb * 1.5);
-        this.minRaise = this.bb;
-        this.tournament.level = (this.tournament.level || 1) + 1;
-        this.levelStartedAt = now;
-        this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb, level: this.tournament.level, nextBlindAt: now + interval });
+      const startedAt = Number(this.tournament.levelStartedAt) || this.levelStartedAt;
+      if (interval > 0 && now - startedAt >= interval) {
+        const levels = Math.floor((now - startedAt) / interval);
+        this.tournament.level = (Number(this.tournament.level) || 1) + levels;
+        this.tournament.levelStartedAt = startedAt + levels * interval;
       }
+      this.applyTournamentLevel();
     }
     if (this.street === 'ended' || this.street === 'idle') {
       if (this.nextHandAt && now >= this.nextHandAt) {
@@ -948,7 +988,9 @@ export class PokerTable {
           for (const s of [...this.seats]) {
             if (s.player && s.player.stack <= 0) {
               const busted = s.player;
-              if (this.tournament) {
+              if (this.tournament && !this.tournament.managed) {
+                // Single-table events rank and pay out inside this table; a
+                // multi-table event ranks the whole field in its room instead.
                 const alive = aliveCount;
                 const place = alive + 1 + batch;
                 batch++;
@@ -1147,7 +1189,20 @@ export class PokerTable {
       straddle: this.straddle,
       runItTwice: this.runItTwice,
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
-      tournament: this.tournament ? { name: this.cfg.name, prizePool: this.tournament.prizePool, level: this.tournament.level || 1, mode: this.tournament.mode || 'STANDARD', bounty: this.tournament.bounty || 0, ticket: this.tournament.ticket || '', winner: this.tournament.winner || null, nextBlindAt: this.levelStartedAt ? this.levelStartedAt + Number(this.tournament.blindEvery || 10) * 60000 : null } : null,
+      tournament: this.tournament ? {
+        name: this.cfg.name,
+        prizePool: this.tournament.prizePool,
+        level: this.tournament.level || 1,
+        mode: this.tournament.mode || 'STANDARD',
+        bounty: this.tournament.bounty || 0,
+        ticket: this.tournament.ticket || '',
+        winner: this.tournament.winner || null,
+        nextBlindAt: this.levelStartedAt ? this.levelStartedAt + Number(this.tournament.blindEvery || 10) * 60000 : null,
+        managed: !!this.tournament.managed,
+        tableIndex: Number(this.cfg.flightIndex) || 1,
+        tables: Number(this.cfg.flightCount) || 1,
+        playersLeft: this.tournament.playersLeft ?? null,
+      } : null,
     };
   }
 

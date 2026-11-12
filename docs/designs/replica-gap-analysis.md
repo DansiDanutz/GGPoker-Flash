@@ -18,7 +18,7 @@ native comparison or an explicit statement of what could not be observed.
 
 | Gap | DanGG today | Evidence / next step |
 | --- | --- | --- |
-| Multi-table tournaments (flights, balancing, breaks) | One 6-seat `tourney-<id>` table; engine merged in `server/tournament.js` but not wired | Wire seating at tournament start, add `table_move`/`table_break` socket events and client rebinding |
+| Multi-table tournaments (flights, balancing, breaks) | Shipped: `server/tournament-room.js` seats humans across flights, ranks/pays the whole field, balances and breaks every 2 s, and sends `table_move` to moved players | 18 room tests, 3 engine↔room tests and an 8-entrant HTTP/WebSocket test. Remaining: absent registrants are not pushed into a table at the scheduled start, and only the top three places pay |
 | Lobby wait lists and full filters | No wait lists; partial filters | Codex `FEATURES.md` lobby row: "complete native navigation, waiting lists, tournament categories and filters" |
 | Rush depth | One stake pool; no Cash Drops | Codex Rush row: "multiple stake levels, Cash Drops, native layout/timing and queue fairness" |
 | Spin & Gold gameplay | Information-only screens | Codex traced exact chip/time values from incoming tourney config; multiplier mapping unresolved — do not infer from payout probabilities |
@@ -46,12 +46,18 @@ Not a gap: the cashier. GGPoker has a wallet; DanGG is play-money by design.
 
 ## Build order
 
-1. Multi-table tournament seating (engine done; wire it).
+1. ~~Multi-table tournament seating~~ — **done 2026-11-12** (flights, field-wide places,
+   balancing/breaks, `table_move`/`table_break`, client rebinding).
 2. Spectator mode — small, well-observed, closes a visible gap.
 3. "Always confirm" Enter-to-bet.
 4. Wait lists, then Rush stakes and Cash Drops.
 5. Spin & Gold gameplay once the multiplier mapping is evidenced.
 6. Battle Royale last; rules unobserved.
+
+Follow-ups found while wiring item 1: seat online registrants at the scheduled start
+(today they are seated when they open the event), widen payouts beyond the top three to
+match the native payout table, and add a multi-hour soak test that exercises real table
+breaks under bot play.
 
 Each item lands as its own PR with tests; nothing is marked done without a
 comparison screenshot or an explicit evidence gap.

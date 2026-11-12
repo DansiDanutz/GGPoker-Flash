@@ -74,7 +74,7 @@ server, and the service worker is not registered in dev.
 ```bash
 pnpm build          # production bundle → app/dist
 pnpm start          # serve app/dist + API on :5198
-pnpm test           # server suite (109 tests)
+pnpm test           # server suite (140 tests)
 pnpm smoke          # read-only smoke test against a running server
 ```
 
@@ -167,10 +167,19 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
   debits and refunds through the ledger.
 - Playable events: 6-max tables, starting stack, blind levels on a real clock, late
   registration, eliminations, top-3 payouts and a winner presentation.
-- A pure multi-table seating engine (`app/server/tournament.js`) plans flights, balancing
-  moves and table breaks with chip conservation, allocates flights with `nextTableIndex`,
-  exposes canonical `tournamentTableIds`, and guards unregistration across every flight;
-  the live scheduler/table-break wiring is the remaining step.
+- **Live multi-table events.** The seating engine (`app/server/tournament.js`) plans flights,
+  balancing moves and table breaks with chip conservation, and the tournament room
+  (`app/server/tournament-room.js`) drives it against the live tables:
+  - humans fill flight 1 before flight 2 opens, and a bot steps aside for a human;
+  - finish places and payouts are computed across the whole field (a 20-player event
+    pays 20th … 1st, not 6th … 1st);
+  - players are never pulled out of a running hand: balancing and breaks wait for an
+    idle seat, run every 2 s, and move the stack and connection state with the player;
+  - a moved player gets a `table_move` event and the table view follows automatically;
+    a stale flight link redirects to their real table;
+  - every flight shares one blind level and clock, and a flight opened later starts on
+    the current level;
+  - unregistration is checked against every flight.
 - Private host tournaments with invite links; Spin & Gold with a prize wheel.
 
 ### Casino and slots
@@ -273,7 +282,7 @@ package_app.sh         Build, sign and relaunch the desktop app
 cd app
 pnpm install         # dependencies
 pnpm dev             # Vite + API/WebSocket
-pnpm test            # node --test server/*.test.js (109 tests)
+pnpm test            # node --test server/*.test.js (140 tests)
 pnpm exec tsc --noEmit -p tsconfig.json
 pnpm build           # production client
 pnpm smoke           # read-only API smoke test (needs a running server)
@@ -306,7 +315,7 @@ Every push to `main` and every pull request runs the **CI** workflow
 
 | Job | What it runs |
 |---|---|
-| **Server tests** | `node --test server/*.test.js` (109 tests) |
+| **Server tests** | `node --test server/*.test.js` (140 tests) |
 | **Typecheck and build** | `tsc --noEmit`, then `vite build` |
 
 `main` is protected by the `protect-main` ruleset: both checks are required, force-pushes
@@ -407,9 +416,11 @@ locally with `bash tools/setup_assets.sh`.
   counts, promotion copy, schedules) is seeded and editable in the admin console.
 - Bots are intentionally imperfect and play for play chips only.
 - No real-money payments, KYC or account connectivity; play money has no cash value.
-- Multi-table tournament flights/balancing: the seating/balancing engine is implemented and
-  tested, but the live scheduler and table-break orchestration are not wired yet. The
-  native background catalogue is not complete.
+- Multi-table tournaments run live: flights, field-wide places, balancing and table breaks
+  are wired and covered by unit and HTTP/WebSocket tests. Still open: absent registrants are
+  seated when they open the event rather than pushed into a table at the scheduled start, and
+  only the top three places pay (the native client pays more places). The native background
+  catalogue is not complete.
 - SQLite is a single writer: suitable for a small play-money launch, not thousands of
   concurrent players (see the scale plan).
 
