@@ -804,3 +804,15 @@ body.electron .app-window::before { display: none; }
   .wager-amount { display: none; }
   .pot-label { font-size: 11px; }
 }
+
+/* Phone lobby: the full-art promo already carries its own title, so hide the
+   duplicate overlay; compact the filter row and keep the last table clear of
+   the fixed bottom navigation. */
+@media (max-width: 760px) {
+  .promo-wrap.full-art .promo-copy { display: none; }
+  .promo-wrap.full-art .promo-cta { right: 10px; bottom: 10px; }
+  .filter-bar { min-height: 42px; height: auto; padding: 5px 8px; gap: 6px; }
+  .filter-bar .host-table-btn { height: 30px; }
+  .lob-pills { gap: 6px; }
+  .list-scroll { padding-bottom: 74px; }
+}

@@ -1296,3 +1296,12 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .version-gate-hint { margin-top: 14px !important; font-size: 11.5px !important; color: #837d78 !important; }
 .login2-version { margin: 8px auto 0; text-align: center; color: #746e69; font-size: 10.5px; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
 .menu-version { margin-top: 6px; padding: 7px 10px 2px; border-top: 1px solid #2a2628; color: #7d7772; font-size: 10.5px; font-variant-numeric: tabular-nums; }
+
+/* Native chip thumb on the bet slider and a label for pill-less filter rows */
+.bet-slider::-webkit-slider-thumb { width: 22px; height: 23px; border: 0; border-radius: 50%; background: url('/assets/table/bet-thumb.png') center/100% 100% no-repeat; box-shadow: 0 2px 5px rgba(0, 0, 0, .55); cursor: pointer; }
+.bet-slider::-moz-range-thumb { width: 22px; height: 23px; border: 0; border-radius: 50%; background: url('/assets/table/bet-thumb.png') center/100% 100% no-repeat; box-shadow: 0 2px 5px rgba(0, 0, 0, .55); cursor: pointer; }
+.filter-label { color: #8f8f8f; font-size: 10.5px; letter-spacing: .7px; text-transform: uppercase; white-space: nowrap; }
+@media (max-width: 760px) {
+  .bet-slider::-webkit-slider-thumb { width: 18px; height: 19px; }
+  .bet-slider::-moz-range-thumb { width: 18px; height: 19px; }
+}

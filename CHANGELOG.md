@@ -6,6 +6,16 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Mobile lobby polish and native bet slider
+- The full-art promotion banner no longer draws a duplicate text overlay on phones; the
+  baked artwork keeps its own title, with the Discover button and dots over it.
+- The phone filter row is compact and shows a **TABLES** label when the selected tab has no
+  category pills; the table list clears the fixed bottom navigation.
+- The bet slider now uses the native poker-chip thumb (with a phone-sized variant).
+- Removed 43 sync-duplicate `"… 2/3/4.ext"` files from the working tree, which also fixes a
+  local `tsc` duplicate-declaration error caused by a duplicated `vite-env.d.ts`.
+
+## 2026-11-12
 ### Login-first startup and update-before-login
 - A fresh app open now always lands on the **login screen**. Opening the app discards the
   old session token but keeps the saved credentials; a reload in the same tab keeps the
