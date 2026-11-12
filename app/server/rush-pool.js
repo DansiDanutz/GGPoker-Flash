@@ -8,6 +8,7 @@
 // The drop never depends on the pot. Selection uses a crypto RNG by default and the
 // ledger write is keyed by hand id, so a retried hand save cannot pay twice.
 import { randomInt } from 'node:crypto';
+import { isRushGame } from './validate.js';
 
 export const CASHDROP_RULE_LABEL = 'DanGG rule';
 export const CASHDROP_KIND = 'cashdrop';
@@ -229,7 +230,7 @@ export function createRushPool(deps) {
 
   /** Cash Drop for a saved Rush hand; emits the felt event when a drop is paid. */
   function settleHand(hand, table) {
-    if (hand.game !== 'rush') return null;
+    if (!isRushGame(hand.game)) return null;
     const candidates = (hand.players || []).filter((p) => p && p.id && !p.isBot && deps.isRealUser(p.id));
     const drop = settleCashDrop({
       handId: hand.handId, bb: table.cfg.bb, candidates, config: readCashDropConfig(deps.getSetting), ledger: deps.ledger,

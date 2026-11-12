@@ -5,7 +5,7 @@ import type { LobbyTable } from './api';
 export const TAB_GAMES: Readonly<Record<string, readonly string[]>> = {
   home: [],
   aof: ['aof'],
-  rush: ['rush'],
+  rush: ['rush', 'rushplo'],
   holdem: ['holdem'],
   plo: ['omaha', 'omaha5', 'omaha6'],
   short: ['shortdeck'],
@@ -17,7 +17,7 @@ export const TAB_GAMES: Readonly<Record<string, readonly string[]>> = {
 export type Variant = 'holdem' | 'plo' | 'plo5' | 'plo6';
 
 const GAME_VARIANT: Readonly<Record<string, Variant>> = { omaha: 'plo', omaha5: 'plo5', omaha6: 'plo6' };
-const POOL_GAMES = ['rush', 'aof'];
+const POOL_GAMES = ['rush', 'rushplo', 'aof'];
 const OMAHA_NAME = /\b(plo|omaha)\b/i;
 
 /**

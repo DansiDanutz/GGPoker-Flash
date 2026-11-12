@@ -725,7 +725,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     setStackMode(next); localStorage.setItem('ggpoker.stackMode', next);
   };
   const myCards = me?.cards?.filter((c) => c !== '??') || [];
-  const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, state.game === 'omaha' || state.game === 'omaha5', state.game === 'shortdeck') : null;
+  const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(state.game), state.game === 'shortdeck') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
   // After the hand I can reveal one card or both to the table.
   const canShowCards = !!me && state?.street === 'ended' && me.inHand && !me.folded

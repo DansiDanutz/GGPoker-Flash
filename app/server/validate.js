@@ -1,6 +1,12 @@
 // Input validation helpers shared by the HTTP and WebSocket handlers.
 
-export const GAMES = Object.freeze(['holdem', 'omaha', 'omaha5', 'shortdeck', 'rush', 'aof', 'spingold', 'battleroyale', 'flipandgo']);
+export const GAMES = Object.freeze(['holdem', 'omaha', 'omaha5', 'shortdeck', 'rush', 'rushplo', 'aof', 'spingold', 'battleroyale', 'flipandgo']);
+/** Rush & Cash game ids: Hold'em pools (`rush`) and pot-limit Omaha pools (`rushplo`). */
+export const RUSH_GAMES = Object.freeze(['rush', 'rushplo']);
+/** @param {string} game @returns {boolean} */
+export function isRushGame(game) {
+  return RUSH_GAMES.includes(game);
+}
 const MIN_SEATS = 2;
 const MAX_SEATS = 9;
 const NICK_PATTERN = /^[\p{L}\p{N} _.\-]{2,20}$/u;

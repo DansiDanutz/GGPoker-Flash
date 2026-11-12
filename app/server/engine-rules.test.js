@@ -202,6 +202,41 @@ test('pot-limit Omaha caps a raise at the size of the pot', () => {
   assert.equal(t.snapshotFor(2).maxRaiseTo, 900);
 });
 
+test('Rush PLO (rushplo) deals four hole cards and keeps the Rush flag on', () => {
+  const { t, p } = deal([START, START, START], { game: 'rushplo' });
+  assert.equal(t.rush, true);
+  assert.equal(t.omaha, true);
+  assert.equal(t.potLimit, true);
+  for (const i of [0, 1, 2]) assert.equal(p(i).cards.length, 4);
+  assert.deepEqual(t.snapshotFor(1).players[1].cards, ['??', '??', '??', '??']);
+});
+
+test('Rush PLO caps a raise at the size of the pot', () => {
+  const { t, p } = deal([START, START], { game: 'rushplo' });
+  // Same arithmetic as PLO: 150 in, 50 to call, so the largest raise is to 300.
+  assert.equal(t.snapshotFor(1).maxRaiseTo, 300);
+  ok(t.act(1, 'allin'));
+  assert.equal(p(0).bet, 300, 'an all-in is clamped to the pot-limit maximum');
+  assert.equal(p(0).allIn, false);
+  assert.equal(t.snapshotFor(2).maxRaiseTo, 900);
+});
+
+test('Rush PLO quick fold queues the human for a new table; Rush Hold\'em is unchanged', () => {
+  const plo = deal([START, START, START], { game: 'rushplo' });
+  const actor = plo.t.actor;
+  ok(plo.t.act(actor, 'fold'));
+  assert.equal(plo.t.seatOf(actor).player.rushQueued, true);
+
+  const nlh = deal([START, START, START], { game: 'rush' });
+  assert.equal(nlh.t.rush, true);
+  assert.equal(nlh.t.omaha, false);
+  assert.equal(nlh.t.potLimit, false);
+  assert.equal(nlh.p(0).cards.length, 2);
+  const nlhActor = nlh.t.actor;
+  ok(nlh.t.act(nlhActor, 'fold'));
+  assert.equal(nlh.t.seatOf(nlhActor).player.rushQueued, true);
+});
+
 test('All-in or Fold only accepts a shove, a call of a shove, or a fold', () => {
   const { t, p } = deal([4000, 4000, 4000], { game: 'aof' });
   assert.equal(t.actor, 1);

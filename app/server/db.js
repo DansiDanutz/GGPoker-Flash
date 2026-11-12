@@ -327,6 +327,7 @@ function init() {
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
   ensurePloVariants();
+  ensureRushLadder();
   ensureSeries();
 }
 
@@ -345,6 +346,42 @@ function ensurePloVariants() {
     ins.run(`spingold6-${i}`, `Spin & Gold 6-Max ${i}`, 'spingold', 'Spin',
       500, 1000, 0, 30000, 30000, 6, 'Fast', 0, 950 + i);
   }
+}
+
+// Rush & Cash stake ladder (P0 slice R2, plan § 4). One pool = game + sb/bb; table ids are
+// deterministic, so each boot inserts only the rows that are missing. The Hold'em 500/1000
+// pool keeps the original `rush-platinum-N` tables created by seed().
+export const RUSH_LADDER = Object.freeze([
+  { game: 'rush', label: 'Rush & Cash', category: 'Bronze', sb: 50, bb: 100, tables: 4 },
+  { game: 'rush', label: 'Rush & Cash', category: 'Silver', sb: 100, bb: 200, tables: 4 },
+  { game: 'rush', label: 'Rush & Cash', category: 'Gold', sb: 250, bb: 500, tables: 4 },
+  { game: 'rush', label: 'Rush & Cash', category: 'Platinum', sb: 500, bb: 1000, tables: 8, idPrefix: 'rush-platinum' },
+  { game: 'rush', label: 'Rush & Cash', category: 'Diamond', sb: 1000, bb: 2000, tables: 4 },
+  { game: 'rushplo', label: 'Rush & Cash PLO', category: 'Silver', sb: 100, bb: 200, tables: 4 },
+  { game: 'rushplo', label: 'Rush & Cash PLO', category: 'Platinum', sb: 500, bb: 1000, tables: 4 },
+].map(Object.freeze));
+const RUSH_MIN_BUYIN_BB = 20;
+const RUSH_MAX_BUYIN_BB = 100;
+const RUSH_SEATS = 6;
+const RUSH_SORT_BASE = 1000;
+
+/** Inserts the missing Rush ladder tables; returns how many rows were added (0 when complete). */
+export function ensureRushLadder() {
+  const ins = db.prepare(`INSERT OR IGNORE INTO tables
+    (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,sort)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  let inserted = 0;
+  RUSH_LADDER.forEach((pool, poolIndex) => {
+    const prefix = pool.idPrefix || `${pool.game}-${pool.sb}-${pool.bb}`;
+    for (let i = 1; i <= pool.tables; i++) {
+      const name = `${pool.label} ${pool.category} ${pool.sb}/${pool.bb} ${String(i).padStart(2, '0')}`;
+      const res = ins.run(`${prefix}-${i}`, name, pool.game, pool.category, pool.sb, pool.bb, 0,
+        pool.bb * RUSH_MIN_BUYIN_BB, pool.bb * RUSH_MAX_BUYIN_BB, RUSH_SEATS, 'Fast', 0,
+        RUSH_SORT_BASE + poolIndex * 10 + i);
+      inserted += Number(res.changes);
+    }
+  });
+  return inserted;
 }
 
 function ensureSeries() {

@@ -2,6 +2,7 @@ import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
 import { payoutFor, payoutTable } from './tournament.js';
+import { isRushGame } from './validate.js';
 
 const BOT_NAMES = [
   'SpewySally', 'NitWizard', 'CallStation', 'RiverRat', 'TiltLord', 'GTOBOT', 'BluffKing',
@@ -67,7 +68,7 @@ export class PokerTable {
     this.botSpeed = Number(cfg.botSpeed || 900);
     this.botIterations = Number(cfg.botIterations || 0);
     this.aof = cfg.game === 'aof';
-    this.rush = cfg.game === 'rush';
+    this.rush = isRushGame(cfg.game);
     this.straddle = !!cfg.straddle;
     this.spin = cfg.game === 'spingold';
     this.spinMultiplier = null;
@@ -104,7 +105,8 @@ export class PokerTable {
       this.spinPrize = Math.round(cfg.min_buyin * this.spinMultiplier);
     }
     this.omahaHole = cfg.game === 'omaha5' ? 5 : cfg.game === 'omaha6' ? 6 : 4;
-    this.omaha = cfg.game === 'omaha' || cfg.game === 'omaha5' || cfg.game === 'omaha6';
+    // `rushplo` is Rush & Cash PLO: four-card pot-limit Omaha with the Rush quick fold.
+    this.omaha = ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(cfg.game);
     this.potLimit = this.omaha;
     this.holeCount = this.omaha ? this.omahaHole : 2;
     // Chips committed by players who left mid-hand; they stay in the pot as dead money.

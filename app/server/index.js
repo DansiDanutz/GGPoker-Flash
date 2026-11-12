@@ -15,7 +15,7 @@ import { makeDeck, shuffle, cardStr } from './poker.js';
 import {
   resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
 } from './security.js';
-import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey } from './validate.js';
+import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey, isRushGame } from './validate.js';
 import { handForViewer } from './hand-history.js';
 import { spinSlots } from './slots.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
@@ -255,7 +255,7 @@ function lobbyTables(userId = null) {
       vpip: players ? 18 + (seed % 45) : 0,
       handsPerHour: 55 + (seed % 80),
       running: LIVE_TABLES.has(t.id),
-      pro: t.game === 'rush',
+      pro: isRushGame(t.game),
       synthetic: true,
     };
   });
@@ -282,6 +282,7 @@ const CRASH_ROUNDS = new Map(); // roundId -> crash round
 
 function eloGame(game) {
   if (game === 'omaha5' || game === 'omaha6') return 'omaha';
+  if (game === 'rushplo') return 'rush';
   return ['holdem', 'omaha', 'shortdeck', 'rush'].includes(game) ? game : 'holdem';
 }
 

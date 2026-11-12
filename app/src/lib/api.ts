@@ -249,6 +249,7 @@ export const GAME_LABEL: Record<string, string> = {
   omaha6: 'PLO6',
   shortdeck: 'Short Deck',
   rush: 'Rush & Cash',
+  rushplo: 'Rush & Cash PLO',
   aof: 'All-in or Fold',
   spingold: 'Spin & Gold',
   battleroyale: 'Mystery Battle Royale',
