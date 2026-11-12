@@ -1147,7 +1147,8 @@ export function TablePage({ tableId }: { tableId: string }) {
             </div>
           )}
           {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
-          {!winFx && livePots.length > 1 && livePots.map((amount, i) => {
+        </div>
+        {!winFx && livePots.length > 1 && <div className="live-pots">{livePots.map((amount, i) => {
             const [x, y] = potOffset(i, tableRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);
             return (
               <div key={i} className={'live-pot' + (i === 0 ? ' main' : '')} style={{ transform: `translate(calc(-50% + ${x}px), ${y}px)` }}>
@@ -1161,8 +1162,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 <span className="live-pot-label">{i === 0 ? 'Main' : `Side ${i}`} {chip(amount)}</span>
               </div>
             );
-          })}
-        </div>
+        })}</div>}
         {badBeat && <div className="bad-beat-banner" role="alert" onClick={() => setBadBeat(null)}>
           <div className="bbj-title">BAD BEAT JACKPOT!</div>
           <div className="bbj-total">{money(badBeat.total)}</div>
