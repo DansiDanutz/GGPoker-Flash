@@ -1,0 +1,59 @@
+<title>DanGG Readiness Audit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{--bg:#f7f7f5;--fg:#1d1d1b;--mut:#66665f;--card:#fff;--line:#e3e2dc;--crit:#b42318;--high:#b54708;--med:#a07d00;--low:#3a6ea5;--ok:#1a7f45}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#141413;--fg:#ecebe6;--mut:#a3a29a;--card:#1d1d1b;--line:#2f2e2b;--crit:#f97066;--high:#fdb022;--med:#e8c547;--low:#84adff;--ok:#47cd89;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#141413;--fg:#ecebe6;--mut:#a3a29a;--card:#1d1d1b;--line:#2f2e2b;--crit:#f97066;--high:#fdb022;--med:#e8c547;--low:#84adff;--ok:#47cd89;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,sans-serif;margin:0;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:1000px;margin:0 auto;min-width:0}h1{font-size:24px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 10px}
+.mut{color:var(--mut)}.verdict{border-left:4px solid var(--crit);background:var(--card);padding:14px 16px;border-radius:6px;margin:16px 0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}.tile{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px 12px}.tile b{display:block;font-size:22px}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden;display:block;overflow-x:auto}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}th{font-size:12px;text-transform:uppercase;color:var(--mut)}
+.s{font-weight:600;font-size:12px;white-space:nowrap}.c{color:var(--crit)}.h{color:var(--high)}.m{color:var(--med)}.l{color:var(--low)}.ok{color:var(--ok)}
+code{font-size:12.5px}
+</style>
+<main>
+<h1>dangg.live — production readiness audit (EGM)</h1>
+<div class="mut">Re-verified 2026-11-13 at live commit <code>6e44cea</code> · original audit: origin/main <code>6861a79</code> · live build <code>20261112133548</code> · method: Elephant-Goldfish Model review, Stages 5–9, 9 fresh-context reviewers, each disputed claim checked against code and live hosts</div>
+
+<div class="verdict" style="border-left-color:var(--ok)"><b>Update: all 4 blockers and all 7 major findings are fixed, deployed and verified live (PRs #70–#81).</b> Voice lines now use Dan's cloned voice (#80). Open: low-severity follow-ups and GGPoker files that remain in git history. <span class="mut">Original verdict: not production ready for public promotion; fine as an unpromoted beta.</span></div>
+
+<div class="tiles">
+<div class="tile"><b class="ok">0</b>Blockers open (4 fixed)</div><div class="tile"><b class="ok">0</b>Major open (7 fixed)</div><div class="tile"><b class="ok">657/657</b>Tests pass (72f7140)</div><div class="tile"><b class="ok">5/5</b>Recent CI runs green</div><div class="tile"><b class="ok">0</b>Prod dep advisories</div><div class="tile"><b class="ok">3</b>Reviewer claims refuted live</div>
+</div>
+
+<h2>Findings</h2>
+<table><thead><tr><th>Sev</th><th>Finding</th><th>Evidence</th><th>Status</th></tr></thead><tbody>
+<tr><td class="s c">BLOCKER</td><td>GGPoker art, fonts, sounds and name served on the public site (takedown risk)</td><td><code>/assets/chrome/jackpot.png</code> → 200; asset README says the files are for local use only</td><td class="ok">Fixed #79: all 455 assets and product names replaced with original DanGG work; old files 404 live</td></tr>
+<tr><td class="s c">BLOCKER</td><td>Running code not tied to a commit; deploys copy files from a dirty Mac tree; 25 commits on <code>main</code> since the live build</td><td><code>/healthz</code> has build only; <code>admin-platform.js:164-167,215-227</code></td><td class="ok">Fixed #71: <code>/healthz.commit</code>, CI-gated <code>deploy.sh</code></td></tr>
+<tr><td class="s c">BLOCKER</td><td>Sign-up has no rate limit ($1,050 play money per account); login limiter is per account only (lockout and spraying)</td><td><code>index.js:1138-1153</code>, <code>:1123</code></td><td class="ok">Fixed #70: 5 sign-ups/h and 30 failed logins/15 min per IP</td></tr>
+<tr><td class="s c">BLOCKER</td><td>Backups: off-host retention is 14 days (docs say 30); 30 plaintext copies in <code>/data</code>; restore never tested</td><td><code>nano-backup-pull.sh:22</code> uses <code>rsync --delete</code>; host <code>ls</code></td><td class="ok">Fixed #74, #78: 30-day Nano retention, no plaintext in <code>/data</code>, restore drill 21 s</td></tr>
+<tr><td class="s h">MAJOR</td><td>No HSTS on the live edge; unused <code>caddy</code> service in compose binds :80/:443</td><td><code>curl -I</code>; <code>compose.yml:44-60</code></td><td class="ok">Fixed #72: HSTS 1 day (1 year scheduled 2026-11-19); caddy removed</td></tr>
+<tr><td class="s h">MAJOR</td><td>Admin allowlist fails open if <code>GGPOKER_ADMIN_ALLOW</code> is empty (set today)</td><td><code>index.js:116-121</code></td><td class="ok">Fixed #73: fails closed in production</td></tr>
+<tr><td class="s h">MAJOR</td><td>Personal data (email, legal names, verification documents) in unencrypted backups on two shared hosts</td><td>schema, <code>backup.sh</code></td><td class="ok">Fixed #75: CMS encryption, key only in the Mac Keychain; old plaintext removed on both hosts</td></tr>
+<tr><td class="s h">MAJOR</td><td>Design of record still describes a loopback-only local app</td><td><code>dangro-clone.md</code> non-goals</td><td class="ok">Fixed #81: dated amendment for the public deployment; stale statements corrected</td></tr>
+<tr><td class="s h">MAJOR</td><td>Disk 78 % on Dexter, above the 75 % alert; <code>/healthz</code> warns at 90 %</td><td><code>df</code>; <code>admin-platform.js:210</code></td><td class="ok">Fixed #77: warns at 80 %; Dexter 74–75 % after cleanup</td></tr>
+<tr><td class="s h">MAJOR</td><td>No 18+ or age-gating decision for the casino games</td><td>Casino pages</td><td class="ok">Fixed #76: 18+ notice on all casino games, login and Terms</td></tr>
+<tr><td class="s h">MAJOR</td><td>Remediation plan not yet implementation-ready (layout, CI pin, tests, file list, drill steps)</td><td>Stage 9 report</td><td class="ok">Done: implemented as one PR per goal</td></tr>
+<tr><td class="s l">LOW</td><td>6-character password minimum; WebSocket token in URL; no client E2E tests; 307 redirect; iCloud duplicate files</td><td>various</td><td>Follow-up</td></tr>
+<tr><td class="s ok">REFUTED</td><td>Forged <code>X-Forwarded-For</code> bypasses the admin allowlist</td><td>4/4 spoofed rule IPs → 403; Traefik overwrites the header</td><td>Not an issue</td></tr>
+<tr><td class="s ok">REFUTED</td><td>Proxy trust unset in production</td><td><code>GGPOKER_TRUST_PROXY=1</code></td><td>Not an issue</td></tr>
+<tr><td class="s ok">REFUTED</td><td>Tokens recorded in proxy access logs</td><td>Traefik has no <code>--accesslog</code></td><td>Not an issue today</td></tr>
+</tbody></table>
+
+<h2>Verification results</h2>
+<table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>
+<tr><td>Server tests on <code>72f7140</code></td><td class="ok">657 pass / 0 fail (618 at audit)</td></tr>
+<tr><td>CI (<code>main</code>, last 5)</td><td class="ok">green: tests, tsc, vite build</td></tr>
+<tr><td><code>pnpm audit --prod</code></td><td class="ok">no known vulnerabilities</td></tr>
+<tr><td><code>/healthz</code></td><td class="ok">200, 0.11 s, 14 rooms, 0 stale, no warnings</td></tr>
+<tr><td>TLS</td><td class="ok">valid to 2027-02-09; HTTP→HTTPS 307</td></tr>
+<tr><td>Security headers</td><td class="ok">CSP, XFO, nosniff, Referrer-Policy, HSTS (max-age=86400) present</td></tr>
+<tr><td>Container / watchdog / uptime check</td><td class="ok">healthy; keepalive every 2 min; Nano check every 5 min with Discord alert</td></tr>
+<tr><td>Backups</td><td class="ok">encrypted on both hosts (0 plaintext); restore drill passed from the Nano copy in 21 s; retention 14 d Dexter / 30 d Nano</td></tr>
+</tbody></table>
+
+<h2>Deployment checks</h2>
+<p>Each fix was deployed with <code>deploy/deploy.sh</code> (CI-gated, rollback tag, health poll) and checked live: <code>/healthz.commit</code> = <code>6e44cea</code>; live asset hashes match git; <code>/assets/swf/*</code> and <code>/ruffle/*</code> return 404; production rows renamed (0 old product names left); admin returns 403 publicly; first real encrypted backup written. Stage reports: <code>docs/audits/2026-11-12-egm-readiness/</code>.</p>
+</main>
