@@ -30,7 +30,7 @@ import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
 import { createAdminRestoreRoute } from './admin-restore.js';
-import { buildPlatformReport } from './admin-platform.js';
+import { buildHealthSummary, buildPlatformReport } from './admin-platform.js';
 import { deleteRoomSnapshot, loadRoomSnapshot, saveRoomSnapshot } from './tournament-state.js';
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
@@ -1077,7 +1077,16 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
-    if (p === '/healthz') return json(res, 200, { ok: true, service: 'dangro-game', time: new Date().toISOString() });
+    if (p === '/healthz') {
+      return json(res, 200, buildHealthSummary({
+        versionInfo: appVersionInfo(),
+        wss,
+        liveTables: LIVE_TABLES,
+        tournamentRooms: TOURNAMENT_ROOMS,
+        db,
+        dbPath: path.join(DATA_DIR, 'ggpoker.db'),
+      }));
+    }
 
     // ---------- auth ----------
     if (p === '/api/auth/login' && req.method === 'POST') {

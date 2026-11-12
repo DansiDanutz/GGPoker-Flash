@@ -199,3 +199,30 @@ export function buildPlatformReport({
     },
   };
 }
+
+
+/** Warnings surfaced by the public health endpoint (and the external monitor). */
+export function healthWarnings(report) {
+  const warnings = [];
+  const stale = Number(report?.tournaments?.stale) || 0;
+  if (stale > 0) warnings.push(`${stale} stale tournament room${stale === 1 ? '' : 's'}`);
+  const usedPct = report?.disk?.usedPct;
+  if (Number.isFinite(usedPct) && usedPct >= 90) warnings.push(`disk ${usedPct}% used`);
+  return warnings;
+}
+
+/** A compact, non-sensitive health payload for uptime monitors. */
+export function buildHealthSummary(args = {}) {
+  const report = buildPlatformReport(args);
+  return {
+    ok: true,
+    service: 'dangro-game',
+    time: new Date(report.now).toISOString(),
+    version: report.server.version,
+    build: report.server.build,
+    uptimeSec: report.server.uptimeSec,
+    rooms: { total: report.tournaments.rooms, stale: report.tournaments.stale },
+    disk: { usedPct: report.disk?.usedPct ?? null, freeBytes: report.disk?.freeBytes ?? null },
+    warnings: healthWarnings(report),
+  };
+}

@@ -556,3 +556,20 @@ test('admin tournament snapshot endpoints are admin-only and report missing room
     child.kill();
   }
 });
+
+test('healthz exposes the service and operational warnings', async () => {
+  const { child, port } = await startServer();
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/healthz`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.service, 'dangro-game');
+    assert.equal(typeof body.uptimeSec, 'number');
+    assert.equal(typeof body.rooms.total, 'number');
+    assert.equal(typeof body.disk.usedPct, 'number');
+    assert.ok(Array.isArray(body.warnings));
+  } finally {
+    child.kill();
+  }
+});

@@ -212,6 +212,14 @@ observed): it confirmed the `tourney_state` schema (`tournament_id` primary key,
 `flights`. The sample is bounded and the inspection is not an integrity or atomicity proof;
 it verifies the recovery table the admin report reads, not the whole database.
 
+### Public health
+
+`GET /healthz` is intentionally small and non-sensitive: service identity, version/build,
+uptime, `rooms: {total, stale}` and `disk: {usedPct, freeBytes}`, plus a `warnings` array
+(`N stale tournament room(s)`, `disk N% used` at ≥90%). The external Nano watchdog polls
+it and alerts on HTTP state changes and warning-text changes; it is not a substitute for the
+admin Platform's process/DB detail.
+
 ## Capacity and scaling
 
 Today production is one game container on `Dexter` (SQLite WAL, in-memory tables/rooms,

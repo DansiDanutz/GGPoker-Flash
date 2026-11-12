@@ -150,3 +150,20 @@ temporary databases, creates a two-player event, waits for a settled-hand snapsh
 both players and the original table id come back. Run it after changing
 `tournament-room.js`, restart recovery or the tournament scheduler; it never touches the
 production database or the 5197/5198 servers. Exit code 1 means at least one cycle failed.
+
+
+## External health warnings
+
+`GET https://dangg.live/healthz` is public and returns a compact operational summary:
+
+```json
+{"ok":true,"service":"dangro-game","version":"1.1.0","build":"20261112132310",
+ "uptimeSec":1234,"rooms":{"total":13,"stale":0},
+ "disk":{"usedPct":82,"freeBytes":19327352832},"warnings":[]}
+```
+
+`warnings` contains `N stale tournament room(s)` (a room with players and no settled-hand
+snapshot for five minutes) and `disk N% used` (at 90% or more). The Nano watchdog
+(`deploy/nano-uptime-check.sh`) reads the body and sends a Discord alert when the warning
+text changes, in addition to its down/recovered alerts. It needs `python3` on Nano for the
+JSON parse; without it the uptime check still runs and warning alerts are skipped.
