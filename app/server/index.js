@@ -564,10 +564,11 @@ function getLiveTable(id) {
     },
     onHandSave: (h) => {
       try {
-        db.prepare(`INSERT INTO hands (hand_id,hand_no,table_id,table_name,game,players,board,pot,result,hero_cards,actions)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(
+        db.prepare(`INSERT INTO hands (hand_id,hand_no,table_id,table_name,game,players,board,pot,result,hero_cards,actions,meta)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(
           h.handId || null, h.handNo, h.tableId, h.tableName, h.game, JSON.stringify(h.players),
-          h.board.join(' '), h.pot, JSON.stringify(h.result), h.heroCards || '', JSON.stringify(h.actions || [])
+          h.board.join(' '), h.pot, JSON.stringify(h.result), h.heroCards || '', JSON.stringify(h.actions || []),
+          JSON.stringify(h.meta || {})
         );
         TABLE_STATS.invalidate(h.tableId);
         const winners = h.result?.winners || [];

@@ -446,6 +446,8 @@ export class PokerTable {
     this.handStartStack = {};
     this.ghosts = [];
     this.rake = 0;
+    // Blinds in force at the deal; a tournament level change mid-hand must not rewrite this hand's record.
+    this.handBlinds = { sb: this.sb, bb: this.bb, ante: this.ante };
 
     for (const s of this.seats) {
       const p = s.player;
@@ -1141,6 +1143,7 @@ export class PokerTable {
         players, board: this.board.map(cardStr), pot: summary.pot, result: summary,
         heroCards: hero ? hero.cards.map(cardStr).join(' ') : '',
         actions: this.log || [],
+        meta: { button: this.button, blinds: this.handBlinds || null },
       });
     }
   }
