@@ -350,6 +350,13 @@ export function Admin() {
                     api.admin.platform().then((p) => { setPlatform(p); toast({ kind: 'success', title: 'Platform refreshed' }); })
                       .catch((e: any) => toast({ kind: 'error', title: 'Refresh failed', body: e.message }));
                   }}>Refresh</button>
+                  <button className="btn btn-ghost btn-sm" disabled={!platform} onClick={async () => {
+                    try {
+                      const result = await api.admin.snapshotAllTournaments();
+                      toast({ kind: result.saved ? 'success' : 'info', title: 'Recovery snapshots', body: `${result.saved} saved · ${result.skipped} skipped (hand in progress)` });
+                      setPlatform(await api.admin.platform());
+                    } catch (e: any) { toast({ kind: 'error', title: 'Snapshot failed', body: e.message }); }
+                  }}>Snapshot all</button>
                   <button className="btn btn-ghost btn-sm" disabled={!platform} onClick={downloadPlatform}>⤓ JSON</button>
                 </div>
               </div>
@@ -397,7 +404,7 @@ export function Admin() {
                   <div className="admin-card" style={{ marginTop: 12, padding: 0 }}>
                     <div style={{ padding: '10px 14px' }} className="panel-title">Live tournament rooms <small>{platform.tournaments?.rooms ?? 0} running · {platform.tournaments?.snapshots ?? 0} recovery snapshots{(platform.tournaments?.stale ?? 0) > 0 ? ` · ${platform.tournaments.stale} stale` : ''}</small></div>
                     <table className="admin-table">
-                      <thead><tr><th>Event</th><th>Level / blinds</th><th>Players left</th><th>Flights</th><th>Finished</th><th>Next / state</th><th>Recovery</th></tr></thead>
+                      <thead><tr><th>Event</th><th>Level / blinds</th><th>Players left</th><th>Flights</th><th>Finished</th><th>Next / state</th><th>Recovery</th><th>Actions</th></tr></thead>
                       <tbody>
                         {(platform.tournaments?.items || []).map((r: any) => (
                           <tr key={r.id}>
@@ -413,6 +420,16 @@ export function Admin() {
                                 : <span className="muted">—</span>}
                               {r.stale ? <div style={{ color: '#ff9a9a' }}>stale {fmtEta(r.snapshotAgeMs)}</div> : null}
                               {r.restoredAt ? <div className="muted small">restored {new Date(r.restoredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div> : null}
+                            </td>
+                            <td>
+                              <button className="btn btn-ghost btn-sm" onClick={async () => {
+                                try {
+                                  const result = await api.admin.snapshotTournament(r.id);
+                                  if (result.ok) toast({ kind: 'success', title: 'Snapshot saved', body: `${result.bytes} B · ${result.players} players` });
+                                  else toast({ kind: 'info', title: 'Snapshot skipped', body: result.reason });
+                                  setPlatform(await api.admin.platform());
+                                } catch (e: any) { toast({ kind: 'error', title: 'Snapshot failed', body: e.message }); }
+                              }}>Snapshot</button>
                             </td>
                           </tr>
                         ))}

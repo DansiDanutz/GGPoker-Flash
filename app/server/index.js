@@ -31,6 +31,7 @@ import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
 import { createAdminRestoreRoute } from './admin-restore.js';
 import { buildPlatformReport } from './admin-platform.js';
+import { deleteRoomSnapshot, loadRoomSnapshot, saveRoomSnapshot } from './tournament-state.js';
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
@@ -910,15 +911,12 @@ const roomSaveTimers = new Map();
 
 /** Persist a running room's seats, stacks, level and finishes for restart recovery. */
 function saveTournamentRoom(room) {
-  if (!room || room.winner) return;
-  // Only snapshot settled hands. A hand interrupted by a crash is voided and the
-  // previous snapshot (with the pre-hand stacks) is restored.
-  if (room.flights?.some((flight) => LIVE_TABLES.get(flight.id)?.table?.handInProgress?.())) return;
   try {
-    db.prepare(`INSERT INTO tourney_state (tournament_id, state, updated_at) VALUES (?, ?, datetime('now'))
-      ON CONFLICT(tournament_id) DO UPDATE SET state = excluded.state, updated_at = datetime('now')`)
-      .run(room.id, JSON.stringify(room.snapshot()));
-  } catch (err) { console.error('tournament snapshot', room.id, err); }
+    return saveRoomSnapshot(room, { liveTables: LIVE_TABLES, db });
+  } catch (err) {
+    console.error('tournament snapshot', room?.id, err);
+    return { ok: false, reason: 'snapshot failed' };
+  }
 }
 
 /** Debounce writes so a busy hand does not serialize the room on every stack change. */
@@ -930,18 +928,11 @@ function scheduleTournamentRoomSave(room) {
 }
 
 function loadTournamentRoomState(tournamentId) {
-  try {
-    const row = db.prepare('SELECT state FROM tourney_state WHERE tournament_id = ?').get(tournamentId);
-    if (!row?.state) return null;
-    return JSON.parse(row.state);
-  } catch (err) {
-    console.error('tournament snapshot load', tournamentId, err);
-    return null;
-  }
+  return loadRoomSnapshot(db, tournamentId);
 }
 
 function deleteTournamentRoomState(tournamentId) {
-  try { db.prepare('DELETE FROM tourney_state WHERE tournament_id = ?').run(tournamentId); } catch { /* best effort */ }
+  deleteRoomSnapshot(db, tournamentId);
 }
 
 /** The live multi-table room for a tournament, created on first use. */
@@ -2305,6 +2296,25 @@ const server = http.createServer(async (req, res) => {
       });
       if (p.endsWith('/live')) return json(res, 200, { ok: true, now: report.now, tournaments: report.tournaments });
       return json(res, 200, report);
+    }
+
+    if (p === '/api/admin/tournaments/snapshot-all' && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const rooms = [];
+      for (const room of TOURNAMENT_ROOMS.values()) rooms.push({ id: room.id, ...saveTournamentRoom(room) });
+      const saved = rooms.filter((room) => room.ok).length;
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'tournament_snapshot_all', `${saved}/${rooms.length} saved`);
+      return json(res, 200, { ok: true, saved, skipped: rooms.length - saved, rooms });
+    }
+
+    if (p.startsWith('/api/admin/tournaments/') && p.endsWith('/snapshot') && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const id = decodeURIComponent(p.split('/')[4]);
+      const room = TOURNAMENT_ROOMS.get(id);
+      if (!room) return json(res, 404, { error: 'room not running' });
+      const result = saveTournamentRoom(room);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'tournament_snapshot', `${id}: ${result.ok ? `${result.bytes} bytes` : result.reason}`);
+      return json(res, 200, result);
     }
 
     if (p === '/api/admin/stats') {
