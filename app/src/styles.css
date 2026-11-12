@@ -1342,3 +1342,5 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .blind-marker { position: absolute; transform: translate(-50%, -50%); z-index: 6; min-width: 22px; height: 16px; padding: 0 4px; border-radius: 8px; font: 700 9.5px/16px Roboto, system-ui, sans-serif; letter-spacing: .4px; text-align: center; color: #1b1b1b; box-shadow: 0 1px 3px rgba(0, 0, 0, .55); pointer-events: none; }
 .blind-marker.sb { background: linear-gradient(#e8e8e8, #a9a9a9); }
 .blind-marker.bb { background: linear-gradient(#ffe08a, #c9962f); }
+.table-menu .look-row { display: flex; gap: 6px; padding: 4px 10px 6px; }
+.table-menu .look-row select { flex: 1; min-width: 0; background: #151515; color: #eee; border: 1px solid #3a3a3a; border-radius: 4px; padding: 4px; font: inherit; font-size: 12px; }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { TABLE_THEMES } from '../lib/tableLook';
 import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
@@ -72,7 +73,7 @@ export function Promotions() {
 }
 
 const LANGS = ['English', 'Romanian', 'German', 'French', 'Spanish', 'Portuguese', 'Russian', 'Ukrainian', 'Polish', 'Turkish', 'Japanese', 'Korean', 'Chinese (Simplified)', 'Chinese (Traditional)', 'Thai', 'Vietnamese', 'Indonesian', 'Hindi', 'Arabic', 'Hebrew'];
-const THEMES = ['Green', 'Black', 'Red', 'Navy', 'Purple', 'Gray', 'Brown', 'Cobalt', 'Cooper', 'ChocoBrown'];
+const THEMES = TABLE_THEMES;
 
 export function Settings() {
   const { user, refreshUser, toast, soundOn, toggleSound, animations, setAnimations } = useApp();

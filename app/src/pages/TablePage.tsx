@@ -15,6 +15,7 @@ import { showdownComplete, showdownPlan } from '../game/showdown';
 import { turnUrgencyClass } from '../game/turnClock';
 import { DEFAULT_NOTE_COLOR, noteColorHex, noteColorTitle, normalizeLabels } from '../lib/noteColors';
 import { NoteColorPicker } from '../components/NoteColorPicker';
+import { LOOK_KEY, ROOM_BGS, TABLE_THEMES, parseLookOverrides, resolveLook, withLookOverride, type LookOverride, type LookOverrides } from '../lib/tableLook';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { useWaitlist } from '../lib/waitlistState';
 import { formatCountdown, queuePositionLabel } from '../lib/waitlist';
@@ -165,7 +166,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [topupTarget] = useState(() => Number(localStorage.getItem('ggpoker.topupTarget') || 100));
   const [cardBack] = useState(readCardBack);
   const [cardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'official');
-  const [roomBg] = useState(() => localStorage.getItem('ggpoker.roomBg') || 'featured');
+  const [globalRoomBg] = useState(() => localStorage.getItem('ggpoker.roomBg') || 'featured');
   const [showHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
   const [hotkeyHints] = useState(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0');
   const [hotkeysOn] = useState(() => localStorage.getItem('ggpoker.hotkeys') !== '0');
@@ -224,7 +225,21 @@ export function TablePage({ tableId }: { tableId: string }) {
   const tableEpoch = useRef<string | null>(null);
   const lastSeq = useRef(0);
 
-  const [theme] = useState(() => localStorage.getItem('ggpoker.theme') || 'Green');
+  const [globalTheme] = useState(() => localStorage.getItem('ggpoker.theme') || 'Green');
+  const [lookOverrides, setLookOverrides] = useState<LookOverrides>(() => parseLookOverrides(localStorage.getItem(LOOK_KEY)));
+  const { theme, roomBg } = resolveLook({ theme: globalTheme, roomBg: globalRoomBg }, lookOverrides, tableId);
+  const hasLookOverride = !!lookOverrides[tableId];
+  const setTableLook = (patch: LookOverride | null) => {
+    const next = withLookOverride(lookOverrides, tableId, patch);
+    setLookOverrides(next);
+    try { localStorage.setItem(LOOK_KEY, JSON.stringify(next)); } catch { /* storage full or blocked: keep in memory */ }
+  };
+  useEffect(() => {
+    // Another tab changed a table's look: follow it.
+    const onStorage = (e: StorageEvent) => { if (e.key === LOOK_KEY) setLookOverrides(parseLookOverrides(e.newValue)); };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
   const query = new URLSearchParams(window.location.hash.split('?')[1] || '');
   const buyin = Number(query.get('buyin') || 0);
   const observe = query.get('observe') === '1';
@@ -955,6 +970,16 @@ export function TablePage({ tableId }: { tableId: string }) {
               <button key={key} className={cardAnim === key ? 'on' : ''} aria-pressed={cardAnim === key} onClick={() => chooseCardAnim(key)}>{label}</button>
             ))}
           </div>
+          <div className="menu-section">This table{hasLookOverride ? ' · custom' : ''}</div>
+          <div className="look-row" onClick={(e) => e.stopPropagation()}>
+            <select aria-label="Felt colour for this table" value={theme} onChange={(e) => setTableLook({ theme: e.target.value })}>
+              {TABLE_THEMES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select aria-label="Background for this table" value={roomBg} onChange={(e) => setTableLook({ roomBg: e.target.value })}>
+              {ROOM_BGS.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <button disabled={!hasLookOverride} onClick={() => setTableLook(null)}>Use Game Settings look</button>
           <div className="menu-section">Button layout</div>
           <div className="layout-switch">
             {([['bottom', 'Bottom bar'], ['side', 'Side panel'], ['float', 'Floating']] as const).map(([key, label]) => (
