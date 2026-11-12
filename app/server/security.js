@@ -71,20 +71,31 @@ export const HTML_CSP = [
 
 /**
  * Sliding-window attempt limiter keyed by an arbitrary string (login name, socket id…).
- * @param {{ limit: number, windowMs: number }} options
+ * Once more than `maxKeys` keys are held, keys with no attempt inside the window are dropped,
+ * so a flood of distinct keys (one per IP) cannot grow memory without bound.
+ * @param {{ limit: number, windowMs: number, maxKeys?: number }} options
  */
-export function createRateLimiter({ limit, windowMs }) {
+export function createRateLimiter({ limit, windowMs, maxKeys = 10_000 }) {
   const attempts = new Map();
   const recent = (key, now) => (attempts.get(key) || []).filter((t) => now - t < windowMs);
+  const sweep = (now) => {
+    for (const key of [...attempts.keys()]) {
+      if (recent(key, now).length === 0) attempts.delete(key);
+    }
+  };
   return {
     isBlocked(key, now = Date.now()) {
       return recent(key, now).length >= limit;
     },
     record(key, now = Date.now()) {
+      if (!attempts.has(key) && attempts.size >= maxKeys) sweep(now);
       attempts.set(key, [...recent(key, now), now]);
     },
     reset(key) {
       attempts.delete(key);
+    },
+    size() {
+      return attempts.size;
     },
   };
 }

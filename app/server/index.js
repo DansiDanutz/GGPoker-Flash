@@ -99,6 +99,24 @@ function requestIp(req) {
   return String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
 }
 
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1']);
+
+/**
+ * Key for the per-client abuse limits, or null when the request is the operator's own machine:
+ * a direct loopback connection with no proxy header (desktop app, local dev, the test suite).
+ * Anything that came through the public proxy is keyed by the client IP the proxy reports.
+ */
+function abuseClientKey(req) {
+  const socketIp = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  if (LOOPBACK_ADDRESSES.has(socketIp) && !req.headers['x-forwarded-for']) return null;
+  return requestIp(req);
+}
+
+function positiveIntEnv(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
 function ipMatches(ip, rule) {
   const clean = String(rule || '').trim();
   if (!clean) return false;
@@ -168,6 +186,10 @@ const SICBO_TOTAL_PAYS = Object.freeze({
   4: 61, 17: 61, 5: 31, 16: 31, 6: 18, 15: 18, 7: 13, 14: 13, 8: 9, 13: 9, 9: 7, 12: 7, 10: 7, 11: 7,
 });
 const loginLimiter = createRateLimiter({ limit: 10, windowMs: 10 * 60_000 });
+// Per-IP limits on the public auth routes: sign-ups mint a welcome balance, and failed logins
+// spread across many accounts would otherwise never trip the per-account limiter.
+const registerLimiter = createRateLimiter({ limit: positiveIntEnv('GGPOKER_REGISTER_LIMIT_PER_HOUR', 5), windowMs: 60 * 60_000 });
+const loginIpLimiter = createRateLimiter({ limit: positiveIntEnv('GGPOKER_LOGIN_IP_LIMIT', 30), windowMs: 15 * 60_000 });
 const chatLimiter = createRateLimiter({ limit: 6, windowMs: 5_000 });
 // Wait-list joins and leaves per player (DanGG choice: generous for clicks, blocks scripted spam).
 const waitlistLimiter = createRateLimiter({ limit: 10, windowMs: 10_000 });
@@ -1144,12 +1166,18 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/auth/login' && req.method === 'POST') {
       const body = await readBody(req);
       const loginKey = String(body.login || '').trim().toLowerCase();
+      const clientKey = abuseClientKey(req);
+      if (clientKey && loginIpLimiter.isBlocked(clientKey)) {
+        return json(res, 429, { error: 'Too many failed sign-in attempts from your network. Try again in 15 minutes.' });
+      }
       if (loginLimiter.isBlocked(loginKey)) return json(res, 429, { error: 'Too many failed attempts. Try again in a few minutes.' });
       // Exact account ID wins over a nickname match so a look-alike nickname cannot shadow an account.
       const user = db.prepare('SELECT * FROM users WHERE lower(login) = ? AND deleted_at IS NULL').get(loginKey)
         || db.prepare('SELECT * FROM users WHERE lower(nick) = ? AND deleted_at IS NULL').get(loginKey);
       if (!user || !checkPassword(body.password || '', user.password)) {
         loginLimiter.record(loginKey);
+        // Never reset on success: one valid account must not wipe the IP's failure count.
+        if (clientKey) loginIpLimiter.record(clientKey);
         return json(res, 400, { error: 'Invalid account ID or password' });
       }
       loginLimiter.reset(loginKey);
@@ -1160,6 +1188,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/auth/register' && req.method === 'POST') {
+      const clientKey = abuseClientKey(req);
+      if (clientKey && registerLimiter.isBlocked(clientKey)) {
+        return json(res, 429, { error: 'Too many new accounts from your network. Try again in an hour.' });
+      }
       const body = await readBody(req);
       const login = String(body.login || '').trim();
       const nick = cleanNick(body.nick || login);
@@ -1174,6 +1206,8 @@ const server = http.createServer(async (req, res) => {
       // The account starts at zero and the ledger entry carries the whole opening balance,
       // so the balance and the ledger agree (it used to be credited twice).
       addTransaction(created.id, 'welcome', start, 'Welcome bonus');
+      // Count only accounts actually created, so typos in the form do not use up the allowance.
+      if (clientKey) registerLimiter.record(clientKey);
       const user = db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
       const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
