@@ -18,6 +18,8 @@ The project started as a local desktop clone and became the live play-money room
   snapshot, `restoredAt` set, same `tourney-soak-*` table); documented in
   `deploy/ALWAYS-ON.md`.
 - Tests: staleness unit test (fresh/old/missing snapshot, empty room). Full suite 413/413.
+- A nightly GitHub Actions workflow **Tournament soak** runs the two-cycle crash/restart
+  soak at 03:00 UTC and supports manual dispatch.
 
 ## 2026-11-12
 ### Disk pressure: admin visibility and weekly cleanup
