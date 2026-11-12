@@ -961,7 +961,7 @@ const server = http.createServer(async (req, res) => {
       const already = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       if (!already || !t) return json(res, 400, { error: 'Not registered' });
       if (t.status !== 'registering') return json(res, 400, { error: 'Unregistration is closed' });
-      if (LIVE_TABLES.get(`tourney-${id}`)?.table.seatOf(u.id)) return json(res, 400, { error: 'You are already playing this tournament' });
+      if (tournamentTableIds(id).some((tid) => LIVE_TABLES.get(tid)?.table.seatOf(u.id))) return json(res, 400, { error: 'You are already playing this tournament' });
       if (t.buyin + t.fee > 0) addTransaction(u.id, 'tourney_refund', t.buyin + t.fee, `Unregistration ${t.name}`);
       db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').run(id, u.id);
       db.prepare('UPDATE tournaments SET entrants = MAX(0, entrants - 1) WHERE id = ?').run(id);
