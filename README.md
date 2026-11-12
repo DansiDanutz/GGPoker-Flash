@@ -340,6 +340,8 @@ Useful environment variables:
 | `GGPOKER_BIND` | Bind address (default `127.0.0.1`) |
 | `GGPOKER_DISCONNECT_GRACE_MS` | Seat hold after a dropped connection |
 | `GGPOKER_TRUST_PROXY` | Trust proxy headers behind Traefik |
+| `GGPOKER_REGISTER_LIMIT_PER_HOUR` | Accounts one client IP may create per hour (default 5) |
+| `GGPOKER_LOGIN_IP_LIMIT` | Failed sign-ins one client IP may make per 15 minutes, across all accounts (default 30) |
 | `GGPOKER_SERVER_URL` | Desktop shell: use a remote server instead of starting one |
 
 Desktop development: `pnpm dev` plus `GGPOKER_DEV=1 pnpm desktop:dev`.

@@ -125,6 +125,8 @@ Do not add an `admin.dangg.live` DNS record.
 | `GGPOKER_PUBLIC_ORIGIN` | Allowed public origin (`https://dangg.live`) |
 | `GGPOKER_ALLOWED_HOSTS` | Additional host allowlist entries |
 | `GGPOKER_TRUST_PROXY` | Trust proxy headers from Traefik |
+| `GGPOKER_REGISTER_LIMIT_PER_HOUR` | Accounts one client IP may create per hour (default 5) |
+| `GGPOKER_LOGIN_IP_LIMIT` | Failed sign-ins one client IP may make per 15 minutes, across all accounts (default 30) |
 | `GGPOKER_ADMIN_ALLOW` | CIDR allowlist for admin endpoints. If unset in production, only loopback and Docker networks (`172.16.0.0/12`, the SSH tunnel path) are admitted |
 | `GGPOKER_ADMIN_PASSWORD` | Admin password (required, ≥16 chars) |
 | `GGPOKER_SEED_DEMO` | `0` in production (no demo/guest accounts) |
