@@ -849,7 +849,7 @@ function hasLiveSocket(entry, userId, except = null) {
 /** Native SitOutTimeExpired: a cash seat that sat out past its countdown is cashed out. */
 function sweepExpiredSitOuts(entry) {
   const table = entry.table;
-  table.refreshSitOutClocks();
+  table.refreshSitOutClocks(Date.now(), waitlist.queueSize(waitState, waitlist.tableQueue(table.cfg.id)));
   for (const id of table.expiredSitOuts()) {
     table.emit({ type: 'sit_out_expired', playerId: id });
     cashOutSeat(table, id, `Sit-out time expired at ${table.cfg.name}`);
@@ -2827,6 +2827,7 @@ wss.on('connection', (ws, req) => {
       }
       if (msg.autoMuck != null) entry.table.setAutoMuck(ws.userId, !!msg.autoMuck);
       if (msg.autoStraddle != null) entry.table.setAutoStraddle(ws.userId, !!msg.autoStraddle);
+      if (msg.waitForBlinds != null) entry.table.setWaitForBlinds(ws.userId, !!msg.waitForBlinds);
       if (msg.insurance != null) {
         const res = entry.table.setInsurance(ws.userId, !!msg.insurance);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
