@@ -820,8 +820,8 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   if (existing) return { ok: true, seat: existing.index };
   if (table.spin) {
     table.resetSpinIfIdle();
-    if (!table.spinStakeValid()) return { ok: false, error: 'This Spin & Gold stake is not available' };
-    if (table.spinStarted()) return { ok: false, error: 'This Spin & Gold has already started' };
+    if (!table.spinStakeValid()) return { ok: false, error: 'This Jackpot SNG stake is not available' };
+    if (table.spinStarted()) return { ok: false, error: 'This Jackpot SNG has already started' };
   }
   const stack = toInt(buyin) ?? table.cfg.min_buyin;
   if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
@@ -1294,7 +1294,7 @@ const server = http.createServer(async (req, res) => {
           const demo = db.prepare('SELECT password FROM users WHERE login = ?').get('DansiDanutz');
           return !!(demo && checkPassword('ggpoker', demo.password));
         })(),
-        settings: { site_name: getSetting('site_name', 'GGPoker'), maintenance: getSetting('maintenance', false) },
+        settings: { site_name: getSetting('site_name', 'DanGG'), maintenance: getSetting('maintenance', false) },
       });
     }
 
@@ -1709,7 +1709,7 @@ const server = http.createServer(async (req, res) => {
       if (getClaim(u.id, 'fishbuffet', day)?.claimed) return json(res, 400, { error: 'You already used today\'s spin. Come back tomorrow.' });
       const idx = randomInt(prizes.length);
       const amount = prizes[idx];
-      const award = claimReward(u.id, 'fishbuffet', day, amount, 'USD', 'Fish Buffet wheel');
+      const award = claimReward(u.id, 'fishbuffet', day, amount, 'USD', 'Prize Wheel');
       if (!award.claimed) return json(res, 400, { error: 'You already used today\'s spin. Come back tomorrow.' });
       return json(res, 200, { index: idx, amount, prizes, balance: award.balance });
     }
@@ -2139,7 +2139,7 @@ const server = http.createServer(async (req, res) => {
       if (!['welcome', 'daily'].includes(step)) return json(res, 400, { error: 'unknown step' });
       const period = step === 'welcome' ? 'welcome' : new Date().toISOString().slice(0, 10);
       const amount = step === 'welcome' ? 500 : 100;
-      const award = claimReward(u.id, 'honeymoon', period, amount, 'USD', step === 'welcome' ? 'Honeymoon welcome bonus' : 'Honeymoon daily gift');
+      const award = claimReward(u.id, 'honeymoon', period, amount, 'USD', step === 'welcome' ? 'Welcome Bonus' : 'Welcome Bonus daily gift');
       if (!award.claimed) return json(res, 400, { error: 'Already claimed' });
       return json(res, 200, { ok: true, amount, balance: award.balance });
     }
@@ -2154,7 +2154,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/ggcare/claim' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const day = new Date().toISOString().slice(0, 10);
-      const award = claimReward(u.id, 'ggcare', day, 500, 'USD', 'GG Care daily bonus');
+      const award = claimReward(u.id, 'ggcare', day, 500, 'USD', 'Player Care daily bonus');
       if (!award.claimed) return json(res, 400, { error: 'Already claimed today' });
       return json(res, 200, { ok: true, amount: award.amount, balance: award.balance });
     }
@@ -2198,7 +2198,7 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/spin/info' && req.method === 'GET') {
       const buyIn = Number(url.searchParams.get('buyin'));
-      try { return json(res, 200, { info: spinInfo(buyIn) }); } catch { return json(res, 400, { error: 'unknown Spin & Gold stake' }); }
+      try { return json(res, 200, { info: spinInfo(buyIn) }); } catch { return json(res, 400, { error: 'unknown Jackpot SNG stake' }); }
     }
     // ---------- opponent HUD (room-scoped, public information only) ----------
     {

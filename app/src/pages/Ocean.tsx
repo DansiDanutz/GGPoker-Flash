@@ -12,7 +12,7 @@ export function Ocean() {
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
-    try { setData(await api.ocean()); } catch (e: any) { toast({ kind: 'error', title: 'Ocean Rewards', body: e.message }); }
+    try { setData(await api.ocean()); } catch (e: any) { toast({ kind: 'error', title: 'DanGG Rewards', body: e.message }); }
   };
   useEffect(() => { load(); }, []);
 
@@ -35,7 +35,7 @@ export function Ocean() {
           <img className="ocean-bg" src="/assets/ocean/Banner_Ocean_Whale.png" alt="" />
           <div className="ocean-hero-overlay" />
           <div className="ocean-hero-content">
-            <div className="th-kicker">OCEAN REWARDS</div>
+            <div className="th-kicker">DANGG REWARDS</div>
             <h1>Dive deeper, earn more</h1>
             <div className="row" style={{ gap: 16 }}>
               <div className="ocean-gem"><span>💎</span>{(data?.gems ?? user?.gems ?? 0).toLocaleString()} gems</div>
@@ -124,9 +124,9 @@ export function GGCare() {
     try {
       const r = await api.claimCare();
       sound.play('mission');
-      toast({ kind: 'reward', title: 'GG Care bonus claimed', body: money(r.amount) });
+      toast({ kind: 'reward', title: 'Player Care bonus claimed', body: money(r.amount) });
       await load(); await refreshUser();
-    } catch (e: any) { toast({ kind: 'error', title: 'GG Care', body: e.message }); }
+    } catch (e: any) { toast({ kind: 'error', title: 'Player Care', body: e.message }); }
     finally { setBusy(false); }
   };
 
@@ -137,8 +137,8 @@ export function GGCare() {
           <img src="/assets/ui/discover/Bg_Discover_GGcare.png" alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           <div className="care-overlay" />
           <div className="care-content">
-            <div className="th-kicker">#THANKSGG</div>
-            <h1>GG Care</h1>
+            <div className="th-kicker">#THANKSDANGG</div>
+            <h1>Player Care</h1>
             <p>Bad beat protection, daily prizes and a thank-you for playing.</p>
             <div className="care-jackpot">Bad Beat Jackpot <b>{money(data?.jackpot || 199026635)}</b></div>
           </div>
@@ -178,7 +178,7 @@ export function GGCare() {
             <div key={n} className="card"><div style={{ fontSize: 22, color: '#e7b64b', fontWeight: 900 }}>{n}</div><b style={{ color: '#eee' }}>{t}</b><div className="muted small">{b}</div></div>
           ))}
         </div>
-        <p className="muted small" style={{ marginTop: 10 }}>GG Care is part of the local play-money simulation. No real money is involved.</p>
+        <p className="muted small" style={{ marginTop: 10 }}>Player Care is part of the local play-money simulation. No real money is involved.</p>
       </div>
     </PageShell>
   );

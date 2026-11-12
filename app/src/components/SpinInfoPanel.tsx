@@ -23,8 +23,8 @@ export function SpinInfoPanel({ buyIn, formatChips }: Props) {
     return () => controller.abort();
   }, [buyIn]);
 
-  if (!buyIn) return <div className="spin-info muted small">Select a Spin &amp; Gold table to see its rules.</div>;
-  if (failed) return <div className="spin-info muted small">Spin &amp; Gold details are unavailable for this stake.</div>;
+  if (!buyIn) return <div className="spin-info muted small">Select a Jackpot SNG table to see its rules.</div>;
+  if (failed) return <div className="spin-info muted small">Jackpot SNG details are unavailable for this stake.</div>;
   if (!info) return <div className="spin-info muted small">Loading…</div>;
   const top = info.payouts[0];
   return (

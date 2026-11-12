@@ -36,7 +36,7 @@ const OMAHA_NAME = /\b(plo|omaha)\b/i;
 
 /**
  * Rush and AoF share one `game` id for every variant, so their variant comes from the
- * table name ("Rush & Cash PLO …"). Everything else maps by game id; unknown games are Hold'em.
+ * table name ("Fast Fold PLO …"). Everything else maps by game id; unknown games are Hold'em.
  */
 export function variantOf(table: Pick<LobbyTable, 'game' | 'name'>): Variant {
   if (POOL_GAMES.includes(table.game)) return OMAHA_NAME.test(table.name) ? 'plo' : 'holdem';

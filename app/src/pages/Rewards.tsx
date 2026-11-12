@@ -87,17 +87,17 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
   const pct = Math.min(100, Math.round(((xp % levelXp) / levelXp) * 100));
 
   return (
-    <PageShell activeTop="poker" subnav={<SubNav items={[{ key: 'ggpass', label: 'GGPass' }, { key: 'missions', label: 'Daily missions' }, { key: 'wheel', label: 'Fish Buffet' }, { key: 'ranks', label: 'Fish ranks' }, { key: 'fishhistory', label: 'Fish history' }, { key: 'leaders', label: 'Leaderboard' }]} active={tab} onChange={setTab} />}>
+    <PageShell activeTop="poker" subnav={<SubNav items={[{ key: 'ggpass', label: 'DanGG Pass' }, { key: 'missions', label: 'Daily missions' }, { key: 'wheel', label: 'Prize Wheel' }, { key: 'ranks', label: 'Fish ranks' }, { key: 'fishhistory', label: 'Fish history' }, { key: 'leaders', label: 'Leaderboard' }]} active={tab} onChange={setTab} />}>
       <div className="page">
         <h1 className="page-title">My Rewards</h1>
-        <p className="page-sub">GGPass progress, daily missions, Fish Buffet wheel and leaderboards</p>
+        <p className="page-sub">DanGG Pass progress, daily missions, Prize Wheel and leaderboards</p>
 
         {tab === 'ggpass' && (
           <>
             <div className="card" style={{ background: 'linear-gradient(120deg,#2a2311,#1a1a1a 60%)', borderColor: '#5a4519' }}>
               <div className="between">
                 <div>
-                  <div className="muted small" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>GGPass level</div>
+                  <div className="muted small" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>DanGG Pass level</div>
                   <div style={{ fontFamily: 'var(--head-font)', fontSize: 34, fontWeight: 900, color: '#ffe6a6' }}>Level {level}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -195,7 +195,7 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
               <div className="wheel-center">🐟</div>
             </div>
             <div style={{ width: 300 }}>
-              <div className="panel-title">Fish Buffet</div>
+              <div className="panel-title">Prize Wheel</div>
               <p className="muted" style={{ fontSize: 13 }}>
                 Spin the wheel once every time you earn 100 VIP points at the tables. Prizes are credited instantly to your play balance.
               </p>
@@ -244,7 +244,7 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
                     <td className="muted">{t.memo}</td><td className="muted">{t.created_at}</td>
                   </tr>
                 ))}
-                {!tx.length && <tr><td colSpan={5} className="empty-state">No Fish Buffet history yet.</td></tr>}
+                {!tx.length && <tr><td colSpan={5} className="empty-state">No Prize Wheel history yet.</td></tr>}
               </tbody>
             </table>
           </div>

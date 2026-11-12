@@ -76,11 +76,11 @@ export type Category = {
 /** The category rail. `mode` decides first; the name needle is the fallback. */
 export const CATEGORIES: readonly Category[] = [
   { key: 'all', label: 'All series', modes: [], needle: null },
-  { key: 'wsop', label: 'WSOP Express', modes: [], needle: 'wsop' },
-  { key: 'ggmasters', label: 'GGMasters', modes: [], needle: 'ggmasters' },
+  { key: 'wsop', label: 'Live Series', modes: [], needle: 'live series' },
+  { key: 'ggmasters', label: 'Masters', modes: [], needle: 'masters' },
   { key: 'mystery', label: 'Mystery Bounty', modes: ['MYSTERY'], needle: 'mystery' },
-  { key: 'spin', label: 'Spin & Gold', modes: [], needle: 'spin' },
-  { key: 'flip', label: 'Flip & Go', modes: ['FLIP'], needle: 'flip & go' },
+  { key: 'spin', label: 'Jackpot SNG', modes: [], needle: 'jackpot sng' },
+  { key: 'flip', label: 'Quick Flip', modes: ['FLIP'], needle: 'quick flip' },
   { key: 'bounty', label: 'Bounty Hunters', modes: ['BOUNTY'], needle: 'bounty hunters' },
   { key: 'sat', label: 'Satellites', modes: ['SATELLITE'], needle: 'satellite' },
 ];

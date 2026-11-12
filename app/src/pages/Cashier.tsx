@@ -74,7 +74,7 @@ export function Cashier() {
             ['USD balance', money(user?.balance ?? 0), 'Play money'],
             ['Play chips', `P$ ${(user?.play_chips ?? 0).toLocaleString()}`, 'P$'],
             ['Tickets', `T$ ${(user?.tickets ?? 0).toLocaleString()}`, 'T$'],
-            ['Gems', (user?.gems ?? 0).toLocaleString(), 'Ocean rewards'],
+            ['Gems', (user?.gems ?? 0).toLocaleString(), 'DanGG rewards'],
           ].map(([label, value, note]) => (
             <div key={label} className="card">
               <div className="muted small" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>

@@ -881,7 +881,7 @@ export class PokerTable {
   }
 
   setInsurance(userId, value) {
-    if (!this.spin) return { ok: false, error: 'insurance is Spin & Gold only' };
+    if (!this.spin) return { ok: false, error: 'insurance is Jackpot SNG only' };
     // Native Spin insurance settlement is unobserved; do not invent premiums/payouts.
     return { ok: false, error: 'Insurance is not available in DanGG' };
     if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };

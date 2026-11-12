@@ -308,7 +308,8 @@ function init() {
   try { db.exec("ALTER TABLE tournaments ADD COLUMN ticket TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tournaments ADD COLUMN owner_id INTEGER'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tournaments ADD COLUMN private INTEGER DEFAULT 0'); } catch { /* already exists */ }
-  db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND (mode IS NULL OR mode='STANDARD')");
+  renameBrandNames();
+  db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Quick Flip%' AND (mode IS NULL OR mode='STANDARD')");
   db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND (mode IS NULL OR mode='STANDARD')");
   db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND (mode IS NULL OR mode='STANDARD')");
   try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
@@ -350,6 +351,41 @@ function init() {
   ensureSeries();
 }
 
+// DanGG display names replace the GGPoker product names stored by older seeds. Pairs run in
+// order (the exact uppercase/series forms before the bare words); no new name contains an
+// old one, so a second boot changes nothing. Ids, game keys and modes are not touched.
+export const BRAND_RENAMES = Object.freeze([
+  ['Rush & Cash', 'Fast Fold'],
+  ['Spin & Gold', 'Jackpot SNG'],
+  ['Mystery Battle Royale', 'Battle Royale'],
+  ['Flip & Go', 'Quick Flip'],
+  ['Fish Buffet', 'Prize Wheel'],
+  ['GG Care', 'Player Care'],
+  ['Ocean Rewards', 'DanGG Rewards'],
+  ['#ThanksGG', '#ThanksDanGG'],
+  ['GGCheers', 'DanGG Cheers'],
+  ['GGMasters', 'Masters'],
+  ['Daily $100,000 Flipout', 'Daily Chip Flipout'],
+  ['WSOP Express', 'Live Series'],
+  ['WSOP EXPRESS', 'LIVE SERIES'],
+  ['WSOP', 'Live Series'],
+].map(Object.freeze));
+const BRAND_RENAME_COLUMNS = Object.freeze([
+  ['tables', 'name'], ['tournaments', 'name'], ['banners', 'title'], ['banners', 'subtitle'],
+]);
+
+/** Renames stored GGPoker display names to DanGG ones; returns the number of changed rows. */
+export function renameBrandNames() {
+  let changed = 0;
+  for (const [table, column] of BRAND_RENAME_COLUMNS) {
+    const update = db.prepare(`UPDATE ${table} SET ${column} = replace(${column}, ?, ?) WHERE instr(${column}, ?) > 0`);
+    for (const [from, to] of BRAND_RENAMES) changed += Number(update.run(from, to, from).changes);
+  }
+  const siteName = db.prepare(`UPDATE settings SET value = ? WHERE key = 'site_name' AND value IN (?, ?)`)
+    .run(JSON.stringify('DanGG'), JSON.stringify('GGPoker'), JSON.stringify('GG Poker'));
+  return changed + Number(siteName.changes);
+}
+
 function ensurePloVariants() {
   const ins = db.prepare(`INSERT OR IGNORE INTO tables
     (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,sort)
@@ -377,7 +413,7 @@ export function ensureSpinTables() {
   let inserted = 0;
   SPIN_STAKES.forEach((stake, stakeIndex) => {
     for (let i = 1; i <= SPIN_TABLES_PER_STAKE; i++) {
-      const res = ins.run(`spingold-${stake}-${i}`, `Spin & Gold ${stake.toLocaleString('en-US')} ${String(i).padStart(2, '0')}`,
+      const res = ins.run(`spingold-${stake}-${i}`, `Jackpot SNG ${stake.toLocaleString('en-US')} ${String(i).padStart(2, '0')}`,
         'spingold', 'Spin', sb, sb * 2, 0, stake, stake, SPIN_SEATS, 'Fast', 0,
         SPIN_SORT_BASE + stakeIndex * 10 + i);
       inserted += Number(res.changes);
@@ -395,13 +431,13 @@ export function ensureSpinTables() {
 // deterministic, so each boot inserts only the rows that are missing. The Hold'em 500/1000
 // pool keeps the original `rush-platinum-N` tables created by seed().
 export const RUSH_LADDER = Object.freeze([
-  { game: 'rush', label: 'Rush & Cash', category: 'Bronze', sb: 50, bb: 100, tables: 4 },
-  { game: 'rush', label: 'Rush & Cash', category: 'Silver', sb: 100, bb: 200, tables: 4 },
-  { game: 'rush', label: 'Rush & Cash', category: 'Gold', sb: 250, bb: 500, tables: 4 },
-  { game: 'rush', label: 'Rush & Cash', category: 'Platinum', sb: 500, bb: 1000, tables: 8, idPrefix: 'rush-platinum' },
-  { game: 'rush', label: 'Rush & Cash', category: 'Diamond', sb: 1000, bb: 2000, tables: 4 },
-  { game: 'rushplo', label: 'Rush & Cash PLO', category: 'Silver', sb: 100, bb: 200, tables: 4 },
-  { game: 'rushplo', label: 'Rush & Cash PLO', category: 'Platinum', sb: 500, bb: 1000, tables: 4 },
+  { game: 'rush', label: 'Fast Fold', category: 'Bronze', sb: 50, bb: 100, tables: 4 },
+  { game: 'rush', label: 'Fast Fold', category: 'Silver', sb: 100, bb: 200, tables: 4 },
+  { game: 'rush', label: 'Fast Fold', category: 'Gold', sb: 250, bb: 500, tables: 4 },
+  { game: 'rush', label: 'Fast Fold', category: 'Platinum', sb: 500, bb: 1000, tables: 8, idPrefix: 'rush-platinum' },
+  { game: 'rush', label: 'Fast Fold', category: 'Diamond', sb: 1000, bb: 2000, tables: 4 },
+  { game: 'rushplo', label: 'Fast Fold PLO', category: 'Silver', sb: 100, bb: 200, tables: 4 },
+  { game: 'rushplo', label: 'Fast Fold PLO', category: 'Platinum', sb: 500, bb: 1000, tables: 4 },
 ].map(Object.freeze));
 const RUSH_MIN_BUYIN_BB = 20;
 const RUSH_MAX_BUYIN_BB = 100;
@@ -430,8 +466,8 @@ export function ensureRushLadder() {
 function ensureSeries() {
   const tins = db.prepare(`INSERT INTO tournaments (id,name,buyin,fee,gtd,start_at,entrants,format) VALUES (?,?,?,?,?,?,?,?)`);
   for (const [id, name, buyin, fee, gtd, hours, fmt] of [
-    ['flip-go', 'Flip & Go $20K', 2000, 200, 20000, 6, 'NLH'],
-    ['wsop-express-2', 'WSOP Express $30K', 3000, 300, 30000, 10, 'NLH'],
+    ['flip-go', 'Quick Flip $20K', 2000, 200, 20000, 6, 'NLH'],
+    ['wsop-express-2', 'Live Series $30K', 3000, 300, 30000, 10, 'NLH'],
   ]) {
     if (!db.prepare('SELECT 1 FROM tournaments WHERE id = ?').get(id)) {
       tins.run(id, name, buyin, fee, gtd * 100, new Date(Date.now() + hours * 3600_000).toISOString(), 300 + (gtd % 400), fmt);
@@ -447,7 +483,7 @@ function ensureSeries() {
       db.prepare("UPDATE tournaments SET mode='SATELLITE', ticket='Sunday Major $250K' WHERE id=?").run(id);
     }
   }
-  db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Flip & Go%' AND mode='STANDARD'");
+  db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Quick Flip%' AND mode='STANDARD'");
   db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND mode='STANDARD'");
   db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND mode='STANDARD'");
 }
@@ -493,7 +529,7 @@ function seed() {
     tables.push({ id: `sd-gold-${i}`, name: `Short Deck Gold ${String(i).padStart(2, '0')}`, game: 'shortdeck', category: 'Gold', sb: 500, bb: 1000, ante: 100, min_buyin: 20000, max_buyin: 80000, seats: 6, sort: sort++ });
   }
   for (let i = 1; i <= 8; i++) {
-    tables.push({ id: `rush-platinum-${i}`, name: `Rush & Cash Platinum ${String(i).padStart(2, '0')}`, game: 'rush', category: 'Platinum', sb: 500, bb: 1000, ante: 0, min_buyin: 20000, max_buyin: 100000, seats: 6, speed: 'Fast', sort: sort++ });
+    tables.push({ id: `rush-platinum-${i}`, name: `Fast Fold Platinum ${String(i).padStart(2, '0')}`, game: 'rush', category: 'Platinum', sb: 500, bb: 1000, ante: 0, min_buyin: 20000, max_buyin: 100000, seats: 6, speed: 'Fast', sort: sort++ });
   }
   for (let i = 1; i <= 8; i++) {
     tables.push({ id: `aof-gold-${i}`, name: `AoF Gold ${String(i).padStart(2, '0')}`, game: 'aof', category: 'Gold', sb: 500, bb: 1000, ante: 0, min_buyin: 20000, max_buyin: 40000, seats: 6, speed: 'Fast', sort: sort++ });
@@ -503,14 +539,14 @@ function seed() {
 
   const now = Date.now();
   const tourneys = [
-    ['Daily $100,000 Flipout', 2500, 250, 100000, 0.5],
-    ['WSOP Express $50K', 5000, 500, 50000, 1.5],
+    ['Daily Chip Flipout', 2500, 250, 100000, 0.5],
+    ['Live Series $50K', 5000, 500, 50000, 1.5],
     ['Bounty Hunters $30K', 1500, 150, 30000, 2.5],
-    ['GGMasters $150K', 11000, 1000, 150000, 4],
+    ['Masters $150K', 11000, 1000, 150000, 4],
     ['Mystery Bounty $200K', 5250, 500, 200000, 6],
     ['Omaha Weekly $25K', 3000, 300, 25000, 9],
     ['Short Deck $10K', 1000, 100, 10000, 12],
-    ['Spin & Gold Challenge', 1000, 0, 5000, 15],
+    ['Jackpot SNG Challenge', 1000, 0, 5000, 15],
     ['Sunday Major $250K', 22000, 2000, 250000, 20],
     ['Turbo $15K', 750, 75, 15000, 24],
     ['Freeroll $2,000', 0, 0, 2000, 30],
@@ -524,8 +560,8 @@ function seed() {
   }
 
   for (const [id, name, buyin, fee, gtd, hours, fmt] of [
-    ['flip-go', 'Flip & Go $20K', 2000, 200, 20000, 6, 'NLH'],
-    ['wsop-express-2', 'WSOP Express $30K', 3000, 300, 30000, 10, 'NLH'],
+    ['flip-go', 'Quick Flip $20K', 2000, 200, 20000, 6, 'NLH'],
+    ['wsop-express-2', 'Live Series $30K', 3000, 300, 30000, 10, 'NLH'],
   ]) {
     if (!db.prepare('SELECT 1 FROM tournaments WHERE id = ?').get(id)) {
       tins.run(id, name, buyin, fee, gtd * 100, new Date(Date.now() + hours * 3600_000).toISOString(), 300 + gtd % 400, fmt);
@@ -540,14 +576,14 @@ function seed() {
     ('weekly-vip','Earn 500 VIP points','Play raked hands to earn points',500,120,50000,'USD',0,1,5)`).run();
 
   db.prepare(`INSERT INTO banners (slot,title,subtitle,image,link,sort) VALUES
-    ('home','DAILY $100,000 FLIPOUT','#ThanksGG · GGCheers','/assets/chrome/promo.png','/promotions',1),
+    ('home','DAILY $100,000 FLIPOUT','#ThanksDanGG · DanGG Cheers','/assets/chrome/promo.png','/promotions',1),
     ('home','After The Fold','$40,000 Daily','/assets/chrome/tab_aof.png','/game/aof',2),
-    ('tournaments','WSOP EXPRESS','Win your seat to the Main Event','/assets/chrome/promo.png','/tournaments',1),
+    ('tournaments','LIVE SERIES','Win your seat to the Main Event','/assets/chrome/promo.png','/tournaments',1),
     ('slots','GATES OF OLYMPUS','1000x max win','/assets/chrome/spin.png','/slots',1),
     ('casino','LIVE CASINO','Roulette · Blackjack · Baccarat','/assets/chrome/jackpot.png','/casino',1)`).run();
 
   const settings = {
-    site_name: 'GGPoker',
+    site_name: 'DanGG',
     online_base: 192000,
     jackpot: 199026635,
     rake_percent: 5,

@@ -44,12 +44,12 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
 const TABS = [
   { key: 'home', label: 'Home', img: 'tab_home', w: 141 },
   { key: 'aof', label: 'All-in or Fold', img: 'tab_aof', w: 135 },
-  { key: 'rush', label: 'Rush & Cash', img: 'tab_rush', w: 134 },
+  { key: 'rush', label: 'Fast Fold', img: 'tab_rush', w: 134 },
   { key: 'holdem', label: "Hold'em", img: 'tab_holdem', w: 135 },
   { key: 'plo', label: 'PLO', img: 'tab_plo', w: 135 },
   { key: 'short', label: 'Short Deck', img: 'tab_short', w: 135 },
-  { key: 'spin', label: 'Spin & Gold', img: 'tab_spin', w: 134 },
-  { key: 'battle', label: 'Mystery Battle Royale', img: 'tab_battle', w: 135 },
+  { key: 'spin', label: 'Jackpot SNG', img: 'tab_spin', w: 134 },
+  { key: 'battle', label: 'Battle Royale', img: 'tab_battle', w: 135 },
 ];
 
 export function GameTabs({ active, onChange }: { active: string; onChange: (key: string) => void }) {

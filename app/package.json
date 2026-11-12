@@ -11,12 +11,9 @@
     "desktop:dev": "GGPOKER_DEV=1 electron electron/main.cjs",
     "desktop": "electron electron/main.cjs",
     "test": "node --test server/*.test.js",
-    "prebuild": "node ../tools/copy_ruffle.mjs",
-    "predev": "node ../tools/copy_ruffle.mjs",
     "smoke": "node tools/smoke.mjs"
   },
   "dependencies": {
-    "@ruffle-rs/ruffle": "^0.7.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "ws": "^8.18.3"

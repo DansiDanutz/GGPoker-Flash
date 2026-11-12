@@ -255,8 +255,8 @@ test('variants come from the game id, or from the name for Rush and AoF pools', 
   assert.equal(variantOf(lt({ game: 'omaha5' })), 'plo5');
   assert.equal(variantOf(lt({ game: 'omaha6' })), 'plo6');
   assert.equal(variantOf(lt({ game: 'shortdeck' })), 'holdem');
-  assert.equal(variantOf(lt({ game: 'rush', name: 'Rush & Cash Platinum 01' })), 'holdem');
-  assert.equal(variantOf(lt({ game: 'rush', name: 'Rush & Cash PLO 01' })), 'plo');
+  assert.equal(variantOf(lt({ game: 'rush', name: 'Fast Fold Platinum 01' })), 'holdem');
+  assert.equal(variantOf(lt({ game: 'rush', name: 'Fast Fold PLO 01' })), 'plo');
   assert.equal(variantOf(lt({ game: 'aof', name: 'AoF Omaha Gold' })), 'plo');
   assert.equal(variantOf(lt({ game: 'holdem', name: 'Explorer table' })), 'holdem', 'no false match inside a word');
   assert.equal(VARIANT_LABEL.plo5, 'PLO-5');
@@ -287,7 +287,7 @@ test('pills filter rows to the right game ids', () => {
   assert.deepEqual(ids(filterTables(plo, query('plo', { pill: 'plo' }))), ['a']);
   assert.deepEqual(ids(filterTables(plo, query('plo', { pill: 'plo5' }))), ['b']);
   assert.deepEqual(ids(filterTables(plo, query('plo', { pill: 'plo6' }))), ['c']);
-  const rush = [lt({ id: 'r1', game: 'rush', name: 'Rush & Cash Gold' }), lt({ id: 'r2', game: 'rush', name: 'Rush & Cash PLO' })];
+  const rush = [lt({ id: 'r1', game: 'rush', name: 'Fast Fold Gold' }), lt({ id: 'r2', game: 'rush', name: 'Fast Fold PLO' })];
   assert.deepEqual(ids(filterTables(rush, query('rush', { pill: 'holdem' }))), ['r1']);
   assert.deepEqual(ids(filterTables(rush, query('rush', { pill: 'plo' }))), ['r2']);
   const aof = [lt({ id: 'f1', game: 'aof', name: 'AoF Gold 01' })];
@@ -404,7 +404,7 @@ const TOURNEYS = [
   tourney({ id: 'free', name: 'Freeroll $2,000', buyin: 0, fee: 0 }),
   tourney({ id: 'late', name: 'Turbo $15K', status: 'running', start_at: '2026-11-12T11:30:00Z', buyin: 750, fee: 75 }),
   tourney({ id: 'run', name: 'Mystery Bounty $50K', mode: 'MYSTERY', status: 'running', start_at: '2026-11-12T09:00:00Z', blind_speed: 3 }),
-  tourney({ id: 'flip', name: 'Flip & Go $20K', mode: 'FLIP', buyin: 2000, fee: 200 }),
+  tourney({ id: 'flip', name: 'Quick Flip $20K', mode: 'FLIP', buyin: 2000, fee: 200 }),
 ];
 const tq = (over = {}) => ({ ...DEFAULT_TOURNAMENT_FILTERS, registered: [], nowMs: T_NOW, ...over });
 
@@ -452,7 +452,7 @@ test('registered only keeps the events the player entered', () => {
 test('tournament categories match mode first and fall back to the name', () => {
   assert.equal(inCategory(tourney({ name: 'Weekly', mode: 'BOUNTY' }), 'bounty'), true);
   assert.equal(inCategory(tourney({ name: 'Mystery Bounty $10K', mode: 'MYSTERY' }), 'bounty'), false);
-  assert.equal(inCategory(tourney({ name: 'WSOP Express $30K' }), 'wsop'), true);
+  assert.equal(inCategory(tourney({ name: 'Live Series $30K' }), 'wsop'), true);
   assert.equal(inCategory(tourney(), 'unknown'), true, 'unknown category lists everything');
   assert.deepEqual(ids(filterTournaments(TOURNEYS, tq({ category: 'flip' }))), ['flip']);
 });
@@ -682,7 +682,7 @@ const pool = (over = {}) => ({
   firstFree: 'rp-2', wait: 0, ...over,
 });
 const rushTable = (over = {}) => ({
-  id: 'rp-1', name: 'Rush & Cash Platinum 01', game: 'rush', category: 'Platinum', sb: 500, bb: 1000, ante: 0,
+  id: 'rp-1', name: 'Fast Fold Platinum 01', game: 'rush', category: 'Platinum', sb: 500, bb: 1000, ante: 0,
   min_buyin: 20000, max_buyin: 100000, seats: 6, speed: 'Fast', featured: false, players: 6, wait: 0,
   avgPot: 0, vpip: 0, handsPerHour: 60, running: false, ...over,
 });
@@ -702,7 +702,7 @@ test('rush pools: sorted by stakes descending, Hold\'em before PLO, input untouc
 
 test('rush pools: a pool shows when any of its tables survives the filters', () => {
   const pools = [pool(), pool({ poolKey: 'rushplo:500/1000', game: 'rushplo' }), pool({ poolKey: 'rush:50/100', sb: 50, bb: 100 })];
-  const visible = [rushTable({ game: 'rushplo', name: 'Rush & Cash PLO Platinum 01' }), rushTable({ sb: 50, bb: 100 })];
+  const visible = [rushTable({ game: 'rushplo', name: 'Fast Fold PLO Platinum 01' }), rushTable({ sb: 50, bb: 100 })];
   assert.deepEqual(visiblePools(pools, visible).map((p) => p.poolKey), ['rushplo:500/1000', 'rush:50/100']);
   assert.deepEqual(visiblePools(pools, []), []);
 });

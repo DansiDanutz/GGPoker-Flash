@@ -66,7 +66,7 @@ export function RushPoolRow({ pool, allTables, isSelected, onSelect, onJoin, onC
 /** The Rush tab list: native header and one {@link RushPoolRow} per visible pool. */
 export function RushPoolRows({ pools, allTables, selectedId, onSelect, onJoin, onChanged }: ListProps) {
   return (
-    <div className="lob-group rush-pools" role="table" aria-label="Rush & Cash pools">
+    <div className="lob-group rush-pools" role="table" aria-label="Fast Fold pools">
       <div className="lob-ghead" role="row" style={GRID}>
         {COLUMNS.map((c) => <div key={c} role="columnheader">{COLUMN_LABEL[c]}</div>)}
       </div>

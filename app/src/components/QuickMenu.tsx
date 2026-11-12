@@ -8,7 +8,7 @@ const LINKS = [
   { icon: '🎲', label: 'Casino', to: '/casino' },
   { icon: '🎰', label: 'Slots', to: '/slots' },
   { icon: '🎯', label: 'Prop Bet', to: '/propbet' },
-  { icon: '🐟', label: 'GG Left', to: '/rewards' },
+  { icon: '🐟', label: 'Rewards', to: '/rewards' },
   { icon: '🎁', label: 'My Promo', to: '/promotions' },
   { icon: '👤', label: 'My Page', to: '/my-page' },
   { icon: '📋', label: 'Missions', to: '/missions' },
@@ -51,7 +51,7 @@ export function QuickMenu() {
             <button key={l.to} onClick={() => go(l.to)}><span>{l.icon}</span>{l.label}</button>
           ))}
         </div>
-        <button className="quick-ggpass" onClick={() => go('/rewards')}>★ GGPass</button>
+        <button className="quick-ggpass" onClick={() => go('/rewards')}>★ DanGG Pass</button>
       </aside>
     </div>
   );

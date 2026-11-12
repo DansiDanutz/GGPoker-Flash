@@ -449,12 +449,12 @@ export const GAME_LABEL: Record<string, string> = {
   omaha5: 'PLO5',
   omaha6: 'PLO6',
   shortdeck: 'Short Deck',
-  rush: 'Rush & Cash',
-  rushplo: 'Rush & Cash PLO',
+  rush: 'Fast Fold',
+  rushplo: 'Fast Fold PLO',
   aof: 'All-in or Fold',
-  spingold: 'Spin & Gold',
-  battleroyale: 'Mystery Battle Royale',
-  flipandgo: 'Flip & Go',
+  spingold: 'Jackpot SNG',
+  battleroyale: 'Battle Royale',
+  flipandgo: 'Quick Flip',
 };
 
 /** GET /api/tournaments/:id — the row plus its payout table (DanGG rule). */

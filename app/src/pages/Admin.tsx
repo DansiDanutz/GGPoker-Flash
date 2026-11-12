@@ -775,7 +775,7 @@ export function Admin() {
                 <button className="btn btn-red" style={{ marginTop: 14 }} onClick={saveSettings}>Save settings</button>
               </div>
               <h3 className="admin-title" style={{ fontSize: 16, marginTop: 18 }}>
-                Rush &amp; Cash Drop <span className="pill" title="Not yet confirmed by a native capture">{CASHDROP_RULE_LABEL}</span>
+                Fast Fold Cash Drop <span className="pill" title="Not yet confirmed by a native capture">{CASHDROP_RULE_LABEL}</span>
               </h3>
               <div className="admin-card">
                 <div className="admin-form">

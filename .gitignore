@@ -10,19 +10,7 @@ research/fonts/
 research/screens/
 research/*.png
 research/strings_en.json
-# Extracted third-party artwork/audio is generated locally, not published:
-app/public/assets/*
-app/public/assets/*.png
-app/public/assets/*.json
-app/public/assets/chrome/
-app/public/assets/sounds/
-app/public/assets/table/
-app/public/assets/tables/
-app/public/assets/ui/
-app/public/assets/atlas/
-app/public/assets/lobby_top/
-
-!app/public/assets/README.md
+# app/public/assets holds original DanGG art and sounds (tools/original-assets) and is committed.
 
 # local reverse-engineering toolchains
 tools/jdk-*/

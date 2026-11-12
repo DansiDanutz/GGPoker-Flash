@@ -117,7 +117,7 @@ export function Profile() {
             <div className="kv"><span>XP</span><b>{(user?.xp ?? 0).toLocaleString()}</b></div>
             <div className="kv"><span>VIP points</span><b>{(user?.vip_points ?? 0).toLocaleString()}</b></div>
             <div className="progress" style={{ marginTop: 10 }}><i style={{ width: `${Math.min(100, ((user?.xp ?? 0) % 6000) / 60)}%` }} /></div>
-            <p className="muted small">Earn XP by playing raked hands. Every 1,000 XP unlocks new GGPass rewards.</p>
+            <p className="muted small">Earn XP by playing raked hands. Every 1,000 XP unlocks new DanGG Pass rewards.</p>
           </div>
         </div>
       </div>
@@ -157,7 +157,7 @@ export function HandHistory() {
             <option value="all">All results</option><option value="won">Won</option><option value="lost">Lost</option>
           </select>
           <select className="admin-select" value={gameFilter} onChange={(e) => setGameFilter(e.target.value)}>
-            <option value="all">All games</option><option value="holdem">Hold’em</option><option value="omaha">PLO</option><option value="shortdeck">Short Deck</option><option value="rush">Rush & Cash</option>
+            <option value="all">All games</option><option value="holdem">Hold’em</option><option value="omaha">PLO</option><option value="shortdeck">Short Deck</option><option value="rush">Fast Fold</option>
           </select>
           <span className="muted small">{filtered.length} hands</span>
         </div>
@@ -271,7 +271,7 @@ export function Support() {
   const { toast } = useApp();
   const [open, setOpen] = useState(0);
   const faq = [
-    ['Is this the real GGPoker?', 'No. This is a local, offline play-money clone built for demonstration. No real money, deposits or cash value are involved.'],
+    ['Is this real money?', 'No. DanGG is a play-money poker site built for demonstration. No real money, deposits or cash value are involved.'],
     ['How do I get chips?', 'Open the Cashier and deposit play money instantly, or claim your daily missions in My Rewards.'],
     ['Where are my hand histories?', 'Every hand you play is stored locally and can be replayed from Hand History.'],
     ['Can I play with friends?', 'Yes — open the same table in two browser windows or on two devices on your local network. Bots fill empty seats.'],

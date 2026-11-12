@@ -35,7 +35,7 @@ export function RushSidePanel({ leaderboard, myId, onShowInfo }: Props) {
         </tbody>
       </table>
       {!rows.length && <div className="muted small rush-board-empty">No Rush winners yet today.</div>}
-      <button type="button" className="lob-link rush-info-link" onClick={onShowInfo}>Rush &amp; Cash Information</button>
+      <button type="button" className="lob-link rush-info-link" onClick={onShowInfo}>Fast Fold Information</button>
     </section>
   );
 }
@@ -47,7 +47,7 @@ export function RushInfoDialog({ cashDrop, onClose }: { cashDrop: CashDropConfig
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="rush-info-title" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h3 id="rush-info-title">Rush &amp; Cash Information</h3>
+          <h3 id="rush-info-title">Fast Fold Information</h3>
           <button type="button" className="title-icon" aria-label="Close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body rush-info">
@@ -59,7 +59,7 @@ export function RushInfoDialog({ cashDrop, onClose }: { cashDrop: CashDropConfig
           <p>
             After a Rush hand, there is a {cashDropRateLabel(cashDrop?.rate)} chance that a Cash Drop of {amountBb} big blinds
             goes to one random real (non-bot) player in that hand. It is a flat amount at that stake, not a share of the pot.
-            This is a DanGG rule; it is not taken from GGPoker.
+            This is a DanGG house rule.
           </p>
         </div>
         <div className="modal-foot"><button type="button" className="btn btn-dark" onClick={onClose}>Close</button></div>
