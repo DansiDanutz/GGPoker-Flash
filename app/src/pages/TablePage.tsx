@@ -53,6 +53,7 @@ type TableState = {
   button: number; sbSeat?: number; bbSeat?: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
+  pots?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
   spin?: {
     multiplier: number | null;
@@ -640,7 +641,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const displayUnit = state?.tournament ? 1 : 100;
   const chipStep = state?.tournament ? 1 : Math.min(100, state?.sb || 100);
   const betStep = betUnitOf(bettingOptions, state?.sb || 0, state?.bb || 0);
-  const potColumns = potChipLayout(state?.pot || 0, state?.bb || 1);
+  // Native live piles: with a side pot the main pile shows only the main pot.
+  const livePots = state?.pots || [];
+  const potColumns = potChipLayout(livePots.length > 1 ? livePots[0] : state?.pot || 0, state?.bb || 1);
   const startChipShuffle = useCallback(() => {
     if (!chipShuffleOn) return;
     if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current);
@@ -1151,6 +1154,21 @@ export function TablePage({ tableId }: { tableId: string }) {
           )}
           {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
         </div>
+        {!winFx && livePots.length > 1 && <div className="live-pots">{livePots.map((amount, i) => {
+            const [x, y] = potOffset(i, tableRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);
+            return (
+              <div key={i} className={'live-pot' + (i === 0 ? ' main' : '')} style={{ transform: `translate(calc(-50% + ${x}px), ${y}px)` }}>
+                {i > 0 && <div className="pot-chips live" aria-hidden="true">
+                  {potChipLayout(amount, state?.bb || 1).map((col) => (
+                    <span key={col.denom} className={`pot-chip-col denom-${col.denom}`}>
+                      {Array.from({ length: col.count }, (_, k) => <i key={k} />)}
+                    </span>
+                  ))}
+                </div>}
+                <span className="live-pot-label">{i === 0 ? 'Main' : `Side ${i}`} {chip(amount)}</span>
+              </div>
+            );
+        })}</div>}
         {badBeat && <div className="bad-beat-banner" role="alert" onClick={() => setBadBeat(null)}>
           <div className="bbj-title">BAD BEAT JACKPOT!</div>
           <div className="bbj-total">{money(badBeat.total)}</div>

@@ -591,4 +591,11 @@ body { background: #050706; }
 .bbj-row b { color: #fff; font-weight: 700; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bbj-row em { font-style: normal; color: #ffe6a6; font-weight: 700; }
 @keyframes bbjIn { from { opacity: 0; transform: translate(-50%, -12px) scale(.9); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+
+/* Native live side-pot piles (REA live-side-pots / static-side-pots coordinates). */
+/* Anchored below the whole centre column (pot, board), so piles never cover the community cards. */
+.live-pots { position: absolute; left: 0; right: 0; top: 100%; margin-top: 8px; height: 0; pointer-events: none; }
+.live-pot { position: absolute; left: 50%; top: 0; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 1; }
+.live-pot .pot-chips.live { position: static; transform: none; margin: 0 0 3px; }
+.live-pot-label { background: rgba(0, 0, 0, .7); border: 1px solid rgba(255, 215, 130, .25); color: #ffe0a0; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .tb-btn .tb-cards { margin-left: 4px; font-size: 11px; color: #ffd27a; }
