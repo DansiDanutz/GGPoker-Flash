@@ -77,7 +77,11 @@ const THEMES = ['Green', 'Black', 'Red', 'Navy', 'Purple', 'Gray', 'Brown', 'Cob
 export function Settings() {
   const { user, refreshUser, toast, soundOn, toggleSound, animations, setAnimations } = useApp();
   const { lang, setLang, languages } = useI18n();
-  const [tab, setTab] = useState('general');
+  const [tab, setTab] = useState(() => {
+    const wanted = sessionStorage.getItem('ggpoker.settingsTab');
+    sessionStorage.removeItem('ggpoker.settingsTab');
+    return wanted && ['general', 'sound', 'table', 'betting', 'account', 'responsible'].includes(wanted) ? wanted : 'general';
+  });
   const [nick, setNick] = useState(user?.nick || '');
   const [theme, setTheme] = useState(localStorage.getItem('ggpoker.theme') || 'Green');
   const [volume, setVolume] = useState(Number(localStorage.getItem('ggpoker.volume') || 70));
