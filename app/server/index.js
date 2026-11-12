@@ -32,6 +32,8 @@ import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
 import { createAdminRestoreRoute } from './admin-restore.js';
+import { createAdminSnapshotRoutes, isValidRetention, RETENTION_SETTING } from './admin-snapshots.js';
+import { createAdminTableDuplicateRoute } from './admin-table-duplicate.js';
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
@@ -494,6 +496,11 @@ const handleAdminBackupRoute = createAdminBackupRoute({
 const handleAdminRestoreRoute = createAdminRestoreRoute({
   db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
 });
+// Bounded server-side snapshots under DATA_DIR/backups; restore from one goes through the same queue.
+const handleAdminSnapshotRoutes = createAdminSnapshotRoutes({
+  db, json, requireAdmin, readBody, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined, getSetting,
+});
+const handleAdminTableDuplicateRoute = createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody });
 
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
@@ -2203,6 +2210,8 @@ const server = http.createServer(async (req, res) => {
     if (await handleAdminWaitlistRoute(req, res, p)) return;
     if (await handleAdminBackupRoute(req, res, url)) return;
     if (await handleAdminRestoreRoute(req, res, url)) return;
+    if (await handleAdminSnapshotRoutes(req, res, url)) return;
+    if (await handleAdminTableDuplicateRoute(req, res, url)) return;
     if (handleAdminChatRoute(req, res, url)) return;
     if (p === '/api/admin/verifications' && req.method === 'GET') {
       const a = requireAdmin(req, res); if (!a) return;
@@ -2508,6 +2517,9 @@ const server = http.createServer(async (req, res) => {
       if (!b || typeof b !== 'object' || Array.isArray(b)) return json(res, 400, { error: 'Settings must be an object' });
       const invalid = validateCashDropSettings(b);
       if (invalid.length) return json(res, 400, { error: invalid.join('; '), errors: invalid });
+      if (RETENTION_SETTING in b && !isValidRetention(b[RETENTION_SETTING])) {
+        return json(res, 400, { error: `${RETENTION_SETTING} must be a whole number from 1 to 50` });
+      }
       for (const [k, v] of Object.entries(b)) setSetting(k, v);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'settings', JSON.stringify(b));
       return json(res, 200, { ok: true });
