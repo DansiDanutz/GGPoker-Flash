@@ -3,6 +3,7 @@ import { api, getToken, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
+import { AgeNotice } from '../components/AgeNotice';
 
 const CASINO_NAV = [
   { key: 'lobby', label: 'Lobby' }, { key: 'roulette', label: 'Roulette' }, { key: 'blackjack', label: 'Blackjack' },
@@ -60,7 +61,8 @@ export function Slots() {
     <PageShell activeTop="slots">
       <div className="page">
         <h1 className="page-title">Slots</h1>
-        <p className="page-sub">Gates of Olympus-style play-money slot · 10 paylines</p>
+        <p className="page-sub">Tumbling-reels play-money slot · 10 paylines</p>
+        <AgeNotice />
         <div className="slot-machine">
           <div className="slot-head">
             <span>⚡ OLYMPUS GOLD</span>
@@ -155,6 +157,7 @@ export function Roulette({ onTab }: { onTab?: (key: string) => void }) {
       <div className="page">
         <h1 className="page-title">Roulette</h1>
         <p className="page-sub">European single-zero wheel · play money</p>
+        <AgeNotice />
         <div className="roulette-wrap">
           <div className="roulette-wheel-holder">
             <div className="roulette-wheel" style={{ transform: `rotate(${angle}deg)` }}>
@@ -284,6 +287,7 @@ export function Blackjack({ onTab }: { onTab?: (key: string) => void }) {
       <div className="page">
         <h1 className="page-title">Blackjack</h1>
         <p className="page-sub">Classic 21 · dealer stands on 17 · blackjack pays 3:2</p>
+        <AgeNotice />
         <div className="bj-table">
           <div className="bj-side">
             <div className="panel-title">Dealer <small>{phase === 'playing' ? '?' : bjValue(dealer)}</small></div>
@@ -406,6 +410,7 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
       <div className="page">
         <h1 className="page-title">Crash</h1>
         <p className="page-sub">Ride the multiplier · cash out before the crash</p>
+        <AgeNotice />
         <div className="crash-table">
           <div className={'crash-stage ' + phase}>
             <div className="crash-grid" />
@@ -466,6 +471,7 @@ export function Casino() {
       <div className="page">
         <h1 className="page-title">Casino</h1>
         <p className="page-sub">Play-money table games · instant play</p>
+        <AgeNotice />
         <div className="grid g3">
           {games.map((g) => (
             <div key={g.key} className="casino-card" onClick={() => (g.key === 'slots' ? navigate('/slots') : setTab(g.key))}>
@@ -532,6 +538,7 @@ export function Baccarat({ onTab }: { onTab?: (key: string) => void }) {
       <div className="page">
         <h1 className="page-title">Baccarat</h1>
         <p className="page-sub">Punto Banco · play money</p>
+        <AgeNotice />
         <div className="bj-table">
           <div className="bj-side">
             <div className="panel-title">Player <small>{r ? r.playerTotal : ''}</small></div>
@@ -566,6 +573,7 @@ export function DragonTiger({ onTab }: { onTab?: (key: string) => void }) {
       <div className="page">
         <h1 className="page-title">Dragon Tiger</h1>
         <p className="page-sub">One card each — highest wins · ties pay 8:1</p>
+        <AgeNotice />
         <div className="bj-table">
           <div className="bj-side">
             <div className="panel-title">Dragon</div>
@@ -601,6 +609,7 @@ export function SicBo({ onTab }: { onTab?: (key: string) => void }) {
       <div className="page">
         <h1 className="page-title">Sic Bo</h1>
         <p className="page-sub">Three dice · bet on big, small, triples or exact totals</p>
+        <AgeNotice />
         <div className="bj-table">
           <div className="bj-side">
             <div className="dice-row">

@@ -273,7 +273,7 @@ export function Login() {
             <button type="button" className="login2-demo" onClick={seed}>Use demo account (DansiDanutz)</button>
           )}
 
-          <p className="login2-foot-note">Play money only. No real money, deposits or cash value.</p>
+          <p className="login2-foot-note">18+ only. Play money only. No real money, deposits or cash value.</p>
           <p className="login2-version">v{APP_VERSION} · build {buildLabel(APP_BUILD)}</p>
         </div>
       </div>
@@ -302,6 +302,7 @@ export function Login() {
             {legal === 'terms' ? (
               <>
                 <p>DanGG is a play-money poker room. No real money is wagered, won or lost, and chips or accounts have no cash value.</p>
+                <p>You must be 18 or older to play. The casino games are for adults and use the same play money.</p>
                 <p>Play is for entertainment. Abuse, collusion or automated play can end a session. Play responsibly.</p>
               </>
             ) : (
