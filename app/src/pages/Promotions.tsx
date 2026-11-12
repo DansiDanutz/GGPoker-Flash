@@ -1,5 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { DEFAULT_HOTKEYS, HOTKEY_ACTIONS, HOTKEYS_KEY, assignHotkey, comboFromEvent, hotkeyCaption, readHotkeys, type HotkeyAction, type HotkeyMap } from '../lib/hotkeys';
+import React, { useCallback, useEffect, useReducer, useState } from 'react';
+import { DEFAULT_HOTKEYS, HOTKEY_ACTIONS, HOTKEY_GROUPS, HOTKEY_GROUPS_KEY, HOTKEYS_KEY, assignHotkey, comboFromEvent, hotkeyCaption, readHotkeyPrefs, readHotkeys, type HotkeyAction, type HotkeyGroupSwitches, type HotkeyMap } from '../lib/hotkeys';
+import { CHANNEL_PREVIEW, CHANNEL_VOLUMES_KEY, withChannelVolume, type Channel, type ChannelVolumes } from '../lib/soundMix';
+import { EMPTY_DRAFT, draftReducer, isDirty, pendingWrites, type SettingsValues } from '../lib/settingsDraft';
+import { readSetting, saveSettings } from '../lib/settingsStore';
 import { TABLE_THEMES } from '../lib/tableLook';
 import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
@@ -77,14 +80,82 @@ export function Promotions() {
 const LANGS = ['English', 'Romanian', 'German', 'French', 'Spanish', 'Portuguese', 'Russian', 'Ukrainian', 'Polish', 'Turkish', 'Japanese', 'Korean', 'Chinese (Simplified)', 'Chinese (Traditional)', 'Thai', 'Vietnamese', 'Indonesian', 'Hindi', 'Arabic', 'Hebrew'];
 const THEMES = TABLE_THEMES;
 
+const SETTINGS_TABS = [{ key: 'general', label: 'General' }, { key: 'sound', label: 'Sound' }, { key: 'table', label: 'Table & cards' }, { key: 'betting', label: 'Betting' }, { key: 'account', label: 'Account' }, { key: 'responsible', label: 'Responsible gaming' }];
+const SOUND_CHANNELS: ReadonlyArray<readonly [Channel, string]> = [['sfx', 'Card & chip sounds'], ['voice', 'Action voices'], ['alerts', 'Notification alerts'], ['music', 'Lobby music'], ['ambience', 'Table ambience']];
+
+/**
+ * Settings dialog: every edit is staged in a draft. Apply/OK saves it (this device, open table
+ * windows and the account); Cancel/Escape throws it away and the form re-reads the saved values.
+ */
 export function Settings() {
-  const { user, refreshUser, toast, soundOn, toggleSound, animations, setAnimations } = useApp();
-  const { lang, setLang, languages } = useI18n();
+  const { toast, navigate } = useApp();
   const [tab, setTab] = useState(() => {
     const wanted = sessionStorage.getItem('ggpoker.settingsTab');
     sessionStorage.removeItem('ggpoker.settingsTab');
-    return wanted && ['general', 'sound', 'table', 'betting', 'account', 'responsible'].includes(wanted) ? wanted : 'general';
+    return wanted && SETTINGS_TABS.some((t) => t.key === wanted) ? wanted : 'general';
   });
+  const [draftState, dispatch] = useReducer(draftReducer, EMPTY_DRAFT);
+  const [formKey, setFormKey] = useState(0);
+  const dirty = isDirty(draftState.draft, readSetting);
+  const stage = useCallback((key: string, value: string | null) => dispatch({ type: 'stage', key, value }), []);
+
+  const cancel = useCallback(() => {
+    sound.stopPreview();
+    dispatch({ type: 'cancel' });
+    setFormKey((k) => k + 1); // remount the form so every control shows the saved value again
+  }, []);
+
+  const apply = async (close: boolean) => {
+    sound.stopPreview();
+    const writes = pendingWrites(draftState.draft, readSetting);
+    dispatch({ type: 'apply' });
+    if (Object.keys(writes).length) {
+      // saveSettings notifies the sound engine, i18n and the app store, which re-read their values.
+      try {
+        await saveSettings(writes);
+        toast({ kind: 'success', title: 'Settings saved' });
+      } catch (e: any) {
+        toast({ kind: 'error', title: 'Saved on this device only', body: e?.message || 'Your account copy could not be updated.' });
+      }
+    }
+    if (close) navigate('/');
+  };
+
+  // Escape discards the draft (key capture handles its own Escape first, in the capture phase).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && dirty && !e.defaultPrevented) { e.preventDefault(); cancel(); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dirty, cancel]);
+  useEffect(() => () => sound.stopPreview(), []);
+
+  return (
+    <PageShell activeTop="poker" subnav={<SubNav items={SETTINGS_TABS} active={tab} onChange={setTab} />}>
+      <div className="page">
+        <h1 className="page-title">Settings</h1>
+        <p className="page-sub">Changes take effect when you press Apply or OK. Cancel or Escape discards them.</p>
+        <SettingsForm key={formKey} tab={tab} draft={draftState.draft} stage={stage} />
+        <div className="settings-actions" role="group" aria-label="Save settings">
+          <span className="muted small">{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
+          <div className="grow" />
+          <button className="btn btn-ghost btn-sm" disabled={!dirty} onClick={cancel}>Cancel</button>
+          <button className="btn btn-ghost btn-sm" disabled={!dirty} onClick={() => { void apply(false); }}>Apply</button>
+          <button className="btn btn-gold btn-sm" onClick={() => { void apply(true); }}>OK</button>
+        </div>
+      </div>
+    </PageShell>
+  );
+}
+
+type SettingsFormProps = { tab: string; draft: SettingsValues; stage: (key: string, value: string | null) => void };
+
+function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
+  const { user, refreshUser, toast, soundOn, animations } = useApp();
+  const { lang, languages } = useI18n();
+  const staged = (key: string): string | null | undefined => (Object.prototype.hasOwnProperty.call(draft, key) ? draft[key] : undefined);
+  const shownLang = staged('ggpoker.language') ?? lang;
+  const shownSoundOn = staged('ggpoker.sound') !== undefined ? staged('ggpoker.sound') === '1' : soundOn;
+  const shownAnimations = staged('ggpoker.animations') !== undefined ? staged('ggpoker.animations') !== '0' : animations;
   const [nick, setNick] = useState(user?.nick || '');
   const [theme, setTheme] = useState(localStorage.getItem('ggpoker.theme') || 'Green');
   const [volume, setVolume] = useState(Number(localStorage.getItem('ggpoker.volume') || 70));
@@ -105,7 +176,9 @@ export function Settings() {
   const [cardFront, setCardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'official');
   const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
   const [roomBg, setRoomBg] = useState(() => localStorage.getItem('ggpoker.roomBg') || 'featured');
-  const [channels, setChannels] = useState({ ...sound.channels });
+  const [channels, setChannels] = useState<Record<Channel, boolean>>({ ...sound.channels });
+  const [channelVolumes, setChannelVolumes] = useState<ChannelVolumes>(sound.channelVolumes);
+  const [hotkeyGroups, setHotkeyGroups] = useState<HotkeyGroupSwitches>(() => readHotkeyPrefs().groups);
   const [buyinPct, setBuyinPct] = useState(() => Number(localStorage.getItem('ggpoker.buyinPct') || 0));
   const [autoTopup, setAutoTopup] = useState(() => localStorage.getItem('ggpoker.autoTopup') === '1');
   const [autoBuyin, setAutoBuyin] = useState(() => localStorage.getItem('ggpoker.autoBuyin') === '1');
@@ -122,31 +195,35 @@ export function Settings() {
     if (!capturingKey) return;
     const onKey = (event: KeyboardEvent) => {
       event.preventDefault();
+      event.stopImmediatePropagation();
       if (event.key === 'Escape') { setCapturingKey(null); return; }
       const combo = event.key === 'Backspace' || event.key === 'Delete' ? '' : comboFromEvent(event);
       if (combo == null) return; // a bare modifier: wait for the real key
       const { map, displaced } = assignHotkey(hotkeyMap, capturingKey, combo);
       setHotkeyMap(map);
-      localStorage.setItem(HOTKEYS_KEY, JSON.stringify(map));
+      stage(HOTKEYS_KEY, JSON.stringify(map));
       const moved = displaced ? HOTKEY_ACTIONS.find((a) => a.id === displaced)?.label : '';
       setHotkeyNotice(moved ? `${combo} moved from “${moved}”, which is now unassigned.` : '');
       setCapturingKey(null);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [capturingKey, hotkeyMap]);
+    // Capture phase: the captured key (Escape included) never reaches the draft's Escape handler.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [capturingKey, hotkeyMap, stage]);
 
-  const persist = (key: string, value: string) => {
-    localStorage.setItem(key, value);
-    api.saveSettings({
-      lang: localStorage.getItem('ggpoker.lang'), theme: localStorage.getItem('ggpoker.theme'),
-      volume: localStorage.getItem('ggpoker.volume'), fourcolor: localStorage.getItem('ggpoker.fourcolor'),
-      automuck: localStorage.getItem('ggpoker.automuck'), rit: localStorage.getItem('ggpoker.rit'),
-      betPrefs: localStorage.getItem('ggpoker.betPrefs'), showHand: localStorage.getItem('ggpoker.showHand'),
-      hotkeyHints: localStorage.getItem('ggpoker.hotkeyHints'), dealSpeed: localStorage.getItem('ggpoker.dealSpeed'),
-      cardBack: localStorage.getItem('ggpoker.cardBack'),
-    }).catch(() => {});
+  // Every control stages its value; nothing is written until Apply/OK.
+  const persist = (key: string, value: string) => stage(key, value);
+  /** Plays a sound at the draft levels; the engine stops the previous preview first. */
+  const preview = (key: string, master = volume / 100) => {
+    sound.preview(key as Parameters<typeof sound.preview>[0], { master, channel: channelVolumes[sound.channelFor(key)] });
   };
+  const stageChannels = (next: Record<Channel, boolean>) => { setChannels(next); persist('ggpoker.soundChannels', JSON.stringify(next)); };
+  const stageChannelVolume = (channel: Channel, value: number) => {
+    const next = withChannelVolume(channelVolumes, channel, value);
+    setChannelVolumes(next);
+    persist(CHANNEL_VOLUMES_KEY, JSON.stringify(next));
+  };
+  const stageHotkeyGroups = (next: HotkeyGroupSwitches) => { setHotkeyGroups(next); persist(HOTKEY_GROUPS_KEY, JSON.stringify(next)); };
   const saveBetting = (next: BetPrefs) => {
     setBetting(next);
     persist('ggpoker.betPrefs', JSON.stringify(next));
@@ -169,22 +246,18 @@ export function Settings() {
   };
 
   return (
-    <PageShell activeTop="poker" subnav={<SubNav items={[{ key: 'general', label: 'General' }, { key: 'sound', label: 'Sound' }, { key: 'table', label: 'Table & cards' }, { key: 'betting', label: 'Betting' }, { key: 'account', label: 'Account' }, { key: 'responsible', label: 'Responsible gaming' }]} active={tab} onChange={setTab} />}>
-      <div className="page">
-        <h1 className="page-title">Settings</h1>
-        <p className="page-sub">Preferences are stored locally and applied instantly</p>
-
+    <>
         {tab === 'general' && (
           <div className="grid g2">
             <div className="card">
               <div className="panel-title">Language</div>
-              <select className="admin-select" style={{ width: '100%' }} value={lang} onChange={(e) => { setLang(e.target.value); }}>
+              <select className="admin-select" style={{ width: '100%' }} value={shownLang} onChange={(e) => persist('ggpoker.language', e.target.value)}>
                 {languages.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
               </select>
               <div className="panel-title" style={{ marginTop: 18 }}>Animations</div>
               <label className="switch-row">
                 <span>Enable table & lobby animations</span>
-                <input type="checkbox" checked={animations} onChange={(e) => setAnimations(e.target.checked)} />
+                <input type="checkbox" checked={shownAnimations} onChange={(e) => persist('ggpoker.animations', e.target.checked ? '1' : '0')} />
               </label>
               <label className="switch-row">
                 <span>Run it twice when all-in</span>
@@ -239,24 +312,32 @@ export function Settings() {
           <div className="grid g2">
             <div className="card">
               <div className="panel-title">Sound</div>
-              <label className="switch-row"><span>Master sound</span><input type="checkbox" checked={soundOn} onChange={toggleSound} /></label>
+              <label className="switch-row"><span>Master sound</span><input type="checkbox" checked={shownSoundOn} onChange={(e) => persist('ggpoker.sound', e.target.checked ? '1' : '0')} /></label>
               <div className="admin-label">Master volume</div>
               <input type="range" min={0} max={100} value={volume} style={{ width: '100%' }}
-                onChange={(e) => { const v = Number(e.target.value); setVolume(v); sound.volume = v / 100; persist('ggpoker.volume', String(v)); sound.play('click'); }} />
+                onChange={(e) => { const v = Number(e.target.value); setVolume(v); persist('ggpoker.volume', String(v)); preview('click', v / 100); }} />
               <div className="between muted small"><span>0</span><span>{volume}%</span><span>100</span></div>
               <div className="panel-title" style={{ marginTop: 18 }}>Test sounds</div>
               <div className="row" style={{ flexWrap: 'wrap' }}>
                 {['deal', 'bet', 'raise', 'win', 'allin', 'coin', 'turn'].map((s) => (
-                  <button key={s} className="btn btn-ghost btn-sm" onClick={() => sound.play(s as any)}>{s}</button>
+                  <button key={s} className="btn btn-ghost btn-sm" onClick={() => preview(s)}>{s}</button>
                 ))}
               </div>
             </div>
             <div className="card">
               <div className="panel-title">Audio channels</div>
-              {([['sfx', 'Card & chip sounds'], ['voice', 'Action voices'], ['alerts', 'Notification alerts'], ['music', 'Lobby music'], ['ambience', 'Table ambience']] as const).map(([key, label]) => (
-                <label key={key} className="switch-row"><span>{label}</span><input type="checkbox" checked={channels[key]} onChange={(e) => { const on = e.target.checked; sound.setChannel(key, on); setChannels({ ...sound.channels }); }} /></label>
+              {SOUND_CHANNELS.map(([key, label]) => (
+                <div key={key} className="channel-row">
+                  <label className="switch-row"><span>{label}</span><input type="checkbox" checked={channels[key]} onChange={(e) => stageChannels({ ...channels, [key]: e.target.checked })} /></label>
+                  <div className="row channel-volume">
+                    <input type="range" min={0} max={100} aria-label={`${label} volume`} value={Math.round(channelVolumes[key] * 100)} disabled={!channels[key]}
+                      onChange={(e) => stageChannelVolume(key, Number(e.target.value) / 100)} />
+                    <span className="muted small">{Math.round(channelVolumes[key] * 100)}%</span>
+                    <button className="btn btn-ghost btn-sm" aria-label={`Preview ${label}`} onClick={() => preview(CHANNEL_PREVIEW[key])}>▶</button>
+                  </div>
+                </div>
               ))}
-              <p className="muted small">These are independent channels; master sound still overrides all of them.</p>
+              <p className="muted small">These are independent channels; master sound still overrides all of them. A preview stops the one before it.</p>
             </div>
           </div>
         )}
@@ -311,9 +392,11 @@ export function Settings() {
                 <label className="switch-row"><span>Chip shuffle effects</span><input type="checkbox" checked={chipShuffle} onChange={(e) => { setChipShuffle(e.target.checked); persist('ggpoker.chipShuffle', e.target.checked ? '1' : '0'); }} /></label>
                 <p className="muted small">Peel your hole cards with the mouse, the wheel or Open. Reconnects and hands already in progress skip the effect.</p>
                 <div className="admin-label" style={{ marginTop: 12 }}>Hotkey bindings</div>
-                {(['Table actions', 'Functions', 'Options'] as const).map((group) => (
+                {HOTKEY_GROUPS.map((group) => (
                   <div key={group} className="hotkey-group">
-                    <div className="muted small hotkey-group-title">{group}</div>
+                    <label className="switch-row hotkey-group-title"><span className="muted small">{group}</span>
+                      <input type="checkbox" aria-label={`${group} hotkeys`} checked={hotkeyGroups[group]} disabled={!hotkeys}
+                        onChange={(e) => stageHotkeyGroups({ ...hotkeyGroups, [group]: e.target.checked })} /></label>
                     {HOTKEY_ACTIONS.filter((a) => a.group === group).map((a) => (
                       <div key={a.id} className="kv">
                         <span>{a.label}</span>
@@ -325,7 +408,7 @@ export function Settings() {
                   </div>
                 ))}
                 {hotkeyNotice && <p className="muted small" role="status">{hotkeyNotice}</p>}
-                <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => { setHotkeyMap(DEFAULT_HOTKEYS); setHotkeyNotice(''); localStorage.removeItem(HOTKEYS_KEY); }}>Reset defaults</button>
+                <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => { setHotkeyMap(DEFAULT_HOTKEYS); setHotkeyNotice(''); stage(HOTKEYS_KEY, null); }}>Reset defaults</button>
                 <div className="admin-label" style={{ marginTop: 14 }}>Dealer animation speed</div>
                 <input type="range" min={1} max={5} value={dealSpeed} style={{ width: '100%' }}
                   onChange={(e) => { const v = Number(e.target.value); setDealSpeed(v); persist('ggpoker.dealSpeed', String(v)); }} />
@@ -479,7 +562,6 @@ export function Settings() {
             </div>
           </div>
         )}
-      </div>
-    </PageShell>
+    </>
   );
 }
