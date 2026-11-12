@@ -6,7 +6,7 @@ from another poker client.
 
 | Folder | Generator | Contents |
 |---|---|---|
-| `sounds/` | `sounds.mjs` | Synthesised effects, `say` voice lines, lobby music loop |
+| `sounds/` | `sounds.mjs` | Synthesised effects, voice lines in Dan's cloned voice (`voice/`), lobby music loop |
 | `cards/` | `cards.mjs` | Six face sheets (13×4 grid of 122×162 cells) and ten backs |
 | `squeeze/` | `squeeze.mjs` | Card-squeeze frames, inner sheets and JSON per format |
 | `table/`, `tables/`, `chips/`, `reserved/` | `table.mjs` | Felts, rooms, clock digits, dealer button, chips, chip-shuffle sheet, win animation |
