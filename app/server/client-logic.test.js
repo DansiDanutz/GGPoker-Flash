@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { betLimits, potFractionTarget, sizingPresets, potOdds } from '../src/game/betting.ts';
 import { betUnitOf, enterBetRequest, normalizeBettingOptions } from '../src/lib/tablePrefs.ts';
-import { potChipLayout, shuffleFramePosition } from '../src/game/potChips.ts';
+import { potChipLayout, shuffleFramePosition, shuffleScrubFrame } from '../src/game/potChips.ts';
 import { cardOrdinal, squeezeDragFrame, squeezeWheelFrame } from '../src/game/squeeze.ts';
 import { showdownComplete, showdownPlan } from '../src/game/showdown.ts';
 import { buildLabel } from '../src/lib/version.ts';
@@ -803,4 +803,12 @@ test('build labels expose the deploy time', () => {
   assert.equal(buildLabel('20261112121130'), '2026-11-12 12:11:30');
   assert.equal(buildLabel('202611121211'), '2026-11-12 12:11');
   assert.equal(buildLabel('dev'), 'dev');
+});
+
+test('the chip shuffle scrubs with the wheel inside its frame range', () => {
+  assert.equal(shuffleScrubFrame(37, 1), 43);
+  assert.equal(shuffleScrubFrame(37, -1), 37);
+  assert.equal(shuffleScrubFrame(245, 1), 245);
+  assert.equal(shuffleScrubFrame(143, 1), 149);
+  assert.equal(shuffleScrubFrame(60, 0), 60);
 });
