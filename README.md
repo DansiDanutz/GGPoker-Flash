@@ -173,8 +173,9 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
   client refuses to run a stale build (it clears caches and reloads, or blocks with an
   Update required screen). The version is shown in the login footer and the table menu.
 - **Welcome and login**: the Poker Lounge design with the lounge hero art on desktop and a
-  full-width mobile hero, account/password fields with show-hide, remember me, guest play,
-  language menu and terms/privacy dialogs.
+  full-width mobile hero, account/password fields with show-hide, remember me (saved
+  credentials), guest play, language menu and terms/privacy dialogs. Every fresh app open
+  starts at login, and pressing Log in verifies the build and updates before entering.
 - **Card Squeeze**: optional peel of your hole cards on a fresh deal, using the reference
   clone's native 61-frame compositor for Hold'em and PLO4/5/6 (wheel, hover, drag or Open;
   actions lock until revealed; reconnects skip it).
