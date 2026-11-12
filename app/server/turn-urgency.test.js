@@ -21,3 +21,16 @@ test('final five seconds: urgent only on the viewer\'s own seat', () => {
   assert.equal(turnUrgencyClass(5, false), '', 'opponents keep the normal glow');
   assert.equal(turnUrgencyClass(0, false), '');
 });
+
+import { TIME_BANK_SECONDS, timeBankOffered } from '../src/game/turnClock.ts';
+
+test('time bank is offered only in the final ten seconds of the viewer\'s own turn', () => {
+  // Native PlayerTimeBank3D: the button (and its hotkey) appear in the last 10 s.
+  assert.equal(TIME_BANK_SECONDS, 10);
+  assert.equal(timeBankOffered({ myTurn: true, secondsLeft: 10, used: false }), true);
+  assert.equal(timeBankOffered({ myTurn: true, secondsLeft: 0, used: false }), true);
+  assert.equal(timeBankOffered({ myTurn: true, secondsLeft: 11, used: false }), false);
+  assert.equal(timeBankOffered({ myTurn: false, secondsLeft: 3, used: false }), false);
+  assert.equal(timeBankOffered({ myTurn: true, secondsLeft: 3, used: true }), false, 'once per hand');
+  assert.equal(timeBankOffered({ myTurn: true, secondsLeft: null, used: false }), false);
+});

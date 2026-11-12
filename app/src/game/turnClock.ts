@@ -9,3 +9,10 @@ export function turnUrgencyClass(secondsLeft: number | null | undefined, isMe: b
   if (!isMe || secondsLeft == null || secondsLeft > URGENT_SECONDS) return '';
   return ' urgent';
 }
+
+/** Native PlayerTimeBank3D shows the Time bank button only in the final ten seconds. */
+export const TIME_BANK_SECONDS = 10;
+
+export function timeBankOffered(t: { myTurn: boolean; secondsLeft: number | null | undefined; used: boolean }): boolean {
+  return t.myTurn && !t.used && t.secondsLeft != null && t.secondsLeft <= TIME_BANK_SECONDS;
+}

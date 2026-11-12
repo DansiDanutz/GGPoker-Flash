@@ -12,7 +12,7 @@ import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/bett
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { showdownComplete, showdownPlan } from '../game/showdown';
-import { turnUrgencyClass } from '../game/turnClock';
+import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
 import { seatNick, isAllInStatus } from '../game/seatLabel';
 import { DEFAULT_NOTE_COLOR, noteColorHex, noteColorTitle, normalizeLabels } from '../lib/noteColors';
 import { NoteColorPicker } from '../components/NoteColorPicker';
@@ -561,6 +561,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => { if ((me?.stack || 0) > 0) setRebuyOffer(null); }, [me?.stack]);
   const myTurn = !!(state && me && state.actor === me.id);
   const tbUsed = (state?.timeBankUsed || []).includes(Number(me?.id));
+  const tbOfferedRef = useRef(false);
   const betCtx: BetContext = {
     pot: state?.pot || 0, currentBet: state?.currentBet || 0, minRaise: state?.minRaise || 0, bb: state?.bb || 0,
     myBet: me?.bet || 0, myStack: me?.stack || 0, maxRaiseTo: state?.maxRaiseTo || 0, street: state?.street || 'idle',
@@ -819,7 +820,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     setRaiseTo(betTarget(value, presetOpening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo, roundUnit));
   };
   hotkeyAnyTimeRef.current = {
-    timebank: () => { if (myTurn && !tbUsed) send({ type: 'timebank', seconds: timeBankSeconds }); },
+    timebank: () => { if (tbOfferedRef.current) send({ type: 'timebank', seconds: timeBankSeconds }); },
     sitout: () => { if (me) send({ type: 'sit_out', value: !(sittingOut || sitOutNext) }); },
     history: () => navigate('/hand-history'),
     toggleUnits: () => cycleStackMode(),
@@ -918,6 +919,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const serverNow = now + clockOffset.current;
   const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - serverNow) / (state.actionTimeMs || DEFAULT_ACTION_TIME_MS))) : 0;
   const clockSeconds = state?.actor ? Math.max(0, Math.ceil((state.actionEndsAt - serverNow) / 1000)) : null;
+  // Native: the Time bank button and hotkey exist only in the final ten seconds of your turn.
+  const tbOffered = timeBankOffered({ myTurn, secondsLeft: clockSeconds, used: tbUsed });
+  tbOfferedRef.current = tbOffered;
   const rebuyMax = Math.max(0, (state?.maxBuyin || 0) - (me?.stack || 0));
   const rebuyMin = Math.min(rebuyMax, Math.max(state?.bb || 0, (state?.minBuyin || 0) - (me?.stack || 0)));
   // A bust offer carries the exact allowed range, so the modal works before the next snapshot.
@@ -1304,7 +1308,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {state?.allInOrFold ? (
           <div className="action-row aof-row">
-            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!myTurn || tbUsed} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
+            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
             <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
             <button className="act-btn act-allin" disabled={!myTurn} onClick={() => act('allin')}>All-in{me?.stack ? ` ${chip(me.stack)}` : ''}</button>
             <div className="grow" />
@@ -1312,7 +1316,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         ) : (
         <div className="action-row">
-          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!myTurn || tbUsed} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
+          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (
             <button className="act-btn act-check" disabled={!myTurn || !!state?.allInOrFold} onClick={() => act('check')}>Check</button>
