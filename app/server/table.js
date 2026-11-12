@@ -321,7 +321,14 @@ export class PokerTable {
     if (this.holdStart) return;
     if (this.street !== 'idle' && this.street !== 'ended') return;
     if (this.nextHandAt && Date.now() < this.nextHandAt) return;
+    this.prepareDeal();
     if (this.readySeats().length >= 2) this.startHand();
+  }
+
+  /** Between hands, before who is dealt in is decided: pending top-ups and stack trims land. */
+  prepareDeal() {
+    if (!this.hooks.beforeDeal) return;
+    try { this.hooks.beforeDeal(this); } catch (e) { console.error('before deal hook', e); }
   }
 
   // Elimination formats deal sitting-out players in (they auto-fold) so nobody can stall a tournament.
@@ -524,6 +531,7 @@ export class PokerTable {
   }
 
   startHand() {
+    this.prepareDeal();
     this.timeBankUsed = new Set();
     // A deferred "sit out next hand" takes effect before this deal.
     for (const seat of this.seats) {
@@ -1592,7 +1600,8 @@ export class PokerTable {
    */
   openRebuyWindow(now = Date.now()) {
     if (this.tournament || this.spin) return false;
-    const busted = this.humans().filter((p) => p.stack <= 0 && !p.rebuyPrompted);
+    // Chips already pending for the next deal count as the reload.
+    const busted = this.humans().filter((p) => p.stack <= 0 && !p.rebuyPrompted && !(p.pendingTopUp > 0));
     if (!busted.length) return false;
     const until = now + REBUY_WINDOW_MS;
     this.rebuyHoldUntil = until;
@@ -1726,6 +1735,7 @@ export class PokerTable {
             }
           }
         }
+        this.prepareDeal();
         const alive = this.occupiedSeats().filter((s) => s.player && s.player.stack > 0);
         if (this.readySeats().length >= 2) this.startHand();
         else if (this.tournament && alive.length === 1 && this.handNo > 0) this.awardTournamentWinner();
@@ -1896,7 +1906,7 @@ export class PokerTable {
           sitOutNext: !!p.sitOutNextHand,
           timeBank: p.timeBank,
           timeBankCards: p.timeBankCards ?? 0,
-          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p), leaveAfterHand: !!p.leaveAfterHand, sitOutNextBigBlind: !!p.sitOutNextBigBlind, sitOutAll: !!p.sitOutAll } : {}),
+          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p), leaveAfterHand: !!p.leaveAfterHand, sitOutNextBigBlind: !!p.sitOutNextBigBlind, sitOutAll: !!p.sitOutAll, pendingTopUp: p.pendingTopUp || 0, autoReduceBB: p.autoReduceBB || 0 } : {}),
         };
       }),
       log: this.log.slice(-40),

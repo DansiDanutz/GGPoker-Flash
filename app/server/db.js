@@ -659,12 +659,12 @@ export function addTransaction(userId, kind, amount, memo, currency = 'USD') {
 
 export function openSessions() {
   return db.prepare(`SELECT t.user_id, t.session_id,
-      -SUM(CASE WHEN t.kind IN ('buyin','rebuy') THEN t.amount ELSE 0 END) AS chips_in
+      -SUM(CASE WHEN t.kind IN ('buyin','rebuy','chips_refund','remove_chips') THEN t.amount ELSE 0 END) AS chips_in
     FROM transactions t
     WHERE t.session_id IS NOT NULL
     GROUP BY t.user_id, t.session_id
     HAVING SUM(CASE WHEN t.reference LIKE 'out:%' OR t.reference LIKE 'refund:%' THEN 1 ELSE 0 END) = 0
-       AND -SUM(CASE WHEN t.kind IN ('buyin','rebuy') THEN t.amount ELSE 0 END) > 0`).all();
+       AND -SUM(CASE WHEN t.kind IN ('buyin','rebuy','chips_refund','remove_chips') THEN t.amount ELSE 0 END) > 0`).all();
 }
 
 export function refundOpenSessions(options = {}) {

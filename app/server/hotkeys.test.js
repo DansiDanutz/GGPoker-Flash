@@ -14,6 +14,8 @@ test('native defaults: F1-F4 and Ctrl+1..4 for the four amount presets', () => {
   assert.equal(DEFAULT_HOTKEYS.allin, 'F4');
   for (let i = 1; i <= 4; i++) assert.equal(DEFAULT_HOTKEYS[`preset${i}`], `Ctrl+${i}`);
   assert.equal(DEFAULT_HOTKEYS.timebank, '');
+  assert.equal(DEFAULT_HOTKEYS.addChips, '', 'Add Chips is a Function, unassigned by default (REA F14)');
+  assert.equal(HOTKEY_ACTIONS.find((a) => a.id === 'addChips')?.group, 'Functions');
   const groups = new Set(HOTKEY_ACTIONS.map((a) => a.group));
   assert.deepEqual([...groups], ['Table actions', 'Bet sizing', 'Functions', 'Options']);
 });

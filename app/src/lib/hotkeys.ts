@@ -5,7 +5,7 @@
 export type HotkeyAction =
   | 'fold' | 'check' | 'raise' | 'allin'
   | 'preset1' | 'preset2' | 'preset3' | 'preset4'
-  | 'timebank' | 'sitout' | 'history'
+  | 'timebank' | 'sitout' | 'history' | 'addChips'
   | 'toggleUnits' | 'showAll' | 'showLeft' | 'showRight';
 
 export type HotkeyGroup = 'Table actions' | 'Bet sizing' | 'Functions' | 'Options';
@@ -23,6 +23,7 @@ export const HOTKEY_ACTIONS: ReadonlyArray<{ id: HotkeyAction; label: string; gr
   { id: 'timebank', label: 'Time bank', group: 'Functions', key: '' },
   { id: 'sitout', label: 'Sit out next hand', group: 'Functions', key: '' },
   { id: 'history', label: 'Hand history', group: 'Functions', key: '' },
+  { id: 'addChips', label: 'Add chips', group: 'Functions', key: '' },
   { id: 'toggleUnits', label: 'Switch chip display', group: 'Options', key: '' },
   { id: 'showAll', label: 'Show all cards', group: 'Options', key: '' },
   { id: 'showLeft', label: 'Show left card', group: 'Options', key: '' },

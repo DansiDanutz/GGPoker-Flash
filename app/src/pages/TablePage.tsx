@@ -23,6 +23,7 @@ import { HOTKEYS_ENABLED_KEY, HOTKEYS_KEY, HOTKEY_PREF_KEYS, comboFromEvent, rea
 import { amountLabel, betInputUnit, fromInputValue, toInputValue } from '../lib/chipDisplay';
 import { usePref } from '../lib/usePref';
 import { saveSettings } from '../lib/settingsStore';
+import { addChipsLimits, autoReduceOptions, removeChipsLimits } from '../game/chipMoves';
 import { LOOK_KEY, ROOM_BGS, TABLE_THEMES, parseLookOverrides, resolveLook, withLookOverride, type LookOverride, type LookOverrides } from '../lib/tableLook';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { useWaitlist } from '../lib/waitlistState';
@@ -54,6 +55,8 @@ type PlayerState = {
   reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
   winAmount?: number; empty?: boolean; reserved?: boolean; mine?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
   leaveAfterHand?: boolean; sitOutNextBigBlind?: boolean; sitOutAll?: boolean;
+  /** Own seat only: chips paid for the next deal, and the auto-reduce target in BB (0 = off). */
+  pendingTopUp?: number; autoReduceBB?: number;
 };
 
 type TableState = {
@@ -129,7 +132,7 @@ function useNarrowScreen(maxWidth = 760) {
 }
 
 export function TablePage({ tableId }: { tableId: string }) {
-  const { user, navigate, toast, setOpeningTable } = useApp();
+  const { user, navigate, toast, setOpeningTable, refreshUser } = useApp();
   const [state, setState] = useState<TableState | null>(null);
   const [connected, setConnected] = useState(false);
   const [mySeat, setMySeat] = useState<number | null>(null);
@@ -180,6 +183,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   // Add Chips idempotency: a fresh key each time the dialog opens, reused by any resend.
   const rebuyKey = useRef('');
   useEffect(() => { if (rebuyOpen) rebuyKey.current = crypto.randomUUID(); }, [rebuyOpen]);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeAmount, setRemoveAmount] = useState(0);
   const [notes, setNotes] = useState<Record<string, { note: string; color: string }>>({});
   const [noteTarget, setNoteTarget] = useState<PlayerState | null>(null);
   const [playerProfile, setPlayerProfile] = useState<any>(null);
@@ -791,8 +796,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const doRebuy = () => {
-    // One key per dialog submission: a resent message cannot debit the wallet twice.
-    send({ type: 'rebuy', amount: rebuyAmount, idempotencyKey: rebuyKey.current || crypto.randomUUID() });
+    // One key per dialog submission plus the pending total it saw: a resent or stale
+    // message can neither debit the wallet twice nor stack a second pending top-up.
+    send({ type: 'rebuy', amount: rebuyAmount, idempotencyKey: rebuyKey.current || crypto.randomUUID(), basePending: me?.pendingTopUp || 0 });
     setRebuyOpen(false);
     setRebuyOffer(null);
     sound.play('coin');
@@ -935,6 +941,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     showAll: () => { if (canShowCards) showCards((me?.cards || []).map((_, i) => i)); },
     showLeft: () => { if (canShowCards) showCards(showCardIndices('showLeft', me?.cards?.length || 0)); },
     showRight: () => { if (canShowCards) showCards(showCardIndices('showRight', me?.cards?.length || 0)); },
+    addChips: () => openAddChips(),
   };
   useEffect(() => { setRabbit([]); setShowdownReveals({}); }, [state?.handNo]);
   useEffect(() => () => {
@@ -991,11 +998,11 @@ export function TablePage({ tableId }: { tableId: string }) {
     const max = state.maxBuyin || Math.max(min, state.bb * 100);
     const trigger = autoTopup ? max * Math.max(0, Math.min(100, topupTrigger)) / 100 : state.bb * 10;
     const target = autoTopup ? max * Math.max(0, Math.min(100, topupTarget)) / 100 : Math.max(min, state.bb * 20);
-    const amount = autoTopUpAmount({ stack: me.stack || 0, trigger, target, min, max });
+    const amount = autoTopUpAmount({ stack: (me.stack || 0) + (me.pendingTopUp || 0), trigger, target, min, max });
     if (amount > 0 && !autoRebuyPending.current) {
       autoRebuyPending.current = true;
       // One automatic top-up per hand: a resend for the same hand is the same request.
-      send({ type: 'rebuy', amount, idempotencyKey: `auto-${state.handNo ?? 0}-${amount}` });
+      send({ type: 'rebuy', amount, idempotencyKey: `auto-${state.handNo ?? 0}-${amount}`, basePending: me.pendingTopUp || 0 });
     }
   }, [autoRebuy, autoTopup, topupTrigger, topupTarget, me?.stack, me?.inHand, state?.street, state?.handNo, state?.minBuyin, state?.maxBuyin, state?.bb]);
 
@@ -1041,11 +1048,39 @@ export function TablePage({ tableId }: { tableId: string }) {
   // Native: the Time bank button and hotkey exist only in the final ten seconds of your turn.
   const tbOffered = timeBankOffered({ myTurn, secondsLeft: clockSeconds, used: tbUsed });
   tbOfferedRef.current = tbOffered;
-  const rebuyMax = Math.max(0, (state?.maxBuyin || 0) - (me?.stack || 0));
-  const rebuyMin = Math.min(rebuyMax, Math.max(state?.bb || 0, (state?.minBuyin || 0) - (me?.stack || 0)));
-  // A bust offer carries the exact allowed range, so the modal works before the next snapshot.
-  const rebuyFloor = rebuyOffer ? Math.max(0, rebuyOffer.min) : rebuyMin;
-  const rebuyCeil = rebuyOffer ? Math.max(rebuyFloor, rebuyOffer.max) : rebuyMax;
+  // Add Chips (REA F14): max = min(table max - stack - pending, wallet); min clamped to max, 0 allowed.
+  const myPending = me?.pendingTopUp || 0;
+  const chipsEditable = !!me && !state?.tournament && !state?.spin;
+  const addLimits = addChipsLimits({
+    stack: me?.stack || 0, pending: myPending, minBuyin: state?.minBuyin || 0, maxBuyin: state?.maxBuyin || 0, balance: user?.balance ?? 0,
+  });
+  const rebuyMax = addLimits.max;
+  const rebuyMin = addLimits.min;
+  // A bust offer only narrows the range; the wallet still caps it.
+  const rebuyFloor = rebuyOffer ? Math.min(rebuyMax, Math.max(rebuyMin, rebuyOffer.min)) : rebuyMin;
+  const rebuyCeil = rebuyOffer ? Math.max(rebuyFloor, Math.min(rebuyMax, rebuyOffer.max)) : rebuyMax;
+  const canAddChips = chipsEditable && (me?.stack || 0) + myPending < (state?.maxBuyin || 0);
+  // Remove Chips (REA F15): between hands only, down to the table minimum buy-in.
+  const meLive = !!me?.inHand && !me?.folded && state?.street !== 'ended' && state?.street !== 'idle';
+  const removeMax = removeChipsLimits({ stack: me?.stack || 0, minBuyin: state?.minBuyin || 0 }).max;
+  const canRemoveChips = chipsEditable && !meLive && myPending === 0 && removeMax > 0;
+  const reduceTargets = state ? autoReduceOptions({ minBuyin: state.minBuyin || 0, maxBuyin: state.maxBuyin || 0, bb: state.bb }) : [];
+  const openAddChips = () => {
+    if (!canAddChips) return;
+    void refreshUser();
+    setRebuyAmount(rebuyMin);
+    setRebuyOpen(true);
+  };
+  const openRemoveChips = () => {
+    if (!canRemoveChips) return;
+    setRemoveAmount(removeMax);
+    setRemoveOpen(true);
+  };
+  const doRemoveChips = () => {
+    const amount = Math.min(removeMax, Math.max(0, Math.floor(removeAmount)));
+    if (amount > 0) send({ type: 'remove_chips', amount, key: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}` });
+    setRemoveOpen(false);
+  };
   const myTurnNow = !!me?.isMe && state?.street !== 'ended';
   useEffect(() => {
     if (!state || !myTurnNow) { timerWarnRef.current = ''; return; }
@@ -1118,7 +1153,8 @@ export function TablePage({ tableId }: { tableId: string }) {
             </>
           )}
           <button disabled={!me} aria-pressed={!!me?.sitOutAll} title="Sit out next hand at every table you are seated at" onClick={() => send({ type: 'sit_out_all', value: !me?.sitOutAll })}>{me?.sitOutAll ? '✓ ' : ''}Sit out at all tables</button>
-          <button disabled={!me || rebuyMax <= 0 || !!state?.tournament || !!state?.spin} onClick={() => { setRebuyAmount(rebuyMin); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
+          <button disabled={!canAddChips} onClick={() => { openAddChips(); setMenuOpen(false); }}>Add chips</button>
+          <button disabled={!canRemoveChips} title={canRemoveChips ? '' : 'Remove chips above the table minimum between hands'} onClick={() => { openRemoveChips(); setMenuOpen(false); }}>Remove chips</button>
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button disabled={!canRabbit} title={canRabbit ? '' : 'Rabbit hunt is available after a hand ends with an incomplete board'} onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
           <button onClick={() => setFxEffect('chip_shuffle')}>FX preview</button>
@@ -1326,6 +1362,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               </div>
               <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
                 {isAllInStatus(p) ? 'All-In' : stackLabel(p.stack)}
+                {p.isMe && (p.pendingTopUp || 0) > 0 ? <span className="seat-pending" style={{ color: '#ffd98a', fontSize: '0.85em' }}> +{stackLabel(p.pendingTopUp)} pending</span> : null}
                 {narrowScreen && (p.bet || 0) > 0 ? <span className="seat-bet-inline"> · {amt(p.bet).replace(/\.00$/, '')}</span> : null}
               </div>
             </div>
@@ -1451,7 +1488,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         {me && !state?.tournament && !state?.spin && (me.stack || 0) <= 0 && !me.inHand && (state?.street === 'ended' || state?.street === 'idle' || !!rebuyOffer) && (
           <div className="action-row" style={{ justifyContent: 'center', gap: 10 }}>
             <span style={{ color: '#ffd98a', fontSize: 13 }}>You are out of chips.</span>
-            <button className="btn btn-gold btn-sm" onClick={() => { if (rebuyOffer && rebuyOffer.until <= now) setRebuyOffer(null); setRebuyAmount(rebuyMin); setRebuyOpen(true); }}>Reload {chip(rebuyMin)}</button>
+            <button className="btn btn-gold btn-sm" onClick={() => { if (rebuyOffer && rebuyOffer.until <= now) setRebuyOffer(null); openAddChips(); }}>Reload {chip(rebuyMin)}</button>
           </div>
         )}
         {sittingOut && (
@@ -1607,7 +1644,9 @@ export function TablePage({ tableId }: { tableId: string }) {
           {hotkeyHints && <span>·</span>}
           <span>Hand #{state?.handNo ?? 0}</span>
           <span>·</span>
-          <span>{me ? `Your stack ${stackLabel(me.stack)}` : ''}</span>
+          <span>{me ? `Your stack ${stackLabel(me.stack)}${myPending > 0 ? ` (+${stackLabel(myPending)} next hand)` : ''}` : ''}</span>
+          {canAddChips && <button className="btn btn-gold btn-sm" title={hotkeyMap.addChips ? `Add chips (${hotkeyMap.addChips})` : 'Add chips'} onClick={openAddChips}>Add Chips</button>}
+          {canRemoveChips && <button className="btn btn-dark btn-sm" onClick={openRemoveChips}>Remove Chips</button>}
         </div>
       </div>
       )}
@@ -1727,9 +1766,10 @@ export function TablePage({ tableId }: { tableId: string }) {
       {rebuyOpen && (
         <div className="modal-backdrop" onClick={() => { setRebuyOpen(false); setRebuyOffer(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head"><h3>{rebuyOffer ? 'Reload' : 'Rebuy'}</h3></div>
+            <div className="modal-head"><h3>{rebuyOffer ? 'Reload' : 'Add Chips'}</h3></div>
             <div className="modal-body">
-              <p className="muted small">Add chips between hands, up to the table maximum of {chip(state?.maxBuyin)}. Your stack is {chip(me?.stack)}.</p>
+              <p className="muted small">Amount to add, up to the table maximum of {chip(state?.maxBuyin)}. Your stack is {chip(me?.stack)}{myPending > 0 ? `, with ${chip(myPending)} already pending` : ''}; your balance is {chip(user?.balance ?? 0)}.</p>
+              {(meLive || myPending > 0) && <p className="muted small" style={{ color: '#ffd98a' }}>You are in a hand: the chips are paid now and join your stack at the next deal. Leaving first refunds them.</p>}
               {rebuyOffer && (now < rebuyOffer.until
                 ? <p className="muted small" style={{ color: '#ffd98a' }}>{Math.max(1, Math.ceil((rebuyOffer.until - now) / 1000))}s to reload before the next hand is dealt.</p>
                 : <p className="muted small" style={{ color: '#ffd98a' }}>The next hand is dealing without you — reload to join the following one.</p>)}
@@ -1744,7 +1784,41 @@ export function TablePage({ tableId }: { tableId: string }) {
             </div>
             <div className="modal-foot">
               <button className="btn btn-dark" onClick={() => { setRebuyOpen(false); setRebuyOffer(null); }}>Cancel</button>
-              <button className="btn btn-red" disabled={rebuyAmount <= 0 || rebuyAmount > rebuyCeil} onClick={doRebuy}>Add chips</button>
+              {myPending > 0 && <button className="btn btn-dark" onClick={() => { send({ type: 'cancel_topup' }); setRebuyOpen(false); }}>Cancel pending</button>}
+              <button className="btn btn-red" disabled={rebuyAmount <= 0 || rebuyAmount > rebuyCeil || rebuyAmount < rebuyFloor} onClick={doRebuy}>{rebuyAmount <= 0 ? 'Nothing to add' : 'Add chips'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {removeOpen && (
+        <div className="modal-backdrop" onClick={() => setRemoveOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Remove Chips</h3></div>
+            <div className="modal-body">
+              <div className="between"><span className="muted small">Current chips</span><b>{chip(me?.stack)}</b></div>
+              <p className="muted small">Chips above the table minimum of {chip(state?.minBuyin)} go back to your balance between hands.</p>
+              <input type="range" aria-label="Chips to remove" min={0} max={removeMax} step={Math.max(chipStep, state?.bb || chipStep)}
+                value={Math.min(removeMax, removeAmount)}
+                onChange={(e) => setRemoveAmount(Math.min(removeMax, Math.max(0, Number(e.target.value))))} style={{ width: '100%' }} />
+              <div className="between" style={{ marginTop: 8 }}>
+                <span className="muted small">{chip(0)}</span>
+                <b style={{ color: '#ffd98a' }}>{chip(Math.min(removeMax, removeAmount))}</b>
+                <span className="muted small">{chip(removeMax)}</span>
+              </div>
+              {reduceTargets.length > 0 && (
+                <label className="between" style={{ marginTop: 12 }}>
+                  <span className="muted small">Always reduce my stack to</span>
+                  <select aria-label="Always reduce my stack to" value={me?.autoReduceBB || 0}
+                    onChange={(e) => send({ type: 'option', autoReduceBB: Number(e.target.value) || null })}>
+                    <option value={0}>Off</option>
+                    {reduceTargets.map((n) => <option key={n} value={n}>{n} BB</option>)}
+                  </select>
+                </label>
+              )}
+            </div>
+            <div className="modal-foot">
+              <button className="btn btn-dark" onClick={() => setRemoveOpen(false)}>Cancel</button>
+              <button className="btn btn-red" disabled={removeAmount <= 0 || removeAmount > removeMax} onClick={doRemoveChips}>Remove chips</button>
             </div>
           </div>
         </div>
