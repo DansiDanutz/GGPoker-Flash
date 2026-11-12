@@ -2145,6 +2145,17 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { hud: TABLE_STATS.hud(m[1], nick) });
       }
     }
+    // ---------- seat VPIP badges (native PlayerCell number; public table information) ----------
+    {
+      const m = /^\/api\/tables\/([\w-]{1,64})\/vpip$/.exec(p);
+      if (m && req.method === 'GET') {
+        const u = requireUser(req, res); if (!u) return;
+        const live = LIVE_TABLES.get(m[1]);
+        if (!live) return json(res, 404, { error: 'table not found' });
+        const nicks = live.table.occupiedSeats().map((s) => s.player.nick).filter(Boolean);
+        return json(res, 200, { vpip: TABLE_STATS.vpips(m[1], nicks) });
+      }
+    }
     // ---------- player notes ----------
     if (p === '/api/notes' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;

@@ -100,3 +100,23 @@ test('playerHud: unknown player gives an empty HUD; window is bounded', () => {
   assert.deepEqual(playerHud([], 'v'), { hands: 0, vpip: 0, pfr: 0, wins: 0, recent: [] });
   assert.ok(HUD_WINDOW >= 20 && HUD_WINDOW <= 200);
 });
+
+import { seatVpips } from './table-stats.js';
+
+// Native seat badge: the number beside each avatar is the player's VPIP % at this table
+// (live captures: 38 -> 60 for a straddling hero, 100 for a player who entered every pot).
+test('seatVpips: VPIP for every requested nick in one pass, 0 without hands', () => {
+  const rows = [
+    row(2, 100, [{ nick: 'v', cards: ['8h', '7d'] }, { nick: 'h', cards: ['Ac', 'Ad'] }],
+      [{ nick: 'h', action: 'raise', street: 'preflop' }, { nick: 'v', action: 'call', street: 'preflop' }]),
+    row(1, 30, [{ nick: 'v', cards: ['9h', '4d'] }, { nick: 'h', cards: ['Kc', 'Qd'] }],
+      [{ nick: 'v', action: 'fold', street: 'preflop' }, { nick: 'h', action: 'check', street: 'preflop' }]),
+  ];
+  assert.deepEqual({ ...seatVpips(rows, ['v', 'h', 'new']) }, { v: 50, h: 50, new: 0 });
+});
+
+test('seatVpips: a __proto__ nick is kept as a plain own key', () => {
+  const out = seatVpips([], ['__proto__']);
+  assert.equal(Object.hasOwn(out, '__proto__'), true);
+  assert.equal(JSON.parse(JSON.stringify(out)).__proto__, 0);
+});
