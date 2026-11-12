@@ -6,6 +6,19 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Showdown sequencing and native reserved actions (ported from the Codex clone)
+- Showdowns now present like the clone: revealed hands turn in **seat order over about two
+  seconds**, then the win badge, chip flights and win sound follow instead of appearing at
+  once. The plan is a pure `showdownPlan`/`showdownComplete` helper, and the reveal uses the
+  clone's flip timing.
+- Anticipatory **Fold / Check-Fold / Check / Call** are now the native reserved-action
+  buttons, using the recovered background, box, hover, selected and check sprites with the
+  same pressed/checked states. They remain one-shot and cancel when the call price changes.
+  AOF-specific reserved sprites and the native clock/bet-widget artwork remain open.
+- Tests: the reveal plan ordering, completion and empty cases. A headless browser run
+  verifies the reserved buttons and catches the staggered showdown reveal. Full suite
+  155/155.
+
 ### Chip Shuffle and native pot denominations (ported from the Codex clone)
 - **Shuffle chips** is in the table menu. It plays the clone's native 16×16 chip-shuffle
   sprite (frames 37–245) over the pot with the Up/Combine sounds, auto-stops, and is

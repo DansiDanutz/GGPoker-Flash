@@ -11,6 +11,7 @@ import { bestHand, describeHole } from '../game/eval';
 import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/betting';
 import { potChipLayout, shuffleFramePosition, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
+import { showdownComplete, showdownPlan } from '../game/showdown';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -157,6 +158,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [now, setNow] = useState(Date.now());
   const [chipShuffleOn] = useState(() => localStorage.getItem('ggpoker.chipShuffle') !== '0');
   const [chipShuffle, setChipShuffle] = useState<{ frame: number; key: number } | null>(null);
+  const [showdownReveals, setShowdownReveals] = useState<Record<number, number>>({});
   const chipShuffleTimer = useRef<number | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -340,22 +342,33 @@ export function TablePage({ tableId }: { tableId: string }) {
     } else if (evt.type === 'win') {
       setAllInFx(false);
       const s = stateRef.current;
+      // Showdowns turn the cards in seat order before the badge and pot move.
+      const isShowdown = evt.reason === 'showdown';
+      const revealSeats = isShowdown ? (evt.hands || []).map((h: any) => h.seat) : [];
+      const plan = isShowdown ? showdownPlan(revealSeats) : [];
+      const fxAt = isShowdown ? showdownComplete(revealSeats) : 0;
+      if (plan.length) {
+        setShowdownReveals(Object.fromEntries(plan.map((r) => [r.seat, r.at])));
+        window.setTimeout(() => setShowdownReveals({}), fxAt + 700);
+      }
       for (const w of evt.winners || []) {
         const pl = s?.players.find((x) => x.id === w.id);
         if (pl) {
           const pos = seatPosOf(pl.seat);
-          setTimeout(() => flyChips([50, 45], pos, 7), 220);
-          setTimeout(() => pushStack(pos), 160);
+          window.setTimeout(() => flyChips([50, 45], pos, 7), fxAt + 220);
+          window.setTimeout(() => pushStack(pos), fxAt + 160);
         }
       }
-      sound.play('win', { volume: .9 });
-      setTimeout(() => sound.play('gather', { volume: .6 }), 450);
+      window.setTimeout(() => sound.play('win', { volume: .9 }), fxAt);
+      window.setTimeout(() => sound.play('gather', { volume: .6 }), fxAt + 450);
       const heroId = stateRef.current?.players.find((p) => p.isMe)?.id;
       const mine = (evt.winners || []).filter((x: any) => x.id === heroId);
       if (mine.length) {
         const total = mine.reduce((a: number, x: any) => a + (x.amount || 0), 0);
-        setWinFx({ id: fxId.current++, amount: total, nick: mine[0].nick });
-        window.setTimeout(() => setWinFx(null), 2600);
+        window.setTimeout(() => {
+          setWinFx({ id: fxId.current++, amount: total, nick: mine[0].nick });
+          window.setTimeout(() => setWinFx(null), 2600);
+        }, fxAt);
       }
       if (Array.isArray(evt.cards)) sound.play('show', { volume: .5 });
     } else if (evt.type === 'insurance_bought') {
@@ -660,7 +673,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     send({ type: 'show_cards', cards: indices });
     setShowPick([]);
   };
-  useEffect(() => { setShowPick([]); setRabbit([]); }, [state?.handNo]);
+  useEffect(() => { setShowPick([]); setRabbit([]); setShowdownReveals({}); }, [state?.handNo]);
   useEffect(() => () => { if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current); }, []);
 
   // Card squeeze: skip the hand already in progress when the page connects,
@@ -936,7 +949,10 @@ export function TablePage({ tableId }: { tableId: string }) {
           >
             {p.winAmount ? <div className="win-amount">+{chip(p.winAmount)}</div> : null}
             {isActor && !p.folded ? <div className="timer" style={{ animationDuration: '1.4s' }} /> : null}
-            {!(p.isMe && squeezing) && <div className="cards">
+            {!(p.isMe && squeezing) && <div
+              className={'cards' + (showdownReveals[p.seat] != null && p.reveal ? ' showdown-reveal' : '')}
+              style={{ '--reveal-delay': `${showdownReveals[p.seat] || 0}ms` } as React.CSSProperties}
+            >
               {(p.cards || []).map((c, i) => {
                 const [px, py] = seatPosOf(p.seat!);
                 const pickable = p.isMe && canShowCards && c !== '??';
@@ -1096,11 +1112,27 @@ export function TablePage({ tableId }: { tableId: string }) {
             <button className="btn btn-gold" onClick={() => send({ type: 'sit_out', value: false })}>I'm back</button>
           </div>
         )}
-        {canPreAct && (
-          <div className="action-row preaction-row" role="group" aria-label="Queue an action for your turn">
-            <label><input type="checkbox" checked={preAction?.kind === 'checkfold'} onChange={(e) => setPreAction(e.target.checked ? { kind: 'checkfold' } : null)} /> {toCall > 0 ? 'Fold' : 'Check / Fold'}</label>
-            {toCall === 0 && <label><input type="checkbox" checked={preAction?.kind === 'check'} onChange={(e) => setPreAction(e.target.checked ? { kind: 'check' } : null)} /> Check</label>}
-            {toCall > 0 && <label><input type="checkbox" checked={preAction?.kind === 'call'} onChange={(e) => setPreAction(e.target.checked ? { kind: 'call', amount: toCall } : null)} /> Call {chip(toCall)}</label>}
+        {canPreAct && !squeezing && (
+          <div className="reserved-actions" role="group" aria-label="Actions on your next turn">
+            <button
+              type="button"
+              aria-pressed={preAction?.kind === 'checkfold'}
+              onClick={() => setPreAction(preAction?.kind === 'checkfold' ? null : { kind: 'checkfold' })}
+            ><span className="reserve-text">{toCall > 0 ? 'Fold' : 'Check/Fold'}</span></button>
+            {toCall === 0 && (
+              <button
+                type="button"
+                aria-pressed={preAction?.kind === 'check'}
+                onClick={() => setPreAction(preAction?.kind === 'check' ? null : { kind: 'check' })}
+              ><span className="reserve-text">Check</span></button>
+            )}
+            {toCall > 0 && (
+              <button
+                type="button"
+                aria-pressed={preAction?.kind === 'call' && preAction.amount === toCall}
+                onClick={() => setPreAction(preAction?.kind === 'call' && preAction.amount === toCall ? null : { kind: 'call', amount: toCall })}
+              ><span className="reserve-text">Call {chip(toCall)}</span></button>
+            )}
           </div>
         )}
         <div className="action-row">

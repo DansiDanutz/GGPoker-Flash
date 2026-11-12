@@ -5,6 +5,7 @@ import { betLimits, potFractionTarget, sizingPresets, potOdds } from '../src/gam
 import { betUnitOf, enterBetRequest, normalizeBettingOptions } from '../src/lib/tablePrefs.ts';
 import { potChipLayout, shuffleFramePosition } from '../src/game/potChips.ts';
 import { cardOrdinal, squeezeDragFrame, squeezeWheelFrame } from '../src/game/squeeze.ts';
+import { showdownComplete, showdownPlan } from '../src/game/showdown.ts';
 import { bestHand } from '../src/game/eval.ts';
 
 const ctx = (over = {}) => ({
@@ -108,4 +109,15 @@ test('card squeeze frames follow the native wheel and drag curves', () => {
   assert.equal(squeezeDragFrame(0, 400, 0), 60, 'a 400px drag fully opens');
   assert.ok(squeezeDragFrame(0, 100, 0) > 0 && squeezeDragFrame(0, 100, 0) < 60);
   assert.equal(squeezeDragFrame(50, 10, 0), 50, 'dragging back never re-closes the peel');
+});
+
+test('showdown reveals run in seat order and finish before the badge', () => {
+  assert.deepEqual(showdownPlan([5, 1, 3]), [
+    { seat: 1, at: 1067 },
+    { seat: 3, at: 1733 },
+    { seat: 5, at: 2400 },
+  ]);
+  assert.equal(showdownComplete([5, 1, 3]), 2700);
+  assert.deepEqual(showdownPlan([]), []);
+  assert.equal(showdownComplete([]), 0);
 });
