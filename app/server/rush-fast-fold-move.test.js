@@ -42,6 +42,8 @@ function world(tables) {
   return { pool, wallet, saved, sent };
 }
 
+const player = (t, id) => t.seatOf(id).player;
+
 /** H on the button of a 4-handed hand at `from`: bots B (SB), C (BB), D (first to act). */
 function handWithHero(from) {
   from.sit({ id: 'H', nick: 'H', timeBankCards: 2, timeBankHands: 5 }, 0, 1000);
@@ -93,6 +95,20 @@ test('the old table finishes the hand without the folder; their blind stays in t
   assert.equal(row.folded, true);
   assert.equal(row.totalBet, 5);
   assert.equal(row.cards.length, 2);
+});
+
+test('a fast folder who reserved "leave after this hand" is not re-seated or queued', () => {
+  const from = rushTable('r1');
+  const to = rushTable('r2');
+  handWithHero(from);
+  const { pool, sent } = world([from, to]);
+  player(from, 'H').leaveAfterHand = true;
+  from.quickFold('H');
+  assert.equal(pool.foldOut(from, 'H'), 'leave', 'the caller cashes them out instead');
+  assert.equal(to.seatOf('H'), undefined);
+  assert.deepEqual(pool.waitingList(), []);
+  assert.deepEqual(sent, []);
+  assert.equal(player(from, 'H').rushQueued, false, 'the end-of-hand move skips them too');
 });
 
 test('a departed fast folder still counts as a participant of the hand they were dealt (rewards)', () => {

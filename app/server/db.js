@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { migrateIdentity } from './identity-migrations.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = process.env.GGPOKER_DATA || path.join(__dirname, 'data');
@@ -342,6 +343,7 @@ function init() {
   db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)');
   // Lobby AvgPot/VPIP/H-hr read the newest hands per table (table-stats.js).
   db.exec('CREATE INDEX IF NOT EXISTS idx_hands_table ON hands(table_id, id)');
+  migrateIdentity(db);
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
   ensurePloVariants();

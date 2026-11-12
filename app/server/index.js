@@ -15,18 +15,26 @@ import { makeDeck, shuffle, cardStr } from './poker.js';
 import {
   resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
 } from './security.js';
-import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey, isRushGame, ACTION_SECONDS } from './validate.js';
-import { handForViewer } from './hand-history.js';
+import { toInt, cleanNick, cleanGrantReason, GRANT_REASON, parseTableConfig, parseTableId, parseGroupKey, isRushGame, ACTION_SECONDS } from './validate.js';
+import { createHandHistoryStore } from './hand-history-store.js';
 import { spinSlots } from './slots.js';
 import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
+import { ensureWaitlistTable, loadWaitlist, saveWaitlist } from './waitlist-store.js';
+import { botFillCount, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, waitingFor } from './bot-seats.js';
+import { staleHandError } from './action-version.js';
 import { waitingForTable } from './sitOut.js';
+import { RESERVATION_KINDS, pendingLeaves, sitOutEverywhere } from './reservations.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createTableStats } from './table-stats.js';
 import { createDailyLeaderboard, leaderboardStake, pointEarners } from './dailyLeaderboard.js';
 import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
+import { createPlayerNotes } from './player-notes.js';
+import { occupancyOf } from './lobby-occupancy.js';
+import { checkDeposit, depositedToday, depositLimits, rebuyReference } from './play-money.js';
+import { loadTimeBank, saveTimeBank } from './time-bank-store.js';
 import { spinInfo } from './spin.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
@@ -178,7 +186,6 @@ const TOURNAMENT_SCHEDULER_MS = Math.max(50, Number(process.env.GGPOKER_TOURNEY_
 const WAITLIST_HOLD_MS = Number(process.env.GGPOKER_WAITLIST_HOLD_MS || waitlist.HOLD_MS);
 const WAITLIST_SWEEP_MS = 1000;
 const HAND_HISTORY_LIMIT = 60;
-const HAND_HISTORY_SCAN = 400;
 const MAX_BET = 1_000_000;
 const MIN_BET = 10;
 // Sic Bo total bets, stake included. A flat 12x on every middle total paid out more than it took in.
@@ -278,23 +285,10 @@ function serveFile(res, file) {
 /* lobby data                                                          */
 /* ------------------------------------------------------------------ */
 
-const TABLE_OCCUPANCY = new Map();
-
 function hashStr(str) {
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
   return Math.abs(h);
-}
-
-function occupancyFor(t) {
-  if (!TABLE_OCCUPANCY.has(t.id)) {
-    const h = hashStr(t.id + t.name);
-    let players = 1 + (h % t.seats);
-    if (h % 5 === 0) players = t.seats;
-    if (t.game === 'spingold') players = 1 + (h % 2);
-    TABLE_OCCUPANCY.set(t.id, { players });
-  }
-  return TABLE_OCCUPANCY.get(t.id);
 }
 
 function lobbyMissions(user) {
@@ -312,15 +306,15 @@ function lobbyTables(userId = null) {
   // Battle Royale is capture-gated (B0): never listed for join, even if a row is re-enabled.
   const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND game != ? AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(BATTLE_ROYALE_GAME, userId);
   return rows.map((t) => {
-    const occ = occupancyFor(t);
-    const players = occ.players;
+    // Real seats from the live table (bots included, and reported as `bots`); 0 when not running.
+    const { players, bots, seated } = occupancyOf(LIVE_TABLES.get(t.id)?.table);
     const stats = TABLE_STATS(t.id);
     return {
       id: t.id, name: t.name, game: t.game, category: t.category,
       sb: t.sb, bb: t.bb, ante: t.ante, min_buyin: t.min_buyin, max_buyin: t.max_buyin,
       seats: t.seats, speed: t.speed, featured: !!t.featured,
       private: !!t.private, owner_id: t.owner_id || null,
-      players,
+      players, bots, seated,
       // Real queue length and the caller's 1-based position (0 = not queued), from waitlist.js.
       wait: waitlist.queueSize(waitState, waitlist.tableQueue(t.id)),
       myWait: userId ? waitlist.position(waitState, userId, waitlist.tableQueue(t.id)) : 0,
@@ -345,9 +339,12 @@ function sitesStats() {
 
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
 const chatStore = createChatStore(db);
+const handHistory = createHandHistoryStore(db);
 const chatService = createChatService({ db, getEntry: (id) => LIVE_TABLES.get(id), store: chatStore });
 const TOURNAMENT_ROOMS = new Map(); // tournamentId -> TournamentRoom (multi-table flights)
-let waitState = waitlist.createWaitlist(); // pure wait-list model state (see waitlist.js)
+ensureWaitlistTable(db);
+// Pure wait-list model state (see waitlist.js), restored from SQLite so queues survive a restart.
+let waitState = loadWaitlist(db);
 let waitSince = Object.freeze({}); // `queueKey|userId` -> join time, for the admin monitor
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
@@ -383,6 +380,7 @@ function setWaitlist(next) {
   const before = waitState;
   const touched = new Set([...before.offers, ...next.offers].map((o) => o.tableId));
   waitState = next;
+  try { saveWaitlist(db, next); } catch (err) { console.error('waitlist save', err); }
   waitSince = adminWaitlist.trackJoinTimes(waitSince, before, next, Date.now());
   for (const tableId of touched) {
     const table = LIVE_TABLES.get(tableId)?.table;
@@ -557,6 +555,25 @@ const DAILY_LEADERBOARD = createDailyLeaderboard(db, {
     addTransactionEx(userId, 'daily_leaderboard', amount, memo, 'USD', { reference, onDuplicate: 'skip' }),
 });
 const PLAYER_LABELS = createPlayerLabels(db);
+// The seated player behind a nick: the given live table first, then any live table.
+function findSeatedByNick(nick, tableId = null) {
+  const entries = tableId && LIVE_TABLES.has(tableId) ? [LIVE_TABLES.get(tableId), ...LIVE_TABLES.values()] : LIVE_TABLES.values();
+  for (const entry of entries) {
+    const seat = entry.table.occupiedSeats().find((s) => s.player.nick === nick);
+    if (seat) return seat.player;
+  }
+  return null;
+}
+const PLAYER_NOTES = createPlayerNotes(db, { findSeated: findSeatedByNick });
+// HUD subject: an explicit id, else the player seated at this table under that nick, else
+// the account currently holding it; a nick with no account (an old bot) stays a nick.
+function hudIdentity(tableId, { id, nick }) {
+  if (id) return { id, nick };
+  const seat = LIVE_TABLES.get(tableId)?.table.occupiedSeats().find((s) => s.player.nick === nick);
+  if (seat) return { id: seat.player.id, nick };
+  const account = /^u:(\d+)$/.exec(PLAYER_NOTES.resolveKey({ target: nick }) || '');
+  return account ? { id: Number(account[1]), nick } : nick;
+}
 
 /** `/api/lobby` `rushPools`: one row per Rush pool, with the pool's group wait-list queue. */
 function lobbyRushPools(tables) {
@@ -737,7 +754,9 @@ function getLiveTable(id) {
       // mission progress for humans who were dealt in
       moveRushPlayers(table);
       for (const s of table.seats) {
-        if (!s.player || s.player.isBot || !s.player.inHand) continue;
+        if (!s.player || s.player.isBot) continue;
+        saveTimeBank(db, table, s.player);
+        if (!s.player.inHand) continue;
         bumpMission(s.player.id, 'daily-hands');
         if (winner && winner.id === s.player.id) bumpMission(s.player.id, 'daily-win');
         if (table.board.length >= 3) bumpMission(s.player.id, 'daily-flop');
@@ -754,10 +773,12 @@ function getLiveTable(id) {
     try {
       // A lapsed Take Seat reservation frees its seat for the wait list.
       if (table.expireReservations()) notifyWaitlist(id);
+      releaseSeatsToWaitlist(table);
       table.tick();
       if (Date.now() - entry.lastBroadcast > 450) broadcastState(table);
       sweepDisconnected(entry);
       sweepExpiredSitOuts(entry);
+      sweepReservedLeaves(entry);
       if (entry.clients.size === 0) {
         if (!entry.emptySince) entry.emptySince = Date.now();
         else if (Date.now() - entry.emptySince > Math.max(45000, DISCONNECT_GRACE_MS)) {
@@ -774,7 +795,21 @@ function getLiveTable(id) {
   LIVE_TABLES.set(id, entry);
   // Re-apply any seat holds an earlier instance of this table left on the wait list.
   table.setHolds(holdsFor(id));
+  // Players still queued (e.g. restored after a restart) get the free seats before anyone else.
+  notifyWaitlist(id);
   return table;
+}
+
+/**
+ * Between hands, a bot stands up for each human queued at this table, and any free seat
+ * is offered to the queue. Group queues are served by offerSeat's fallback instead, so one
+ * group player does not make a bot leave every table of the group.
+ */
+function releaseSeatsToWaitlist(table) {
+  const queued = waitlist.queueSize(waitState, waitlist.tableQueue(table.cfg.id));
+  if (!queued) return;
+  const released = releaseBotsForWaiting(table, queued);
+  if (released || table.offerableSeats().length) notifyWaitlist(table.cfg.id);
 }
 
 // Thin delegates: the pool logic lives in rush-pool.js.
@@ -834,7 +869,7 @@ function seatHuman(table, user, buyin, seatIndex = null) {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
   });
   const res = table.sit({
-    id: user.id, nick: user.nick, avatar: user.avatar, timeBankCards: user.timeBankCards, timeBankHands: user.timeBankHands,
+    id: user.id, nick: user.nick, avatar: user.avatar, ...loadTimeBank(table, user),
   }, wantedSeat, stack, sessionId);
   if (!res.ok) {
     addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
@@ -847,22 +882,31 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   return res;
 }
 
-// Bots only fill empty chairs: a human always takes priority over one. A seat held for a
+// Bots only fill empty chairs: a human always takes priority over one (see bot-seats.js).
+// A bot still holding live cards keeps its seat until the hand ends. A seat held for a
 // wait-listed player counts as free only for that player.
 function makeRoomForHuman(table, wantedSeat, userId) {
   const target = wantedSeat != null ? table.seats[wantedSeat] : null;
   if (target && !target.player) return true;
-  if (target && target.player && !target.player.isBot) return !!table.freeSeatFor(userId) || evictBot(table);
-  if (target && target.player && target.player.isBot) { table.stand(target.player.id); return true; }
+  if (target?.player?.isBot && !holdsLiveCards(table, target)) { table.stand(target.player.id); return true; }
   if (table.freeSeatFor(userId)) return true;
   return evictBot(table);
 }
 
 function evictBot(table) {
-  const bots = table.occupiedSeats().filter((s) => s.player.isBot);
-  if (!bots.length) return false;
-  const idle = bots.find((s) => !table.handInProgress() || !s.player.inHand || s.player.folded);
-  table.stand((idle || bots[0]).player.id);
+  const seat = evictableBotSeat(table);
+  if (!seat) return false;
+  table.stand(seat.player.id);
+  return true;
+}
+
+// Tournament flights keep their earlier rule: a seat is always made for a registered entrant,
+// taking an idle bot first and otherwise any bot (tournament bots hold no wallet chips).
+function evictTournamentBot(table) {
+  if (evictBot(table)) return true;
+  const bot = table.occupiedSeats().find((s) => s.player.isBot);
+  if (!bot) return false;
+  table.stand(bot.player.id);
   return true;
 }
 
@@ -871,6 +915,7 @@ function cashOutSeat(table, userId, reason, opts = {}) {
   const seat = table.seatOf(userId);
   if (!seat || !seat.player) return;
   const sessionId = seat.player.sessionId;
+  saveTimeBank(db, table, seat.player);
   if (table.spinStarted()) {
     // Spin chips are not cash: leaving takes the lowest open place (paid by onSpinPayout),
     // and this close is skipped when that payout already closed the session.
@@ -915,6 +960,19 @@ function sweepExpiredSitOuts(entry) {
     cashOutSeat(table, id, `Sit-out time expired at ${table.cfg.name}`);
     notifyWaitlist(table.cfg.id);
   }
+}
+
+/** "Leave table after this hand": cash the seat out once its hand is over. */
+function sweepReservedLeaves(entry) {
+  const table = entry.table;
+  for (const id of pendingLeaves(table)) leaveAfterHandNow(table, id);
+}
+
+// opts.forfeit: a Rush fast folder whose folded hand is still running leaves it at once.
+function leaveAfterHandNow(table, id, opts = {}) {
+  table.emit({ type: 'left_after_hand', playerId: id });
+  cashOutSeat(table, id, `Left ${table.cfg.name} after the hand`, opts);
+  notifyWaitlist(table.cfg.id);
 }
 
 function sweepDisconnected(entry) {
@@ -1035,7 +1093,7 @@ function makeTournamentRoom(t) {
         const table = LIVE_TABLES.get(id)?.table;
         if (table) broadcastState(table);
       },
-      evictBot: (table) => evictBot(table),
+      evictBot: (table) => evictTournamentBot(table),
       notifyPlayer: (userId, payload) => {
         for (const client of wss.clients) {
           if (client.readyState === 1 && client.userId === Number(userId)) client.send(JSON.stringify(payload));
@@ -1202,13 +1260,16 @@ const server = http.createServer(async (req, res) => {
       if (!nick) return json(res, 400, { error: 'Nickname must be 2-20 letters, digits, spaces, dots, dashes or underscores' });
       if (String(body.password || '').length < 6) return json(res, 400, { error: 'Password must be at least 6 characters' });
       if (identityTaken(login) || identityTaken(nick)) return json(res, 400, { error: 'That account ID or nickname is already taken' });
-      const start = getSetting('default_balance', 5000) + getSetting('welcome_bonus', 100000);
+      const welcome = getSetting('welcome_bonus', 100000);
+      const start = getSetting('default_balance', 5000) + welcome;
       db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
         .run(login, nick, hashPassword(String(body.password)), String(body.email || '').slice(0, 120), 0, 5);
       const created = db.prepare('SELECT id FROM users WHERE login = ?').get(login);
       // The account starts at zero and the ledger entry carries the whole opening balance,
       // so the balance and the ledger agree (it used to be credited twice).
       addTransaction(created.id, 'welcome', start, 'Welcome bonus');
+      // The opening credit is the welcome bonus: record the claim so the Cashier cannot pay it again.
+      db.prepare("INSERT OR IGNORE INTO bonus_claims (user_id,claim_key,amount) VALUES (?,'welcome',?)").run(created.id, welcome);
       // Count only accounts actually created, so typos in the form do not use up the allowance.
       if (clientKey) registerLimiter.record(clientKey);
       const user = db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
@@ -1547,7 +1608,8 @@ const server = http.createServer(async (req, res) => {
         { id: 'reload', title: 'Weekly reload', subtitle: 'Once per week', amount: 50000, claimed: claimed.has(weekKey) },
         { id: 'daily', title: 'Daily freebie', subtitle: 'Once per day', amount: 1000, claimed: claimed.has(`daily:${day}`) },
       ];
-      return json(res, 200, { user: publicUser(u), transactions: tx, bonuses });
+      const depositLimitInfo = { ...depositLimits(getSetting), today: depositedToday(db, u.id) };
+      return json(res, 200, { user: publicUser(u), transactions: tx, bonuses, depositLimits: depositLimitInfo });
     }
 
     if (p === '/api/cashier/bonus' && req.method === 'POST') {
@@ -1588,6 +1650,9 @@ const server = http.createServer(async (req, res) => {
         if (existing.amount !== amount) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
         return json(res, 200, { ok: true, balance: u.balance, replayed: true });
       }
+      // Play money is free, so minting is capped per request and per UTC day.
+      const limit = checkDeposit({ amount, ...depositLimits(getSetting), today: depositedToday(db, u.id) });
+      if (!limit.ok) return json(res, limit.status, { error: limit.error });
       const award = addTransactionEx(u.id, 'deposit', amount, String(body.method || 'Instant bank transfer').slice(0, 60), 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
       return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
     }
@@ -1611,9 +1676,15 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/hands') {
       const u = requireUser(req, res); if (!u) return;
       // Only hands the player sat in, and only the cards they were entitled to see.
-      const rows = db.prepare('SELECT * FROM hands ORDER BY id DESC LIMIT ?').all(HAND_HISTORY_SCAN);
-      const hands = rows.map((h) => handForViewer(h, u.id)).filter(Boolean).slice(0, HAND_HISTORY_LIMIT);
-      return json(res, 200, { hands });
+      return json(res, 200, { hands: handHistory.listForPlayer(u.id, HAND_HISTORY_LIMIT) });
+    }
+    const hiddenMatch = p.match(/^\/api\/hands\/(\d+)\/hidden$/);
+    if (hiddenMatch && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const body = await readBody(req);
+      if (typeof body.hidden !== 'boolean') return json(res, 400, { error: 'hidden must be true or false' });
+      if (!handHistory.setHidden(u.id, Number(hiddenMatch[1]), body.hidden)) return json(res, 404, { error: 'Hand not found' });
+      return json(res, 200, { ok: true, hidden: body.hidden });
     }
 
     // ---------- missions / rewards ----------
@@ -2207,9 +2278,10 @@ const server = http.createServer(async (req, res) => {
       if (m && req.method === 'GET') {
         const u = requireUser(req, res); if (!u) return;
         const nick = String(url.searchParams.get('nick') || '').slice(0, 40);
-        if (!nick) return json(res, 400, { error: 'missing nick' });
+        const id = String(url.searchParams.get('id') || '').slice(0, 64);
+        if (!nick && !id) return json(res, 400, { error: 'missing nick' });
         if (!db.prepare('SELECT 1 FROM tables WHERE id = ?').get(m[1])) return json(res, 404, { error: 'table not found' });
-        return json(res, 200, { hud: TABLE_STATS.hud(m[1], nick) });
+        return json(res, 200, { hud: TABLE_STATS.hud(m[1], hudIdentity(m[1], { id, nick })) });
       }
     }
     // ---------- seat VPIP badges (native PlayerCell number; public table information) ----------
@@ -2219,8 +2291,8 @@ const server = http.createServer(async (req, res) => {
         const u = requireUser(req, res); if (!u) return;
         const live = LIVE_TABLES.get(m[1]);
         if (!live) return json(res, 404, { error: 'table not found' });
-        const nicks = live.table.occupiedSeats().map((s) => s.player.nick).filter(Boolean);
-        return json(res, 200, { vpip: TABLE_STATS.vpips(m[1], nicks) });
+        const seated = live.table.occupiedSeats().filter((s) => s.player.nick).map((s) => ({ id: s.player.id, nick: s.player.nick }));
+        return json(res, 200, { vpip: TABLE_STATS.vpips(m[1], seated) });
       }
     }
     // ---------- table Daily Leaderboard ribbon (native "{0} Daily Leaderboard", Total Prize, My Points) ----------
@@ -2238,9 +2310,7 @@ const server = http.createServer(async (req, res) => {
     // ---------- player notes ----------
     if (p === '/api/notes' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
-      const rows = db.prepare('SELECT target, note, color, updated_at FROM player_notes WHERE user_id = ?').all(u.id)
-        .map((r) => ({ ...r, color: normalizeNoteColor(r.color) || 'c9' }));
-      return json(res, 200, { notes: rows, labels: PLAYER_LABELS.get(u.id) });
+      return json(res, 200, { notes: PLAYER_NOTES.list(u.id), labels: PLAYER_LABELS.get(u.id) });
     }
     if (p === '/api/notes/labels' && req.method === 'PUT') {
       const u = requireUser(req, res); if (!u) return;
@@ -2251,16 +2321,12 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/notes' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const b = await readBody(req);
-      const target = String(b.target || '').slice(0, 40);
-      const note = String(b.note || '').slice(0, 1000);
-      if (!target) return json(res, 400, { error: 'missing target' });
       const color = normalizeNoteColor(b.color);
       if (!color) return json(res, 400, { error: 'unknown note colour' });
-      if (!note.trim()) { db.prepare('DELETE FROM player_notes WHERE user_id = ? AND target = ?').run(u.id, target); return json(res, 200, { ok: true, deleted: true }); }
-      db.prepare(`INSERT INTO player_notes (user_id,target,note,color) VALUES (?,?,?,?)
-        ON CONFLICT(user_id,target) DO UPDATE SET note=excluded.note, color=excluded.color, updated_at=datetime('now')`)
-        .run(u.id, target, note, color);
-      return json(res, 200, { ok: true });
+      // Stored by account id; a bare nick is resolved to the seated player server-side.
+      const saved = PLAYER_NOTES.save(u.id, { key: b.key, targetId: b.targetId, target: b.target, tableId: b.tableId }, b.note, color);
+      if (!saved.ok) return json(res, 400, { error: saved.error });
+      return json(res, 200, saved);
     }
 
     // ---------- chat ----------
@@ -2533,6 +2599,8 @@ const server = http.createServer(async (req, res) => {
       if (body.action === 'credit') {
         const amount = toInt(body.amount, { min: -1e12, max: 1e12 });
         if (amount === null || amount === 0) return json(res, 400, { error: 'Enter a whole, non-zero amount' });
+        const reason = cleanGrantReason(body.reason);
+        if (!reason) return json(res, 400, { error: `Give a reason of ${GRANT_REASON.min}-${GRANT_REASON.max} characters` });
         if (target.balance + amount < 0) return json(res, 400, { error: 'Debit exceeds the balance' });
         // The client may supply an idempotency key; without one the credit is simply applied once.
         const reference = body.reference ? `admin:credit:${body.reference}` : null;
@@ -2544,8 +2612,8 @@ const server = http.createServer(async (req, res) => {
             return json(res, 200, { ok: true, balance: current, replayed: true });
           }
         }
-        const award = addTransactionEx(id, 'admin', amount, `Admin credit by ${a.login}`, 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
-        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'credit', `user ${id} ${body.amount}`);
+        const award = addTransactionEx(id, 'admin', amount, `Admin credit by ${a.login}: ${reason}`, 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'credit', `user ${id} ${amount}: ${reason}`);
         return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
       }
       if (body.action === 'set') {
@@ -2899,7 +2967,7 @@ wss.on('connection', (ws, req) => {
           return ws.send(JSON.stringify({ type: 'error', error: 'Tables are closed for maintenance' }));
         }
         const held = heldSeatFor(msg.tableId, u.id);
-        const hasRoom = held || table.occupiedSeats().some((s) => s.player.isBot) || table.freeSeatFor(u.id);
+        const hasRoom = held || evictableBotSeat(table) || table.freeSeatFor(u.id);
         if (!hasRoom) {
           const queued = waitlistJoin(msg.tableId, u.id);
           if (queued.status !== 'queued') {
@@ -2922,9 +2990,10 @@ wss.on('connection', (ws, req) => {
         if (held) setWaitlist(held.state);
         waitlistLeave(msg.tableId, u.id);
       }
-      // fill part of the table with bots, always leaving the choice of seats to humans
-      const botsNeeded = Math.max(0, table.cfg.seats - table.occupiedSeats().length);
-      if (!table.tournament) table.fillBots(Math.min(botsNeeded, Math.max(3, Math.ceil(table.cfg.seats / 2))));
+      // Fill part of the table with bots, always leaving the choice of seats to humans; no
+      // bot sits down while anyone is waiting for this table or its group.
+      const bots = botFillCount(table, waitingFor(waitState, table.cfg));
+      if (bots) table.fillBots(bots);
       entry.clients.add(ws);
       ws.tables.add(msg.tableId);
       table.maybeStart();
@@ -2947,6 +3016,10 @@ wss.on('connection', (ws, req) => {
       if (msg.autoMuck != null) entry.table.setAutoMuck(ws.userId, !!msg.autoMuck);
       if (msg.autoStraddle != null) entry.table.setAutoStraddle(ws.userId, !!msg.autoStraddle);
       if (msg.waitForBlinds != null) entry.table.setWaitForBlinds(ws.userId, !!msg.waitForBlinds);
+      for (const kind of RESERVATION_KINDS.filter((k) => msg[k] != null)) {
+        const res = entry.table.setReservation(ws.userId, kind, !!msg[kind]);
+        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      }
       if (msg.insurance != null) {
         const res = entry.table.setInsurance(ws.userId, !!msg.insurance);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
@@ -2988,13 +3061,15 @@ wss.on('connection', (ws, req) => {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
       const table = entry.table;
+      const stale = staleHandError(table, msg);
+      if (stale) return ws.send(JSON.stringify({ type: 'error', error: stale, stale: true, handNo: table.handNo }));
       // `quickfold` (Rush Fast Fold) is the one action valid before the player's turn.
       const isQuickFold = msg.action === 'quickfold';
       const res = isQuickFold ? table.quickFold(ws.userId) : table.act(ws.userId, msg.action, msg.amount);
       if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       else if (table.rush && (isQuickFold || msg.action === 'fold')) {
         // Instant re-seat: leave the running hand now for a new table of the pool.
-        RUSH_POOL.foldOut(table, ws.userId);
+        if (RUSH_POOL.foldOut(table, ws.userId) === 'leave') leaveAfterHandNow(table, ws.userId, { forfeit: true });
         broadcastState(table);
       }
       return;
@@ -3018,10 +3093,11 @@ wss.on('connection', (ws, req) => {
       if (!seat.player.sessionId) seat.player.sessionId = `${table.cfg.id}:${randomUUID()}`;
       const sessionId = seat.player.sessionId;
       const rebuyNo = (seat.player.rebuyCount || 0) + 1;
+      // A client key (one per Add Chips submission) makes a retried message a no-op replay.
       const award = addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
-        sessionId, reference: `in:${sessionId}:r${rebuyNo}`, onDuplicate: 'skip',
+        sessionId, reference: rebuyReference(sessionId, rebuyNo, msg.idempotencyKey), onDuplicate: 'skip',
       });
-      if (!award.applied) return ws.send(JSON.stringify({ type: 'error', error: 'Rebuy already applied' }));
+      if (!award.applied) return broadcastState(table);
       seat.player.rebuyCount = rebuyNo;
       seat.player.stack += amount;
       // Reloading clears the bust prompt; the deal can resume sooner.
@@ -3038,6 +3114,14 @@ wss.on('connection', (ws, req) => {
       const res = entry.table.requestSitOut(ws.userId, !!msg.value);
       if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
       broadcastState(entry.table);
+      return;
+    }
+    if (msg.type === 'sit_out_all') {
+      const tables = [...LIVE_TABLES.values()].map((e) => e.table);
+      const res = sitOutEverywhere(tables, ws.userId, !!msg.value);
+      if (!res.tables && !res.errors.length) return ws.send(JSON.stringify({ type: 'error', error: 'Take a seat first' }));
+      if (res.errors.length) ws.send(JSON.stringify({ type: 'error', error: res.errors[0] }));
+      for (const t of tables) if (t.seatOf(ws.userId)) broadcastState(t);
       return;
     }
     if (msg.type === 'shuffle') {

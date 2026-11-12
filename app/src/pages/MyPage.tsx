@@ -349,7 +349,7 @@ export function MyPage() {
             </div>
             <div className="grid g2">
               {notes.map((n) => (
-                <div key={n.target} className="card">
+                <div key={n.key ?? n.target} className="card">
                   <div className="between">
                     <div className="row"><span title={noteColorTitle(n.color, noteLabels)} style={{ width: 10, height: 10, borderRadius: '50%', background: noteColorHex(n.color), display: 'inline-block' }} /><b style={{ color: '#eee' }}>{n.target}</b></div>
                     <span className="muted small">{n.updated_at?.slice(0, 16)}</span>
@@ -358,8 +358,8 @@ export function MyPage() {
                   <div className="row">
                     <button className="btn btn-ghost btn-sm" onClick={() => setNoteEdit({ ...n })}>Edit</button>
                     <button className="btn btn-ghost btn-sm" onClick={async () => {
-                      await fetch('/api/notes', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ target: n.target, note: '' }) });
-                      setNotes((prev) => prev.filter((x) => x.target !== n.target));
+                      await fetch('/api/notes', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ key: n.key, target: n.target, note: '' }) });
+                      setNotes((prev) => prev.filter((x) => (x.key ?? x.target) !== (n.key ?? n.target)));
                     }}>Delete</button>
                   </div>
                 </div>
@@ -383,7 +383,7 @@ export function MyPage() {
                   <div className="modal-foot">
                     <button className="btn btn-dark" onClick={() => setNoteEdit(null)}>Cancel</button>
                     <button className="btn btn-red" disabled={!noteEdit.target?.trim() || !noteEdit.note?.trim()} onClick={async () => {
-                      await fetch('/api/notes', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ target: noteEdit.target, note: noteEdit.note, color: noteEdit.color }) });
+                      await fetch('/api/notes', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ key: noteEdit.key, target: noteEdit.target, note: noteEdit.note, color: noteEdit.color }) });
                       const r = await fetch('/api/notes', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((x) => x.json());
                       setNotes(r.notes || []); setNoteEdit(null);
                     }}>Save</button>

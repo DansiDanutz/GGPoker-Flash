@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, getToken, setToken, User } from './api';
 import { sound } from './sound';
+import { subscribePrefs } from './prefsSync';
+import { restoreAccountSettings } from './settingsStore';
 import { completeInstall, installPending, isPhone, isStandalone, markInstallPending, skipInstall, subscribeInstall } from './install';
 
 type Toast = {
@@ -132,6 +134,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     for (let attempt = 0; attempt < Math.max(1, attempts); attempt++) {
       try {
         const res = await api.me();
+        restoreAccountSettings(res.settings);
         setUser(res.user);
         setAuthOffline(false);
         return;
@@ -303,6 +306,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('ggpoker.guest');
     setGuest(false);
     setUser(res.user);
+    // The account's saved settings follow the player to this device (newer copy wins).
+    api.me().then((me) => restoreAccountSettings(me.settings))
+      .catch((error) => console.warn('Could not load account settings', error));
     navigate('/');
   }, [navigate]);
 
@@ -332,6 +338,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAuthOffline(false);
     navigate('/');
   }, [navigate]);
+
+  // Settings applied in another window, or restored from the account, update this one live.
+  useEffect(() => subscribePrefs(['ggpoker.sound', 'ggpoker.animations'], () => {
+    setSoundOn(sound.enabled);
+    setAnimations(localStorage.getItem('ggpoker.animations') !== '0');
+  }), []);
 
   const toggleSound = useCallback(() => {
     const next = !sound.enabled;

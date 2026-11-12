@@ -3,6 +3,7 @@ import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
 import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
 import { badBeatPayout } from './badBeat.js';
 import { activeReservations, reserve, withoutPlayer } from './seatReserve.js';
+import { RESERVATION_KINDS, applyBigBlindSitOuts } from './reservations.js';
 import { TB_CARD_SECONDS, TB_START_CARDS, canSpendCard, refillAfterHand } from './timeBankCards.js';
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
@@ -11,6 +12,7 @@ import { randomInt } from 'node:crypto';
 import { payoutFor, payoutTable } from './tournament.js';
 import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
 import { ACTION_SECONDS, isRushGame, parseActionSeconds } from './validate.js';
+import { clampTournamentLevel, tournamentLevelBlinds } from './tournament-blinds.js';
 
 const BOT_NAMES = [
   'SpewySally', 'NitWizard', 'CallStation', 'RiverRat', 'TiltLord', 'GTOBOT', 'BluffKing',
@@ -101,15 +103,14 @@ export class PokerTable {
     if (this.tournament) {
       // Every flight of a multi-table event shares one tournament descriptor,
       // so blinds and the level clock stay in step across tables.
-      this.tournament.level = Math.max(1, Number(this.tournament.level) || 1);
+      this.tournament.level = clampTournamentLevel(this.tournament.level);
       this.tournament.baseSb = Number(this.tournament.baseSb) || Number(cfg.sb);
       this.tournament.baseBb = Number(this.tournament.baseBb) || Number(cfg.bb);
+      // The first flight records the base ante; antes then rise with the blinds.
+      this.tournament.baseAnte = Number(this.tournament.baseAnte ?? cfg.ante) || 0;
       this.tournament.levelStartedAt = Number(this.tournament.levelStartedAt) || this.levelStartedAt;
       this.appliedLevel = this.tournament.level;
-      const level = this.tournament.level - 1;
-      this.sb = Math.round(this.tournament.baseSb * 1.5 ** level);
-      this.bb = Math.round(this.tournament.baseBb * 1.5 ** level);
-      this.minRaise = this.bb;
+      this.setTournamentBlinds(this.tournament.level);
       this.levelStartedAt = this.tournament.levelStartedAt;
     }
     this.elimination = this.spin || !!this.tournament;
@@ -235,6 +236,9 @@ export class PokerTable {
       won: 0,
       autoMuck: true,
       sitOutNextHand: false,
+      leaveAfterHand: false,
+      sitOutNextBigBlind: false,
+      sitOutAll: false,
       insurance: false,
       sessionId,
     };
@@ -525,7 +529,10 @@ export class PokerTable {
     for (const seat of this.seats) {
       const p = seat.player;
       if (p?.sitOutNextHand) { p.sittingOut = true; p.sitOutNextHand = false; }
+      // A reserved leave is cashed out by the server sweep; never deal the seat in meanwhile.
+      if (p?.leaveAfterHand) p.sittingOut = true;
     }
+    applyBigBlindSitOuts(this);
     const ready = this.readySeats();
     if (this.spin && this.handNo > 0 && ready.length === 1) { this.awardSpinWinner(); return; }
     if (this.tournament && this.handNo > 0 && ready.length === 1) { this.awardTournamentWinner(); return; }
@@ -621,8 +628,9 @@ export class PokerTable {
         if (s.player.stack === 0) s.player.allIn = true;
       }
     }
-    this.postBlind(sbSeat, this.sb, 'SB');
-    this.postBlind(bbSeat, this.bb, 'BB');
+    // Chips a short-stacked blind could not post. Preflop pot-limit sizing counts them as if
+    // the full blinds were in (TDA 2026 rule 56); the pot that is paid out never does.
+    this.blindShortfall = this.postBlind(sbSeat, this.sb, 'SB') + this.postBlind(bbSeat, this.bb, 'BB');
     this.sbSeat = sbSeat ? sbSeat.index : -1;
     this.bbSeat = bbSeat ? bbSeat.index : -1;
     this.postMissedBlinds(inHand, sbSeat, bbSeat);
@@ -751,13 +759,15 @@ export class PokerTable {
     }
   }
 
+  /** Posts a blind and returns how many chips of it the player was short. */
   postBlind(seat, amount, label) {
-    if (!seat || !seat.player) return;
+    if (!seat || !seat.player) return 0;
     const p = seat.player;
     const amt = Math.min(amount, p.stack);
     this.commit(p, amt);
     p.lastAction = { action: label, amount: amt };
     if (p.stack === 0) p.allIn = true;
+    return Math.max(0, amount - amt);
   }
 
   commit(player, amount) {
@@ -833,6 +843,7 @@ export class PokerTable {
       }
       p.sittingOut = false;
       p.sitOutNextHand = false;
+      p.sitOutAll = false;
       this.maybeStart();
       return { ok: true };
     }
@@ -867,6 +878,16 @@ export class PokerTable {
       .map((s) => s.player)
       .filter((p) => p && p.sittingOut && p.kickOutAt && now >= p.kickOutAt && !(this.handInProgress() && p.inHand && !p.folded))
       .map((p) => p.id);
+  }
+
+  /** Arm or cancel a seat reservation (reservations.js); cash tables only. */
+  setReservation(userId, kind, value) {
+    const p = this.seatOf(userId)?.player;
+    if (!p) return { ok: false, error: 'Take a seat first' };
+    if (!RESERVATION_KINDS.includes(kind)) return { ok: false, error: 'Unknown reservation' };
+    if (this.tournament || this.spin) return { ok: false, error: 'Not available in this game' };
+    p[kind] = !!value;
+    return { ok: true };
   }
 
   setAutoStraddle(userId, value) {
@@ -975,8 +996,10 @@ export class PokerTable {
   /* ------------------------------ actions ------------------------------ */
 
   // Largest legal raise-to in a pot-limit game: the bet to call plus the pot after calling.
+  // Preflop, a short blind is sized as if it had been posted in full.
   potLimitMax(player) {
-    const potAfterCall = this.pot + this.totalBets() + this.toCall(player);
+    const nominal = this.street === 'preflop' ? this.blindShortfall || 0 : 0;
+    const potAfterCall = this.pot + this.totalBets() + nominal + this.toCall(player);
     return Math.min(player.bet + player.stack, this.currentBet + potAfterCall);
   }
 
@@ -1603,17 +1626,26 @@ export class PokerTable {
   /** Recompute this flight's blinds when the shared tournament level moved. */
   applyTournamentLevel() {
     if (!this.tournament) return;
-    const level = Math.max(1, Number(this.tournament.level) || 1);
+    const level = clampTournamentLevel(this.tournament.level);
     if (this.appliedLevel === level) return;
     this.appliedLevel = level;
-    const baseSb = Number(this.tournament.baseSb) || this.sb;
-    const baseBb = Number(this.tournament.baseBb) || this.bb;
-    this.sb = Math.round(baseSb * 1.5 ** (level - 1));
-    this.bb = Math.round(baseBb * 1.5 ** (level - 1));
-    this.minRaise = this.bb;
+    this.setTournamentBlinds(level);
     this.levelStartedAt = Number(this.tournament.levelStartedAt) || this.levelStartedAt;
     const nextBlindAt = this.levelStartedAt + Number(this.tournament.blindEvery || 0) * 60000;
-    this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb, level, nextBlindAt });
+    this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb, ante: this.ante, level, nextBlindAt });
+  }
+
+  /** Blinds and ante for a tournament level; the bomb-pot ante rule never applies to events. */
+  setTournamentBlinds(level) {
+    const { sb, bb, ante } = tournamentLevelBlinds({
+      baseSb: Number(this.tournament.baseSb) || this.sb,
+      baseBb: Number(this.tournament.baseBb) || this.bb,
+      baseAnte: this.tournament.baseAnte,
+    }, level);
+    this.sb = sb;
+    this.bb = bb;
+    this.ante = ante;
+    this.minRaise = bb;
   }
 
   tick(now = Date.now()) {
@@ -1625,7 +1657,7 @@ export class PokerTable {
       const startedAt = Number(this.tournament.levelStartedAt) || this.levelStartedAt;
       if (interval > 0 && now - startedAt >= interval) {
         const levels = Math.floor((now - startedAt) / interval);
-        this.tournament.level = (Number(this.tournament.level) || 1) + levels;
+        this.tournament.level = clampTournamentLevel((Number(this.tournament.level) || 1) + levels);
         this.tournament.levelStartedAt = startedAt + levels * interval;
       }
       this.applyTournamentLevel();
@@ -1864,7 +1896,7 @@ export class PokerTable {
           sitOutNext: !!p.sitOutNextHand,
           timeBank: p.timeBank,
           timeBankCards: p.timeBankCards ?? 0,
-          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p) } : {}),
+          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p), leaveAfterHand: !!p.leaveAfterHand, sitOutNextBigBlind: !!p.sitOutNextBigBlind, sitOutAll: !!p.sitOutAll } : {}),
         };
       }),
       log: this.log.slice(-40),

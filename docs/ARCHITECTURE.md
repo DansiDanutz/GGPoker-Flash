@@ -53,6 +53,9 @@ Other players ────────────┘                       │
 | `admin-platform.js` | Read-only platform report: process, sockets, live tables, tournament rooms, database/disk size (used by the admin Platform section) |
 | `tournament-state.js` | Durable room snapshot save/load/delete and the settled-hand guard; the persistence boundary for the future room-owner service |
 | `tournament-room-owner.js` | Owns the live room map and lifecycle (create, restart restore, snapshot scheduling, sweeps, dispose); server-specific table/DB/socket work is injected |
+| `bot-seats.js` | Humans-before-bots rules: which bot may give up its seat, bot fill size, bots standing up between hands for queued humans |
+| `waitlist-store.js` | Saves the wait-list queues to SQLite and restores them on boot (offers return to the head of their queue) |
+| `action-version.js` | Refuses an `action` stamped with a hand number other than the current hand |
 
 ## Request flow
 
@@ -80,7 +83,7 @@ can hold several tables). Client → server message types:
 | Type | Purpose |
 |---|---|
 | `join_table` | Take or observe a seat (`observe: true` is read-only: no seat, no bots, no hand start) |
-| `action` | `fold`, `check`, `call`, `raise` (to amount), `allin` |
+| `action` | `fold`, `check`, `call`, `raise` (to amount), `allin`; optional `handNo` (see below) |
 | `sit_out` | Leave the hand rotation and return |
 | `rebuy` | Add chips between hands |
 | `timebank` | Spend the once-per-hand time bank |
@@ -96,6 +99,25 @@ deadline, result) plus event frames that drive sounds, animations and overlays, 
 player reveals hole cards. Player snapshots carry a public `shown` index list, so a partial
 reveal renders one real card and one face-down slot. Every
 state change is pushed; the client never guesses outcomes.
+
+**Action versioning.** The client stamps each `action` with the `handNo` of the state it
+was showing. When that number is not the table's current hand, the server answers
+`{ type: 'error', stale: true, handNo, error }` and applies nothing, so a late click cannot
+land on the next hand (`action-version.js`). An `action` without `handNo` is still accepted,
+which keeps older clients working.
+
+**Bots are labelled and yield to humans** (`bot-seats.js`). Every player snapshot carries
+`isBot`, and the table shows a **BOT** badge on the seat plate. On cash tables:
+
+- a human may take an empty seat, or the seat of a bot that holds no live cards (not dealt
+  in, folded, or between hands), at once;
+- a bot still holding live cards is never removed mid-hand: the human joins the table's wait
+  list instead, and between hands one bot stands up per queued human, so the freed seat is
+  offered to the head of the queue (a held seat no bot can take);
+- no bot sits down while anyone waits for the table or its group queue.
+
+Tournament flights keep their own rule (an entrant always gets a seat, taking any bot), and
+Spin tables never release bots for the wait list.
 
 ## Multi-table tournaments
 
@@ -265,7 +287,8 @@ SQLite in WAL mode (`node:sqlite`). Main tables:
 - **Accounts** — `users`, `sessions`, `user_settings`, `verifications`, `player_notes`,
   `friends`, `friend_requests`, `reports`, `table_mutes`, `notification_reads`.
 - **Game** — `tables`, `hands`, `tournaments`, `tourney_regs`, `tourney_state` (restart
-  snapshots of running tournament rooms), `elo_ratings`, `elo_history`.
+  snapshots of running tournament rooms), `waitlist_state` (the cash wait-list queues, one
+  JSON row), `elo_ratings`, `elo_history`.
 - **Economy** — `transactions` (ledger), `bonus_claims`, `daily_claims`, `player_claims`,
   `missions`.
 - **Content** — `banners`, `brand_assets`, `chat_messages`, `direct_messages`, `settings`,
@@ -285,6 +308,25 @@ pots are raked; tournament and Spin & Gold pots are not. Play money has no cash 
 - All-in or Fold is shove-or-fold, with no post-flop decisions for the shover.
 - A dropped connection keeps the seat for `GGPOKER_DISCONNECT_GRACE_MS` (60s by default);
   quitting the desktop app cashes every seat out at its real stack.
+
+### Cash tables across a restart
+
+Decision (REA F07): **a graceful shutdown cashes every cash seat out; the wait list is kept.**
+
+- **Seats are cashed out, not restored.** On `SIGTERM`/`SIGINT` each seat is settled at its
+  real stack into the wallet (a hand in progress is folded first, as for any leaver); after a
+  hard crash `refundOpenSessions()` refunds the open buy-ins on the next boot. Full seat
+  restore was considered and not built: a restored seat would need its stack, the button,
+  a mid-hand deck and pot, time-bank state and the player's return within the disconnect
+  grace, and a player who never returns would hold chips off their wallet at a table nobody
+  watches. Returning the chips to the wallet is simpler and cannot lose money; the player
+  sits down again in a few seconds.
+- **Wait-list queues are restored.** `waitlist-store.js` writes the queues to
+  `waitlist_state` on every change and `loadWaitlist()` reads them back on boot, so queued
+  players keep their place and order. A seat offer becomes the head of its queue again,
+  because the held seat vanished with the live table. When a table next starts (the first
+  viewer or player opens it), its free seats are offered to the queue before a newcomer or
+  a bot can take them.
 
 ## Client delivery modes
 

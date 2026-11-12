@@ -15,6 +15,7 @@ import { RushPoolRows } from '../components/RushPoolRow';
 import { RushInfoDialog, RushSidePanel } from '../components/RushSidePanel';
 import { SpinInfoPanel } from '../components/SpinInfoPanel';
 import { visiblePools } from '../lib/rushPools';
+import { previewSeats } from '../lib/lobbyPreview';
 import { CASHDROP_RULE_LABEL, cashDropRateLabel } from '../lib/cashDrop';
 
 const PROMOS = [
@@ -141,16 +142,8 @@ export function Lobby() {
   // A capture-gated tab (Battle Royale) shows an honest empty state: no rows, no Join.
   const unavailable = UNAVAILABLE_TABS[gameTab];
   const table = unavailable ? null : data?.tables.find((t: LobbyTable) => t.id === selected) || null;
-  const previewPlayers = useMemo(() => {
-    if (!table) return [];
-    const names = ['tropicalTit', 'psyhoagromc', 'Mikhail Ryko', 'GGChamp', 'SpewySally', 'NitWizard', 'RiverRat'];
-    const count = Math.max(2, table.players);
-    return PREVIEW_SEATS.map((_, i) => (i < count ? {
-      seat: i,
-      name: names[(i + table.name.length) % names.length],
-      stack: Math.round((table.min_buyin * (0.6 + ((i * 37) % 90) / 100)) / 100) * 100,
-    } : { seat: i, name: '', stack: 0, empty: true }));
-  }, [table]);
+  // Real seated players from the live table (empty chairs when nobody sits there).
+  const previewPlayers = useMemo(() => (table ? previewSeats(table.seated, PREVIEW_SEATS.length) : []), [table]);
 
   const toggleFav = (id: string) => {
     setFavs((prev) => {
@@ -370,7 +363,7 @@ export function Lobby() {
               <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
               <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
               <div>Buy-in</div>
-              <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Players <i className="est-dot" title="Estimated demo value; not live" /></div>
+              <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Seated players now, bots included">Players</span></div>
               <div>Wait</div>
               <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Average pot over the last 20 hands">AvgPot</span></div>
               <div title="Voluntarily put chips in preflop, last 20 hands">VPIP%</div><div title="Hands dealt in the last hour">H/hr</div>

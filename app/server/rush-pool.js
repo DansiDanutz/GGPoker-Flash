@@ -240,6 +240,8 @@ export function createRushPool(deps) {
    */
   function rehome(table, userId, pool) {
     const seat = table.seatOf(userId);
+    // A reserved leave is cashed out by the server's leave sweep, never moved on.
+    if (seat?.player?.leaveAfterHand) { seat.player.rushQueued = false; dequeue(userId); return null; }
     const stack = seat?.player?.stack || 0;
     const user = deps.findUser(userId);
     if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; return null; }
@@ -278,12 +280,15 @@ export function createRushPool(deps) {
   /**
    * Instant re-seat (Fast Fold): a human who just folded a hand that is still running leaves
    * it now for a new table of the pool, or joins the pool's FIFO queue. When the fold ended
-   * the hand, moveQueued() has already handled them and this does nothing.
+   * the hand, moveQueued() has already handled them and this does nothing. Returns 'moved',
+   * 'queued', 'leave' (a reserved leave: cash out instead) or null.
    */
   function foldOut(table, userId) {
     if (!table.rush || SETTLED_STREETS.includes(table.street)) return null;
     const p = table.seatOf(userId)?.player;
     if (!p || p.isBot || !p.inHand || !p.folded) return null;
+    // "Leave after this hand": no new table. Their hand is over, so the caller cashes them out now.
+    if (p.leaveAfterHand) { p.rushQueued = false; dequeue(userId); return 'leave'; }
     // A short stack cannot buy in elsewhere; it waits for the hand end (and a rebuy) here.
     if (p.stack < (Number(table.cfg.min_buyin) || 0)) return null;
     return rehome(table, userId, poolOf(table));
@@ -296,7 +301,8 @@ export function createRushPool(deps) {
   function readiness(wait) {
     const fromEntry = deps.getEntry(wait.fromTable);
     const from = fromEntry?.table.seatOf(wait.userId)?.player;
-    if (!from) return { state: 'stale' };
+    // Gone, or leaving after the hand (the leave sweep cashes them out): drop from the queue.
+    if (!from || from.leaveAfterHand) return { state: 'stale' };
     const foldedThisHand = from.inHand && from.folded;
     if (!SETTLED_STREETS.includes(fromEntry.table.street) && !foldedThisHand) return { state: 'busy', fromEntry };
     return { state: 'ready', fromEntry };

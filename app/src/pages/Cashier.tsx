@@ -5,6 +5,8 @@ import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 
 const METHODS = ['Instant bank transfer', 'Visa •••• 4242', 'Mastercard •••• 8811', 'Skrill', 'Crypto (USDT)'];
+const DEPOSIT_PRESETS = [1000, 5000, 10000, 50000];
+type DepositLimits = { max: number; dailyMax: number; today: number };
 
 export function Cashier() {
   const { user, refreshUser, toast, navigate } = useApp();
@@ -15,6 +17,8 @@ export function Cashier() {
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
   const requestKey = useRef<string | null>(null);
+  // Server-side play-money caps (deposit_max / deposit_daily_max); the server enforces them.
+  const limits: DepositLimits | null = data?.depositLimits || null;
   const inFlight = useRef(false);
 
   const load = async () => {
@@ -93,11 +97,20 @@ export function Cashier() {
               </div>
               <label className="admin-label">Amount (USD)</label>
               <div className="row" style={{ marginBottom: 8 }}>
-                <input className="admin-input" style={{ flex: 1, height: 40, fontSize: 18 }} type="number" value={amount / 100} onChange={(e) => setAmount(Math.max(0, Math.round(Number(e.target.value) * 100)))} />
+                <input className="admin-input" style={{ flex: 1, height: 40, fontSize: 18 }} type="number" min={0} max={mode === 'deposit' && limits ? limits.max / 100 : undefined} value={amount / 100}
+                  onChange={(e) => {
+                    const cents = Math.max(0, Math.round(Number(e.target.value) * 100));
+                    setAmount(mode === 'deposit' && limits ? Math.min(cents, limits.max) : cents);
+                  }} />
                 <span className="muted">.00</span>
               </div>
+              {mode === 'deposit' && limits && (
+                <p className="muted small" style={{ margin: '0 0 8px' }}>
+                  Play-money limits: {money(limits.max)} per deposit, {money(limits.dailyMax)} per UTC day · {money(Math.max(0, limits.dailyMax - limits.today))} left today
+                </p>
+              )}
               <div className="row" style={{ marginBottom: 12 }}>
-                {[1000, 5000, 10000, 50000].map((v) => (
+                {DEPOSIT_PRESETS.filter((v) => mode !== 'deposit' || !limits || v <= limits.max).map((v) => (
                   <button key={v} className="btn btn-ghost btn-sm" onClick={() => setAmount(v)}>{money(v)}</button>
                 ))}
               </div>

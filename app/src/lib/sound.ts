@@ -1,4 +1,8 @@
 // Sound engine using the original GGPoker client audio files.
+import { savedVolume, VOLUME_KEY } from './volume';
+import { CHANNEL_VOLUMES_KEY, DEFAULT_CHANNEL_VOLUMES, mixedVolume, parseChannelVolumes, withChannelVolume, type Channel, type ChannelVolumes } from './soundMix';
+import { subscribePrefs } from './prefsSync';
+
 const BASE = '/assets/sounds/';
 
 const FILES = {
@@ -43,7 +47,6 @@ const FILES = {
   bgm: 'BgmLobby.mp3',
 };
 
-type Channel = 'sfx' | 'voice' | 'alerts' | 'music' | 'ambience';
 const DEFAULT_CHANNELS: Record<Channel, boolean> = { sfx: true, voice: true, alerts: true, music: true, ambience: true };
 
 class SoundEngine {
@@ -54,14 +57,22 @@ class SoundEngine {
   music: HTMLAudioElement | null = null;
   unlocked = false;
   channels: Record<Channel, boolean> = { ...DEFAULT_CHANNELS };
+  channelVolumes: ChannelVolumes = DEFAULT_CHANNEL_VOLUMES;
+  /** The one Settings preview allowed to play; a new preview or Cancel stops it. */
+  private previewAudio: HTMLAudioElement | null = null;
 
   constructor() {
     try {
       const saved = localStorage.getItem('ggpoker.sound');
       if (saved != null) this.enabled = saved === '1';
+      // The Settings page saves the master volume as 0-100 under this key.
+      this.volume = savedVolume(localStorage.getItem(VOLUME_KEY));
       const channels = JSON.parse(localStorage.getItem('ggpoker.soundChannels') || '{}');
       this.channels = { ...DEFAULT_CHANNELS, ...channels };
     } catch { /* ignore */ }
+    this.channelVolumes = this.readChannelVolumes();
+    // Settings applied in another window (or restored from the account) reach this one live.
+    subscribePrefs(['ggpoker.sound', VOLUME_KEY, 'ggpoker.soundChannels', CHANNEL_VOLUMES_KEY], () => this.syncFromStorage());
   }
 
   channelFor(key: string): Channel {
@@ -76,6 +87,58 @@ class SoundEngine {
     this.channels[channel] = on;
     try { localStorage.setItem('ggpoker.soundChannels', JSON.stringify(this.channels)); } catch { /* ignore */ }
     if (channel === 'music') { if (on && this.enabled) this.startMusic(); else this.music?.pause(); }
+  }
+
+  private readChannelVolumes(): ChannelVolumes {
+    try { return parseChannelVolumes(localStorage.getItem(CHANNEL_VOLUMES_KEY)); } catch { return DEFAULT_CHANNEL_VOLUMES; }
+  }
+
+  /** Re-read the toggles and volumes after Settings → Apply, another window or the account changed them. */
+  syncFromStorage() {
+    try {
+      const saved = localStorage.getItem('ggpoker.sound');
+      this.enabled = saved == null ? true : saved === '1';
+      this.channels = { ...DEFAULT_CHANNELS, ...JSON.parse(localStorage.getItem('ggpoker.soundChannels') || '{}') };
+      this.channelVolumes = this.readChannelVolumes();
+      this.volume = savedVolume(localStorage.getItem(VOLUME_KEY));
+    } catch { /* keep the current mix */ }
+    if (this.music) this.music.volume = this.musicLevel();
+    if (!this.enabled || !this.channels.music) this.music?.pause();
+    else if (this.unlocked) this.startMusic();
+  }
+
+  setChannelVolume(channel: Channel, value: number) {
+    this.channelVolumes = withChannelVolume(this.channelVolumes, channel, value);
+    try { localStorage.setItem(CHANNEL_VOLUMES_KEY, JSON.stringify(this.channelVolumes)); } catch { /* ignore */ }
+    if (channel === 'music' && this.music) this.music.volume = this.musicLevel();
+  }
+
+  private musicLevel(): number {
+    return mixedVolume(this.musicVolume, 1, this.channelVolumes.music);
+  }
+
+  /**
+   * Settings preview at the draft levels: plays even if the channel is switched off, and stops
+   * whichever preview is still playing first so previews never overlap.
+   */
+  preview(key: keyof typeof FILES, levels: { master: number; channel: number }) {
+    this.stopPreview();
+    try {
+      const a = new Audio(BASE + FILES[key]);
+      // Music has its own quiet base level and, as in play(), ignores the master slider.
+      const isMusic = this.channelFor(key) === 'music';
+      a.volume = mixedVolume(isMusic ? this.musicVolume : 1, isMusic ? 1 : levels.master, levels.channel);
+      this.previewAudio = a;
+      void a.play().catch(() => {});
+    } catch { /* ignore */ }
+  }
+
+  stopPreview() {
+    const a = this.previewAudio;
+    this.previewAudio = null;
+    if (!a) return;
+    a.pause();
+    a.currentTime = 0;
   }
 
   unlock() {
@@ -101,7 +164,7 @@ class SoundEngine {
     if (!src) return;
     try {
       const a = src.cloneNode(true) as HTMLAudioElement;
-      a.volume = Math.min(1, (opts.volume ?? 1) * this.volume);
+      a.volume = mixedVolume(opts.volume ?? 1, this.volume, this.channelVolumes[this.channelFor(key)]);
       a.playbackRate = opts.rate ?? 1;
       void a.play().catch(() => {});
     } catch { /* ignore */ }
@@ -112,7 +175,7 @@ class SoundEngine {
     if (!this.music) {
       this.music = new Audio(BASE + FILES.bgm);
       this.music.loop = true;
-      this.music.volume = this.musicVolume;
+      this.music.volume = this.musicLevel();
     }
     void this.music.play().catch(() => {});
   }

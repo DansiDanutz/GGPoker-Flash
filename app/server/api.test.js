@@ -1,10 +1,10 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { startServer, sleep, nextSseEvent } from './test-helpers.js';
+import { startServer, sleep, nextSseEvent, seatHumans } from './test-helpers.js';
 import { handForViewer } from './hand-history.js';
 import { isLocalHost, isLocalOrigin, resolveInside, createRateLimiter } from './security.js';
-import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey } from './validate.js';
+import { toInt, cleanNick, cleanGrantReason, parseTableConfig, parseTableId, parseGroupKey } from './validate.js';
 
 const TABLE = 'nlh-bronze-01';
 const MIN_BUYIN = 2000;
@@ -119,7 +119,7 @@ test('admin money actions reject non-numeric and overdraft amounts', async () =>
   assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: 'lots' } })).status, 400);
   assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: -1e11 } })).status, 400);
   assert.equal((await srv.post(route, { token: admin, body: { action: 'set', balance: 'NaN' } })).status, 400);
-  assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: 500 } })).status, 200);
+  assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: 500, reason: 'Test credit' } })).status, 200);
   assert.equal((await srv.post('/api/admin/tables', { token: admin, body: { name: 'Bad', seats: 40 } })).status, 400);
   assert.equal((await srv.post('/api/admin/tables', { token: admin, body: { name: 'Bad', sb: 500, bb: 100 } })).status, 400);
   assert.equal((await srv.post('/api/admin/tables', { token: admin, body: { name: 'Good', game: 'omaha', sb: 50, bb: 100, min_buyin: 2000, max_buyin: 10000, seats: 6 } })).status, 200);
@@ -199,9 +199,9 @@ test('a dropped connection keeps the seat; leaving cashes out exactly once', asy
   await popout.close();
 });
 
-test('a human takes a seat from a bot instead of queueing behind bots', async () => {
+test('a human takes a free seat or an idle bot\'s seat instead of queueing behind bots', async () => {
   const tokens = [];
-  for (const n of [1, 2, 3, 4]) {
+  for (const n of [1, 2, 3]) {
     const res = await srv.post('/api/auth/register', { body: { login: `seat_user${n}`, nick: `SeatUser${n}`, password: 'secret12' } });
     tokens.push(res.data.token);
   }
@@ -211,7 +211,7 @@ test('a human takes a seat from a bot instead of queueing behind bots', async ()
     await s.opened;
     s.send({ type: 'join_table', tableId: 'nlh-bronze-02', buyin: MIN_BUYIN });
     const joined = await s.nextType('joined');
-    assert.equal(typeof joined.seat, 'number', 'every human is seated, none is wait-listed');
+    assert.equal(typeof joined.seat, 'number', 'free seats go to humans, none is wait-listed');
     sockets.push(s);
   }
   for (const s of sockets) { s.send({ type: 'leave_table', tableId: 'nlh-bronze-02' }); }
@@ -299,12 +299,8 @@ test('wait list: a full table queues, holds a freed seat from bots and passes an
     const [first, second, , , , , seventh, eighth] = users;
     const joinTable = (u, extra = {}) => u.sock.send({ type: 'join_table', tableId, buyin, ...extra });
 
-    // Six humans fill the 6-max table (each one replaces a bot).
-    for (const u of users.slice(0, 6)) {
-      joinTable(u);
-      const joined = await u.sock.next((m) => m.type === 'joined' && m.tableId === tableId);
-      assert.notEqual(joined.seat, null);
-    }
+    // Six humans fill the 6-max table.
+    await seatHumans(users.slice(0, 6).map((u) => u.sock), tableId, buyin);
 
     // The 7th and 8th humans queue instead of taking a seat.
     joinTable(seventh);
@@ -361,4 +357,35 @@ test('wait-list route params are validated', () => {
   for (const bad of ['holdem:200/100:6', 'holdem:1/2:1', 'holdem:1/2:10', 'HOLDEM:1/2:6', 'holdem:0/2:6', 'holdem-1-2-6', '%zz']) {
     assert.equal(parseGroupKey(bad), null, bad);
   }
+});
+
+test('owner grants require a 3-200 character reason, stored in the memo and the audit row', async () => {
+  const me = (await srv.get('/api/me', { token: player })).data.user;
+  const route = `/api/admin/users/${me.id}`;
+  const before = await srv.balance(player);
+  for (const reason of [undefined, '', '  ab  ', 'x'.repeat(201)]) {
+    const res = await srv.post(route, { token: admin, body: { action: 'credit', amount: 700, reason } });
+    assert.equal(res.status, 400, `reason ${JSON.stringify(reason)} is refused`);
+    assert.match(res.data.error, /reason/i);
+  }
+  assert.equal(await srv.balance(player), before, 'a refused grant moves no money');
+  const reference = `grant-reason-${Date.now()}`;
+  const body = { action: 'credit', amount: 700, reason: '  Tournament   payout fix  ', reference };
+  assert.equal((await srv.post(route, { token: admin, body })).status, 200);
+  const retry = await srv.post(route, { token: admin, body });
+  assert.equal(retry.data.replayed, true, 'a retry with the same dialog key is not applied twice');
+  assert.equal(await srv.balance(player), before + 700);
+  const txn = (await lastTransactions(player)).find((t) => t.kind === 'admin' && t.amount === 700);
+  assert.match(txn.memo, /Tournament payout fix$/);
+  const audit = (await srv.get('/api/admin/audit?action=credit', { token: admin })).data.log;
+  assert.ok(audit.some((r) => r.detail === `user ${me.id} 700: Tournament payout fix`));
+});
+
+test('grant reasons are trimmed, collapsed and bounded', () => {
+  assert.equal(cleanGrantReason('  a  b c '), 'a b c');
+  assert.equal(cleanGrantReason('ab'), null);
+  assert.equal(cleanGrantReason(42), null);
+  assert.equal(cleanGrantReason('x'.repeat(200)), 'x'.repeat(200));
+  assert.equal(cleanGrantReason('x'.repeat(201)), null);
+  assert.equal(cleanGrantReason('line\nbreak'), 'line break');
 });

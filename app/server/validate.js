@@ -34,6 +34,19 @@ export function cleanNick(value) {
   return NICK_PATTERN.test(nick) ? nick : null;
 }
 
+export const GRANT_REASON = Object.freeze({ min: 3, max: 200 });
+
+/**
+ * Why an owner credited or debited a wallet; it lands in the transaction memo and audit row.
+ * @param {unknown} value
+ * @returns {string | null} the reason with whitespace collapsed, or null when invalid
+ */
+export function cleanGrantReason(value) {
+  if (typeof value !== 'string') return null;
+  const reason = value.trim().replace(/\s+/g, ' ');
+  return reason.length >= GRANT_REASON.min && reason.length <= GRANT_REASON.max ? reason : null;
+}
+
 /**
  * Validate an admin-supplied cash table definition.
  * @param {Record<string, unknown>} body

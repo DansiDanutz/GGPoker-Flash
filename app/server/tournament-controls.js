@@ -1,12 +1,10 @@
 import { roomHasHandInProgress } from './tournament-state.js';
+import { MAX_TOURNAMENT_LEVEL, tournamentLevelBlinds } from './tournament-blinds.js';
 
-/** Blinds a tournament level, matching Table.applyTournamentLevel's 1.5x curve. */
+/** Blinds at a tournament level, matching Table.applyTournamentLevel (1.5x curve, capped). */
 export function tournamentBlinds(tournament = {}, level = 1) {
-  const factor = 1.5 ** (Math.max(1, Number(level) || 1) - 1);
-  return {
-    sb: Math.round((Number(tournament.baseSb) || 0) * factor),
-    bb: Math.round((Number(tournament.baseBb) || 0) * factor),
-  };
+  const { sb, bb } = tournamentLevelBlinds(tournament, level);
+  return { sb, bb };
 }
 
 /**
@@ -19,7 +17,7 @@ export function advanceRoomLevel(room, { delta = 1, liveTables, now = Date.now()
   if (roomHasHandInProgress(room, liveTables)) return { ok: false, reason: 'hand in progress' };
   const step = Math.max(1, Math.min(20, Number(delta) || 1));
   const current = Math.max(1, Number(room.tournament?.level) || 1);
-  const level = Math.min(100, current + step);
+  const level = Math.min(MAX_TOURNAMENT_LEVEL, current + step);
   room.tournament.level = level;
   room.tournament.levelStartedAt = now;
   for (const flight of room.flights || []) {

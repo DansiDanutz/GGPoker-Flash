@@ -20,6 +20,8 @@ export type User = {
   created_at: string;
 };
 
+export type SeatedPreview = { seat: number; nick: string; stack: number; bot: boolean };
+
 export type LobbyTable = {
   id: string;
   name: string;
@@ -35,7 +37,12 @@ export type LobbyTable = {
   featured: boolean;
   private?: boolean;
   owner_id?: number | null;
+  /** Real occupied seats on the live table, bots included; 0 when the table is not running. */
   players: number;
+  /** How many of `players` are bots. */
+  bots?: number;
+  /** Public seat data for the lobby preview (nick, stack, seat). */
+  seated?: SeatedPreview[];
   /** Players in this table's wait list (real queue length). */
   wait: number;
   /** Caller's 1-based position in this table's wait list; 0 when not queued. */
@@ -299,6 +306,7 @@ export const api = {
   deposit: (amount: number, method?: string, key?: string) => request<any>('/api/cashier/deposit', { method: 'POST', headers: key ? { 'idempotency-key': key } : {}, body: JSON.stringify({ amount, method }) }),
   withdraw: (amount: number, method?: string, key?: string) => request<any>('/api/cashier/withdraw', { method: 'POST', headers: key ? { 'idempotency-key': key } : {}, body: JSON.stringify({ amount, method }) }),
   hands: () => request<{ hands: any[] }>('/api/hands'),
+  setHandHidden: (id: number, hidden: boolean) => request<{ ok: boolean; hidden: boolean }>(`/api/hands/${id}/hidden`, { method: 'POST', body: JSON.stringify({ hidden }) }),
   missions: () => request<{ missions: any[] }>('/api/missions'),
   claimMission: (id: string) => request<any>(`/api/missions/${id}/claim`, { method: 'POST' }),
   leaderboard: (metric: LeaderMetric = 'vip') => request<LeaderboardResponse>(`/api/leaderboard?metric=${metric}`),

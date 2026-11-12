@@ -126,16 +126,29 @@ export function Profile() {
 }
 
 export function HandHistory() {
-  const { user } = useApp();
+  const { user, toast } = useApp();
   const [hands, setHands] = useState<any[]>([]);
   const [detail, setDetail] = useState<any>(null);
   const [q, setQ] = useState('');
   const [resFilter, setResFilter] = useState('all');
   const [gameFilter, setGameFilter] = useState('all');
+  const [showHidden, setShowHidden] = useState(false);
 
   useEffect(() => { api.hands().then((r) => setHands(r.hands)).catch(() => {}); }, []);
 
+  const setHidden = async (id: number, hidden: boolean) => {
+    try {
+      await api.setHandHidden(id, hidden);
+      setHands((list) => list.map((h) => (h.id === id ? { ...h, hidden } : h)));
+      setDetail((d: any) => (d?.id === id ? { ...d, hidden } : d));
+    } catch (e: any) {
+      toast({ kind: 'error', title: hidden ? 'Hand not hidden' : 'Hand not restored', body: e.message });
+    }
+  };
+  const hiddenCount = hands.filter((h) => h.hidden).length;
+
   const filtered = hands.filter((h) => {
+    if (h.hidden && !showHidden) return false;
     if (q && !(`${h.tableName} ${h.game}`.toLowerCase().includes(q.toLowerCase()))) return false;
     if (gameFilter !== 'all' && h.game !== gameFilter) return false;
     if (resFilter !== 'all') {
@@ -159,17 +172,20 @@ export function HandHistory() {
           <select className="admin-select" value={gameFilter} onChange={(e) => setGameFilter(e.target.value)}>
             <option value="all">All games</option><option value="holdem">Hold’em</option><option value="omaha">PLO</option><option value="shortdeck">Short Deck</option><option value="rush">Fast Fold</option>
           </select>
+          <label className="row small" style={{ gap: 4 }}>
+            <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />Show hidden ({hiddenCount})
+          </label>
           <span className="muted small">{filtered.length} hands</span>
         </div>
         <div className="card" style={{ padding: 0 }}>
           <div className="table-scroll">
           <table className="admin-table">
-            <thead><tr><th>#</th><th>Table</th><th>Game</th><th>Board</th><th>Pot</th><th>Result</th><th>Date</th></tr></thead>
+            <thead><tr><th>#</th><th>Table</th><th>Game</th><th>Board</th><th>Pot</th><th>Result</th><th>Date</th><th /></tr></thead>
             <tbody>
               {filtered.map((h) => {
                 const won = h.result?.winners?.some((w: any) => w.id === user?.id);
                 return (
-                  <tr key={h.id} onClick={() => setDetail(h)} style={{ cursor: 'pointer' }}>
+                  <tr key={h.id} onClick={() => setDetail(h)} style={{ cursor: 'pointer', opacity: h.hidden ? 0.55 : 1 }}>
                     <td>{h.handNo}</td>
                     <td>{h.tableName}</td>
                     <td style={{ textTransform: 'capitalize' }}>{h.game}</td>
@@ -181,17 +197,23 @@ export function HandHistory() {
                     <td className="gold">{money(h.pot)}</td>
                     <td style={{ color: won ? '#7fe0a0' : '#c98a8a' }}>{won ? 'Won' : 'Lost'}</td>
                     <td className="muted">{h.created_at?.slice(0, 16)}</td>
+                    <td>
+                      <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setHidden(h.id, !h.hidden); }}>
+                        {h.hidden ? 'Unhide' : 'Hide'}
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
-              {!hands.length && <tr><td colSpan={7} className="empty-state">No hands yet — join a table and play a hand.</td></tr>}
+              {!hands.length && <tr><td colSpan={8} className="empty-state">No hands yet — join a table and play a hand.</td></tr>}
             </tbody>
           </table>
           </div>
         </div>
       </div>
 
-      {detail && <HandDetailModal key={detail.id} hand={detail} userId={user?.id} onClose={() => setDetail(null)} />}
+      {detail && <HandDetailModal key={detail.id} hand={detail} userId={user?.id} onClose={() => setDetail(null)}
+        onSetHidden={(hidden) => setHidden(detail.id, hidden)} />}
     </PageShell>
   );
 }

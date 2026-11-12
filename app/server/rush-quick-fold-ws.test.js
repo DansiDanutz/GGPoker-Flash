@@ -26,7 +26,11 @@ test('quick fold over the socket: instant move, and the folded hand stays in his
     const { sock, token, id } = await registerAndJoin(srv, 'qf_hero', RUSH_TABLE, 20_000);
     const window = await sock.next(quickFoldWindow(id), OPPORTUNITY_TIMEOUT_MS);
     const { handNo } = window.state;
-    sock.send({ type: 'action', tableId: RUSH_TABLE, action: 'quickfold' });
+    // A quick fold aimed at an earlier hand is refused by the action-version check.
+    sock.send({ type: 'action', tableId: RUSH_TABLE, action: 'quickfold', handNo: handNo - 1 });
+    const stale = await sock.next((m) => m.type === 'error' && m.stale, 5000);
+    assert.equal(stale.handNo, handNo);
+    sock.send({ type: 'action', tableId: RUSH_TABLE, action: 'quickfold', handNo });
     const moved = await sock.next((m) => m.type === 'rush_move' || m.type === 'rush_queued', 5000);
     if (moved.type === 'rush_move') {
       assert.notEqual(moved.tableId, RUSH_TABLE);
