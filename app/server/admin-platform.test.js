@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPlatformReport, diskUsage, levelBlinds, tournamentRoomSummary } from './admin-platform.js';
+import { buildPlatformReport, diskUsage, levelBlinds, recoveryHealth, SNAPSHOT_STALE_MS, snapshotAgeMs, tournamentRoomSummary } from './admin-platform.js';
 
 function fakeRoom(overrides = {}) {
   return {
@@ -102,4 +102,16 @@ test('disk usage reports total and free bytes', () => {
   assert.ok(disk.totalBytes > 0);
   assert.ok(disk.freeBytes >= 0);
   assert.ok(disk.usedPct >= 0 && disk.usedPct <= 100);
+});
+
+test('snapshots older than five minutes are stale for a room with players', () => {
+  const now = Date.parse('2026-11-12T13:10:00Z');
+  const fresh = { at: '2026-11-12 13:09:00' };
+  const old = { at: '2026-11-12 13:00:00' };
+  assert.equal(snapshotAgeMs(fresh, now), 60_000);
+  assert.equal(recoveryHealth({ playersLeft: 2 }, fresh, now).stale, false);
+  assert.equal(recoveryHealth({ playersLeft: 2 }, old, now).stale, true);
+  assert.ok(snapshotAgeMs(old, now) > SNAPSHOT_STALE_MS);
+  assert.equal(recoveryHealth({ playersLeft: 0 }, old, now).stale, false);
+  assert.equal(recoveryHealth({ playersLeft: 2 }, null, now).stale, true);
 });

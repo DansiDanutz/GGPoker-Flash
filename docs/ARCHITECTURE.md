@@ -174,7 +174,9 @@ read-only endpoints:
 
 The UI refreshes every 10 s and can download the report as JSON for an incident. The
 tournament table also shows each room's **Recovery** state: the last settled-hand snapshot
-(time and size) and whether this process restored the room after a restart. The
+(time and size), whether this process restored the room after a restart, and a red **stale**
+marker (plus `tournaments.stale` and a banner) when a room with players has had no snapshot
+for five minutes. Empty rooms are not flagged. The
 report is assembled only from the running process (`process.memoryUsage`, `wss.clients`,
 `LIVE_TABLES`, `TOURNAMENT_ROOMS`, `fs.statSync`) — it adds no new state and performs no
 mutations. Tournament levels are read through `TournamentRoom.syncLevel(now)`, so the

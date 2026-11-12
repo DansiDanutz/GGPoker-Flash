@@ -140,3 +140,13 @@ Run it weekly (and after any `no space left on device` build):
 
 The admin **Platform** section shows `Disk free` / used percent (the container overlay is
 backed by the host root filesystem), so pressure is visible before a deploy fails.
+
+
+## Tournament recovery soak
+
+`node tools/tournament-soak.mjs --cycles 2` starts disposable servers on random ports with
+temporary databases, creates a two-player event, waits for a settled-hand snapshot,
+`SIGKILL`s the server, restarts it on the same data directory and asserts that the room,
+both players and the original table id come back. Run it after changing
+`tournament-room.js`, restart recovery or the tournament scheduler; it never touches the
+production database or the 5197/5198 servers. Exit code 1 means at least one cycle failed.

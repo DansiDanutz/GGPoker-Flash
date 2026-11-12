@@ -389,8 +389,13 @@ export function Admin() {
                       <div className="kv"><span>Heap used</span><b>{fmtBytes(platform.memory?.heapUsed)}</b></div>
                     </div>
                   </div>
+                  {(platform.tournaments?.stale ?? 0) > 0 && (
+                    <div className="admin-card" style={{ marginTop: 12, borderColor: '#5c2a2a', color: '#ffb1b1' }}>
+                      <b>{platform.tournaments.stale}</b> running tournament room(s) have no settled-hand snapshot in the last 5 minutes. A crash could lose the current hand.
+                    </div>
+                  )}
                   <div className="admin-card" style={{ marginTop: 12, padding: 0 }}>
-                    <div style={{ padding: '10px 14px' }} className="panel-title">Live tournament rooms <small>{platform.tournaments?.rooms ?? 0} running · {platform.tournaments?.snapshots ?? 0} recovery snapshots</small></div>
+                    <div style={{ padding: '10px 14px' }} className="panel-title">Live tournament rooms <small>{platform.tournaments?.rooms ?? 0} running · {platform.tournaments?.snapshots ?? 0} recovery snapshots{(platform.tournaments?.stale ?? 0) > 0 ? ` · ${platform.tournaments.stale} stale` : ''}</small></div>
                     <table className="admin-table">
                       <thead><tr><th>Event</th><th>Level / blinds</th><th>Players left</th><th>Flights</th><th>Finished</th><th>Next / state</th><th>Recovery</th></tr></thead>
                       <tbody>
@@ -406,6 +411,7 @@ export function Admin() {
                               {r.snapshot
                                 ? <span title={`Last snapshot ${r.snapshot.at} UTC`}>{fmtSnapshotAt(r.snapshot.at)} · {fmtBytes(r.snapshot.bytes)}</span>
                                 : <span className="muted">—</span>}
+                              {r.stale ? <div style={{ color: '#ff9a9a' }}>stale {fmtEta(r.snapshotAgeMs)}</div> : null}
                               {r.restoredAt ? <div className="muted small">restored {new Date(r.restoredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div> : null}
                             </td>
                           </tr>
