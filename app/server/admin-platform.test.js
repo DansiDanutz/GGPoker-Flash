@@ -12,6 +12,7 @@ function fakeRoom(overrides = {}) {
     flights: [],
     finished: [{ id: 1 }, { id: 2 }],
     winner: null,
+    restoredAt: 1_234_567,
     syncLevel: () => 4,
     flightState: () => [
       { id: 'trn-1-1', index: 1, players: [{ inHand: true }, { inHand: false }, { inHand: true }] },
@@ -48,7 +49,11 @@ test('platform report combines sockets, live tables, rooms and db counts', () =>
     }],
   ]);
   const tournamentRooms = new Map([['trn-1', fakeRoom()]]);
-  const db = { prepare: () => ({ get: () => ({ c: 7 }) }) };
+  const db = {
+    prepare: (sql) => sql.includes('tourney_state')
+      ? { all: () => [{ tournament_id: 'trn-1', updated_at: '2026-11-12 12:00:00', bytes: 120 }] }
+      : { get: () => ({ c: 7 }) },
+  };
   const proc = {
     version: 'v26.0.0', pid: 42, platform: 'linux', arch: 'x64',
     uptime: () => 3661, memoryUsage: () => ({ rss: 100, heapUsed: 40, heapTotal: 80, external: 5 }),
@@ -74,6 +79,9 @@ test('platform report combines sockets, live tables, rooms and db counts', () =>
   assert.equal(report.tables.connections, 3);
   assert.equal(report.tournaments.rooms, 1);
   assert.equal(report.tournaments.playersLeft, 4);
+  assert.equal(report.tournaments.snapshots, 1);
+  assert.deepEqual(report.tournaments.items[0].snapshot, { at: '2026-11-12 12:00:00', bytes: 120 });
+  assert.equal(report.tournaments.items[0].restoredAt, 1_234_567);
   assert.equal(report.db.users, 7);
   assert.equal(report.db.sizeBytes, null);
   assert.deepEqual(report.memory, { rss: 100, heapUsed: 40, heapTotal: 80, external: 5 });

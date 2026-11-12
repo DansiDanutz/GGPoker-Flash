@@ -93,7 +93,13 @@ export function Admin() {
     if (bytes == null) return '—';
     if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`;
     if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
-    return `${Math.max(0, Math.round(bytes / 1024))} KB`;
+    if (bytes >= 1024) return `${Math.max(0, Math.round(bytes / 1024))} KB`;
+    return `${Math.max(0, Math.round(bytes))} B`;
+  };
+  const fmtSnapshotAt = (at?: string | null) => {
+    if (!at) return '—';
+    const d = new Date(at.includes('T') ? at : `${at.replace(' ', 'T')}Z`);
+    return Number.isNaN(d.getTime()) ? at : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
   const fmtEta = (ms?: number | null) => {
     if (ms == null) return '—';
@@ -382,9 +388,9 @@ export function Admin() {
                     </div>
                   </div>
                   <div className="admin-card" style={{ marginTop: 12, padding: 0 }}>
-                    <div style={{ padding: '10px 14px' }} className="panel-title">Live tournament rooms <small>{platform.tournaments?.rooms ?? 0} running</small></div>
+                    <div style={{ padding: '10px 14px' }} className="panel-title">Live tournament rooms <small>{platform.tournaments?.rooms ?? 0} running · {platform.tournaments?.snapshots ?? 0} recovery snapshots</small></div>
                     <table className="admin-table">
-                      <thead><tr><th>Event</th><th>Level / blinds</th><th>Players left</th><th>Flights</th><th>Finished</th><th>Next / state</th></tr></thead>
+                      <thead><tr><th>Event</th><th>Level / blinds</th><th>Players left</th><th>Flights</th><th>Finished</th><th>Next / state</th><th>Recovery</th></tr></thead>
                       <tbody>
                         {(platform.tournaments?.items || []).map((r: any) => (
                           <tr key={r.id}>
@@ -394,6 +400,12 @@ export function Admin() {
                             <td>{r.tables ?? '—'}</td>
                             <td>{r.finished ?? '—'}</td>
                             <td>{r.winner ? `Winner: ${r.winner.nick || r.winner}` : r.finished ? 'Finished' : fmtEta(r.nextLevelInMs)}</td>
+                            <td>
+                              {r.snapshot
+                                ? <span title={`Last snapshot ${r.snapshot.at} UTC`}>{fmtSnapshotAt(r.snapshot.at)} · {fmtBytes(r.snapshot.bytes)}</span>
+                                : <span className="muted">—</span>}
+                              {r.restoredAt ? <div className="muted small">restored {new Date(r.restoredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div> : null}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
