@@ -6,6 +6,10 @@ import { PageShell } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { PlayingCard } from '../components/Card';
 import { AdminWaitlists } from '../components/AdminWaitlists';
+import {
+  CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
+  CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
+} from '../lib/cashDrop';
 
 const SECTIONS = [
   { key: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -113,7 +117,10 @@ export function Admin() {
     try { await api.admin.saveMission(local); setEditing(null); setLocal({}); await loadAll(); toast({ kind: 'success', title: 'Mission saved' }); }
     catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
   };
+  const cashDropErrors = cashDropFieldErrors(settings);
   const saveSettings = async () => {
+    const invalid = Object.values(cashDropErrors);
+    if (invalid.length) { toast({ kind: 'error', title: 'Invalid settings', body: invalid.join(' ') }); return; }
     try { await api.admin.saveSettings(settings); await loadAll(); toast({ kind: 'success', title: 'Settings saved' }); }
     catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
   };
@@ -482,7 +489,7 @@ export function Admin() {
               <h2 className="admin-title">Game settings</h2>
               <div className="admin-card">
                 <div className="admin-form">
-                  {Object.entries(settings).map(([k, v]) => (
+                  {Object.entries(settings).filter(([k]) => !CASHDROP_KEYS.includes(k)).map(([k, v]) => (
                     <Field key={k} label={k}>
                       <input
                         className="admin-input" style={{ width: '100%' }}
@@ -498,6 +505,34 @@ export function Admin() {
                   ))}
                 </div>
                 <button className="btn btn-red" style={{ marginTop: 14 }} onClick={saveSettings}>Save settings</button>
+              </div>
+              <h3 className="admin-title" style={{ fontSize: 16, marginTop: 18 }}>
+                Rush &amp; Cash Drop <span className="pill" title="Not yet confirmed by a native capture">{CASHDROP_RULE_LABEL}</span>
+              </h3>
+              <div className="admin-card">
+                <div className="admin-form">
+                  <Field label={`Drop chance per Rush hand (0–1) · now ${cashDropRateLabel(settings[CASHDROP_RATE_KEY] ?? CASHDROP_DEFAULT_RATE)}`}>
+                    <input
+                      className="admin-input" style={{ width: '100%' }} type="number" min={0} max={1} step={0.01}
+                      aria-invalid={!!cashDropErrors[CASHDROP_RATE_KEY]}
+                      value={settings[CASHDROP_RATE_KEY] ?? CASHDROP_DEFAULT_RATE}
+                      onChange={(e) => setSettings({ ...settings, [CASHDROP_RATE_KEY]: e.target.value === '' ? '' : Number(e.target.value) })}
+                    />
+                    {cashDropErrors[CASHDROP_RATE_KEY] && <small style={{ color: '#ff8a80' }}>{cashDropErrors[CASHDROP_RATE_KEY]}</small>}
+                  </Field>
+                  <Field label="Drop amount (big blinds, flat per stake)">
+                    <input
+                      className="admin-input" style={{ width: '100%' }} type="number" min={0} max={1000} step={1}
+                      aria-invalid={!!cashDropErrors[CASHDROP_AMOUNT_BB_KEY]}
+                      value={settings[CASHDROP_AMOUNT_BB_KEY] ?? CASHDROP_DEFAULT_AMOUNT_BB}
+                      onChange={(e) => setSettings({ ...settings, [CASHDROP_AMOUNT_BB_KEY]: e.target.value === '' ? '' : Number(e.target.value) })}
+                    />
+                    {cashDropErrors[CASHDROP_AMOUNT_BB_KEY] && <small style={{ color: '#ff8a80' }}>{cashDropErrors[CASHDROP_AMOUNT_BB_KEY]}</small>}
+                  </Field>
+                </div>
+                <p style={{ color: '#9a9a9a', fontSize: 12, marginTop: 10 }}>
+                  {CASHDROP_RULE_LABEL}: a drop pays one human player at the table big blind × this multiple, never a share of the pot. Saved with “Save settings”.
+                </p>
               </div>
             </>
           )}

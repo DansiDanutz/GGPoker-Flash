@@ -580,3 +580,20 @@ test('finish toast and presentation show the real place and amount', () => {
   assert.equal(finishTitle(2), 'FINISHED 2ND');
   assert.equal(finishTitle(3), 'FINISHED 3RD');
 });
+
+/* ------------------------------ Rush Cash Drop (R4) ------------------------------ */
+import { cashDropRateLabel, cashDropFieldErrors, CASHDROP_RATE_KEY, CASHDROP_AMOUNT_BB_KEY } from '../src/lib/cashDrop.ts';
+
+test('cashDropRateLabel shows the configured rate as a percentage', () => {
+  assert.equal(cashDropRateLabel(0.12), '12%');
+  assert.equal(cashDropRateLabel(0.125), '12.5%');
+  assert.equal(cashDropRateLabel(1), '100%');
+  assert.equal(cashDropRateLabel(undefined), '12%');
+});
+
+test('cashDropFieldErrors flags out-of-range and non-numeric Cash Drop settings only', () => {
+  assert.deepEqual(cashDropFieldErrors({ [CASHDROP_RATE_KEY]: 0.12, [CASHDROP_AMOUNT_BB_KEY]: 5, other: 'x' }), {});
+  assert.deepEqual(Object.keys(cashDropFieldErrors({ [CASHDROP_RATE_KEY]: 1.5, [CASHDROP_AMOUNT_BB_KEY]: 2.5 })).sort(),
+    [CASHDROP_AMOUNT_BB_KEY, CASHDROP_RATE_KEY]);
+  assert.ok(cashDropFieldErrors({ [CASHDROP_RATE_KEY]: '' })[CASHDROP_RATE_KEY]);
+});

@@ -18,6 +18,8 @@ import { useOfferSeconds } from '../components/SeatOfferModal';
 import { TableChat } from '../components/table/TableChat';
 import { SeatReaction } from '../components/table/SeatReaction';
 import { ReportPlayerModal } from '../components/table/ReportPlayerModal';
+import { CashDropBanner } from '../components/table/CashDropBanner';
+import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { bubbleLabel, finishTitle, finishToast, PayoutRow } from '../lib/tournamentPrizes';
@@ -101,7 +103,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const timerWarnRef = useRef<string>('');
   const [fx, setFx] = useState<{ id: number; seat: number; amount: number }[]>([]);
   const [winFx, setWinFx] = useState<{ id: number; amount: number; nick: string } | null>(null);
-  const [cashDrop, setCashDrop] = useState<{ amount: number; nick: string } | null>(null);
+  const [cashDrop, setCashDrop] = useState<CashDropEvent | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [spinShow, setSpinShow] = useState(false);
   const [spinWin, setSpinWin] = useState<any>(null);
@@ -414,7 +416,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     } else if (evt.type === 'insurance_paid') {
       toast({ kind: 'reward', title: 'Insurance paid', body: money(evt.amount) });
     } else if (evt.type === 'cashdrop') {
-      setCashDrop({ amount: evt.amount, nick: evt.nick });
+      setCashDrop({ amount: evt.amount, nick: evt.nick, rule: evt.rule });
       sound.play('cashdrop', { volume: .8 });
       toast({ kind: 'reward', title: 'Rush Cash Drop', body: `${evt.nick} won ${money(evt.amount)}` });
       window.setTimeout(() => setCashDrop(null), 4500);
@@ -880,13 +882,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <button onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
 
-      {cashDrop && (
-        <div className="cashdrop-overlay">
-          <div className="cashdrop-title">RUSH CASH DROP</div>
-          <div className="cashdrop-amount">{money(cashDrop.amount)}</div>
-          <div className="cashdrop-nick">{cashDrop.nick}</div>
-        </div>
-      )}
+      {cashDrop && <CashDropBanner drop={cashDrop} />}
 
       {allInFx && <div className="allin-flash"><span>ALL IN</span></div>}
 

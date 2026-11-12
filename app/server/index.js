@@ -24,6 +24,7 @@ import * as waitlist from './waitlist.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService } from './chat.js';
 import * as adminWaitlist from './admin-waitlist.js';
+import { CASHDROP_SETTING_KEYS, createCashDropLedger, readCashDropConfig, settleCashDrop, validateCashDropSettings } from './rush-pool.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -441,6 +442,9 @@ const handleAdminWaitlistRoute = adminWaitlist.createAdminWaitlistRoutes({
   }),
 });
 
+// Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
+const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
+
 const CUSTOM_CFG = new Map(); // tournament tables not stored in the cash-game table list
 
 function tableRow(id) {
@@ -493,14 +497,12 @@ function getLiveTable(id) {
           db.prepare('UPDATE users SET elo = ? WHERE id = ?').run(overall, u.id);
           db.prepare('INSERT INTO elo_history (user_id,hand_id,delta,before,after,game) VALUES (?,?,?,?,?,?)').run(u.id, h.handId || null, next - before, before, next, game);
         }
-        if (h.game === 'rush' && Math.random() < 0.12) {
-          const humans = (h.players || []).filter((p) => p && p.id && !p.isBot && db.prepare('SELECT 1 FROM users WHERE id = ?').get(p.id));
-          if (humans.length) {
-            const lucky = humans[Math.floor(Math.random() * humans.length)];
-            const amount = Math.max(100, Math.min(5000, Math.round((Number(h.pot) || 0) * 0.5 / 100) * 100));
-            addTransaction(lucky.id, 'cashdrop', amount, 'Rush & Cash drop');
-            table.emit({ type: 'cashdrop', nick: lucky.nick, amount });
-          }
+        if (h.game === 'rush') {
+          const candidates = (h.players || []).filter((p) => p && p.id && !p.isBot && db.prepare('SELECT 1 FROM users WHERE id = ?').get(p.id));
+          const drop = settleCashDrop({
+            handId: h.handId, bb: table.cfg.bb, candidates, config: readCashDropConfig(getSetting), ledger: CASHDROP_LEDGER,
+          });
+          if (drop) table.emit({ type: 'cashdrop', nick: drop.nick, amount: drop.amount, rule: drop.rule });
         }
       } catch (e) { console.error('hand save', e); }
     },
@@ -1080,6 +1082,7 @@ const server = http.createServer(async (req, res) => {
         banners,
         online: sitesStats().online,
         jackpot: getSetting('jackpot', 199026635),
+        rushCashDrop: readCashDropConfig(getSetting),
         recentWinners: Array.from({ length: 5 }, (_, i) => ({
           nick: botName((hashStr('winner' + i) + i) % 100),
           amount: 500 + ((hashStr('amount' + i) + i * 733) % 9000),
@@ -2420,7 +2423,10 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/admin/settings' && req.method === 'POST') {
       const a = requireAdmin(req, res); if (!a) return;
       const b = await readBody(req);
-      for (const [k, v] of Object.entries(b || {})) setSetting(k, v);
+      if (!b || typeof b !== 'object' || Array.isArray(b)) return json(res, 400, { error: 'Settings must be an object' });
+      const invalid = validateCashDropSettings(b);
+      if (invalid.length) return json(res, 400, { error: invalid.join('; '), errors: invalid });
+      for (const [k, v] of Object.entries(b)) setSetting(k, v);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'settings', JSON.stringify(b));
       return json(res, 200, { ok: true });
     }
@@ -2430,6 +2436,9 @@ const server = http.createServer(async (req, res) => {
       const rows = db.prepare('SELECT * FROM settings').all();
       const out = {};
       for (const r of rows) { try { out[r.key] = JSON.parse(r.value); } catch { out[r.key] = r.value; } }
+      const cashDrop = readCashDropConfig(getSetting);
+      out[CASHDROP_SETTING_KEYS.rate] ??= cashDrop.rate;
+      out[CASHDROP_SETTING_KEYS.amountBb] ??= cashDrop.amountBb;
       return json(res, 200, { settings: out });
     }
 

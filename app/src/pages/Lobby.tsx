@@ -11,6 +11,7 @@ import { DEFAULT_TAB_FILTERS, filterTables, filtersForTab, FilterPrefs, readFilt
 import { LobbyPills } from '../components/LobbyPills';
 import { LobbyFiltersPopover } from '../components/LobbyFiltersPopover';
 import { LobbyGroupRows } from '../components/LobbyGroupRows';
+import { CASHDROP_RULE_LABEL, cashDropRateLabel } from '../lib/cashDrop';
 
 const PROMOS = [
   { full: true, title: 'Daily $100,000 Flipout', sub: 'Daily jackpots · 6/9-max tables', to: '/tournaments' },
@@ -316,7 +317,7 @@ export function Lobby() {
               <div className="rush-hero-stats">
                 <div><b>{tables.filter((t) => t.game === 'rush').reduce((n, t) => n + t.players, 0)}</b><span>players</span></div>
                 <div><b>{tables.filter((t) => t.game === 'rush').length}</b><span>pools</span></div>
-                <div><b>12%</b><span>drop chance</span></div>
+                <div title={CASHDROP_RULE_LABEL}><b>{cashDropRateLabel(data?.rushCashDrop?.rate)}</b><span>drop chance · {CASHDROP_RULE_LABEL}</span></div>
               </div>
             </div>
           )}
