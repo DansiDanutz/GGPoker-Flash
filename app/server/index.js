@@ -22,6 +22,7 @@ import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { flightTableId, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
+import { createChatService } from './chat.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -265,6 +266,7 @@ function sitesStats() {
 /* ------------------------------------------------------------------ */
 
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
+const chatService = createChatService({ db, getEntry: (id) => LIVE_TABLES.get(id) });
 const TOURNAMENT_ROOMS = new Map(); // tournamentId -> TournamentRoom (multi-table flights)
 let waitState = waitlist.createWaitlist(); // pure wait-list model state (see waitlist.js)
 const RUSH_WAITING = new Map(); // userId -> { user, stack, bb, fromTable, since }
@@ -2438,6 +2440,7 @@ wss.on('connection', (ws, req) => {
         entry.clients.add(ws);
         ws.tables.add(msg.tableId);
         ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true }));
+        chatService.sendHistory(ws, msg.tableId);
         broadcastState(table);
         return;
       }
@@ -2462,6 +2465,7 @@ wss.on('connection', (ws, req) => {
           entry.clients.add(ws);
           ws.tables.add(msg.tableId);
           ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true }));
+          chatService.sendHistory(ws, msg.tableId);
           broadcastState(table);
           return;
         }
@@ -2479,6 +2483,7 @@ wss.on('connection', (ws, req) => {
           entry.clients.add(ws);
           ws.tables.add(msg.tableId);
           ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true, waitlist: queued.position }));
+          chatService.sendHistory(ws, msg.tableId);
           ws.send(JSON.stringify({ type: 'waitlist', position: queued.position, tableId: msg.tableId }));
           broadcastState(table);
           return;
@@ -2498,6 +2503,7 @@ wss.on('connection', (ws, req) => {
       ws.tables.add(msg.tableId);
       table.maybeStart();
       ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: table.seatOf(u.id)?.index ?? null }));
+      chatService.sendHistory(ws, msg.tableId);
       broadcastState(table);
       return;
     }
@@ -2632,32 +2638,8 @@ wss.on('connection', (ws, req) => {
       }
       return;
     }
-    if (msg.type === 'chat') {
-      const entry = LIVE_TABLES.get(msg.tableId);
-      if (!entry) return;
-      const chatter = db.prepare('SELECT chat_muted FROM users WHERE id = ?').get(ws.userId);
-      if (chatter?.chat_muted) return;
-      if (db.prepare('SELECT 1 FROM table_mutes WHERE table_id = ? AND user_id = ?').get(msg.tableId, ws.userId)) return;
-      const text = String(msg.message || '').slice(0, 200);
-      if (!text.trim() || !ws.userId) return;
-      if (chatLimiter.isBlocked(`ws:${ws.userId}`)) return ws.send(JSON.stringify({ type: 'error', error: 'You are sending messages too quickly' }));
-      chatLimiter.record(`ws:${ws.userId}`);
-      const evt = { type: 'chat', nick: ws.nick, userId: ws.userId, message: text, at: Date.now() };
-      for (const client of entry.clients) if (client.readyState === 1) client.send(JSON.stringify({ type: 'event', event: evt }));
-      return;
-    }
-    if (msg.type === 'emote') {
-      const entry = LIVE_TABLES.get(msg.tableId);
-      if (!entry) return;
-      const muted = db.prepare('SELECT chat_muted FROM users WHERE id = ?').get(ws.userId);
-      if (muted?.chat_muted) return;
-      if (db.prepare('SELECT 1 FROM table_mutes WHERE table_id = ? AND user_id = ?').get(msg.tableId, ws.userId)) return;
-      const emote = [...String(msg.emote || '')].slice(0, 4).join('');
-      if (!emote || !ws.userId || chatLimiter.isBlocked(`ws:${ws.userId}`)) return;
-      chatLimiter.record(`ws:${ws.userId}`);
-      const evt = { type: 'emote', nick: ws.nick, userId: ws.userId, emote, at: Date.now() };
-      for (const client of entry.clients) if (client.readyState === 1) client.send(JSON.stringify({ type: 'event', event: evt }));
-      return;
+    if (msg.type === 'chat' || msg.type === 'reaction' || msg.type === 'emote') {
+      return chatService.handleFrame(ws, msg);
     }
     if (msg.type === 'ping') ws.send(JSON.stringify({ type: 'pong', t: Date.now() }));
   }
