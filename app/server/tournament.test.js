@@ -10,6 +10,7 @@ import {
   tablesToBreak,
   breakTables,
   nextTableIndex,
+  tournamentTableIds,
 } from './tournament.js';
 
 const field = (n, stack = 1000) => Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, stack }));
@@ -125,4 +126,11 @@ test('nextTableIndex never exceeds the flight cap', () => {
   assert.equal(nextTableIndex([6, 6], 6, 2), null);
   assert.throws(() => nextTableIndex([], 0, 3), /seats/);
   assert.throws(() => nextTableIndex([], 6, 0), /maxTables/);
+});
+
+test('tournamentTableIds keeps the legacy id first and covers every flight', () => {
+  const ids = tournamentTableIds('abc', 3);
+  assert.equal(ids[0], 'tourney-abc');
+  assert.deepEqual(ids.slice(1), ['tourney-abc-1', 'tourney-abc-2', 'tourney-abc-3']);
+  assert.equal(new Set(ids).size, ids.length);
 });
