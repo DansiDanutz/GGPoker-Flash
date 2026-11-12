@@ -6,6 +6,24 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Native straddle and sit-out (reverse engineered with REA)
+- Straddle works like GGPoker: before the cards, every eligible player gets "Straddle to $X"
+  / "All-in to $Y" with a 5-second TIME badge; the first Yes posts and opens a new round at
+  double the amount (4, 8, 16, ...). A short stack can only go all in. "Auto-straddle" in the
+  table menu posts without asking. No straddles heads-up, in bomb pots, Spins or tournaments.
+  Action opens left of the last straddler.
+- Sitting out in a cash game shows a 02:00 countdown over the board; at zero the seat is
+  released and cashed out. "I'm back" is now "Deal Me In" and needs at least 2 big blinds.
+- A returning player's forced post reads "Post Blind(s)".
+- Evidence: `docs/rea/straddle-sitout.json`. REA (morluto/rea 6.8.0) has no SWF provider,
+  so the client was read with exported ffdec sources and a small ABC disassembler. The 5 s
+  ask and the 2:00 countdown come from the live table; they are not in the client.
+- Not done: "Wait for Blinds" (its meaning is only inferred from the flag name), the 2x
+  countdown speed when a waiting list exists, and the maximum number of straddles.
+- 581 tests, type check and build pass; browser check of the prompt, the posted straddle,
+  the countdown and Deal Me In.
+
+
 ### Table rules parity pass (checked against the GGPoker REA contracts)
 - Chips: a player who leaves mid-hand gets back the part of their bet nobody matched.
 - Pots are settled the native way: layers with the same players merge, an uncalled layer

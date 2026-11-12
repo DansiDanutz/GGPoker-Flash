@@ -1,5 +1,6 @@
 import { buildPots, oddChipOrder } from './pots.js';
 import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
+import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
@@ -723,6 +724,11 @@ export class PokerTable {
     const p = seat?.player;
     if (!p) return { ok: false, error: 'not seated' };
     if (!value) {
+      // Deal Me In needs dealMeInMin chips; native opens Get Chips instead.
+      const min = dealMeInMin({ bb: this.bb, dealMin: Number(this.cfg.deal_min) || 0 });
+      if (p.sittingOut && !this.tournament && !this.spin && p.stack < min) {
+        return { ok: false, error: `You need at least ${min} chips to be dealt in. Top up first.` };
+      }
       p.sittingOut = false;
       p.sitOutNextHand = false;
       this.maybeStart();
@@ -731,6 +737,26 @@ export class PokerTable {
     if (this.handInProgress() && p.inHand && !p.folded) p.sitOutNextHand = true;
     else p.sittingOut = true;
     return { ok: true };
+  }
+
+  /** Cash sit-out countdown (native KickOutTime): starts when a seat sits out, clears on return. */
+  refreshSitOutClocks(now = Date.now()) {
+    const cash = !this.tournament && !this.spin;
+    for (const seat of this.seats) {
+      const p = seat.player;
+      if (!p || p.isBot) continue;
+      if (cash && p.sittingOut) { if (!p.kickOutAt) p.kickOutAt = now + SIT_OUT_KICK_MS; }
+      else p.kickOutAt = 0;
+    }
+  }
+
+  /** Seats whose sit-out time ran out and that are not in a live hand (SitOutTimeExpired). */
+  expiredSitOuts(now = Date.now()) {
+    if (this.tournament || this.spin) return [];
+    return this.seats
+      .map((s) => s.player)
+      .filter((p) => p && p.sittingOut && p.kickOutAt && now >= p.kickOutAt && !(this.handInProgress() && p.inHand && !p.folded))
+      .map((p) => p.id);
   }
 
   setAutoStraddle(userId, value) {
@@ -1585,7 +1611,7 @@ export class PokerTable {
           disconnected: p.disconnected,
           sitOutNext: !!p.sitOutNextHand,
           timeBank: p.timeBank,
-          ...(mine ? { autoStraddle: !!p.autoStraddle } : {}),
+          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0 } : {}),
         };
       }),
       log: this.log.slice(-40),

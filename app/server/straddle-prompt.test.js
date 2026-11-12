@@ -21,3 +21,12 @@ test('a short stack only sees All-in', () => {
 test('the countdown never goes below zero', () => {
   assert.equal(straddlePrompt({ amount: 4, allInTo: 50, canStraddle: true, endsAt: 1000 }, 9000).secondsLeft, 0);
 });
+
+import { sitOutClock } from '../src/game/straddlePrompt.ts';
+
+test('the sit-out clock reads mm:ss and stops at 00:00', () => {
+  assert.equal(sitOutClock(120_000 + 500, 500), '02:00');
+  assert.equal(sitOutClock(61_000, 0), '01:01');
+  assert.equal(sitOutClock(1000, 5000), '00:00');
+  assert.equal(sitOutClock(0, 5000), null, 'no clock without a deadline');
+});

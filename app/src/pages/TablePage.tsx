@@ -31,7 +31,7 @@ import { CashDropBanner } from '../components/table/CashDropBanner';
 import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
-import { straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
+import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
@@ -39,7 +39,7 @@ type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
   reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; lastAction?: { action: string; amount: number } | null;
-  winAmount?: number; empty?: boolean; disconnected?: boolean; autoStraddle?: boolean;
+  winAmount?: number; empty?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number;
 };
 
 type TableState = {
@@ -538,7 +538,9 @@ export function TablePage({ tableId }: { tableId: string }) {
       sound.play('timebank', { volume: .6 });
       toast({ kind: 'info', title: 'Time bank', body: `+${evt.seconds || timeBankSeconds} seconds` });
     } else if (evt.type === 'sit_out') {
-      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: 'You ran out of time twice. Press "I\'m back" to rejoin.' });
+      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: 'You ran out of time twice. Press "Deal Me In" to rejoin.' });
+    } else if (evt.type === 'sit_out_expired') {
+      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Seat released', body: 'You have been removed from your seat: your sit-out time ran out.' });
     } else if (evt.type === 'blinds_up') {
       sound.play('turn', { volume: .5 });
     } else if (evt.type === 'turn') {
@@ -948,6 +950,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   // Compare against the server's clock so a skewed local clock cannot distort the timer.
   const serverNow = now + clockOffset.current;
   const straddleModel = straddlePrompt(state?.straddleAsk, serverNow);
+  const sitOutText = me?.sittingOut ? sitOutClock(me.sitOutEndsAt, serverNow) : null;
   const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - serverNow) / (state.actionTimeMs || DEFAULT_ACTION_TIME_MS))) : 0;
   const clockSeconds = state?.actor ? Math.max(0, Math.ceil((state.actionEndsAt - serverNow) / 1000)) : null;
   // Native: the Time bank button and hotkey exist only in the final ten seconds of your turn.
@@ -1094,6 +1097,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           )}
           {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
         </div>
+        {sitOutText && <div className="sit-out-clock" role="timer" aria-label="Sit-out time left">{sitOutText}</div>}
         <div className="board">
           {(state?.board || []).map((c, i) => {
             const [dxp, dyp] = state && state.button >= 0 ? seatPos(state.button) : [50, 12];
@@ -1326,7 +1330,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="action-row sitout-row">
             <span>You are sitting out and will not be dealt in.</span>
             <div className="grow" />
-            <button className="btn btn-gold" onClick={() => send({ type: 'sit_out', value: false })}>I'm back</button>
+            <button className="btn btn-red" onClick={() => send({ type: 'sit_out', value: false })}>Deal Me In</button>
           </div>
         )}
         {canPreAct && !squeezing && (

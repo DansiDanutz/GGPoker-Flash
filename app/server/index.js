@@ -700,6 +700,7 @@ function getLiveTable(id) {
       table.tick();
       if (Date.now() - entry.lastBroadcast > 450) broadcastState(table);
       sweepDisconnected(entry);
+      sweepExpiredSitOuts(entry);
       if (entry.clients.size === 0) {
         if (!entry.emptySince) entry.emptySince = Date.now();
         else if (Date.now() - entry.emptySince > Math.max(45000, DISCONNECT_GRACE_MS)) {
@@ -845,6 +846,17 @@ function hasLiveSocket(entry, userId, except = null) {
 
 // Cash out players whose connection has been gone longer than the grace period
 // (tournament players are blinded out instead; their seat is never forfeited).
+/** Native SitOutTimeExpired: a cash seat that sat out past its countdown is cashed out. */
+function sweepExpiredSitOuts(entry) {
+  const table = entry.table;
+  table.refreshSitOutClocks();
+  for (const id of table.expiredSitOuts()) {
+    table.emit({ type: 'sit_out_expired', playerId: id });
+    cashOutSeat(table, id, `Sit-out time expired at ${table.cfg.name}`);
+    notifyWaitlist(table.cfg.id);
+  }
+}
+
 function sweepDisconnected(entry) {
   const table = entry.table;
   const now = Date.now();
