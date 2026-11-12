@@ -272,7 +272,36 @@ export class PokerTable {
 
   // Elimination formats deal sitting-out players in (they auto-fold) so nobody can stall a tournament.
   isDealtIn(player) {
+    if (this.waitsForBigBlind(player)) return false;
     return player.stack > 0 && (this.elimination || !player.sittingOut);
+  }
+
+  /** WaitForBlinds: a returning cash player who owes a blind waits for the big blind instead. */
+  waitsForBigBlind(player) {
+    return !!(player && player.waitForBlinds && player.missedBlinds && !player.sittingOut && player.stack > 0 && this.owesSitInBlind());
+  }
+
+  setWaitForBlinds(userId, value) {
+    const seat = this.seatOf(userId);
+    if (!seat?.player) return { ok: false, error: 'Take a seat first' };
+    seat.player.waitForBlinds = !!value;
+    return { ok: true };
+  }
+
+  /** Deal a waiting player in when the big blind reaches their seat (no extra post). */
+  promoteWaitingBigBlind() {
+    const waiting = (s) => this.waitsForBigBlind(s.player);
+    if (!this.seats.some(waiting)) return;
+    const ring = [];
+    for (let i = 1; i <= this.seats.length; i++) {
+      const s = this.seats[(this.button + i) % this.seats.length];
+      if ((s.player && s.player.inHand) || waiting(s)) ring.push(s);
+    }
+    if (ring.length < 3 || waiting(ring[0]) || !waiting(ring[1])) return;
+    const p = ring[1].player;
+    p.inHand = true;
+    p.folded = false;
+    p.missedBlinds = false;
   }
 
   readySeats() {
@@ -484,7 +513,7 @@ export class PokerTable {
       this.handStartStack[p.id] = p.stack;
     }
 
-    const inHand = this.seats.filter((s) => s.player && s.player.inHand);
+    let inHand = this.seats.filter((s) => s.player && s.player.inHand);
     // move button
     let idx = this.button;
     for (let i = 0; i < this.seats.length; i++) {
@@ -492,6 +521,8 @@ export class PokerTable {
       const s = this.seats[idx];
       if (s.player && s.player.inHand) { this.button = idx; break; }
     }
+    this.promoteWaitingBigBlind();
+    inHand = this.seats.filter((s) => s.player && s.player.inHand);
     // empty seats are skipped
     const order = (from, pred = (s) => s.player && s.player.inHand) => {
       const out = [];
@@ -740,13 +771,21 @@ export class PokerTable {
   }
 
   /** Cash sit-out countdown (native KickOutTime): starts when a seat sits out, clears on return. */
-  refreshSitOutClocks(now = Date.now()) {
+  refreshSitOutClocks(now = Date.now(), waiting = 0) {
     const cash = !this.tournament && !this.spin;
+    const rate = waiting > 0 ? 2 : 1; // native: twice as fast while players wait for a seat
     for (const seat of this.seats) {
       const p = seat.player;
       if (!p || p.isBot) continue;
-      if (cash && p.sittingOut) { if (!p.kickOutAt) p.kickOutAt = now + SIT_OUT_KICK_MS; }
-      else p.kickOutAt = 0;
+      if (!cash || !p.sittingOut) { p.kickOutAt = 0; p.sitOutLeftMs = 0; continue; }
+      if (!p.sitOutLeftMs) {
+        p.sitOutLeftMs = SIT_OUT_KICK_MS;
+      } else {
+        p.sitOutLeftMs = Math.max(0, p.sitOutLeftMs - (now - p.sitOutClockAt) * (p.sitOutRate || 1));
+      }
+      p.sitOutClockAt = now;
+      p.sitOutRate = rate;
+      p.kickOutAt = now + p.sitOutLeftMs / rate;
     }
   }
 
@@ -1611,7 +1650,7 @@ export class PokerTable {
           disconnected: p.disconnected,
           sitOutNext: !!p.sitOutNextHand,
           timeBank: p.timeBank,
-          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0 } : {}),
+          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p) } : {}),
         };
       }),
       log: this.log.slice(-40),

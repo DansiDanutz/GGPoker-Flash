@@ -39,7 +39,7 @@ type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
   reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; lastAction?: { action: string; amount: number } | null;
-  winAmount?: number; empty?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number;
+  winAmount?: number; empty?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
 };
 
 type TableState = {
@@ -1330,7 +1330,19 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="action-row sitout-row">
             <span>You are sitting out and will not be dealt in.</span>
             <div className="grow" />
+            {!state?.tournament && (
+              <label className="wait-blinds" title="Come back on your big blind instead of posting now">
+                <input type="checkbox" checked={!!me?.waitForBlinds} onChange={(e) => send({ type: 'option', tableId, waitForBlinds: e.target.checked })} /> Wait for Blinds
+              </label>
+            )}
             <button className="btn btn-red" onClick={() => send({ type: 'sit_out', value: false })}>Deal Me In</button>
+          </div>
+        )}
+        {!sittingOut && me?.waitingForBigBlind && (
+          <div className="action-row sitout-row">
+            <span>Waiting for the big blind. You will be dealt in when it reaches your seat.</span>
+            <div className="grow" />
+            <button className="btn btn-ghost" onClick={() => send({ type: 'option', tableId, waitForBlinds: false })}>Post now</button>
           </div>
         )}
         {canPreAct && !squeezing && (

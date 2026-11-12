@@ -6,6 +6,18 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Wait for Blinds and the faster sit-out clock
+- While sitting out you can tick "Wait for Blinds": after Deal Me In you are dealt back in
+  when the big blind reaches your seat, and you post only that blind. "Post now" cancels the
+  wait. Without the box you still post at once ("Post Blind(s)").
+- The sit-out countdown runs twice as fast while players wait for a seat at the table
+  (native TablePlayer.kickOutTimeRemaining).
+- The meaning of WaitForBlinds is inferred from the client flag name (REA evidence,
+  medium confidence); it is not spelled out in the client.
+- 585 tests, type check and build pass; browser check of the box, the waiting banner and
+  being dealt in as the big blind.
+
+
 ### Native straddle and sit-out (reverse engineered with REA)
 - Straddle works like GGPoker: before the cards, every eligible player gets "Straddle to $X"
   / "All-in to $Y" with a 5-second TIME badge; the first Yes posts and opens a new round at
