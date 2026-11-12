@@ -3,7 +3,7 @@ import {
 } from './poker.js';
 import { randomInt } from 'node:crypto';
 import { payoutFor, payoutTable } from './tournament.js';
-import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinOutcome } from './spin.js';
+import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
 import { isRushGame } from './validate.js';
 
 const BOT_NAMES = [
@@ -79,6 +79,11 @@ export class PokerTable {
     this.spinWinner = null;
     // Ticket source for the verified outcome table (server/spin.js); tests inject a fixed one.
     this.spinTicket = () => randomInt(SPIN_TICKET_TOTAL);
+    // Spin blind clock (P0 slice S1c): started at the draw, read before each deal; tests inject it.
+    this.spinClock = () => Date.now();
+    this.spinStartedAt = 0;
+    this.spinCompletedHands = 0;
+    this.spinLevel = 0;
     this.tournament = cfg.tournament || null;
     this.levelStartedAt = this.tournament ? Date.now() : 0;
     if (this.tournament) {
@@ -274,6 +279,9 @@ export class PokerTable {
     this.spinMultiplier = outcome.multiplier;
     this.spinPrize = outcome.prizePool;
     this.spinPayouts = Object.freeze([...outcome.prizes]);
+    this.spinStartedAt = this.spinClock();
+    this.spinCompletedHands = 0;
+    this.spinLevel = 0;
     this.emit({ type: 'spin_drawn', multiplier: this.spinMultiplier, prize: this.spinPrize, payouts: this.spinPayouts });
   }
 
@@ -315,9 +323,25 @@ export class PokerTable {
     for (const seat of this.seats) seat.player = null;
     Object.assign(this, {
       handNo: 0, spinMultiplier: null, spinPrize: 0, spinPayouts: null, spinWinner: null, finished: [],
+      spinStartedAt: 0, spinCompletedHands: 0, spinLevel: 0,
       sb: this.cfg.sb, bb: this.cfg.bb, minRaise: this.cfg.bb, street: 'idle', nextHandAt: 0,
     });
     return true;
+  }
+
+  /**
+   * Set the verified Spin blind level before a deal: minute steps for the 2x-5x rows, completed
+   * hand steps for 10x and up, capped at the last level (server/spin.js spinBlindLevel).
+   */
+  applySpinBlinds() {
+    // startHand only runs between hands, so every hand dealt since the draw has completed.
+    this.spinCompletedHands = this.handNo;
+    const { level, smallBlind, bigBlind } = spinBlindLevel(this.spinMultiplier, {
+      startedAt: this.spinStartedAt, now: this.spinClock(), completedHands: this.spinCompletedHands,
+    });
+    const raised = this.spinLevel > 0 && level !== this.spinLevel;
+    Object.assign(this, { spinLevel: level, sb: smallBlind, bb: bigBlind, minRaise: bigBlind });
+    if (raised) this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb, level });
   }
 
   awardSpinWinner() {
@@ -402,12 +426,7 @@ export class PokerTable {
       if (!this.spinStakeValid() || ready.length < SPIN_SEATS) { this.street = 'idle'; return; }
       if (!this.spinPayouts) this.drawSpin();
     }
-    if (this.spin && this.handNo > 0 && this.handNo % 8 === 0) {
-      this.sb = Math.round(this.sb * 1.5);
-      this.bb = Math.round(this.bb * 1.5);
-      this.minRaise = this.bb;
-      this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb });
-    }
+    if (this.spinStarted()) this.applySpinBlinds();
 
     this.handNo++;
     this.deck = shuffle(makeDeck(this.shortDeck));
@@ -1422,6 +1441,9 @@ export class PokerTable {
       spin: this.spin ? {
         multiplier: this.spinMultiplier, prize: this.spinPrize, buyIn: Number(this.cfg.min_buyin),
         payouts: this.spinPayouts, finished: this.finished, winner: this.spinWinner,
+        blindLevel: this.spinLevel || null,
+        smallBlind: this.spinLevel ? this.sb : null,
+        bigBlind: this.spinLevel ? this.bb : null,
       } : null,
       straddle: this.straddle,
       runItTwice: this.runItTwice,

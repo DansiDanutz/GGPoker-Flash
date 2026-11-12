@@ -1,5 +1,5 @@
-// P0 slice S1b: the live Spin & Gold table draws from the verified table (server/spin.js) and
-// pays places 1-3 through the ledger exactly once.
+// P0 slices S1b/S1c: the live Spin & Gold table draws from the verified table (server/spin.js),
+// pays places 1-3 through the ledger exactly once and steps the verified blind schedule.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -17,6 +17,8 @@ const { isSpinStake, spinOutcome } = await import('./spin.js');
 const STAKE = 10000;
 const TICKET_100X = 5; // first ticket of the 100x row (60/30/10)
 const TICKET_10X = 12005; // first ticket of the 10x row (80/20)
+const TICKET_2X = 99_999_999; // last ticket, the 2x row (1-minute levels)
+const MINUTE = 60_000;
 let userSeq = 0;
 let tableSeq = 0;
 
@@ -31,7 +33,7 @@ function makeUser() {
 const balance = (id) => db.prepare('SELECT balance FROM users WHERE id = ?').get(id).balance;
 
 // Seats three humans the way index.js seatHuman does: buy-in debit on a session, then sit.
-function spinTable({ stake = STAKE, ticket = TICKET_100X } = {}) {
+function spinTable({ stake = STAKE, ticket = TICKET_100X, clock = null } = {}) {
   tableSeq += 1;
   const id = `spin-test-${tableSeq}`;
   const t = new PokerTable({
@@ -40,6 +42,7 @@ function spinTable({ stake = STAKE, ticket = TICKET_100X } = {}) {
   });
   const tickets = [];
   t.spinTicket = () => { tickets.push(ticket); return ticket; };
+  if (clock) t.spinClock = () => clock.now;
   t.hooks = { onSpinPayout: (table, p) => settleSpinPayout(table, p), onHandComplete: () => {} };
   const users = [makeUser(), makeUser(), makeUser()];
   const start = users.map(balance);
@@ -229,4 +232,89 @@ test('Spin migration disables legacy 15,000 and 6-max rows and backfills missing
   } finally {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
+});
+
+// S1c: verified blind schedule. `clock.now` is the injected spin clock in ms.
+const blindsOf = (t) => {
+  const { blindLevel, smallBlind, bigBlind } = t.snapshotFor().spin;
+  return [blindLevel, smallBlind, bigBlind];
+};
+const keepPlaying = (t, users) => settleHand(t, users.map((uid) => [uid, 10000]));
+
+test('a 2x spin steps blinds by elapsed minutes, not hands', () => {
+  const clock = { now: 5_000_000 };
+  const { t, users } = spinTable({ ticket: TICKET_2X, clock });
+  assert.equal(t.spinMultiplier, 2);
+  assert.equal(t.spinStartedAt, 5_000_000);
+  assert.deepEqual(blindsOf(t), [1, 10, 20]);
+  for (let i = 0; i < 12; i += 1) keepPlaying(t, users);
+  assert.deepEqual(blindsOf(t), [1, 10, 20], 'hands alone never raise a minute-based row');
+  clock.now += MINUTE - 1;
+  keepPlaying(t, users);
+  assert.deepEqual(blindsOf(t), [1, 10, 20]);
+  clock.now += 1;
+  keepPlaying(t, users);
+  assert.deepEqual(blindsOf(t), [2, 15, 30]);
+  assert.deepEqual([t.sb, t.bb, t.minRaise], [15, 30, 30]);
+  clock.now = 5_000_000 + 5 * MINUTE;
+  keepPlaying(t, users);
+  assert.deepEqual(blindsOf(t), [6, 50, 100]);
+});
+
+test('a 10x spin steps blinds every 10 completed hands, not minutes', () => {
+  const clock = { now: 1_000 };
+  const { t, users } = spinTable({ ticket: TICKET_10X, clock });
+  assert.equal(t.spinMultiplier, 10);
+  clock.now += 60 * MINUTE;
+  for (let i = 0; i < 9; i += 1) keepPlaying(t, users);
+  assert.equal(t.handNo, 10);
+  assert.deepEqual(blindsOf(t), [1, 10, 20], 'time alone never raises a hand-based row');
+  keepPlaying(t, users);
+  assert.equal(t.spinCompletedHands, 10);
+  assert.deepEqual(blindsOf(t), [2, 15, 30]);
+  for (let i = 0; i < 10; i += 1) keepPlaying(t, users);
+  assert.deepEqual(blindsOf(t), [3, 20, 40]);
+});
+
+test('the spin blind schedule caps at the last level', () => {
+  const clock = { now: 0 };
+  const timed = spinTable({ ticket: TICKET_2X, clock });
+  clock.now = 10_000 * MINUTE;
+  keepPlaying(timed.t, timed.users);
+  assert.deepEqual(blindsOf(timed.t), [26, 1500, 3000]);
+
+  const counted = spinTable({ ticket: TICKET_10X });
+  counted.t.handNo = 5_000;
+  keepPlaying(counted.t, counted.users);
+  assert.deepEqual(blindsOf(counted.t), [26, 1500, 3000]);
+});
+
+test('a reset spin clears its blind clock and level', () => {
+  const clock = { now: 0 };
+  const { t, users } = spinTable({ ticket: TICKET_2X, clock });
+  clock.now = 3 * MINUTE;
+  settleHand(t, [[users[1], 0], [users[2], 0], [users[0], 30000]]);
+  t.leaveSpin(users[0]);
+  assert.equal(t.resetSpinIfIdle(), true);
+  assert.deepEqual([t.spinStartedAt, t.spinLevel, t.sb, t.bb], [0, 0, 10, 20]);
+  assert.deepEqual(blindsOf(t), [null, null, null]);
+});
+
+test('non-spin tables keep their configured blinds and expose no spin schedule', () => {
+  tableSeq += 1;
+  const t = new PokerTable({
+    id: `holdem-s1c-${tableSeq}`, name: 'Holdem S1c', game: 'holdem', category: 'Cash', sb: 25, bb: 50, ante: 0,
+    min_buyin: 1000, max_buyin: 5000, seats: 6, speed: 'Fast',
+  });
+  t.spinClock = () => { throw new Error('non-spin tables never read the spin clock'); };
+  t.hooks = { onHandComplete: () => {} };
+  const users = [makeUser(), makeUser()];
+  t.holdStart = true;
+  users.forEach((uid, i) => t.sit({ id: uid, nick: `Cash${uid}` }, i, 5000, `cash-${tableSeq}:${i}`));
+  t.holdStart = false;
+  t.maybeStart();
+  for (let i = 0; i < 20; i += 1) keepPlaying(t, users);
+  assert.ok(t.handNo >= 20);
+  assert.deepEqual([t.sb, t.bb], [25, 50]);
+  assert.equal(t.snapshotFor().spin, null);
 });
