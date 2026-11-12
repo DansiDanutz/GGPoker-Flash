@@ -368,6 +368,53 @@ test('flights of one tournament share the blind level and clock', () => {
   assert.equal(late.bb, a.bb);
 });
 
+test('a busted cash player gets a reload window before the next deal', () => {
+  const t = new PokerTable({
+    id: 'reload', name: 'Reload', game: 'holdem', sb: 50, bb: 100, seats: 2,
+    min_buyin: 1000, max_buyin: 5000,
+  });
+  const busted = player(1, 'Busted', 0, 0, []);
+  const other = player(2, 'Other', 1000, 0, []);
+  t.seats[0].player = busted;
+  t.seats[1].player = other;
+  t.street = 'ended';
+  t.nextHandAt = Date.now() - 1;
+  const events = [];
+  t.on((e) => events.push(e));
+
+  const now = Date.now();
+  assert.equal(t.openRebuyWindow(now), true);
+  assert.ok(t.nextHandAt >= now + 9000, 'the next deal is pushed out by the window');
+  const offer = events.find((e) => e.type === 'rebuy_offer');
+  assert.equal(offer.playerId, 1);
+  assert.equal(offer.min, 1000, 'a reload brings the stack back to the minimum');
+
+  // Ticking inside the window must not deal the next hand.
+  t.tick(now + 100);
+  assert.equal(t.street, 'ended');
+  assert.equal(t.handNo, 0);
+
+  // Reloading clears the prompt and pulls the next deal in.
+  busted.stack = 1000;
+  t.clearRebuyHold(1);
+  assert.ok(t.nextHandAt <= Date.now() + 1600);
+  assert.equal(t.openRebuyWindow(now + 200), false, 'a prompted bust is not offered twice');
+});
+
+test('tournaments and Spin & Gold never open a reload window', () => {
+  for (const extra of [{ tournament: { prizePool: 1000, level: 1, blindEvery: 10 } }, { game: 'spingold' }]) {
+    const t = new PokerTable({
+      id: 'noreload', name: 'No reload', game: 'holdem', sb: 50, bb: 100, seats: 2,
+      min_buyin: 1000, max_buyin: 5000, ...extra,
+    });
+    t.seats[0].player = player(1, 'Busted', 0, 0, []);
+    t.seats[1].player = player(2, 'Other', 1000, 0, []);
+    t.street = 'ended';
+    t.nextHandAt = Date.now() - 1;
+    assert.equal(t.openRebuyWindow(), false);
+  }
+});
+
 test('table snapshot exposes the active hand id for evidence reporting', () => {
   const t = tableWith([player(1, 'A', 1000, 0, []), player(2, 'B', 1000, 0, [])]);
   t.handId = 'hand-evidence-42';

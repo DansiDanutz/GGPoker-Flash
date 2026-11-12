@@ -74,7 +74,7 @@ server, and the service worker is not registered in dev.
 ```bash
 pnpm build          # production bundle → app/dist
 pnpm start          # serve app/dist + API on :5198
-pnpm test           # server suite (145 tests)
+pnpm test           # server suite (148 tests)
 pnpm smoke          # read-only smoke test against a running server
 ```
 
@@ -155,6 +155,12 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
 - Bot opponents with Monte-Carlo equity fill empty seats; stacks persist across hands.
 - Buy-in modal (min/max, percentage presets, seat choice), cash-out on leave, rebuy and
   auto-rebuy, spectating, private tables and bomb pots (admin/host options).
+- Bet sizing with presets, a slider, a number field and **− / +** steppers (one big blind
+  per press); Enter bets the amount on screen, optionally with **Always confirm**.
+- A cash-table bust holds the next hand for about ten seconds and offers a **Reload**
+  prompt with a live countdown; reloading deals as soon as everyone is ready.
+- The chip pile in the middle of the felt grows with the pot (one chip per big blind,
+  three to twelve chips, gold/red/black), so every betting round visibly adds money.
 - Rake (5%, capped) on cash pots; tournaments and Spin & Gold are rake-free.
 - Player notes, friends list, four-colour deck, animations, all-in flash, hand-strength
   label, win overlay, chip/card animations, rabbit hunt, sit-out, table chat and emotes,
@@ -289,7 +295,7 @@ package_app.sh         Build, sign and relaunch the desktop app
 cd app
 pnpm install         # dependencies
 pnpm dev             # Vite + API/WebSocket
-pnpm test            # node --test server/*.test.js (145 tests)
+pnpm test            # node --test server/*.test.js (148 tests)
 pnpm exec tsc --noEmit -p tsconfig.json
 pnpm build           # production client
 pnpm smoke           # read-only API smoke test (needs a running server)
@@ -322,7 +328,7 @@ Every push to `main` and every pull request runs the **CI** workflow
 
 | Job | What it runs |
 |---|---|
-| **Server tests** | `node --test server/*.test.js` (145 tests) |
+| **Server tests** | `node --test server/*.test.js` (148 tests) |
 | **Typecheck and build** | `tsc --noEmit`, then `vite build` |
 
 `main` is protected by the `protect-main` ruleset: both checks are required, force-pushes

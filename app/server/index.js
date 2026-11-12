@@ -2468,6 +2468,8 @@ wss.on('connection', (ws, req) => {
       if (!award.applied) return ws.send(JSON.stringify({ type: 'error', error: 'Rebuy already applied' }));
       seat.player.rebuyCount = rebuyNo;
       seat.player.stack += amount;
+      // Reloading clears the bust prompt; the deal can resume sooner.
+      table.clearRebuyHold(ws.userId);
       broadcastState(table);
       return;
     }

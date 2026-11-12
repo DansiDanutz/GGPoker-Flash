@@ -6,6 +6,22 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Table controls
+- **Bet steppers.** − and + buttons now sit either side of the bet amount and move it one
+  big blind per press, clamped to the legal raise range; the number field's own arrows use
+  the same step. Presets and the slider are unchanged.
+- **Reload after a bust.** When a cash-table player loses their stack, the next hand is held
+  for about ten seconds and a **Reload** dialog opens with a live countdown and the exact
+  allowed add range. The table also shows an "Out of chips" row with a Reload button.
+  Reloading clears the hold, and once every busted player has reloaded the next hand deals
+  1.5 s later instead of waiting out the window. Tournaments and Spin & Gold still
+  eliminate — no window, no rebuy.
+- **The pot pile grows.** The chip pile in the middle of the felt is now sized from the
+  pot — one chip per big blind, at least three and at most twelve, with gold, red and black
+  denominations — instead of a fixed five chips, so each betting round visibly adds money.
+- Tests: reload-window cases in the engine suite and a pot-pile case in the client-logic
+  suite. Full suite 148/148.
+
 ### Betting
 - **Enter-to-bet, with the native "Always confirm" option.** While it is your turn,
   Enter bets the amount on screen (all-in at the ceiling), including from the amount

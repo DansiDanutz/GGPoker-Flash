@@ -9,6 +9,7 @@ import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
 import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/betting';
+import { potChipTiers } from '../game/potChips';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -91,6 +92,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [waitlistPos, setWaitlistPos] = useState(0);
   const [rebuyOpen, setRebuyOpen] = useState(false);
   const [rebuyAmount, setRebuyAmount] = useState(0);
+  const [rebuyOffer, setRebuyOffer] = useState<{ min: number; max: number; until: number } | null>(null);
   const [notes, setNotes] = useState<Record<string, { note: string; color: string }>>({});
   const [noteTarget, setNoteTarget] = useState<PlayerState | null>(null);
   const [playerProfile, setPlayerProfile] = useState<any>(null);
@@ -366,6 +368,14 @@ export function TablePage({ tableId }: { tableId: string }) {
       setTourneyWin(evt);
       sound.play('tournamentWin');
       setTimeout(() => sound.play('fireworks', { volume: .7 }), 600);
+    } else if (evt.type === 'rebuy_offer') {
+      const meNow = stateRef.current?.players.find((p) => p && !p.empty && p.isMe);
+      if (meNow && Number(evt.playerId) === Number(meNow.id)) {
+        setRebuyOffer({ min: Number(evt.min) || 0, max: Number(evt.max) || 0, until: Number(evt.until) || 0 });
+        setRebuyAmount(Math.max(0, Number(evt.min) || 0));
+        setRebuyOpen(true);
+        toast({ kind: 'info', title: 'Out of chips', body: `Reload within ~${Math.round((Number(evt.until) - Date.now()) / 1000)}s to join the next hand.` });
+      }
     } else if (evt.type === 'rabbit') {
       setRabbit(evt.cards || []);
     } else if (evt.type === 'waitlist_ready') {
@@ -429,6 +439,8 @@ export function TablePage({ tableId }: { tableId: string }) {
 
 
   const me = state?.players.find((p) => p.isMe) || null;
+  // A successful reload makes the bust offer stale.
+  useEffect(() => { if ((me?.stack || 0) > 0) setRebuyOffer(null); }, [me?.stack]);
   const myTurn = !!(state && me && state.actor === me.id);
   const tbUsed = (state?.timeBankUsed || []).includes(Number(me?.id));
   const betCtx: BetContext = {
@@ -439,6 +451,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   // Cash tables are stored in cents and shown in dollars; tournaments use whole chips.
   const displayUnit = state?.tournament ? 1 : 100;
   const chipStep = state?.tournament ? 1 : Math.min(100, state?.sb || 100);
+  const betStep = Math.max(1, state?.bb || (state?.tournament ? 1 : 100));
+  const potChips = potChipTiers(state?.pot || 0, state?.bb || 1);
+  const nudgeBet = (direction: number) => setRaiseTo((v) => Math.max(minTo, Math.min(maxTo, v + direction * betStep)));
   const presets = state ? sizingPresets(betCtx, chipStep) : [];
   const odds = myTurn ? potOdds(state?.pot || 0, toCall) : null;
   const sittingOut = !!me?.sittingOut;
@@ -494,6 +509,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const doRebuy = () => {
     send({ type: 'rebuy', amount: rebuyAmount });
     setRebuyOpen(false);
+    setRebuyOffer(null);
     sound.play('coin');
   };
 
@@ -639,6 +655,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - serverNow) / (state.actionTimeMs || DEFAULT_ACTION_TIME_MS))) : 0;
   const rebuyMax = Math.max(0, (state?.maxBuyin || 0) - (me?.stack || 0));
   const rebuyMin = Math.min(rebuyMax, Math.max(state?.bb || 0, (state?.minBuyin || 0) - (me?.stack || 0)));
+  // A bust offer carries the exact allowed range, so the modal works before the next snapshot.
+  const rebuyFloor = rebuyOffer ? Math.max(0, rebuyOffer.min) : rebuyMin;
+  const rebuyCeil = rebuyOffer ? Math.max(rebuyFloor, rebuyOffer.max) : rebuyMax;
   const myTurnNow = !!me?.isMe && state?.street !== 'ended';
   useEffect(() => {
     if (!state || !myTurnNow) { timerWarnRef.current = ''; return; }
@@ -747,7 +766,11 @@ export function TablePage({ tableId }: { tableId: string }) {
       <div className="table-watermark" style={{ top: '34%', fontSize: 20, letterSpacing: 5 }}>{state?.name || ''}</div>
       <div className="table-center">
         {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
-        <div className="pot-chips" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+        {potChips.length > 0 && (
+          <div className="pot-chips" aria-hidden="true">
+            {potChips.map((tier, i) => <i key={i} className={`chip-${tier}`} />)}
+          </div>
+        )}
         <div className="board">
           {(state?.board || []).map((c, i) => <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt style={{ '--dx': '0px', '--dy': '34px', animationDelay: `${i * 0.08}s` } as React.CSSProperties} />)}
           {state?.boards && state.boards.length > 1 && (
@@ -923,6 +946,12 @@ export function TablePage({ tableId }: { tableId: string }) {
             <button className="btn btn-ghost btn-sm" onClick={() => setPendingBet(null)}>Cancel</button>
           </div>
         )}
+        {me && !state?.tournament && !state?.spin && (me.stack || 0) <= 0 && (
+          <div className="action-row" style={{ justifyContent: 'center', gap: 10 }}>
+            <span style={{ color: '#ffd98a', fontSize: 13 }}>You are out of chips.</span>
+            <button className="btn btn-gold btn-sm" onClick={() => { if (rebuyOffer && rebuyOffer.until <= now) setRebuyOffer(null); setRebuyAmount(rebuyMin); setRebuyOpen(true); }}>Reload {chip(rebuyMin)}</button>
+          </div>
+        )}
         {sittingOut && (
           <div className="action-row sitout-row">
             <span>You are sitting out and will not be dealt in.</span>
@@ -970,15 +999,32 @@ export function TablePage({ tableId }: { tableId: string }) {
             disabled={!myTurn || !canRaise}
             onChange={(e) => setRaiseTo(Number(e.target.value))}
           />
-          <input
-            className="amount-input"
-            type="number"
-            value={state?.tournament ? raiseTo : Math.round(raiseTo / 100)}
-            disabled={!myTurn || !canRaise}
-            min={state?.tournament ? minTo : Math.round(minTo / 100)}
-            max={state?.tournament ? maxTo : Math.round(maxTo / 100)}
-            onChange={(e) => setRaiseTo(Math.max(minTo, Math.min(maxTo, Number(e.target.value) * (state?.tournament ? 1 : 100))))}
-          />
+          <div className="bet-stepper">
+            <button
+              type="button"
+              className="bet-step"
+              aria-label="Bet less"
+              disabled={!myTurn || !canRaise || raiseTo <= minTo}
+              onClick={() => nudgeBet(-1)}
+            >−</button>
+            <input
+              className="amount-input"
+              type="number"
+              value={state?.tournament ? raiseTo : Math.round(raiseTo / 100)}
+              disabled={!myTurn || !canRaise}
+              min={state?.tournament ? minTo : Math.round(minTo / 100)}
+              max={state?.tournament ? maxTo : Math.round(maxTo / 100)}
+              step={state?.tournament ? betStep : betStep / 100}
+              onChange={(e) => setRaiseTo(Math.max(minTo, Math.min(maxTo, Number(e.target.value) * (state?.tournament ? 1 : 100))))}
+            />
+            <button
+              type="button"
+              className="bet-step"
+              aria-label="Bet more"
+              disabled={!myTurn || !canRaise || raiseTo >= maxTo}
+              onClick={() => nudgeBet(1)}
+            >+</button>
+          </div>
           <button
             className={'act-btn ' + (raiseTo >= allInTo ? 'act-allin' : 'act-raise')}
             disabled={!myTurn || maxTo <= (state?.currentBet || 0)}
@@ -1124,22 +1170,26 @@ export function TablePage({ tableId }: { tableId: string }) {
       )}
 
       {rebuyOpen && (
-        <div className="modal-backdrop" onClick={() => setRebuyOpen(false)}>
+        <div className="modal-backdrop" onClick={() => { setRebuyOpen(false); setRebuyOffer(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head"><h3>Rebuy</h3></div>
+            <div className="modal-head"><h3>{rebuyOffer ? 'Reload' : 'Rebuy'}</h3></div>
             <div className="modal-body">
               <p className="muted small">Add chips between hands, up to the table maximum of {chip(state?.maxBuyin)}. Your stack is {chip(me?.stack)}.</p>
-              <input type="range" aria-label="Chips to add" min={rebuyMin} max={rebuyMax} step={Math.max(chipStep, state?.bb || chipStep)}
-                value={rebuyAmount} onChange={(e) => setRebuyAmount(Math.min(rebuyMax, Number(e.target.value)))} style={{ width: '100%' }} />
+              {rebuyOffer && (now < rebuyOffer.until
+                ? <p className="muted small" style={{ color: '#ffd98a' }}>{Math.max(1, Math.ceil((rebuyOffer.until - now) / 1000))}s to reload before the next hand is dealt.</p>
+                : <p className="muted small" style={{ color: '#ffd98a' }}>The next hand is dealing without you — reload to join the following one.</p>)}
+              <input type="range" aria-label="Chips to add" min={rebuyFloor} max={rebuyCeil} step={Math.max(chipStep, state?.bb || chipStep)}
+                value={Math.max(rebuyFloor, Math.min(rebuyCeil, rebuyAmount))}
+                onChange={(e) => setRebuyAmount(Math.min(rebuyCeil, Math.max(rebuyFloor, Number(e.target.value))))} style={{ width: '100%' }} />
               <div className="between" style={{ marginTop: 8 }}>
-                <span className="muted small">{chip(rebuyMin)}</span>
-                <b style={{ color: '#ffd98a' }}>{chip(rebuyAmount)}</b>
-                <span className="muted small">{chip(rebuyMax)}</span>
+                <span className="muted small">{chip(rebuyFloor)}</span>
+                <b style={{ color: '#ffd98a' }}>{chip(Math.max(rebuyFloor, Math.min(rebuyCeil, rebuyAmount)))}</b>
+                <span className="muted small">{chip(rebuyCeil)}</span>
               </div>
             </div>
             <div className="modal-foot">
-              <button className="btn btn-dark" onClick={() => setRebuyOpen(false)}>Cancel</button>
-              <button className="btn btn-red" disabled={rebuyAmount <= 0 || rebuyAmount > rebuyMax} onClick={doRebuy}>Add chips</button>
+              <button className="btn btn-dark" onClick={() => { setRebuyOpen(false); setRebuyOffer(null); }}>Cancel</button>
+              <button className="btn btn-red" disabled={rebuyAmount <= 0 || rebuyAmount > rebuyCeil} onClick={doRebuy}>Add chips</button>
             </div>
           </div>
         </div>
