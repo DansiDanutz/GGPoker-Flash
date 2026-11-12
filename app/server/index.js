@@ -24,6 +24,7 @@ import * as waitlist from './waitlist.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService } from './chat.js';
 import * as adminWaitlist from './admin-waitlist.js';
+import { setAdminRole } from './admin-roles.js';
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, readCashDropConfig, settleCashDrop, validateCashDropSettings } from './rush-pool.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -2229,6 +2230,10 @@ const server = http.createServer(async (req, res) => {
       const a = requireAdmin(req, res); if (!a) return;
       const id = Number(p.split('/')[4]);
       const body = await readBody(req);
+      if (body.action === 'set_admin') {
+        const result = setAdminRole(a, id, body.admin);
+        return json(res, result.status, result.body);
+      }
       const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       if (!target) return json(res, 404, { error: 'not found' });
       if (body.action === 'credit') {

@@ -33,7 +33,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function Admin() {
-  const { user, toast, meta, brand, refreshBrand } = useApp();
+  const { user, toast, meta, brand, refreshBrand, refreshUser } = useApp();
   const [section, setSection] = useState('dashboard');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -98,6 +98,26 @@ export function Admin() {
       sound.play('click');
       await loadAll();
       toast({ kind: 'success', title: 'User updated' });
+    } catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
+  };
+
+  // Mirrors the server's last-admin guard (active = admin and not banned) so the button is never offered.
+  const activeAdminCount = useMemo(() => users.filter((u) => u.is_admin && !u.banned).length, [users]);
+  const isLastAdmin = (u: User) => u.is_admin && !u.banned && activeAdminCount <= 1;
+
+  const toggleAdmin = async (u: User) => {
+    const grant = !u.is_admin;
+    const self = u.id === user?.id;
+    const prompt = grant
+      ? `Make ${u.nick} (${u.login}) an admin? They will get full access to this console.`
+      : `Revoke admin from ${u.nick} (${u.login})?${self ? ' You will lose access to this console.' : ''}`;
+    if (!confirm(prompt)) return;
+    try {
+      await api.admin.userAction(u.id, { action: 'set_admin', admin: grant });
+      sound.play('click');
+      toast({ kind: 'success', title: grant ? 'Admin granted' : 'Admin revoked', body: u.nick });
+      if (self && !grant) { await refreshUser(); return; }
+      await loadAll();
     } catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
   };
 
@@ -245,13 +265,14 @@ export function Admin() {
                         <td>{(u.play_chips).toLocaleString()}</td>
                         <td>T${u.tickets}</td>
                         <td>VIP {u.vip_level}</td>
-                        <td>{u.banned ? <span className="tag red">Banned</span> : u.chat_muted ? <span className="tag red">Chat muted</span> : <span className="tag live">Active</span>}</td>
+                        <td><div className="row" style={{ gap: 3 }}>{u.banned ? <span className="tag red">Banned</span> : u.chat_muted ? <span className="tag red">Chat muted</span> : <span className="tag live">Active</span>}{u.is_admin && <span className="tag gtd">Admin</span>}</div></td>
                         <td>
                           <div className="row" style={{ gap: 3 }}>
                             <button className="btn btn-ghost btn-sm" onClick={() => quickCredit(u, 100000)}>+$1k</button>
                             <button className="btn btn-ghost btn-sm" onClick={() => quickCredit(u, -100000)}>-$1k</button>
                             <button className="btn btn-ghost btn-sm" onClick={() => setEditing({ kind: 'user', data: u })}>Edit</button>
                             <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.userAction(u.id, { action: u.chat_muted ? 'unmute' : 'mute' }); loadAll(); toast({ kind: 'success', title: u.chat_muted ? 'Chat unmuted' : 'Chat muted', body: u.nick }); }}>{u.chat_muted ? 'Unmute' : 'Mute'}</button>
+                            {!isLastAdmin(u) && <button className="btn btn-ghost btn-sm" onClick={() => toggleAdmin(u)}>{u.is_admin ? 'Revoke admin' : 'Make admin'}</button>}
                           </div>
                         </td>
                       </tr>

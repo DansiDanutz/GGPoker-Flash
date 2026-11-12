@@ -521,3 +521,15 @@ Every PR:
 
 Also, at the next touch, correct the stale `parity-backlog.md` items noted in the gap
 analysis (SSE, per-variant Elo, hotkeys, backgrounds).
+
+## 8. P1 — owner console
+
+Admin-console work the owner needs to run the room without database access. Not a
+native-parity gap (GGPoker has no player-visible admin), so there is no capture step;
+each slice is judged on its guards, audit trail and tests.
+
+### Implementation slices
+
+| Slice | Scope | Files | Tests |
+|---|---|---|---|
+| A1 | ✅ **Done 2026-11-12.** **Admin role management.** `POST /api/admin/users/:id` gains `{ action: 'set_admin', admin: boolean }` (admin-only: 401 anonymous, 403 non-admin). Guards: deleted or unknown target 404, non-boolean `admin` 400, a no-op change answers 200 `changed: false` with no audit row, and revoking the last **active** admin (flagged, not banned, not deleted) is refused with 409 "Cannot remove the last remaining admin…". Each change writes `grant_admin` / `revoke_admin` with actor login and `user <id> (<login>)`, inside one `BEGIN IMMEDIATE` transaction. The response carries `publicUser` only. Admin → Users shows a gold **Admin** tag and a confirmed **Make admin** / **Revoke admin** button; the button is hidden for the last active admin, the list reloads after a change, and revoking your own role refreshes your session instead. Credit/mute/ban/set actions are unchanged. | new `server/admin-roles.js`, `server/index.js`, `src/pages/Admin.tsx` | new `server/admin-users.test.js` (6): 401/403 with no change, grant + revoke + admin-route access follows the flag, audit rows with actor and target, no-op writes no audit, last-admin 409 (also after a hand-over), 404/400 validation, `publicUser` key set is exact (no password or extra fields) |
