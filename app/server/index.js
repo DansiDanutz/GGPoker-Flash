@@ -671,6 +671,10 @@ function getLiveTable(id) {
         if (winner && winner.id === s.player.id) bumpMission(s.player.id, 'daily-win');
         if (table.board.length >= 3) bumpMission(s.player.id, 'daily-flop');
       }
+      if (table.cfg.tournamentId) {
+        const room = TOURNAMENT_ROOMS.get(table.cfg.tournamentId);
+        if (room) scheduleTournamentRoomSave(room);
+      }
     },
   });
   const entry = { table, clients: new Set(), timer: null, lastBroadcast: 0 };
@@ -902,6 +906,44 @@ function tournamentTableConfig(t, tournament, index, seats) {
   };
 }
 
+const roomSaveTimers = new Map();
+
+/** Persist a running room's seats, stacks, level and finishes for restart recovery. */
+function saveTournamentRoom(room) {
+  if (!room || room.winner) return;
+  // Only snapshot settled hands. A hand interrupted by a crash is voided and the
+  // previous snapshot (with the pre-hand stacks) is restored.
+  if (room.flights?.some((flight) => LIVE_TABLES.get(flight.id)?.table?.handInProgress?.())) return;
+  try {
+    db.prepare(`INSERT INTO tourney_state (tournament_id, state, updated_at) VALUES (?, ?, datetime('now'))
+      ON CONFLICT(tournament_id) DO UPDATE SET state = excluded.state, updated_at = datetime('now')`)
+      .run(room.id, JSON.stringify(room.snapshot()));
+  } catch (err) { console.error('tournament snapshot', room.id, err); }
+}
+
+/** Debounce writes so a busy hand does not serialize the room on every stack change. */
+function scheduleTournamentRoomSave(room) {
+  if (!room || room.winner || roomSaveTimers.has(room.id)) return;
+  const timer = setTimeout(() => { roomSaveTimers.delete(room.id); saveTournamentRoom(room); }, 250);
+  timer.unref?.();
+  roomSaveTimers.set(room.id, timer);
+}
+
+function loadTournamentRoomState(tournamentId) {
+  try {
+    const row = db.prepare('SELECT state FROM tourney_state WHERE tournament_id = ?').get(tournamentId);
+    if (!row?.state) return null;
+    return JSON.parse(row.state);
+  } catch (err) {
+    console.error('tournament snapshot load', tournamentId, err);
+    return null;
+  }
+}
+
+function deleteTournamentRoomState(tournamentId) {
+  try { db.prepare('DELETE FROM tourney_state WHERE tournament_id = ?').run(tournamentId); } catch { /* best effort */ }
+}
+
 /** The live multi-table room for a tournament, created on first use. */
 function ensureTournamentRoom(t) {
   const existing = TOURNAMENT_ROOMS.get(t.id);
@@ -931,6 +973,7 @@ function ensureTournamentRoom(t) {
       persistBust: ({ tableId, playerId, nick, place, payout }) => {
         const table = LIVE_TABLES.get(tableId)?.table;
         if (table) table.finished.push({ id: playerId, nick, place, payout });
+        scheduleTournamentRoomSave(TOURNAMENT_ROOMS.get(t.id));
         if (payout <= 0) return;
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(playerId);
         if (u) addTransaction(u.id, 'tourney_payout', payout, `${t.name} — finished ${ordinal(place)}`);
@@ -954,11 +997,23 @@ function ensureTournamentRoom(t) {
         }
         db.prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?").run(t.id);
         db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ?').run(t.id);
+        deleteTournamentRoomState(t.id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end',
           `${t.name} winner ${nick} ${prize || 0}`);
       },
     },
   });
+  if (t.status === 'running') {
+    const saved = loadTournamentRoomState(t.id);
+    if (saved) {
+      try {
+        if (room.restore(saved)) {
+          room.syncLevel();
+          console.log(`tournament restored ${t.id} (${saved.flights?.length || 0} flights)`);
+        }
+      } catch (err) { console.error('tournament restore', t.id, err); }
+    }
+  }
   TOURNAMENT_ROOMS.set(t.id, room);
   return room;
 }
@@ -968,6 +1023,7 @@ function disposeTournamentRoom(tournamentId, { force = false } = {}) {
   if (!room) return;
   room.dispose({ force });
   TOURNAMENT_ROOMS.delete(tournamentId);
+  deleteTournamentRoomState(tournamentId);
 }
 
 /**
@@ -984,6 +1040,7 @@ function startTournament(t) {
   const registrants = db.prepare(`SELECT u.id, u.nick, u.avatar FROM tourney_regs r JOIN users u ON u.id = r.user_id
     WHERE r.tournament_id = ? ORDER BY r.created_at, r.rowid`).all(t.id);
   const { seated, failed } = room.seatRegistrants(registrants, { stack: t.starting_stack });
+  scheduleTournamentRoomSave(room);
   for (const seat of seated) notifyTournamentStarted(t, seat.id, seat.tableId, seat.index);
   for (const miss of failed) console.error('tournament start seat', t.id, miss.id, miss.error);
   return true;
@@ -1356,6 +1413,7 @@ const server = http.createServer(async (req, res) => {
       table.maybeStart();
       const entry = LIVE_TABLES.get(result.tableId);
       if (entry) broadcastState(table);
+      scheduleTournamentRoomSave(room);
       return json(res, 200, { ok: true, tableId: result.tableId, tableIndex: result.index });
     }
 
@@ -2859,9 +2917,17 @@ setInterval(() => {
 // Multi-table tournaments rebalance and break short tables between hands.
 setInterval(() => {
   for (const room of TOURNAMENT_ROOMS.values()) {
-    try { room.sweep(); } catch (err) { console.error('tournament sweep', err); }
+    try {
+      const result = room.sweep();
+      if (result?.moves?.length || result?.broken?.length) scheduleTournamentRoomSave(room);
+    } catch (err) { console.error('tournament sweep', err); }
   }
 }, 2000).unref();
+
+// Stacks change every hand; this also captures a blind level that changed between hands.
+setInterval(() => {
+  for (const room of TOURNAMENT_ROOMS.values()) scheduleTournamentRoomSave(room);
+}, 15000).unref();
 
 function identityTaken(name, exceptUserId = 0) {
   return !!db.prepare('SELECT 1 FROM users WHERE (lower(login) = lower(?) OR lower(nick) = lower(?)) AND id != ?').get(name, name, exceptUserId);
@@ -2884,6 +2950,10 @@ let shuttingDown = false;
 function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
+  // Snapshot tournament rooms before the live tables are closed underneath them.
+  for (const room of TOURNAMENT_ROOMS.values()) {
+    try { saveTournamentRoom(room); } catch { /* best effort */ }
+  }
   try {
     for (const id of [...LIVE_TABLES.keys()]) closeLiveTable(id, 'Client closed');
   } catch (e) {
@@ -2897,8 +2967,24 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+function restoreRunningTournamentRooms() {
+  let restored = 0;
+  try {
+    const rows = db.prepare("SELECT * FROM tournaments WHERE status = 'running' AND enabled = 1").all();
+    for (const t of rows) {
+      try {
+        const room = ensureTournamentRoom(t);
+        room.syncLevel();
+        restored += 1;
+      } catch (err) { console.error('tournament boot restore', t.id, err); }
+    }
+  } catch (err) { console.error('tournament boot restore', err); }
+  if (restored) console.log(`tournament rooms restored: ${restored}`);
+}
+
 const refunded = refundOpenSessions();
 if (refunded) console.log(`refunded ${refunded} open table session(s)`);
+restoreRunningTournamentRooms();
 server.listen(PORT, process.env.GGPOKER_BIND || '127.0.0.1', () => {
   const port = server.address().port;
   console.log(`LISTENING ${port}`);

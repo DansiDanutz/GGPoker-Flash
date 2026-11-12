@@ -161,12 +161,12 @@ test('places count down across the whole field, not per table', () => {
 
   // Busted seats stay at stack 0 until the table clears them.
   flight1.seatOf('p1').player.stack = 0;
-  assert.deepEqual(room.onBust('tourney-t1', player(1)), { id: 'p1', nick: 'P1', place: 8, payout: 0 });
+  assert.deepEqual(room.onBust('tourney-t1', player(1)), { id: 'p1', nick: 'P1', place: 8, payout: 0, tableId: 'tourney-t1' });
   // The engine clears the seat right after the hook, inside the same tick.
   flight1.stand('p1');
 
   flight2.seatOf('p7').player.stack = 0;
-  assert.deepEqual(room.onBust('tourney-t1-1', player(7)), { id: 'p7', nick: 'P7', place: 7, payout: 0 });
+  assert.deepEqual(room.onBust('tourney-t1-1', player(7)), { id: 'p7', nick: 'P7', place: 7, payout: 0, tableId: 'tourney-t1-1' });
   assert.equal(room.finished.length, 2);
 });
 
@@ -603,4 +603,37 @@ test('a heads-up finish on real tables pays 2nd and 1st and the ledger equals th
   assert.deepEqual([winners[0].prize, busts[0].payout], payoutTable(2, prizePool).map((row) => row.amount));
   assert.equal(busts[0].payout + winners[0].prize, prizePool);
   assert.equal(table.seatOf(room.winner.id).player.stack, 3000, 'every chip ends with the winner');
+});
+
+
+test('a room snapshot restores seats, stacks, level and finishes', () => {
+  const { room, tables } = harness();
+  room.tournament.level = 3;
+  room.tournament.levelStartedAt = 1_700_000_000_000;
+  room.seat(player(1), { stack: 900 });
+  room.seat(player(2), { stack: 800 });
+  room.finished.push({ id: 'p9', nick: 'P9', place: 5, payout: 100, tableId: 'tourney-t1' });
+  tables.get('tourney-t1').finished = [];
+
+  const snapshot = room.snapshot();
+  assert.equal(snapshot.version, 1);
+  assert.equal(snapshot.level, 3);
+  assert.equal(snapshot.flights[0].players.find((p) => p.id === 'p1').stack, 900);
+
+  const restoredHarness = harness();
+  assert.equal(restoredHarness.room.restore(snapshot), true);
+  const table = restoredHarness.tables.get('tourney-t1');
+  assert.equal(table.seatOf('p1').player.stack, 900);
+  assert.equal(table.seatOf('p2').player.stack, 800);
+  assert.equal(restoredHarness.room.tournament.level, 3);
+  assert.equal(restoredHarness.room.tournament.levelStartedAt, 1_700_000_000_000);
+  assert.deepEqual(restoredHarness.room.finished.map((r) => r.place), [5]);
+  assert.deepEqual(table.finished.map((r) => r.id), ['p9']);
+});
+
+test('a malformed or older room snapshot is ignored', () => {
+  const { room } = harness();
+  assert.equal(room.restore(null), false);
+  assert.equal(room.restore({ version: 0 }), false);
+  assert.equal(room.restore({ version: 1, flights: [] }), true);
 });

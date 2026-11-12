@@ -6,6 +6,23 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Durable tournament rooms (restart recovery)
+- Running `TournamentRoom`s now snapshot their flights, seats, stacks, blind level/clock,
+  finished places and winner into a new `tourney_state` table. Snapshots are written after
+  every settled hand, after start/seating and balance/break moves, every 15 s and on a
+  graceful shutdown. A hand in progress is never snapshotted: the last settled state is kept
+  and an interrupted hand is voided rather than replayed.
+- On boot the server restores every `running` event before accepting connections: flights
+  and live tables are rebuilt, seats/stacks/flights/places come back, the shared blind clock
+  resumes, and a player's `/play` returns their original table. Malformed or older snapshots
+  are ignored.
+- Fixed the shutdown order: rooms are now snapshotted **before** the live tables close (it
+  used to close the tables first, which saved empty rooms).
+- Verified with a live two-player event: graceful kill → both players and 10,000 stacks
+  restored, `playersLeft: 2`, same table id on reconnect, level/blinds intact. Room
+  snapshot/restore unit tests added. Full suite 411/411.
+
+## 2026-11-12
 ### Platform administration: live server and tournament observability
 - New admin-only, read-only endpoints **`GET /api/admin/platform`** and
   **`GET /api/admin/tournaments/live`**, surfaced in a new **Platform** section of the owner
