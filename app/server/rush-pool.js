@@ -125,3 +125,125 @@ export function createCashDropLedger(db, addTransactionEx) {
       addTransactionEx(userId, CASHDROP_KIND, amount, memo, 'USD', { reference, onDuplicate: 'skip' }).applied,
   });
 }
+
+/* ------------------------------------------------------------------ */
+/* Rush pools (P0 slice R1): queue, transfer and Cash Drop per pool    */
+/* ------------------------------------------------------------------ */
+
+/** A Rush pool is every enabled table of one game at one stake. */
+export function poolKeyOf({ game, sb, bb }) {
+  return `${game}:${Number(sb)}/${Number(bb)}`;
+}
+
+/** The pool a live table belongs to, as the fields its key is built from. */
+export function poolOf(table) {
+  const { game, sb, bb } = table.cfg;
+  return Object.freeze({ game, sb, bb, key: poolKeyOf({ game, sb, bb }) });
+}
+
+function notifyClient(entry, userId, payload) {
+  if (!entry) return;
+  for (const client of entry.clients) {
+    if (client.userId === userId && client.readyState === 1) client.send(JSON.stringify(payload));
+  }
+}
+
+/**
+ * The live Rush pools: players who folded (`rushQueued`) move to the emptiest other table
+ * of the same pool after the hand, or wait in the pool queue until a seat opens there.
+ * A transfer never leaves the pool, so it never crosses stakes.
+ *
+ * deps:
+ *   listPoolTableIds(pool)        ids of the enabled tables in a pool ({ game, sb, bb, key })
+ *   getLiveTable(id)              the live PokerTable for an id (opened on demand) or null
+ *   getEntry(id)                  the live entry ({ table, clients }) or undefined
+ *   findUser(userId)              the users row or undefined
+ *   cashOutSeat(table, userId, reason), seatHuman(table, user, buyin, seat) → { ok }
+ *   broadcastState(table)
+ *   isRealUser(userId)            true when the id is a stored user (Cash Drop eligibility)
+ *   getSetting(key, fallback), ledger (createCashDropLedger)
+ */
+export function createRushPool(deps) {
+  const now = deps.now || Date.now;
+  const waiting = new Map(); // userId -> { user, stack, pool, fromTable, since }
+
+  function pickTarget(pool, excludeId) {
+    let target = null;
+    let targetCount = Infinity;
+    for (const id of deps.listPoolTableIds(pool)) {
+      if (id === excludeId) continue;
+      const candidate = deps.getLiveTable(id);
+      const occupied = candidate ? candidate.occupiedSeats().length : 0;
+      if (candidate && occupied < candidate.cfg.seats && occupied < targetCount) { target = candidate; targetCount = occupied; }
+    }
+    return target;
+  }
+
+  /** After a hand: transfer every queued human on a Rush table, or park them in the pool queue. */
+  function moveQueued(table) {
+    if (!table.rush) return;
+    const pool = poolOf(table);
+    const queued = table.humans().filter((p) => table.seatOf(p.id)?.player?.rushQueued);
+    for (const p of queued) {
+      const seat = table.seatOf(p.id);
+      const stack = seat?.player?.stack || 0;
+      const user = deps.findUser(p.id);
+      if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; continue; }
+      const target = pickTarget(pool, table.cfg.id);
+      if (!target) {
+        waiting.set(p.id, { user, stack, pool, fromTable: table.cfg.id, since: now() });
+        seat.player.rushQueued = true;
+        seat.player.sittingOut = true;
+        notifyClient(deps.getEntry(table.cfg.id), p.id, { type: 'rush_queued' });
+        continue;
+      }
+      waiting.delete(p.id);
+      deps.cashOutSeat(table, p.id, 'Rush transfer');
+      const res = deps.seatHuman(target, user, Math.min(stack, target.cfg.max_buyin), null);
+      if (!res.ok) { seat.player && (seat.player.rushQueued = false); continue; }
+      notifyClient(deps.getEntry(table.cfg.id), p.id,
+        { type: 'rush_move', tableId: target.cfg.id, stack: Math.min(stack, target.cfg.max_buyin) });
+      deps.broadcastState(target);
+    }
+  }
+
+  /** Periodic sweep: seat waiting players once a table in their own pool has room. */
+  function flush() {
+    for (const [userId, wait] of [...waiting]) {
+      const fromEntry = deps.getEntry(wait.fromTable);
+      if (!fromEntry) { waiting.delete(userId); continue; }
+      const fromTable = fromEntry.table;
+      const oldSeat = fromTable.seatOf(userId);
+      if (!oldSeat?.player) { waiting.delete(userId); continue; }
+      if (!['ended', 'idle'].includes(fromTable.street)) continue;
+      const target = pickTarget(wait.pool, fromTable.cfg.id);
+      if (!target) continue;
+      deps.cashOutSeat(fromTable, userId, 'Rush queue transfer');
+      const res = deps.seatHuman(target, wait.user, Math.min(wait.stack, target.cfg.max_buyin), null);
+      if (!res.ok) { waiting.delete(userId); continue; }
+      waiting.delete(userId);
+      notifyClient(fromEntry, userId,
+        { type: 'rush_move', tableId: target.cfg.id, stack: Math.min(wait.stack, target.cfg.max_buyin) });
+    }
+  }
+
+  /** Cash Drop for a saved Rush hand; emits the felt event when a drop is paid. */
+  function settleHand(hand, table) {
+    if (hand.game !== 'rush') return null;
+    const candidates = (hand.players || []).filter((p) => p && p.id && !p.isBot && deps.isRealUser(p.id));
+    const drop = settleCashDrop({
+      handId: hand.handId, bb: table.cfg.bb, candidates, config: readCashDropConfig(deps.getSetting), ledger: deps.ledger,
+    });
+    if (drop) table.emit({ type: 'cashdrop', nick: drop.nick, amount: drop.amount, rule: drop.rule });
+    return drop;
+  }
+
+  /** Read-only view of the pool queue (copies), for tests and monitoring. */
+  function waitingList() {
+    return [...waiting].map(([userId, w]) => Object.freeze({
+      userId, poolKey: w.pool.key, fromTable: w.fromTable, stack: w.stack, since: w.since,
+    }));
+  }
+
+  return Object.freeze({ moveQueued, flush, settleHand, waitingList });
+}

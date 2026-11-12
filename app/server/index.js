@@ -26,7 +26,7 @@ import { createChatService, createChatStore } from './chat.js';
 import { createAdminChatRoutes } from './admin-chat.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
-import { CASHDROP_SETTING_KEYS, createCashDropLedger, readCashDropConfig, settleCashDrop, validateCashDropSettings } from './rush-pool.js';
+import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -276,7 +276,6 @@ const chatService = createChatService({ db, getEntry: (id) => LIVE_TABLES.get(id
 const TOURNAMENT_ROOMS = new Map(); // tournamentId -> TournamentRoom (multi-table flights)
 let waitState = waitlist.createWaitlist(); // pure wait-list model state (see waitlist.js)
 let waitSince = Object.freeze({}); // `queueKey|userId` -> join time, for the admin monitor
-const RUSH_WAITING = new Map(); // userId -> { user, stack, bb, fromTable, since }
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
 const CRASH_ROUNDS = new Map(); // roundId -> crash round
@@ -455,6 +454,21 @@ const handleAdminChatRoute = createAdminChatRoutes({
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
 
+// Rush pools (rush-pool.js): fold-and-move queue per pool (game + sb + bb) and the Cash Drop.
+const RUSH_POOL = createRushPool({
+  listPoolTableIds: ({ game, sb, bb }) =>
+    db.prepare('SELECT id FROM tables WHERE game = ? AND sb = ? AND bb = ? AND enabled = 1').all(game, sb, bb).map((r) => r.id),
+  getLiveTable: (id) => getLiveTable(id),
+  getEntry: (id) => LIVE_TABLES.get(id),
+  findUser: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
+  cashOutSeat: (table, userId, reason) => cashOutSeat(table, userId, reason),
+  seatHuman: (table, user, buyin, seat) => seatHuman(table, user, buyin, seat),
+  broadcastState: (table) => broadcastState(table),
+  isRealUser: (id) => !!db.prepare('SELECT 1 FROM users WHERE id = ?').get(id),
+  getSetting: (key, fallback) => getSetting(key, fallback),
+  ledger: CASHDROP_LEDGER,
+});
+
 const CUSTOM_CFG = new Map(); // tournament tables not stored in the cash-game table list
 
 function tableRow(id) {
@@ -507,13 +521,7 @@ function getLiveTable(id) {
           db.prepare('UPDATE users SET elo = ? WHERE id = ?').run(overall, u.id);
           db.prepare('INSERT INTO elo_history (user_id,hand_id,delta,before,after,game) VALUES (?,?,?,?,?,?)').run(u.id, h.handId || null, next - before, before, next, game);
         }
-        if (h.game === 'rush') {
-          const candidates = (h.players || []).filter((p) => p && p.id && !p.isBot && db.prepare('SELECT 1 FROM users WHERE id = ?').get(p.id));
-          const drop = settleCashDrop({
-            handId: h.handId, bb: table.cfg.bb, candidates, config: readCashDropConfig(getSetting), ledger: CASHDROP_LEDGER,
-          });
-          if (drop) table.emit({ type: 'cashdrop', nick: drop.nick, amount: drop.amount, rule: drop.rule });
-        }
+        RUSH_POOL.settleHand(h, table);
       } catch (e) { console.error('hand save', e); }
     },
     onTournamentPayout: (table, p) => {
@@ -613,73 +621,10 @@ function getLiveTable(id) {
   return table;
 }
 
-function moveRushPlayers(table) {
-  if (!table.rush) return;
-  const queued = table.humans().filter((p) => table.seatOf(p.id)?.player?.rushQueued);
-  for (const p of queued) {
-    const seat = table.seatOf(p.id);
-    const stack = seat?.player?.stack || 0;
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(p.id);
-    if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; continue; }
-    const rows = db.prepare("SELECT id FROM tables WHERE game = 'rush' AND enabled = 1 AND bb = ?").all(table.bb);
-    let target = null;
-    let targetCount = Infinity;
-    for (const row of rows) {
-      if (row.id === table.cfg.id) continue;
-      const candidate = getLiveTable(row.id);
-      const occupied = candidate ? candidate.occupiedSeats().length : 0;
-      if (candidate && occupied < candidate.cfg.seats && occupied < targetCount) { target = candidate; targetCount = occupied; }
-    }
-    if (!target) {
-      RUSH_WAITING.set(p.id, { user, stack, bb: table.bb, fromTable: table.cfg.id, since: Date.now() });
-      seat.player.rushQueued = true;
-      seat.player.sittingOut = true;
-      const entry = LIVE_TABLES.get(table.cfg.id);
-      if (entry) for (const client of entry.clients) if (client.userId === p.id && client.readyState === 1) client.send(JSON.stringify({ type: 'rush_queued' }));
-      continue;
-    }
-    RUSH_WAITING.delete(p.id);
-    cashOutSeat(table, p.id, 'Rush transfer');
-    const res = seatHuman(target, user, Math.min(stack, target.cfg.max_buyin), null);
-    if (!res.ok) { seat.player && (seat.player.rushQueued = false); continue; }
-    const entry = LIVE_TABLES.get(table.cfg.id);
-    if (entry) {
-      for (const client of entry.clients) {
-        if (client.userId === p.id && client.readyState === 1) {
-          client.send(JSON.stringify({ type: 'rush_move', tableId: target.cfg.id, stack: Math.min(stack, target.cfg.max_buyin) }));
-        }
-      }
-    }
-    broadcastState(target);
-  }
-}
+// Thin delegates: the pool logic lives in rush-pool.js.
+function moveRushPlayers(table) { RUSH_POOL.moveQueued(table); }
 
-function flushRushQueue() {
-  for (const [userId, wait] of [...RUSH_WAITING]) {
-    const fromEntry = LIVE_TABLES.get(wait.fromTable);
-    if (!fromEntry) { RUSH_WAITING.delete(userId); continue; }
-    const fromTable = fromEntry.table;
-    const oldSeat = fromTable.seatOf(userId);
-    if (!oldSeat?.player) { RUSH_WAITING.delete(userId); continue; }
-    if (!['ended', 'idle'].includes(fromTable.street)) continue;
-    let target = null, targetCount = Infinity;
-    const rows = db.prepare("SELECT id FROM tables WHERE game = 'rush' AND enabled = 1 AND bb = ?").all(wait.bb);
-    for (const row of rows) {
-      if (row.id === fromTable.cfg.id) continue;
-      const candidate = getLiveTable(row.id);
-      const occupied = candidate ? candidate.occupiedSeats().length : 0;
-      if (candidate && occupied < candidate.cfg.seats && occupied < targetCount) { target = candidate; targetCount = occupied; }
-    }
-    if (!target) continue;
-    cashOutSeat(fromTable, userId, 'Rush queue transfer');
-    const res = seatHuman(target, wait.user, Math.min(wait.stack, target.cfg.max_buyin), null);
-    if (!res.ok) { RUSH_WAITING.delete(userId); continue; }
-    RUSH_WAITING.delete(userId);
-    for (const client of fromEntry.clients) if (client.userId === userId && client.readyState === 1) {
-      client.send(JSON.stringify({ type: 'rush_move', tableId: target.cfg.id, stack: Math.min(wait.stack, target.cfg.max_buyin) }));
-    }
-  }
-}
+function flushRushQueue() { RUSH_POOL.flush(); }
 
 function broadcastTable(table, evt) {
   const entry = LIVE_TABLES.get(table.cfg.id);

@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   CASHDROP_DEFAULTS, CASHDROP_KIND, CASHDROP_RULE_LABEL, cashDropAmount, cashDropReference, createCashDropLedger,
-  cryptoRng, readCashDropConfig, rollCashDrop, settleCashDrop, validateCashDropSettings,
+  createRushPool, cryptoRng, poolKeyOf, readCashDropConfig, rollCashDrop, settleCashDrop, validateCashDropSettings,
 } from './rush-pool.js';
 import { startServer } from './test-helpers.js';
 
@@ -170,4 +170,128 @@ test('admin settings: Cash Drop keys are listed, validated and exposed to the lo
   } finally {
     await srv.stop();
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* R1: pool queue and transfers stay inside one pool (game + sb + bb)  */
+/* ------------------------------------------------------------------ */
+
+/** Minimal stand-in for a live Rush PokerTable: seats, humans, street, emit. */
+function fakeTable({ id, game = 'rush', sb, bb, seats = 6, players = [], street = 'ended' }) {
+  const seatList = Array.from({ length: seats }, (_, i) => ({ index: i, player: players[i] ? { ...players[i] } : null }));
+  return {
+    cfg: { id, game, sb, bb, seats, max_buyin: bb * 100 },
+    rush: game === 'rush',
+    street,
+    seats: seatList,
+    events: [],
+    humans() { return seatList.filter((s) => s.player && !s.player.isBot).map((s) => s.player); },
+    seatOf(userId) { return seatList.find((s) => s.player?.id === userId) || null; },
+    occupiedSeats() { return seatList.filter((s) => s.player); },
+    emit(evt) { this.events.push(evt); },
+  };
+}
+
+/** A pool world over fake tables; records every transfer as { userId, from, to }. */
+function poolWorld(tables) {
+  const byId = new Map(tables.map((t) => [t.cfg.id, t]));
+  const transfers = [];
+  const sent = [];
+  let pendingFrom = null;
+  const entry = (id) => byId.has(id) ? {
+    table: byId.get(id),
+    clients: [{ userId: 1, readyState: 1, send: (m) => sent.push(JSON.parse(m)) }, { userId: 2, readyState: 1, send: (m) => sent.push(JSON.parse(m)) }],
+  } : undefined;
+  const pool = createRushPool({
+    listPoolTableIds: (p) => tables.filter((t) => poolKeyOf(t.cfg) === p.key).map((t) => t.cfg.id),
+    getLiveTable: (id) => byId.get(id) || null,
+    getEntry: entry,
+    findUser: (id) => ({ id, nick: `u${id}` }),
+    cashOutSeat: (table, userId) => { pendingFrom = table.cfg.id; table.seatOf(userId).player = null; },
+    seatHuman: (table, user, buyin) => {
+      const free = table.seats.find((s) => !s.player);
+      if (!free) return { ok: false };
+      free.player = { id: user.id, stack: buyin };
+      transfers.push({ userId: user.id, from: pendingFrom, to: table.cfg.id });
+      return { ok: true };
+    },
+    broadcastState: () => {},
+    isRealUser: () => true,
+    getSetting: (_k, fallback) => fallback,
+    ledger: { hasDrop: () => false, credit: () => true },
+    now: () => 1000,
+  });
+  return { pool, transfers, sent, byId };
+}
+
+const human = (id, stack = 50_000) => ({ id, stack, rushQueued: true });
+const bot = (id) => ({ id, stack: 50_000, isBot: true });
+
+test('poolKeyOf separates games and both blinds', () => {
+  assert.equal(poolKeyOf({ game: 'rush', sb: 500, bb: 1000 }), 'rush:500/1000');
+  assert.notEqual(poolKeyOf({ game: 'rush', sb: 500, bb: 1000 }), poolKeyOf({ game: 'rush', sb: 250, bb: 1000 }));
+  assert.notEqual(poolKeyOf({ game: 'rush', sb: 500, bb: 1000 }), poolKeyOf({ game: 'rushplo', sb: 500, bb: 1000 }));
+});
+
+test('a folded player moves to the emptiest table of the same pool, never another stake', () => {
+  const from = fakeTable({ id: 'p1', sb: 500, bb: 1000, players: [human(1), bot(90)] });
+  const samePoolBusy = fakeTable({ id: 'p2', sb: 500, bb: 1000, players: [bot(91), bot(92), bot(93)] });
+  const samePoolQuiet = fakeTable({ id: 'p3', sb: 500, bb: 1000, players: [bot(94)] });
+  const otherStakeEmpty = fakeTable({ id: 'g1', sb: 50, bb: 100, players: [] });
+  const sameBbOtherSb = fakeTable({ id: 'x1', sb: 250, bb: 1000, players: [] });
+  const { pool, transfers, sent } = poolWorld([from, samePoolBusy, samePoolQuiet, otherStakeEmpty, sameBbOtherSb]);
+
+  pool.moveQueued(from);
+
+  assert.deepEqual(transfers, [{ userId: 1, from: 'p1', to: 'p3' }]);
+  assert.deepEqual(sent, [{ type: 'rush_move', tableId: 'p3', stack: 50_000 }]);
+  assert.equal(pool.waitingList().length, 0);
+});
+
+test('with its pool full the player waits, even when other stakes have room, then flushes within the pool', () => {
+  const from = fakeTable({ id: 'p1', sb: 500, bb: 1000, seats: 2, players: [human(1), bot(90)] });
+  const full = fakeTable({ id: 'p2', sb: 500, bb: 1000, seats: 2, players: [bot(91), bot(92)] });
+  const otherStake = fakeTable({ id: 'g1', sb: 50, bb: 100, seats: 6, players: [] });
+  const { pool, transfers, sent } = poolWorld([from, full, otherStake]);
+
+  pool.moveQueued(from);
+  assert.deepEqual(transfers, [], 'no transfer out of the pool');
+  assert.deepEqual(pool.waitingList(), [{ userId: 1, poolKey: 'rush:500/1000', fromTable: 'p1', stack: 50_000, since: 1000 }]);
+  assert.equal(from.seatOf(1).player.sittingOut, true);
+  assert.deepEqual(sent, [{ type: 'rush_queued' }]);
+
+  pool.flush();
+  assert.deepEqual(transfers, [], 'still no seat in the pool');
+
+  full.seats[1].player = null; // a seat opens in the same pool
+  pool.flush();
+  assert.deepEqual(transfers, [{ userId: 1, from: 'p1', to: 'p2' }]);
+  assert.equal(pool.waitingList().length, 0);
+});
+
+test('flush waits while the source hand is still running', () => {
+  const from = fakeTable({ id: 'p1', sb: 500, bb: 1000, seats: 2, players: [human(1), bot(90)] });
+  const target = fakeTable({ id: 'p2', sb: 500, bb: 1000, seats: 2, players: [bot(91), bot(92)] });
+  const { pool, transfers } = poolWorld([from, target]);
+  pool.moveQueued(from);
+  target.seats[1].player = null;
+  from.street = 'flop';
+  pool.flush();
+  assert.deepEqual(transfers, []);
+  from.street = 'idle';
+  pool.flush();
+  assert.deepEqual(transfers, [{ userId: 1, from: 'p1', to: 'p2' }]);
+});
+
+test('settleHand rolls the Cash Drop only for Rush hands and emits the felt event', () => {
+  const table = fakeTable({ id: 'p1', sb: 500, bb: 1000 });
+  const { pool } = poolWorld([table]);
+  const players = [{ id: 1, nick: 'A' }, { id: 2, nick: 'B', isBot: true }];
+  assert.equal(pool.settleHand({ game: 'holdem', handId: 'h0', players }, table), null);
+  let drop = null;
+  for (let i = 0; i < 500 && !drop; i++) drop = pool.settleHand({ game: 'rush', handId: `h${i + 1}`, players }, table);
+  assert.ok(drop, 'a drop fires at the default rate within 500 hands');
+  assert.equal(drop.userId, 1, 'bots are never eligible');
+  assert.equal(drop.amount, 1000 * CASHDROP_DEFAULTS.amountBb);
+  assert.deepEqual(table.events.at(-1), { type: 'cashdrop', nick: 'A', amount: drop.amount, rule: CASHDROP_RULE_LABEL });
 });
