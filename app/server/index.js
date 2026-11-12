@@ -15,8 +15,8 @@ import { makeDeck, shuffle, cardStr } from './poker.js';
 import {
   resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
 } from './security.js';
-import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey, isRushGame, ACTION_SECONDS } from './validate.js';
-import { handForViewer } from './hand-history.js';
+import { toInt, cleanNick, cleanGrantReason, GRANT_REASON, parseTableConfig, parseTableId, parseGroupKey, isRushGame, ACTION_SECONDS } from './validate.js';
+import { createHandHistoryStore } from './hand-history-store.js';
 import { spinSlots } from './slots.js';
 import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
@@ -185,7 +185,6 @@ const TOURNAMENT_SCHEDULER_MS = Math.max(50, Number(process.env.GGPOKER_TOURNEY_
 const WAITLIST_HOLD_MS = Number(process.env.GGPOKER_WAITLIST_HOLD_MS || waitlist.HOLD_MS);
 const WAITLIST_SWEEP_MS = 1000;
 const HAND_HISTORY_LIMIT = 60;
-const HAND_HISTORY_SCAN = 400;
 const MAX_BET = 1_000_000;
 const MIN_BET = 10;
 // Sic Bo total bets, stake included. A flat 12x on every middle total paid out more than it took in.
@@ -339,6 +338,7 @@ function sitesStats() {
 
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
 const chatStore = createChatStore(db);
+const handHistory = createHandHistoryStore(db);
 const chatService = createChatService({ db, getEntry: (id) => LIVE_TABLES.get(id), store: chatStore });
 const TOURNAMENT_ROOMS = new Map(); // tournamentId -> TournamentRoom (multi-table flights)
 ensureWaitlistTable(db);
@@ -1660,9 +1660,15 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/hands') {
       const u = requireUser(req, res); if (!u) return;
       // Only hands the player sat in, and only the cards they were entitled to see.
-      const rows = db.prepare('SELECT * FROM hands ORDER BY id DESC LIMIT ?').all(HAND_HISTORY_SCAN);
-      const hands = rows.map((h) => handForViewer(h, u.id)).filter(Boolean).slice(0, HAND_HISTORY_LIMIT);
-      return json(res, 200, { hands });
+      return json(res, 200, { hands: handHistory.listForPlayer(u.id, HAND_HISTORY_LIMIT) });
+    }
+    const hiddenMatch = p.match(/^\/api\/hands\/(\d+)\/hidden$/);
+    if (hiddenMatch && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const body = await readBody(req);
+      if (typeof body.hidden !== 'boolean') return json(res, 400, { error: 'hidden must be true or false' });
+      if (!handHistory.setHidden(u.id, Number(hiddenMatch[1]), body.hidden)) return json(res, 404, { error: 'Hand not found' });
+      return json(res, 200, { ok: true, hidden: body.hidden });
     }
 
     // ---------- missions / rewards ----------
@@ -2577,6 +2583,8 @@ const server = http.createServer(async (req, res) => {
       if (body.action === 'credit') {
         const amount = toInt(body.amount, { min: -1e12, max: 1e12 });
         if (amount === null || amount === 0) return json(res, 400, { error: 'Enter a whole, non-zero amount' });
+        const reason = cleanGrantReason(body.reason);
+        if (!reason) return json(res, 400, { error: `Give a reason of ${GRANT_REASON.min}-${GRANT_REASON.max} characters` });
         if (target.balance + amount < 0) return json(res, 400, { error: 'Debit exceeds the balance' });
         // The client may supply an idempotency key; without one the credit is simply applied once.
         const reference = body.reference ? `admin:credit:${body.reference}` : null;
@@ -2588,8 +2596,8 @@ const server = http.createServer(async (req, res) => {
             return json(res, 200, { ok: true, balance: current, replayed: true });
           }
         }
-        const award = addTransactionEx(id, 'admin', amount, `Admin credit by ${a.login}`, 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
-        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'credit', `user ${id} ${body.amount}`);
+        const award = addTransactionEx(id, 'admin', amount, `Admin credit by ${a.login}: ${reason}`, 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'credit', `user ${id} ${amount}: ${reason}`);
         return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
       }
       if (body.action === 'set') {

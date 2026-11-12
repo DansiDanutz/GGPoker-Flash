@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { advanceRoomLevel, tournamentBlinds } from './tournament-controls.js';
+import { MAX_TOURNAMENT_LEVEL } from './tournament-blinds.js';
 
 function harness({ hand = false, winner = null, level = 2 } = {}) {
   const applied = [];
@@ -39,9 +40,9 @@ test('a hand in progress or a finished room refuses the advance', () => {
 });
 
 test('the level is clamped and the blinds follow the 1.5x curve', () => {
-  const { room, tables } = harness({ level: 99 });
+  const { room, tables } = harness({ level: MAX_TOURNAMENT_LEVEL - 1 });
   const result = advanceRoomLevel(room, { delta: 20, liveTables: tables });
-  assert.equal(result.level, 100);
+  assert.equal(result.level, MAX_TOURNAMENT_LEVEL);
   assert.deepEqual(tournamentBlinds({ baseSb: 100, baseBb: 200 }, 1), { sb: 100, bb: 200 });
   assert.deepEqual(tournamentBlinds({ baseSb: 100, baseBb: 200 }, 3), { sb: 225, bb: 450 });
 });

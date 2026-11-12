@@ -12,6 +12,7 @@ import { AdminAuditLog } from '../components/AdminAuditLog';
 import { AdminTransactions } from '../components/AdminTransactions';
 import { AdminRestore } from '../components/AdminRestore';
 import { AdminSnapshots } from '../components/AdminSnapshots';
+import { AdminGrantDialog } from '../components/AdminGrantDialog';
 import {
   CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
   CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
@@ -240,12 +241,14 @@ export function Admin() {
     catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
   };
 
-  const creditBusy = useRef(new Set<string>());
-  const quickCredit = (u: User, amount: number) => {
-    const key = `${u.id}:${amount}`;
-    if (creditBusy.current.has(key)) return;
-    creditBusy.current.add(key);
-    userAction(u.id, { action: 'credit', amount, reference: crypto.randomUUID() }).finally(() => creditBusy.current.delete(key));
+  // Owner grants open a dialog that asks for a reason; the dialog owns the idempotency key.
+  const [grant, setGrant] = useState<{ user: User; amount: number } | null>(null);
+  const quickCredit = (u: User, amount: number) => setGrant({ user: u, amount });
+  const grantDone = async () => {
+    setGrant(null);
+    sound.play('click');
+    await loadAll();
+    toast({ kind: 'success', title: 'User updated' });
   };
 
   if (!isAdmin) {
@@ -991,6 +994,10 @@ export function Admin() {
             </div>
           </div>
         </div>
+      )}
+      {grant && (
+        <AdminGrantDialog user={grant.user} amount={grant.amount} onDone={grantDone} onCancel={() => setGrant(null)}
+          onError={(message) => toast({ kind: 'error', title: 'Failed', body: message })} />
       )}
     </PageShell>
   );

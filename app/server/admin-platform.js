@@ -1,13 +1,11 @@
 import fs from 'node:fs';
 import os from 'node:os';
+import { tournamentLevelBlinds } from './tournament-blinds.js';
 
 /** Blinds at a tournament level, matching Table.applyTournamentLevel. */
 export function levelBlinds(tournament = {}, level = 1) {
-  const lv = Math.max(1, Number(level) || 1);
-  const factor = 1.5 ** (lv - 1);
-  const baseSb = Number(tournament.baseSb) || 0;
-  const baseBb = Number(tournament.baseBb) || 0;
-  return { sb: Math.round(baseSb * factor), bb: Math.round(baseBb * factor) };
+  const { sb, bb } = tournamentLevelBlinds(tournament, level);
+  return { sb, bb };
 }
 
 export const SNAPSHOT_STALE_MS = 5 * 60_000;

@@ -1673,6 +1673,7 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {reservation && state && (
         <BuyInDialog reservation={reservation} now={serverNow} format={chip}
+          balance={user?.balance} scale={state.tournament ? 1 : 100}
           min={state.minBuyin || state.bb * 20} max={state.maxBuyin || state.bb * 100} step={Math.max(chipStep, state.bb || chipStep)}
           onCancel={() => { send({ type: 'cancel_reservation' }); setReservation(null); }}
           onBuyIn={(amount) => { send({ type: 'join_table', buyin: amount, seat: reservation.seat, observe: false }); setReservation(null); }} />
