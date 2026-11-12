@@ -1,4 +1,4 @@
-import { buildPots, oddChipOrder } from './pots.js';
+import { buildPots, collectedPots, oddChipOrder } from './pots.js';
 import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
 import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
 import { badBeatPayout } from './badBeat.js';
@@ -1363,6 +1363,15 @@ export class PokerTable {
     this.updateMissionProgress(results[0]);
   }
 
+  /** Main and side pot piles collected so far this hand (public: amounts only). */
+  livePots() {
+    if (!['preflop', 'flop', 'turn', 'river', 'showdown'].includes(this.street)) return [];
+    return collectedPots([
+      ...this.seats.filter((s) => s.player?.inHand).map((s) => ({ key: s.player.id, totalBet: s.player.totalBet, bet: s.player.bet, folded: s.player.folded })),
+      ...this.ghosts.map((g) => ({ key: g, totalBet: g.totalBet, bet: g.bet, folded: true })),
+    ]);
+  }
+
   /** Cash Hold'em/Omaha only: native excludes AoF and featured tables (HandHistory.getBadBeatJackpotSummaryVo). */
   badBeatEligible() {
     return !this.elimination && !this.aof && !this.shortDeck && typeof this.hooks.jackpotPool === 'function';
@@ -1704,6 +1713,7 @@ export class PokerTable {
       actor: this.actor,
       actionEndsAt: this.actionEndsAt,
       timeBankUsed: [...this.timeBankUsed],
+      pots: this.livePots(),
       now,
       botActAt: this.botActAt,
       result: this.result,

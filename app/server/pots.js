@@ -38,3 +38,17 @@ export function oddChipOrder(seats, button, seatCount) {
   const distance = (seat) => (seat - button - 1 + seatCount) % seatCount;
   return [...seats].sort((a, b) => distance(a) - distance(b));
 }
+
+/**
+ * Live pot piles during a hand (native collectedPots, REA live-side-pots): the chips already
+ * collected from finished streets, split into main and side pots. Bets on the current street
+ * stay in front of the players, and a layer only one player paid is not shown as a pile.
+ * @param {{ key: unknown, totalBet: number, bet: number, folded: boolean }[]} players
+ * @returns {number[]} pile amounts, main pot first
+ */
+export function collectedPots(players) {
+  const contributions = players
+    .map((x) => ({ key: x.key, amount: Math.max(0, (x.totalBet || 0) - (x.bet || 0)), folded: !!x.folded }))
+    .filter((x) => x.amount > 0);
+  return buildPots(contributions).pots.map((pot) => pot.amount);
+}

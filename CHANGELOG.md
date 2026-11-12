@@ -6,6 +6,11 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Live side-pot piles
+- During a hand with an all-in, the collected chips now show as separate main and side pot piles at
+  GGPoker's positions, each with its amount. Bets on the current street stay in front of the
+  players until the street ends. With a single pot the table looks as before.
+
 ### Time Bank Cards that refill
 - The time bank is now a set of cards, as in GGPoker cash games: you start with 3, one more is added
   every 20 hands you are dealt in, up to 5 held. Each card adds 15 seconds, and up to 2 can be used
