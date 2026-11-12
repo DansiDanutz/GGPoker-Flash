@@ -6,11 +6,33 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Table rules parity pass (checked against the GGPoker REA contracts)
+- Chips: a player who leaves mid-hand gets back the part of their bet nobody matched.
+- Pots are settled the native way: layers with the same players merge, an uncalled layer
+  goes back to its owner without rake, and odd chips go clockwise from the button.
+  This fixes an 18/16 split on a 34-chip tie and chips lost in run-it-twice.
+- Antes are dead money and no longer count towards the bet to call.
+- Returning from sit-out in a cash game posts a big blind (not in tournaments, Spin,
+  heads-up, or from the blinds).
+- Auto top-up fires between hands and stays inside the table's buy-in limits.
+- Show cards: anyone dealt in can show after the hand, folded players too, once per hand.
+- The bet field selects on focus and accepts typing; the amount is clamped to min/max.
+- Only your own seat turns red in the last 5 seconds (opponents keep the normal glow).
+  Folded seats darken the avatar instead of fading the whole seat, a stack of 0 reads
+  "All-In", long names are cut at 15 characters and Time Bank appears only in the last
+  10 seconds of your turn.
+- At the end of each street, bets slide into the pot (400 ms, ease-out).
+- Still open: payout animation per pot, clock banks, the take-seat popup, live side-pot
+  piles and the waiting-list UI. The PLO short-blind pot cap was left out deliberately:
+  it is a tournament rule (TDA) and was not observed on the native client.
+- 535 tests, type check and build pass.
+
+
 ### Codex clone feature parity pass
 - Lobby AvgPot, VPIP and H/hr are now measured from the last 20 hands of each table
   instead of estimated demo numbers.
 - At showdown the winning five cards lift and the rest dim (native best-five focus).
-- The last 5 seconds of a turn pulse red, faster on your own seat.
+- The last 5 seconds of a turn pulse red on your own seat.
 - Player notes use the 11 native colours, and you can name ten of them on My Page.
 - SB and BB markers sit beside the blinds.
 - Each table can keep its own felt and background from the table menu.

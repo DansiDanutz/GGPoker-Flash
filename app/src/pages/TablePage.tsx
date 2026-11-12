@@ -31,6 +31,7 @@ import { CashDropBanner } from '../components/table/CashDropBanner';
 import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
+import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
 type PlayerState = {
@@ -273,7 +274,9 @@ export function TablePage({ tableId }: { tableId: string }) {
         const s: TableState = msg.state;
         tableEpoch.current = s.tableEpoch || null;
         lastSeq.current = s.tableVersion || 0;
+        const collected = collectedWagers(stateRef.current, s);
         stateRef.current = s;
+        collected.forEach((w) => collectWager(w.seat));
         setState(s);
         clockOffset.current = s.now - Date.now();
         const mine = s.players.find((p) => p.isMe);
@@ -376,6 +379,27 @@ export function TablePage({ tableId }: { tableId: string }) {
       { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.8)`, opacity: 0 },
     ], { duration: 900, easing: 'cubic-bezier(.22,.8,.3,1)' });
     window.setTimeout(() => stack.remove(), 950);
+  };
+
+  // Street end: each wager slides from its seat anchor into the pot (native 400 ms, ease-out cubic).
+  const collectWager = (seat: number) => {
+    const el = tableRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const [x, y] = seatPosOf(seat);
+    const from: [number, number] = [x + (50 - x) * 0.2, y + (45 - y) * 0.2];
+    const chipEl = document.createElement('div');
+    chipEl.className = 'collect-chip';
+    chipEl.style.left = `${(r.width * from[0]) / 100}px`;
+    chipEl.style.top = `${(r.height * from[1]) / 100}px`;
+    el.appendChild(chipEl);
+    const dx = (r.width * (50 - from[0])) / 100;
+    const dy = (r.height * (45 - from[1])) / 100;
+    chipEl.animate([
+      { transform: 'translate(-50%,-50%)' },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))` },
+    ], { duration: COLLECT_MS, easing: COLLECT_EASING, fill: 'forwards' });
+    window.setTimeout(() => chipEl.remove(), COLLECT_MS + 20);
   };
 
   const flyChips = (from: [number, number], to: [number, number], count = 3, color = '#d9a83c') => {

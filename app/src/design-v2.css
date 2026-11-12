@@ -506,6 +506,7 @@ body { background: #050706; }
 
 /* Native wager piles, dealer disc and WIN artwork */
 .table-bet { background: none; border: 0; box-shadow: none; padding: 0; flex-direction: column; gap: 3px; }
+.collect-chip { position: absolute; z-index: 6; width: 16px; height: 15px; pointer-events: none; background: url('/assets/chips/native-chip-25.png') center/100% 100% no-repeat; }
 .wager-chips { display: flex; align-items: flex-end; gap: 4px; }
 .wager-col { display: flex; flex-direction: column; }
 .wager-col i { width: 16px; height: 15px; background: url('/assets/chips/native-chip-1.png') center/100% 100% no-repeat; }

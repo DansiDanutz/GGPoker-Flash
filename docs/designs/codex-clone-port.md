@@ -58,3 +58,14 @@ Short Deck dead-ante rules (native evidence unverified), detached chat window, t
 levels in seconds and per-player antes. The official GGPoker client could not be captured
 from this session because it lacks macOS Screen Recording permission, so this pass relies
 on the evidence in the Codex clone.
+
+## Table rules parity pass (2026-11-12)
+
+Checked against the REA contracts (pots, per-pot awards, sit-out, show cards, chip motion,
+turn indicator). Changes: `server/pots.js` (`buildPots`, `oddChipOrder`) now settles
+`doShowdown` and `runoutTwice`; `stand()` returns a leaver's unmatched bet; antes are dead;
+a missed big blind is posted on return; `showCards` follows native rules; the client adds
+`seatLabel.ts`, `autoTopUp.ts`, `chipCollect.ts` and the own-seat-only urgency and time bank.
+Open items: per-pot payout motion, clock banks and audio, take-seat popup, side-pot piles,
+waiting list, seat geometry and card-flip timing. The PLO short-blind cap is excluded (TDA
+rule, not observed natively).
