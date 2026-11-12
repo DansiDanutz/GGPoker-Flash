@@ -14,7 +14,7 @@ export function levelBlinds(tournament = {}, level = 1) {
  * A read-only summary of one live TournamentRoom. `now` is explicit so the
  * next level countdown is testable.
  */
-export function tournamentRoomSummary(room, now = Date.now()) {
+export function tournamentRoomSummary(room, now = Date.now(), snapshot = null) {
   if (!room) return null;
   let level = Number(room.tournament?.level) || 1;
   try {
@@ -46,6 +46,8 @@ export function tournamentRoomSummary(room, now = Date.now()) {
     humansLeft: stats.humansLeft ?? null,
     finished: stats.finished ?? (Array.isArray(room.finished) ? room.finished.length : null),
     winner: stats.winner || room.winner || null,
+    snapshot: snapshot || null,
+    restoredAt: room.restoredAt || null,
     flights: flights.map((flight) => ({
       id: flight.id,
       index: flight.index,
@@ -98,8 +100,16 @@ export function buildPlatformReport({
     });
   }
 
+  let snapshots = new Map();
+  try {
+    if (db) {
+      for (const row of db.prepare('SELECT tournament_id, updated_at, length(state) AS bytes FROM tourney_state').all()) {
+        snapshots.set(row.tournament_id, { at: row.updated_at, bytes: row.bytes });
+      }
+    }
+  } catch { /* recovery table not present yet */ }
   const rooms = [...tournamentRooms.values()]
-    .map((room) => tournamentRoomSummary(room, now))
+    .map((room) => tournamentRoomSummary(room, now, snapshots.get(room.id) || null))
     .filter(Boolean);
 
   let counts = { users: null, hands: null, tournaments: null, tables: null };
@@ -146,6 +156,7 @@ export function buildPlatformReport({
     },
     tournaments: {
       rooms: rooms.length,
+      snapshots: snapshots.size,
       playersLeft: rooms.reduce((sum, r) => sum + (r.playersLeft || 0), 0),
       tables: rooms.reduce((sum, r) => sum + (r.tables || 0), 0),
       items: rooms,

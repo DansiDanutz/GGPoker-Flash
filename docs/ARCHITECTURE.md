@@ -169,10 +169,12 @@ read-only endpoints:
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/admin/platform` | server version/build, Node/PID/uptime/environment, RSS/heap, CPU count/load, WebSocket clients and distinct users, live tables/seats/connections, tournament rooms/players/flights, SQLite size/WAL and row counts |
+| `GET /api/admin/platform` | server version/build, Node/PID/uptime/environment, RSS/heap, CPU count/load, WebSocket clients and distinct users, live tables/seats/connections, tournament rooms/players/flights plus each room's recovery snapshot (`snapshot`/`restoredAt`), SQLite size/WAL and row counts |
 | `GET /api/admin/tournaments/live` | the same tournament-room list alone (name, level, current blinds, next level ETA, players left/humans, flights, finishes, winner) |
 
 The UI refreshes every 10 s and can download the report as JSON for an incident. The
+tournament table also shows each room's **Recovery** state: the last settled-hand snapshot
+(time and size) and whether this process restored the room after a restart. The
 report is assembled only from the running process (`process.memoryUsage`, `wss.clients`,
 `LIVE_TABLES`, `TOURNAMENT_ROOMS`, `fs.statSync`) — it adds no new state and performs no
 mutations. Tournament levels are read through `TournamentRoom.syncLevel(now)`, so the
@@ -191,6 +193,14 @@ summary view `ev_4a1b9723…`). The graph is static and partial (semantic-node c
 8,801 residual unknowns); it was used to map module boundaries and confirm the
 admin/tournament HTTP surface, not as a runtime monitor. Live values in the Platform
 section come from the server's own process state and the database.
+
+A second REA run inspected a production `VACUUM INTO` snapshot with
+`inspect_sqlite_database` (evidence `ev_3ddc2239…`, authority shipped-artifact, confidence
+observed): it confirmed the `tourney_state` schema (`tournament_id` primary key, non-null
+`state`, `updated_at` default `datetime('now')`) and sampled three rows whose JSON carries
+`version`, `savedAt`, `level`, `levelStartedAt`, `entrants`, `winner`, `finished` and
+`flights`. The sample is bounded and the inspection is not an integrity or atomicity proof;
+it verifies the recovery table the admin report reads, not the whole database.
 
 ## Capacity and scaling
 

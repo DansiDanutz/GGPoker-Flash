@@ -6,6 +6,20 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Platform recovery visibility and SIGKILL verification
+- The admin **Platform** tournament table now has a **Recovery** column: last settled-hand
+  snapshot time and size per room, plus a “restored” marker when the process rebuilt the
+  room after a restart. The API exposes `snapshot: {at, bytes}` and `restoredAt`, and the
+  header counts recovery snapshots. Small snapshot sizes are shown in bytes.
+- Verified a hard crash: with a hand in progress, `SIGKILL` left the snapshot unchanged
+  (both players at 9,700/10,300); restart logged `tournament restore seated qa-restore-1 2`,
+  reported `playersLeft 2`, level 2 / blinds 150–300, the same table id on `/play`, and a
+  376-byte snapshot. The interrupted hand was discarded, as designed.
+- REA `inspect_sqlite_database` on a production `VACUUM INTO` snapshot confirmed the
+  `tourney_state` schema and sampled rows (evidence `ev_3ddc2239…`; offline sample, not an
+  integrity proof). Full suite 411/411.
+
+## 2026-11-12
 ### Durable tournament rooms (restart recovery)
 - Running `TournamentRoom`s now snapshot their flights, seats, stacks, blind level/clock,
   finished places and winner into a new `tourney_state` table. Snapshots are written after

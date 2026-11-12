@@ -1009,6 +1009,7 @@ function ensureTournamentRoom(t) {
       try {
         if (room.restore(saved)) {
           room.syncLevel();
+          room.restoredAt = Date.now();
           console.log(`tournament restored ${t.id} (${saved.flights?.length || 0} flights)`);
         }
       } catch (err) { console.error('tournament restore', t.id, err); }
