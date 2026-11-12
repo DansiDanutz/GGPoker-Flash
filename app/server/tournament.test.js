@@ -9,6 +9,7 @@ import {
   balanceAll,
   tablesToBreak,
   breakTables,
+  nextTableIndex,
 } from './tournament.js';
 
 const field = (n, stack = 1000) => Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, stack }));
@@ -110,4 +111,18 @@ test('a table is not broken when the surviving tables have no room', () => {
   assert.deepEqual(broken, []);
   assert.equal(after.length, 2);
   assert.equal(totalChips(after), totalChips(tables));
+});
+
+test('nextTableIndex fills a table before opening the next one', () => {
+  assert.equal(nextTableIndex([], 6, 4), 1);
+  assert.equal(nextTableIndex([1], 6, 4), 1);
+  assert.equal(nextTableIndex([6], 6, 4), 2);
+  assert.equal(nextTableIndex([6, 2], 6, 4), 2);
+  assert.equal(nextTableIndex([6, 6], 6, 4), 3);
+});
+
+test('nextTableIndex never exceeds the flight cap', () => {
+  assert.equal(nextTableIndex([6, 6], 6, 2), null);
+  assert.throws(() => nextTableIndex([], 0, 3), /seats/);
+  assert.throws(() => nextTableIndex([], 6, 0), /maxTables/);
 });
