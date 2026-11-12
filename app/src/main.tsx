@@ -7,6 +7,7 @@ import { I18nProvider } from './lib/i18n';
 import './styles.css';
 import './design-v2.css';
 import './responsive.css';
+import './lobby-filters.css';
 
 createRoot(document.getElementById('root')!).render(
   <I18nProvider>

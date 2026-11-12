@@ -5,20 +5,11 @@ import { sound } from '../lib/sound';
 import { AppHeader, GameTabs } from '../components/AppHeader';
 import { TitleBar } from '../components/TitleBar';
 import { Avatar } from '../components/Avatar';
-import { GroupCardAction } from '../components/GroupCardAction';
 import { WaitlistSideActions } from '../components/WaitlistSideActions';
 import { waitCount } from '../lib/waitlist';
-
-const TAB_GAME: Record<string, string[]> = {
-  home: [],
-  aof: ['aof'],
-  rush: ['rush'],
-  holdem: ['holdem'],
-  plo: ['omaha', 'omaha5', 'omaha6'],
-  short: ['shortdeck'],
-  spin: ['spingold'],
-  battle: ['battleroyale'],
-};
+import { DEFAULT_TAB_FILTERS, filterTables, filtersForTab, FilterPrefs, readFilterPrefs, sortTables, SortKey, TabFilters, withTabFilters, writeFilterPrefs } from '../lib/lobbyFilters';
+import { LobbyPills } from '../components/LobbyPills';
+import { LobbyGroupRows } from '../components/LobbyGroupRows';
 
 const PROMOS = [
   { full: true, title: 'Daily $100,000 Flipout', sub: 'Daily jackpots · 6/9-max tables', to: '/tournaments' },
@@ -85,13 +76,16 @@ export function Lobby() {
   const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
   const [promoIdx, setPromoIdx] = useState(0);
   const [promoPaused, setPromoPaused] = useState(false);
-  const [sortKey, setSortKey] = useState<'name'|'bb'|'players'|'avgPot'>('bb');
+  const [sortKey, setSortKey] = useState<SortKey>('bb');
   const [sortDir, setSortDir] = useState<1|-1>(-1);
   const [search, setSearch] = useState('');
-  const [stakeFilter, setStakeFilter] = useState('all');
-  const [seatFilter, setSeatFilter] = useState('all');
-  const [speedFilter, setSpeedFilter] = useState('all');
-  const [favOnly, setFavOnly] = useState(false);
+  const [filterPrefs, setFilterPrefs] = useState<FilterPrefs>(readFilterPrefs);
+  const filters = filtersForTab(filterPrefs, gameTab);
+  const setFilter = (patch: Partial<TabFilters>) => setFilterPrefs((prev) => {
+    const next = withTabFilters(prev, gameTab, patch);
+    writeFilterPrefs(next);
+    return next;
+  });
   const [favs, setFavs] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('ggpoker.favs') || '[]'); } catch { return []; } });
   const [loading, setLoading] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
@@ -128,30 +122,9 @@ export function Lobby() {
 
   const tables: LobbyTable[] = useMemo(() => {
     if (!data) return [];
-    const gs = TAB_GAME[gameTab];
-    let list = gs.length ? data.tables.filter((t: LobbyTable) => gs.includes(t.game)) : data.tables;
-    if (gameTab === 'home') {
-      list = [...data.tables].sort((a: LobbyTable, b: LobbyTable) => Number(b.featured) - Number(a.featured) || a.bb - b.bb);
-    }
-    if (search.trim()) list = list.filter((t: LobbyTable) => t.name.toLowerCase().includes(search.toLowerCase()));
-    if (stakeFilter !== 'all') list = list.filter((t: LobbyTable) => {
-      const bb = t.bb / 100;
-      if (stakeFilter === 'low') return bb <= 2;
-      if (stakeFilter === 'mid') return bb > 2 && bb <= 20;
-      return bb > 20;
-    });
-    if (seatFilter !== 'all') list = list.filter((t: LobbyTable) => t.seats === Number(seatFilter));
-    if (speedFilter !== 'all') list = list.filter((t: LobbyTable) => t.speed === speedFilter);
-    if (favOnly) list = list.filter((t: LobbyTable) => favs.includes(t.id));
-    const key = sortKey;
-    list = [...list].sort((a: LobbyTable, b: LobbyTable) => {
-      const va = key === 'name' ? a.name : key === 'bb' ? a.bb : key === 'players' ? a.players : a.avgPot;
-      const vb = key === 'name' ? b.name : key === 'bb' ? b.bb : key === 'players' ? b.players : b.avgPot;
-      if (typeof va === 'string') return va.localeCompare(vb as string) * sortDir;
-      return ((va as number) - (vb as number)) * sortDir;
-    });
-    return list;
-  }, [data, gameTab, sortKey, sortDir, search, stakeFilter, seatFilter, speedFilter, favOnly, favs]);
+    const list = filterTables(data.tables, { ...filters, tab: gameTab, search, favs });
+    return sortTables(list, gameTab, sortKey, sortDir);
+  }, [data, gameTab, sortKey, sortDir, search, filterPrefs, favs]);
 
   useEffect(() => {
     if (tables.length && !tables.find((t) => t.id === selected)) setSelected(tables[0].id);
@@ -376,22 +349,24 @@ export function Lobby() {
             </div>
           </div>
           <div className="filter-bar">
-            <select value={stakeFilter} onChange={(e) => setStakeFilter(e.target.value)}>
+            <LobbyPills tab={gameTab} value={filters.pill} onChange={(pill) => setFilter({ pill })} />
+            <span className="filter-spacer" />
+            <select value={filters.stake} onChange={(e) => setFilter({ stake: e.target.value })}>
               <option value="all">All stakes</option><option value="low">Micro / low ($0–$2 BB)</option><option value="mid">Mid ($2–$20 BB)</option><option value="high">High ($20+ BB)</option>
             </select>
-            <select value={seatFilter} onChange={(e) => setSeatFilter(e.target.value)}>
+            <select value={filters.seats} onChange={(e) => setFilter({ seats: e.target.value })}>
               <option value="all">All seats</option><option value="6">6-max</option><option value="9">9-max</option><option value="3">3-max</option>
             </select>
-            <select value={speedFilter} onChange={(e) => setSpeedFilter(e.target.value)}>
+            <select value={filters.speed} onChange={(e) => setFilter({ speed: e.target.value })}>
               <option value="all">All speeds</option><option value="Normal">Normal</option><option value="Fast">Fast</option>
             </select>
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tables…" />
-            <button className={'fav-toggle' + (favOnly ? ' on' : '')} onClick={() => setFavOnly((v) => !v)}>★ Favorites</button>
+            <button className={'fav-toggle' + (filters.favOnly ? ' on' : '')} aria-pressed={filters.favOnly} onClick={() => setFilter({ favOnly: !filters.favOnly })}>★ Favorites</button>
             <button className="host-table-btn" onClick={openHost}>+ Host</button>
             <span className="filter-count">{tables.length} tables</span>
           </div>
           <div className="table-list" key={gameTab}>
-            <div className="list-head">
+            {viewMode === 'table' && <div className="list-head">
               <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
               <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
               <div>Buy-in</div>
@@ -399,20 +374,10 @@ export function Lobby() {
               <div>Wait</div>
               <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>AvgPot <i className="est-dot" title="Estimated demo value; not live" /></div>
               <div>VPIP% <i className="est-dot" title="Estimated demo value; not live" /></div><div>H/hr <i className="est-dot" title="Estimated demo value; not live" /></div>
-            </div>
+            </div>}
             <div className="list-scroll">
               {viewMode === 'group' ? (
-                <div className="group-grid">
-                  {tables.map((t) => (
-                    <div key={t.id} className={'group-card' + (selected === t.id ? ' on' : '')} onClick={() => setSelected(t.id)} onDoubleClick={() => openJoin(t)}>
-                      <div className="gc-top"><span>{t.name}</span><span className="tag reg">{t.speed}</span></div>
-                      <div className="gc-stakes">{fmtStakes(t)}</div>
-                      <div className="gc-meta"><span>{t.game === 'holdem' ? "Hold'em" : t.game}</span><span>{t.players}/{t.seats} players</span></div>
-                      <div className="gc-buyin">Buy-in {money(t.min_buyin, true)}</div>
-                      <GroupCardAction table={t} allTables={data?.tables || []} onJoin={openJoin} onChanged={load} />
-                    </div>
-                  ))}
-                </div>
+                <LobbyGroupRows tab={gameTab} tables={tables} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
               ) : tables.map((t) => (
                 <div
                   key={t.id}
@@ -439,7 +404,11 @@ export function Lobby() {
                   <div>{t.handsPerHour}</div>
                 </div>
               ))}
-              {!tables.length && <div className="list-empty">No tables in this category right now.</div>}
+              {!tables.length && (
+                <div className="list-empty">No tables match these filters.{' '}
+                  <button type="button" className="lob-link" onClick={() => { setFilter(DEFAULT_TAB_FILTERS); setSearch(''); }}>Reset filters</button>
+                </div>
+              )}
             </div>
           </div>
         </div>

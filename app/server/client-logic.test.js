@@ -12,6 +12,10 @@ import {
   offerSecondsLeft, formatCountdown, isOfferUrgent, offerProgress, chipCount, waitlistChipLabel,
   queuePositionLabel, groupKeyOf, queueName, applyQueueUpdate, groupActionFor,
 } from '../src/lib/waitlist.ts';
+import {
+  TAB_GAMES, pillsFor, columnsFor, COLUMN_LABEL, variantOf, VARIANT_LABEL, tableSizeChip, promotionOf,
+  DEFAULT_TAB_FILTERS, filtersForTab, withTabFilters, parseFilterPrefs, filterTables, sortTables,
+} from '../src/lib/lobbyFilters.ts';
 
 const ctx = (over = {}) => ({
   pot: 300, currentBet: 0, minRaise: 100, bb: 100, myBet: 0, myStack: 5000, maxRaiseTo: 0, street: 'flop', ...over,
@@ -207,4 +211,109 @@ test('group view: key, name and the card action', () => {
   assert.equal(groupActionFor([t(6)], 2), 'queued');
   assert.equal(groupActionFor([t(3)], 1), 'queued', 'queued wins over a free seat');
   assert.equal(groupActionFor([]), 'joinWait', 'no visible table with room');
+});
+
+// ---- lobby filters (P0 slice W5a) ----
+
+const lt = (over = {}) => ({
+  id: 'x', name: 'Table', game: 'holdem', category: 'Gold', sb: 50, bb: 100, ante: 0, min_buyin: 4000, max_buyin: 10000,
+  seats: 6, speed: 'Normal', featured: false, players: 3, wait: 0, avgPot: 0, vpip: 0, handsPerHour: 80, running: true, ...over,
+});
+const query = (tab, over = {}) => ({ ...DEFAULT_TAB_FILTERS, tab, search: '', favs: [], ...over });
+const ids = (list) => list.map((t) => t.id);
+
+test('each tab has the native pill set; tabs without native pills have none', () => {
+  const labels = (tab) => pillsFor(tab).map((p) => p.label);
+  assert.deepEqual(labels('rush'), ['All', "Hold'em", 'PLO']);
+  assert.deepEqual(labels('plo'), ['All', 'PLO', 'PLO-5', 'PLO-6']);
+  assert.deepEqual(labels('aof'), ['All', "Hold'em", 'Omaha']);
+  assert.deepEqual(labels('holdem'), []);
+  assert.deepEqual(labels('nope'), []);
+});
+
+test('each tab has the native Group View column set', () => {
+  const labels = (tab) => columnsFor(tab).map((c) => COLUMN_LABEL[c]);
+  assert.deepEqual(labels('holdem'), ['Promotion', 'Table Size', 'Stakes', 'Buy-in', 'Players', 'Action']);
+  assert.deepEqual(labels('rush'), ['Promotion', 'Games', 'Stakes', 'Buy-in', 'Players', 'Pros', 'Hands/hr', 'Action']);
+  assert.deepEqual(labels('plo'), ['Promotion', 'Games', 'Table Size', 'Stakes', 'Buy-in', 'Players', 'Action']);
+  assert.deepEqual(labels('aof'), ['Promotion', 'Games', 'Stakes', 'Buy-in', 'Players', 'Action']);
+  assert.deepEqual(columnsFor('short'), columnsFor('holdem'), 'other tabs fall back to the Hold\'em set');
+  for (const tab of Object.keys(TAB_GAMES)) assert.equal(columnsFor(tab).at(-1), 'action');
+});
+
+test('variants come from the game id, or from the name for Rush and AoF pools', () => {
+  assert.equal(variantOf(lt({ game: 'omaha' })), 'plo');
+  assert.equal(variantOf(lt({ game: 'omaha5' })), 'plo5');
+  assert.equal(variantOf(lt({ game: 'omaha6' })), 'plo6');
+  assert.equal(variantOf(lt({ game: 'shortdeck' })), 'holdem');
+  assert.equal(variantOf(lt({ game: 'rush', name: 'Rush & Cash Platinum 01' })), 'holdem');
+  assert.equal(variantOf(lt({ game: 'rush', name: 'Rush & Cash PLO 01' })), 'plo');
+  assert.equal(variantOf(lt({ game: 'aof', name: 'AoF Omaha Gold' })), 'plo');
+  assert.equal(variantOf(lt({ game: 'holdem', name: 'Explorer table' })), 'holdem', 'no false match inside a word');
+  assert.equal(VARIANT_LABEL.plo5, 'PLO-5');
+});
+
+test('Table Size chip: green 6-Max up to six seats, yellow 9-Max above', () => {
+  assert.deepEqual(tableSizeChip(6), { label: '6-Max', tone: '6max' });
+  assert.deepEqual(tableSizeChip(9), { label: '9-Max', tone: '9max' });
+  assert.deepEqual(tableSizeChip(3), { label: '3-Max', tone: '6max' });
+  assert.equal(promotionOf(lt({ featured: true })), 'Featured');
+  assert.equal(promotionOf(lt({ category: 'Diamond' })), 'Diamond');
+});
+
+test('pills filter rows to the right game ids', () => {
+  const plo = [lt({ id: 'a', game: 'omaha' }), lt({ id: 'b', game: 'omaha5' }), lt({ id: 'c', game: 'omaha6' }), lt({ id: 'h', game: 'holdem' })];
+  assert.deepEqual(ids(filterTables(plo, query('plo'))), ['a', 'b', 'c'], 'All keeps every PLO game and drops other tabs');
+  assert.deepEqual(ids(filterTables(plo, query('plo', { pill: 'plo' }))), ['a']);
+  assert.deepEqual(ids(filterTables(plo, query('plo', { pill: 'plo5' }))), ['b']);
+  assert.deepEqual(ids(filterTables(plo, query('plo', { pill: 'plo6' }))), ['c']);
+  const rush = [lt({ id: 'r1', game: 'rush', name: 'Rush & Cash Gold' }), lt({ id: 'r2', game: 'rush', name: 'Rush & Cash PLO' })];
+  assert.deepEqual(ids(filterTables(rush, query('rush', { pill: 'holdem' }))), ['r1']);
+  assert.deepEqual(ids(filterTables(rush, query('rush', { pill: 'plo' }))), ['r2']);
+  const aof = [lt({ id: 'f1', game: 'aof', name: 'AoF Gold 01' })];
+  assert.deepEqual(ids(filterTables(aof, query('aof', { pill: 'omaha' }))), [], 'no Omaha AoF pools seeded yet');
+  assert.deepEqual(ids(filterTables(aof, query('aof', { pill: 'holdem' }))), ['f1']);
+});
+
+test('stake, seat, speed, search and favourites still filter', () => {
+  const list = [
+    lt({ id: 'lo', name: 'Micro Bay', bb: 200 }), lt({ id: 'mid', name: 'Mid Harbour', bb: 1000, seats: 9 }),
+    lt({ id: 'hi', name: 'High Reef', bb: 5000, speed: 'Fast' }),
+  ];
+  assert.deepEqual(ids(filterTables(list, query('holdem', { stake: 'low' }))), ['lo']);
+  assert.deepEqual(ids(filterTables(list, query('holdem', { stake: 'mid' }))), ['mid']);
+  assert.deepEqual(ids(filterTables(list, query('holdem', { stake: 'high' }))), ['hi']);
+  assert.deepEqual(ids(filterTables(list, query('holdem', { seats: '9' }))), ['mid']);
+  assert.deepEqual(ids(filterTables(list, query('holdem', { speed: 'Fast' }))), ['hi']);
+  assert.deepEqual(ids(filterTables(list, query('holdem', { search: '  hARBOUR ' }))), ['mid'], 'search is trimmed and case-insensitive');
+  assert.deepEqual(ids(filterTables(list, query('holdem', { favOnly: true, favs: ['hi'] }))), ['hi']);
+  assert.equal(filterTables(list, query('home')).length, 3, 'home lists every game');
+});
+
+test('sorting is stable and home puts featured tables first', () => {
+  const list = [lt({ id: 'a', bb: 100 }), lt({ id: 'b', bb: 200 }), lt({ id: 'c', bb: 100 }), lt({ id: 'd', bb: 200 })];
+  assert.deepEqual(ids(sortTables(list, 'holdem', 'bb', -1)), ['b', 'd', 'a', 'c']);
+  assert.deepEqual(ids(sortTables(list, 'holdem', 'bb', 1)), ['a', 'c', 'b', 'd']);
+  const named = [lt({ id: 'z', name: 'zeta' }), lt({ id: 'a', name: 'Alpha' })];
+  assert.deepEqual(ids(sortTables(named, 'holdem', 'name', 1)), ['a', 'z']);
+  const home = [lt({ id: 'p', bb: 50 }), lt({ id: 'f', bb: 900, featured: true })];
+  assert.deepEqual(ids(sortTables(home, 'home', 'bb', -1)), ['f', 'p']);
+  assert.deepEqual(ids(list), ['a', 'b', 'c', 'd'], 'input is not reordered');
+});
+
+test('filter prefs persist per tab, immutably, and reject bad stored values', () => {
+  const start = {};
+  const rush = withTabFilters(start, 'rush', { pill: 'plo', stake: 'high' });
+  assert.deepEqual(start, {}, 'input prefs untouched');
+  assert.equal(filtersForTab(rush, 'rush').pill, 'plo');
+  assert.deepEqual(filtersForTab(rush, 'plo'), DEFAULT_TAB_FILTERS, 'other tabs keep their own state');
+  assert.equal(filtersForTab(withTabFilters(rush, 'holdem', { pill: 'plo' }), 'holdem').pill, 'all', 'pill must exist on the tab');
+  const round = parseFilterPrefs(JSON.stringify(rush));
+  assert.deepEqual(round, rush);
+  const bad = parseFilterPrefs('{"rush":{"pill":"nope","stake":9,"favOnly":"yes"},"evil":{},"toString":{},"__proto__":{"x":1}}');
+  assert.deepEqual(Object.keys(bad), ['rush']);
+  assert.deepEqual(bad.rush, DEFAULT_TAB_FILTERS);
+  assert.deepEqual(parseFilterPrefs('not json'), {});
+  assert.deepEqual(parseFilterPrefs(null), {});
+  assert.deepEqual(parseFilterPrefs('[1]'), {});
 });
