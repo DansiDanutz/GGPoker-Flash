@@ -21,6 +21,9 @@ services:
       - traefik.http.routers.dangro.rule=Host(`dangg.live`) || Host(`www.dangg.live`)
       - traefik.http.routers.dangro.entrypoints=websecure
       - traefik.http.routers.dangro.tls.certresolver=letsencrypt
+      # HSTS starts at one day without includeSubDomains; raise to a year once stable.
+      - traefik.http.routers.dangro.middlewares=dangro-hsts
+      - traefik.http.middlewares.dangro-hsts.headers.stsSeconds=86400
       - traefik.http.routers.dangro-http.rule=Host(`dangg.live`) || Host(`www.dangg.live`)
       - traefik.http.routers.dangro-http.entrypoints=web
       - traefik.http.routers.dangro-http.middlewares=dangro-redirect
@@ -41,24 +44,6 @@ services:
       start_period: 20s
       retries: 3
 
-  caddy:
-    image: caddy:2.8-alpine
-    restart: unless-stopped
-    depends_on:
-      game:
-        condition: service_healthy
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      DOMAIN: ${DOMAIN}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    security_opt:
-      - no-new-privileges:true
-
 networks:
   traefik:
     external: true
@@ -66,5 +51,3 @@ networks:
 
 volumes:
   game-data:
-  caddy-data:
-  caddy-config:
