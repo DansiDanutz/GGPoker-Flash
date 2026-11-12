@@ -24,7 +24,7 @@ type TableState = {
   timeBankUsed?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
   spin?: { multiplier: number; prize: number; winner: any } | null;
-  tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null } | null;
+  tournament?: { name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null } | null;
   straddle?: boolean;
   runItTwice?: boolean;
   boards?: string[][] | null;
@@ -211,6 +211,17 @@ export function TablePage({ tableId }: { tableId: string }) {
       } else if (msg.type === 'rush_move') {
         toast({ kind: 'info', title: 'Rush & Cash', body: 'New table, same stack.' });
         navigate(`/table/${msg.tableId}?buyin=${msg.stack || 0}`);
+      } else if (msg.type === 'table_move') {
+        // A tournament flight balanced or broke: the stack travels, the view follows.
+        const where = msg.index ? `table ${msg.index}` : 'the next table';
+        toast({
+          kind: 'info',
+          title: msg.reason === 'break' ? 'Table break' : 'Tables balanced',
+          body: `Moving to ${where} — your stack comes with you.`,
+        });
+        navigate(`/table/${msg.tableId}?buyin=${msg.stack || 0}`);
+      } else if (msg.type === 'table_break') {
+        toast({ kind: 'info', title: 'Table break', body: 'This table broke; the players were moved to the remaining tables.' });
       } else if (msg.type === 'event') {
         const e = msg.event;
         if (tableEpoch.current && e.tableEpoch && e.tableEpoch !== tableEpoch.current) { ws.close(); return; }
@@ -612,6 +623,12 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className="pill">Hand #{state?.handNo ?? '-'}</span>
         {state?.spin && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {money(state.spin.prize)}</span>}
         {state?.tournament && <span className="pill" style={{ color: '#ffd98a' }}>Level {state.tournament.level}{state.tournament.nextBlindAt ? ` · ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000 / 60))}m ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000) % 60).toString().padStart(2, '0')}s` : ''} · Prize {money(state.tournament.prizePool)}</span>}
+        {state?.tournament && (state.tournament.tables || 1) > 1 && (
+          <span className="pill" style={{ color: '#ffd98a' }}>
+            Table {state.tournament.tableIndex || 1}/{state.tournament.tables}
+            {state.tournament.playersLeft != null ? ` · ${state.tournament.playersLeft} left` : ''}
+          </span>
+        )}
         {state?.bombPot && <span className="pill" style={{ color: '#ffd98a' }}>BOMB POT</span>}
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         <div className="spacer" />

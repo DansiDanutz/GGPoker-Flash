@@ -46,6 +46,7 @@ Other players ────────────┘                       │
 | `security.js` | Origin/host allowlists, security headers, CSP, rate limiting helpers |
 | `validate.js` | Input validation and normalisation |
 | `tournament.js` | Pure multi-table seating: flights, allocation rule, canonical flight ids, chip-preserving balancing moves, table breaks |
+| `tournament-room.js` | Live tournament room: owns a tournament's flight tables, seats humans across flights, assigns field-wide finish places and payouts, moves/breaks players between live tables and notifies their sockets |
 | `slots.js` | Server-authoritative slot engine |
 | `hand-history.js` | Hand snapshots for the history/replay view |
 | `avatar.js` | PNG validation and avatar normalisation |
@@ -88,6 +89,30 @@ can hold several tables). Client → server message types:
 Server → client: a `state` snapshot (players, stacks, bets, board, pot, actor, action
 deadline, result) plus event frames that drive sounds, animations and overlays. Every
 state change is pushed; the client never guesses outcomes.
+
+## Multi-table tournaments
+
+A running tournament is owned by a `TournamentRoom` (`tournament-room.js`), one per event,
+holding the shared tournament descriptor (prize pool, level, blind clock, mode) and the
+list of flight tables:
+
+- **Table ids** — flight 1 keeps the legacy `tourney-<id>`; flight *n* is
+  `tourney-<id>-<n-1>` (`flightTableId`), so old links and the unregistration check keep
+  working. The flight cap is `MAX_FLIGHTS` (24).
+- **Seating** — `/api/tournaments/:id/play` asks the room; `nextFlightIndex` fills the
+  lowest-numbered flight with human room and only opens the next one when every flight is
+  full. Flights stay full of bots; a bot is evicted when a human arrives.
+- **Places** — eliminations are recorded field-wide by the room, not per table, so a
+  twenty-player event pays 20th … 1st. Payout shares are 50 / 30 / 20 % for 1st–3rd;
+  satellites pay a ticket instead. The last player standing is only crowned when every
+  flight is between hands (an all-in player with nothing behind is still alive).
+- **Sweep** — a 2 s loop balances flights whose sizes differ by two and breaks tables
+  under three players. Players in a running hand are never moved, and a table only closes
+  once every player found a seat elsewhere.
+- **Client contract** — a moved player's sockets receive `table_move`
+  (`tableId`, `from`, `reason` = `balance` | `break`, `index`, `stack`); the table page
+  navigates to the new table with `?buyin=<stack>`. `table_break` informs observers. A
+  stale flight link is answered with a `table_move` redirect to the player's real table.
 
 ## Data model
 

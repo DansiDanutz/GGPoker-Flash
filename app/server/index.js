@@ -18,6 +18,8 @@ import {
 import { toInt, cleanNick, parseTableConfig } from './validate.js';
 import { handForViewer } from './hand-history.js';
 import { spinSlots } from './slots.js';
+import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
+import { flightTableId, tournamentTableIds } from './tournament.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -254,6 +256,7 @@ function sitesStats() {
 /* ------------------------------------------------------------------ */
 
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
+const TOURNAMENT_ROOMS = new Map(); // tournamentId -> TournamentRoom (multi-table flights)
 const WAITLISTS = new Map(); // tableId -> [{ userId, nick, since }]
 const RUSH_WAITING = new Map(); // userId -> { user, stack, bb, fromTable, since }
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
@@ -374,7 +377,18 @@ function getLiveTable(id) {
       } catch (e) { console.error('tourney payout', e); }
     },
     onTournamentBust: (table, p) => {
-      try { consumeTournamentEntry(table, p.id); } catch (e) { console.error('tourney bust', e); }
+      try {
+        consumeTournamentEntry(table, p.id);
+        // Multi-table events rank the whole field, not the seat's own table.
+        if (table.tournament?.managed) {
+          TOURNAMENT_ROOMS.get(table.cfg.tournamentId)?.onBust(table.cfg.id, p);
+        }
+      } catch (e) { console.error('tourney bust', e); }
+    },
+    onFlightSettled: (table, winner) => {
+      try {
+        TOURNAMENT_ROOMS.get(table.cfg.tournamentId)?.onFlightSettled(table.cfg.id, winner);
+      } catch (e) { console.error('tourney flight settled', e); }
     },
     onTournamentEnd: (table, winner) => {
       try {
@@ -436,7 +450,10 @@ function getLiveTable(id) {
       if (entry.clients.size === 0) {
         if (!entry.emptySince) entry.emptySince = Date.now();
         else if (Date.now() - entry.emptySince > Math.max(45000, DISCONNECT_GRACE_MS)) {
-          closeLiveTable(id, 'Table idle close');
+          // A tournament flight outlives its viewers while players are still
+          // seated (a moved player reconnects to the new table); an empty one goes.
+          if (!table.tournament) closeLiveTable(id, 'Table idle close');
+          else if (!table.humans().length) clearTable(id);
         }
       } else {
         entry.emptySince = null;
@@ -530,6 +547,15 @@ function broadcastState(table) {
   const entry = LIVE_TABLES.get(table.cfg.id);
   if (!entry) return;
   entry.lastBroadcast = Date.now();
+  if (table.tournament?.managed) {
+    // Field-wide counters for the table header: "Table 2/3 · 14 left".
+    const room = TOURNAMENT_ROOMS.get(table.cfg.tournamentId);
+    if (room) {
+      const stats = room.stats();
+      table.tournament.playersLeft = stats.playersLeft;
+      table.cfg.flightCount = stats.tables;
+    }
+  }
   for (const client of entry.clients) {
     if (client.readyState !== 1) continue;
     try {
@@ -629,6 +655,125 @@ function closeLiveTable(id, reason) {
   for (const p of entry.table.humans()) cashOutSeat(entry.table, p.id, reason);
   clearInterval(entry.timer);
   LIVE_TABLES.delete(id);
+}
+
+/** Close a live table completely, config included (used by tournament breaks). */
+function clearTable(id) {
+  const entry = LIVE_TABLES.get(id);
+  if (entry) {
+    clearInterval(entry.timer);
+    LIVE_TABLES.delete(id);
+  }
+  CUSTOM_CFG.delete(id);
+}
+
+/** The shared descriptor every flight of one tournament hands to its table. */
+function tournamentDescriptor(t) {
+  const bb = Math.max(20, Math.round(Number(t.starting_stack || 10000) / 100));
+  return {
+    prizePool: Math.max(Number(t.gtd) || 0, Number(t.entrants) * (Number(t.buyin) + Number(t.fee))),
+    level: 1,
+    blindEvery: Math.max(5, Number(t.blind_speed) || 10),
+    mode: t.mode || 'STANDARD',
+    bounty: t.bounty || 0,
+    ticket: t.ticket || '',
+    name: t.name,
+    baseSb: bb,
+    baseBb: bb * 2,
+    levelStartedAt: Date.now(),
+    playersLeft: null,
+    managed: true,
+  };
+}
+
+function tournamentTableConfig(t, tournament, index, seats) {
+  const bb = Math.max(20, Math.round(Number(t.starting_stack || 10000) / 100));
+  return {
+    id: flightTableId(t.id, index),
+    name: t.name,
+    game: 'holdem',
+    category: 'Tournament',
+    sb: bb,
+    bb: bb * 2,
+    ante: 0,
+    min_buyin: t.starting_stack,
+    max_buyin: t.starting_stack,
+    seats,
+    speed: 'Normal',
+    tournamentId: t.id,
+    flightIndex: index,
+    flightCount: 1,
+    tournament,
+  };
+}
+
+/** The live multi-table room for a tournament, created on first use. */
+function ensureTournamentRoom(t) {
+  const existing = TOURNAMENT_ROOMS.get(t.id);
+  if (existing) return existing;
+  const seats = 6;
+  const room = new TournamentRoom({
+    id: t.id,
+    seats,
+    tournament: tournamentDescriptor(t),
+    ops: {
+      table: (id) => LIVE_TABLES.get(id)?.table || null,
+      createTable: ({ tableId, index, tournament }) => {
+        CUSTOM_CFG.set(tableId, tournamentTableConfig(t, tournament, index, seats));
+        return getLiveTable(tableId);
+      },
+      closeTable: (id) => clearTable(id),
+      broadcast: (id) => {
+        const table = LIVE_TABLES.get(id)?.table;
+        if (table) broadcastState(table);
+      },
+      evictBot: (table) => evictBot(table),
+      notifyPlayer: (userId, payload) => {
+        for (const client of wss.clients) {
+          if (client.readyState === 1 && client.userId === Number(userId)) client.send(JSON.stringify(payload));
+        }
+      },
+      persistBust: ({ tableId, playerId, nick, place, payout }) => {
+        const table = LIVE_TABLES.get(tableId)?.table;
+        if (table) table.finished.push({ id: playerId, nick, place, payout });
+        if (payout <= 0) return;
+        const u = db.prepare('SELECT * FROM users WHERE id = ?').get(playerId);
+        const suffix = place === 2 ? 'nd' : place === 3 ? 'rd' : 'th';
+        if (u) addTransaction(u.id, 'tourney_payout', payout, `${t.name} — finished ${place}${suffix}`);
+        if (table) table.emit({ type: 'tourney_payout', id: playerId, nick, place, payout });
+      },
+      persistWinner: ({ playerId, nick, prize, tableId }) => {
+        const table = LIVE_TABLES.get(tableId)?.table;
+        if (table) {
+          const seat = table.seatOf(playerId);
+          if (seat?.player) seat.player.stack += prize;
+          table.tournament.winner = { nick, id: playerId, prize };
+          table.street = 'ended';
+          table.nextHandAt = 0;
+          table.emit({ type: 'tourney_win', nick, id: playerId, prize, tableName: table.cfg.name });
+        }
+        const u = db.prepare('SELECT * FROM users WHERE id = ?').get(playerId);
+        if (u && table?.tournament?.mode === 'SATELLITE') {
+          addTransaction(u.id, 'satellite_win', 1, `Satellite ticket: ${table.tournament.ticket || t.name}`, 'TICKET');
+        } else if (u && prize > 0) {
+          addTransaction(u.id, 'tourney_win', prize, `Tournament win: ${t.name}`);
+        }
+        db.prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?").run(t.id);
+        db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ?').run(t.id);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end',
+          `${t.name} winner ${nick} ${prize || 0}`);
+      },
+    },
+  });
+  TOURNAMENT_ROOMS.set(t.id, room);
+  return room;
+}
+
+function disposeTournamentRoom(tournamentId, { force = false } = {}) {
+  const room = TOURNAMENT_ROOMS.get(tournamentId);
+  if (!room) return;
+  room.dispose({ force });
+  TOURNAMENT_ROOMS.delete(tournamentId);
 }
 
 function rewardHandPlayed(table, summary) {
@@ -853,6 +998,7 @@ const server = http.createServer(async (req, res) => {
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ? AND owner_id = ? AND private = 1').get(id, u.id);
       if (!t) return json(res, 404, { error: 'not found' });
       if (t.status !== 'registering') return json(res, 409, { error: 'Tournament has started' });
+      disposeTournamentRoom(id, { force: true });
       db.prepare('DELETE FROM tournaments WHERE id = ?').run(id);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'delete_host_tournament', id);
       return json(res, 200, { ok: true });
@@ -916,42 +1062,29 @@ const server = http.createServer(async (req, res) => {
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id);
       if (!t) return json(res, 404, { error: 'not found' });
       const reg = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
-      const tableId = `tourney-${id}`;
-      const existing = LIVE_TABLES.get(tableId);
-      const alreadySeated = !!existing?.table.seatOf(u.id);
-      if (t.status === 'completed' && !alreadySeated) return json(res, 400, { error: 'This tournament has finished' });
+      const room = ensureTournamentRoom(t);
+      const seated = room.tableOf(u.id);
+      if (t.status === 'completed' && !seated) {
+        disposeTournamentRoom(id, { force: true });
+        return json(res, 400, { error: 'This tournament has finished' });
+      }
+      // Already in the event (including the winner back on their table).
+      if (seated) {
+        return json(res, 200, { ok: true, tableId: seated.cfg.id, tableIndex: room.flightIndexOf(seated.cfg.id) });
+      }
       // One registration buys exactly one stack; it is consumed when the player busts, leaves or wins.
-      if (!reg && !alreadySeated) return json(res, 400, { error: 'Register first' });
-      if (existing && existing.table.tournament && existing.table.tournament.winner) {
-        clearInterval(existing.timer);
-        LIVE_TABLES.delete(tableId);
-        CUSTOM_CFG.delete(tableId);
-      }
-      if (!CUSTOM_CFG.has(tableId)) {
-        const bb = Math.max(20, Math.round(t.starting_stack / 100));
-        CUSTOM_CFG.set(tableId, {
-          id: tableId, name: t.name, game: 'holdem', category: 'Tournament', sb: bb, bb: bb * 2,
-          ante: 0, min_buyin: t.starting_stack, max_buyin: t.starting_stack, seats: 6, speed: 'Normal',
-          tournamentId: id,
-          tournament: {
-            prizePool: Math.max(t.gtd, t.entrants * (t.buyin + t.fee)),
-            level: 1, blindEvery: Math.max(5, t.blind_speed),
-            mode: t.mode || 'STANDARD', bounty: t.bounty || 0, ticket: t.ticket || '',
-            name: t.name,
-          },
-        });
-      }
+      if (!reg && !seated) return json(res, 400, { error: 'Register first' });
       db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(id);
-      const table = getLiveTable(tableId);
+      // Flights are allocated by the seating engine: humans fill one table
+      // before the next opens, and a bot steps aside when a human arrives.
+      const result = room.seat({ id: u.id, nick: u.nick, avatar: u.avatar }, { stack: t.starting_stack });
+      if (!result.ok) return json(res, 400, { error: result.error });
+      const table = getLiveTable(result.tableId);
       if (!table) return json(res, 500, { error: 'cannot create table' });
-      if (!table.seatOf(u.id)) {
-        table.sit({ id: u.id, nick: u.nick, avatar: u.avatar }, null, t.starting_stack);
-      }
-      table.fillBots(Math.max(0, table.cfg.seats - table.occupiedSeats().length));
       table.maybeStart();
-      const entry = LIVE_TABLES.get(tableId);
+      const entry = LIVE_TABLES.get(result.tableId);
       if (entry) broadcastState(table);
-      return json(res, 200, { ok: true, tableId });
+      return json(res, 200, { ok: true, tableId: result.tableId, tableIndex: result.index });
     }
 
     if (p.startsWith('/api/tournaments/') && p.endsWith('/unregister') && req.method === 'POST') {
@@ -961,7 +1094,11 @@ const server = http.createServer(async (req, res) => {
       const already = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       if (!already || !t) return json(res, 400, { error: 'Not registered' });
       if (t.status !== 'registering') return json(res, 400, { error: 'Unregistration is closed' });
-      if (tournamentTableIds(id).some((tid) => LIVE_TABLES.get(tid)?.table.seatOf(u.id))) return json(res, 400, { error: 'You are already playing this tournament' });
+      // A seated player is in the event on every flight, not just the legacy table.
+      const seatedOnFlight = TOURNAMENT_ROOMS.get(id)?.tableOf(u.id);
+      if (seatedOnFlight || tournamentTableIds(id, MAX_FLIGHTS).some((tid) => LIVE_TABLES.get(tid)?.table.seatOf(u.id))) {
+        return json(res, 400, { error: 'You are already playing this tournament' });
+      }
       if (t.buyin + t.fee > 0) addTransaction(u.id, 'tourney_refund', t.buyin + t.fee, `Unregistration ${t.name}`);
       db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').run(id, u.id);
       db.prepare('UPDATE tournaments SET entrants = MAX(0, entrants - 1) WHERE id = ?').run(id);
@@ -1978,7 +2115,11 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/admin/tournaments' && req.method === 'POST') {
       const a = requireAdmin(req, res); if (!a) return;
       const b = await readBody(req);
-      if (b.delete) { db.prepare('DELETE FROM tournaments WHERE id = ?').run(b.id); return json(res, 200, { ok: true }); }
+      if (b.delete) {
+        disposeTournamentRoom(b.id, { force: true });
+        db.prepare('DELETE FROM tournaments WHERE id = ?').run(b.id);
+        return json(res, 200, { ok: true });
+      }
       const id = b.id || `t${Date.now()}`;
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -2051,6 +2192,7 @@ const server = http.createServer(async (req, res) => {
       const entry = LIVE_TABLES.get(id);
       if (!entry) return json(res, 404, { error: 'not running' });
       closeLiveTable(id, 'Table closed by admin');
+      if (entry.table.cfg.tournamentId) CUSTOM_CFG.delete(id);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'close_table', id);
       return json(res, 200, { ok: true });
     }
@@ -2182,6 +2324,16 @@ wss.on('connection', (ws, req) => {
       } else {
         if (table.tournament) {
           // Tournament seats are only handed out by /play, which checks the registration.
+          // A flight can move a player between tables; a stale link follows them.
+          const room = TOURNAMENT_ROOMS.get(table.cfg.tournamentId);
+          const actual = room?.tableOf(u.id);
+          if (actual && actual.cfg.id !== msg.tableId) {
+            const stack = actual.seatOf(u.id)?.player?.stack || 0;
+            return ws.send(JSON.stringify({
+              type: 'table_move', tableId: actual.cfg.id, from: msg.tableId,
+              reason: 'redirect', index: room.flightIndexOf(actual.cfg.id), stack,
+            }));
+          }
           entry.clients.add(ws);
           ws.tables.add(msg.tableId);
           ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true }));
@@ -2376,18 +2528,31 @@ wss.on('connection', (ws, req) => {
 
 setInterval(flushRushQueue, 900).unref();
 
-// Scheduled tournaments move out of registration on their own start time.
+// Scheduled tournaments move out of registration on their own start time and
+// open their room, so every flight shares one blind clock from that moment.
 setInterval(() => {
   try {
-    const rows = db.prepare("SELECT id, start_at, entrants FROM tournaments WHERE status = 'registering' AND enabled = 1").all();
+    const rows = db.prepare("SELECT * FROM tournaments WHERE status = 'registering' AND enabled = 1").all();
     for (const t of rows) {
       const start = Date.parse(t.start_at);
       if (Number.isFinite(start) && start <= Date.now() && Number(t.entrants) >= 2) {
         db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(t.id);
+        ensureTournamentRoom(t).syncLevel();
       }
+    }
+    // A finished event whose tables are all gone no longer needs its room.
+    for (const [id, room] of TOURNAMENT_ROOMS) {
+      if (room.winner && !room.flights.length) TOURNAMENT_ROOMS.delete(id);
     }
   } catch (err) { console.error('tournament scheduler', err); }
 }, 15000).unref();
+
+// Multi-table tournaments rebalance and break short tables between hands.
+setInterval(() => {
+  for (const room of TOURNAMENT_ROOMS.values()) {
+    try { room.sweep(); } catch (err) { console.error('tournament sweep', err); }
+  }
+}, 2000).unref();
 
 function identityTaken(name, exceptUserId = 0) {
   return !!db.prepare('SELECT 1 FROM users WHERE (lower(login) = lower(?) OR lower(nick) = lower(?)) AND id != ?').get(name, name, exceptUserId);
