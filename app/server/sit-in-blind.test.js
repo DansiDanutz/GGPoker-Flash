@@ -25,6 +25,7 @@ test('returning after missed hands posts a live big blind', () => {
   assert.equal(p3.bet, 2, 'posts the big blind to come back in');
   assert.equal(p3.stack, 98);
   assert.equal(p3.missedBlinds, false, 'owed only once');
+  assert.equal(p3.lastAction.action, 'Post Blind(s)', 'native seat label');
 });
 
 test('no extra post when the returning player is the big blind anyway', () => {

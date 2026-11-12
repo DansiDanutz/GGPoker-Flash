@@ -584,7 +584,7 @@ export class PokerTable {
       if (!p.missedBlinds) continue;
       p.missedBlinds = false;
       if (s === bbSeat || s === sbSeat || inHand.length < 3) continue;
-      this.postBlind(s, this.bb, 'Post');
+      this.postBlind(s, this.bb, 'Post Blind(s)');
     }
   }
 
