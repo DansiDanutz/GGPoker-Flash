@@ -15,7 +15,7 @@ Play-money only. Server-authoritative. No real-money flows.
 
 ```bash
 cd app
-pnpm test                 # node --test server/*.test.js — 106 tests
+pnpm test                 # node --test server/*.test.js — 109 tests
 pnpm exec tsc --noEmit -p tsconfig.json
 pnpm build                # → app/dist
 pnpm smoke                # read-only API smoke against a running server
@@ -37,7 +37,7 @@ the allowlisted loopback/SSH tunnel.
 
 ## Verified before a release
 
-- `pnpm test` — 106/106.
+- `pnpm test` — 109/109.
 - `pnpm exec tsc --noEmit` and `pnpm build` (also enforced by CI on every PR).
 - Login → lobby → table join → first hand → fold/call/raise on desktop 1200×957 and phone
   390×844.
@@ -61,8 +61,9 @@ screens, offline retry.
 
 ## Remaining / known gaps
 
-- Multi-table tournament flights/balancing: the seating engine (`app/server/tournament.js`,
-  9 tests) is done; the live scheduler and table-break orchestration still need wiring.
+- Multi-table tournament flights/balancing: the seating engine (`app/server/tournament.js`),
+  allocation rule, canonical flight ids and unregistration guard are done and tested; the
+  live scheduler and table-break orchestration still need wiring.
 - KKPoker-specific parity was not verified (client not installed/exposed).
 - Complete native background catalogue.
 - SQLite is a single writer — move to managed PostgreSQL/Redis before a 1,000-concurrent

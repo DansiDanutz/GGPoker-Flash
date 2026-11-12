@@ -74,7 +74,7 @@ server, and the service worker is not registered in dev.
 ```bash
 pnpm build          # production bundle → app/dist
 pnpm start          # serve app/dist + API on :5198
-pnpm test           # server suite (106 tests)
+pnpm test           # server suite (109 tests)
 pnpm smoke          # read-only smoke test against a running server
 ```
 
@@ -168,8 +168,9 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
 - Playable events: 6-max tables, starting stack, blind levels on a real clock, late
   registration, eliminations, top-3 payouts and a winner presentation.
 - A pure multi-table seating engine (`app/server/tournament.js`) plans flights, balancing
-  moves and table breaks with chip conservation; the live scheduler/table-break wiring is
-  the remaining step.
+  moves and table breaks with chip conservation, allocates flights with `nextTableIndex`,
+  exposes canonical `tournamentTableIds`, and guards unregistration across every flight;
+  the live scheduler/table-break wiring is the remaining step.
 - Private host tournaments with invite links; Spin & Gold with a prize wheel.
 
 ### Casino and slots
@@ -272,7 +273,7 @@ package_app.sh         Build, sign and relaunch the desktop app
 cd app
 pnpm install         # dependencies
 pnpm dev             # Vite + API/WebSocket
-pnpm test            # node --test server/*.test.js (106 tests)
+pnpm test            # node --test server/*.test.js (109 tests)
 pnpm exec tsc --noEmit -p tsconfig.json
 pnpm build           # production client
 pnpm smoke           # read-only API smoke test (needs a running server)
@@ -305,7 +306,7 @@ Every push to `main` and every pull request runs the **CI** workflow
 
 | Job | What it runs |
 |---|---|
-| **Server tests** | `node --test server/*.test.js` (106 tests) |
+| **Server tests** | `node --test server/*.test.js` (109 tests) |
 | **Typecheck and build** | `tsc --noEmit`, then `vite build` |
 
 `main` is protected by the `protect-main` ruleset: both checks are required, force-pushes
@@ -394,6 +395,7 @@ locally with `bash tools/setup_assets.sh`.
 | [`deploy/MONITORING.md`](deploy/MONITORING.md) | Monitoring checklist and incident rules |
 | [`deploy/SCALE-PLAN.md`](deploy/SCALE-PLAN.md) | Capacity planning beyond one SQLite writer |
 | [`docs/designs/`](docs/designs/) | Design-of-record, parity backlog, reviews |
+| [`docs/designs/replica-gap-analysis.md`](docs/designs/replica-gap-analysis.md) | Consolidated replica gap analysis and build plan |
 | [`docs/audits/`](docs/audits/) | 2026-11-11 full client audit |
 
 ---
