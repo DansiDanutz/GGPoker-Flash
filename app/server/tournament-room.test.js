@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TournamentRoom, MAX_FLIGHTS, payoutFor } from './tournament-room.js';
+import { PokerTable } from './table.js';
 
 // A fake PokerTable with just the surface the room uses. Bots are only added
 // when a test asks for them, so seat and place assertions stay readable.
@@ -337,4 +338,103 @@ test('the room never opens more flights than its cap', () => {
   for (let i = 1; i <= 4; i += 1) room.seat(player(i));
   assert.equal(room.flights.length, 2);
   assert.equal(room.ensureFlight(3), null);
+});
+
+/* ------------------------- seat all registrants (T1) ------------------------- */
+
+const field = (count) => Array.from({ length: count }, (_, i) => player(i + 1));
+
+test('14 registrants with nobody online are all seated across three flights at the start', () => {
+  const { room, tables, calls } = harness();
+  const { seated, failed } = room.seatRegistrants(field(14), { stack: 1500 });
+
+  assert.deepEqual(failed, []);
+  assert.equal(seated.length, 14);
+  assert.deepEqual(calls.created, ['tourney-t1', 'tourney-t1-1', 'tourney-t1-2']);
+  assert.deepEqual(seated.map((s) => s.index), [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3]);
+  assert.deepEqual([...tables.values()].map((t) => t.occupiedSeats().length), [6, 6, 2]);
+  for (const table of tables.values()) {
+    for (const { player: p } of table.occupiedSeats()) {
+      assert.equal(p.stack, 1500, `${p.id} gets the starting stack`);
+      assert.equal(p.away, true, `${p.id} is marked away`);
+      assert.equal(p.sittingOut, true, `${p.id} sits out until they open the table`);
+      assert.ok(!p.isBot, 'no bots are added to a scheduled field');
+    }
+  }
+  assert.equal(room.stats().humansLeft, 14);
+});
+
+test('seating the field twice keeps every existing seat', () => {
+  const { room, tables } = harness();
+  room.seat(player(3), { stack: 1500 }); // an early opener is already playing
+  const { seated } = room.seatRegistrants(field(4), { stack: 1500 });
+  const again = room.seatRegistrants(field(4), { stack: 1500 });
+
+  assert.deepEqual(seated.map((s) => s.reconnect), [false, false, true, false]);
+  assert.ok(again.seated.every((s) => s.reconnect), 'a second pass seats nobody twice');
+  const flight = tables.get('tourney-t1');
+  assert.equal(flight.occupiedSeats().length, 4);
+  assert.ok(!flight.seatOf('p3').player.away, 'a player already at the table is not marked away');
+  assert.equal(room.seat(player(1), { stack: 1500 }).tableId, 'tourney-t1', '/play returns the existing seat');
+});
+
+/** A room wired to real PokerTables that deal immediately, for blind-out play. */
+function liveHarness({ seats = 6 } = {}) {
+  const tables = new Map();
+  const busts = [];
+  let room;
+  const hooks = {
+    onEvent: () => {},
+    onTournamentBust: (table, p) => room.onBust(table.cfg.id, p),
+    onFlightSettled: () => {},
+  };
+  room = new TournamentRoom({
+    id: 't1',
+    seats,
+    maxTables: 4,
+    tournament: { prizePool: 0, mode: 'STANDARD', blindEvery: 5 },
+    ops: {
+      table: (id) => tables.get(id) || null,
+      createTable: ({ tableId, index, tournament }) => {
+        const table = new PokerTable({
+          id: tableId, name: 'Flight', game: 'holdem', sb: 50, bb: 100, seats,
+          min_buyin: 1500, max_buyin: 1500, flightIndex: index, tournament,
+        }, hooks);
+        table.showdownDelay = 0;
+        tables.set(tableId, table);
+        return table;
+      },
+      closeTable: (id) => tables.delete(id),
+      broadcast: () => {},
+      evictBot: () => false,
+      notifyPlayer: () => {},
+      persistBust: (record) => busts.push(record),
+      persistWinner: () => {},
+    },
+  });
+  return { room, tables, busts };
+}
+
+test('an absent player is dealt in, blinds down and is eliminated in the right place', () => {
+  const { room, tables, busts } = liveHarness();
+  room.seatRegistrants(field(14), { stack: 1500 });
+  const short = tables.get('tourney-t1-2');
+  assert.deepEqual(short.occupiedSeats().map((s) => s.player.id), ['p13', 'p14']);
+  assert.ok(short.handNo >= 1, 'the absent pair is dealt in at the start');
+
+  // Only the third flight plays; the clock runs a minute per tick so the blinds climb.
+  let now = Date.now();
+  for (let i = 0; i < 20000 && !busts.length; i += 1) {
+    now += 60000;
+    short.tick(now);
+  }
+
+  assert.equal(busts.length, 1, 'one absent player blinded out');
+  const [bust] = busts;
+  assert.ok(['p13', 'p14'].includes(bust.playerId));
+  assert.equal(bust.place, 14, 'the first player out of a 14-player field finishes 14th');
+  assert.ok(short.handNo > 1, 'the absent players played several hands');
+  const survivor = short.occupiedSeats().map((s) => s.player).find((p) => p.stack > 0);
+  assert.equal(survivor.sittingOut, true, 'the other absent player is still sitting out');
+  assert.equal(survivor.stack, 3000, 'every chip stayed on the table');
 });

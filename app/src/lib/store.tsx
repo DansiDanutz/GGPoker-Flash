@@ -3,7 +3,37 @@ import { api, getToken, setToken, User } from './api';
 import { sound } from './sound';
 import { completeInstall, installPending, isPhone, isStandalone, markInstallPending, skipInstall, subscribeInstall } from './install';
 
-type Toast = { id: number; kind: 'info' | 'success' | 'error' | 'reward'; title: string; body?: string };
+type Toast = {
+  id: number;
+  kind: 'info' | 'success' | 'error' | 'reward';
+  title: string;
+  body?: string;
+  /** Route opened by the toast's action button (a deep link). */
+  link?: string;
+  linkLabel?: string;
+};
+
+type TournamentStarted = { type: 'tournament_started'; id: string; name?: string; tableId: string; index?: number };
+
+const TOAST_MS = 4200;
+const LINK_TOAST_MS = 15000;
+
+function isTournamentStarted(detail: unknown): detail is TournamentStarted {
+  const d = detail as Partial<TournamentStarted> | null;
+  return !!d && d.type === 'tournament_started' && typeof d.id === 'string' && typeof d.tableId === 'string';
+}
+
+/** The toast for a registrant whose tournament started; it opens their real flight. */
+export function tournamentStartedToast(evt: TournamentStarted): Omit<Toast, 'id'> {
+  const flight = evt.index && evt.index > 1 ? ` · Table ${evt.index}` : '';
+  return {
+    kind: 'reward',
+    title: 'Your tournament started',
+    body: `${evt.name || 'Tournament'}${flight}`,
+    link: `/table/${encodeURIComponent(evt.tableId)}`,
+    linkLabel: 'Go to table',
+  };
+}
 
 type AppState = {
   user: User | null;
@@ -141,6 +171,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => { refreshBrand(); }, [refreshBrand]);
+  const toast = useCallback((t: Omit<Toast, 'id'>) => {
+    const id = toastId.current++;
+    setToasts((prev) => [...prev, { ...t, id }]);
+    window.setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), t.link ? LINK_TOAST_MS : TOAST_MS);
+  }, []);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((x) => x.id !== id));
+  }, []);
+
+  // One "tournament started" toast per event: the stream re-announces untouched
+  // seats on every reconnect.
+  const announcedTournaments = useRef(new Set<string>());
+
   useEffect(() => {
     if (!user) { setDmUnread(0); return; }
     let stop = false;
@@ -158,6 +202,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       source.onmessage = (event) => {
         try {
           const detail = JSON.parse(event.data);
+          if (isTournamentStarted(detail)) {
+            const onTable = currentRoute() === `/table/${encodeURIComponent(detail.tableId)}`;
+            if (!onTable && !announcedTournaments.current.has(detail.id)) {
+              announcedTournaments.current.add(detail.id);
+              toast(tournamentStartedToast(detail));
+            }
+          }
           api.notifications().then((r) => { if (!stop) setDmUnread(Number(r.unread) || 0); }).catch(() => {});
           window.dispatchEvent(new CustomEvent('gg:notify', { detail }));
         } catch { /* ignore */ }
@@ -170,7 +221,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     connect();
     return () => { stop = true; window.clearInterval(timer); if (retry) window.clearTimeout(retry); source?.close(); };
-  }, [user?.id]);
+  }, [user?.id, toast]);
 
   useEffect(() => {
     let alive = true;
@@ -188,16 +239,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadMeta();
     const t = window.setInterval(loadMeta, 20000);
     return () => { alive = false; window.clearInterval(t); };
-  }, []);
-
-  const toast = useCallback((t: Omit<Toast, 'id'>) => {
-    const id = toastId.current++;
-    setToasts((prev) => [...prev, { ...t, id }]);
-    window.setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), 4200);
-  }, []);
-
-  const dismissToast = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((x) => x.id !== id));
   }, []);
 
   const enterGuest = useCallback(() => {

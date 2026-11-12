@@ -140,15 +140,79 @@ export class TournamentRoom {
    * so the caller can send the client there.
    */
   seat(player, { stack } = {}) {
-    if (this.winner) return { ok: false, error: 'This tournament has finished' };
+    const placed = this.allocate(player, stack);
+    if (!placed.ok || placed.reconnect) return placed.response;
+    const { table } = placed;
+    // Keep the flight full the way the single-table tournament did.
+    const free = table.cfg.seats - table.occupiedSeats().length;
+    if (free > 0) table.fillBots(free);
+    table.maybeStart();
+    this.ops.broadcast(table.cfg.id);
+    return placed.response;
+  }
+
+  /**
+   * Seat the whole registered field at the scheduled start, online or not.
+   * Each registrant goes through the same flight allocation as `seat()`, but
+   * arrives away and sitting out: an elimination table still deals them in and
+   * auto-folds or auto-checks for them until they open the table. No bots are
+   * added; the sweep balances the real field across its flights.
+   *
+   * @param {Array<{id: number|string, nick: string, avatar?: string}>} registrants
+   * @param {{stack?: number}} [options]
+   * @returns {{seated: Array<{id, tableId, index, seat, reconnect: boolean}>, failed: Array<{id, error}>}}
+   */
+  seatRegistrants(registrants, { stack } = {}) {
+    const seated = [];
+    const failed = [];
+    const touched = new Set();
+    for (const registrant of registrants || []) {
+      const placed = this.allocate(registrant, stack);
+      if (!placed.ok) {
+        failed.push({ id: registrant.id, error: placed.response.error });
+        continue;
+      }
+      const { response, table } = placed;
+      if (!response.reconnect) {
+        const sat = table.seatOf(registrant.id)?.player;
+        if (sat) Object.assign(sat, { away: true, sittingOut: true });
+      }
+      touched.add(table.cfg.id);
+      seated.push({
+        id: registrant.id,
+        tableId: response.tableId,
+        index: response.index,
+        seat: response.seat,
+        reconnect: !!response.reconnect,
+      });
+    }
+    for (const tableId of touched) {
+      this.ops.table(tableId)?.maybeStart();
+      this.ops.broadcast(tableId);
+    }
+    return { seated, failed };
+  }
+
+  /**
+   * Find (or open) the flight for one player and sit them there. An already
+   * seated player gets their existing seat back with `reconnect: true`.
+   */
+  allocate(player, stack) {
+    const refuse = (error) => ({ ok: false, response: { ok: false, error } });
+    if (this.winner) return refuse('This tournament has finished');
     const seated = this.tableOf(player.id);
     if (seated) {
       return {
         ok: true,
-        tableId: seated.cfg.id,
-        index: this.flightIndexOf(seated.cfg.id),
-        seat: seated.seatOf(player.id)?.index ?? null,
         reconnect: true,
+        table: seated,
+        response: {
+          ok: true,
+          tableId: seated.cfg.id,
+          index: this.flightIndexOf(seated.cfg.id),
+          seat: seated.seatOf(player.id)?.index ?? null,
+          reconnect: true,
+        },
       };
     }
     const humansByIndex = new Map();
@@ -157,20 +221,15 @@ export class TournamentRoom {
       humansByIndex.set(flight.index, table ? table.humans().length : 0);
     }
     const index = nextFlightIndex(humansByIndex, this.seats, this.maxTables);
-    if (index == null) return { ok: false, error: 'This tournament is full' };
+    if (index == null) return refuse('This tournament is full');
     const table = this.ensureFlight(index);
-    if (!table) return { ok: false, error: 'No table available' };
+    if (!table) return refuse('No table available');
     if (table.occupiedSeats().length >= table.cfg.seats && !this.ops.evictBot(table)) {
-      return { ok: false, error: 'No seat available at this table' };
+      return refuse('No seat available at this table');
     }
     const result = table.sit({ id: player.id, nick: player.nick, avatar: player.avatar || '' }, null, stack);
-    if (!result.ok) return result;
-    // Keep the flight full the way the single-table tournament did.
-    const free = table.cfg.seats - table.occupiedSeats().length;
-    if (free > 0) table.fillBots(free);
-    table.maybeStart();
-    this.ops.broadcast(table.cfg.id);
-    return { ok: true, tableId: table.cfg.id, index, seat: result.seat };
+    if (!result.ok) return { ok: false, response: result };
+    return { ok: true, table, response: { ok: true, tableId: table.cfg.id, index, seat: result.seat } };
   }
 
   /* ------------------------------ elimination ------------------------------ */
@@ -361,6 +420,7 @@ export class TournamentRoom {
       disconnected: player.disconnected,
       disconnectedAt: player.disconnectedAt,
       sittingOut: player.sittingOut,
+      away: player.away,
     };
     source.stand(player.id);
     const result = target.sit(profile, null, stack);

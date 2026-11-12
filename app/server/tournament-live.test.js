@@ -1,6 +1,6 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { startServer } from './test-helpers.js';
+import { nextSseEvent, sleep, startServer } from './test-helpers.js';
 
 // End-to-end proof that the seating engine is wired into the live server:
 // eight humans join one event and land on two flights, six seats then two.
@@ -105,4 +105,78 @@ test('unregistration is refused while a player is seated on a flight', async () 
   // the seat is protected; the explicit flight check is what matters.
   assert.equal(unregister.status, 400);
   assert.match(unregister.data.error, /playing this tournament|Unregistration is closed/);
+});
+
+test('the scheduler seats every registrant at the start and a late opener lands on their real flight', async () => {
+  const quick = await startServer({ env: { GGPOKER_TOURNEY_SCHEDULER_MS: '200' } });
+  try {
+    const id = 'scheduled-start-e2e';
+    const boss = await quick.login('admin', 'admin123');
+    const startAt = Date.now() + 2500;
+    const created = await quick.post('/api/admin/tournaments', {
+      token: boss,
+      body: {
+        id, name: 'Scheduled start e2e', buyin: 0, fee: 0, gtd: 0,
+        start_at: new Date(startAt).toISOString(), status: 'registering',
+        max_players: 100, starting_stack: 10000, blind_speed: 10, late_reg: 90,
+      },
+    });
+    assert.equal(created.status, 200);
+
+    const tokens = [];
+    for (let i = 1; i <= 8; i += 1) {
+      const reg = await quick.post('/api/auth/register', {
+        body: { login: `sched_player_${i}`, nick: `Sched ${i}`, password: 'secret12' },
+      });
+      assert.equal(reg.status, 200, JSON.stringify(reg.data));
+      const join = await quick.post(`/api/tournaments/${id}/register`, { token: reg.data.token });
+      assert.equal(join.status, 200, JSON.stringify(join.data));
+      tokens.push(reg.data.token);
+    }
+
+    // Player 1 is online when the event starts and hears about it over SSE.
+    const started = nextSseEvent(quick.base, tokens[0], (e) => e.type === 'tournament_started' && e.id === id, 10000);
+    await sleep(Math.max(0, startAt - Date.now()) + 800);
+    const live = await started;
+    assert.equal(live.tableId, `tourney-${id}`);
+    assert.equal(live.index, 1);
+
+    const detail = await quick.get(`/api/tournaments/${id}`, { token: tokens[0] });
+    assert.equal(detail.data.tournament.status, 'running');
+
+    // Player 8 never opened the app before the start. Their seat is already on
+    // flight 2; the notification stream and /play both send them there.
+    const late = await nextSseEvent(quick.base, tokens[7], (e) => e.type === 'tournament_started' && e.id === id);
+    assert.equal(late.tableId, `tourney-${id}-1`);
+    assert.equal(late.index, 2);
+    const play = await quick.post(`/api/tournaments/${id}/play`, { token: tokens[7] });
+    assert.equal(play.status, 200, JSON.stringify(play.data));
+    assert.equal(play.data.tableId, `tourney-${id}-1`);
+    assert.equal(play.data.tableIndex, 2);
+
+    // Opening the table finds the seat and sits the absent player back in.
+    const socket = quick.socket(tokens[7]);
+    await socket.opened;
+    socket.send({ type: 'join_table', tableId: play.data.tableId });
+    const joined = await socket.nextType('joined');
+    assert.equal(typeof joined.seat, 'number', 'the late opener is seated, not observing');
+    const state = await socket.nextType('state');
+    const me = state.state.players.find((seat) => seat.isMe);
+    assert.ok(me, 'the late opener is on the table snapshot');
+    assert.equal(me.sittingOut, false, 'opening the table sits the player back in');
+    await socket.close();
+
+    // Every registrant got a seat at the start, online or not: /play only hands
+    // back the seat each one already has.
+    const flights = [];
+    for (const token of tokens) {
+      const again = await quick.post(`/api/tournaments/${id}/play`, { token });
+      assert.equal(again.status, 200, JSON.stringify(again.data));
+      flights.push(again.data.tableIndex);
+    }
+    // The 2 s sweep may already have balanced 6 + 2 into 4 + 4; either way the
+    // whole field sits on the event's two flights.
+    assert.deepEqual([...new Set(flights)].sort(), [1, 2]);
+    assert.ok(flights.filter((index) => index === 2).length >= 2);
+  } finally { await quick.stop(); }
 });

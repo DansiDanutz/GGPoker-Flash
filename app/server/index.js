@@ -101,6 +101,7 @@ const PUBLIC = path.join(APP_DIR, 'public');
 
 // How long a seat is held for a player whose connection dropped before they are cashed out.
 const DISCONNECT_GRACE_MS = Number(process.env.GGPOKER_DISCONNECT_GRACE_MS || 60_000);
+const TOURNAMENT_SCHEDULER_MS = Math.max(50, Number(process.env.GGPOKER_TOURNEY_SCHEDULER_MS || 15_000));
 // Seat-offer hold for wait-listed players (DanGG design: 30 s). Tests shorten it.
 const WAITLIST_HOLD_MS = Number(process.env.GGPOKER_WAITLIST_HOLD_MS || waitlist.HOLD_MS);
 const WAITLIST_SWEEP_MS = 1000;
@@ -774,7 +775,8 @@ function hasLiveSocket(entry, userId, except = null) {
   return false;
 }
 
-// Cash out players whose connection has been gone longer than the grace period.
+// Cash out players whose connection has been gone longer than the grace period
+// (tournament players are blinded out instead; their seat is never forfeited).
 function sweepDisconnected(entry) {
   const table = entry.table;
   const now = Date.now();
@@ -782,6 +784,12 @@ function sweepDisconnected(entry) {
     if (!p.disconnectedAt) continue;
     if (hasLiveSocket(entry, p.id)) { p.disconnectedAt = 0; p.disconnected = false; continue; }
     if (now - p.disconnectedAt < DISCONNECT_GRACE_MS) continue;
+    if (table.tournament) {
+      // A tournament seat is never forfeited by a dropped connection: the player
+      // is blinded out (auto-fold / auto-check) until they come back.
+      Object.assign(p, { away: true, sittingOut: true, disconnectedAt: 0 });
+      continue;
+    }
     cashOutSeat(table, p.id, `Disconnected from ${table.cfg.name}`);
     notifyWaitlist(table.cfg.id);
   }
@@ -912,6 +920,42 @@ function disposeTournamentRoom(tournamentId, { force = false } = {}) {
   if (!room) return;
   room.dispose({ force });
   TOURNAMENT_ROOMS.delete(tournamentId);
+}
+
+/**
+ * Flip a tournament from registering to running and seat its whole field.
+ * Every registrant gets a seat, online or not; whoever is not at the table yet
+ * is blinded out until they open it. Returns false when another caller won the
+ * race to start the event.
+ */
+function startTournament(t) {
+  const flipped = db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(t.id);
+  if (!flipped.changes) return false;
+  const room = ensureTournamentRoom(t);
+  room.syncLevel();
+  const registrants = db.prepare(`SELECT u.id, u.nick, u.avatar FROM tourney_regs r JOIN users u ON u.id = r.user_id
+    WHERE r.tournament_id = ? ORDER BY r.created_at, r.rowid`).all(t.id);
+  const { seated, failed } = room.seatRegistrants(registrants, { stack: t.starting_stack });
+  for (const seat of seated) notifyTournamentStarted(t, seat.id, seat.tableId, seat.index);
+  for (const miss of failed) console.error('tournament start seat', t.id, miss.id, miss.error);
+  return true;
+}
+
+/** Tell a registrant where their flight is (SSE; the client shows a "Go to table" toast). */
+function notifyTournamentStarted(t, userId, tableId, index) {
+  notifyUser(userId, { type: 'tournament_started', id: t.id, name: t.name, tableId, index });
+}
+
+/** Re-announce every running event where this player still has an untouched seat. */
+function announceAwaySeats(userId) {
+  for (const room of TOURNAMENT_ROOMS.values()) {
+    const table = room.tableOf(userId);
+    if (!table?.seatOf(userId)?.player?.away) continue;
+    notifyUser(userId, {
+      type: 'tournament_started', id: room.id, name: room.tournament.name,
+      tableId: table.cfg.id, index: room.flightIndexOf(table.cfg.id),
+    });
+  }
 }
 
 function rewardHandPlayed(table, summary) {
@@ -1233,7 +1277,11 @@ const server = http.createServer(async (req, res) => {
       }
       // One registration buys exactly one stack; it is consumed when the player busts, leaves or wins.
       if (!reg && !seated) return json(res, 400, { error: 'Register first' });
-      db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(id);
+      // Opening an event early starts it, and starting seats the whole field.
+      if (startTournament(t)) {
+        const own = room.tableOf(u.id);
+        if (own) return json(res, 200, { ok: true, tableId: own.cfg.id, tableIndex: room.flightIndexOf(own.cfg.id) });
+      }
       // Flights are allocated by the seating engine: humans fill one table
       // before the next opens, and a bot steps aside when a human arrives.
       const result = room.seat({ id: u.id, nick: u.nick, avatar: u.avatar }, { stack: t.starting_stack });
@@ -1979,6 +2027,8 @@ const server = http.createServer(async (req, res) => {
       const set = SSE_CLIENTS.get(u.id) || new Set();
       set.add(res);
       SSE_CLIENTS.set(u.id, set);
+      // A registrant who opens the app after the start still learns where they sit.
+      announceAwaySeats(u.id);
       const cleanup = () => { set.delete(res); if (!set.size) SSE_CLIENTS.delete(u.id); };
       req.on('close', cleanup);
       req.on('aborted', cleanup);
@@ -2481,6 +2531,12 @@ wss.on('connection', (ws, req) => {
         // Reconnect (or a second window): the seat and stack are still here.
         seated.player.disconnected = false;
         seated.player.disconnectedAt = 0;
+        if (seated.player.away) {
+          // Seated in absence at the tournament start: opening the table sits them back in.
+          seated.player.away = false;
+          seated.player.missedTurns = 0;
+          table.requestSitOut(u.id, false);
+        }
       } else {
         if (table.tournament) {
           // Tournament seats are only handed out by /play, which checks the registration.
@@ -2707,17 +2763,14 @@ setInterval(() => {
     const rows = db.prepare("SELECT * FROM tournaments WHERE status = 'registering' AND enabled = 1").all();
     for (const t of rows) {
       const start = Date.parse(t.start_at);
-      if (Number.isFinite(start) && start <= Date.now() && Number(t.entrants) >= 2) {
-        db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(t.id);
-        ensureTournamentRoom(t).syncLevel();
-      }
+      if (Number.isFinite(start) && start <= Date.now() && Number(t.entrants) >= 2) startTournament(t);
     }
     // A finished event whose tables are all gone no longer needs its room.
     for (const [id, room] of TOURNAMENT_ROOMS) {
       if (room.winner && !room.flights.length) TOURNAMENT_ROOMS.delete(id);
     }
   } catch (err) { console.error('tournament scheduler', err); }
-}, 15000).unref();
+}, TOURNAMENT_SCHEDULER_MS).unref();
 
 // Multi-table tournaments rebalance and break short tables between hands.
 setInterval(() => {
