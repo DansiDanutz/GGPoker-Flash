@@ -92,6 +92,13 @@ export function playerHud(rows, nick) {
   };
 }
 
+/** VPIP % for each nick at this table (native seat badge); 0 for a player with no hands. */
+export function seatVpips(rows, nicks) {
+  const out = {};
+  for (const nick of nicks) out[nick] = playerHud(rows, nick).vpip;
+  return out;
+}
+
 const CACHE_MS = 5000;
 
 /**
@@ -122,6 +129,7 @@ export function createTableStats(db, now = () => Date.now()) {
     `SELECT hand_no, pot, board, players, actions FROM hands WHERE table_id = ? ORDER BY id DESC LIMIT ${HUD_WINDOW}`,
   );
   statsFor.hud = (tableId, nick) => playerHud(hudHands.all(tableId), nick);
+  statsFor.vpips = (tableId, nicks) => seatVpips(hudHands.all(tableId), nicks);
 
   /** Drop a table's cached stats after a new hand is recorded. */
   statsFor.invalidate = (tableId) => cache.delete(tableId);

@@ -802,6 +802,19 @@ export function TablePage({ tableId }: { tableId: string }) {
     return [p[0], p[1]];
   };
 
+  // Native seat badge: each player's VPIP % at this table, refreshed once per hand.
+  const [seatVpip, setSeatVpip] = useState<Record<string, number>>({});
+  const vpipHand = state?.street === 'ended' ? state?.handNo : (state?.handNo ?? 0) - 1;
+  useEffect(() => {
+    if (!tableId) return;
+    const controller = new AbortController();
+    fetch(`/api/tables/${encodeURIComponent(tableId)}/vpip`, { headers: { authorization: `Bearer ${getToken()}` }, signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.vpip) setSeatVpip(d.vpip); })
+      .catch(() => { /* badge keeps its last value; the table works without it */ });
+    return () => controller.abort();
+  }, [tableId, vpipHand]);
+
   const narrowScreen = useNarrowScreen();
   const landscapePhone = useLandscapePhone();
   const layout = state
@@ -1192,6 +1205,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <div className="face">
                 <Avatar name={p.nick || '?'} src={p.avatar} size={54} />
               </div>
+              {p.nick && <span className="vpip-badge" title="VPIP at this table">{seatVpip[p.nick] ?? 0}</span>}
             </div>
             <div className="plate">
               <div className="nm" title={p.nick || undefined}>{seatNick(p.nick)}</div>
