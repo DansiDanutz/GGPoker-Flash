@@ -368,6 +368,41 @@ test('flights of one tournament share the blind level and clock', () => {
   assert.equal(late.bb, a.bb);
 });
 
+test('a player can show one card or both after the hand ends', () => {
+  const t = new PokerTable({
+    id: 'show', name: 'Show', game: 'holdem', sb: 50, bb: 100, seats: 2,
+    min_buyin: 1000, max_buyin: 5000,
+  });
+  const hero = player(1, 'Hero', 900, 100, [C('As'), C('Kh')]);
+  const other = player(2, 'Other', 900, 100, [C('Qd'), C('Jc')]);
+  t.seats[0].player = hero;
+  t.seats[1].player = other;
+  t.street = 'preflop';
+  const events = [];
+  t.on((e) => events.push(e));
+
+  assert.equal(t.showCards(1, [0]).ok, false, 'cards can only be shown after the hand');
+  t.street = 'ended';
+  assert.equal(t.showCards(1, [9]).ok, false, 'only dealt cards can be picked');
+  other.folded = true;
+  assert.equal(t.showCards(2, [0]).ok, false, 'a folded player cannot show');
+  other.folded = false;
+
+  assert.equal(t.showCards(1, [0]).ok, true);
+  const half = t.snapshotFor(2).players.find((p) => p.id === 1);
+  assert.deepEqual(half.shown, [0]);
+  assert.equal(half.cards[0], 'As');
+  assert.equal(half.cards[1], '??', 'the other card stays hidden');
+  const own = t.snapshotFor(1).players.find((p) => p.id === 1);
+  assert.deepEqual(own.cards, ['As', 'Kh'], 'the owner always sees both');
+
+  assert.equal(t.showCards(1, [1]).ok, true);
+  const all = t.snapshotFor(2).players.find((p) => p.id === 1);
+  assert.deepEqual(all.cards, ['As', 'Kh']);
+  assert.equal(all.reveal, true);
+  assert.deepEqual(events.find((e) => e.type === 'cards_shown').cards, ['As']);
+});
+
 test('a busted cash player gets a reload window before the next deal', () => {
   const t = new PokerTable({
     id: 'reload', name: 'Reload', game: 'holdem', sb: 50, bb: 100, seats: 2,

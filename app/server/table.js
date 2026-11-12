@@ -317,6 +317,7 @@ export class PokerTable {
       p.totalBet = 0;
       p.acted = false;
       p.reveal = false;
+      p.shown = [];
       p.cards = [];
       p.lastAction = null;
       p.winAmount = 0;
@@ -438,6 +439,33 @@ export class PokerTable {
       if (s.player && s.player.inHand && !s.player.folded) return s;
     }
     return null;
+  }
+
+  /**
+   * Show one, several or all hole cards to the table after the hand ended.
+   * Only a player who was dealt in and did not fold can reveal this way.
+   */
+  showCards(playerId, indices) {
+    if (this.street !== 'ended') return { ok: false, error: 'Show cards at the end of the hand' };
+    const seat = this.seatOf(playerId);
+    const p = seat?.player;
+    if (!p) return { ok: false, error: 'not seated' };
+    if (!p.inHand || p.folded) return { ok: false, error: 'Only a player still in the hand can show cards' };
+    if (!Array.isArray(indices) || !indices.length) return { ok: false, error: 'Pick a card first' };
+    const picked = [...new Set(indices.map(Number))]
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < p.cards.length);
+    if (!picked.length) return { ok: false, error: 'Pick a card first' };
+    p.shown = [...new Set([...(p.shown || []), ...picked])].sort((a, b) => a - b);
+    if (p.shown.length >= p.cards.length) p.reveal = true;
+    this.emit({
+      type: 'cards_shown',
+      seat: seat.index,
+      playerId: p.id,
+      nick: p.nick,
+      indices: p.shown,
+      cards: p.shown.map((i) => cardStr(p.cards[i])),
+    });
+    return { ok: true, shown: p.shown };
   }
 
   setAutoMuck(userId, value) {
@@ -931,7 +959,7 @@ export class PokerTable {
       id: s.player.id, nick: s.player.nick, stack: s.player.stack,
       cards: s.player.cards.map(cardStr), folded: s.player.folded, inHand: s.player.inHand,
       win: s.player.winAmount, totalBet: s.player.totalBet,
-      seat: s.index, isBot: s.player.isBot, showed: !!s.player.reveal,
+      seat: s.index, isBot: s.player.isBot, showed: !!s.player.reveal || (s.player.shown || []).length > 0,
     }));
     const hero = this.humans()[0];
     if (this.hooks.onHandSave) {
@@ -1217,7 +1245,12 @@ export class PokerTable {
           isBot: p.isBot,
           isMe: mine,
           reveal: p.reveal || mine,
-          cards: (p.reveal || mine) ? p.cards.map(cardStr) : (p.inHand && !p.folded ? p.cards.map(() => '??') : []),
+          shown: p.reveal ? p.cards.map((_, i) => i) : (p.shown || []),
+          cards: (p.reveal || mine)
+            ? p.cards.map(cardStr)
+            : (p.inHand && !p.folded
+              ? p.cards.map((c, i) => ((p.shown || []).includes(i) ? cardStr(c) : '??'))
+              : []),
           lastAction: p.lastAction,
           winAmount: p.winAmount,
           disconnected: p.disconnected,

@@ -14,7 +14,7 @@ import { potChipTiers } from '../game/potChips';
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
-  reveal?: boolean; cards?: string[]; lastAction?: { action: string; amount: number } | null;
+  reveal?: boolean; shown?: number[]; cards?: string[]; lastAction?: { action: string; amount: number } | null;
   winAmount?: number; empty?: boolean; disconnected?: boolean;
 };
 
@@ -120,6 +120,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [dealSpeed] = useState(readDealSpeed);
   const [confirmBets] = useState(readConfirmBet);
   const [pendingBet, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number } | null>(null);
+  const [showPick, setShowPick] = useState<number[]>([]);
   const [betPrefs] = useState(readBetPrefs);
   const [timeBankSeconds] = useState(() => Math.max(5, Math.min(60, Number(localStorage.getItem('ggpoker.timeBank') || 10))));
   const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
@@ -376,6 +377,12 @@ export function TablePage({ tableId }: { tableId: string }) {
         setRebuyOpen(true);
         toast({ kind: 'info', title: 'Out of chips', body: `Reload within ~${Math.round((Number(evt.until) - Date.now()) / 1000)}s to join the next hand.` });
       }
+    } else if (evt.type === 'cards_shown') {
+      const meNow = stateRef.current?.players.find((p) => p && !p.empty && p.isMe);
+      if (!meNow || Number(evt.playerId) !== Number(meNow.id)) {
+        toast({ kind: 'info', title: `${evt.nick} shows`, body: (evt.cards || []).join(' ') });
+      }
+      sound.play('show', { volume: .5 });
     } else if (evt.type === 'rabbit') {
       setRabbit(evt.cards || []);
     } else if (evt.type === 'waitlist_ready') {
@@ -589,6 +596,17 @@ export function TablePage({ tableId }: { tableId: string }) {
   const myCards = me?.cards?.filter((c) => c !== '??') || [];
   const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, state.game === 'omaha' || state.game === 'omaha5', state.game === 'shortdeck') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
+  // After the hand I can reveal one card or both to the table.
+  const canShowCards = !!me && state?.street === 'ended' && me.inHand && !me.folded
+    && (me.cards?.length || 0) > 0
+    && (me.shown?.length || 0) < (me.cards?.length || 0)
+    && !observing;
+  const showCards = (indices: number[]) => {
+    if (!indices.length) return;
+    send({ type: 'show_cards', cards: indices });
+    setShowPick([]);
+  };
+  useEffect(() => { setShowPick([]); }, [state?.handNo]);
 
   useEffect(() => {
     if (state?.spin && state.handNo === 1 && !spinIntroSeen.current) {
@@ -828,8 +846,20 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="cards">
               {(p.cards || []).map((c, i) => {
                 const [px, py] = seatPosOf(p.seat!);
-                return <PlayingCard key={`${state?.handNo}-${p.seat}-${i}`} card={c} size="mini" dim={p.folded} dealt
-                  style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />;
+                const pickable = p.isMe && canShowCards && c !== '??';
+                const picked = pickable && showPick.includes(i);
+                const shown = (p.shown || []).includes(i);
+                return (
+                  <span
+                    key={`${state?.handNo}-${p.seat}-${i}`}
+                    className={'card-slot' + (pickable ? ' pickable' : '') + (picked ? ' picked' : '') + (shown ? ' shown' : '')}
+                    onClick={pickable ? (ev) => { ev.stopPropagation(); setShowPick((cur) => cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i]); } : undefined}
+                    title={pickable ? 'Select this card to show it' : undefined}
+                  >
+                    <PlayingCard card={c} size="mini" dim={p.folded} dealt
+                      style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
+                  </span>
+                );
               })}
             </div>
             <div className="avatar-wrap">
@@ -944,6 +974,18 @@ export function TablePage({ tableId }: { tableId: string }) {
             </span>
             <button className="btn btn-gold btn-sm" onClick={() => { const b = pendingBet; setPendingBet(null); act(b.action, b.amount); }}>Confirm</button>
             <button className="btn btn-ghost btn-sm" onClick={() => setPendingBet(null)}>Cancel</button>
+          </div>
+        )}
+        {canShowCards && (
+          <div className="action-row show-row">
+            <span style={{ color: '#ffd98a', fontSize: 12.5 }}>
+              {showPick.length
+                ? `${showPick.length} card${showPick.length > 1 ? 's' : ''} selected — show to everyone?`
+                : 'Hand over: tap your cards to show one or both.'}
+            </span>
+            <div className="grow" />
+            <button className="btn btn-gold btn-sm" disabled={!showPick.length} onClick={() => showCards(showPick)}>Show</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => showCards((me?.cards || []).map((_, i) => i))}>Show all</button>
           </div>
         )}
         {me && !state?.tournament && !state?.spin && (me.stack || 0) <= 0 && (
