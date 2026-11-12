@@ -4,6 +4,12 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 
+const CASINO_NAV = [
+  { key: 'lobby', label: 'Lobby' }, { key: 'roulette', label: 'Roulette' }, { key: 'blackjack', label: 'Blackjack' },
+  { key: 'crash', label: 'Crash' }, { key: 'baccarat', label: 'Baccarat' }, { key: 'dragontiger', label: 'Dragon Tiger' },
+  { key: 'sicbo', label: 'Sic Bo' },
+];
+
 const SYM: Record<string, { g: string; c: string }> = {
   cherry: { g: '🍒', c: '#e2454f' }, lemon: { g: '🍋', c: '#e3c53c' }, bell: { g: '🔔', c: '#e3b23c' },
   star: { g: '⭐', c: '#f0d060' }, diamond: { g: '💎', c: '#63d2f0' }, seven: { g: '7️⃣', c: '#f06a6a' },
@@ -104,7 +110,7 @@ export function Slots() {
 
 const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 
-export function Roulette() {
+export function Roulette({ onTab }: { onTab?: (key: string) => void }) {
   const { user, refreshUser, toast, navigate } = useApp();
   const [bet, setBet] = useState(100);
   const [kind, setKind] = useState('red');
@@ -145,7 +151,7 @@ export function Roulette() {
   ];
 
   return (
-    <PageShell activeTop="casino">
+    <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active="roulette" onChange={(k) => onTab?.(k)} />}>
       <div className="page">
         <h1 className="page-title">Roulette</h1>
         <p className="page-sub">European single-zero wheel · play money</p>
@@ -210,7 +216,7 @@ function draw() {
   return ranks[Math.floor(Math.random() * 13)] + suits[Math.floor(Math.random() * 4)];
 }
 
-export function Blackjack() {
+export function Blackjack({ onTab }: { onTab?: (key: string) => void }) {
   const { user, refreshUser, toast, navigate } = useApp();
   const [bet, setBet] = useState(100);
   const [player, setPlayer] = useState<string[]>([]);
@@ -274,7 +280,7 @@ export function Blackjack() {
   };
 
   return (
-    <PageShell activeTop="casino">
+    <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active="blackjack" onChange={(k) => onTab?.(k)} />}>
       <div className="page">
         <h1 className="page-title">Blackjack</h1>
         <p className="page-sub">Classic 21 · dealer stands on 17 · blackjack pays 3:2</p>
@@ -396,7 +402,7 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
   }, [phase, roundId, startedAt]);
 
   return (
-    <PageShell activeTop="casino" subnav={<SubNav items={[{ key: 'lobby', label: 'Lobby' }, { key: 'roulette', label: 'Roulette' }, { key: 'blackjack', label: 'Blackjack' }, { key: 'crash', label: 'Crash' }]} active="crash" onChange={(k) => onTab?.(k)} />}>
+    <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active="crash" onChange={(k) => onTab?.(k)} />}>
       <div className="page">
         <h1 className="page-title">Crash</h1>
         <p className="page-sub">Ride the multiplier · cash out before the crash</p>
@@ -437,8 +443,10 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
 }
 
 export function Casino() {
+  const { navigate } = useApp();
   const [tab, setTab] = useState('lobby');
   const games = [
+    { key: 'slots', name: 'Slots', emoji: '🎰', desc: '5×3 · 10 paylines' },
     { key: 'roulette', name: 'Roulette', emoji: '🎡', desc: 'European wheel' },
     { key: 'blackjack', name: 'Blackjack', emoji: '🃏', desc: 'Classic 21' },
     { key: 'crash', name: 'Crash', emoji: '📈', desc: 'Cash out before it crashes' },
@@ -447,20 +455,20 @@ export function Casino() {
     { key: 'sicbo', name: 'Sic Bo', emoji: '🎲', desc: 'Three dice' },
     { key: 'holdem', name: 'Casino Hold’em', emoji: '♠️', desc: 'Poker vs dealer' },
   ];
-  if (tab === 'roulette') return <Roulette />;
-  if (tab === 'blackjack') return <Blackjack />;
+  if (tab === 'roulette') return <Roulette onTab={setTab} />;
+  if (tab === 'blackjack') return <Blackjack onTab={setTab} />;
   if (tab === 'crash') return <Crash onTab={setTab} />;
-  if (tab === 'baccarat') return <Baccarat />;
-  if (tab === 'dragontiger') return <DragonTiger />;
-  if (tab === 'sicbo') return <SicBo />;
+  if (tab === 'baccarat') return <Baccarat onTab={setTab} />;
+  if (tab === 'dragontiger') return <DragonTiger onTab={setTab} />;
+  if (tab === 'sicbo') return <SicBo onTab={setTab} />;
   return (
-    <PageShell activeTop="casino" subnav={<SubNav items={[{ key: 'lobby', label: 'Lobby' }, { key: 'roulette', label: 'Roulette' }, { key: 'blackjack', label: 'Blackjack' }, { key: 'crash', label: 'Crash' }, { key: 'baccarat', label: 'Baccarat' }, { key: 'dragontiger', label: 'Dragon Tiger' }, { key: 'sicbo', label: 'Sic Bo' }]} active={tab} onChange={setTab} />}>
+    <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active={tab} onChange={setTab} />}>
       <div className="page">
         <h1 className="page-title">Casino</h1>
         <p className="page-sub">Play-money table games · instant play</p>
         <div className="grid g3">
           {games.map((g) => (
-            <div key={g.key} className="casino-card" onClick={() => setTab(g.key)}>
+            <div key={g.key} className="casino-card" onClick={() => (g.key === 'slots' ? navigate('/slots') : setTab(g.key))}>
               <div className="cc-emoji">{g.emoji}</div>
               <div className="cc-name">{g.name}</div>
               <div className="cc-desc">{g.desc}</div>
@@ -516,11 +524,11 @@ function useTableGame(game: string) {
   return { user, bet, setBet, pick, setPick, busy, res, play };
 }
 
-export function Baccarat() {
+export function Baccarat({ onTab }: { onTab?: (key: string) => void }) {
   const g = useTableGame('baccarat');
   const r = g.res?.result;
   return (
-    <PageShell activeTop="casino">
+    <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active="baccarat" onChange={(k) => onTab?.(k)} />}>
       <div className="page">
         <h1 className="page-title">Baccarat</h1>
         <p className="page-sub">Punto Banco · play money</p>
@@ -550,11 +558,11 @@ export function Baccarat() {
   );
 }
 
-export function DragonTiger() {
+export function DragonTiger({ onTab }: { onTab?: (key: string) => void }) {
   const g = useTableGame('dragontiger');
   const r = g.res?.result;
   return (
-    <PageShell activeTop="casino">
+    <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active="dragontiger" onChange={(k) => onTab?.(k)} />}>
       <div className="page">
         <h1 className="page-title">Dragon Tiger</h1>
         <p className="page-sub">One card each — highest wins · ties pay 8:1</p>
@@ -584,12 +592,12 @@ export function DragonTiger() {
   );
 }
 
-export function SicBo() {
+export function SicBo({ onTab }: { onTab?: (key: string) => void }) {
   const g = useTableGame('sicbo');
   const r = g.res?.result;
   const totals = Array.from({ length: 14 }, (_, i) => i + 4);
   return (
-    <PageShell activeTop="casino">
+    <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active="sicbo" onChange={(k) => onTab?.(k)} />}>
       <div className="page">
         <h1 className="page-title">Sic Bo</h1>
         <p className="page-sub">Three dice · bet on big, small, triples or exact totals</p>

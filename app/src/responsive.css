@@ -148,7 +148,7 @@ body.electron .app-window::before { display: none; }
   .app-content { padding-bottom: 62px; }
   .mobile-nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
-    display: grid; grid-template-columns: repeat(5, 1fr);
+    display: grid; grid-template-columns: repeat(6, 1fr);
     height: 60px; padding-bottom: env(safe-area-inset-bottom, 0);
     background: rgba(7, 12, 10, .97); border-top: 1px solid rgba(216, 177, 95, .2);
     backdrop-filter: blur(16px); box-shadow: 0 -10px 30px rgba(0, 0, 0, .4);
@@ -816,3 +816,27 @@ body.electron .app-window::before { display: none; }
   .lob-pills { gap: 6px; }
   .list-scroll { padding-bottom: 74px; }
 }
+
+/* Slots on a phone: the 760px cabinet must shrink to the viewport, otherwise
+   SPIN sits off-screen behind a horizontal page scroll. */
+@media (max-width: 760px) {
+  .slot-machine { width: 100%; padding: 10px; border-radius: 10px; }
+  .slot-head { font-size: 14px; letter-spacing: 1px; margin-bottom: 8px; }
+  .slot-grid { padding: 6px; }
+  /* The generic phone rule collapses .slot-row to one column; a slot reel is
+     always five columns. */
+  .slot-grid .slot-row { grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 5px; }
+  .slot-cell { height: 62px; font-size: 32px; border-radius: 6px; }
+  .slot-controls { flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .slot-lines { font-size: 11px; }
+
+  /* Profile header: the avatar + details + actions row could not fit, pushing
+     Settings/Log out off-screen. Let it wrap on phones. */
+  .profile-head { flex-wrap: wrap; gap: 10px; }
+  .profile-head > .row:last-child { width: 100%; justify-content: flex-start; }
+
+  /* Long history tables scroll inside their card, not the whole page. */
+  .hist-filters { flex-wrap: wrap; }
+  .hist-filters .admin-input { width: 100% !important; }
+}
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
