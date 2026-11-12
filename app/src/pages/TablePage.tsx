@@ -685,7 +685,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   // "Always confirm" turns every bet into a two-step action; off, it fires at once.
-  const requestBet = (action: 'raise' | 'allin', amount: number) => {
+  const requestBet = (action: 'raise' | 'allin', rawAmount: number) => {
+    // A typed amount may still be below the minimum raise; never send it that way.
+    const amount = action === 'raise' ? Math.max(minTo, Math.min(maxTo, rawAmount)) : rawAmount;
     if (confirmBets) setPendingBet({ action, amount });
     else act(action, amount);
   };
@@ -1366,7 +1368,11 @@ export function TablePage({ tableId }: { tableId: string }) {
               min={state?.tournament ? minTo : Math.round(minTo / 100)}
               max={state?.tournament ? maxTo : Math.round(maxTo / 100)}
               step={state?.tournament ? betStep : betStep / 100}
-              onChange={(e) => setRaiseTo(Math.max(minTo, Math.min(maxTo, Number(e.target.value) * (state?.tournament ? 1 : 100))))}
+              // Native bet input: focus selects the amount so typing replaces it; while typing
+              // only the maximum applies, and the minimum is enforced on blur and on betting.
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => setRaiseTo(Math.min(maxTo, Math.max(0, Number(e.target.value) * (state?.tournament ? 1 : 100))))}
+              onBlur={() => setRaiseTo((v) => Math.max(minTo, Math.min(maxTo, v)))}
             />
             <button
               type="button"
