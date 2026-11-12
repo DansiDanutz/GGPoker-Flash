@@ -14,6 +14,7 @@ import { createSqueezePanel } from '../game/squeeze';
 import { showdownComplete, showdownPlan } from '../game/showdown';
 import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
 import { seatNick, isAllInStatus } from '../game/seatLabel';
+import { autoTopUpAmount } from '../lib/autoTopUp';
 import { DEFAULT_NOTE_COLOR, noteColorHex, noteColorTitle, normalizeLabels } from '../lib/noteColors';
 import { NoteColorPicker } from '../components/NoteColorPicker';
 import { OpponentHud } from '../components/OpponentHud';
@@ -872,17 +873,18 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => {
     if ((!autoRebuy && !autoTopup) || !me || !state || observing) return;
     if (state.tournament || state.spin) return;
-    if (me.inHand) { autoRebuyPending.current = false; return; }
-    const betweenHands = state.street === 'ended' || state.street === 'idle';
+    // Between hands: once a hand has ended the seat is still flagged in it until the next
+    // deal, so the end of the hand counts as between hands (the server accepts it then).
+    const betweenHands = state.street === 'ended' || state.street === 'idle' || !me.inHand;
     if (!betweenHands) { autoRebuyPending.current = false; return; }
     const min = state.minBuyin || state.bb * 20;
     const max = state.maxBuyin || Math.max(min, state.bb * 100);
     const trigger = autoTopup ? max * Math.max(0, Math.min(100, topupTrigger)) / 100 : state.bb * 10;
     const target = autoTopup ? max * Math.max(0, Math.min(100, topupTarget)) / 100 : Math.max(min, state.bb * 20);
-    if ((me.stack || 0) < trigger && !autoRebuyPending.current) {
+    const amount = autoTopUpAmount({ stack: me.stack || 0, trigger, target, min, max });
+    if (amount > 0 && !autoRebuyPending.current) {
       autoRebuyPending.current = true;
-      const amount = Math.max(min, Math.min(max, Math.round((target - (me.stack || 0)) / 100) * 100));
-      if (amount > 0) send({ type: 'rebuy', amount });
+      send({ type: 'rebuy', amount });
     }
   }, [autoRebuy, autoTopup, topupTrigger, topupTarget, me?.stack, me?.inHand, state?.street, state?.handNo, state?.minBuyin, state?.maxBuyin, state?.bb]);
 
