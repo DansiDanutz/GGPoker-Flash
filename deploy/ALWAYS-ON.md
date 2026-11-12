@@ -123,3 +123,20 @@ it drops further.
 
 Longer term, this host was never sized for the game server — see the fleet
 assessment in `deploy/README.md` for the dedicated-host recommendation.
+
+
+## Disk headroom (Docker)
+
+The 96 GB droplet can fill with Docker build cache and one `dangro-game:rollback-*` tag per
+deploy. A full disk stops `docker compose build` with `no space left on device` and leaves
+the previous container running. `deploy/prune-docker.sh` keeps the newest three rollback
+tags, prunes the build cache and dangling images, and prints the resulting filesystem line.
+
+Run it weekly (and after any `no space left on device` build):
+
+```cron
+17 4 * * 1 /home/Dexter1981/dangro/deploy/prune-docker.sh >> /home/Dexter1981/dangro/deploy/prune.log 2>&1
+```
+
+The admin **Platform** section shows `Disk free` / used percent (the container overlay is
+backed by the host root filesystem), so pressure is visible before a deploy fails.

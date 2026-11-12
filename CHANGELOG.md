@@ -6,6 +6,18 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Disk pressure: admin visibility and weekly cleanup
+- The Platform report now includes the filesystem backing the container (`disk`:
+  total/free bytes and used %); the admin shows a **Disk free** stat and a `Server → Disk`
+  row (`22 GB free of 96 GB`), so capacity pressure is visible before a deploy fails.
+- Incident: one production deploy failed with `no space left on device` at 100% disk. The
+  Docker build cache (16.6 GB) and old rollback images were pruned, freeing ~22 GB;
+  `deploy/prune-docker.sh` now keeps the three newest `dangro-game:rollback-*` tags, prunes
+  the build cache and dangling images, and is installed as a Monday 04:17 cron job.
+  `deploy/ALWAYS-ON.md` documents the failure mode and the job.
+- Tests: `diskUsage` unit test. Full suite 412/412.
+
+## 2026-11-12
 ### Platform recovery visibility and SIGKILL verification
 - The admin **Platform** tournament table now has a **Recovery** column: last settled-hand
   snapshot time and size per room, plus a “restored” marker when the process rebuilt the

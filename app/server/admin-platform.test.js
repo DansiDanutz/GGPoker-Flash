@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPlatformReport, levelBlinds, tournamentRoomSummary } from './admin-platform.js';
+import { buildPlatformReport, diskUsage, levelBlinds, tournamentRoomSummary } from './admin-platform.js';
 
 function fakeRoom(overrides = {}) {
   return {
@@ -94,4 +94,12 @@ test('platform report tolerates an empty server', () => {
   assert.equal(report.tables.live, 0);
   assert.equal(report.tournaments.rooms, 0);
   assert.equal(report.db.users, null);
+});
+
+test('disk usage reports total and free bytes', () => {
+  const disk = diskUsage('/');
+  assert.equal(typeof disk.totalBytes, 'number');
+  assert.ok(disk.totalBytes > 0);
+  assert.ok(disk.freeBytes >= 0);
+  assert.ok(disk.usedPct >= 0 && disk.usedPct <= 100);
 });
