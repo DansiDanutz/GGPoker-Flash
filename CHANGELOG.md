@@ -6,6 +6,19 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Admin blind-level control
+- New audited **`POST /api/admin/tournaments/:id/level`** (body `delta`, 1–20): advances the
+  shared blind level between hands. It refuses a room with a hand in progress or a finished
+  room, resets `levelStartedAt`, applies the new blinds to every flight and then writes a
+  recovery snapshot. The Platform's Actions column has **Level +1** with a confirmation and
+  shows the new level/blinds.
+- Logic lives in `tournament-controls.js` (shared 1.5× blind curve, clamp at level 100),
+  with unit tests for the advance, mid-hand/finished refusal and the curve, plus an
+  admin-only/missing-room HTTP test.
+- Verified on the test server: QA room advanced to **level 6 / blinds 759–1519**, audit row
+  `tournament_level`; UI shows Snapshot + Level +1. Full suite 423/423.
+
+## 2026-11-12
 ### Public operational health and external warning alerts
 - `GET /healthz` now returns a compact, non-sensitive summary: version/build, uptime,
   `rooms: {total, stale}`, `disk: {usedPct, freeBytes}` and a `warnings` array. Warnings are

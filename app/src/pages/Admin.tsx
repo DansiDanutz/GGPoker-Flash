@@ -422,14 +422,25 @@ export function Admin() {
                               {r.restoredAt ? <div className="muted small">restored {new Date(r.restoredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div> : null}
                             </td>
                             <td>
-                              <button className="btn btn-ghost btn-sm" onClick={async () => {
-                                try {
-                                  const result = await api.admin.snapshotTournament(r.id);
-                                  if (result.ok) toast({ kind: 'success', title: 'Snapshot saved', body: `${result.bytes} B · ${result.players} players` });
-                                  else toast({ kind: 'info', title: 'Snapshot skipped', body: result.reason });
-                                  setPlatform(await api.admin.platform());
-                                } catch (e: any) { toast({ kind: 'error', title: 'Snapshot failed', body: e.message }); }
-                              }}>Snapshot</button>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <button className="btn btn-ghost btn-sm" onClick={async () => {
+                                  try {
+                                    const result = await api.admin.snapshotTournament(r.id);
+                                    if (result.ok) toast({ kind: 'success', title: 'Snapshot saved', body: `${result.bytes} B · ${result.players} players` });
+                                    else toast({ kind: 'info', title: 'Snapshot skipped', body: result.reason });
+                                    setPlatform(await api.admin.platform());
+                                  } catch (e: any) { toast({ kind: 'error', title: 'Snapshot failed', body: e.message }); }
+                                }}>Snapshot</button>
+                                <button className="btn btn-ghost btn-sm" onClick={async () => {
+                                  if (!confirm(`Advance ${r.name} to level ${(Number(r.level) || 1) + 1}? It takes effect between hands.`)) return;
+                                  try {
+                                    const result = await api.admin.advanceTournamentLevel(r.id);
+                                    if (result.ok) toast({ kind: 'success', title: `Level ${result.level}`, body: `Blinds ${result.blinds?.sb}/${result.blinds?.bb}` });
+                                    else toast({ kind: 'info', title: 'Level not advanced', body: result.reason });
+                                    setPlatform(await api.admin.platform());
+                                  } catch (e: any) { toast({ kind: 'error', title: 'Level failed', body: e.message }); }
+                                }}>Level +1</button>
+                              </div>
                             </td>
                           </tr>
                         ))}
