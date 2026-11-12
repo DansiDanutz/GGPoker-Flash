@@ -37,6 +37,7 @@ import { TB_CARD_SECONDS } from '../game/timeBankRules';
 import { canShowHand, showOptions } from '../game/showOptions';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { vpipOf } from '../game/seatVpip';
+import { BuyInDialog, TakeSeatControl, type Reservation } from '../components/TakeSeat';
 import { NATIVE_TABLE_WIDTH, PAYOUT_EASING, PAYOUT_FADE_MS, PAYOUT_HOLD_MS, PAYOUT_STOP_PX, PAYOUT_TRANSFER_MS, payoutShares, potOffset, stopShort, type PayoutShare } from '../game/payoutMotion';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
@@ -44,7 +45,7 @@ type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
   reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
-  winAmount?: number; empty?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
+  winAmount?: number; empty?: boolean; reserved?: boolean; mine?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
 };
 
 type TableState = {
@@ -162,6 +163,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     ? `You are ${queuePositionLabel(myTableQueue)} on the waiting list. We will hold the next open seat for you.`
     : 'You are observing this table. Take a seat to join the action.';
   const [rebuyOpen, setRebuyOpen] = useState(false);
+  const [reservation, setReservation] = useState<Reservation | null>(null);
   const [rebuyAmount, setRebuyAmount] = useState(0);
   const [rebuyOffer, setRebuyOffer] = useState<{ min: number; max: number; until: number } | null>(null);
   const [notes, setNotes] = useState<Record<string, { note: string; color: string }>>({});
@@ -302,6 +304,9 @@ export function TablePage({ tableId }: { tableId: string }) {
           window.setTimeout(() => sound.play('cheer', { volume: .7 }), 1800);
           window.setTimeout(() => setSpinShow(false), 4200);
         }
+      } else if (msg.type === 'seat_reserved') {
+        // Native CheckTakeSeatCommand: a successful reservation opens the buy-in popup.
+        setReservation({ seat: msg.seat, until: msg.until });
       } else if (msg.type === 'joined') {
         everJoined.current = true;
         setMySeat(msg.seat);
@@ -625,6 +630,8 @@ export function TablePage({ tableId }: { tableId: string }) {
 
 
   const me = state?.players.find((p) => p.isMe) || null;
+  // Native Take Seat: only an unseated viewer at a cash table can reserve an empty seat.
+  const canTakeSeat = !me && !!state && !state.tournament && !state.spin;
   // A successful reload makes the bust offer stale.
   useEffect(() => { if ((me?.stack || 0) > 0) setRebuyOffer(null); }, [me?.stack]);
   const myTurn = !!(state && me && state.actor === me.id);
@@ -1212,6 +1219,13 @@ export function TablePage({ tableId }: { tableId: string }) {
       {(state?.players || []).map((p) => {
         if (!p || p.empty) {
           const [x, y] = seatPos(p.seat);
+          if (p.reserved || canTakeSeat) {
+            return (
+              <div key={p.seat} className="seat seat-take" style={{ left: `${x}%`, top: `${y}%` }}>
+                <TakeSeatControl reserved={!!p.reserved} onTake={() => send({ type: 'reserve_seat', seat: p.seat })} />
+              </div>
+            );
+          }
           return (
             <div key={p.seat} className="seat" style={{ left: `${x}%`, top: `${y}%`, opacity: .5 }}>
               <div className="avatar-wrap"><div className="face" style={{ fontSize: 26, color: '#555' }}>+</div></div>
@@ -1639,6 +1653,12 @@ export function TablePage({ tableId }: { tableId: string }) {
           initialDetail={chatReport ? `Chat: "${chatReport.text}"` : ''} />
       )}
 
+      {reservation && state && (
+        <BuyInDialog reservation={reservation} now={serverNow} format={chip}
+          min={state.minBuyin || state.bb * 20} max={state.maxBuyin || state.bb * 100} step={Math.max(chipStep, state.bb || chipStep)}
+          onCancel={() => { send({ type: 'cancel_reservation' }); setReservation(null); }}
+          onBuyIn={(amount) => { send({ type: 'join_table', buyin: amount, seat: reservation.seat, observe: false }); setReservation(null); }} />
+      )}
       {rebuyOpen && (
         <div className="modal-backdrop" onClick={() => { setRebuyOpen(false); setRebuyOffer(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>

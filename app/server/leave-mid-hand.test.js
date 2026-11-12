@@ -31,5 +31,6 @@ test('the short all-in only wins the pot it covered; chips are conserved', () =>
   assert.equal(t.street, 'ended');
   const b = t.seats[1].player.stack, c = t.seats[2].player.stack;
   assert.equal(leaverStack + b + c, 2050, 'no chip is created or lost');
-  assert.ok(c === 0 || c === 150, `C covers 50 x 3 = 150 at most, got ${c}`);
+  // C wins nothing, the whole 150 main pot, or half of it on a tie with B.
+  assert.ok(c === 0 || c === 75 || c === 150, `C covers 50 x 3 = 150 at most, got ${c}`);
 });
