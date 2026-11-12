@@ -222,9 +222,19 @@ body.electron .app-window::before { display: none; }
   .reward-track { overflow-x: auto; padding-bottom: 8px; }
   .reward-node { flex-basis: 96px; }
   .admin-shell { flex-direction: column; }
-  .admin-nav { width: 100%; flex: 0 0 auto; flex-direction: row; overflow-x: auto; padding: 6px; }
+  .admin-nav { width: 100%; flex: 0 0 auto; flex-direction: row; flex-wrap: wrap; overflow: visible; padding: 6px; gap: 4px; }
   .admin-nav .brand { display: none; }
-  .admin-nav button { white-space: nowrap; padding: 8px 10px; }
+  .admin-nav button { white-space: nowrap; padding: 8px 10px; flex: 0 0 auto; }
+  .admin-users-table th:nth-child(4), .admin-users-table td:nth-child(4),
+  .admin-users-table th:nth-child(5), .admin-users-table td:nth-child(5),
+  .admin-users-table th:nth-child(6), .admin-users-table td:nth-child(6),
+  .admin-users-table th:nth-child(7), .admin-users-table td:nth-child(7) { display: none; }
+  .admin-users-table thead { display: none; }
+  .admin-users-table, .admin-users-table tbody, .admin-users-table tr, .admin-users-table td { display: block; width: 100%; }
+  .admin-users-table tr { padding: 9px 0; border-bottom: 1px solid #23252b; }
+  .admin-users-table td { padding: 2px 0; border: 0; }
+  .admin-users-table td:nth-child(1), .admin-users-table td:nth-child(3) { display: none; }
+  .admin-users-table td:last-child .row { flex-wrap: wrap; gap: 4px; }
   .admin-main { padding: 10px 10px 80px; overflow-x: hidden; }
   .admin-main .between { flex-wrap: wrap; gap: 8px; }
   .admin-main .between .row { flex-wrap: wrap; }

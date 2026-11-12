@@ -303,7 +303,7 @@ export function Admin() {
                 </div>
               </div>
               <div className="admin-card" style={{ padding: 0 }}>
-                <table className="admin-table">
+                <table className="admin-table admin-users-table">
                   <thead><tr><th>ID</th><th>Player</th><th>Login</th><th>Balance</th><th>Play chips</th><th>Tickets</th><th>VIP</th><th>Status</th><th>Actions</th></tr></thead>
                   <tbody>
                     {users.length === 0 && <tr><td colSpan={9} className="muted" style={{ textAlign: 'center', padding: 16 }}>No users match these filters.</td></tr>}
