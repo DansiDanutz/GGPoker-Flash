@@ -634,6 +634,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [connect, tableId, user]);
 
   useEffect(() => {
+    // Guests have no account, so there are no notes to load (the request would only return 401).
+    if (!getToken()) return;
     fetch('/api/notes', { headers: { authorization: `Bearer ${getToken()}` } })
       .then((r) => r.json())
       .then((d) => {

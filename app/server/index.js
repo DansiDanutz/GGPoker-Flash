@@ -60,6 +60,7 @@ import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
 import { JACKPOT_SEED, jackpotAccrual } from './badBeat.js';
+import { countOnline, createPresence } from './online-count.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -248,9 +249,12 @@ function tokenFrom(req) {
   return null;
 }
 
+const PRESENCE = createPresence();
+
 function requireUser(req, res) {
   const u = userByToken(tokenFrom(req));
   if (!u) { json(res, 401, { error: 'unauthorized' }); return null; }
+  PRESENCE.touch(u.id);
   if (u.banned) { json(res, 403, { error: 'account banned' }); return null; }
   return u;
 }
@@ -332,9 +336,9 @@ function lobbyTables(userId = null) {
   });
 }
 
+// Real connections only: the header used to show an invented 'online_base' figure.
 function sitesStats() {
-  const base = getSetting('online_base', 192000);
-  return { online: base + Math.floor(Math.sin(Date.now() / 60000) * 900) + 203 };
+  return { online: countOnline(wss.clients, PRESENCE.recent()) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1387,6 +1391,7 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/lobby') {
       const u = userByToken(tokenFrom(req));
+      if (u) PRESENCE.touch(u.id);
       const tables = lobbyTables(u?.id || null);
       const banners = db.prepare('SELECT * FROM banners WHERE slot = ? AND enabled = 1 ORDER BY sort').all('home');
       return json(res, 200, {

@@ -275,14 +275,14 @@ export function Lobby() {
   if (loading) {
     return (
       <>
-        <TitleBar online={192203} />
-        <AppHeader online={192203} jackpot={199026635} user={user} activeTop="poker" />
+        <TitleBar online={0} />
+        <AppHeader online={0} jackpot={199026635} user={user} activeTop="poker" />
         <div className="empty-state">Loading lobby…</div>
       </>
     );
   }
 
-  const online = data?.online || 192203;
+  const online = data?.online ?? 0;
 
   return (
     <>
