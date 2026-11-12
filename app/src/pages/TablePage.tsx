@@ -697,13 +697,13 @@ export function TablePage({ tableId }: { tableId: string }) {
       if (!hotkeysOn || !myTurn) return;
       const key = normalizeHotkey(e.key);
       if (key === hotkeyMap.fold) { e.preventDefault(); act('fold'); }
-      else if (key === hotkeyMap.check) { e.preventDefault(); act(toCall > 0 ? 'call' : 'check'); }
-      else if (key === hotkeyMap.raise) { e.preventDefault(); if (canRaise) requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo); }
-      else if (key === hotkeyMap.allin) { e.preventDefault(); requestBet('allin', allInTo); }
+      else if (key === hotkeyMap.check) { e.preventDefault(); if (!state?.allInOrFold) act(toCall > 0 ? 'call' : 'check'); }
+      else if (key === hotkeyMap.raise) { e.preventDefault(); if (!state?.allInOrFold && canRaise) requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo); }
+      else if (key === hotkeyMap.allin) { e.preventDefault(); if (state?.allInOrFold) act('allin'); else requestBet('allin', allInTo); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [hotkeysOn, hotkeyMap, myTurn, toCall, raiseTo, maxTo, canRaise, allInTo, pendingBet, confirmBets, squeezing, act, requestBet]);
+  }, [hotkeysOn, hotkeyMap, myTurn, toCall, raiseTo, maxTo, canRaise, allInTo, pendingBet, confirmBets, squeezing, state?.allInOrFold, act, requestBet]);
 
   // Mouse wheel changes the bet by the chosen unit, in the chosen direction.
   useEffect(() => {
@@ -1194,7 +1194,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <button className="btn btn-ghost btn-sm" onClick={() => showCards((me?.cards || []).map((_, i) => i))}>Show all</button>
           </div>
         )}
-        {me && !state?.tournament && !state?.spin && (me.stack || 0) <= 0 && (
+        {me && !state?.tournament && !state?.spin && (me.stack || 0) <= 0 && !me.inHand && (state?.street === 'ended' || state?.street === 'idle' || !!rebuyOffer) && (
           <div className="action-row" style={{ justifyContent: 'center', gap: 10 }}>
             <span style={{ color: '#ffd98a', fontSize: 13 }}>You are out of chips.</span>
             <button className="btn btn-gold btn-sm" onClick={() => { if (rebuyOffer && rebuyOffer.until <= now) setRebuyOffer(null); setRebuyAmount(rebuyMin); setRebuyOpen(true); }}>Reload {chip(rebuyMin)}</button>
@@ -1230,6 +1230,15 @@ export function TablePage({ tableId }: { tableId: string }) {
             )}
           </div>
         )}
+        {state?.allInOrFold ? (
+          <div className="action-row aof-row">
+            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!myTurn || tbUsed} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
+            <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
+            <button className="act-btn act-allin" disabled={!myTurn} onClick={() => act('allin')}>All-in{me?.stack ? ` ${chip(me.stack)}` : ''}</button>
+            <div className="grow" />
+            <span className="aof-note">All-in or fold only</span>
+          </div>
+        ) : (
         <div className="action-row">
           <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!myTurn || tbUsed} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
@@ -1297,10 +1306,11 @@ export function TablePage({ tableId }: { tableId: string }) {
             {raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')} {chip(raiseTo)}
           </button>
         </div>
+        )}
         <div className="action-row status-row" style={{ color: '#9a9a9a', fontSize: 11.5 }}>
           <span>{myTurn ? 'Your turn — choose an action' : state ? (state.actor ? 'Waiting for opponents…' : state.street === 'ended' ? 'Hand complete' : 'Dealing…') : 'Connecting…'}</span>
           <div className="grow" />
-          {hotkeyHints && <span>{state?.potLimit ? 'Pot limit · ' : ''}{hotkeyMap.fold} Fold · {hotkeyMap.check} Check/Call · {hotkeyMap.raise} Raise · {hotkeyMap.allin} {state?.potLimit ? 'Pot' : 'All-in'}</span>}
+          {hotkeyHints && <span>{state?.allInOrFold ? `${hotkeyMap.fold} Fold · ${hotkeyMap.allin} All-in` : `${state?.potLimit ? 'Pot limit · ' : ''}${hotkeyMap.fold} Fold · ${hotkeyMap.check} Check/Call · ${hotkeyMap.raise} Raise · ${hotkeyMap.allin} ${state?.potLimit ? 'Pot' : 'All-in'}`}</span>}
           {hotkeyHints && <span>·</span>}
           <span>Hand #{state?.handNo ?? 0}</span>
           <span>·</span>
