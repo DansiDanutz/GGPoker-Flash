@@ -5,9 +5,9 @@
 // `observed-spin-playmoney-*.png` (`home-art/rea/spin-rule-evidence.json`). Expectations
 // mirror Codex `spin-test.mjs` 1:1.
 //
-// This module is the verified table for the next slice (S1b) and is NOT wired in yet:
-// `table.js` still draws from its own multiplier list. Do not change the rows below
-// without new native evidence.
+// Wired into `table.js` by slice S1b: a Spin table draws its outcome with a crypto ticket
+// when the first hand is dealt and pays places 1-3 from `prizes`. Do not change the rows
+// below without new native evidence.
 //
 // Outcome rows: [multiplier, frequency per 100,000,000 tickets, prize shares %, blind unit,
 // blind interval]. Starting chips and time-bank cards are unobserved and stay null.
@@ -50,6 +50,11 @@ export function prizeAmounts(pool, shares) {
   const remainder = pool - base.reduce((a, b) => a + b, 0);
   const bonus = new Set(order.slice(0, remainder));
   return base.map((amount, i) => (bonus.has(i) ? amount + 1 : amount));
+}
+
+/** True for a fixed buy-in at one of the observed play-money stakes. */
+export function isSpinStake(minBuyin, maxBuyin = minBuyin) {
+  return minBuyin === maxBuyin && SPIN_STAKES.includes(minBuyin);
 }
 
 function assertStake(buyIn) {

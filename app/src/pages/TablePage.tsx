@@ -22,7 +22,7 @@ import { CashDropBanner } from '../components/table/CashDropBanner';
 import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
-import { bubbleLabel, finishTitle, finishToast, PayoutRow } from '../lib/tournamentPrizes';
+import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -37,7 +37,15 @@ type TableState = {
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
-  spin?: { multiplier: number; prize: number; winner: any } | null;
+  spin?: {
+    multiplier: number | null;
+    prize: number;
+    buyIn?: number;
+    /** Places 1-3 from the verified table; null until the first hand draws the Spin. */
+    payouts?: number[] | null;
+    finished?: { id: string | number; nick: string; place: number; payout: number }[];
+    winner: any;
+  } | null;
   tournament?: { id?: string | null; name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null; payouts?: PayoutRow[] } | null;
   straddle?: boolean;
   runItTwice?: boolean;
@@ -48,6 +56,8 @@ type TableState = {
 // A decision queued while waiting for the action to come round.
 type PreAction = { kind: 'checkfold' } | { kind: 'check' } | { kind: 'call'; amount: number };
 
+// Observed Spin & Gold multipliers (server/spin.js), shown on the intro wheel.
+const SPIN_WHEEL_MULTIPLIERS = [2, 3, 4, 5, 10, 50, 100, 20000];
 const DEFAULT_ACTION_TIME_MS = 15000;
 
 const POS6 = [[50, 76], [12, 68], [16, 32], [50, 17], [84, 32], [88, 68]];
@@ -863,7 +873,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>
         <span className="pill">Blinds {state ? (state.tournament ? `${state.sb}/${state.bb}` : `${money(state.sb)}/${money(state.bb)}`) : ''}</span>
         <span className="pill">Hand #{state?.handNo ?? '-'}</span>
-        {state?.spin && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {money(state.spin.prize)}</span>}
+        {state?.spin?.multiplier && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {money(state.spin.prize)}</span>}
         {state?.tournament && <span className="pill" style={{ color: '#ffd98a' }}>Level {state.tournament.level}{state.tournament.nextBlindAt ? ` · ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000 / 60))}m ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000) % 60).toString().padStart(2, '0')}s` : ''} · Prize {money(state.tournament.prizePool)}</span>}
         {state?.tournament && (state.tournament.tables || 1) > 1 && (
           <span className="pill" style={{ color: '#ffd98a' }}>
@@ -1272,13 +1282,17 @@ export function TablePage({ tableId }: { tableId: string }) {
         <div className="spin-overlay">
           <div className="spin-title">SPIN & GOLD</div>
           <div className="spin-ring">
-            {[2, 3, 5, 10, 25, 100].map((m, i) => (
-              <span key={m} style={{ transform: `rotate(${i * 60}deg) translateY(-118px)` }}>{m}x</span>
+            {SPIN_WHEEL_MULTIPLIERS.map((m, i) => (
+              <span key={m} style={{ transform: `rotate(${i * (360 / SPIN_WHEEL_MULTIPLIERS.length)}deg) translateY(-118px)` }}>{m}x</span>
             ))}
             <div className="spin-center">{state.spin.multiplier}x</div>
           </div>
           <div className="spin-prize">Prize pool <b>{money(state.spin.prize)}</b></div>
-          <div className="spin-sub">Good luck — {state.seats}-handed winner takes all</div>
+          <div className="spin-sub">
+            {state.spin.payouts?.some((p, i) => i > 0 && p > 0)
+              ? state.spin.payouts.filter((p) => p > 0).map((p, i) => `${ordinal(i + 1)} ${money(p)}`).join(' · ')
+              : `Good luck — ${state.seats}-handed winner takes all`}
+          </div>
         </div>
       )}
 

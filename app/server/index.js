@@ -18,6 +18,7 @@ import {
 import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey, isRushGame } from './validate.js';
 import { handForViewer } from './hand-history.js';
 import { spinSlots } from './slots.js';
+import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
@@ -581,6 +582,12 @@ function getLiveTable(id) {
         table.emit({ type: 'tourney_payout', ...p });
       } catch (e) { console.error('tourney payout', e); }
     },
+    onSpinPayout: (table, p) => {
+      try {
+        const res = settleSpinPayout(table, p);
+        if (res.reason === 'no session') console.error('spin payout without session', table.cfg.id, p.id);
+      } catch (e) { console.error('spin payout', e); }
+    },
     onTournamentBust: (table, p) => {
       try {
         consumeTournamentEntry(table, p.id);
@@ -628,10 +635,8 @@ function getLiveTable(id) {
       if (!table.spin) return;
       const seat = table.seatOf(player.id);
       const sessionId = seat?.player?.sessionId;
-      if (!sessionId) return;
-      addTransactionEx(player.id, 'session_close', 0, 'Spin bust', 'USD', {
-        sessionId, reference: `out:${sessionId}`, onDuplicate: 'skip',
-      });
+      // Normally a no-op: the place payout (onSpinPayout) already closed this session.
+      closeSpinSession(player.id, sessionId, 'Spin bust');
     },
     onHandComplete: ({ table, winner, summary }) => {
       rewardHandPlayed(table, summary);
@@ -712,6 +717,11 @@ function broadcastState(table) {
 function seatHuman(table, user, buyin, seatIndex = null) {
   const existing = table.seatOf(user.id);
   if (existing) return { ok: true, seat: existing.index };
+  if (table.spin) {
+    table.resetSpinIfIdle();
+    if (!table.spinStakeValid()) return { ok: false, error: 'This Spin & Gold stake is not available' };
+    if (table.spinStarted()) return { ok: false, error: 'This Spin & Gold has already started' };
+  }
   const stack = toInt(buyin) ?? table.cfg.min_buyin;
   if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
   if (user.balance < stack) return { ok: false, error: 'not enough balance' };
@@ -757,6 +767,13 @@ function cashOutSeat(table, userId, reason) {
   const seat = table.seatOf(userId);
   if (!seat || !seat.player) return;
   const sessionId = seat.player.sessionId;
+  if (table.spinStarted()) {
+    // Spin chips are not cash: leaving takes the lowest open place (paid by onSpinPayout),
+    // and this close is skipped when that payout already closed the session.
+    table.leaveSpin(userId);
+    closeSpinSession(userId, sessionId, reason);
+    return;
+  }
   // stand() folds a live hand first, so the returned stack is what the player really keeps.
   const { stack } = table.stand(userId);
   if (table.tournament) {
@@ -792,9 +809,9 @@ function sweepDisconnected(entry) {
     if (!p.disconnectedAt) continue;
     if (hasLiveSocket(entry, p.id)) { p.disconnectedAt = 0; p.disconnected = false; continue; }
     if (now - p.disconnectedAt < DISCONNECT_GRACE_MS) continue;
-    if (table.tournament) {
-      // A tournament seat is never forfeited by a dropped connection: the player
-      // is blinded out (auto-fold / auto-check) until they come back.
+    if (table.tournament || table.spinStarted()) {
+      // A tournament or running Spin seat is never forfeited by a dropped connection: the
+      // player is blinded out (auto-fold / auto-check) until they come back.
       Object.assign(p, { away: true, sittingOut: true, disconnectedAt: 0 });
       continue;
     }
