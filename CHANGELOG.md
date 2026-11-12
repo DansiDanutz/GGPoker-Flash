@@ -6,6 +6,17 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### All-in-or-Fold tables now play by AoF rules
+- AoF tables were showing the full preflop bar (Call, bet presets, slider, Raise), which the
+  engine rejects. They now show only **Fold** and **All-in** (with the stack), the F1/F4
+  hotkeys, and an “All-in or fold only” note; check/call/raise hotkeys are disabled in AoF.
+- The “out of chips / Reload” banner no longer appears while an all-in hand is still
+  running; it waits until the player is out of the hand.
+- Verified: clicking All-in on a live AoF table put the seat all-in with no errors, the
+  normal cash table kept its full Fold/Call/Raise bar, and the runout no longer shows the
+  reload offer.
+
+## 2026-11-12
 ### Chip shuffle wheel scrub
 - While the chip shuffle is playing, the wheel over the table scrubs the native 16×16
   frames (six per notch) and pauses the auto-play; the art fades after a short idle. The

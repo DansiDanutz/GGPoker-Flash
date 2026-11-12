@@ -1306,3 +1306,13 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
   .bet-slider::-webkit-slider-thumb { width: 18px; height: 19px; }
   .bet-slider::-moz-range-thumb { width: 18px; height: 19px; }
 }
+
+/* All-in-or-Fold: only fold and shove */
+.aof-row .act-btn { flex: 1 1 180px; max-width: 320px; height: 50px; font-size: 15px; }
+.aof-row .act-allin { background: linear-gradient(#d8b15f, #a9771f); border-color: #e8c37a; color: #1b1205; }
+.aof-row .aof-note { color: #9a9a9a; font-size: 12px; }
+@media (max-width: 760px) {
+  .aof-row .act-btn { flex: 1 1 42%; height: 46px; font-size: 14px; }
+  .aof-row .aof-note { display: none; }
+  .aof-row .tb-btn { flex: 0 0 auto; }
+}
