@@ -11,6 +11,7 @@ import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval'
 import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/betting';
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
+import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
 import { showdownComplete, showdownPlan } from '../game/showdown';
 import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
 import { seatNick, isAllInStatus } from '../game/seatLabel';
@@ -50,6 +51,7 @@ type PlayerState = {
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
   reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
   winAmount?: number; empty?: boolean; reserved?: boolean; mine?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
+  leaveAfterHand?: boolean; sitOutNextBigBlind?: boolean; sitOutAll?: boolean;
 };
 
 type TableState = {
@@ -76,8 +78,6 @@ type TableState = {
   potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; actionTimeMs?: number; rake?: number;
 };
 
-// A decision queued while waiting for the action to come round.
-type PreAction = { kind: 'checkfold' } | { kind: 'check' } | { kind: 'call'; amount: number };
 
 // Observed Spin & Gold multipliers (server/spin.js), shown on the intro wheel.
 const SPIN_WHEEL_MULTIPLIERS = [2, 3, 4, 5, 10, 50, 100, 20000];
@@ -594,6 +594,8 @@ export function TablePage({ tableId }: { tableId: string }) {
       setBadBeat({ total: evt.total, shares: evt.shares || [] });
       if (badBeatTimer.current) clearTimeout(badBeatTimer.current);
       badBeatTimer.current = setTimeout(() => setBadBeat(null), BAD_BEAT_BANNER_MS);
+    } else if (evt.type === 'left_after_hand') {
+      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Left the table', body: 'The hand is over: your chips went back to your balance.' });
     } else if (evt.type === 'sit_out_expired') {
       if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Seat released', body: 'You have been removed from your seat: your sit-out time ran out.' });
     } else if (evt.type === 'blinds_up') {
@@ -715,15 +717,14 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => { setPreAction(null); }, [state?.handNo]);
   // A queued call is only valid for the price it was queued at.
   useEffect(() => {
-    if (preAction?.kind === 'call' && preAction.amount !== toCall) setPreAction(null);
-    if (preAction?.kind === 'check' && toCall > 0) setPreAction(null);
+    if (preAction && !keepPreAction(preAction, toCall)) setPreAction(null);
   }, [toCall, preAction]);
+  // Fold to any bet stays armed after a free check, for the rest of the hand.
   useEffect(() => {
     if (!myTurn || !preAction) return;
-    if (preAction.kind === 'checkfold') act(toCall > 0 ? 'fold' : 'check');
-    else if (preAction.kind === 'check' && toCall === 0) act('check');
-    else if (preAction.kind === 'call' && preAction.amount === toCall && toCall > 0) act('call');
-    setPreAction(null);
+    const { action, next } = resolvePreAction(preAction, toCall);
+    if (action) act(action);
+    setPreAction(next);
   }, [myTurn]);
 
   useEffect(() => {
@@ -1106,6 +1107,13 @@ export function TablePage({ tableId }: { tableId: string }) {
             send({ type: 'sit_out', value });
             toast({ kind: 'info', title: value ? 'Sitting out next hand' : sittingOut ? 'Sitting back in' : 'Sit out cancelled' });
           }}>{sittingOut ? 'Post blinds / sit in' : sitOutNext ? '✓ Sitting out next hand' : 'Sit out next hand'}</button>
+          {!state?.tournament && !state?.spin && (
+            <>
+              <button disabled={!me} aria-pressed={!!me?.sitOutNextBigBlind} title="Sit out when the big blind would reach you" onClick={() => send({ type: 'option', tableId, sitOutNextBigBlind: !me?.sitOutNextBigBlind })}>{me?.sitOutNextBigBlind ? '✓ ' : ''}Sit out next big blind</button>
+              <button disabled={!me} aria-pressed={!!me?.leaveAfterHand} title="Cash out automatically when this hand ends" onClick={() => send({ type: 'option', tableId, leaveAfterHand: !me?.leaveAfterHand })}>{me?.leaveAfterHand ? '✓ ' : ''}Leave table after this hand</button>
+            </>
+          )}
+          <button disabled={!me} aria-pressed={!!me?.sitOutAll} title="Sit out next hand at every table you are seated at" onClick={() => send({ type: 'sit_out_all', value: !me?.sitOutAll })}>{me?.sitOutAll ? '✓ ' : ''}Sit out at all tables</button>
           <button disabled={!me || rebuyMax <= 0 || !!state?.tournament || !!state?.spin} onClick={() => { setRebuyAmount(rebuyMin); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button disabled={!canRabbit} title={canRabbit ? '' : 'Rabbit hunt is available after a hand ends with an incomplete board'} onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
@@ -1468,6 +1476,12 @@ export function TablePage({ tableId }: { tableId: string }) {
               aria-pressed={preAction?.kind === 'checkfold'}
               onClick={() => setPreAction(preAction?.kind === 'checkfold' ? null : { kind: 'checkfold' })}
             ><span className="reserve-text">{toCall > 0 ? 'Fold' : 'Check/Fold'}</span></button>
+            <button
+              type="button"
+              aria-pressed={preAction?.kind === 'foldany'}
+              title="Fold to any bet for the rest of this hand; check when checking is free"
+              onClick={() => setPreAction(preAction?.kind === 'foldany' ? null : { kind: 'foldany' })}
+            ><span className="reserve-text">Fold to any bet</span></button>
             {toCall === 0 && (
               <button
                 type="button"
