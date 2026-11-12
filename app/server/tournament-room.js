@@ -59,6 +59,73 @@ export class TournamentRoom {
     return null;
   }
 
+  /** A serializable room snapshot for restart recovery (stacks at the last save). */
+  snapshot() {
+    return {
+      version: 1,
+      savedAt: Date.now(),
+      level: Number(this.tournament.level) || 1,
+      levelStartedAt: Number(this.tournament.levelStartedAt) || null,
+      entrants: this.tournament.entrants ?? null,
+      winner: this.winner,
+      finished: this.finished.map((record) => ({ ...record })),
+      flights: this.flightState().map((flight) => ({
+        index: flight.index,
+        id: flight.id,
+        players: flight.players.map((p) => ({
+          id: p.id, nick: p.nick, avatar: p.avatar, stack: p.stack,
+          seat: p.seat, away: p.away, sittingOut: p.sittingOut,
+        })),
+      })),
+    };
+  }
+
+  /**
+   * Rebuild a room from a snapshot taken after a hand. The interrupted hand is
+   * not replayed: players return with the recorded stacks and the blind clock
+   * resumes where it was. Missing/older snapshots are ignored.
+   */
+  restore(snapshot) {
+    if (!snapshot || snapshot.version !== 1) return false;
+    const level = Math.max(1, Number(snapshot.level) || 1);
+    this.tournament.level = level;
+    this.tournament.levelStartedAt = Number(snapshot.levelStartedAt) || Date.now();
+    if (snapshot.entrants != null) this.tournament.entrants = snapshot.entrants;
+    this.finished = Array.isArray(snapshot.finished) ? snapshot.finished.map((record) => ({ ...record })) : [];
+    this.winner = snapshot.winner || null;
+    const tables = [];
+    for (const flight of Array.isArray(snapshot.flights) ? snapshot.flights : []) {
+      const table = this.ensureFlight(Number(flight.index));
+      if (!table) continue;
+      table.holdStart = true;
+      for (const p of Array.isArray(flight.players) ? flight.players : []) {
+        if (table.seatOf(p.id)) continue;
+        const stack = Number(p.stack) >= 0 ? Number(p.stack) : 0;
+        let result = table.sit({ id: p.id, nick: p.nick, avatar: p.avatar || '' }, Number.isInteger(p.seat) ? p.seat : null, stack);
+        if (!result.ok) {
+          console.error('tournament restore seat', this.id, table.cfg.id, p.nick, result.error);
+          result = table.sit({ id: p.id, nick: p.nick, avatar: p.avatar || '' }, null, stack);
+        }
+        const seated = table.seatOf(p.id)?.player;
+        if (seated) {
+          seated.away = !!p.away;
+          seated.sittingOut = !!(p.sittingOut || p.away);
+        }
+      }
+      table.finished = this.finished
+        .filter((record) => record.tableId === flight.id)
+        .map((record) => ({ id: record.id, nick: record.nick, place: record.place, payout: record.payout }));
+      tables.push(table);
+    }
+    for (const table of tables) {
+      table.holdStart = false;
+      table.maybeStart?.();
+      this.ops.broadcast(table.cfg.id);
+      console.log('tournament restore seated', this.id, table.cfg.id, table.occupiedSeats().length);
+    }
+    return true;
+  }
+
   /** Seats per flight, read from the live tables. */
   flightState() {
     return this.flights.map((flight) => {
@@ -70,10 +137,14 @@ export class TournamentRoom {
         players: table ? table.occupiedSeats().map((seat) => ({
           id: seat.player.id,
           nick: seat.player.nick,
+          avatar: seat.player.avatar || '',
           stack: seat.player.stack,
           isBot: !!seat.player.isBot,
           inHand: !!seat.player.inHand,
           movable: isMovable(seat.player, handLive),
+          seat: seat.index,
+          away: !!seat.player.away,
+          sittingOut: !!seat.player.sittingOut,
         })) : [],
       };
     });
@@ -268,7 +339,7 @@ export class TournamentRoom {
 
   recordBust(bust, place, field) {
     const payout = payoutFor(this.payouts(field), place);
-    const record = { id: bust.id, nick: bust.nick, place, payout };
+    const record = { id: bust.id, nick: bust.nick, place, payout, tableId: bust.tableId };
     this.finished.push(record);
     this.ops.persistBust({
       tournamentId: this.id, tableId: bust.tableId, playerId: bust.id, nick: bust.nick, place, payout,

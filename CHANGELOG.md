@@ -51,6 +51,154 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### REA runtime verification of the admin console
+- Used REA's CDP browser tools against a pre-authenticated headless Chrome on the disposable
+  test instance: target listing (`ev_9fbe9044…`), page inspection (`ev_a0af0030…`) and a
+  viewport screenshot (`ev_0c342def…`). The observation confirmed the Platform heading,
+  **Snapshot all**, per-room **Snapshot** / **Level +1**, **Recovery** values and
+  **restored** markers, `GET /api/admin/platform` 200, and no console events in the window.
+- Recorded the setup, evidence, findings and limitations in
+  `docs/REA-ADMIN-VERIFICATION.md`; this complements the static server inventory and the
+  production SQLite inspection. No credentials, bodies, headers or storage values were
+  captured. No production change; unit suite 428/428.
+
+## 2026-11-12
+### Multi-room crash soak
+- `tools/tournament-soak.mjs --rooms N` now creates N two-player events per cycle (unique
+  users/tournaments), waits for a settled-hand snapshot in every room, `SIGKILL`s the server
+  once, restarts on the same data and verifies every room's players, `restoredAt`, snapshot
+  and original table id on reconnect.
+- Local run: **2 cycles × 3 rooms passed** (six events, players 9,900/10,100 each). The
+  nightly workflow now runs `--cycles 2 --rooms 3`; `--rooms` is documented in the runbook.
+  The unit suite is unchanged at 428/428.
+
+## 2026-11-12
+### Room-owner boundary extracted
+- `TournamentRoomOwner` now owns the live room map and its lifecycle: creation, restart
+  restore, snapshot scheduling, sweeps, snapshot-all and disposal. `index.js` injects
+  `makeRoom` and the snapshot callbacks, so a future dedicated room-owner process is an
+  implementation change behind this boundary instead of a rewrite of the admin/tournament
+  APIs.
+- Behavior preserved: the crash/restart soak passed **2/2** cycles after the refactor
+  (players, stacks, level and table id restored), and the test server restored its rooms.
+  New unit tests cover ensure/restore, completed events, dispose, snapshot/all, missing
+  rooms and sweep-triggered saves. Full suite 428/428.
+
+## 2026-11-12
+### Admin blind-level control
+- New audited **`POST /api/admin/tournaments/:id/level`** (body `delta`, 1–20): advances the
+  shared blind level between hands. It refuses a room with a hand in progress or a finished
+  room, resets `levelStartedAt`, applies the new blinds to every flight and then writes a
+  recovery snapshot. The Platform's Actions column has **Level +1** with a confirmation and
+  shows the new level/blinds.
+- Logic lives in `tournament-controls.js` (shared 1.5× blind curve, clamp at level 100),
+  with unit tests for the advance, mid-hand/finished refusal and the curve, plus an
+  admin-only/missing-room HTTP test.
+- Verified on the test server: QA room advanced to **level 6 / blinds 759–1519**, audit row
+  `tournament_level`; UI shows Snapshot + Level +1. Full suite 423/423.
+
+## 2026-11-12
+### Public operational health and external warning alerts
+- `GET /healthz` now returns a compact, non-sensitive summary: version/build, uptime,
+  `rooms: {total, stale}`, `disk: {usedPct, freeBytes}` and a `warnings` array. Warnings are
+  a room with players and no settled-hand snapshot for five minutes, and disk ≥90% used.
+- The Nano watchdog (`deploy/nano-uptime-check.sh`) reads the body and sends a Discord alert
+  when the warning text changes, including a cleared-warnings notice, alongside its
+  down/recovered state alerts (python3 on Nano for the JSON parse; uptime still works
+  without it). Runbook documents the payload.
+- Tests: health warnings unit test and a `/healthz` HTTP test (version/uptime/rooms/disk/
+  warnings). Full suite 419/419.
+
+## 2026-11-12
+### Admin snapshot controls and the room-owner boundary
+- New audited admin actions: **`POST /api/admin/tournaments/:id/snapshot`** and
+  **`POST /api/admin/tournaments/snapshot-all`**. The Platform has a **Snapshot** button per
+  running room and **Snapshot all** in the header; both return bytes/players and skip a hand
+  in progress or a finished room instead of persisting an inconsistent state.
+- Extracted snapshot save/load/delete and the settled-hand guard into `tournament-state.js`,
+  separating the persistence boundary from `index.js` for a future dedicated room-owner
+  service. Tests: settled-room write, mid-hand/finished skip, malformed load, admin-only
+  endpoint and missing-room 404.
+- Verified on the test server: single snapshot `376 B / 2 players`, snapshot-all `4/4 saved`,
+  audit rows `tournament_snapshot` / `tournament_snapshot_all`. Full suite 417/417.
+
+## 2026-11-12
+### Recovery staleness alert and automated restart soak
+- The Platform report now flags a running room with players as **stale** when its last
+  settled-hand snapshot is older than five minutes (or missing): `snapshotAgeMs`/`stale`
+  per room, `tournaments.stale` in the summary, a red “stale” marker in the Recovery column
+  and a warning banner. Empty rooms are not flagged.
+- `tools/tournament-soak.mjs` is an automated crash/restart soak: it starts disposable
+  servers on random ports with temp databases, creates a two-player event, waits for a
+  settled snapshot, `SIGKILL`s it, restarts on the same data and asserts the room, players,
+  level and original table id. Two cycles passed locally (players 9,900/10,100, 382-byte
+  snapshot, `restoredAt` set, same `tourney-soak-*` table); documented in
+  `deploy/ALWAYS-ON.md`.
+- Tests: staleness unit test (fresh/old/missing snapshot, empty room). Full suite 413/413.
+- A nightly GitHub Actions workflow **Tournament soak** runs the two-cycle crash/restart
+  soak at 03:00 UTC and supports manual dispatch.
+
+## 2026-11-12
+### Disk pressure: admin visibility and weekly cleanup
+- The Platform report now includes the filesystem backing the container (`disk`:
+  total/free bytes and used %); the admin shows a **Disk free** stat and a `Server → Disk`
+  row (`22 GB free of 96 GB`), so capacity pressure is visible before a deploy fails.
+- Incident: one production deploy failed with `no space left on device` at 100% disk. The
+  Docker build cache (16.6 GB) and old rollback images were pruned, freeing ~22 GB;
+  `deploy/prune-docker.sh` now keeps the three newest `dangro-game:rollback-*` tags, prunes
+  the build cache and dangling images, and is installed as a Monday 04:17 cron job.
+  `deploy/ALWAYS-ON.md` documents the failure mode and the job.
+- Tests: `diskUsage` unit test. Full suite 412/412.
+
+## 2026-11-12
+### Platform recovery visibility and SIGKILL verification
+- The admin **Platform** tournament table now has a **Recovery** column: last settled-hand
+  snapshot time and size per room, plus a “restored” marker when the process rebuilt the
+  room after a restart. The API exposes `snapshot: {at, bytes}` and `restoredAt`, and the
+  header counts recovery snapshots. Small snapshot sizes are shown in bytes.
+- Verified a hard crash: with a hand in progress, `SIGKILL` left the snapshot unchanged
+  (both players at 9,700/10,300); restart logged `tournament restore seated qa-restore-1 2`,
+  reported `playersLeft 2`, level 2 / blinds 150–300, the same table id on `/play`, and a
+  376-byte snapshot. The interrupted hand was discarded, as designed.
+- REA `inspect_sqlite_database` on a production `VACUUM INTO` snapshot confirmed the
+  `tourney_state` schema and sampled rows (evidence `ev_3ddc2239…`; offline sample, not an
+  integrity proof). Full suite 411/411.
+
+## 2026-11-12
+### Durable tournament rooms (restart recovery)
+- Running `TournamentRoom`s now snapshot their flights, seats, stacks, blind level/clock,
+  finished places and winner into a new `tourney_state` table. Snapshots are written after
+  every settled hand, after start/seating and balance/break moves, every 15 s and on a
+  graceful shutdown. A hand in progress is never snapshotted: the last settled state is kept
+  and an interrupted hand is voided rather than replayed.
+- On boot the server restores every `running` event before accepting connections: flights
+  and live tables are rebuilt, seats/stacks/flights/places come back, the shared blind clock
+  resumes, and a player's `/play` returns their original table. Malformed or older snapshots
+  are ignored.
+- Fixed the shutdown order: rooms are now snapshotted **before** the live tables close (it
+  used to close the tables first, which saved empty rooms).
+- Verified with a live two-player event: graceful kill → both players and 10,000 stacks
+  restored, `playersLeft: 2`, same table id on reconnect, level/blinds intact. Room
+  snapshot/restore unit tests added. Full suite 411/411.
+
+## 2026-11-12
+### Platform administration: live server and tournament observability
+- New admin-only, read-only endpoints **`GET /api/admin/platform`** and
+  **`GET /api/admin/tournaments/live`**, surfaced in a new **Platform** section of the owner
+  console: version/build, Node/PID/uptime/environment, RSS/heap, CPU/load, WebSocket clients
+  and distinct users, live tables/seats/connections, tournament rooms with level, current
+  blinds, next-level ETA, players/humans left, flights, finishes and winner, plus SQLite
+  size/WAL and row counts. The section refreshes every 10 s and can download the report as
+  JSON.
+- The report is assembled only from the running process and database (no new state, no
+  mutations); tournament levels are read through the same `syncLevel` clock the tables use.
+- Architecture: documented the tournament runtime and player connection path, the admin
+  observability boundary, a static REA inventory of the server (62 files / 711 items, with
+  its evidence id and limitations) and the capacity/scale-out caveats (in-memory rooms,
+  single process, why a dedicated tournament service would need durable room state).
+- Tests: platform report unit tests and an admin-only HTTP test. Full suite 409/409.
+
+## 2026-11-12
 ### All-in-or-Fold tables now play by AoF rules
 - AoF tables were showing the full preflop bar (Call, bet presets, slider, Raise), which the
   engine rejects. They now show only **Fold** and **All-in** (with the stack), the F1/F4

@@ -50,6 +50,9 @@ Other players ────────────┘                       │
 | `slots.js` | Server-authoritative slot engine |
 | `hand-history.js` | Hand snapshots for the history/replay view |
 | `avatar.js` | PNG validation and avatar normalisation |
+| `admin-platform.js` | Read-only platform report: process, sockets, live tables, tournament rooms, database/disk size (used by the admin Platform section) |
+| `tournament-state.js` | Durable room snapshot save/load/delete and the settled-hand guard; the persistence boundary for the future room-owner service |
+| `tournament-room-owner.js` | Owns the live room map and lifecycle (create, restart restore, snapshot scheduling, sweeps, dispose); server-specific table/DB/socket work is injected |
 
 ## Request flow
 
@@ -122,13 +125,147 @@ list of flight tables:
   `?observe=1`; when that table breaks, the watcher re-resolves the same endpoint and
   follows the field.
 
+## Tournament runtime and the player connection path
+
+```
+ Lobby / Tournaments page
+   ├─ POST /api/tournaments/:id/play ──► TournamentRoom.seat(player)
+   │                                      ├─ nextFlightIndex / ensureFlight
+   │                                      └─ Table in LIVE_TABLES
+   └─ WSS /ws (tableId) ───────────────► live Table: seats, hand clock, actions
+                                           │ bust / winner
+                                           ▼
+                                        TournamentRoom.onBust / onFlightSettled
+                                           │ 2 s sweep (balance / break)
+                                           ▼
+                                        table_move → player sockets
+```
+
+- **One process owns both planes.** `index.js` serves HTTP, the static client and the
+  `/ws` hub; `LIVE_TABLES` maps table ids to live tables and `TOURNAMENT_ROOMS` maps
+  tournament ids to rooms. A tournament's flights are ordinary tables whose `cfg` shares
+  one tournament descriptor (blind clock, level, prize pool).
+- **Tournament entry** goes through `/api/tournaments/:id/play`; the room seats the human
+  in the lowest-numbered flight, evicts a bot if needed and returns the table id. The
+  client then opens `/ws` for that table (or follows a `table_move` after balancing).
+- **Blind clock** is shared by every flight: the first table to tick advances
+  `tournament.level` and each flight recalculates its blinds from `baseSb`/`baseBb`
+  (`1.5^(level-1)`). `TournamentRoom.syncLevel` catches a late first flight up.
+- **Reconnect** reuses the same table id; a player whose table broke receives
+  `table_move` and navigates with `?buyin=<stack>`. A stale flight link is redirected to
+  the player's real table.
+- **Restart recovery** — running rooms snapshot their flights, seats, stacks, blind clock,
+  finished places and winner to `tourney_state` after every settled hand, after
+  start/seating and balance/break moves, every 15 s and on graceful shutdown. The server
+  restores every `running` event before accepting connections, so a restart keeps the field,
+  stacks and level; `/play` returns the original table. A hand that was in progress at the
+  crash is voided (the last settled snapshot is restored), not replayed. Rooms are
+  snapshotted **before** the shutdown closes live tables; otherwise the snapshot would be
+  empty. This removes the old "rooms re-created empty after a restart" limitation; a hard
+  crash can still lose the current hand and up to ~15 s of out-of-hand changes.
+
+## Platform administration and observability
+
+The owner console (`#/admin`) has a **Platform** section backed by two admin-only,
+read-only endpoints:
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/admin/platform` | server version/build, Node/PID/uptime/environment, RSS/heap, CPU count/load, disk free/total/used %, WebSocket clients and distinct users, live tables/seats/connections, tournament rooms/players/flights plus each room's recovery snapshot (`snapshot`/`restoredAt`), SQLite size/WAL and row counts |
+| `GET /api/admin/tournaments/live` | the same tournament-room list alone (name, level, current blinds, next level ETA, players left/humans, flights, finishes, winner) |
+
+The UI refreshes every 10 s and can download the report as JSON for an incident. The
+tournament table also shows each room's **Recovery** state: the last settled-hand snapshot
+(time and size), whether this process restored the room after a restart, and a red **stale**
+marker (plus `tournaments.stale` and a banner) when a room with players has had no snapshot
+for five minutes. Empty rooms are not flagged.
+
+Two admin actions can force a recovery snapshot: `POST /api/admin/tournaments/:id/snapshot`
+for one room and `POST /api/admin/tournaments/snapshot-all` for every running room (the
+Platform has **Snapshot** per row and **Snapshot all** in the header). Both are audited and
+skip a room with a hand in progress or a finished room rather than writing an inconsistent
+state. Snapshot persistence lives in `tournament-state.js`, separate from `index.js`, so the
+room-owner boundary can move behind a dedicated service without rewriting the admin API.
+
+`TournamentRoomOwner` now owns the live room map and lifecycle (construction, restore,
+snapshot scheduling, sweep, dispose). `index.js` injects `makeRoom` and the snapshot
+callbacks, so moving room ownership into a dedicated process is an implementation change
+behind that boundary rather than a client/admin-API rewrite.
+
+Admins can also advance the shared blind level with
+`POST /api/admin/tournaments/:id/level` (**Level +1**, with a confirmation). It is audited,
+refuses a hand in progress or a finished room, resets `levelStartedAt`, applies the new
+blinds to every flight and then writes a recovery snapshot. The
+report is assembled only from the running process (`process.memoryUsage`, `wss.clients`,
+`LIVE_TABLES`, `TOURNAMENT_ROOMS`, `fs.statSync`) — it adds no new state and performs no
+mutations. Tournament levels are read through `TournamentRoom.syncLevel(now)`, so the
+report reflects the same shared clock the tables use.
+
+Access is the existing admin boundary: `/api/admin` is restricted by the
+`GGPOKER_ADMIN_ALLOW` network allowlist, requires an `is_admin` account, and admin actions
+are audited. The platform report itself is read-only.
+
+### REA inventory
+
+The server module graph was inventoried with **REA** (`morluto/rea`, the MCP server in
+this session) on 2026-11-12: `analyze_javascript_application` on `app/server` examined
+62 files / 711 items (evidence `ev_21df2f40033fbc25eba5628f75bed6ec6e02764f158b7154857a2141ee001803`,
+summary view `ev_4a1b9723…`). The graph is static and partial (semantic-node ceiling,
+8,801 residual unknowns); it was used to map module boundaries and confirm the
+admin/tournament HTTP surface, not as a runtime monitor. Live values in the Platform
+section come from the server's own process state and the database.
+
+A runtime REA observation of the test admin console (`docs/REA-ADMIN-VERIFICATION.md`)
+confirmed the rendered Platform controls, the recovery/snapshot/level actions and the
+`GET /api/admin/platform` call, with attach-window-only limitations; it did not capture
+credentials, bodies, headers or storage values.
+
+A second REA run inspected a production `VACUUM INTO` snapshot with
+`inspect_sqlite_database` (evidence `ev_3ddc2239…`, authority shipped-artifact, confidence
+observed): it confirmed the `tourney_state` schema (`tournament_id` primary key, non-null
+`state`, `updated_at` default `datetime('now')`) and sampled three rows whose JSON carries
+`version`, `savedAt`, `level`, `levelStartedAt`, `entrants`, `winner`, `finished` and
+`flights`. The sample is bounded and the inspection is not an integrity or atomicity proof;
+it verifies the recovery table the admin report reads, not the whole database.
+
+### Public health
+
+`GET /healthz` is intentionally small and non-sensitive: service identity, version/build,
+uptime, `rooms: {total, stale}` and `disk: {usedPct, freeBytes}`, plus a `warnings` array
+(`N stale tournament room(s)`, `disk N% used` at ≥90%). The external Nano watchdog polls
+it and alerts on HTTP state changes and warning-text changes; it is not a substitute for the
+admin Platform's process/DB detail.
+
+## Capacity and scaling
+
+Today production is one game container on `Dexter` (SQLite WAL, in-memory tables/rooms,
+Traefik in front). This is sufficient for the play-money load but has a single
+failure/scale unit:
+
+- **Disk headroom** — every deploy adds a `dangro-game:rollback-*` image and the build cache
+  grows; `deploy/prune-docker.sh` keeps the newest three rollbacks and prunes the cache on a
+  weekly Monday cron, and the Platform section shows disk free/used %. A full disk makes
+  `docker compose build` fail while the previous container keeps serving.
+- **Vertical first** — the container can use the droplet's CPU/RAM; the keepalive script
+  restarts a hung process; nightly backups and off-host pulls cover data loss.
+- **Horizontal scale is not implemented** — tables, tournament rooms and WebSocket
+  fan-out are process-local. Running two containers would split rooms and require sticky
+  WebSocket routing plus shared state (rooms, queues, table ownership). The Platform
+  report is per-process, so a future multi-process deployment needs an aggregator.
+- **Tournament service separation** — the recommended next architectural move if
+  tournament load grows: extract `TournamentRoom` + table engine behind a room-owner
+  service with durable room state, while `index.js` keeps HTTP auth/lobby and proxies WS.
+  The current module boundary (`tournament-room.js` + `ops` interface) already isolates
+  the seating/sweep logic for that move.
+
 ## Data model
 
 SQLite in WAL mode (`node:sqlite`). Main tables:
 
 - **Accounts** — `users`, `sessions`, `user_settings`, `verifications`, `player_notes`,
   `friends`, `friend_requests`, `reports`, `table_mutes`, `notification_reads`.
-- **Game** — `tables`, `hands`, `tournaments`, `tourney_regs`, `elo_ratings`, `elo_history`.
+- **Game** — `tables`, `hands`, `tournaments`, `tourney_regs`, `tourney_state` (restart
+  snapshots of running tournament rooms), `elo_ratings`, `elo_history`.
 - **Economy** — `transactions` (ledger), `bonus_claims`, `daily_claims`, `player_claims`,
   `missions`.
 - **Content** — `banners`, `brand_assets`, `chat_messages`, `direct_messages`, `settings`,

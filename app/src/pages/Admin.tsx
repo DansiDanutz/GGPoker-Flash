@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { api, money, User, AdminUserStatus } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
+import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { PageShell } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { PlayingCard } from '../components/Card';
@@ -18,6 +19,7 @@ import {
 
 const SECTIONS = [
   { key: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { key: 'platform', label: 'Platform', icon: '🖥️' },
   { key: 'users', label: 'Users', icon: '👥' },
   { key: 'tables', label: 'Cash tables', icon: '🃏' },
   { key: 'tournaments', label: 'Tournaments', icon: '🏆' },
@@ -53,6 +55,7 @@ export function Admin() {
   const { user, toast, meta, brand, refreshBrand, refreshUser } = useApp();
   const [section, setSection] = useState('dashboard');
   const [stats, setStats] = useState<any>(null);
+  const [platform, setPlatform] = useState<any>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [tables, setTables] = useState<any[]>([]);
   const [tourneys, setTourneys] = useState<any[]>([]);
@@ -78,6 +81,44 @@ export function Admin() {
 
   const isAdmin = !!user?.is_admin;
 
+  const fmtUptime = (seconds?: number) => {
+    if (seconds == null) return '—';
+    const s = Math.max(0, Math.floor(seconds));
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (d) return `${d}d ${h}h`;
+    if (h) return `${h}h ${m}m`;
+    return `${m}m ${s % 60}s`;
+  };
+  const fmtBytes = (bytes?: number | null) => {
+    if (bytes == null) return '—';
+    if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`;
+    if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${Math.max(0, Math.round(bytes / 1024))} KB`;
+    return `${Math.max(0, Math.round(bytes))} B`;
+  };
+  const fmtSnapshotAt = (at?: string | null) => {
+    if (!at) return '—';
+    const d = new Date(at.includes('T') ? at : `${at.replace(' ', 'T')}Z`);
+    return Number.isNaN(d.getTime()) ? at : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+  const fmtEta = (ms?: number | null) => {
+    if (ms == null) return '—';
+    if (ms >= 60000) return `${Math.round(ms / 60000)} min`;
+    return `${Math.max(0, Math.ceil(ms / 1000))} s`;
+  };
+  const downloadPlatform = () => {
+    if (!platform) return;
+    const blob = new Blob([JSON.stringify(platform, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dangg-platform-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
   // One page of users for the current search, status and page; stale responses are ignored.
   const loadUsers = async () => {
     if (!isAdmin) return;
@@ -99,11 +140,11 @@ export function Admin() {
   const loadCore = async () => {
     if (!isAdmin) return;
     try {
-      const [s, t, tt, b, m, st, tx, v, rp] = await Promise.all([
-        api.admin.stats(), api.admin.tables(), api.admin.tournaments(),
+      const [s, p, t, tt, b, m, st, tx, v, rp] = await Promise.all([
+        api.admin.stats(), api.admin.platform(), api.admin.tables(), api.admin.tournaments(),
         api.admin.banners(), api.admin.missions(), api.admin.settings(), api.admin.transactions(), api.admin.verifications(), api.admin.reports(),
       ]);
-      setStats(s); setTables(t.tables); setTourneys(tt.tournaments);
+      setStats(s); setPlatform(p); setTables(t.tables); setTourneys(tt.tournaments);
       setBanners(b.banners); setMissions(m.missions); setSettings(st.settings);
       setTransactions(tx.transactions); setVerifications(v.verifications || []); setReports(rp.reports || []);
     } catch (e: any) { toast({ kind: 'error', title: 'Admin', body: e.message }); }
@@ -112,6 +153,14 @@ export function Admin() {
   const loadAll = async () => { await Promise.all([loadCore(), loadUsers()]); };
 
   useEffect(() => { loadCore(); }, [isAdmin]);
+
+  useEffect(() => {
+    if (section !== 'platform' || !isAdmin) return;
+    const timer = window.setInterval(() => {
+      api.admin.platform().then(setPlatform).catch(() => undefined);
+    }, 10_000);
+    return () => window.clearInterval(timer);
+  }, [section, isAdmin]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { loadUsers(); }, USER_SEARCH_DEBOUNCE_MS);
@@ -227,7 +276,7 @@ export function Admin() {
             </button>
           ))}
           <div style={{ flex: 1 }} />
-          <div style={{ padding: '10px 12px', fontSize: 11, color: '#6f7484' }}>v1.0 · local instance<br />{meta.online.toLocaleString()} online</div>
+          <div style={{ padding: '10px 12px', fontSize: 11, color: '#6f7484' }}>v{APP_VERSION} · {buildLabel(APP_BUILD)}<br />{meta.online.toLocaleString()} online</div>
         </nav>
         <div className="admin-main">
           {section === 'dashboard' && (
@@ -288,6 +337,139 @@ export function Admin() {
                   </tbody>
                 </table>
               </div>
+            </>
+          )}
+
+          {section === 'platform' && (
+            <>
+              <div className="between">
+                <div>
+                  <h2 className="admin-title" style={{ margin: 0 }}>Platform</h2>
+                  <div className="muted small">Server process, tournament rooms and live connections · refreshes every 10 s</div>
+                </div>
+                <div className="row">
+                  <button className="btn btn-ghost btn-sm" onClick={() => {
+                    api.admin.platform().then((p) => { setPlatform(p); toast({ kind: 'success', title: 'Platform refreshed' }); })
+                      .catch((e: any) => toast({ kind: 'error', title: 'Refresh failed', body: e.message }));
+                  }}>Refresh</button>
+                  <button className="btn btn-ghost btn-sm" disabled={!platform} onClick={async () => {
+                    try {
+                      const result = await api.admin.snapshotAllTournaments();
+                      toast({ kind: result.saved ? 'success' : 'info', title: 'Recovery snapshots', body: `${result.saved} saved · ${result.skipped} skipped (hand in progress)` });
+                      setPlatform(await api.admin.platform());
+                    } catch (e: any) { toast({ kind: 'error', title: 'Snapshot failed', body: e.message }); }
+                  }}>Snapshot all</button>
+                  <button className="btn btn-ghost btn-sm" disabled={!platform} onClick={downloadPlatform}>⤓ JSON</button>
+                </div>
+              </div>
+              {!platform && <div className="muted small" style={{ marginTop: 16 }}>Loading platform…</div>}
+              {platform && (
+                <>
+                  <div className="stat-grid">
+                    <div className="stat"><span>Uptime</span><b>{fmtUptime(platform.server?.uptimeSec)}</b></div>
+                    <div className="stat"><span>Memory</span><b>{fmtBytes(platform.memory?.rss)}</b></div>
+                    <div className="stat"><span>WS clients</span><b>{platform.sockets?.total ?? '—'}</b></div>
+                    <div className="stat"><span>Live tables</span><b>{platform.tables?.live ?? '—'}</b></div>
+                    <div className="stat"><span>Tournament rooms</span><b>{platform.tournaments?.rooms ?? '—'}</b></div>
+                    <div className="stat"><span>Database</span><b>{fmtBytes(platform.db?.sizeBytes)}</b></div>
+                    <div className="stat"><span>Disk free</span><b>{fmtBytes(platform.disk?.freeBytes)}</b><div className="muted small">{platform.disk?.usedPct != null ? `${platform.disk.usedPct}% used` : '—'}</div></div>
+                  </div>
+                  <div className="grid g2">
+                    <div className="admin-card">
+                      <div className="panel-title">Server</div>
+                      <div className="kv"><span>Version</span><b>{platform.server?.version ?? '—'} · {platform.server?.build ?? '—'}</b></div>
+                      <div className="kv"><span>Node / PID</span><b>{platform.server?.node ?? '—'} · {platform.server?.pid ?? '—'}</b></div>
+                      <div className="kv"><span>Environment</span><b>{platform.server?.env ?? '—'} · {platform.server?.platform}/{platform.server?.arch}</b></div>
+                      <div className="kv"><span>CPU / load</span><b>{platform.server?.cpus ?? '—'} cores · {(platform.server?.load || []).map((n: number) => n.toFixed(2)).join(' / ') || '—'}</b></div>
+                      <div className="kv"><span>Disk</span><b>{fmtBytes(platform.disk?.freeBytes)} free of {fmtBytes(platform.disk?.totalBytes)} ({platform.disk?.usedPct ?? '—'}%)</b></div>
+                      <div className="kv"><span>Database</span><b>{fmtBytes(platform.db?.sizeBytes)} + {fmtBytes(platform.db?.walBytes)} WAL</b></div>
+                      <div className="kv"><span>Users / hands</span><b>{platform.db?.users ?? '—'} / {platform.db?.hands ?? '—'}</b></div>
+                      <div className="kv"><span>Tables / tournaments</span><b>{platform.db?.tables ?? '—'} / {platform.db?.tournaments ?? '—'}</b></div>
+                      <div className="muted small" style={{ marginTop: 8, wordBreak: 'break-all' }}>{platform.db?.path || ''}</div>
+                    </div>
+                    <div className="admin-card">
+                      <div className="panel-title">Connections</div>
+                      <div className="kv"><span>WebSocket clients</span><b>{platform.sockets?.total ?? '—'}</b></div>
+                      <div className="kv"><span>Identified users</span><b>{platform.sockets?.users ?? '—'}</b></div>
+                      <div className="kv"><span>Live seats</span><b>{platform.tables?.seats ?? '—'}</b></div>
+                      <div className="kv"><span>Table connections</span><b>{platform.tables?.connections ?? '—'}</b></div>
+                      <div className="kv"><span>Tournament players left</span><b>{platform.tournaments?.playersLeft ?? '—'}</b></div>
+                      <div className="kv"><span>Tournament flights</span><b>{platform.tournaments?.tables ?? '—'}</b></div>
+                      <div className="kv"><span>Heap used</span><b>{fmtBytes(platform.memory?.heapUsed)}</b></div>
+                    </div>
+                  </div>
+                  {(platform.tournaments?.stale ?? 0) > 0 && (
+                    <div className="admin-card" style={{ marginTop: 12, borderColor: '#5c2a2a', color: '#ffb1b1' }}>
+                      <b>{platform.tournaments.stale}</b> running tournament room(s) have no settled-hand snapshot in the last 5 minutes. A crash could lose the current hand.
+                    </div>
+                  )}
+                  <div className="admin-card" style={{ marginTop: 12, padding: 0 }}>
+                    <div style={{ padding: '10px 14px' }} className="panel-title">Live tournament rooms <small>{platform.tournaments?.rooms ?? 0} running · {platform.tournaments?.snapshots ?? 0} recovery snapshots{(platform.tournaments?.stale ?? 0) > 0 ? ` · ${platform.tournaments.stale} stale` : ''}</small></div>
+                    <table className="admin-table">
+                      <thead><tr><th>Event</th><th>Level / blinds</th><th>Players left</th><th>Flights</th><th>Finished</th><th>Next / state</th><th>Recovery</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {(platform.tournaments?.items || []).map((r: any) => (
+                          <tr key={r.id}>
+                            <td><b>{r.name}</b><div className="muted small">{r.mode || 'tournament'}{r.buyin ? ` · buy-in ${money(r.buyin)}` : ''}</div></td>
+                            <td>L{r.level} · {r.blinds?.sb ?? '—'}/{r.blinds?.bb ?? '—'}</td>
+                            <td>{r.playersLeft ?? '—'}{r.humansLeft != null ? ` (${r.humansLeft} human)` : ''}</td>
+                            <td>{r.tables ?? '—'}</td>
+                            <td>{r.finished ?? '—'}</td>
+                            <td>{r.winner ? `Winner: ${r.winner.nick || r.winner}` : r.finished ? 'Finished' : fmtEta(r.nextLevelInMs)}</td>
+                            <td>
+                              {r.snapshot
+                                ? <span title={`Last snapshot ${r.snapshot.at} UTC`}>{fmtSnapshotAt(r.snapshot.at)} · {fmtBytes(r.snapshot.bytes)}</span>
+                                : <span className="muted">—</span>}
+                              {r.stale ? <div style={{ color: '#ff9a9a' }}>stale {fmtEta(r.snapshotAgeMs)}</div> : null}
+                              {r.restoredAt ? <div className="muted small">restored {new Date(r.restoredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div> : null}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <button className="btn btn-ghost btn-sm" onClick={async () => {
+                                  try {
+                                    const result = await api.admin.snapshotTournament(r.id);
+                                    if (result.ok) toast({ kind: 'success', title: 'Snapshot saved', body: `${result.bytes} B · ${result.players} players` });
+                                    else toast({ kind: 'info', title: 'Snapshot skipped', body: result.reason });
+                                    setPlatform(await api.admin.platform());
+                                  } catch (e: any) { toast({ kind: 'error', title: 'Snapshot failed', body: e.message }); }
+                                }}>Snapshot</button>
+                                <button className="btn btn-ghost btn-sm" onClick={async () => {
+                                  if (!confirm(`Advance ${r.name} to level ${(Number(r.level) || 1) + 1}? It takes effect between hands.`)) return;
+                                  try {
+                                    const result = await api.admin.advanceTournamentLevel(r.id);
+                                    if (result.ok) toast({ kind: 'success', title: `Level ${result.level}`, body: `Blinds ${result.blinds?.sb}/${result.blinds?.bb}` });
+                                    else toast({ kind: 'info', title: 'Level not advanced', body: result.reason });
+                                    setPlatform(await api.admin.platform());
+                                  } catch (e: any) { toast({ kind: 'error', title: 'Level failed', body: e.message }); }
+                                }}>Level +1</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {!(platform.tournaments?.items || []).length && <div className="muted small" style={{ padding: 12 }}>No tournament room is live. A room opens when a registered event starts.</div>}
+                  </div>
+                  <div className="admin-card" style={{ marginTop: 12, padding: 0 }}>
+                    <div style={{ padding: '10px 14px' }} className="panel-title">Live tables <small>{platform.tables?.live ?? 0} running</small></div>
+                    <table className="admin-table">
+                      <thead><tr><th>Table</th><th>Type</th><th>Players</th><th>Connections</th><th>Hand / street</th></tr></thead>
+                      <tbody>
+                        {(platform.tables?.items || []).map((t: any) => (
+                          <tr key={t.id || t.name}>
+                            <td>{t.name}</td>
+                            <td>{t.tournamentId ? 'Tournament' : (t.game || 'cash')}</td>
+                            <td>{t.players ?? '—'}</td>
+                            <td>{t.connections ?? '—'}</td>
+                            <td>#{t.hand ?? '—'} · {t.street || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {!(platform.tables?.items || []).length && <div className="muted small" style={{ padding: 12 }}>No live table right now.</div>}
+                  </div>
+                </>
+              )}
             </>
           )}
 

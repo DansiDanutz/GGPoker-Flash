@@ -178,6 +178,11 @@ function init() {
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (tournament_id, user_id)
   );
+  CREATE TABLE IF NOT EXISTS tourney_state (
+    tournament_id TEXT PRIMARY KEY,
+    state TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
   CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

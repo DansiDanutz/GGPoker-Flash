@@ -49,6 +49,7 @@ export function HandDetailModal({ hand, userId, onClose }: { hand: any; userId?:
               <PlayingCard key={i} card={i < replay ? c : '??'} className={i < replay ? boardClass(i) : ''} />
             ))}
           </div>
+          <div className="table-scroll">
           <table className="admin-table">
             <thead><tr><th>Player</th><th>Position</th><th>Cards</th><th>Stack</th><th>Won</th></tr></thead>
             <tbody>
@@ -69,6 +70,7 @@ export function HandDetailModal({ hand, userId, onClose }: { hand: any; userId?:
               ))}
             </tbody>
           </table>
+          </div>
           <div className="row" style={{ marginTop: 12 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => { setReplay(0); setPlaying(true); }}>Replay</button>
             <button className="btn btn-ghost btn-sm" onClick={() => setPlaying((v) => !v)}>{playing ? 'Pause' : 'Play'}</button>

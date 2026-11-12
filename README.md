@@ -172,6 +172,9 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
 - **Versioned builds with forced updates**: every deploy has a numeric build id and the
   client refuses to run a stale build (it clears caches and reloads, or blocks with an
   Update required screen). The version is shown in the login footer and the table menu.
+- **Platform console**: the admin **Platform** section shows the live server process,
+  WebSocket connections, tables, tournament rooms and SQLite storage, with a JSON download.
+  `GET /api/admin/platform` and `/api/admin/tournaments/live` are admin-only and read-only.
 - **Welcome and login**: the Poker Lounge design with the lounge hero art on desktop and a
   full-width mobile hero, account/password fields with show-hide, remember me (saved
   credentials), guest play, language menu and terms/privacy dialogs. Every fresh app open

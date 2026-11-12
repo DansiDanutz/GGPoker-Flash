@@ -151,7 +151,7 @@ export function HandHistory() {
       <div className="page">
         <h1 className="page-title">Hand History</h1>
         <p className="page-sub">Every hand you played is stored locally and can be replayed</p>
-        <div className="row" style={{ marginBottom: 10 }}>
+        <div className="row hist-filters" style={{ marginBottom: 10 }}>
           <input className="admin-input" style={{ width: 260 }} placeholder="Search table or game…" value={q} onChange={(e) => setQ(e.target.value)} />
           <select className="admin-select" value={resFilter} onChange={(e) => setResFilter(e.target.value)}>
             <option value="all">All results</option><option value="won">Won</option><option value="lost">Lost</option>
@@ -162,6 +162,7 @@ export function HandHistory() {
           <span className="muted small">{filtered.length} hands</span>
         </div>
         <div className="card" style={{ padding: 0 }}>
+          <div className="table-scroll">
           <table className="admin-table">
             <thead><tr><th>#</th><th>Table</th><th>Game</th><th>Board</th><th>Pot</th><th>Result</th><th>Date</th></tr></thead>
             <tbody>
@@ -186,6 +187,7 @@ export function HandHistory() {
               {!hands.length && <tr><td colSpan={7} className="empty-state">No hands yet — join a table and play a hand.</td></tr>}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

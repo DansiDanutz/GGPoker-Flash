@@ -320,6 +320,11 @@ export const api = {
     hand: (id: string) => request<{ hand: any }>(`/api/admin/hands/${encodeURIComponent(id)}`),
     reportAction: (id: number, action: 'resolve' | 'dismiss') => request<any>(`/api/admin/reports/${id}`, { method: 'POST', body: JSON.stringify({ action }) }),
     stats: () => request<any>('/api/admin/stats'),
+    platform: () => request<any>('/api/admin/platform'),
+    tournamentsLive: () => request<any>('/api/admin/tournaments/live'),
+    snapshotTournament: (id: string) => request<any>(`/api/admin/tournaments/${encodeURIComponent(id)}/snapshot`, { method: 'POST' }),
+    snapshotAllTournaments: () => request<any>('/api/admin/tournaments/snapshot-all', { method: 'POST' }),
+    advanceTournamentLevel: (id: string, delta = 1) => request<any>(`/api/admin/tournaments/${encodeURIComponent(id)}/level`, { method: 'POST', body: JSON.stringify({ delta }) }),
     users: (filters: Partial<AdminUserFilters> = {}) => {
       const query = usersQuery(filters);
       return request<AdminUserPage>(`/api/admin/users${query ? `?${query}` : ''}`);

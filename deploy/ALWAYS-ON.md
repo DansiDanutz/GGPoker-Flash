@@ -123,3 +123,48 @@ it drops further.
 
 Longer term, this host was never sized for the game server — see the fleet
 assessment in `deploy/README.md` for the dedicated-host recommendation.
+
+
+## Disk headroom (Docker)
+
+The 96 GB droplet can fill with Docker build cache and one `dangro-game:rollback-*` tag per
+deploy. A full disk stops `docker compose build` with `no space left on device` and leaves
+the previous container running. `deploy/prune-docker.sh` keeps the newest three rollback
+tags, prunes the build cache and dangling images, and prints the resulting filesystem line.
+
+Run it weekly (and after any `no space left on device` build):
+
+```cron
+17 4 * * 1 /home/Dexter1981/dangro/deploy/prune-docker.sh >> /home/Dexter1981/dangro/deploy/prune.log 2>&1
+```
+
+The admin **Platform** section shows `Disk free` / used percent (the container overlay is
+backed by the host root filesystem), so pressure is visible before a deploy fails.
+
+
+## Tournament recovery soak
+
+`node tools/tournament-soak.mjs --cycles 2 --rooms 3` starts disposable servers on random
+ports with temporary databases, creates three two-player events, waits for a settled-hand snapshot,
+`SIGKILL`s the server once after every room has a settled snapshot, restarts it on the same
+data directory and asserts that every room, both players and the original table id come
+back. Use `--rooms N` to raise the room count (`1` by default). Run it after changing
+`tournament-room.js`, restart recovery or the tournament scheduler; it never touches the
+production database or the 5197/5198 servers. Exit code 1 means at least one cycle failed.
+
+
+## External health warnings
+
+`GET https://dangg.live/healthz` is public and returns a compact operational summary:
+
+```json
+{"ok":true,"service":"dangro-game","version":"1.1.0","build":"20261112132310",
+ "uptimeSec":1234,"rooms":{"total":13,"stale":0},
+ "disk":{"usedPct":82,"freeBytes":19327352832},"warnings":[]}
+```
+
+`warnings` contains `N stale tournament room(s)` (a room with players and no settled-hand
+snapshot for five minutes) and `disk N% used` (at 90% or more). The Nano watchdog
+(`deploy/nano-uptime-check.sh`) reads the body and sends a Discord alert when the warning
+text changes, in addition to its down/recovered alerts. It needs `python3` on Nano for the
+JSON parse; without it the uptime check still runs and warning alerts are skipped.

@@ -35,6 +35,10 @@ import { createAdminBackupRoute } from './admin-backup.js';
 import { createAdminRestoreRoute } from './admin-restore.js';
 import { createAdminSnapshotRoutes, isValidRetention, RETENTION_SETTING } from './admin-snapshots.js';
 import { createAdminTableDuplicateRoute } from './admin-table-duplicate.js';
+import { buildHealthSummary, buildPlatformReport } from './admin-platform.js';
+import { advanceRoomLevel } from './tournament-controls.js';
+import { TournamentRoomOwner } from './tournament-room-owner.js';
+import { deleteRoomSnapshot, loadRoomSnapshot, saveRoomSnapshot } from './tournament-state.js';
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
@@ -683,6 +687,10 @@ function getLiveTable(id) {
         if (winner && winner.id === s.player.id) bumpMission(s.player.id, 'daily-win');
         if (table.board.length >= 3) bumpMission(s.player.id, 'daily-flop');
       }
+      if (table.cfg.tournamentId) {
+        const room = TOURNAMENT_ROOMS.get(table.cfg.tournamentId);
+        if (room) scheduleTournamentRoomSave(room);
+      }
     },
   });
   const entry = { table, clients: new Set(), timer: null, lastBroadcast: 0 };
@@ -914,10 +922,31 @@ function tournamentTableConfig(t, tournament, index, seats) {
   };
 }
 
-/** The live multi-table room for a tournament, created on first use. */
-function ensureTournamentRoom(t) {
-  const existing = TOURNAMENT_ROOMS.get(t.id);
-  if (existing) return existing;
+/** Persist a running room's seats, stacks, level and finishes for restart recovery. */
+function saveTournamentRoom(room) {
+  try {
+    return ROOM_OWNER.save(room);
+  } catch (err) {
+    console.error('tournament snapshot', room?.id, err);
+    return { ok: false, reason: 'snapshot failed' };
+  }
+}
+
+/** Debounce writes so a busy hand does not serialize the room on every stack change. */
+function scheduleTournamentRoomSave(room) {
+  ROOM_OWNER.schedule(room);
+}
+
+function loadTournamentRoomState(tournamentId) {
+  return loadRoomSnapshot(db, tournamentId);
+}
+
+function deleteTournamentRoomState(tournamentId) {
+  deleteRoomSnapshot(db, tournamentId);
+}
+
+/** Build a live multi-table room; TournamentRoomOwner caches and restores it. */
+function makeTournamentRoom(t) {
   const seats = 6;
   const room = new TournamentRoom({
     id: t.id,
@@ -943,6 +972,7 @@ function ensureTournamentRoom(t) {
       persistBust: ({ tableId, playerId, nick, place, payout }) => {
         const table = LIVE_TABLES.get(tableId)?.table;
         if (table) table.finished.push({ id: playerId, nick, place, payout });
+        scheduleTournamentRoomSave(TOURNAMENT_ROOMS.get(t.id));
         if (payout <= 0) return;
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(playerId);
         if (u) addTransaction(u.id, 'tourney_payout', payout, `${t.name} — finished ${ordinal(place)}`);
@@ -966,21 +996,25 @@ function ensureTournamentRoom(t) {
         }
         db.prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?").run(t.id);
         db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ?').run(t.id);
+        deleteTournamentRoomState(t.id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end',
           `${t.name} winner ${nick} ${prize || 0}`);
       },
     },
   });
-  TOURNAMENT_ROOMS.set(t.id, room);
   return room;
 }
 
-function disposeTournamentRoom(tournamentId, { force = false } = {}) {
-  const room = TOURNAMENT_ROOMS.get(tournamentId);
-  if (!room) return;
-  room.dispose({ force });
-  TOURNAMENT_ROOMS.delete(tournamentId);
-}
+const ROOM_OWNER = new TournamentRoomOwner({
+  rooms: TOURNAMENT_ROOMS,
+  makeRoom: makeTournamentRoom,
+  loadSnapshot: (id) => loadRoomSnapshot(db, id),
+  saveSnapshot: (room) => saveRoomSnapshot(room, { liveTables: LIVE_TABLES, db }),
+  deleteSnapshot: (id) => deleteRoomSnapshot(db, id),
+});
+
+function ensureTournamentRoom(t) { return ROOM_OWNER.ensure(t); }
+function disposeTournamentRoom(tournamentId, options = {}) { return ROOM_OWNER.dispose(tournamentId, options); }
 
 /**
  * Flip a tournament from registering to running and seat its whole field.
@@ -996,6 +1030,7 @@ function startTournament(t) {
   const registrants = db.prepare(`SELECT u.id, u.nick, u.avatar FROM tourney_regs r JOIN users u ON u.id = r.user_id
     WHERE r.tournament_id = ? ORDER BY r.created_at, r.rowid`).all(t.id);
   const { seated, failed } = room.seatRegistrants(registrants, { stack: t.starting_stack });
+  scheduleTournamentRoomSave(room);
   for (const seat of seated) notifyTournamentStarted(t, seat.id, seat.tableId, seat.index);
   for (const miss of failed) console.error('tournament start seat', t.id, miss.id, miss.error);
   return true;
@@ -1040,7 +1075,16 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
-    if (p === '/healthz') return json(res, 200, { ok: true, service: 'dangro-game', time: new Date().toISOString() });
+    if (p === '/healthz') {
+      return json(res, 200, buildHealthSummary({
+        versionInfo: appVersionInfo(),
+        wss,
+        liveTables: LIVE_TABLES,
+        tournamentRooms: TOURNAMENT_ROOMS,
+        db,
+        dbPath: path.join(DATA_DIR, 'ggpoker.db'),
+      }));
+    }
 
     // ---------- auth ----------
     if (p === '/api/auth/login' && req.method === 'POST') {
@@ -1368,6 +1412,7 @@ const server = http.createServer(async (req, res) => {
       table.maybeStart();
       const entry = LIVE_TABLES.get(result.tableId);
       if (entry) broadcastState(table);
+      scheduleTournamentRoomSave(room);
       return json(res, 200, { ok: true, tableId: result.tableId, tableIndex: result.index });
     }
 
@@ -2272,6 +2317,53 @@ const server = http.createServer(async (req, res) => {
       return res.end('\uFEFF' + csv);
     }
 
+    if (p === '/api/admin/platform' || p === '/api/admin/tournaments/live') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const report = buildPlatformReport({
+        versionInfo: appVersionInfo(),
+        wss,
+        liveTables: LIVE_TABLES,
+        tournamentRooms: TOURNAMENT_ROOMS,
+        db,
+        dbPath: path.join(DATA_DIR, 'ggpoker.db'),
+      });
+      if (p.endsWith('/live')) return json(res, 200, { ok: true, now: report.now, tournaments: report.tournaments });
+      return json(res, 200, report);
+    }
+
+    if (p === '/api/admin/tournaments/snapshot-all' && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const result = ROOM_OWNER.snapshotAll();
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'tournament_snapshot_all', `${result.saved}/${result.rooms.length} saved`);
+      return json(res, 200, { ok: true, ...result });
+    }
+
+    if (p.startsWith('/api/admin/tournaments/') && p.endsWith('/snapshot') && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const id = decodeURIComponent(p.split('/')[4]);
+      const room = ROOM_OWNER.get(id);
+      if (!room) return json(res, 404, { error: 'room not running' });
+      const result = ROOM_OWNER.snapshot(id);
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'tournament_snapshot', `${id}: ${result.ok ? `${result.bytes} bytes` : result.reason}`);
+      return json(res, 200, result);
+    }
+
+    if (p.startsWith('/api/admin/tournaments/') && p.endsWith('/level') && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const id = decodeURIComponent(p.split('/')[4]);
+      const room = TOURNAMENT_ROOMS.get(id);
+      if (!room) return json(res, 404, { error: 'room not running' });
+      const body = await readBody(req);
+      const result = advanceRoomLevel(room, { delta: body.delta ?? 1, liveTables: LIVE_TABLES });
+      if (result.ok) {
+        saveTournamentRoom(room);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'tournament_level', `${id}: L${result.level}`);
+      } else {
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'tournament_level', `${id}: skipped ${result.reason}`);
+      }
+      return json(res, 200, result);
+    }
+
     if (p === '/api/admin/stats') {
       const a = requireAdmin(req, res); if (!a) return;
       const users = db.prepare('SELECT COUNT(*) c FROM users WHERE deleted_at IS NULL').get().c;
@@ -2889,10 +2981,13 @@ setInterval(() => {
 
 // Multi-table tournaments rebalance and break short tables between hands.
 setInterval(() => {
-  for (const room of TOURNAMENT_ROOMS.values()) {
-    try { room.sweep(); } catch (err) { console.error('tournament sweep', err); }
-  }
+  try { ROOM_OWNER.sweepAll(); } catch (err) { console.error('tournament sweep', err); }
 }, 2000).unref();
+
+// Stacks change every hand; this also captures a blind level that changed between hands.
+setInterval(() => {
+  try { ROOM_OWNER.scheduleAll(); } catch (err) { console.error('tournament snapshot schedule', err); }
+}, 15000).unref();
 
 function identityTaken(name, exceptUserId = 0) {
   return !!db.prepare('SELECT 1 FROM users WHERE (lower(login) = lower(?) OR lower(nick) = lower(?)) AND id != ?').get(name, name, exceptUserId);
@@ -2915,6 +3010,8 @@ let shuttingDown = false;
 function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
+  // Snapshot tournament rooms before the live tables are closed underneath them.
+  try { ROOM_OWNER.flushAll(); } catch { /* best effort */ }
   try {
     for (const id of [...LIVE_TABLES.keys()]) closeLiveTable(id, 'Client closed');
   } catch (e) {
@@ -2928,8 +3025,17 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+function restoreRunningTournamentRooms() {
+  try {
+    const rows = db.prepare("SELECT * FROM tournaments WHERE status = 'running' AND enabled = 1").all();
+    const restored = ROOM_OWNER.restoreRunning(rows);
+    if (restored) console.log(`tournament rooms restored: ${restored}`);
+  } catch (err) { console.error('tournament boot restore', err); }
+}
+
 const refunded = refundOpenSessions();
 if (refunded) console.log(`refunded ${refunded} open table session(s)`);
+restoreRunningTournamentRooms();
 server.listen(PORT, process.env.GGPOKER_BIND || '127.0.0.1', () => {
   const port = server.address().port;
   console.log(`LISTENING ${port}`);
