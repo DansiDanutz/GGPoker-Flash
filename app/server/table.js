@@ -285,6 +285,7 @@ export class PokerTable {
     const seat = this.seatOf(userId);
     if (!seat?.player) return { ok: false, error: 'Take a seat first' };
     seat.player.waitForBlinds = !!value;
+    if (!value) this.maybeStart(); // Post now: an idle table can deal again
     return { ok: true };
   }
 
@@ -297,11 +298,24 @@ export class PokerTable {
       const s = this.seats[(this.button + i) % this.seats.length];
       if ((s.player && s.player.inHand) || waiting(s)) ring.push(s);
     }
+    // A waiter who has sat through a full orbit without the big blind reaching them (e.g. two
+    // waiters on alternating seats) comes back and posts like any returning player.
+    for (const s of this.seats) {
+      if (!waiting(s)) continue;
+      s.player.waitedHands = (s.player.waitedHands || 0) + 1;
+      if (s.player.waitedHands > this.seats.length) {
+        s.player.waitForBlinds = false;
+        s.player.waitedHands = 0;
+        s.player.inHand = true;
+        s.player.folded = false;
+      }
+    }
     if (ring.length < 3 || waiting(ring[0]) || !waiting(ring[1])) return;
     const p = ring[1].player;
     p.inHand = true;
     p.folded = false;
     p.missedBlinds = false;
+    p.waitedHands = 0;
   }
 
   readySeats() {

@@ -22,6 +22,7 @@ import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
+import { waitingForTable } from './sitOut.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createTableStats } from './table-stats.js';
 import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
@@ -849,7 +850,7 @@ function hasLiveSocket(entry, userId, except = null) {
 /** Native SitOutTimeExpired: a cash seat that sat out past its countdown is cashed out. */
 function sweepExpiredSitOuts(entry) {
   const table = entry.table;
-  table.refreshSitOutClocks(Date.now(), waitlist.queueSize(waitState, waitlist.tableQueue(table.cfg.id)));
+  table.refreshSitOutClocks(Date.now(), waitingForTable(table.cfg, (key) => waitlist.queueSize(waitState, key)));
   for (const id of table.expiredSitOuts()) {
     table.emit({ type: 'sit_out_expired', playerId: id });
     cashOutSeat(table, id, `Sit-out time expired at ${table.cfg.name}`);
