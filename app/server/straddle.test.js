@@ -129,3 +129,23 @@ test('the auto-straddle flag is per player and shows on the own seat only', () =
   assert.equal(other.autoStraddle, undefined);
   assert.equal(t.setAutoStraddle('nobody', true).ok, false);
 });
+
+test('after an all-in above the offer the next ask doubles the live bet (Codex review #58)', () => {
+  const t = table(4);
+  t.startHand();
+  assert.equal(t.decideStraddle('p3', 'allin').ok, true); // 200 on the 4 prompt
+  assert.equal(t.currentBet, 200);
+  assert.equal(t.straddleRound.amount, 400, 'next straddle is twice the live bet, not 8');
+  assert.equal(t.decideStraddle('p0', 'yes').ok, false, 'a 200 stack cannot straddle to 400');
+  t.decideStraddle('p0', 'no');
+  assert.equal(t.actor, 'p0', 'action opens left of the all-in straddler');
+});
+
+test('a short all-in below the offer keeps the doubled offer and does not take the button of action', () => {
+  const t = table(4, {}, [200, 200, 200, 3]);
+  t.startHand();
+  t.decideStraddle('p3', 'allin'); // 3 on the 4 prompt
+  assert.equal(t.straddleRound.amount, 8);
+  t.decideStraddle('p0', 'no');
+  assert.equal(t.actor, 'p0', 'UTG all-in, action moves on to the next player');
+});

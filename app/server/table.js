@@ -592,8 +592,12 @@ export class PokerTable {
     p.lastAction = { action: 'Straddle', amount: p.bet };
     if (p.stack === 0) p.allIn = true;
     this.pendingDeal.straddled.add(p.id);
-    this.pendingDeal.straddleSeat = seat;
-    if (p.bet > this.currentBet) { this.currentBet = p.bet; this.minRaise = p.bet; }
+    // Only a straddle that sets the live bet moves the start of preflop action.
+    if (p.bet > this.currentBet) {
+      this.currentBet = p.bet;
+      this.minRaise = p.bet;
+      this.pendingDeal.straddleSeat = seat;
+    }
   }
 
   decideStraddle(playerId, decision) {
@@ -611,7 +615,8 @@ export class PokerTable {
     if (decision !== 'yes' && decision !== 'allin') return { ok: false, error: 'Unknown straddle decision' };
     this.straddleRound = null;
     this.postStraddle(seat, decision === 'allin' ? allInTo : round.amount);
-    if (!this.openStraddleRound(round.amount * 2)) this.dealAndOpen();
+    // The next offer doubles the live bet: an all-in above the offer raises it (Codex #58).
+    if (!this.openStraddleRound(Math.max(round.amount, this.currentBet) * 2)) this.dealAndOpen();
     return { ok: true };
   }
 
