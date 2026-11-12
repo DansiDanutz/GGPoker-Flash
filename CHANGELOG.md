@@ -6,6 +6,9 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Wait lists
+- Added a pure, immutable wait-list model (`app/server/waitlist.js`, P0 slice W1): FIFO table and group queues with DanGG caps (10 per table, 25 per group, 4 per player), 30 s seat offers that pass to #2 on expiry, and group joins that resolve to the first free table. Not yet wired into the server.
+
 ### Mobile table layout and the native turn clock
 - The table now genuinely fits **portrait phones, landscape phones and tablets**:
   - portrait 390×844: two-row action bar, scaled seat rings/cards, no overflow;
