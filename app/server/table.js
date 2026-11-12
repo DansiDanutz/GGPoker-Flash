@@ -1,3 +1,4 @@
+import { buildPots, oddChipOrder } from './pots.js';
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
@@ -845,6 +846,26 @@ export class PokerTable {
     this.currentBet = Math.min(this.currentBet, Math.max(highest, p.bet));
   }
 
+  /**
+   * Pots for settlement from every contribution this hand, including departed seats.
+   * A layer only one live player paid into is credited straight back to them; a departed
+   * seat cannot take chips back, so its (rare) unmatched layer stays in the top pot.
+   */
+  settlementPots() {
+    const live = this.seats.filter((s) => s.player && s.player.totalBet > 0).map((s) => s.player);
+    const contributions = [
+      ...live.map((p) => ({ key: p.id, amount: p.totalBet, folded: !!p.folded })),
+      ...this.ghosts.filter((g) => g.totalBet > 0).map((g) => ({ key: g, amount: g.totalBet, folded: true })),
+    ];
+    const { pots, returns } = buildPots(contributions);
+    for (const r of returns) {
+      const p = live.find((x) => x.id === r.key);
+      if (p) { p.stack += r.amount; this.pot -= r.amount; }
+      else if (pots.length) pots[pots.length - 1].amount += r.amount;
+    }
+    return pots;
+  }
+
   // Give back the part of the largest bet that nobody matched, so it is never raked or contested.
   returnUncalledBet() {
     const bets = [
@@ -898,24 +919,8 @@ export class PokerTable {
     });
     const scored = [evaluate(board1), evaluate(board2)];
 
-    const contributions = this.seats
-      .filter((s) => s.player && s.player.totalBet > 0)
-      .map((s) => ({ player: s.player, amount: s.player.totalBet, folded: s.player.folded }));
-    const levels = [...new Set(contributions.map((c) => c.amount))].sort((a, b) => a - b);
-    const pots = [];
-    let prev = 0;
-    for (const level of levels) {
-      let amount = 0;
-      for (const c of contributions) amount += Math.max(0, Math.min(c.amount, level) - prev);
-      const ids = contributions
-        .filter((c) => !c.folded && c.amount >= level)
-        .map((c) => c.player.id);
-      if (amount > 0 && ids.length) pots.push({ amount, ids });
-      prev = level;
-    }
-    const totalContrib = contributions.reduce((a, c) => a + c.amount, 0);
-    const potsTotal = pots.reduce((a, p) => a + p.amount, 0);
-    if (totalContrib > potsTotal) pots.push({ amount: totalContrib - potsTotal, ids: alive.map((s) => s.player.id) });
+    // Same native settlement as a single board, including chips left by departed seats.
+    const pots = this.settlementPots().map((pot) => ({ amount: pot.amount, ids: pot.eligible }));
     const rake = this.computeRake(this.pot);
     this.rake = rake;
     let remain = rake;
@@ -933,7 +938,9 @@ export class PokerTable {
       if (!candidates.length) return;
       let best = null;
       for (const sc of candidates) if (!best || compareScores(sc.score, best.score) > 0) best = sc;
-      const winners = candidates.filter((sc) => compareScores(sc.score, best.score) === 0);
+      const tied = candidates.filter((sc) => compareScores(sc.score, best.score) === 0);
+      const order = oddChipOrder(tied.map((sc) => sc.seat), this.button, this.seats.length);
+      const winners = order.map((seat) => tied.find((sc) => sc.seat === seat));
       const share = Math.floor(amount / winners.length);
       let remainder = amount - share * winners.length;
       for (const w of winners) {
@@ -1066,30 +1073,11 @@ export class PokerTable {
       const best = this.omaha ? bestOmaha(p.cards, this.board) : bestHoldem(p.cards, this.board, this.shortDeck);
       return { seat: s.index, player: p, score: best.score, name: best.name, cards: best.cards };
     });
-    // side pots from totalBet contributions
-    const contributions = [
-      ...this.seats.filter((s) => s.player && s.player.totalBet > 0)
-        .map((s) => ({ id: s.player.id, amount: s.player.totalBet })),
-      ...this.ghosts.filter((g) => g.totalBet > 0).map((g) => ({ id: g.id, amount: g.totalBet })),
-    ];
-    const levels = [...new Set(contributions.map((c) => c.amount))].sort((a, b) => a - b);
-    let prev = 0;
-    const pots = [];
-    for (const level of levels) {
-      let amount = 0;
-      for (const c of contributions) {
-        amount += Math.max(0, Math.min(c.amount, level) - prev);
-      }
-      const eligible = scored.filter((sc) => contributions.find((c) => c.id === sc.player.id && c.amount >= level));
-      if (amount > 0) pots.push({ amount, eligible });
-      prev = level;
-    }
-    // handle any dead money
-    const totalContrib = contributions.reduce((a, c) => a + c.amount, 0);
-    const potsTotal = pots.reduce((a, p) => a + p.amount, 0);
-    if (totalContrib > potsTotal) {
-      pots.push({ amount: totalContrib - potsTotal, eligible: scored });
-    }
+    // Native settlement (server/pots.js): merged contribution layers, unmatched layers returned.
+    const pots = this.settlementPots().map((pot) => ({
+      amount: pot.amount,
+      eligible: scored.filter((sc) => pot.eligible.includes(sc.player.id)),
+    }));
     const rake = this.rakeFor(this.pot);
     this.rake = rake;
     if (rake > 0 && pots.length) {
@@ -1108,7 +1096,10 @@ export class PokerTable {
       for (const sc of pot.eligible) {
         if (!best || compareScores(sc.score, best.score) > 0) best = sc;
       }
-      const winners = pot.eligible.filter((sc) => compareScores(sc.score, best.score) === 0);
+      const tied = pot.eligible.filter((sc) => compareScores(sc.score, best.score) === 0);
+      // Odd chips go clockwise from the first winner left of the button (native settlePots).
+      const order = oddChipOrder(tied.map((sc) => sc.seat), this.button, this.seats.length);
+      const winners = order.map((seat) => tied.find((sc) => sc.seat === seat));
       const share = Math.floor(pot.amount / winners.length);
       let remainder = pot.amount - share * winners.length;
       for (const w of winners) {

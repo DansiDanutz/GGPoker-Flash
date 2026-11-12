@@ -76,11 +76,12 @@ test('showdown builds side pots and conserves chips', () => {
   const t = tableWith([p1, p2, p3]);
   t.board = ['Qs', 'Js', 'Ts', '2d', '3c'].map(C);
   t.doShowdown();
-  // Main pot 900 minus 80 rake goes to the royal flush; the 700 side pot returns to the only player who funded it.
-  assert.equal(p1.stack, 1820);
+  // The 700 only Big paid into goes straight back to Big and is not raked (native
+  // net-pot-display); the 900 main pot minus 5% rake (45) goes to the royal flush.
+  assert.equal(p1.stack, 1855);
   assert.equal(p2.stack, 1700);
   assert.equal(p3.stack, 1000);
-  assert.equal(t.rake, 80);
+  assert.equal(t.rake, 45);
   assert.equal(p1.stack + p2.stack + p3.stack + t.rake, 3000 + 300 + 1000 + 300);
 });
 
