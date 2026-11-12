@@ -94,7 +94,7 @@ export function playerHud(rows, nick) {
 
 /** VPIP % for each nick at this table (native seat badge); 0 for a player with no hands. */
 export function seatVpips(rows, nicks) {
-  const out = {};
+  const out = Object.create(null); // nicks like __proto__ must stay plain keys
   for (const nick of nicks) out[nick] = playerHud(rows, nick).vpip;
   return out;
 }

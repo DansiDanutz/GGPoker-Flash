@@ -112,5 +112,11 @@ test('seatVpips: VPIP for every requested nick in one pass, 0 without hands', ()
     row(1, 30, [{ nick: 'v', cards: ['9h', '4d'] }, { nick: 'h', cards: ['Kc', 'Qd'] }],
       [{ nick: 'v', action: 'fold', street: 'preflop' }, { nick: 'h', action: 'check', street: 'preflop' }]),
   ];
-  assert.deepEqual(seatVpips(rows, ['v', 'h', 'new']), { v: 50, h: 50, new: 0 });
+  assert.deepEqual({ ...seatVpips(rows, ['v', 'h', 'new']) }, { v: 50, h: 50, new: 0 });
+});
+
+test('seatVpips: a __proto__ nick is kept as a plain own key', () => {
+  const out = seatVpips([], ['__proto__']);
+  assert.equal(Object.hasOwn(out, '__proto__'), true);
+  assert.equal(JSON.parse(JSON.stringify(out)).__proto__, 0);
 });

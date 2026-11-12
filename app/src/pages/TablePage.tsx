@@ -33,6 +33,7 @@ import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
+import { vpipOf } from '../game/seatVpip';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
 type PlayerState = {
@@ -1205,7 +1206,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <div className="face">
                 <Avatar name={p.nick || '?'} src={p.avatar} size={54} />
               </div>
-              {p.nick && <span className="vpip-badge" title="VPIP at this table">{seatVpip[p.nick] ?? 0}</span>}
+              {p.nick && <span className="vpip-badge" title="VPIP at this table">{vpipOf(seatVpip, p.nick)}</span>}
             </div>
             <div className="plate">
               <div className="nm" title={p.nick || undefined}>{seatNick(p.nick)}</div>
