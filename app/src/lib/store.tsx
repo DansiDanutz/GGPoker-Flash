@@ -77,9 +77,22 @@ function currentRoute() {
   return h || '/';
 }
 
+/** True only after this browser session has passed the login/guest screen. */
+function enteredThisSession() {
+  try { return sessionStorage.getItem('ggpoker.entered') === '1'; } catch { return false; }
+}
+
+function markEntered() {
+  try { sessionStorage.setItem('ggpoker.entered', '1'); } catch { /* private mode */ }
+}
+
+function clearEntered() {
+  try { sessionStorage.removeItem('ggpoker.entered'); } catch { /* private mode */ }
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [guest, setGuest] = useState(() => typeof window !== 'undefined' && localStorage.getItem('ggpoker.guest') === '1');
+  const [guest, setGuest] = useState(() => typeof window !== 'undefined' && enteredThisSession() && localStorage.getItem('ggpoker.guest') === '1');
   const [demoAccount, setDemoAccount] = useState(false);
   // Pending install from an earlier visit (account created but app not added).
   const [installGate, setInstallGate] = useState(() => installPending());
@@ -143,6 +156,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
+      // Every fresh app open goes to the login screen. The saved credentials
+      // stay on the device, but the old session does not survive the reopen.
+      if (!enteredThisSession()) {
+        setToken(null);
+        localStorage.removeItem('ggpoker.guest');
+        setGuest(false);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       await refreshUser(3);
       setLoading(false);
     })();
@@ -242,6 +265,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const enterGuest = useCallback(() => {
+    markEntered();
     localStorage.setItem('ggpoker.guest', '1');
     setGuest(true);
   }, []);
@@ -274,6 +298,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (loginId: string, pw: string) => {
     const res = await api.login(loginId, pw);
+    markEntered();
     setToken(res.token);
     localStorage.removeItem('ggpoker.guest');
     setGuest(false);
@@ -283,6 +308,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const register = useCallback(async (data: { login: string; nick: string; password: string; email?: string }) => {
     const res = await api.register(data);
+    markEntered();
     setToken(res.token);
     localStorage.removeItem('ggpoker.guest');
     setGuest(false);
@@ -298,6 +324,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try { await api.logout(); } catch { /* ignore */ }
+    clearEntered();
     setToken(null);
     localStorage.removeItem('ggpoker.guest');
     setGuest(false);

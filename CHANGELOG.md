@@ -6,6 +6,19 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Login-first startup and update-before-login
+- A fresh app open now always lands on the **login screen**. Opening the app discards the
+  old session token but keeps the saved credentials; a reload in the same tab keeps the
+  session, so the forced-update reload does not log the player out.
+- **Remember me** is on by default and stores the account ID and password on this device
+  (play-money only; uncheck it to delete them). The next open is prefilled and ready.
+- Pressing **Log in** now checks the deployed build **before** creating the session: if the
+  client is stale it clears its caches, updates and reloads, then uses the saved credentials
+  to finish the login automatically — the player enters the game on the latest version.
+- Tests: the fresh-open/login/reload/new-tab flow and a deploy-while-on-login run were
+  exercised in headless Chrome (old client → update → auto-login → lobby).
+
+## 2026-11-12
 ### Version numbers and forced updates
 - Every build now has a visible version: the app is **v1.1.0** and each deploy stamps a
   numeric build id (`YYYYMMDDHHmmss`, shown as a readable date/time). The version appears in

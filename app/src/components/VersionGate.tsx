@@ -1,43 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
+import { dropStaleCaches, isCurrentVersion, readServerVersion, reloadForBuild, type ServerVersion } from '../lib/versionCheck';
 
 type Phase = 'checking' | 'ready' | 'updating' | 'blocked';
-type ServerVersion = { version: string; build: string; time?: string | null };
 
 const ATTEMPTS_KEY = 'ggpoker.versionAttempts';
-
-async function readServerVersion(): Promise<ServerVersion | null> {
-  try {
-    const res = await fetch(`/api/version?t=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data || typeof data.version !== 'string' || typeof data.build !== 'string') return null;
-    return data as ServerVersion;
-  } catch {
-    return null;
-  }
-}
-
-/** A build without dist/version.json reports `dev`; never lock local dev. */
-function isCurrent(server: ServerVersion): boolean {
-  if (server.build === 'dev' || server.version === 'dev') return true;
-  return server.version === APP_VERSION && server.build === APP_BUILD;
-}
-
-async function dropStaleCaches() {
-  try {
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((key) => caches.delete(key)));
-    }
-  } catch { /* cache API unavailable */ }
-  try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((reg) => reg.unregister()));
-    }
-  } catch { /* worker API unavailable */ }
-}
 
 export function VersionGate({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>('checking');
@@ -57,18 +24,13 @@ export function VersionGate({ children }: { children: React.ReactNode }) {
       return;
     }
     await dropStaleCaches();
-    // Always navigate to a new URL; replacing with the identical URL can be a
-    // no-op in some browsers and would leave the gate spinning forever.
-    const url = new URL(window.location.href);
-    url.searchParams.set('v', server.build);
-    url.searchParams.set('u', String(Date.now()));
     window.setTimeout(() => setPhase('blocked'), 6000);
-    window.location.replace(url.toString());
+    reloadForBuild(server);
   }, []);
 
   const check = useCallback(async (initial: boolean) => {
     const server = await readServerVersion();
-    if (!server || isCurrent(server)) {
+    if (!server || isCurrentVersion(server)) {
       if (initial) {
         sessionStorage.removeItem(ATTEMPTS_KEY);
         setPhase('ready');
