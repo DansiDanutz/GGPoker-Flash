@@ -11,8 +11,17 @@ The project started as a local desktop clone and became the live play-money room
   flights sized within one seat of each other, chip-preserving balancing moves off the
   biggest table, whole-field balancing, and table breaks that retire a short table only
   when every player has a seat elsewhere. Nine tests cover the invariants, including chip
-  conservation and the unbreakable-table case. Wiring the engine into the live scheduler
-  and table-break flow is the next step.
+  conservation and the unbreakable-table case.
+- Added the flight **allocation rule** (`nextTableIndex`): fill a table before opening the
+  next, never exceed the flight cap; and the canonical `tournamentTableIds` helper that
+  keeps the legacy `tourney-<id>` table first and covers every flight index.
+- Unregistration now checks **every flight**, not just the legacy table, so a seated
+  player cannot unregister out of a running tournament. Full suite 109/109.
+- Wiring the seating engine into the live scheduler and table-break flow is the next step.
+
+### Design
+- Added the consolidated replica gap analysis (Codex evidence → DanGG build plan) in
+  `docs/designs/replica-gap-analysis.md`.
 
 ### Sign-up and login experience
 - Rebuilt the sign-up/login screen: segmented Log in / Create account tabs, an
@@ -74,7 +83,7 @@ The project started as a local desktop clone and became the live play-money room
 - Session handling, origin allowlists and admin allowlists hardened as part of the
   2026-11-11 audit (betting order, all-in/side-pot handling, rake and leave-table bugs;
   chip-minting paths; hand-history privacy; local-server attack surface).
-- Server suite grown to **106** `node:test` cases, including chip-conservation simulations
+- Server suite grown to **109** `node:test` cases, including chip-conservation simulations
   and a PWA-shell test; `tsc --noEmit` and the production build run in CI.
 
 ## Earlier — 2026-11-11

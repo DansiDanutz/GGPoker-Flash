@@ -45,7 +45,7 @@ Other players ────────────┘                       │
 | `db.js` | Schema, migrations, seed data, user/session helpers, ledger helpers |
 | `security.js` | Origin/host allowlists, security headers, CSP, rate limiting helpers |
 | `validate.js` | Input validation and normalisation |
-| `tournament.js` | Pure multi-table seating: flights, chip-preserving balancing moves, table breaks |
+| `tournament.js` | Pure multi-table seating: flights, allocation rule, canonical flight ids, chip-preserving balancing moves, table breaks |
 | `slots.js` | Server-authoritative slot engine |
 | `hand-history.js` | Hand snapshots for the history/replay view |
 | `avatar.js` | PNG validation and avatar normalisation |
