@@ -423,7 +423,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       const s = stateRef.current;
       // Showdowns turn the cards in seat order before the badge and pot move.
       const isShowdown = evt.reason === 'showdown';
-      const revealSeats = isShowdown ? (evt.hands || []).map((h: any) => h.seat) : [];
+      const revealSeats = isShowdown ? (evt.hands || []).filter((h: any) => h.cards).map((h: any) => h.seat) : [];
       const plan = isShowdown ? showdownPlan(revealSeats) : [];
       const fxAt = isShowdown ? showdownComplete(revealSeats) : 0;
       setFocusReady(false);

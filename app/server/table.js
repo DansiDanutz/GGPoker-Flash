@@ -952,10 +952,10 @@ export class PokerTable {
       winners: results, runItTwice: true, reason: 'showdown',
       hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
     };
-    this.result = summary;
+    this.result = this.publicShowdown(summary);
     this.street = 'ended';
     this.nextHandAt = Date.now() + this.showdownDelay;
-    this.emit({ type: 'win', ...summary });
+    this.emit({ type: 'win', ...this.result });
     this.saveHand(summary);
     this.updateMissionProgress(results[0] || null);
   }
@@ -1119,11 +1119,11 @@ export class PokerTable {
       })),
       reason: 'showdown',
     };
-    this.result = summary;
+    this.result = this.publicShowdown(summary);
     this.street = 'ended';
     this.actor = null;
     this.nextHandAt = Date.now() + this.showdownDelay;
-    this.emit({ type: 'win', ...summary });
+    this.emit({ type: 'win', ...this.result });
     this.saveHand(summary);
     this.updateMissionProgress(results[0]);
   }
@@ -1132,6 +1132,19 @@ export class PokerTable {
     if (this.hooks.onHandComplete) {
       this.hooks.onHandComplete({ table: this, winner, summary: this.result });
     }
+  }
+
+  /**
+   * The showdown summary every listener may see: hands that were mucked keep their
+   * seat (for the reveal order) but lose their cards. The full summary is only saved
+   * to hand history, which filters per viewer on read.
+   */
+  publicShowdown(summary) {
+    const revealed = (seat) => !!this.seats[seat]?.player?.reveal;
+    return {
+      ...summary,
+      hands: (summary.hands || []).map((h) => (revealed(h.seat) ? h : { ...h, cards: null, hand: null })),
+    };
   }
 
   saveHand(summary) {
