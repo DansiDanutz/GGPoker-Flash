@@ -120,3 +120,21 @@ export function breakTables(tables, tableIds, seatsPerTable) {
   }
   return { tables: current, moves, broken };
 }
+
+/**
+ * Pick the flight table a joining human should be seated at.
+ *
+ * `occupancies` is the current human count per table in order, `seats` the
+ * capacity of one table, `maxTables` the most flights this event may open.
+ * Returns a 1-based table index. A new table is only opened when every
+ * existing one is full, so humans cluster instead of scattering one per table.
+ */
+export function nextTableIndex(occupancies, seats, maxTables) {
+  if (seats <= 0) throw new Error('seats must be positive');
+  if (maxTables <= 0) throw new Error('maxTables must be positive');
+  for (let i = 0; i < occupancies.length && i < maxTables; i += 1) {
+    if (occupancies[i] < seats) return i + 1;
+  }
+  if (occupancies.length >= maxTables) return null;
+  return occupancies.length + 1;
+}
