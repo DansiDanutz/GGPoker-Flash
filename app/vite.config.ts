@@ -12,6 +12,9 @@ const now = new Date();
 const pad = (n: number) => String(n).padStart(2, '0');
 const BUILD = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`;
 const BUILT_AT = now.toISOString();
+// The deploy passes the exact commit it built (GIT_SHA build argument) so /healthz can prove what runs.
+const GIT_SHA = String(process.env.GIT_SHA || '').trim().toLowerCase();
+const COMMIT = /^[0-9a-f]{7,40}$/.test(GIT_SHA) ? GIT_SHA : null;
 
 function appVersionPlugin(): Plugin {
   return {
@@ -21,7 +24,7 @@ function appVersionPlugin(): Plugin {
       const dist = path.resolve('dist');
       fs.writeFileSync(
         path.join(dist, 'version.json'),
-        JSON.stringify({ version: VERSION, build: BUILD, time: BUILT_AT }, null, 2) + '\n',
+        JSON.stringify({ version: VERSION, build: BUILD, time: BUILT_AT, commit: COMMIT }, null, 2) + '\n',
       );
       // Each build gets its own worker cache name; the browser sees new bytes
       // and installs it, which also lets the update gate reload cleanly.

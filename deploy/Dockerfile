@@ -9,7 +9,9 @@ COPY app/package.json app/pnpm-lock.yaml ./app/
 WORKDIR /src/app
 RUN pnpm install --frozen-lockfile
 COPY app/ ./
-RUN pnpm build
+# The commit being deployed; written to dist/version.json and reported by /healthz.
+ARG GIT_SHA=""
+RUN GIT_SHA="$GIT_SHA" pnpm build
 
 FROM node:26-bookworm-slim AS runtime
 
