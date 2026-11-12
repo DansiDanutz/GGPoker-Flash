@@ -6,6 +6,19 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Table fidelity: taking the best of both
+- Audited the reference clone's table view against DanGG's
+  (`docs/designs/table-fidelity-audit.md`) and adopted the native pieces DanGG lacked while
+  keeping DanGG's responsive ring, themes and action bar:
+  - **Native chip sprites** for the pot and wagers, with denomination columns (9-chip pot,
+    4-chip wager cap); the pot pile now hugs the pot label.
+  - **Native dealer disc** instead of the “D” pill.
+  - **Native 46-frame WIN APNG** on winners, with the final frame when animations are off.
+  - **Dealer-origin board throw** and a staggered flop, replacing the uniform centre slide.
+  - **Larger fanned hole cards** (58×81, 66×92 for the hero) with a phone fallback.
+- Tests: added the wager cap assertion. Full suite 155/155.
+
+## 2026-11-12
 ### Showdown sequencing and native reserved actions (ported from the Codex clone)
 - Showdowns now present like the clone: revealed hands turn in **seat order over about two
   seconds**, then the win badge, chip flights and win sound follow instead of appearing at
