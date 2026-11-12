@@ -7,7 +7,7 @@ import { TitleBar } from '../components/TitleBar';
 import { Avatar } from '../components/Avatar';
 import { WaitlistSideActions } from '../components/WaitlistSideActions';
 import { waitCount } from '../lib/waitlist';
-import { DEFAULT_TAB_FILTERS, filterTables, filtersForTab, FilterPrefs, readFilterPrefs, resetExtraFilters, sortTables, SortKey, TabFilters, withTabFilters, writeFilterPrefs } from '../lib/lobbyFilters';
+import { DEFAULT_TAB_FILTERS, filterTables, filtersForTab, FilterPrefs, readFilterPrefs, resetExtraFilters, sortTables, SortKey, TabFilters, UNAVAILABLE_TABS, withTabFilters, writeFilterPrefs } from '../lib/lobbyFilters';
 import { LobbyPills } from '../components/LobbyPills';
 import { LobbyFiltersPopover } from '../components/LobbyFiltersPopover';
 import { LobbyGroupRows } from '../components/LobbyGroupRows';
@@ -137,7 +137,9 @@ export function Lobby() {
 
   const isRushTab = gameTab === 'rush';
   const rushPools = useMemo(() => (isRushTab ? visiblePools(data?.rushPools || [], tables) : []), [isRushTab, data, tables]);
-  const table = data?.tables.find((t: LobbyTable) => t.id === selected) || null;
+  // A capture-gated tab (Battle Royale) shows an honest empty state: no rows, no Join.
+  const unavailable = UNAVAILABLE_TABS[gameTab];
+  const table = unavailable ? null : data?.tables.find((t: LobbyTable) => t.id === selected) || null;
   const previewPlayers = useMemo(() => {
     if (!table) return [];
     const names = ['tropicalTit', 'psyhoagromc', 'Mikhail Ryko', 'GGChamp', 'SpewySally', 'NitWizard', 'RiverRat'];
@@ -362,7 +364,7 @@ export function Lobby() {
             <LobbyFiltersPopover filters={filters} tableCount={tables.length} onChange={setFilter} onReset={() => setFilter(resetExtraFilters(filters))} />
           </div>
           <div className="table-list" key={gameTab}>
-            {viewMode === 'table' && !isRushTab && <div className="list-head">
+            {viewMode === 'table' && !isRushTab && !unavailable && <div className="list-head">
               <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
               <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
               <div>Buy-in</div>
@@ -372,7 +374,12 @@ export function Lobby() {
               <div>VPIP% <i className="est-dot" title="Estimated demo value; not live" /></div><div>H/hr <i className="est-dot" title="Estimated demo value; not live" /></div>
             </div>}
             <div className="list-scroll">
-              {isRushTab ? (
+              {unavailable ? (
+                <div className="list-empty" role="status">
+                  <strong>{unavailable.title}</strong>
+                  <div>{unavailable.detail}</div>
+                </div>
+              ) : isRushTab ? (
                 <RushPoolRows pools={rushPools} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
               ) : viewMode === 'group' ? (
                 <LobbyGroupRows tab={gameTab} tables={tables} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
@@ -402,7 +409,7 @@ export function Lobby() {
                   <div>{t.handsPerHour}</div>
                 </div>
               ))}
-              {!tables.length && (
+              {!tables.length && !unavailable && (
                 <div className="list-empty">No tables match these filters.{' '}
                   <button type="button" className="lob-link" onClick={() => setFilter(DEFAULT_TAB_FILTERS)}>Reset filters</button>
                 </div>

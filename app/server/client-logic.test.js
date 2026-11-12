@@ -15,7 +15,7 @@ import {
 import {
   TAB_GAMES, pillsFor, columnsFor, COLUMN_LABEL, variantOf, VARIANT_LABEL, tableSizeChip, promotionOf,
   DEFAULT_TAB_FILTERS, filtersForTab, withTabFilters, parseFilterPrefs, filterTables, sortTables,
-  activeFilterCount, resetExtraFilters, SEARCH_MAX, groupTables, tableGroupKey,
+  activeFilterCount, resetExtraFilters, SEARCH_MAX, groupTables, tableGroupKey, UNAVAILABLE_TABS,
 } from '../src/lib/lobbyFilters.ts';
 import {
   poolVariant, sortPools, visiblePools, poolTables, poolAsGroup, playersLabel, chipsWonLabel, countryFlag, leaderboardRows,
@@ -267,6 +267,17 @@ test('Table Size chip: green 6-Max up to six seats, yellow 9-Max above', () => {
   assert.deepEqual(tableSizeChip(3), { label: '3-Max', tone: '6max' });
   assert.equal(promotionOf(lt({ featured: true })), 'Featured');
   assert.equal(promotionOf(lt({ category: 'Diamond' })), 'Diamond');
+});
+
+test('Battle Royale tab: honest empty-state copy and no joinable rows', () => {
+  assert.deepEqual(UNAVAILABLE_TABS.battle, {
+    title: 'Battle Royale is not available in DanGG yet',
+    detail: 'Native rules and payout format have not been captured; no format is invented here.',
+  });
+  const rows = [lt({ id: 'br', game: 'battleroyale' }), lt({ id: 'h', game: 'holdem' })];
+  assert.deepEqual(ids(filterTables(rows, query('battle'))), [], 'the Battle tab never lists rows');
+  assert.deepEqual(ids(filterTables(rows, query('home'))), ['h'], 'Home never lists a Battle Royale row');
+  assert.equal(UNAVAILABLE_TABS.holdem, undefined, 'other tabs are unaffected');
 });
 
 test('pills filter rows to the right game ids', () => {

@@ -13,6 +13,20 @@ export const TAB_GAMES: Readonly<Record<string, readonly string[]>> = {
   battle: ['battleroyale'],
 };
 
+/**
+ * Lobby tabs whose format is capture-gated: the native rules and payouts are unobserved, so
+ * the tab shows this copy instead of rows and never offers Join (P0 slice B0).
+ */
+export const UNAVAILABLE_TABS: Readonly<Record<string, { readonly title: string; readonly detail: string }>> = {
+  battle: {
+    title: 'Battle Royale is not available in DanGG yet',
+    detail: 'Native rules and payout format have not been captured; no format is invented here.',
+  },
+};
+
+/** Server game ids that are never offered for join, whatever the server sends. */
+const UNAVAILABLE_GAMES: readonly string[] = ['battleroyale'];
+
 /** A table's poker variant, used by the pills, the Games chip and the row accent. */
 export type Variant = 'holdem' | 'plo' | 'plo5' | 'plo6';
 
@@ -212,10 +226,12 @@ const canSitNow = (t: LobbyTable) => !isFull(t) && !hasQueue(t);
 
 /** The lobby list for a tab: tab games, pill, stake/seat/speed, search, favourites, Hide full and Has seats. */
 export function filterTables(tables: readonly LobbyTable[], q: FilterQuery): LobbyTable[] {
+  if (UNAVAILABLE_TABS[q.tab]) return [];
   const games = TAB_GAMES[q.tab] ?? [];
   const needle = q.search.trim().toLowerCase();
   return tables.filter((t) =>
-    (!games.length || games.includes(t.game))
+    !UNAVAILABLE_GAMES.includes(t.game)
+    && (!games.length || games.includes(t.game))
     && matchesPill(t, q.tab, q.pill)
     && matchesStake(t.bb, q.stake)
     && (q.seats === 'all' || t.seats === Number(q.seats))

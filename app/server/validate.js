@@ -1,4 +1,5 @@
 // Input validation helpers shared by the HTTP and WebSocket handlers.
+import { BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
 
 export const GAMES = Object.freeze(['holdem', 'omaha', 'omaha5', 'shortdeck', 'rush', 'rushplo', 'aof', 'spingold', 'battleroyale', 'flipandgo']);
 /** Rush & Cash game ids: Hold'em pools (`rush`) and pot-limit Omaha pools (`rushplo`). */
@@ -41,6 +42,7 @@ export function cleanNick(value) {
 export function parseTableConfig(body) {
   const game = String(body.game || 'holdem');
   if (!GAMES.includes(game)) return { ok: false, error: `Unknown game "${game}"` };
+  if (isBattleRoyale(game)) return { ok: false, error: BATTLE_ROYALE_UNAVAILABLE };
   const sb = toInt(body.sb ?? 100, { min: 1, max: 1e9 });
   const bb = toInt(body.bb ?? 200, { min: 2, max: 1e9 });
   const ante = toInt(body.ante ?? 0, { min: 0, max: 1e9 });

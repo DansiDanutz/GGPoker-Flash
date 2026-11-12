@@ -34,6 +34,7 @@ import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
+import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -244,7 +245,8 @@ function lobbyMissions(user) {
 }
 
 function lobbyTables(userId = null) {
-  const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(userId);
+  // Battle Royale is capture-gated (B0): never listed for join, even if a row is re-enabled.
+  const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND game != ? AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(BATTLE_ROYALE_GAME, userId);
   return rows.map((t) => {
     const occ = occupancyFor(t);
     const seed = [...t.id].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -521,7 +523,8 @@ function tableRow(id) {
 function getLiveTable(id) {
   if (LIVE_TABLES.has(id)) return LIVE_TABLES.get(id).table;
   const row = CUSTOM_CFG.get(id) || tableRow(id);
-  if (!row) return null;
+  // No live Battle Royale table is ever built: its rules are unverified (B0).
+  if (!row || isBattleRoyale(row.game)) return null;
   const cfg = {
     ...row,
     botSpeed: getSetting('bot_speed_ms', 900),
@@ -2550,6 +2553,9 @@ wss.on('connection', (ws, req) => {
       }
     }
     if (msg.type === 'join_table') {
+      if (isBattleRoyale(tableRow(msg.tableId)?.game)) {
+        return ws.send(JSON.stringify({ type: 'error', error: BATTLE_ROYALE_UNAVAILABLE }));
+      }
       const table = getLiveTable(msg.tableId);
       if (!table) return ws.send(JSON.stringify({ type: 'error', error: 'table not found' }));
       const entry = LIVE_TABLES.get(msg.tableId);

@@ -483,7 +483,7 @@ Last in the build order. The rules are only partly observed.
 
 | # | Slice | Files | Tests |
 |---|---|---|---|
-| B0 | **Stop mislabelled play.** A migration sets `enabled = 0` for `game = 'battleroyale'`, and `join_table` refuses `battleroyale`. The Battle tab renders a new `BattleRoyaleLobby.tsx` (structure above, DanGG artwork/copy, disabled Join Now with a reason). | `server/db.js`, `server/index.js` (join guard), new `src/pages/BattleRoyaleLobby.tsx`, `src/pages/Lobby.tsx` | `api.test.js`: joining `br-1` → error. `http.test.js`: `/api/lobby` lists no `battleroyale` rows |
+| B0 | ✅ **Done 2026-11-12 — disabled, capture-gated.** Boot runs `disableBattleRoyaleTables` (idempotent, rows kept; new DBs seed none); `lobbyTables()` hides `battleroyale`; `join_table` (seat/observe), `getLiveTable` and admin table save refuse it with "Battle Royale rules are not available in DanGG yet". The Battle tab shows an honest empty state instead of a `BattleRoyaleLobby.tsx` (no native-structure lobby, no Join) until B1/B2 land. Tests: `server/battleroyale.test.js`, `client-logic.test.js`. **Stop mislabelled play.** A migration sets `enabled = 0` for `game = 'battleroyale'`, and `join_table` refuses `battleroyale`. The Battle tab renders a new `BattleRoyaleLobby.tsx` (structure above, DanGG artwork/copy, disabled Join Now with a reason). | `server/db.js`, `server/index.js` (join guard), new `src/pages/BattleRoyaleLobby.tsx`, `src/pages/Lobby.tsx` | `api.test.js`: joining `br-1` → error. `http.test.js`: `/api/lobby` lists no `battleroyale` rows |
 | B1 | **Capture** the details dialog and the Game List and Action Race Leaderboard views (navigation only). If play-money Battle Royale exists, capture one event's structure, observed only. | `docs/designs/evidence/battle-royale/` | — |
 | B2 | **Format spec.** Write `docs/designs/battle-royale-spec.md` from B1. Each rule cites a capture, and every unknown gets a stated DanGG default for David to approve. No code before approval. | doc only | — |
 | B3 | **Event engine (after B2 approval).** Compose `rush-pool.js` (R1) and `tournament-room.js`: 18 entrants, survival counter, shootout timer, 9-player final table, top-3 payouts via `payoutTable`, bounties per spec. | new `server/battle-royale.js`, tests `server/battle-royale.test.js` | 18 bots to completion: exactly 9 reach the final table, chips conserved, 3 paid |
@@ -492,7 +492,7 @@ Last in the build order. The rules are only partly observed.
 
 - Screenshots: `battle-lobby` (native ↔ DanGG, layout structure; copy and artwork differ
   by design), `battle-join-disabled` (DanGG).
-- [ ] B0: no route lets a user sit at a `battleroyale` table.
+- [x] B0: no route lets a user sit at a `battleroyale` table (disabled, capture-gated, 2026-11-12).
 - [ ] B2 is approved by David before any B3 code. Each rule in the spec cites evidence or
       is labelled a DanGG default.
 - [ ] Gap row: "Rules unobserved" is replaced with the observed headline facts and an

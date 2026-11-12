@@ -9,6 +9,7 @@ export const DATA_DIR = process.env.GGPOKER_DATA || path.join(__dirname, 'data')
 import fs from 'node:fs';
 import { applyPendingRestore } from './admin-restore.js';
 import { SPIN_SEATS, SPIN_STAKES, spinSmallBlinds } from './spin.js';
+import { disableBattleRoyaleTables } from './battleroyale.js';
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // A restore queued from the admin console is applied here, before the live DB is opened.
@@ -335,6 +336,7 @@ function init() {
   ensurePloVariants();
   ensureRushLadder();
   ensureSpinTables();
+  disableBattleRoyaleTables(db);
   ensureSeries();
 }
 
@@ -485,9 +487,6 @@ function seed() {
   }
   for (let i = 1; i <= 8; i++) {
     tables.push({ id: `aof-gold-${i}`, name: `AoF Gold ${String(i).padStart(2, '0')}`, game: 'aof', category: 'Gold', sb: 500, bb: 1000, ante: 0, min_buyin: 20000, max_buyin: 40000, seats: 6, speed: 'Fast', sort: sort++ });
-  }
-  for (let i = 1; i <= 4; i++) {
-    tables.push({ id: `br-${i}`, name: `Mystery Battle Royale ${i}`, game: 'battleroyale', category: 'Battle', sb: 500, bb: 1000, ante: 0, min_buyin: 25000, max_buyin: 25000, seats: 6, speed: 'Fast', sort: sort++ });
   }
   const ins = db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,sort) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   for (const t of tables) ins.run(t.id, t.name, t.game, t.category, t.sb, t.bb, t.ante, t.min_buyin, t.max_buyin, t.seats, t.speed || 'Normal', t.featured || 0, t.sort);
