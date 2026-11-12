@@ -38,6 +38,8 @@ import { TB_CARD_SECONDS } from '../game/timeBankRules';
 import { canShowHand, showOptions } from '../game/showOptions';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { vpipOf } from '../game/seatVpip';
+import type { QuickFoldState } from '../game/fastFold';
+import FastFoldButton from '../components/table/FastFoldButton';
 import { BuyInDialog, TakeSeatControl, type Reservation } from '../components/TakeSeat';
 import { NATIVE_TABLE_WIDTH, PAYOUT_EASING, PAYOUT_FADE_MS, PAYOUT_HOLD_MS, PAYOUT_STOP_PX, PAYOUT_TRANSFER_MS, payoutShares, potOffset, stopShort, type PayoutShare } from '../game/payoutMotion';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
@@ -71,6 +73,8 @@ type TableState = {
   runItTwice?: boolean;
   boards?: string[][] | null;
   potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; actionTimeMs?: number; rake?: number;
+  /** Rush only: whether this viewer may Fast Fold now (server PokerTable.quickFoldState). */
+  quickFold?: QuickFoldState | null;
 };
 
 // A decision queued while waiting for the action to come round.
@@ -1437,6 +1441,18 @@ export function TablePage({ tableId }: { tableId: string }) {
             <button className="btn btn-ghost" onClick={() => send({ type: 'option', tableId, waitForBlinds: false })}>Post now</button>
           </div>
         )}
+        <FastFoldButton
+          game={state?.game}
+          street={state?.street}
+          handNo={state?.handNo}
+          me={me}
+          quickFold={state?.quickFold}
+          onFastFold={() => {
+            setPreAction(null);
+            setTimeout(() => sound.play('voiceFold', { volume: .6 }), 120);
+            send({ type: 'action', action: 'quickfold' });
+          }}
+        />
         {canPreAct && !squeezing && (
           <div className="reserved-actions" role="group" aria-label="Actions on your next turn">
             <button
