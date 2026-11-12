@@ -637,3 +637,16 @@ test('a malformed or older room snapshot is ignored', () => {
   assert.equal(room.restore({ version: 0 }), false);
   assert.equal(room.restore({ version: 1, flights: [] }), true);
 });
+
+test('balancing keeps the moved player\'s Time Bank Cards and refill progress', () => {
+  const { room, tables } = harness();
+  for (let i = 1; i <= 12; i += 1) room.seat(player(i), { stack: 1000 });
+  const flight1 = tables.get('tourney-t1');
+  const flight2 = tables.get('tourney-t1-1');
+  for (const id of ['p1', 'p2', 'p3']) flight1.stand(id);
+  for (const s of flight2.occupiedSeats()) { s.player.timeBankCards = 1; s.player.timeBankHands = 7; }
+  const [move] = room.balance();
+  const moved = flight1.seatOf(move.playerId ?? move.id)?.player
+    || flight1.occupiedSeats().map((s) => s.player).find((p) => p.timeBankHands === 7);
+  assert.deepEqual([moved.timeBankCards, moved.timeBankHands], [1, 7]);
+});

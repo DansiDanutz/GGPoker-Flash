@@ -256,8 +256,10 @@ export function createRushPool(deps) {
         continue;
       }
       dequeue(p.id);
+      // Time Bank Cards follow the player to the next Rush table.
+      const timeBank = { timeBankCards: seat.player.timeBankCards, timeBankHands: seat.player.timeBankHands };
       deps.cashOutSeat(table, p.id, 'Rush transfer');
-      const res = deps.seatHuman(target, user, Math.min(stack, target.cfg.max_buyin), null);
+      const res = deps.seatHuman(target, { ...user, ...timeBank }, Math.min(stack, target.cfg.max_buyin), null);
       if (!res.ok) { seat.player && (seat.player.rushQueued = false); continue; }
       notifyClient(deps.getEntry(table.cfg.id), p.id,
         { type: 'rush_move', tableId: target.cfg.id, stack: Math.min(stack, target.cfg.max_buyin) });
@@ -275,9 +277,11 @@ export function createRushPool(deps) {
 
   function seatFromQueue(wait, fromEntry, target) {
     dequeue(wait.userId);
+    const from = fromEntry.table.seatOf(wait.userId)?.player;
+    const timeBank = { timeBankCards: from?.timeBankCards, timeBankHands: from?.timeBankHands };
     deps.cashOutSeat(fromEntry.table, wait.userId, 'Rush queue transfer');
     const stack = Math.min(wait.stack, target.cfg.max_buyin);
-    const res = deps.seatHuman(target, wait.user, stack, null);
+    const res = deps.seatHuman(target, { ...wait.user, ...timeBank }, stack, null);
     if (!res.ok) return false;
     notifyClient(fromEntry, wait.userId, { type: 'rush_move', tableId: target.cfg.id, stack });
     return true;

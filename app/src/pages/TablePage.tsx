@@ -33,6 +33,7 @@ import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
 import { BAD_BEAT_BANNER_MS, badBeatRows, type BadBeatHit } from '../game/badBeat';
+import { TB_CARD_SECONDS } from '../game/timeBankRules';
 import { canShowHand, showOptions } from '../game/showOptions';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { vpipOf } from '../game/seatVpip';
@@ -42,7 +43,7 @@ import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../li
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
-  reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; lastAction?: { action: string; amount: number } | null;
+  reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
   winAmount?: number; empty?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
 };
 
@@ -200,7 +201,6 @@ export function TablePage({ tableId }: { tableId: string }) {
   const squeezeHandRef = useRef<number | null>(null);
   const firstStateRef = useRef(true);
   const [betPrefs] = useState(readBetPrefs);
-  const [timeBankSeconds] = useState(() => Math.max(5, Math.min(60, Number(localStorage.getItem('ggpoker.timeBank') || 10))));
   const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
   const [cardAnim, setCardAnim] = useState<'deal' | 'flip' | 'slide' | 'off'>(() => {
     const saved = localStorage.getItem('ggpoker.cardAnim');
@@ -570,7 +570,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       refreshWaitlist();
     } else if (evt.type === 'timebank') {
       sound.play('timebank', { volume: .6 });
-      toast({ kind: 'info', title: 'Time bank', body: `+${evt.seconds || timeBankSeconds} seconds` });
+      toast({ kind: 'info', title: 'Time Bank Card', body: `+${evt.seconds} seconds` });
     } else if (evt.type === 'sit_out') {
       if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: 'You ran out of time twice. Press "Deal Me In" to rejoin.' });
     } else if (evt.type === 'bad_beat_jackpot') {
@@ -629,6 +629,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => { if ((me?.stack || 0) > 0) setRebuyOffer(null); }, [me?.stack]);
   const myTurn = !!(state && me && state.actor === me.id);
   const tbUsed = (state?.timeBankUsed || []).includes(Number(me?.id));
+  const tbCards = me?.timeBankCards ?? 0;
   const tbOfferedRef = useRef(false);
   const betCtx: BetContext = {
     pot: state?.pot || 0, currentBet: state?.currentBet || 0, minRaise: state?.minRaise || 0, bb: state?.bb || 0,
@@ -901,7 +902,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     setRaiseTo(betTarget(value, presetOpening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo, roundUnit));
   };
   hotkeyAnyTimeRef.current = {
-    timebank: () => { if (tbOfferedRef.current) send({ type: 'timebank', seconds: timeBankSeconds }); },
+    timebank: () => { if (tbOfferedRef.current) send({ type: 'timebank' }); },
     sitout: () => { if (me) send({ type: 'sit_out', value: !(sittingOut || sitOutNext) }); },
     history: () => navigate('/hand-history'),
     toggleUnits: () => cycleStackMode(),
@@ -1442,7 +1443,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {state?.allInOrFold ? (
           <div className="action-row aof-row">
-            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
+            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} title={`Spend a Time Bank Card: +${TB_CARD_SECONDS} seconds`}>⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'} <b className="tb-cards">×{tbCards}</b></button>
             <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
             <button className="act-btn act-allin" disabled={!myTurn} onClick={() => act('allin')}>All-in{me?.stack ? ` ${chip(me.stack)}` : ''}</button>
             <div className="grow" />
@@ -1450,7 +1451,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         ) : (
         <div className="action-row">
-          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
+          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} title={`Spend a Time Bank Card: +${TB_CARD_SECONDS} seconds`}>⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'} <b className="tb-cards">×{tbCards}</b></button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (
             <button className="act-btn act-check" disabled={!myTurn || !!state?.allInOrFold} onClick={() => act('check')}>Check</button>

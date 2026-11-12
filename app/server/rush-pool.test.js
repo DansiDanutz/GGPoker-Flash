@@ -202,6 +202,7 @@ function poolWorld(tables, { now = () => 1000, refill = false } = {}) {
   const byId = new Map(tables.map((t) => [t.cfg.id, t]));
   const transfers = [];
   const sent = [];
+  const seatedUsers = [];
   let pendingFrom = null;
   const entry = (id) => byId.has(id) ? {
     table: byId.get(id),
@@ -221,6 +222,7 @@ function poolWorld(tables, { now = () => 1000, refill = false } = {}) {
       if (!free) return { ok: false };
       free.player = { id: user.id, stack: buyin };
       transfers.push({ userId: user.id, from: pendingFrom, to: table.cfg.id });
+      seatedUsers.push(user);
       return { ok: true };
     },
     broadcastState: () => {},
@@ -229,7 +231,7 @@ function poolWorld(tables, { now = () => 1000, refill = false } = {}) {
     ledger: { hasDrop: () => false, credit: () => true },
     now,
   });
-  return { pool, transfers, sent, byId };
+  return { pool, transfers, sent, byId, seatedUsers };
 }
 
 const human = (id, stack = 50_000) => ({ id, stack, rushQueued: true });
@@ -444,4 +446,12 @@ test('a waiting player whose old seat is gone leaves the queue without blocking 
   pool.flush();
   assert.deepEqual(transfers.map((t) => t.userId), [2]);
   assert.deepEqual(pool.waitingList(), []);
+});
+
+test('a Rush move carries the player\'s Time Bank Cards and refill progress', () => {
+  const from = fakeTable({ id: 'p1', sb: 500, bb: 1000, players: [{ ...human(1), timeBankCards: 1, timeBankHands: 7 }, bot(90)] });
+  const to = fakeTable({ id: 'p2', sb: 500, bb: 1000, players: [bot(91)] });
+  const { pool, seatedUsers } = poolWorld([from, to]);
+  pool.moveQueued(from);
+  assert.deepEqual([seatedUsers[0].timeBankCards, seatedUsers[0].timeBankHands], [1, 7]);
 });
