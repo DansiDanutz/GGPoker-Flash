@@ -29,6 +29,7 @@ import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
 import { createAdminTransactionsRoute } from './admin-transactions.js';
+import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
@@ -459,6 +460,7 @@ const handleAdminChatRoute = createAdminChatRoutes({
 
 const handleAdminAuditRoute = createAdminAuditRoute({ db, json, requireAdmin });
 const handleAdminTransactionsRoute = createAdminTransactionsRoute({ db, json, requireAdmin });
+const handleAdminUsersListRoute = createAdminUsersListRoute({ db, json, requireAdmin, publicUser });
 // Snapshots go to the OS temp dir (override with GGPOKER_BACKUP_TMP); never inside DATA_DIR.
 const handleAdminBackupRoute = createAdminBackupRoute({
   db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
@@ -2205,13 +2207,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
-    if (p === '/api/admin/users') {
-      const a = requireAdmin(req, res); if (!a) return;
-      const q = (url.searchParams.get('q') || '').toLowerCase();
-      const rows = db.prepare('SELECT * FROM users WHERE deleted_at IS NULL ORDER BY id').all()
-        .filter((u) => !q || u.login.toLowerCase().includes(q) || u.nick.toLowerCase().includes(q));
-      return json(res, 200, { users: rows.map(publicUser) });
-    }
+    if (handleAdminUsersListRoute(req, res, url)) return;
 
     if (p.startsWith('/api/admin/users/') && req.method === 'POST') {
       const a = requireAdmin(req, res); if (!a) return;

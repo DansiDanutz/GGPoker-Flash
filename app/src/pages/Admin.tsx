@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { api, money, User } from '../lib/api';
+import React, { useEffect, useRef, useState } from 'react';
+import { api, money, User, AdminUserStatus } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell } from '../components/PageShell';
@@ -32,6 +32,16 @@ const SECTIONS = [
   { key: 'chat', label: 'Announcements', icon: '📣' },
 ];
 
+const USER_STATUSES: { value: AdminUserStatus; label: string }[] = [
+  { value: 'all', label: 'All users' },
+  { value: 'active', label: 'Active' },
+  { value: 'admin', label: 'Admins' },
+  { value: 'banned', label: 'Banned' },
+  { value: 'muted', label: 'Chat muted' },
+];
+const USER_PAGE_SIZES = [25, 50, 100];
+const USER_SEARCH_DEBOUNCE_MS = 250;
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label className="admin-label">{label}</label>{children}</div>;
 }
@@ -53,26 +63,57 @@ export function Admin() {
   const [handReplay, setHandReplay] = useState(0);
   const [handPlaying, setHandPlaying] = useState(false);
   const [q, setQ] = useState('');
+  const [userStatus, setUserStatus] = useState<AdminUserStatus>('all');
+  const [userLimit, setUserLimit] = useState(50);
+  const [userOffset, setUserOffset] = useState(0);
+  const [userTotal, setUserTotal] = useState(0);
+  const [activeAdmins, setActiveAdmins] = useState(0);
+  const usersRequest = useRef(0);
   const [editing, setEditing] = useState<any>(null);
   const [local, setLocal] = useState<any>({});
   const [notice, setNotice] = useState('');
 
   const isAdmin = !!user?.is_admin;
 
-  const loadAll = async () => {
+  // One page of users for the current search, status and page; stale responses are ignored.
+  const loadUsers = async () => {
+    if (!isAdmin) return;
+    const requestId = ++usersRequest.current;
+    try {
+      const page = await api.admin.users({ q, status: userStatus, limit: userLimit, offset: userOffset });
+      if (requestId !== usersRequest.current) return;
+      // A ban or mute can shrink the filtered set under the current page; step back to the last page.
+      if (page.users.length === 0 && userOffset > 0 && page.total > 0) {
+        setUserOffset(Math.floor((page.total - 1) / userLimit) * userLimit);
+        return;
+      }
+      setUsers(page.users); setUserTotal(page.total); setActiveAdmins(page.activeAdmins);
+    } catch (e: any) {
+      if (requestId === usersRequest.current) toast({ kind: 'error', title: 'Users', body: e.message });
+    }
+  };
+
+  const loadCore = async () => {
     if (!isAdmin) return;
     try {
-      const [s, u, t, tt, b, m, st, tx, v, rp] = await Promise.all([
-        api.admin.stats(), api.admin.users(), api.admin.tables(), api.admin.tournaments(),
+      const [s, t, tt, b, m, st, tx, v, rp] = await Promise.all([
+        api.admin.stats(), api.admin.tables(), api.admin.tournaments(),
         api.admin.banners(), api.admin.missions(), api.admin.settings(), api.admin.transactions(), api.admin.verifications(), api.admin.reports(),
       ]);
-      setStats(s); setUsers(u.users); setTables(t.tables); setTourneys(tt.tournaments);
+      setStats(s); setTables(t.tables); setTourneys(tt.tournaments);
       setBanners(b.banners); setMissions(m.missions); setSettings(st.settings);
       setTransactions(tx.transactions); setVerifications(v.verifications || []); setReports(rp.reports || []);
     } catch (e: any) { toast({ kind: 'error', title: 'Admin', body: e.message }); }
   };
 
-  useEffect(() => { loadAll(); }, [isAdmin]);
+  const loadAll = async () => { await Promise.all([loadCore(), loadUsers()]); };
+
+  useEffect(() => { loadCore(); }, [isAdmin]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { loadUsers(); }, USER_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [isAdmin, q, userStatus, userLimit, userOffset]);
 
   useEffect(() => {
     if (!handView) return;
@@ -85,8 +126,6 @@ export function Admin() {
     const timer = window.setInterval(() => setHandReplay((n) => (n >= 5 ? 5 : n + 1)), 650);
     return () => window.clearInterval(timer);
   }, [handView, handPlaying]);
-
-  const filteredUsers = useMemo(() => users.filter((u) => !q || u.login.toLowerCase().includes(q.toLowerCase()) || u.nick.toLowerCase().includes(q.toLowerCase())), [users, q]);
 
   const exportReports = () => {
     const rows: any[][] = [['id', 'reporter', 'target', 'reason', 'detail', 'hand_id', 'status', 'created_at', 'resolved_at'], ...reports.map((r) => [r.id, r.reporter_nick, r.target_nick, r.reason, r.detail, r.hand_id, r.status, r.created_at, r.resolved_at])];
@@ -105,8 +144,9 @@ export function Admin() {
   };
 
   // Mirrors the server's last-admin guard (active = admin and not banned) so the button is never offered.
-  const activeAdminCount = useMemo(() => users.filter((u) => u.is_admin && !u.banned).length, [users]);
-  const isLastAdmin = (u: User) => u.is_admin && !u.banned && activeAdminCount <= 1;
+  // The count comes from the server because the table only holds one page.
+  const isLastAdmin = (u: User) => u.is_admin && !u.banned && activeAdmins <= 1;
+  const userPageEnd = Math.min(userOffset + users.length, userTotal);
 
   const toggleAdmin = async (u: User) => {
     const grant = !u.is_admin;
@@ -253,14 +293,21 @@ export function Admin() {
                 <h2 className="admin-title" style={{ margin: 0 }}>Users</h2>
                 <div className="row">
                   <button className="btn btn-ghost btn-sm" onClick={() => api.admin.exportCsv('users')}>⤓ CSV</button>
-                  <input className="admin-input" placeholder="Search login or nickname…" value={q} onChange={(e) => setQ(e.target.value)} />
+                  <input className="admin-input" aria-label="Search users" placeholder="Search login, nickname or email…" value={q} onChange={(e) => { setQ(e.target.value); setUserOffset(0); }} />
+                  <select className="admin-input" aria-label="User status" value={userStatus} onChange={(e) => { setUserStatus(e.target.value as AdminUserStatus); setUserOffset(0); }}>
+                    {USER_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                  <select className="admin-input" aria-label="Users per page" value={userLimit} onChange={(e) => { setUserLimit(Number(e.target.value)); setUserOffset(0); }}>
+                    {USER_PAGE_SIZES.map((n) => <option key={n} value={n}>{n} / page</option>)}
+                  </select>
                 </div>
               </div>
               <div className="admin-card" style={{ padding: 0 }}>
                 <table className="admin-table">
                   <thead><tr><th>ID</th><th>Player</th><th>Login</th><th>Balance</th><th>Play chips</th><th>Tickets</th><th>VIP</th><th>Status</th><th>Actions</th></tr></thead>
                   <tbody>
-                    {filteredUsers.map((u) => (
+                    {users.length === 0 && <tr><td colSpan={9} className="muted" style={{ textAlign: 'center', padding: 16 }}>No users match these filters.</td></tr>}
+                    {users.map((u) => (
                       <tr key={u.id}>
                         <td>{u.id}</td>
                         <td><div className="row"><Avatar name={u.nick} src={u.avatar} size={22} />{u.nick}</div></td>
@@ -283,6 +330,13 @@ export function Admin() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="between" style={{ marginTop: 10 }}>
+                <span className="muted">{userTotal === 0 ? '0 users' : `${userOffset + 1}–${userPageEnd} of ${userTotal.toLocaleString()} users`}</span>
+                <div className="row">
+                  <button className="btn btn-ghost btn-sm" disabled={userOffset === 0} onClick={() => setUserOffset(Math.max(0, userOffset - userLimit))}>‹ Prev</button>
+                  <button className="btn btn-ghost btn-sm" disabled={userOffset + userLimit >= userTotal} onClick={() => setUserOffset(userOffset + userLimit)}>Next ›</button>
+                </div>
               </div>
             </>
           )}

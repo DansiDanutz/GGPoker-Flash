@@ -165,6 +165,26 @@ export function transactionsQuery(filters: Partial<AdminTransactionFilters>, for
   return new URLSearchParams(entries).toString();
 }
 
+/** Admin users list (GET /api/admin/users) status filter. */
+export type AdminUserStatus = 'all' | 'active' | 'admin' | 'banned' | 'muted';
+
+/** Users-list filters. `limit` is clamped server-side to 1..200 (default 50); `offset` is 0-based. */
+export type AdminUserFilters = { q: string; status: AdminUserStatus; limit: number; offset: number };
+
+/** One page of users plus the total match count and the count of active (unbanned) admins. */
+export type AdminUserPage = { users: User[]; total: number; filters: AdminUserFilters; activeAdmins: number };
+
+/** Query string for the users list; defaults (`status=all`, `offset=0`) and empty values are omitted. */
+export function usersQuery(filters: Partial<AdminUserFilters>): string {
+  const entries = [
+    ['q', filters.q?.trim() ?? ''],
+    ['status', filters.status && filters.status !== 'all' ? filters.status : ''],
+    ['limit', filters.limit ? String(filters.limit) : ''],
+    ['offset', filters.offset ? String(filters.offset) : ''],
+  ].filter(([, value]) => value !== '');
+  return new URLSearchParams(entries).toString();
+}
+
 const TOKEN_KEY = 'ggpoker.token';
 
 export function getToken() {
@@ -272,7 +292,10 @@ export const api = {
     hand: (id: string) => request<{ hand: any }>(`/api/admin/hands/${encodeURIComponent(id)}`),
     reportAction: (id: number, action: 'resolve' | 'dismiss') => request<any>(`/api/admin/reports/${id}`, { method: 'POST', body: JSON.stringify({ action }) }),
     stats: () => request<any>('/api/admin/stats'),
-    users: (q = '') => request<{ users: User[] }>(`/api/admin/users?q=${encodeURIComponent(q)}`),
+    users: (filters: Partial<AdminUserFilters> = {}) => {
+      const query = usersQuery(filters);
+      return request<AdminUserPage>(`/api/admin/users${query ? `?${query}` : ''}`);
+    },
     userAction: (id: number, body: any) => request(`/api/admin/users/${id}`, { method: 'POST', body: JSON.stringify(body) }),
     tables: () => request<{ tables: any[] }>('/api/admin/tables'),
     saveTable: (body: any) => request('/api/admin/tables', { method: 'POST', body: JSON.stringify(body) }),
