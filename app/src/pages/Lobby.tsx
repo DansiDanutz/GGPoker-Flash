@@ -7,8 +7,9 @@ import { TitleBar } from '../components/TitleBar';
 import { Avatar } from '../components/Avatar';
 import { WaitlistSideActions } from '../components/WaitlistSideActions';
 import { waitCount } from '../lib/waitlist';
-import { DEFAULT_TAB_FILTERS, filterTables, filtersForTab, FilterPrefs, readFilterPrefs, sortTables, SortKey, TabFilters, withTabFilters, writeFilterPrefs } from '../lib/lobbyFilters';
+import { DEFAULT_TAB_FILTERS, filterTables, filtersForTab, FilterPrefs, readFilterPrefs, resetExtraFilters, sortTables, SortKey, TabFilters, withTabFilters, writeFilterPrefs } from '../lib/lobbyFilters';
 import { LobbyPills } from '../components/LobbyPills';
+import { LobbyFiltersPopover } from '../components/LobbyFiltersPopover';
 import { LobbyGroupRows } from '../components/LobbyGroupRows';
 
 const PROMOS = [
@@ -78,7 +79,6 @@ export function Lobby() {
   const [promoPaused, setPromoPaused] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('bb');
   const [sortDir, setSortDir] = useState<1|-1>(-1);
-  const [search, setSearch] = useState('');
   const [filterPrefs, setFilterPrefs] = useState<FilterPrefs>(readFilterPrefs);
   const filters = filtersForTab(filterPrefs, gameTab);
   const setFilter = (patch: Partial<TabFilters>) => setFilterPrefs((prev) => {
@@ -122,9 +122,9 @@ export function Lobby() {
 
   const tables: LobbyTable[] = useMemo(() => {
     if (!data) return [];
-    const list = filterTables(data.tables, { ...filters, tab: gameTab, search, favs });
+    const list = filterTables(data.tables, { ...filters, tab: gameTab, favs });
     return sortTables(list, gameTab, sortKey, sortDir);
-  }, [data, gameTab, sortKey, sortDir, search, filterPrefs, favs]);
+  }, [data, gameTab, sortKey, sortDir, filterPrefs, favs]);
 
   useEffect(() => {
     if (tables.length && !tables.find((t) => t.id === selected)) setSelected(tables[0].id);
@@ -351,19 +351,8 @@ export function Lobby() {
           <div className="filter-bar">
             <LobbyPills tab={gameTab} value={filters.pill} onChange={(pill) => setFilter({ pill })} />
             <span className="filter-spacer" />
-            <select value={filters.stake} onChange={(e) => setFilter({ stake: e.target.value })}>
-              <option value="all">All stakes</option><option value="low">Micro / low ($0–$2 BB)</option><option value="mid">Mid ($2–$20 BB)</option><option value="high">High ($20+ BB)</option>
-            </select>
-            <select value={filters.seats} onChange={(e) => setFilter({ seats: e.target.value })}>
-              <option value="all">All seats</option><option value="6">6-max</option><option value="9">9-max</option><option value="3">3-max</option>
-            </select>
-            <select value={filters.speed} onChange={(e) => setFilter({ speed: e.target.value })}>
-              <option value="all">All speeds</option><option value="Normal">Normal</option><option value="Fast">Fast</option>
-            </select>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tables…" />
-            <button className={'fav-toggle' + (filters.favOnly ? ' on' : '')} aria-pressed={filters.favOnly} onClick={() => setFilter({ favOnly: !filters.favOnly })}>★ Favorites</button>
             <button className="host-table-btn" onClick={openHost}>+ Host</button>
-            <span className="filter-count">{tables.length} tables</span>
+            <LobbyFiltersPopover filters={filters} tableCount={tables.length} onChange={setFilter} onReset={() => setFilter(resetExtraFilters(filters))} />
           </div>
           <div className="table-list" key={gameTab}>
             {viewMode === 'table' && <div className="list-head">
@@ -406,7 +395,7 @@ export function Lobby() {
               ))}
               {!tables.length && (
                 <div className="list-empty">No tables match these filters.{' '}
-                  <button type="button" className="lob-link" onClick={() => { setFilter(DEFAULT_TAB_FILTERS); setSearch(''); }}>Reset filters</button>
+                  <button type="button" className="lob-link" onClick={() => setFilter(DEFAULT_TAB_FILTERS)}>Reset filters</button>
                 </div>
               )}
             </div>

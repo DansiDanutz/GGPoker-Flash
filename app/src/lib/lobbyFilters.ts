@@ -94,17 +94,30 @@ export function promotionOf(table: Pick<LobbyTable, 'featured' | 'category'>): s
 
 // ---- filter state -------------------------------------------------------------------
 
+/**
+ * One tab's filters. `pill` lives in the pill row; everything else is in the Filters
+ * popover (W5b). `hideFull` drops tables with every seat taken; `hasSeats` keeps only
+ * tables you can sit at right now: a free seat and nobody on the wait list ahead of you.
+ */
 export type TabFilters = {
   readonly pill: string;
   readonly stake: string;
   readonly seats: string;
   readonly speed: string;
+  readonly search: string;
   readonly favOnly: boolean;
+  readonly hideFull: boolean;
+  readonly hasSeats: boolean;
 };
 
 export type FilterPrefs = Readonly<Record<string, TabFilters>>;
 
-export const DEFAULT_TAB_FILTERS: TabFilters = { pill: 'all', stake: 'all', seats: 'all', speed: 'all', favOnly: false };
+export const DEFAULT_TAB_FILTERS: TabFilters = {
+  pill: 'all', stake: 'all', seats: 'all', speed: 'all', search: '', favOnly: false, hideFull: false, hasSeats: false,
+};
+
+/** Longest search kept in storage; the input enforces the same limit. */
+export const SEARCH_MAX = 64;
 
 export const STAKE_OPTIONS = ['all', 'low', 'mid', 'high'] as const;
 export const SEAT_OPTIONS = ['all', '6', '9', '3'] as const;
@@ -121,8 +134,24 @@ export function normalizeTabFilters(tab: string, raw: unknown): TabFilters {
     stake: pick(r.stake, STAKE_OPTIONS),
     seats: pick(r.seats, SEAT_OPTIONS),
     speed: pick(r.speed, SPEED_OPTIONS),
+    search: typeof r.search === 'string' ? r.search.slice(0, SEARCH_MAX) : '',
     favOnly: r.favOnly === true,
+    hideFull: r.hideFull === true,
+    hasSeats: r.hasSeats === true,
   };
+}
+
+/** How many Filters-popover filters are active (the pill is visible in the row, so it doesn't count). */
+export function activeFilterCount(f: TabFilters): number {
+  return [
+    f.stake !== 'all', f.seats !== 'all', f.speed !== 'all', f.search.trim() !== '',
+    f.favOnly, f.hideFull, f.hasSeats,
+  ].filter(Boolean).length;
+}
+
+/** The popover's Reset: clears every popover filter and keeps the selected pill. */
+export function resetExtraFilters(f: TabFilters): TabFilters {
+  return { ...DEFAULT_TAB_FILTERS, pill: f.pill };
 }
 
 export function filtersForTab(prefs: FilterPrefs, tab: string): TabFilters {
@@ -158,7 +187,7 @@ export function writeFilterPrefs(prefs: FilterPrefs): void {
 
 export type SortKey = 'name' | 'bb' | 'players' | 'avgPot';
 
-export type FilterQuery = TabFilters & { readonly tab: string; readonly search: string; readonly favs: readonly string[] };
+export type FilterQuery = TabFilters & { readonly tab: string; readonly favs: readonly string[] };
 
 const LOW_BB_MAX = 2;   // dollars
 const MID_BB_MAX = 20;  // dollars
@@ -176,7 +205,12 @@ function matchesPill(table: LobbyTable, tab: string, pillId: string): boolean {
   return !pill?.variants || pill.variants.includes(variantOf(table));
 }
 
-/** The lobby list for a tab: tab games, pill, stake/seat/speed, search and favourites. */
+const isFull = (t: LobbyTable) => t.players >= t.seats;
+// Same rule as `waitCount` in waitlist.ts; kept local so Node can load this module without a bundler.
+const hasQueue = (t: LobbyTable) => Number(t.wait) > 0;
+const canSitNow = (t: LobbyTable) => !isFull(t) && !hasQueue(t);
+
+/** The lobby list for a tab: tab games, pill, stake/seat/speed, search, favourites, Hide full and Has seats. */
 export function filterTables(tables: readonly LobbyTable[], q: FilterQuery): LobbyTable[] {
   const games = TAB_GAMES[q.tab] ?? [];
   const needle = q.search.trim().toLowerCase();
@@ -187,7 +221,9 @@ export function filterTables(tables: readonly LobbyTable[], q: FilterQuery): Lob
     && (q.seats === 'all' || t.seats === Number(q.seats))
     && (q.speed === 'all' || t.speed === q.speed)
     && (!needle || t.name.toLowerCase().includes(needle))
-    && (!q.favOnly || q.favs.includes(t.id)));
+    && (!q.favOnly || q.favs.includes(t.id))
+    && (!q.hideFull || !isFull(t))
+    && (!q.hasSeats || canSitNow(t)));
 }
 
 const sortValue = (t: LobbyTable, key: SortKey) => (key === 'name' ? t.name : t[key]);

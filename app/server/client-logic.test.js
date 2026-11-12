@@ -15,6 +15,7 @@ import {
 import {
   TAB_GAMES, pillsFor, columnsFor, COLUMN_LABEL, variantOf, VARIANT_LABEL, tableSizeChip, promotionOf,
   DEFAULT_TAB_FILTERS, filtersForTab, withTabFilters, parseFilterPrefs, filterTables, sortTables,
+  activeFilterCount, resetExtraFilters, SEARCH_MAX,
 } from '../src/lib/lobbyFilters.ts';
 
 const ctx = (over = {}) => ({
@@ -316,4 +317,52 @@ test('filter prefs persist per tab, immutably, and reject bad stored values', ()
   assert.deepEqual(parseFilterPrefs('not json'), {});
   assert.deepEqual(parseFilterPrefs(null), {});
   assert.deepEqual(parseFilterPrefs('[1]'), {});
+});
+
+// ---- lobby Filters popover (P0 slice W5b) ----
+
+test('Hide full drops tables with every seat taken', () => {
+  const list = [lt({ id: 'full', players: 6, seats: 6 }), lt({ id: 'open', players: 5, seats: 6 }), lt({ id: 'empty', players: 0 })];
+  assert.deepEqual(ids(filterTables(list, query('holdem', { hideFull: true }))), ['open', 'empty']);
+  assert.deepEqual(ids(filterTables(list, query('holdem'))), ['full', 'open', 'empty'], 'off by default');
+});
+
+test('Has seats keeps only tables you can sit at now: a free seat and nobody waiting', () => {
+  const list = [
+    lt({ id: 'full', players: 6, seats: 6 }), lt({ id: 'open', players: 4, seats: 6 }),
+    lt({ id: 'queued', players: 5, seats: 6, wait: 2 }), lt({ id: 'bad-wait', players: 1, wait: undefined }),
+  ];
+  assert.deepEqual(ids(filterTables(list, query('holdem', { hasSeats: true }))), ['open', 'bad-wait']);
+  assert.deepEqual(ids(filterTables(list, query('holdem', { hasSeats: true, hideFull: true, stake: 'high' }))), [], 'combines with the other filters');
+});
+
+test('active filter count covers every popover filter but not the visible pill', () => {
+  assert.equal(activeFilterCount(DEFAULT_TAB_FILTERS), 0);
+  assert.equal(activeFilterCount({ ...DEFAULT_TAB_FILTERS, pill: 'plo' }), 0, 'the pill is shown in the row, not the badge');
+  assert.equal(activeFilterCount({ ...DEFAULT_TAB_FILTERS, search: '   ' }), 0, 'blank search is not a filter');
+  const all = { pill: 'plo', stake: 'low', seats: '6', speed: 'Fast', search: 'reef', favOnly: true, hideFull: true, hasSeats: true };
+  assert.equal(activeFilterCount(all), 7);
+});
+
+test('Reset clears the popover filters, keeps the pill, and does not mutate', () => {
+  const before = { ...DEFAULT_TAB_FILTERS, pill: 'plo5', stake: 'mid', search: 'x', hideFull: true, hasSeats: true, favOnly: true };
+  const snapshot = { ...before };
+  const after = resetExtraFilters(before);
+  assert.deepEqual(after, { ...DEFAULT_TAB_FILTERS, pill: 'plo5' });
+  assert.deepEqual(before, snapshot, 'input untouched');
+  assert.equal(activeFilterCount(after), 0);
+});
+
+test('Hide full, Has seats and search persist per tab and survive a round trip', () => {
+  const prefs = withTabFilters(withTabFilters({}, 'rush', { hideFull: true, search: 'gold' }), 'plo', { hasSeats: true });
+  assert.equal(filtersForTab(prefs, 'rush').hideFull, true);
+  assert.equal(filtersForTab(prefs, 'rush').hasSeats, false);
+  assert.equal(filtersForTab(prefs, 'rush').search, 'gold');
+  assert.equal(filtersForTab(prefs, 'plo').hasSeats, true);
+  assert.equal(filtersForTab(prefs, 'plo').search, '', 'search is per tab');
+  assert.deepEqual(parseFilterPrefs(JSON.stringify(prefs)), prefs);
+  const bad = parseFilterPrefs(JSON.stringify({ rush: { hideFull: 'yes', hasSeats: 1, search: 42 } }));
+  assert.deepEqual(bad.rush, DEFAULT_TAB_FILTERS, 'non-boolean toggles and non-string search fall back to defaults');
+  const long = filtersForTab(withTabFilters({}, 'holdem', { search: 'a'.repeat(500) }), 'holdem');
+  assert.equal(long.search.length, SEARCH_MAX, 'stored search is capped');
 });

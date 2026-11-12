@@ -22,10 +22,14 @@
   --lob-chip-6max-text: #11bf11;
   --lob-chip-9max: #303321;
   --lob-chip-9max-text: #a4bf09;
+  --lob-queued: var(--gold);
+  --lob-pop: #1f1f1f;
+  --lob-pop-border: #333333;
 }
 
-/* ---- pill row (left of the existing DanGG dropdowns) ---- */
-.lob-pills { display: flex; align-items: center; gap: 18px; flex: 0 0 auto; }
+/* ---- pill row: native pills left, "+ Host" and Filters right, one line ---- */
+.lob-pills { display: flex; align-items: center; gap: 18px; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.lob-pills::-webkit-scrollbar { display: none; }
 .lob-pill {
   height: 21px; padding: 0 22px; border: 0; border-radius: 999px; cursor: pointer;
   background: var(--lob-pill-off); color: var(--lob-pill-off-text);
@@ -36,12 +40,35 @@
 .lob-pill.on { background: var(--lob-pill-on); color: var(--lob-pill-on-text); }
 .lob-pill:focus-visible { outline: 2px solid var(--lob-focus); outline-offset: 2px; }
 .filter-spacer { flex: 1 1 auto; }
-/* With pills the DanGG dropdowns no longer fit one 833 px line: pills get the first line
-   (native position, left-aligned above the column header), the extras wrap below. W5b folds
-   the extras into one Filters popover so the bar returns to a single line. */
-.filter-bar:has(.lob-pills) { flex-wrap: wrap; height: auto; row-gap: 8px; }
-.filter-bar:has(.lob-pills) .lob-pills { flex: 1 0 100%; }
-.filter-bar:has(.lob-pills) .filter-spacer { display: none; }
+
+/* ---- Filters button and popover (W5b, brief §1.5) ---- */
+/* The bar is a stacking context (backdrop-filter); lift it above the sticky column header. */
+.filter-bar { position: relative; z-index: 20; }
+.lob-filters-wrap { position: relative; flex: 0 0 auto; }
+.lob-filters-btn { padding: 0 14px; }
+.lob-filters-btn b { color: var(--lob-queued); font-weight: 700; }
+.lob-filters-btn.open { background: #4a4a4a; }
+.lob-filters-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; width: 280px;
+  display: flex; flex-direction: column; gap: 12px; padding: 12px;
+  background: var(--lob-pop); border: 1px solid var(--lob-pop-border); border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .55); font-family: Roboto, Arial, sans-serif;
+}
+.lob-flabel { margin-bottom: 6px; color: var(--lob-head-text); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.lob-fseg { display: flex; flex-wrap: wrap; gap: 6px; }
+.lob-fseg .lob-pill { padding: 0 12px; }
+.lob-filters-pop .lob-fsearch {
+  width: 100%; max-width: none; height: 28px; box-sizing: border-box; padding: 0 8px;
+  background: #101010; border: 1px solid var(--lob-pop-border); border-radius: 4px; color: var(--lob-text); font-size: 12px;
+}
+.lob-filters-pop .lob-fsearch:focus-visible { outline: 2px solid var(--lob-focus); outline-offset: 1px; }
+.lob-fchecks { display: flex; flex-direction: column; gap: 8px; }
+.lob-fcheck { display: flex; align-items: center; gap: 8px; color: var(--lob-text); font-size: 12px; cursor: pointer; }
+.lob-fcheck input { width: 14px; height: 14px; margin: 0; accent-color: var(--lob-queued); }
+.lob-fcheck input:focus-visible { outline: 2px solid var(--lob-focus); outline-offset: 2px; }
+.lob-ffoot { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--lob-pop-border); }
+.lob-ffoot .lob-link:disabled { color: var(--lob-head-text); text-decoration: none; cursor: default; }
+.lob-fcount { color: var(--lob-head-text); font-size: 11px; }
 
 /* ---- Group View rows with the per-tab column set ---- */
 .lob-group { display: flex; flex-direction: column; gap: 4px; padding: 0 12px 8px; font-family: Roboto, Arial, sans-serif; }
@@ -87,9 +114,11 @@
 .lob-link:focus-visible { outline: 2px solid var(--lob-focus); outline-offset: 2px; }
 
 @media (max-width: 760px) {
-  .lob-pills { flex: 1 1 100%; gap: 8px; overflow-x: auto; }
+  /* The popover must escape the bar, so the bar stops scrolling; the pills scroll instead. */
+  .filter-bar { overflow: visible; }
+  .lob-pills { flex: 1 1 auto; gap: 8px; }
   .lob-pill { padding: 0 14px; }
-  .filter-spacer { display: none; }
+  .lob-filters-pop { width: min(280px, calc(100vw - 32px)); }
   .lob-group { padding: 0 8px 8px; }
   .lob-ghead { display: none; }
   .lob-grow { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; row-gap: 6px; padding: 8px 8px 8px 12px; }
