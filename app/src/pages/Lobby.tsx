@@ -419,14 +419,18 @@ export function Lobby() {
         </div>
 
         <div className="lobby-side">
-          <div className="view-toggle">
-            <button className={viewMode === 'group' ? 'on' : ''} onClick={() => setViewMode('group')}>Group View</button>
-            <button className={viewMode === 'table' ? 'on' : ''} onClick={() => setViewMode('table')}>Table View</button>
-          </div>
-          <div className="mini-table-wrap">
-            <MiniTable table={table} players={previewPlayers} />
-          </div>
-          <WaitlistSideActions table={table} onJoin={openJoin} onWatch={(t) => navigate(`/table/${t.id}?observe=1`)} onChanged={load} />
+          {!unavailable && (
+            <>
+              <div className="view-toggle">
+                <button className={viewMode === 'group' ? 'on' : ''} onClick={() => setViewMode('group')}>Group View</button>
+                <button className={viewMode === 'table' ? 'on' : ''} onClick={() => setViewMode('table')}>Table View</button>
+              </div>
+              <div className="mini-table-wrap">
+                <MiniTable table={table} players={previewPlayers} />
+              </div>
+              <WaitlistSideActions table={table} onJoin={openJoin} onWatch={(t) => navigate(`/table/${t.id}?observe=1`)} onChanged={load} />
+            </>
+          )}
           {isRushTab && <RushSidePanel leaderboard={data?.rushLeaderboard} myId={user?.id} onShowInfo={() => setRushInfoOpen(true)} />}
           {!isRushTab && <div className="mini-stats">
             <div className="between"><span className="muted small">Last jackpot</span><b className="gold">{money(data?.jackpot || 0)}</b></div>
