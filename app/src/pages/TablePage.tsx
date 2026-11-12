@@ -33,6 +33,7 @@ import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
 import { BAD_BEAT_BANNER_MS, badBeatRows, type BadBeatHit } from '../game/badBeat';
+import { TB_CARD_SECONDS } from '../game/timeBankRules';
 import { canShowHand, showOptions } from '../game/showOptions';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { vpipOf } from '../game/seatVpip';
@@ -42,7 +43,7 @@ import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../li
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
-  reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; lastAction?: { action: string; amount: number } | null;
+  reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
   winAmount?: number; empty?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
 };
 
@@ -51,6 +52,7 @@ type TableState = {
   button: number; sbSeat?: number; bbSeat?: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
+  pots?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
   spin?: {
     multiplier: number | null;
@@ -199,7 +201,6 @@ export function TablePage({ tableId }: { tableId: string }) {
   const squeezeHandRef = useRef<number | null>(null);
   const firstStateRef = useRef(true);
   const [betPrefs] = useState(readBetPrefs);
-  const [timeBankSeconds] = useState(() => Math.max(5, Math.min(60, Number(localStorage.getItem('ggpoker.timeBank') || 10))));
   const [stackMode, setStackMode] = useState<StackMode>(readStackMode);
   const [cardAnim, setCardAnim] = useState<'deal' | 'flip' | 'slide' | 'off'>(() => {
     const saved = localStorage.getItem('ggpoker.cardAnim');
@@ -569,7 +570,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       refreshWaitlist();
     } else if (evt.type === 'timebank') {
       sound.play('timebank', { volume: .6 });
-      toast({ kind: 'info', title: 'Time bank', body: `+${evt.seconds || timeBankSeconds} seconds` });
+      toast({ kind: 'info', title: 'Time Bank Card', body: `+${evt.seconds} seconds` });
     } else if (evt.type === 'sit_out') {
       if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: 'You ran out of time twice. Press "Deal Me In" to rejoin.' });
     } else if (evt.type === 'bad_beat_jackpot') {
@@ -628,6 +629,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => { if ((me?.stack || 0) > 0) setRebuyOffer(null); }, [me?.stack]);
   const myTurn = !!(state && me && state.actor === me.id);
   const tbUsed = (state?.timeBankUsed || []).includes(Number(me?.id));
+  const tbCards = me?.timeBankCards ?? 0;
   const tbOfferedRef = useRef(false);
   const betCtx: BetContext = {
     pot: state?.pot || 0, currentBet: state?.currentBet || 0, minRaise: state?.minRaise || 0, bb: state?.bb || 0,
@@ -638,7 +640,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const displayUnit = state?.tournament ? 1 : 100;
   const chipStep = state?.tournament ? 1 : Math.min(100, state?.sb || 100);
   const betStep = betUnitOf(bettingOptions, state?.sb || 0, state?.bb || 0);
-  const potColumns = potChipLayout(state?.pot || 0, state?.bb || 1);
+  // Native live piles: with a side pot the main pile shows only the main pot.
+  const livePots = state?.pots || [];
+  const potColumns = potChipLayout(livePots.length > 1 ? livePots[0] : state?.pot || 0, state?.bb || 1);
   const startChipShuffle = useCallback(() => {
     if (!chipShuffleOn) return;
     if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current);
@@ -898,7 +902,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     setRaiseTo(betTarget(value, presetOpening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo, roundUnit));
   };
   hotkeyAnyTimeRef.current = {
-    timebank: () => { if (tbOfferedRef.current) send({ type: 'timebank', seconds: timeBankSeconds }); },
+    timebank: () => { if (tbOfferedRef.current) send({ type: 'timebank' }); },
     sitout: () => { if (me) send({ type: 'sit_out', value: !(sittingOut || sitOutNext) }); },
     history: () => navigate('/hand-history'),
     toggleUnits: () => cycleStackMode(),
@@ -1145,6 +1149,21 @@ export function TablePage({ tableId }: { tableId: string }) {
           )}
           {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
         </div>
+        {!winFx && livePots.length > 1 && <div className="live-pots">{livePots.map((amount, i) => {
+            const [x, y] = potOffset(i, tableRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);
+            return (
+              <div key={i} className={'live-pot' + (i === 0 ? ' main' : '')} style={{ transform: `translate(calc(-50% + ${x}px), ${y}px)` }}>
+                {i > 0 && <div className="pot-chips live" aria-hidden="true">
+                  {potChipLayout(amount, state?.bb || 1).map((col) => (
+                    <span key={col.denom} className={`pot-chip-col denom-${col.denom}`}>
+                      {Array.from({ length: col.count }, (_, k) => <i key={k} />)}
+                    </span>
+                  ))}
+                </div>}
+                <span className="live-pot-label">{i === 0 ? 'Main' : `Side ${i}`} {chip(amount)}</span>
+              </div>
+            );
+        })}</div>}
         {badBeat && <div className="bad-beat-banner" role="alert" onClick={() => setBadBeat(null)}>
           <div className="bbj-title">BAD BEAT JACKPOT!</div>
           <div className="bbj-total">{money(badBeat.total)}</div>
@@ -1424,7 +1443,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {state?.allInOrFold ? (
           <div className="action-row aof-row">
-            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
+            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} title={`Spend a Time Bank Card: +${TB_CARD_SECONDS} seconds`}>⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'} <b className="tb-cards">×{tbCards}</b></button>
             <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
             <button className="act-btn act-allin" disabled={!myTurn} onClick={() => act('allin')}>All-in{me?.stack ? ` ${chip(me.stack)}` : ''}</button>
             <div className="grow" />
@@ -1432,7 +1451,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         ) : (
         <div className="action-row">
-          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank', seconds: timeBankSeconds })} title={`Add ${timeBankSeconds} seconds once per hand`}>⏱ {tbUsed ? 'Used' : 'Time bank'}</button>
+          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} title={`Spend a Time Bank Card: +${TB_CARD_SECONDS} seconds`}>⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'} <b className="tb-cards">×{tbCards}</b></button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (
             <button className="act-btn act-check" disabled={!myTurn || !!state?.allInOrFold} onClick={() => act('check')}>Check</button>

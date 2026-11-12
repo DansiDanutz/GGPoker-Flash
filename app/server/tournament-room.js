@@ -558,7 +558,10 @@ export class TournamentRoom {
     const player = seat.player;
     if (!isMovable(player, source.handInProgress())) return null;
     if (target.occupiedSeats().length >= target.cfg.seats) return null;
-    const profile = { id: player.id, nick: player.nick, avatar: player.avatar, isBot: !!player.isBot };
+    const profile = {
+      id: player.id, nick: player.nick, avatar: player.avatar, isBot: !!player.isBot,
+      timeBankCards: player.timeBankCards, timeBankHands: player.timeBankHands,
+    };
     const stack = player.stack;
     const flags = {
       disconnected: player.disconnected,
