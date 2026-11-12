@@ -28,6 +28,7 @@ import { TableChat } from '../components/table/TableChat';
 import { SeatReaction } from '../components/table/SeatReaction';
 import { ReportPlayerModal } from '../components/table/ReportPlayerModal';
 import { CashDropBanner } from '../components/table/CashDropBanner';
+import { DailyLeaderboardRibbon } from '../components/table/DailyLeaderboardRibbon';
 import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
@@ -1059,6 +1060,10 @@ export function TablePage({ tableId }: { tableId: string }) {
         <button onClick={() => setMenuOpen((v) => !v)}>Menu</button>
         <button onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
+
+      {tableId && state && !state.tournament && !state.spin && (
+        <DailyLeaderboardRibbon tableId={tableId} stake={`${money(state.sb)}/${money(state.bb)}`} refreshKey={vpipHand} />
+      )}
 
       {cashDrop && <CashDropBanner drop={cashDrop} />}
 
