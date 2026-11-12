@@ -7,7 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   CASHDROP_DEFAULTS, CASHDROP_KIND, CASHDROP_RULE_LABEL, cashDropAmount, cashDropReference, createCashDropLedger,
-  createRushPool, cryptoRng, poolKeyOf, readCashDropConfig, rollCashDrop, settleCashDrop, validateCashDropSettings,
+  createRushPool, cryptoRng, poolKeyOf, readCashDropConfig, rollCashDrop, RUSH_MAX_PASSES, settleCashDrop,
+  validateCashDropSettings,
 } from './rush-pool.js';
 import { startServer } from './test-helpers.js';
 
@@ -181,7 +182,7 @@ function fakeTable({ id, game = 'rush', sb, bb, seats = 6, players = [], street 
   const seatList = Array.from({ length: seats }, (_, i) => ({ index: i, player: players[i] ? { ...players[i] } : null }));
   return {
     cfg: { id, game, sb, bb, seats, max_buyin: bb * 100 },
-    rush: game === 'rush',
+    rush: game.startsWith('rush'),
     street,
     seats: seatList,
     events: [],
@@ -192,8 +193,12 @@ function fakeTable({ id, game = 'rush', sb, bb, seats = 6, players = [], street 
   };
 }
 
-/** A pool world over fake tables; records every transfer as { userId, from, to }. */
-function poolWorld(tables) {
+/**
+ * A pool world over fake tables; records every transfer as { userId, from, to }.
+ * options.refill: a vacated seat is taken by a new bot at once (a busy pool).
+ */
+function poolWorld(tables, { now = () => 1000, refill = false } = {}) {
+  let nextBot = 10_000;
   const byId = new Map(tables.map((t) => [t.cfg.id, t]));
   const transfers = [];
   const sent = [];
@@ -207,7 +212,10 @@ function poolWorld(tables) {
     getLiveTable: (id) => byId.get(id) || null,
     getEntry: entry,
     findUser: (id) => ({ id, nick: `u${id}` }),
-    cashOutSeat: (table, userId) => { pendingFrom = table.cfg.id; table.seatOf(userId).player = null; },
+    cashOutSeat: (table, userId) => {
+      pendingFrom = table.cfg.id;
+      table.seatOf(userId).player = refill ? { id: nextBot++, stack: 50_000, isBot: true } : null;
+    },
     seatHuman: (table, user, buyin) => {
       const free = table.seats.find((s) => !s.player);
       if (!free) return { ok: false };
@@ -219,7 +227,7 @@ function poolWorld(tables) {
     isRealUser: () => true,
     getSetting: (_k, fallback) => fallback,
     ledger: { hasDrop: () => false, credit: () => true },
-    now: () => 1000,
+    now,
   });
   return { pool, transfers, sent, byId };
 }
@@ -294,4 +302,146 @@ test('settleHand rolls the Cash Drop only for Rush hands and emits the felt even
   assert.equal(drop.userId, 1, 'bots are never eligible');
   assert.equal(drop.amount, 1000 * CASHDROP_DEFAULTS.amountBb);
   assert.deepEqual(table.events.at(-1), { type: 'cashdrop', nick: 'A', amount: drop.amount, rule: CASHDROP_RULE_LABEL });
+});
+
+/* ------------------------------------------------------------------ */
+/* R5: fair queue service per pool                                     */
+/* ------------------------------------------------------------------ */
+
+const POOLS = Object.freeze([
+  Object.freeze({ game: 'rush', sb: 500, bb: 1000 }),
+  Object.freeze({ game: 'rushplo', sb: 500, bb: 1000 }),
+]);
+
+/** Each pool: one 2-seat source table per player (player + bot) and 3 full 6-seat bot tables. */
+function busyPools(playersPerPool) {
+  const tables = [];
+  const sources = [];
+  let botId = 500;
+  POOLS.forEach((stake, pi) => {
+    for (let i = 0; i < 3; i++) {
+      tables.push(fakeTable({ id: `t${pi}-${i}`, ...stake, players: Array.from({ length: 6 }, () => bot(botId++)) }));
+    }
+    for (let i = 0; i < playersPerPool; i++) {
+      const userId = pi * playersPerPool + i + 1;
+      const source = fakeTable({ id: `s${pi}-${i}`, ...stake, seats: 2, players: [human(userId), bot(botId++)] });
+      tables.push(source);
+      sources.push({ userId, poolKey: poolKeyOf(stake), table: source });
+    }
+  });
+  return { tables, sources };
+}
+
+/** Free one bot seat on a random bot table of a random pool. */
+function openRandomSeat(rng, tables) {
+  const candidates = tables.filter((t) => t.cfg.id.startsWith('t') && t.seats.some((s) => s.player?.isBot));
+  const table = candidates[Math.floor(rng() * candidates.length)];
+  const botSeats = table.seats.filter((s) => s.player?.isBot);
+  botSeats[Math.floor(rng() * botSeats.length)].player = null;
+}
+
+for (const seed of [1, 7, 42, 2026, 31337]) {
+  test(`20 queued players, seats opening in random order (seed ${seed}): served in arrival order within each pool`, () => {
+    const rng = seededRng(seed);
+    const { tables, sources } = busyPools(10);
+    let clock = 0;
+    const { pool, transfers } = poolWorld(tables, { now: () => ++clock, refill: true });
+    const order = [...sources].sort(() => rng() - 0.5); // random arrival order across both pools
+    const arrived = [];
+    for (let step = 0; step < 2000 && transfers.length < sources.length; step++) {
+      const roll = rng();
+      if (roll < 0.4 && arrived.length < order.length) {
+        const next = order[arrived.length];
+        arrived.push(next);
+        pool.moveQueued(next.table);
+      } else if (roll < 0.7) {
+        openRandomSeat(rng, tables); // a seat opens; the next flush (or a newer folder) may see it
+      } else {
+        pool.flush();
+      }
+      for (const stake of POOLS) {
+        assert.ok(pool.poolQueue(poolKeyOf(stake)).every((w) => w.passes === 0), 'nobody is passed over when every hand has ended');
+      }
+    }
+
+    assert.equal(transfers.length, sources.length, 'every player is eventually served');
+    const poolOfTable = new Map(tables.map((t) => [t.cfg.id, poolKeyOf(t.cfg)]));
+    for (const t of transfers) assert.equal(poolOfTable.get(t.to), poolOfTable.get(t.from), `no cross-pool move for ${t.userId}`);
+    for (const stake of POOLS) {
+      const key = poolKeyOf(stake);
+      const arrivalOrder = arrived.filter((s) => s.poolKey === key).map((s) => s.userId);
+      const serviceOrder = transfers.filter((t) => poolOfTable.get(t.from) === key).map((t) => t.userId);
+      assert.deepEqual(serviceOrder, arrivalOrder, `service order = arrival order in ${key}`);
+    }
+    assert.deepEqual(pool.waitingList(), []);
+  });
+}
+
+test('a new folder joins the back of a non-empty queue instead of taking an open seat first', () => {
+  const { tables, sources } = busyPools(2);
+  let clock = 0;
+  const { pool, transfers } = poolWorld(tables, { now: () => ++clock, refill: true });
+  pool.moveQueued(sources[0].table); // user 1 waits: the pool is full
+  tables.find((t) => t.cfg.id === 't0-0').seats[0].player = null; // a seat opens before the next flush
+  pool.moveQueued(sources[1].table); // user 2 folds now
+  assert.deepEqual(transfers, [], 'user 2 does not jump user 1');
+  assert.deepEqual(pool.poolQueue('rush:500/1000').map((w) => [w.userId, w.position]), [[1, 1], [2, 2]]);
+  pool.flush();
+  assert.deepEqual(transfers.map((t) => t.userId), [1]);
+  assert.deepEqual(pool.poolQueue('rush:500/1000').map((w) => w.userId), [2]);
+});
+
+test('a re-queued player keeps their original place and arrival time', () => {
+  const { tables, sources } = busyPools(2);
+  let clock = 100;
+  const { pool } = poolWorld(tables, { now: () => ++clock, refill: true });
+  pool.moveQueued(sources[0].table);
+  pool.moveQueued(sources[1].table);
+  pool.moveQueued(sources[0].table); // the next hand at user 1's old table ends
+  assert.deepEqual(pool.poolQueue('rush:500/1000').map((w) => [w.userId, w.since]), [[1, 101], [2, 102]]);
+});
+
+test(`starvation bound: a waiting player mid-hand is passed over at most ${RUSH_MAX_PASSES} flushes`, () => {
+  const { tables, sources } = busyPools(5);
+  let clock = 0;
+  const { pool, transfers } = poolWorld(tables, { now: () => ++clock, refill: true });
+  const key = 'rush:500/1000';
+  for (const s of sources.filter((x) => x.poolKey === key)) pool.moveQueued(s.table);
+  const oldest = sources[0];
+  oldest.table.street = 'flop'; // their old table dealt a new hand before they could move
+  const target = tables.find((t) => t.cfg.id === 't0-0');
+  const openSeat = () => { target.seats.find((s) => s.player?.isBot).player = null; };
+  const served = () => transfers.map((t) => t.userId);
+  const passesOfOldest = () => pool.poolQueue(key).find((w) => w.userId === oldest.userId)?.passes;
+
+  openSeat(); pool.flush();
+  assert.deepEqual(served(), [2]);
+  assert.equal(passesOfOldest(), 1);
+  openSeat(); pool.flush();
+  assert.deepEqual(served(), [2, 3]);
+  assert.equal(passesOfOldest(), RUSH_MAX_PASSES);
+
+  openSeat(); pool.flush(); pool.flush();
+  assert.deepEqual(served(), [2, 3], 'the open seat is held for the oldest player');
+  assert.equal(passesOfOldest(), RUSH_MAX_PASSES, 'never passed over a third time');
+
+  oldest.table.street = 'ended';
+  pool.flush();
+  assert.deepEqual(served(), [2, 3, 1]);
+  openSeat(); pool.flush();
+  assert.deepEqual(served(), [2, 3, 1, 4]);
+  for (const t of transfers) assert.equal(poolKeyOf(tables.find((x) => x.cfg.id === t.to).cfg), key);
+});
+
+test('a waiting player whose old seat is gone leaves the queue without blocking the next one', () => {
+  const { tables, sources } = busyPools(2);
+  let clock = 0;
+  const { pool, transfers } = poolWorld(tables, { now: () => ++clock, refill: true });
+  pool.moveQueued(sources[0].table);
+  pool.moveQueued(sources[1].table);
+  sources[0].table.seats[0].player = null; // user 1 left the room
+  tables.find((t) => t.cfg.id === 't0-1').seats[2].player = null;
+  pool.flush();
+  assert.deepEqual(transfers.map((t) => t.userId), [2]);
+  assert.deepEqual(pool.waitingList(), []);
 });

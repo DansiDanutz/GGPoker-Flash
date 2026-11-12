@@ -128,7 +128,7 @@ export function createCashDropLedger(db, addTransactionEx) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Rush pools (P0 slice R1): queue, transfer and Cash Drop per pool    */
+/* Rush pools (P0 slices R1, R5): fair queue, transfer and Cash Drop  */
 /* ------------------------------------------------------------------ */
 
 /** A Rush pool is every enabled table of one game at one stake. */
@@ -149,10 +149,27 @@ function notifyClient(entry, userId, payload) {
   }
 }
 
+/** Flushes a waiting player may be passed over by a newer arrival while their old hand runs. */
+export const RUSH_MAX_PASSES = 2;
+
+const SETTLED_STREETS = Object.freeze(['ended', 'idle']);
+const NO_QUEUE = Object.freeze([]);
+
+/** FIFO by arrival time, then by arrival sequence for equal timestamps. */
+function byArrival(a, b) {
+  return a.since - b.since || a.seq - b.seq;
+}
+
 /**
  * The live Rush pools: players who folded (`rushQueued`) move to the emptiest other table
  * of the same pool after the hand, or wait in the pool queue until a seat opens there.
  * A transfer never leaves the pool, so it never crosses stakes.
+ *
+ * Queue fairness (P0 slice R5): each pool has one FIFO ordered by arrival (`since`). An open
+ * seat anywhere in the pool goes to the oldest waiting player who can take it; a new folder
+ * joins the back of a non-empty queue instead of taking a seat ahead of it. A waiting player
+ * whose previous table is still mid-hand can be passed over by a newer arrival, but at most
+ * RUSH_MAX_PASSES flushes: after that the pool's open seats are held for them.
  *
  * deps:
  *   listPoolTableIds(pool)        ids of the enabled tables in a pool ({ game, sb, bb, key })
@@ -166,7 +183,43 @@ function notifyClient(entry, userId, payload) {
  */
 export function createRushPool(deps) {
   const now = deps.now || Date.now;
-  const waiting = new Map(); // userId -> { user, stack, pool, fromTable, since }
+  // poolKey -> frozen array of frozen entries, oldest first:
+  // { userId, user, stack, pool, fromTable, since, seq, passes }
+  const queues = new Map();
+  let arrivals = 0; // tie-break for equal `since`
+
+  const queueFor = (key) => queues.get(key) || NO_QUEUE;
+
+  function setQueue(key, list) {
+    if (list.length) queues.set(key, Object.freeze(list));
+    else queues.delete(key);
+  }
+
+  function findWaiting(userId) {
+    for (const list of queues.values()) {
+      const entry = list.find((w) => w.userId === userId);
+      if (entry) return entry;
+    }
+    return null;
+  }
+
+  function dequeue(userId) {
+    const entry = findWaiting(userId);
+    if (entry) setQueue(entry.pool.key, queueFor(entry.pool.key).filter((w) => w.userId !== userId));
+  }
+
+  function enqueue({ user, stack, pool, fromTable }) {
+    dequeue(user.id);
+    const entry = Object.freeze({
+      userId: user.id, user, stack, pool, fromTable, since: now(), seq: arrivals++, passes: 0,
+    });
+    setQueue(pool.key, [...queueFor(pool.key), entry].sort(byArrival));
+  }
+
+  function countPasses(key, passedIds) {
+    if (!passedIds.size) return;
+    setQueue(key, queueFor(key).map((w) => (passedIds.has(w.userId) ? Object.freeze({ ...w, passes: w.passes + 1 }) : w)));
+  }
 
   function pickTarget(pool, excludeId) {
     let target = null;
@@ -190,15 +243,19 @@ export function createRushPool(deps) {
       const stack = seat?.player?.stack || 0;
       const user = deps.findUser(p.id);
       if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; continue; }
-      const target = pickTarget(pool, table.cfg.id);
+      const waiting = findWaiting(p.id);
+      // Already queued from this table: keep their place; flush() serves the queue in order.
+      if (waiting && waiting.pool.key === pool.key && waiting.fromTable === table.cfg.id) continue;
+      // Nobody may take a seat ahead of players already waiting in this pool.
+      const target = queueFor(pool.key).length ? null : pickTarget(pool, table.cfg.id);
       if (!target) {
-        waiting.set(p.id, { user, stack, pool, fromTable: table.cfg.id, since: now() });
+        enqueue({ user, stack, pool, fromTable: table.cfg.id });
         seat.player.rushQueued = true;
         seat.player.sittingOut = true;
         notifyClient(deps.getEntry(table.cfg.id), p.id, { type: 'rush_queued' });
         continue;
       }
-      waiting.delete(p.id);
+      dequeue(p.id);
       deps.cashOutSeat(table, p.id, 'Rush transfer');
       const res = deps.seatHuman(target, user, Math.min(stack, target.cfg.max_buyin), null);
       if (!res.ok) { seat.player && (seat.player.rushQueued = false); continue; }
@@ -208,24 +265,46 @@ export function createRushPool(deps) {
     }
   }
 
-  /** Periodic sweep: seat waiting players once a table in their own pool has room. */
-  function flush() {
-    for (const [userId, wait] of [...waiting]) {
-      const fromEntry = deps.getEntry(wait.fromTable);
-      if (!fromEntry) { waiting.delete(userId); continue; }
-      const fromTable = fromEntry.table;
-      const oldSeat = fromTable.seatOf(userId);
-      if (!oldSeat?.player) { waiting.delete(userId); continue; }
-      if (!['ended', 'idle'].includes(fromTable.street)) continue;
-      const target = pickTarget(wait.pool, fromTable.cfg.id);
-      if (!target) continue;
-      deps.cashOutSeat(fromTable, userId, 'Rush queue transfer');
-      const res = deps.seatHuman(target, wait.user, Math.min(wait.stack, target.cfg.max_buyin), null);
-      if (!res.ok) { waiting.delete(userId); continue; }
-      waiting.delete(userId);
-      notifyClient(fromEntry, userId,
-        { type: 'rush_move', tableId: target.cfg.id, stack: Math.min(wait.stack, target.cfg.max_buyin) });
+  /** Where a waiting player stands: gone from their old seat, mid-hand there, or free to move. */
+  function readiness(wait) {
+    const fromEntry = deps.getEntry(wait.fromTable);
+    if (!fromEntry || !fromEntry.table.seatOf(wait.userId)?.player) return { state: 'stale' };
+    if (!SETTLED_STREETS.includes(fromEntry.table.street)) return { state: 'busy', fromEntry };
+    return { state: 'ready', fromEntry };
+  }
+
+  function seatFromQueue(wait, fromEntry, target) {
+    dequeue(wait.userId);
+    deps.cashOutSeat(fromEntry.table, wait.userId, 'Rush queue transfer');
+    const stack = Math.min(wait.stack, target.cfg.max_buyin);
+    const res = deps.seatHuman(target, wait.user, stack, null);
+    if (!res.ok) return false;
+    notifyClient(fromEntry, wait.userId, { type: 'rush_move', tableId: target.cfg.id, stack });
+    return true;
+  }
+
+  /** One service round for a pool: open seats go to waiting players oldest first. */
+  function servePool(key) {
+    const skipped = []; // busy players a newer arrival may still pass this round
+    const passed = new Set();
+    for (const wait of queueFor(key)) {
+      const { state, fromEntry } = readiness(wait);
+      if (state === 'stale') { dequeue(wait.userId); continue; }
+      const target = pickTarget(wait.pool, wait.fromTable);
+      if (!target) continue; // no seat is open for this player (at most their own table has room)
+      if (state === 'busy') {
+        if (wait.passes >= RUSH_MAX_PASSES) break; // starvation bound: hold the pool's seats for them
+        skipped.push(wait.userId);
+        continue;
+      }
+      if (seatFromQueue(wait, fromEntry, target)) skipped.forEach((id) => passed.add(id));
     }
+    countPasses(key, passed);
+  }
+
+  /** Periodic sweep: serve every pool queue once a table in that pool has room. */
+  function flush() {
+    for (const key of [...queues.keys()]) servePool(key);
   }
 
   /** Cash Drop for a saved Rush hand; emits the felt event when a drop is paid. */
@@ -239,12 +318,19 @@ export function createRushPool(deps) {
     return drop;
   }
 
-  /** Read-only view of the pool queue (copies), for tests and monitoring. */
+  /** Read-only view of every pool queue (copies), for tests and monitoring. */
   function waitingList() {
-    return [...waiting].map(([userId, w]) => Object.freeze({
-      userId, poolKey: w.pool.key, fromTable: w.fromTable, stack: w.stack, since: w.since,
+    return [...queues.values()].flat().map((w) => Object.freeze({
+      userId: w.userId, poolKey: w.pool.key, fromTable: w.fromTable, stack: w.stack, since: w.since,
     }));
   }
 
-  return Object.freeze({ moveQueued, flush, settleHand, waitingList });
+  /** One pool's FIFO, oldest first, with how many flushes each player has been passed over. */
+  function poolQueue(poolKey) {
+    return queueFor(poolKey).map((w, i) => Object.freeze({
+      userId: w.userId, position: i + 1, fromTable: w.fromTable, since: w.since, passes: w.passes,
+    }));
+  }
+
+  return Object.freeze({ moveQueued, flush, settleHand, waitingList, poolQueue });
 }
