@@ -215,6 +215,11 @@ summary view `ev_4a1b9723…`). The graph is static and partial (semantic-node c
 admin/tournament HTTP surface, not as a runtime monitor. Live values in the Platform
 section come from the server's own process state and the database.
 
+A runtime REA observation of the test admin console (`docs/REA-ADMIN-VERIFICATION.md`)
+confirmed the rendered Platform controls, the recovery/snapshot/level actions and the
+`GET /api/admin/platform` call, with attach-window-only limitations; it did not capture
+credentials, bodies, headers or storage values.
+
 A second REA run inspected a production `VACUUM INTO` snapshot with
 `inspect_sqlite_database` (evidence `ev_3ddc2239…`, authority shipped-artifact, confidence
 observed): it confirmed the `tourney_state` schema (`tournament_id` primary key, non-null

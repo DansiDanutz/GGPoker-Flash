@@ -6,6 +6,18 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### REA runtime verification of the admin console
+- Used REA's CDP browser tools against a pre-authenticated headless Chrome on the disposable
+  test instance: target listing (`ev_9fbe9044…`), page inspection (`ev_a0af0030…`) and a
+  viewport screenshot (`ev_0c342def…`). The observation confirmed the Platform heading,
+  **Snapshot all**, per-room **Snapshot** / **Level +1**, **Recovery** values and
+  **restored** markers, `GET /api/admin/platform` 200, and no console events in the window.
+- Recorded the setup, evidence, findings and limitations in
+  `docs/REA-ADMIN-VERIFICATION.md`; this complements the static server inventory and the
+  production SQLite inspection. No credentials, bodies, headers or storage values were
+  captured. No production change; unit suite 428/428.
+
+## 2026-11-12
 ### Multi-room crash soak
 - `tools/tournament-soak.mjs --rooms N` now creates N two-player events per cycle (unique
   users/tournaments), waits for a settled-hand snapshot in every room, `SIGKILL`s the server
