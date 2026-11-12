@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from './lib/store';
 import { TitleBar } from './components/TitleBar';
 import { AppHeader } from './components/AppHeader';
+import { SeatOfferModal } from './components/SeatOfferModal';
 import { Login } from './pages/Login';
 import { Lobby } from './pages/Lobby';
 import { TablePage } from './pages/TablePage';
@@ -65,7 +66,7 @@ function ComingSoon({ title }: { title: string }) {
 }
 
 export default function App() {
-  const { route, toasts, dismissToast, loading, user, guest, splashDone, meta, installGate, authOffline, firstLaunch } = useApp();
+  const { route, navigate, toasts, dismissToast, loading, user, guest, splashDone, meta, installGate, authOffline, firstLaunch } = useApp();
 
   const page = useMemo(() => {
     const [path] = route.split('?');
@@ -140,11 +141,21 @@ export default function App() {
       {firstLaunch && <FirstLaunch />}
       <MobileNav />
       <QuickMenu />
+      {user && <SeatOfferModal />}
       <div className="toasts">
         {toasts.map((t) => (
           <div key={t.id} className={'toast ' + t.kind} onClick={() => dismissToast(t.id)}>
             <b>{t.title}</b>
             {t.body && <span>{t.body}</span>}
+            {t.link && (
+              <button
+                type="button"
+                className="toast-action"
+                onClick={(e) => { e.stopPropagation(); dismissToast(t.id); navigate(t.link!); }}
+              >
+                {t.linkLabel || 'Open'}
+              </button>
+            )}
           </div>
         ))}
       </div>

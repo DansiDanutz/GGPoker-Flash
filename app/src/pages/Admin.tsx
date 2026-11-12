@@ -1,20 +1,31 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { api, money, User } from '../lib/api';
+import React, { useEffect, useRef, useState } from 'react';
+import { api, money, User, AdminUserStatus } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { PlayingCard } from '../components/Card';
+import { AdminWaitlists } from '../components/AdminWaitlists';
+import { AdminChatModeration } from '../components/AdminChatModeration';
+import { AdminAuditLog } from '../components/AdminAuditLog';
+import { AdminTransactions } from '../components/AdminTransactions';
+import { AdminRestore } from '../components/AdminRestore';
+import {
+  CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
+  CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
+} from '../lib/cashDrop';
 
 const SECTIONS = [
   { key: 'dashboard', label: 'Dashboard', icon: '📊' },
   { key: 'users', label: 'Users', icon: '👥' },
   { key: 'tables', label: 'Cash tables', icon: '🃏' },
   { key: 'tournaments', label: 'Tournaments', icon: '🏆' },
+  { key: 'waitlists', label: 'Wait lists', icon: '⏳' },
   { key: 'banners', label: 'Promotions', icon: '🎁' },
   { key: 'branding', label: 'Branding', icon: '🎨' },
   { key: 'verifications', label: 'Verifications', icon: '🪪' },
   { key: 'reports', label: 'Player reports', icon: '🚩' },
+  { key: 'chatmod', label: 'Chat moderation', icon: '💬' },
   { key: 'missions', label: 'Missions', icon: '📋' },
   { key: 'settings', label: 'Game settings', icon: '⚙️' },
   { key: 'transactions', label: 'Transactions', icon: '💳' },
@@ -22,12 +33,22 @@ const SECTIONS = [
   { key: 'chat', label: 'Announcements', icon: '📣' },
 ];
 
+const USER_STATUSES: { value: AdminUserStatus; label: string }[] = [
+  { value: 'all', label: 'All users' },
+  { value: 'active', label: 'Active' },
+  { value: 'admin', label: 'Admins' },
+  { value: 'banned', label: 'Banned' },
+  { value: 'muted', label: 'Chat muted' },
+];
+const USER_PAGE_SIZES = [25, 50, 100];
+const USER_SEARCH_DEBOUNCE_MS = 250;
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label className="admin-label">{label}</label>{children}</div>;
 }
 
 export function Admin() {
-  const { user, toast, meta, brand, refreshBrand } = useApp();
+  const { user, toast, meta, brand, refreshBrand, refreshUser } = useApp();
   const [section, setSection] = useState('dashboard');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -37,33 +58,63 @@ export function Admin() {
   const [missions, setMissions] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [audit, setAudit] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [handView, setHandView] = useState<any>(null);
   const [handReplay, setHandReplay] = useState(0);
   const [handPlaying, setHandPlaying] = useState(false);
   const [q, setQ] = useState('');
+  const [userStatus, setUserStatus] = useState<AdminUserStatus>('all');
+  const [userLimit, setUserLimit] = useState(50);
+  const [userOffset, setUserOffset] = useState(0);
+  const [userTotal, setUserTotal] = useState(0);
+  const [activeAdmins, setActiveAdmins] = useState(0);
+  const usersRequest = useRef(0);
   const [editing, setEditing] = useState<any>(null);
   const [local, setLocal] = useState<any>({});
   const [notice, setNotice] = useState('');
 
   const isAdmin = !!user?.is_admin;
 
-  const loadAll = async () => {
+  // One page of users for the current search, status and page; stale responses are ignored.
+  const loadUsers = async () => {
+    if (!isAdmin) return;
+    const requestId = ++usersRequest.current;
+    try {
+      const page = await api.admin.users({ q, status: userStatus, limit: userLimit, offset: userOffset });
+      if (requestId !== usersRequest.current) return;
+      // A ban or mute can shrink the filtered set under the current page; step back to the last page.
+      if (page.users.length === 0 && userOffset > 0 && page.total > 0) {
+        setUserOffset(Math.floor((page.total - 1) / userLimit) * userLimit);
+        return;
+      }
+      setUsers(page.users); setUserTotal(page.total); setActiveAdmins(page.activeAdmins);
+    } catch (e: any) {
+      if (requestId === usersRequest.current) toast({ kind: 'error', title: 'Users', body: e.message });
+    }
+  };
+
+  const loadCore = async () => {
     if (!isAdmin) return;
     try {
-      const [s, u, t, tt, b, m, st, tx, au, v, rp] = await Promise.all([
-        api.admin.stats(), api.admin.users(), api.admin.tables(), api.admin.tournaments(),
-        api.admin.banners(), api.admin.missions(), api.admin.settings(), api.admin.transactions(), api.admin.audit(), api.admin.verifications(), api.admin.reports(),
+      const [s, t, tt, b, m, st, tx, v, rp] = await Promise.all([
+        api.admin.stats(), api.admin.tables(), api.admin.tournaments(),
+        api.admin.banners(), api.admin.missions(), api.admin.settings(), api.admin.transactions(), api.admin.verifications(), api.admin.reports(),
       ]);
-      setStats(s); setUsers(u.users); setTables(t.tables); setTourneys(tt.tournaments);
+      setStats(s); setTables(t.tables); setTourneys(tt.tournaments);
       setBanners(b.banners); setMissions(m.missions); setSettings(st.settings);
-      setTransactions(tx.transactions); setAudit(au.log); setVerifications(v.verifications || []); setReports(rp.reports || []);
+      setTransactions(tx.transactions); setVerifications(v.verifications || []); setReports(rp.reports || []);
     } catch (e: any) { toast({ kind: 'error', title: 'Admin', body: e.message }); }
   };
 
-  useEffect(() => { loadAll(); }, [isAdmin]);
+  const loadAll = async () => { await Promise.all([loadCore(), loadUsers()]); };
+
+  useEffect(() => { loadCore(); }, [isAdmin]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { loadUsers(); }, USER_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [isAdmin, q, userStatus, userLimit, userOffset]);
 
   useEffect(() => {
     if (!handView) return;
@@ -76,8 +127,6 @@ export function Admin() {
     const timer = window.setInterval(() => setHandReplay((n) => (n >= 5 ? 5 : n + 1)), 650);
     return () => window.clearInterval(timer);
   }, [handView, handPlaying]);
-
-  const filteredUsers = useMemo(() => users.filter((u) => !q || u.login.toLowerCase().includes(q.toLowerCase()) || u.nick.toLowerCase().includes(q.toLowerCase())), [users, q]);
 
   const exportReports = () => {
     const rows: any[][] = [['id', 'reporter', 'target', 'reason', 'detail', 'hand_id', 'status', 'created_at', 'resolved_at'], ...reports.map((r) => [r.id, r.reporter_nick, r.target_nick, r.reason, r.detail, r.hand_id, r.status, r.created_at, r.resolved_at])];
@@ -92,6 +141,27 @@ export function Admin() {
       sound.play('click');
       await loadAll();
       toast({ kind: 'success', title: 'User updated' });
+    } catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
+  };
+
+  // Mirrors the server's last-admin guard (active = admin and not banned) so the button is never offered.
+  // The count comes from the server because the table only holds one page.
+  const isLastAdmin = (u: User) => u.is_admin && !u.banned && activeAdmins <= 1;
+  const userPageEnd = Math.min(userOffset + users.length, userTotal);
+
+  const toggleAdmin = async (u: User) => {
+    const grant = !u.is_admin;
+    const self = u.id === user?.id;
+    const prompt = grant
+      ? `Make ${u.nick} (${u.login}) an admin? They will get full access to this console.`
+      : `Revoke admin from ${u.nick} (${u.login})?${self ? ' You will lose access to this console.' : ''}`;
+    if (!confirm(prompt)) return;
+    try {
+      await api.admin.userAction(u.id, { action: 'set_admin', admin: grant });
+      sound.play('click');
+      toast({ kind: 'success', title: grant ? 'Admin granted' : 'Admin revoked', body: u.nick });
+      if (self && !grant) { await refreshUser(); return; }
+      await loadAll();
     } catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
   };
 
@@ -111,7 +181,10 @@ export function Admin() {
     try { await api.admin.saveMission(local); setEditing(null); setLocal({}); await loadAll(); toast({ kind: 'success', title: 'Mission saved' }); }
     catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
   };
+  const cashDropErrors = cashDropFieldErrors(settings);
   const saveSettings = async () => {
+    const invalid = Object.values(cashDropErrors);
+    if (invalid.length) { toast({ kind: 'error', title: 'Invalid settings', body: invalid.join(' ') }); return; }
     try { await api.admin.saveSettings(settings); await loadAll(); toast({ kind: 'success', title: 'Settings saved' }); }
     catch (e: any) { toast({ kind: 'error', title: 'Failed', body: e.message }); }
   };
@@ -163,6 +236,8 @@ export function Admin() {
                   {['users', 'transactions', 'hands', 'tournaments'].map((k) => (
                     <button key={k} className="btn btn-ghost btn-sm" onClick={async () => { try { await api.admin.exportCsv(k); toast({ kind: 'success', title: 'Export ready', body: `${k}.csv` }); } catch (e: any) { toast({ kind: 'error', title: 'Export failed', body: e.message }); } }}>⤓ {k}</button>
                   ))}
+                  <button className="btn btn-ghost btn-sm" onClick={async () => { try { const name = await api.admin.backup(); toast({ kind: 'success', title: 'Backup downloaded', body: name }); } catch (e: any) { toast({ kind: 'error', title: 'Backup failed', body: e.message }); } }}>⤓ Download backup</button>
+                  <AdminRestore />
                 </div>
               </div>
               <div className="stat-grid">
@@ -220,14 +295,21 @@ export function Admin() {
                 <h2 className="admin-title" style={{ margin: 0 }}>Users</h2>
                 <div className="row">
                   <button className="btn btn-ghost btn-sm" onClick={() => api.admin.exportCsv('users')}>⤓ CSV</button>
-                  <input className="admin-input" placeholder="Search login or nickname…" value={q} onChange={(e) => setQ(e.target.value)} />
+                  <input className="admin-input" aria-label="Search users" placeholder="Search login, nickname or email…" value={q} onChange={(e) => { setQ(e.target.value); setUserOffset(0); }} />
+                  <select className="admin-input" aria-label="User status" value={userStatus} onChange={(e) => { setUserStatus(e.target.value as AdminUserStatus); setUserOffset(0); }}>
+                    {USER_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                  <select className="admin-input" aria-label="Users per page" value={userLimit} onChange={(e) => { setUserLimit(Number(e.target.value)); setUserOffset(0); }}>
+                    {USER_PAGE_SIZES.map((n) => <option key={n} value={n}>{n} / page</option>)}
+                  </select>
                 </div>
               </div>
               <div className="admin-card" style={{ padding: 0 }}>
-                <table className="admin-table">
+                <table className="admin-table admin-users-table">
                   <thead><tr><th>ID</th><th>Player</th><th>Login</th><th>Balance</th><th>Play chips</th><th>Tickets</th><th>VIP</th><th>Status</th><th>Actions</th></tr></thead>
                   <tbody>
-                    {filteredUsers.map((u) => (
+                    {users.length === 0 && <tr><td colSpan={9} className="muted" style={{ textAlign: 'center', padding: 16 }}>No users match these filters.</td></tr>}
+                    {users.map((u) => (
                       <tr key={u.id}>
                         <td>{u.id}</td>
                         <td><div className="row"><Avatar name={u.nick} src={u.avatar} size={22} />{u.nick}</div></td>
@@ -236,19 +318,27 @@ export function Admin() {
                         <td>{(u.play_chips).toLocaleString()}</td>
                         <td>T${u.tickets}</td>
                         <td>VIP {u.vip_level}</td>
-                        <td>{u.banned ? <span className="tag red">Banned</span> : u.chat_muted ? <span className="tag red">Chat muted</span> : <span className="tag live">Active</span>}</td>
+                        <td><div className="row" style={{ gap: 3 }}>{u.banned ? <span className="tag red">Banned</span> : u.chat_muted ? <span className="tag red">Chat muted</span> : <span className="tag live">Active</span>}{u.is_admin && <span className="tag gtd">Admin</span>}</div></td>
                         <td>
                           <div className="row" style={{ gap: 3 }}>
                             <button className="btn btn-ghost btn-sm" onClick={() => quickCredit(u, 100000)}>+$1k</button>
                             <button className="btn btn-ghost btn-sm" onClick={() => quickCredit(u, -100000)}>-$1k</button>
                             <button className="btn btn-ghost btn-sm" onClick={() => setEditing({ kind: 'user', data: u })}>Edit</button>
                             <button className="btn btn-ghost btn-sm" onClick={async () => { await api.admin.userAction(u.id, { action: u.chat_muted ? 'unmute' : 'mute' }); loadAll(); toast({ kind: 'success', title: u.chat_muted ? 'Chat unmuted' : 'Chat muted', body: u.nick }); }}>{u.chat_muted ? 'Unmute' : 'Mute'}</button>
+                            {!isLastAdmin(u) && <button className="btn btn-ghost btn-sm" onClick={() => toggleAdmin(u)}>{u.is_admin ? 'Revoke admin' : 'Make admin'}</button>}
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="between" style={{ marginTop: 10 }}>
+                <span className="muted">{userTotal === 0 ? '0 users' : `${userOffset + 1}–${userPageEnd} of ${userTotal.toLocaleString()} users`}</span>
+                <div className="row">
+                  <button className="btn btn-ghost btn-sm" disabled={userOffset === 0} onClick={() => setUserOffset(Math.max(0, userOffset - userLimit))}>‹ Prev</button>
+                  <button className="btn btn-ghost btn-sm" disabled={userOffset + userLimit >= userTotal} onClick={() => setUserOffset(userOffset + userLimit)}>Next ›</button>
+                </div>
               </div>
             </>
           )}
@@ -318,6 +408,10 @@ export function Admin() {
               </div>
             </>
           )}
+
+          {section === 'waitlists' && <AdminWaitlists />}
+
+          {section === 'chatmod' && <AdminChatModeration />}
 
           {section === 'banners' && (
             <>
@@ -478,7 +572,7 @@ export function Admin() {
               <h2 className="admin-title">Game settings</h2>
               <div className="admin-card">
                 <div className="admin-form">
-                  {Object.entries(settings).map(([k, v]) => (
+                  {Object.entries(settings).filter(([k]) => !CASHDROP_KEYS.includes(k)).map(([k, v]) => (
                     <Field key={k} label={k}>
                       <input
                         className="admin-input" style={{ width: '100%' }}
@@ -495,31 +589,38 @@ export function Admin() {
                 </div>
                 <button className="btn btn-red" style={{ marginTop: 14 }} onClick={saveSettings}>Save settings</button>
               </div>
+              <h3 className="admin-title" style={{ fontSize: 16, marginTop: 18 }}>
+                Rush &amp; Cash Drop <span className="pill" title="Not yet confirmed by a native capture">{CASHDROP_RULE_LABEL}</span>
+              </h3>
+              <div className="admin-card">
+                <div className="admin-form">
+                  <Field label={`Drop chance per Rush hand (0–1) · now ${cashDropRateLabel(settings[CASHDROP_RATE_KEY] ?? CASHDROP_DEFAULT_RATE)}`}>
+                    <input
+                      className="admin-input" style={{ width: '100%' }} type="number" min={0} max={1} step={0.01}
+                      aria-invalid={!!cashDropErrors[CASHDROP_RATE_KEY]}
+                      value={settings[CASHDROP_RATE_KEY] ?? CASHDROP_DEFAULT_RATE}
+                      onChange={(e) => setSettings({ ...settings, [CASHDROP_RATE_KEY]: e.target.value === '' ? '' : Number(e.target.value) })}
+                    />
+                    {cashDropErrors[CASHDROP_RATE_KEY] && <small style={{ color: '#ff8a80' }}>{cashDropErrors[CASHDROP_RATE_KEY]}</small>}
+                  </Field>
+                  <Field label="Drop amount (big blinds, flat per stake)">
+                    <input
+                      className="admin-input" style={{ width: '100%' }} type="number" min={0} max={1000} step={1}
+                      aria-invalid={!!cashDropErrors[CASHDROP_AMOUNT_BB_KEY]}
+                      value={settings[CASHDROP_AMOUNT_BB_KEY] ?? CASHDROP_DEFAULT_AMOUNT_BB}
+                      onChange={(e) => setSettings({ ...settings, [CASHDROP_AMOUNT_BB_KEY]: e.target.value === '' ? '' : Number(e.target.value) })}
+                    />
+                    {cashDropErrors[CASHDROP_AMOUNT_BB_KEY] && <small style={{ color: '#ff8a80' }}>{cashDropErrors[CASHDROP_AMOUNT_BB_KEY]}</small>}
+                  </Field>
+                </div>
+                <p style={{ color: '#9a9a9a', fontSize: 12, marginTop: 10 }}>
+                  {CASHDROP_RULE_LABEL}: a drop pays one human player at the table big blind × this multiple, never a share of the pot. Saved with “Save settings”.
+                </p>
+              </div>
             </>
           )}
 
-          {section === 'transactions' && (
-            <>
-              <div className="between">
-                <h2 className="admin-title" style={{ margin: 0 }}>Transactions</h2>
-                <button className="btn btn-ghost btn-sm" onClick={() => api.admin.exportCsv('transactions')}>⤓ Export CSV</button>
-              </div>
-              <div className="admin-card" style={{ padding: 0 }}>
-                <table className="admin-table">
-                  <thead><tr><th>#</th><th>User</th><th>Type</th><th>Currency</th><th>Amount</th><th>Balance</th><th>Memo</th><th>Date</th></tr></thead>
-                  <tbody>
-                    {transactions.map((t) => (
-                      <tr key={t.id}>
-                        <td>{t.id}</td><td>{t.nick || t.login || t.user_id}</td><td style={{ textTransform: 'capitalize' }}>{t.kind.replace(/_/g, ' ')}</td>
-                        <td>{t.currency}</td><td style={{ color: t.amount >= 0 ? '#7fe0a0' : '#ff9a9a' }}>{money(t.amount)}</td>
-                        <td>{money(t.balance_after)}</td><td className="muted">{t.memo}</td><td className="muted">{t.created_at}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+          {section === 'transactions' && <AdminTransactions />}
 
           {section === 'reports' && (
             <>
@@ -555,19 +656,7 @@ export function Admin() {
             </>
           )}
 
-          {section === 'audit' && (
-            <>
-              <h2 className="admin-title">Audit log</h2>
-              <div className="admin-card" style={{ padding: 0 }}>
-                <table className="admin-table">
-                  <thead><tr><th>#</th><th>Actor</th><th>Action</th><th>Detail</th><th>Date</th></tr></thead>
-                  <tbody>
-                    {audit.map((a) => <tr key={a.id}><td>{a.id}</td><td>{a.actor}</td><td>{a.action}</td><td className="muted">{a.detail}</td><td className="muted">{a.created_at}</td></tr>)}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+          {section === 'audit' && <AdminAuditLog />}
 
           {section === 'chat' && (
             <>

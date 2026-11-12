@@ -279,6 +279,15 @@ a { color: inherit; text-decoration: none; }
 .btn-block { width: 100%; }
 .btn-sm { height: 30px; font-size: 12.5px; padding: 0 10px; }
 .mini-actions { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+/* Wait list (P0 W4a). Colours meet WCAG AA on the lobby surfaces: #ad9561 on #242424 ≈ 5.4:1 (5.5:1 selected), #989898 on #1f1f1f ≈ 5.7:1. */
+.table-row .wait-cell { color: #ad9561; display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.table-row .queued-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex: none; }
+.waitlist-line { font-family: Roboto, sans-serif; font-size: 12px; color: #989898; }
+.waitlist-line b { color: #fff; font-weight: 700; }
+.waitlist-position { font-family: Roboto, sans-serif; font-size: 12px; font-weight: 500; color: var(--gold); }
+.mini-actions .btn.waitlist-full:disabled { opacity: .45; cursor: not-allowed; }
+.mini-actions .waitlist-watch { height: 32px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .rail-sep { height: 1px; background: #2a2a2a; margin: 4px 2px; }
 .currency-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; color: #9d9d9d; font-size: 12px; padding: 5px 4px; border-bottom: 1px solid #232323; }
 .currency-row b { color: #eaeaea; font-weight: 500; }
@@ -457,6 +466,9 @@ a { color: inherit; text-decoration: none; }
 .toast.reward { border-left-color: var(--gold); background: linear-gradient(160deg, #2a2311, #1c1a12); }
 .toast b { display: block; font-size: 13px; color: #f2f2f2; }
 .toast span { font-size: 12px; color: #a8a8a8; }
+.toast .toast-action { display: inline-block; margin-top: 8px; padding: 5px 12px; border: 0; border-radius: 4px; background: var(--gold); color: #1a1406; font-size: 12px; font-weight: 700; cursor: pointer; }
+.toast .toast-action:hover { filter: brightness(1.08); }
+.toast .toast-action:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 /* modal */
 .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(2px); z-index: 200; display: grid; place-items: center; animation: fadeIn .16s ease both; }
@@ -532,12 +544,8 @@ a { color: inherit; text-decoration: none; }
 .win-nick { color: #ffd98a; font-size: 16px; margin-top: 2px; text-shadow: 0 2px 6px #000; }
 @keyframes winIn { from { opacity: 0; transform: translate(-50%,-50%) scale(.6); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
 @keyframes winPulse { from { text-shadow: 0 0 20px rgba(255,190,60,.5), 0 4px 0 #7a4a05; } to { text-shadow: 0 0 42px rgba(255,210,90,.95), 0 4px 0 #7a4a05; } }
-.chat-panel { position: absolute; left: 12px; bottom: 118px; width: 320px; background: rgba(10,10,10,.9); border: 1px solid #333; border-radius: 7px; z-index: 35; overflow: hidden; backdrop-filter: blur(6px); }
 .chat-log { max-height: 150px; overflow-y: auto; padding: 8px 10px; font-size: 12px; color: #ddd; display: flex; flex-direction: column; gap: 3px; }
 .chat-log b { color: #ffd98a; }
-.emote-row { display: flex; gap: 2px; padding: 4px 6px; border-top: 1px solid #2a2a2a; }
-.emote-row button { font-size: 16px; padding: 2px 4px; border-radius: 3px; }
-.emote-row button:hover { background: #2c2c2c; }
 .chat-form { display: flex; gap: 6px; padding: 7px; border-top: 1px solid #2a2a2a; }
 .chat-form input { flex: 1; height: 28px; background: #101010; border: 1px solid #333; border-radius: 4px; color: #eee; padding: 0 8px; font-size: 12px; outline: none; }
 
@@ -813,14 +821,6 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .view-toggle button { white-space: nowrap; }
 .rail-btn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-head > div { white-space: nowrap; }
-.emote-bubble { position: absolute; left: 50%; top: -34px; transform: translateX(-50%); font-size: 34px; line-height: 1; z-index: 30; pointer-events: none; animation: emotePop 2.3s ease-out forwards; filter: drop-shadow(0 4px 8px rgba(0,0,0,.65)); }
-@keyframes emotePop {
-  0% { opacity: 0; transform: translateX(-50%) scale(.3) translateY(10px); }
-  14% { opacity: 1; transform: translateX(-50%) scale(1.18) translateY(0); }
-  24% { transform: translateX(-50%) scale(1); }
-  78% { opacity: 1; transform: translateX(-50%) scale(1) translateY(-4px); }
-  100% { opacity: 0; transform: translateX(-50%) scale(.85) translateY(-16px); }
-}
 .honey-hero { position: relative; height: 200px; border-radius: 9px; overflow: hidden; border: 1px solid #5a3a1a; }
 .honey-hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .honey-overlay { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(20,10,4,.94), rgba(20,10,4,.28)); }
@@ -1115,6 +1115,70 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 @keyframes squeezeIn { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
 @keyframes squeezeOut { from { transform: translate(-50%, 0); } to { transform: translate(-50%, 100%); } }
 .squeeze-lock { pointer-events: none; opacity: .55; }
+
+/* ---------- wait list: header chip, seat offer, group action (P0 W4b) ---------- */
+:root { --wl-queued: var(--gold); --wl-urgent: var(--red2); --wl-surface: #1f1f1f; --wl-border: #333333; --wl-muted: #a0a0a0; }
+.waitlist-chip-wrap { position: relative; flex: none; z-index: 45; }
+.waitlist-chip {
+  height: 24px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--wl-queued);
+  background: rgba(231, 182, 75, .10); color: #f2f2f2; font: 500 12px/22px Roboto, sans-serif; cursor: pointer;
+  white-space: nowrap; animation: wlChipIn .18s var(--ease, ease) both;
+}
+.waitlist-chip b { color: var(--wl-queued); font-weight: 700; }
+.waitlist-chip:hover { background: rgba(231, 182, 75, .18); }
+.waitlist-chip:active, .waitlist-chip.open { background: rgba(231, 182, 75, .24); }
+.waitlist-chip:focus-visible, .waitlist-popover .btn:focus-visible, .group-card .btn:focus-visible { outline: 2px solid #ffd98a; outline-offset: 2px; }
+@keyframes wlChipIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+.waitlist-popover {
+  position: absolute; right: 0; top: calc(100% + 8px); width: 300px; padding: 12px;
+  background: var(--wl-surface); border: 1px solid var(--wl-border); border-radius: 8px; box-shadow: var(--shadow);
+  animation: wlPopIn .16s var(--ease, ease) both;
+}
+@keyframes wlPopIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.waitlist-popover-title { font: 700 13px Roboto, sans-serif; color: #f2f2f2; margin-bottom: 6px; }
+.waitlist-popover ul { list-style: none; margin: 0; padding: 0; }
+.waitlist-popover-row { display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #2a2a2a; }
+.waitlist-popover-row:first-child { border-top: 0; }
+.waitlist-popover-row .wl-name { flex: 1; min-width: 0; font: 500 13px Roboto, sans-serif; color: #f2f2f2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.waitlist-popover-row .wl-pos { font: 500 12px Roboto, sans-serif; color: var(--wl-queued); font-variant-numeric: tabular-nums; }
+.waitlist-popover-row .btn { min-height: 28px; }
+
+.modal.seat-offer { width: 360px; }
+.offer-main { display: flex; align-items: center; gap: 12px; }
+.offer-main > div:first-child { flex: 1; min-width: 0; }
+.offer-table { font-size: 15px; font-weight: 700; color: #f2f2f2; overflow-wrap: anywhere; }
+.offer-meta { font-size: 12px; color: var(--wl-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.offer-ring { position: relative; width: 44px; height: 44px; flex: none; }
+.offer-ring svg { display: block; }
+.offer-ring circle { fill: none; }
+.offer-ring .track { stroke: #333333; }
+.offer-ring .sweep { stroke: var(--wl-queued); stroke-linecap: round; transition: stroke-dasharray .25s linear, stroke .2s; }
+.offer-ring.urgent .sweep { stroke: var(--wl-urgent); }
+.offer-secs { position: absolute; inset: 0; display: grid; place-items: center; font: 700 15px Roboto, sans-serif; color: #fff; font-variant-numeric: tabular-nums; }
+.seat-offer-toast {
+  position: fixed; right: 26px; bottom: 26px; z-index: 510; width: 320px; padding: 10px 12px 13px; overflow: hidden;
+  background: #1e1e1e; border: 1px solid #3a3a3a; border-left: 4px solid var(--wl-queued); border-radius: 6px; box-shadow: var(--shadow);
+}
+.seat-offer-toast > b { display: block; font-size: 13px; color: #f2f2f2; margin-bottom: 4px; }
+.seat-offer-toast .offer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.offer-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--wl-queued); transform-origin: left; transition: transform .25s linear; }
+.offer-bar.urgent { background: var(--wl-urgent); }
+
+.group-card .btn.wl-queued { background: transparent; border: 1px solid var(--wl-queued); color: var(--wl-queued); }
+.group-card .btn.wl-queued:hover { background: rgba(231, 182, 75, .12); }
+.group-card .btn.wl-queued:active { background: rgba(231, 182, 75, .20); }
+
+@media (max-width: 1120px) { .waitlist-chip-wrap { margin-right: 0; } }
+@media (max-width: 980px) { .waitlist-chip-wrap { margin-left: auto; margin-right: 72px; } }
+@media (max-width: 760px) {
+  .waitlist-chip-wrap { margin-right: 52px; }
+  .waitlist-popover { width: min(300px, calc(100vw - 32px)); }
+  .seat-offer-toast { left: 16px; right: 16px; width: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .offer-ring .track, .offer-ring .sweep { display: none; }
+  .offer-bar { transition: none; }
+}
 
 /* Welcome / login — uses the lounge welcome art, card and chrome from the
    approved DanGG Poker Lounge concept. */

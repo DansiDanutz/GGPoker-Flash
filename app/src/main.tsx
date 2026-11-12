@@ -2,15 +2,21 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { AppProvider } from './lib/store';
+import { WaitlistProvider } from './lib/waitlistState';
 import { I18nProvider } from './lib/i18n';
 import './styles.css';
 import './design-v2.css';
 import './responsive.css';
+import './lobby-filters.css';
+import './tournament-filters.css';
+import './table-chat.css';
 
 createRoot(document.getElementById('root')!).render(
   <I18nProvider>
     <AppProvider>
-      <App />
+      <WaitlistProvider>
+        <App />
+      </WaitlistProvider>
     </AppProvider>
   </I18nProvider>
 );

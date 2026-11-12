@@ -129,3 +129,77 @@ test('the tournament watch endpoint is unknown until the event is running', asyn
   assert.equal(state.state.players.some((p) => p.isMe), false, 'the watcher holds no seat');
   await ws.close();
 });
+
+// Table chat (P0 slice C1): history for late joiners, observers read-only,
+// muted senders dropped, and text stored and echoed exactly as typed.
+async function sit(token, tableId) {
+  const ws = srv.socket(token);
+  await ws.opened;
+  ws.send({ type: 'join_table', tableId, buyin: 4000 });
+  const joined = await ws.next((m) => m.type === 'joined' || m.type === 'error');
+  assert.equal(joined.type, 'joined', JSON.stringify(joined));
+  await ws.nextType('chat_history');
+  return ws;
+}
+const chatEvent = (text) => (m) => m.type === 'event' && m.event.type === 'chat' && m.event.message === text;
+
+test('chat history reaches a late joiner and markup is stored verbatim', async () => {
+  const tableId = await hostTable({ name: 'Chat Table' });
+  const player = await sit(host, tableId);
+  player.send({ type: 'chat', tableId, message: '  first line  ' });
+  await player.next(chatEvent('first line'));
+  await sleep(1100);
+  const markup = '<img src=x onerror=alert(1)>';
+  player.send({ type: 'chat', tableId, message: markup });
+  const echoed = await player.next(chatEvent(markup));
+  assert.equal(echoed.event.message, markup, 'echoed verbatim');
+
+  const { ws } = await watch(tableId);
+  const history = await ws.nextType('chat_history');
+  assert.equal(history.tableId, tableId);
+  assert.deepEqual(history.lines.map((l) => l.message), ['first line', markup]);
+  assert.equal(history.lines[1].nick, 'Spect Host');
+  await ws.close();
+  await player.close();
+});
+
+test('an observer cannot chat or react', async () => {
+  const tableId = await hostTable({ name: 'Read Only Table' });
+  const player = await sit(host, tableId);
+  const { ws } = await watch(tableId);
+  await ws.nextType('chat_history');
+  ws.send({ type: 'chat', tableId, message: 'from the rail' });
+  assert.match((await ws.nextType('error', 3000)).error, /observer/i);
+  ws.send({ type: 'reaction', tableId, id: 1 });
+  assert.match((await ws.nextType('error', 3000)).error, /observer/i);
+
+  const probe = await watch(tableId);
+  const history = await probe.ws.nextType('chat_history');
+  assert.equal(history.lines.length, 0, 'nothing from the rail was stored');
+  await probe.ws.close();
+  await ws.close();
+  await player.close();
+});
+
+test('a muted player\'s chat is dropped', async () => {
+  const tableId = await hostTable({ name: 'Mute Table' });
+  const muted = (await srv.post('/api/auth/register', { body: { login: 'spect_muted', nick: 'Spect Muted', password: 'secret12' } })).data.token;
+  const mutedId = (await srv.get('/api/me', { token: muted })).data.user.id;
+  const res = await srv.post(`/api/admin/users/${mutedId}`, { token: admin, body: { action: 'mute' } });
+  assert.equal(res.status, 200);
+
+  const player = await sit(host, tableId);
+  const loud = await sit(muted, tableId);
+  loud.send({ type: 'chat', tableId, message: 'should not appear' });
+  loud.send({ type: 'reaction', tableId, id: 3 });
+  await sleep(1100); // the host's own 1 s chat slot from the earlier tests
+  player.send({ type: 'chat', tableId, message: 'still here' });
+  await player.next(chatEvent('still here'));
+
+  const { ws } = await watch(tableId);
+  const history = await ws.nextType('chat_history');
+  assert.deepEqual(history.lines.map((l) => l.message), ['still here']);
+  await ws.close();
+  await loud.close();
+  await player.close();
+});

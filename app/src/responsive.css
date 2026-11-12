@@ -204,6 +204,13 @@ body.electron .app-window::before { display: none; }
   .page { padding: 12px 12px calc(76px + env(safe-area-inset-bottom, 0)); }
   .page-title { font-size: 19px; }
   .g2, .g3, .g4, .stat-grid, .promo-grid, .theme-grid, .slot-row { grid-template-columns: 1fr; }
+  .leaderboard-podium { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 6px; }
+  .leaderboard-podium > .card { padding: 8px 5px; min-width: 0; }
+  .leaderboard-podium > .card > div:nth-child(2) { width: 36px !important; margin: 5px auto !important; }
+  .leaderboard-podium > .card > div:nth-child(2) > div,
+  .leaderboard-podium > .card > div:nth-child(2) > img { width: 36px !important; height: 36px !important; font-size: 13px !important; }
+  .leaderboard-podium > .card b { display: block; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .leaderboard-podium > .card .gold { font-size: 10px; }
   .card, .admin-card { border-radius: 9px; }
   .modal { width: calc(100vw - 20px); max-height: 90vh; }
   .tourney-row { grid-template-columns: 48px 1fr 66px; padding: 9px 8px; }
@@ -215,10 +222,29 @@ body.electron .app-window::before { display: none; }
   .reward-track { overflow-x: auto; padding-bottom: 8px; }
   .reward-node { flex-basis: 96px; }
   .admin-shell { flex-direction: column; }
-  .admin-nav { width: 100%; flex: 0 0 auto; flex-direction: row; overflow-x: auto; padding: 6px; }
+  .admin-nav { width: 100%; flex: 0 0 auto; flex-direction: row; flex-wrap: wrap; overflow: visible; padding: 6px; gap: 4px; }
   .admin-nav .brand { display: none; }
-  .admin-nav button { white-space: nowrap; padding: 8px 10px; }
-  .admin-main { padding: 10px 10px 80px; }
+  .admin-nav button { white-space: nowrap; padding: 8px 10px; flex: 0 0 auto; }
+  .admin-users-table th:nth-child(4), .admin-users-table td:nth-child(4),
+  .admin-users-table th:nth-child(5), .admin-users-table td:nth-child(5),
+  .admin-users-table th:nth-child(6), .admin-users-table td:nth-child(6),
+  .admin-users-table th:nth-child(7), .admin-users-table td:nth-child(7) { display: none; }
+  .admin-users-table thead { display: none; }
+  .admin-users-table, .admin-users-table tbody, .admin-users-table tr, .admin-users-table td { display: block; width: 100%; }
+  .admin-users-table tr { padding: 9px 0; border-bottom: 1px solid #23252b; }
+  .admin-users-table td { padding: 2px 0; border: 0; }
+  .admin-users-table td:nth-child(1), .admin-users-table td:nth-child(3) { display: none; }
+  .admin-users-table td:last-child .row { flex-wrap: wrap; gap: 4px; }
+  .admin-transactions-table thead { display: none; }
+  .admin-transactions-table, .admin-transactions-table tbody, .admin-transactions-table tr, .admin-transactions-table td { display: block; width: 100%; }
+  .admin-transactions-table tr { padding: 9px 0; border-bottom: 1px solid #23252b; }
+  .admin-transactions-table td { padding: 2px 0; border: 0; }
+  .admin-transactions-table td:nth-child(4), .admin-transactions-table td:nth-child(6), .admin-transactions-table td:nth-child(7) { display: none; }
+  .admin-main { padding: 10px 10px 80px; overflow-x: hidden; }
+  .admin-main .between { flex-wrap: wrap; gap: 8px; }
+  .admin-main .between .row { flex-wrap: wrap; }
+  .admin-card { overflow-x: auto; }
+  .admin-nav { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
   .login-box { width: 100%; flex: 1; padding: 24px 20px; }
   .login-art { display: none; }
   .login-box .brand-logo { width: 170px; height: 42px; }
@@ -257,7 +283,6 @@ body.electron .app-window::before { display: none; }
   .action-bar .status-row { display: none; }
   .pot-odds { font-size: 10px; padding: 2px 6px; }
   .table-menu { right: 6px; top: 36px; width: 210px; max-height: 64vh; overflow-y: auto; }
-  .chat-panel { width: 100% !important; }
   .toasts { left: 10px; right: 10px; bottom: calc(70px + env(safe-area-inset-bottom, 0)); }
   .toasts .toast { max-width: none; }
 }
@@ -517,10 +542,6 @@ body.electron .app-window::before { display: none; }
 .mute-row:last-child { border-bottom: 0; }
 .mute-row b { display: block; color: #eee; font-size: 12px; }
 .mute-row span { display: block; color: #7f8a83; font-size: 10px; }
-.emote-tray { position: absolute; top: 44px; right: 210px; z-index: 60; display: grid; grid-template-columns: repeat(4, 38px); gap: 4px; padding: 7px; border-radius: 10px; background: rgba(12,18,15,.97); border: 1px solid rgba(216,177,95,.25); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
-.emote-tray button { width: 38px; height: 38px; border-radius: 7px; font-size: 20px; background: rgba(255,255,255,.04); }
-.emote-tray button:hover { background: rgba(216,177,95,.14); }
-@media (max-width: 760px) { .emote-tray { right: 8px; top: 40px; } }
 .dm-thread.on { background: rgba(216,177,95,.08); }
 .dm-last { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dm-unread { min-width: 18px; height: 18px; border-radius: 9px; background: #b72f3c; color: #fff; font-size: 10px; display: grid; place-items: center; padding: 0 5px; }
@@ -570,6 +591,7 @@ body.electron .app-window::before { display: none; }
 .cashdrop-title { color: #ffd98a; font-size: 13px; font-weight: 800; letter-spacing: 3px; }
 .cashdrop-amount { color: #fff1c9; font-family: var(--head-font); font-size: 38px; font-weight: 900; }
 .cashdrop-nick { color: #dfe8df; font-size: 12px; }
+.cashdrop-rule { display: inline-block; margin-top: 6px; padding: 1px 8px; border: 1px solid rgba(255, 217, 138, .5); border-radius: 999px; color: #ffd98a; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
 @keyframes cashDropIn { 0% { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(.9); } 12%,80% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
 
 .rush-hero { position: relative; height: 154px; flex: 0 0 154px; margin: 8px 8px 0; border-radius: 10px; overflow: hidden; border: 1px solid rgba(216,177,95,.22); background: linear-gradient(110deg, #101a15, #1d2a1e 60%, #2b2010); }

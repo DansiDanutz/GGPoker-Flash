@@ -1,6 +1,13 @@
 // Input validation helpers shared by the HTTP and WebSocket handlers.
+import { BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
 
-export const GAMES = Object.freeze(['holdem', 'omaha', 'omaha5', 'shortdeck', 'rush', 'aof', 'spingold', 'battleroyale', 'flipandgo']);
+export const GAMES = Object.freeze(['holdem', 'omaha', 'omaha5', 'shortdeck', 'rush', 'rushplo', 'aof', 'spingold', 'battleroyale', 'flipandgo']);
+/** Rush & Cash game ids: Hold'em pools (`rush`) and pot-limit Omaha pools (`rushplo`). */
+export const RUSH_GAMES = Object.freeze(['rush', 'rushplo']);
+/** @param {string} game @returns {boolean} */
+export function isRushGame(game) {
+  return RUSH_GAMES.includes(game);
+}
 const MIN_SEATS = 2;
 const MAX_SEATS = 9;
 const NICK_PATTERN = /^[\p{L}\p{N} _.\-]{2,20}$/u;
@@ -35,6 +42,7 @@ export function cleanNick(value) {
 export function parseTableConfig(body) {
   const game = String(body.game || 'holdem');
   if (!GAMES.includes(game)) return { ok: false, error: `Unknown game "${game}"` };
+  if (isBattleRoyale(game)) return { ok: false, error: BATTLE_ROYALE_UNAVAILABLE };
   const sb = toInt(body.sb ?? 100, { min: 1, max: 1e9 });
   const bb = toInt(body.bb ?? 200, { min: 2, max: 1e9 });
   const ante = toInt(body.ante ?? 0, { min: 0, max: 1e9 });
@@ -58,4 +66,35 @@ export function parseTableConfig(body) {
       sort: toInt(body.sort, { min: 0, max: 1e6 }) ?? 999,
     },
   };
+}
+
+const TABLE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const GROUP_KEY_PATTERN = /^([a-z0-9]{1,20}):(\d{1,10})\/(\d{1,10}):(\d)$/;
+
+/**
+ * Decode and validate a table id taken from a URL path segment.
+ * @param {unknown} raw still percent-encoded
+ * @returns {string | null}
+ */
+export function parseTableId(raw) {
+  let id;
+  try { id = decodeURIComponent(String(raw ?? '')); } catch { return null; }
+  return TABLE_ID_PATTERN.test(id) ? id : null;
+}
+
+/**
+ * Decode and validate a lobby group key (`game:sb/bb:seats`, see waitlist.groupKey).
+ * @param {unknown} raw still percent-encoded
+ * @returns {{ key: string, game: string, sb: number, bb: number, seats: number } | null}
+ */
+export function parseGroupKey(raw) {
+  let key;
+  try { key = decodeURIComponent(String(raw ?? '')); } catch { return null; }
+  const m = GROUP_KEY_PATTERN.exec(key);
+  if (!m) return null;
+  const sb = toInt(m[2], { min: 1, max: 1e9 });
+  const bb = toInt(m[3], { min: 1, max: 1e9 });
+  const seats = toInt(m[4], { min: MIN_SEATS, max: MAX_SEATS });
+  if (sb === null || bb === null || seats === null || sb > bb) return null;
+  return { key, game: m[1], sb, bb, seats };
 }

@@ -100,7 +100,7 @@ test('tournament winner receives half the prize pool exactly once and fires the 
   let paid = 0;
   let ends = 0;
   const p = player(1, 'Winner', 1000, 0, []);
-  const t = tableWith([p], { seats: 1, tournament: { prizePool: 3000 } });
+  const t = tableWith([p], { seats: 1, tournament: { prizePool: 3000, entrants: 3 } }); // 3+ field: DanGG 50% band
   t.hooks = {
     onTournamentEnd: () => { ends++; paid++; },
     onHandComplete: () => { throw new Error('should not fire'); },
@@ -163,14 +163,15 @@ test('a throwing onSeatBusted hook still clears the busted seat', () => {
 test('spin award reports the minted prize', () => {
   const p1 = player(1, 'Winner', 1000, 0, []);
   const p2 = player(2, 'Busted', 0, 0, []);
-  const t = tableWith([p1, p2], { seats: 2, game: 'spingold' });
-  t.spinPrize = 250;
+  const t = tableWith([p1, p2], { seats: 2, game: 'spingold', min_buyin: 5000, max_buyin: 5000 });
+  t.spinTicket = () => 99_999_999; // the 2x row
+  t.drawSpin();
   t.street = 'ended';
   t.nextHandAt = 1;
   let minted = 0;
   t.hooks = { onMint: (_table, kind, amount) => { if (kind === 'spin') minted += amount; }, onHandComplete: () => {} };
   t.tick(2);
-  assert.equal(minted, 250);
+  assert.equal(minted, 10000);
 });
 
 
@@ -276,14 +277,16 @@ test('run it twice deals two boards and splits the pot', () => {
 });
 
 
-test('Spin insurance charges a premium and arms a payout', () => {
-  const p1 = player(1, 'A', 15000, 0, []);
-  const p2 = player(2, 'B', 15000, 0, []);
-  const t = tableWith([p1, p2], { seats: 2, game: 'spingold', min_buyin: 15000 });
+test('Spin insurance is disabled until native settlement is observed', () => {
+  const p1 = player(1, 'A', 5000, 0, []);
+  const p2 = player(2, 'B', 5000, 0, []);
+  const t = tableWith([p1, p2], { seats: 2, game: 'spingold', min_buyin: 5000 });
   t.street = 'idle';
-  assert.equal(t.setInsurance(1, true).ok, true);
-  assert.equal(p1.stack, 14250);
-  assert.equal(p1.insurance, true);
+  const res = t.setInsurance(1, true);
+  assert.equal(res.ok, false);
+  assert.match(res.error, /not available/i);
+  assert.equal(p1.stack, 5000);
+  assert.ok(!p1.insurance);
 });
 
 test('a Rush fold queues a cross-table move', () => {
@@ -518,4 +521,15 @@ test('table snapshot exposes the active hand id for evidence reporting', () => {
   const t = tableWith([player(1, 'A', 1000, 0, []), player(2, 'B', 1000, 0, [])]);
   t.handId = 'hand-evidence-42';
   assert.equal(t.snapshotFor().handId, 'hand-evidence-42');
+});
+
+test('a wait-list seat hold keeps bots and other players out of that seat', () => {
+  const t = new PokerTable({ id: 'held', name: 'Held', game: 'holdem', sb: 50, bb: 100, seats: 3, min_buyin: 100, max_buyin: 100000 });
+  t.setHolds([[0, 42]]);
+  assert.equal(t.fillBots(3), 2, 'bots fill only the unheld seats');
+  assert.equal(t.seats[0].player, null);
+  assert.equal(t.freeSeatFor(7), null, 'nobody else sees the held seat as free');
+  assert.deepEqual(t.sit({ id: 7, nick: 'Other' }, 0), { ok: false, error: 'seat held' });
+  assert.equal(t.freeSeatFor(42).index, 0);
+  assert.equal(t.sit({ id: 42, nick: 'Holder' }, null, 1000).seat, 0, 'the holder takes it');
 });

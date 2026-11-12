@@ -1,0 +1,31 @@
+/* P0 slice W6: tournament filter row. Reuses the series-chip palette from styles.css. */
+:root {
+  --tf-surface: #191919;
+  --tf-border: #303030;
+  --tf-text: #b9b9b9;
+  --tf-on-surface: #2b2110;
+  --tf-on-border: #8a6a2a;
+  --tf-on-text: #ffe1a0;
+  --tf-focus: #e8d5a0;
+}
+.tf-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.tf-select select,
+.tf-check {
+  height: 28px; padding: 0 10px; border-radius: 14px; background: var(--tf-surface);
+  border: 1px solid var(--tf-border); color: var(--tf-text); font-size: 11.5px;
+}
+.tf-select select { padding-right: 6px; cursor: pointer; }
+.tf-select.on select, .tf-check.on { background: var(--tf-on-surface); border-color: var(--tf-on-border); color: var(--tf-on-text); }
+.tf-select select:hover, .tf-check:hover { border-color: #5a4a22; }
+.tf-select select:focus-visible, .tf-check:focus-within, .tf-reset:focus-visible { outline: 2px solid var(--tf-focus); outline-offset: 1px; }
+.tf-check { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; cursor: pointer; }
+.tf-check input { width: 13px; height: 13px; margin: 0; accent-color: var(--tf-on-border); }
+.tf-search { width: 190px; margin-left: auto; }
+.tf-count { color: var(--tf-text); font-size: 11px; white-space: nowrap; }
+.tf-count b { color: var(--tf-on-text); }
+.tf-reset { background: none; border: 0; padding: 0 4px; color: var(--tf-on-text); font-size: 11.5px; text-decoration: underline; cursor: pointer; }
+.tf-reset:disabled { color: #666; text-decoration: none; cursor: default; }
+.empty-state p { margin: 0 0 10px; }
+@media (max-width: 720px) {
+  .tf-search { width: 100%; margin-left: 0; order: -1; }
+}

@@ -4,7 +4,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { SwfEffect } from '../components/SwfEffect';
-import { betLabel, betTarget, betUnitOf, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readHotkeys, normalizeHotkey, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, betUnitOf, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readHotkeys, normalizeHotkey, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, describeHole } from '../game/eval';
@@ -12,6 +12,17 @@ import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/bett
 import { potChipLayout, shuffleFramePosition, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { showdownComplete, showdownPlan } from '../game/showdown';
+import { useWaitlist } from '../lib/waitlistState';
+import { formatCountdown, queuePositionLabel } from '../lib/waitlist';
+import { useOfferSeconds } from '../components/SeatOfferModal';
+import { TableChat } from '../components/table/TableChat';
+import { SeatReaction } from '../components/table/SeatReaction';
+import { ReportPlayerModal } from '../components/table/ReportPlayerModal';
+import { CashDropBanner } from '../components/table/CashDropBanner';
+import type { CashDropEvent } from '../lib/cashDrop';
+import { useTableChatStore } from '../lib/useTableChat';
+import type { ChatLine, ReactionId } from '../lib/tableChat';
+import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -26,8 +37,16 @@ type TableState = {
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
-  spin?: { multiplier: number; prize: number; winner: any } | null;
-  tournament?: { id?: string | null; name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null } | null;
+  spin?: {
+    multiplier: number | null;
+    prize: number;
+    buyIn?: number;
+    /** Places 1-3 from the verified table; null until the first hand draws the Spin. */
+    payouts?: number[] | null;
+    finished?: { id: string | number; nick: string; place: number; payout: number }[];
+    winner: any;
+  } | null;
+  tournament?: { id?: string | null; name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null; payouts?: PayoutRow[] } | null;
   straddle?: boolean;
   runItTwice?: boolean;
   boards?: string[][] | null;
@@ -37,6 +56,8 @@ type TableState = {
 // A decision queued while waiting for the action to come round.
 type PreAction = { kind: 'checkfold' } | { kind: 'check' } | { kind: 'call'; amount: number };
 
+// Observed Spin & Gold multipliers (server/spin.js), shown on the intro wheel.
+const SPIN_WHEEL_MULTIPLIERS = [2, 3, 4, 5, 10, 50, 100, 20000];
 const DEFAULT_ACTION_TIME_MS = 15000;
 
 const POS6 = [[50, 76], [12, 68], [16, 32], [50, 17], [84, 32], [88, 68]];
@@ -83,18 +104,16 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [connected, setConnected] = useState(false);
   const [mySeat, setMySeat] = useState<number | null>(null);
   const [raiseTo, setRaiseTo] = useState(0);
-  const [chat, setChat] = useState<{ nick: string; message: string }[]>([]);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [emoteOpen, setEmoteOpen] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [emoteFx, setEmoteFx] = useState<{ userId: number; nick: string; emote: string; key: number } | null>(null);
-  const emoteTimer = useRef<number | null>(null);
-  const [chatFx, setChatFx] = useState<{ userId: number; nick: string; message: string; key: number } | null>(null);
-  const chatFxTimer = useRef<number | null>(null);
+  // Chat lives in its own store so incoming lines never re-render this page (C3).
+  const chatStore = useTableChatStore();
+  chatStore.setSelf(user?.id ?? null);
+  const [showChatBubbles] = useState(readShowChatBubbles);
+  const [showReactions] = useState(readShowReactions);
+  const [chatReport, setChatReport] = useState<ChatLine | null>(null);
   const timerWarnRef = useRef<string>('');
   const [fx, setFx] = useState<{ id: number; seat: number; amount: number }[]>([]);
   const [winFx, setWinFx] = useState<{ id: number; amount: number; nick: string } | null>(null);
-  const [cashDrop, setCashDrop] = useState<{ amount: number; nick: string } | null>(null);
+  const [cashDrop, setCashDrop] = useState<CashDropEvent | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [spinShow, setSpinShow] = useState(false);
   const [spinWin, setSpinWin] = useState<any>(null);
@@ -108,7 +127,20 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [fourColor, setFourColor] = useState(() => localStorage.getItem('ggpoker.fourcolor') === '1');
   const [animOff, setAnimOff] = useState(() => localStorage.getItem('ggpoker.animations') === '0');
   const [observing, setObserving] = useState(false);
-  const [waitlistPos, setWaitlistPos] = useState(0);
+  // Wait-list position and held-seat offer come from the global wait-list state (W4b).
+  const { queues: waitQueues, offer: seatOffer, refresh: refreshWaitlist, dismissOffer } = useWaitlist();
+  const myTableQueue = waitQueues.find((q) => q.kind === 'table' && q.tableId === tableId && q.position > 0) || null;
+  const offerHere = seatOffer && seatOffer.tableId === tableId ? seatOffer : null;
+  const offerSeconds = useOfferSeconds(offerHere);
+  const offerLive = !!offerHere && offerSeconds > 0;
+  const dismissOfferRef = useRef<(id: string) => void>(() => {});
+  dismissOfferRef.current = (id: string) => { if (seatOffer?.tableId === id) dismissOffer(); };
+  const waitBannerText = offerLive && offerHere ? (
+    <><b>Seat available.</b> Seat {offerHere.seat + 1} is held for you{' '}
+      <span aria-hidden="true" style={{ fontVariantNumeric: 'tabular-nums' }}>· {formatCountdown(offerSeconds)}</span></>
+  ) : myTableQueue
+    ? `You are ${queuePositionLabel(myTableQueue)} on the waiting list. We will hold the next open seat for you.`
+    : 'You are observing this table. Take a seat to join the action.';
   const [rebuyOpen, setRebuyOpen] = useState(false);
   const [rebuyAmount, setRebuyAmount] = useState(0);
   const [rebuyOffer, setRebuyOffer] = useState<{ min: number; max: number; until: number } | null>(null);
@@ -117,9 +149,6 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [playerProfile, setPlayerProfile] = useState<any>(null);
   const [friendAdded, setFriendAdded] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState('Abusive chat');
-  const [reportDetail, setReportDetail] = useState('');
-  const [reportBusy, setReportBusy] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
   const [mutes, setMutes] = useState<number[]>([]);
   const [noteText, setNoteText] = useState('');
@@ -239,10 +268,12 @@ export function TablePage({ tableId }: { tableId: string }) {
           // Keep the seat's auto-muck preference in sync with this device.
           ws.send(JSON.stringify({ type: 'option', tableId, autoMuck }));
         }
-        if (msg.waitlist) setWaitlistPos(msg.waitlist);
+        if (msg.waitlist) refreshWaitlist();
+        // Sitting down accepts a seat held for us here.
+        if (!msg.observe) dismissOfferRef.current(tableId);
         setOpeningTable(null);
       } else if (msg.type === 'waitlist') {
-        setWaitlistPos(msg.position || 1);
+        refreshWaitlist();
         setObserving(true);
         toast({ kind: 'info', title: 'Waitlist', body: `You are #${msg.position || 1} in line. We will hold the next seat for you.` });
       } else if (msg.type === 'rush_queued') {
@@ -281,6 +312,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         if (e.seq && lastSeq.current && e.seq > lastSeq.current + 1) { ws.close(); return; }
         if (e.seq) lastSeq.current = e.seq;
         handleEvent(e);
+      } else if (msg.type === 'chat_history') {
+        if (msg.tableId === tableId) chatStore.receiveHistory(msg.lines);
       } else if (msg.type === 'error') {
         toast({ kind: 'error', title: 'Table', body: msg.error });
       }
@@ -393,7 +426,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     } else if (evt.type === 'insurance_paid') {
       toast({ kind: 'reward', title: 'Insurance paid', body: money(evt.amount) });
     } else if (evt.type === 'cashdrop') {
-      setCashDrop({ amount: evt.amount, nick: evt.nick });
+      setCashDrop({ amount: evt.amount, nick: evt.nick, rule: evt.rule });
       sound.play('cashdrop', { volume: .8 });
       toast({ kind: 'reward', title: 'Rush Cash Drop', body: `${evt.nick} won ${money(evt.amount)}` });
       window.setTimeout(() => setCashDrop(null), 4500);
@@ -407,11 +440,17 @@ export function TablePage({ tableId }: { tableId: string }) {
       toast({ kind: 'reward', title: evt.mystery ? 'Mystery bounty' : 'Bounty', body: `${evt.winnerNick} wins ${money(evt.amount)} (${evt.bustedNick})` });
       sound.play('coin');
     } else if (evt.type === 'tourney_payout') {
-      toast({ kind: 'reward', title: `Finished #${evt.place}`, body: `${evt.nick} wins ${money(evt.payout)}` });
+      toast({ kind: 'reward', ...finishToast(evt, (n) => money(n)) });
       sound.play('coin');
+      // Any paid place gets the finish presentation with its real place and amount.
+      const heroNow = stateRef.current?.players.find((p) => p && !p.empty && p.isMe);
+      if (heroNow && String(evt.id) === String(heroNow.id)) {
+        setTourneyWin({ ...evt, prize: evt.payout, tableName: stateRef.current?.name || '' });
+      }
     } else if (evt.type === 'tourney_win') {
       if (!evt.ticket) setSwfEffect('/assets/swf/win_effect.swf');
-      setTourneyWin(evt);
+      // Keep the hero's own paid-place presentation if it is already showing.
+      setTourneyWin((prev: any) => (prev && prev.place > 1 ? prev : evt));
       sound.play('tournamentWin');
       setTimeout(() => sound.play('fireworks', { volume: .7 }), 600);
     } else if (evt.type === 'rebuy_offer') {
@@ -433,8 +472,9 @@ export function TablePage({ tableId }: { tableId: string }) {
     } else if (evt.type === 'rabbit') {
       setRabbit(evt.cards || []);
     } else if (evt.type === 'waitlist_ready') {
+      // The banner shows the held seat and its countdown; the stream usually beats this refresh.
       sound.play('turn', { volume: .6 });
-      toast({ kind: 'success', title: 'Seat available', body: 'A seat just opened — click Take a seat.' });
+      refreshWaitlist();
     } else if (evt.type === 'timebank') {
       sound.play('timebank', { volume: .6 });
       toast({ kind: 'info', title: 'Time bank', body: `+${evt.seconds || timeBankSeconds} seconds` });
@@ -447,17 +487,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         const me = stateRef.current.players.find((p) => p.id === evt.playerId);
         if (me?.isMe) sound.play('turn', { volume: .55 });
       }
-    } else if (evt.type === 'chat') {
-      setChat((prev) => [...prev.slice(-30), { nick: evt.nick, message: evt.message }]);
-      setChatFx({ userId: evt.userId, nick: evt.nick, message: evt.message, key: Date.now() });
-      sound.play('click', { volume: .35 });
-      if (chatFxTimer.current) window.clearTimeout(chatFxTimer.current);
-      chatFxTimer.current = window.setTimeout(() => setChatFx(null), 4500);
-    } else if (evt.type === 'emote') {
-      setEmoteFx({ userId: evt.userId, nick: evt.nick, emote: evt.emote, key: Date.now() });
-      sound.play('bubble', { volume: .55 });
-      if (emoteTimer.current) window.clearTimeout(emoteTimer.current);
-      emoteTimer.current = window.setTimeout(() => setEmoteFx(null), 2300);
+    } else {
+      chatStore.receiveEvent(evt);
     }
   };
 
@@ -561,6 +592,31 @@ export function TablePage({ tableId }: { tableId: string }) {
     const ws = wsRef.current;
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ ...msg, tableId }));
   };
+
+  // Stable chat callbacks keep the memoised chat panel from re-rendering with the table.
+  const sendChat = useCallback((message: string) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'chat', message, tableId }));
+  }, [tableId]);
+  const sendReaction = useCallback((id: ReactionId) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'reaction', id, tableId }));
+  }, [tableId]);
+  const muteChatLine = useCallback((line: ChatLine) => {
+    chatStore.mute(line.userId);
+    // The host's mute is the table mute (table_mutes); anyone else hides the player locally.
+    if (user && stateRef.current?.ownerId === user.id) {
+      api.muteHostPlayer(tableId, line.userId, true)
+        .then(() => setMutes((xs) => (xs.includes(line.userId) ? xs : [...xs, line.userId])))
+        .catch((e: any) => toast({ kind: 'error', title: 'Could not mute', body: e?.message || 'Try again' }));
+    }
+    toast({ kind: 'info', title: 'Player muted', body: `${line.nick}'s chat and reactions are hidden.` });
+  }, [chatStore, tableId, toast, user]);
+  const reportChatLine = useCallback((line: ChatLine) => {
+    setChatReport(line);
+    setReportOpen(true);
+  }, []);
+  const closeReport = () => { setReportOpen(false); setChatReport(null); };
 
   const act = (action: string, amount = 0) => {
     if (!myTurn) return;
@@ -679,7 +735,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     setStackMode(next); localStorage.setItem('ggpoker.stackMode', next);
   };
   const myCards = me?.cards?.filter((c) => c !== '??') || [];
-  const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, state.game === 'omaha' || state.game === 'omaha5', state.game === 'shortdeck') : null;
+  const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(state.game), state.game === 'shortdeck') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
   // After the hand I can reveal one card or both to the table.
   const canShowCards = !!me && state?.street === 'ended' && me.inHand && !me.folded
@@ -797,9 +853,18 @@ export function TablePage({ tableId }: { tableId: string }) {
     }
   }, [now, state?.handNo, state?.street, state?.actor, state?.actionEndsAt, myTurnNow]);
 
-  const emotes = ['😂', '😎', '😭', '🔥', '👏', '🐟', '🤡', '💪', '🍀', '😱'];
-
   if (!user) return null;
+
+  const reportTarget = chatReport
+    ? { id: chatReport.userId, nick: chatReport.nick }
+    : noteTarget && playerProfile?.user ? { id: Number(playerProfile.user.id), nick: String(playerProfile.user.nick) } : null;
+  // Bubble line during play: the room's field-wide count, or this table's own field.
+  const tableBubble = state?.tournament && !state.tournament.winner
+    ? bubbleLabel(
+      state.tournament.payouts || [],
+      state.tournament.playersLeft ?? state.players.filter((p) => p && !p.empty && Number(p.stack) > 0).length,
+    )
+    : null;
 
   return (
     <div ref={tableRef} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack} front-${cardFront} room-bg-${roomBg}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
@@ -808,7 +873,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>
         <span className="pill">Blinds {state ? (state.tournament ? `${state.sb}/${state.bb}` : `${money(state.sb)}/${money(state.bb)}`) : ''}</span>
         <span className="pill">Hand #{state?.handNo ?? '-'}</span>
-        {state?.spin && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {money(state.spin.prize)}</span>}
+        {state?.spin?.multiplier && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {money(state.spin.prize)}</span>}
         {state?.tournament && <span className="pill" style={{ color: '#ffd98a' }}>Level {state.tournament.level}{state.tournament.nextBlindAt ? ` · ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000 / 60))}m ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000) % 60).toString().padStart(2, '0')}s` : ''} · Prize {money(state.tournament.prizePool)}</span>}
         {state?.tournament && (state.tournament.tables || 1) > 1 && (
           <span className="pill" style={{ color: '#ffd98a' }}>
@@ -816,33 +881,18 @@ export function TablePage({ tableId }: { tableId: string }) {
             {state.tournament.playersLeft != null ? ` · ${state.tournament.playersLeft} left` : ''}
           </span>
         )}
+        {tableBubble && <span className="pill" style={{ color: '#ffd98a' }}>{tableBubble}</span>}
         {state?.bombPot && <span className="pill" style={{ color: '#ffd98a' }}>BOMB POT</span>}
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
         <div className="spacer" />
-        <button onClick={() => setChatOpen((v) => !v)}>💬 Chat</button>
-        <button onClick={() => setEmoteOpen((v) => !v)} title="Send a reaction">😀</button>
         <button onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
         <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
         <button onClick={() => setMenuOpen((v) => !v)}>Menu</button>
         <button onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
 
-      {emoteOpen && (
-        <div className="emote-tray" onClick={(e) => e.stopPropagation()}>
-          {['😀', '😂', '😎', '😱', '😡', '🍀', '🎉', '🐟'].map((e) => (
-            <button key={e} onClick={() => { send({ type: 'emote', emote: e }); setEmoteOpen(false); sound.play('bubble', { volume: .45 }); }}>{e}</button>
-          ))}
-        </div>
-      )}
-
-      {cashDrop && (
-        <div className="cashdrop-overlay">
-          <div className="cashdrop-title">RUSH CASH DROP</div>
-          <div className="cashdrop-amount">{money(cashDrop.amount)}</div>
-          <div className="cashdrop-nick">{cashDrop.nick}</div>
-        </div>
-      )}
+      {cashDrop && <CashDropBanner drop={cashDrop} />}
 
       {allInFx && <div className="allin-flash"><span>ALL IN</span></div>}
 
@@ -876,7 +926,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Straddle</button>
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItTwice: !state?.runItTwice })}>{state?.runItTwice ? '✓ ' : ''}Run it twice</button>
-          {state?.spin && <button disabled={!me} onClick={() => send({ type: 'option', tableId, insurance: true })}>Buy Spin insurance (5%)</button>}
+          {state?.spin && <button disabled title="Insurance is not available in DanGG yet">Insurance — not available</button>}
           <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
           <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
           <button onClick={() => navigate('/hand-history')}>Hand history</button>
@@ -1024,11 +1074,8 @@ export function TablePage({ tableId }: { tableId: string }) {
             {p.folded && <div className="action-badge fold">Fold</div>}
             {p.allIn && <div className="action-badge" style={{ color: '#ffd98a' }}>ALL IN</div>}
             {(p.disconnected || p.sittingOut) && !p.allIn && <div className="action-badge away">{p.disconnected ? 'Reconnecting' : 'Sitting out'}</div>}
-            {emoteFx && emoteFx.userId === (p as any).id && (
-              <div key={emoteFx.key} className="emote-bubble" title={emoteFx.nick}>{emoteFx.emote}</div>
-            )}
-            {chatFx && chatFx.userId === (p as any).id && (
-              <div key={chatFx.key} className="chat-bubble">{chatFx.message}</div>
+            {p.id != null && (
+              <SeatReaction store={chatStore} userId={Number(p.id)} showBubbles={showChatBubbles} showReactions={showReactions} />
             )}
           </div>
         );
@@ -1078,45 +1125,14 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       )}
 
-      {chatOpen && (
-        <div className="chat-panel">
-          <div className="chat-log">
-            {chat.slice(-12).map((c, i) => <div key={i}><b>{c.nick}:</b> {c.message}</div>)}
-            {!chat.length && <div className="muted">Table chat — say hello 👋</div>}
-          </div>
-          <div className="emote-row">
-            {emotes.map((e) => (
-              <button key={e} onClick={() => {
-                send({ type: 'emote', emote: e });
-                if (user) {
-                  setEmoteFx({ userId: user.id, nick: user.nick, emote: e, key: Date.now() });
-                  sound.play('bubble', { volume: .5 });
-                  if (emoteTimer.current) window.clearTimeout(emoteTimer.current);
-                  emoteTimer.current = window.setTimeout(() => setEmoteFx(null), 2300);
-                }
-              }}>{e}</button>
-            ))}
-          </div>
-          <form
-            className="chat-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!chatInput.trim()) return;
-              send({ type: 'chat', message: chatInput });
-              setChatInput('');
-            }}
-          >
-            <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message…" maxLength={120} />
-            <button className="btn btn-ghost btn-sm" type="submit">Send</button>
-          </form>
-        </div>
-      )}
+      <TableChat store={chatStore} selfId={user?.id ?? null} readOnly={observing}
+        onSend={sendChat} onReact={sendReaction} onMute={muteChatLine} onReport={reportChatLine} />
 
       {observing ? (
         <div className="action-bar">
           <div className="action-row">
-            <div style={{ flex: 1, color: '#cfcfcf', fontSize: 13 }}>{waitlistPos > 0 ? `You are #${waitlistPos} on the waitlist. We will hold the next open seat for you.` : 'You are observing this table. Take a seat to join the action.'}</div>
-            {!state?.tournament && <button className={'btn ' + (waitlistPos > 0 ? 'btn-gold' : 'btn-red')} onClick={sitIn}>Take a seat · {chip(state?.minBuyin)}</button>}
+            <div style={{ flex: 1, color: '#cfcfcf', fontSize: 13 }} role="status" aria-live="polite">{waitBannerText}</div>
+            {!state?.tournament && <button className={'btn ' + (myTableQueue && !offerLive ? 'btn-gold' : 'btn-red')} onClick={sitIn}>{offerLive ? 'Take seat' : 'Take a seat'} · {chip(state?.minBuyin)}</button>}
             <button className="btn btn-dark" onClick={() => setConfirmLeave(true)}>Leave</button>
           </div>
         </div>
@@ -1266,13 +1282,17 @@ export function TablePage({ tableId }: { tableId: string }) {
         <div className="spin-overlay">
           <div className="spin-title">SPIN & GOLD</div>
           <div className="spin-ring">
-            {[2, 3, 5, 10, 25, 100].map((m, i) => (
-              <span key={m} style={{ transform: `rotate(${i * 60}deg) translateY(-118px)` }}>{m}x</span>
+            {SPIN_WHEEL_MULTIPLIERS.map((m, i) => (
+              <span key={m} style={{ transform: `rotate(${i * (360 / SPIN_WHEEL_MULTIPLIERS.length)}deg) translateY(-118px)` }}>{m}x</span>
             ))}
             <div className="spin-center">{state.spin.multiplier}x</div>
           </div>
           <div className="spin-prize">Prize pool <b>{money(state.spin.prize)}</b></div>
-          <div className="spin-sub">Good luck — {state.seats}-handed winner takes all</div>
+          <div className="spin-sub">
+            {state.spin.payouts?.some((p, i) => i > 0 && p > 0)
+              ? state.spin.payouts.filter((p) => p > 0).map((p, i) => `${ordinal(i + 1)} ${money(p)}`).join(' · ')
+              : `Good luck — ${state.seats}-handed winner takes all`}
+          </div>
         </div>
       )}
 
@@ -1280,8 +1300,8 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {tourneyWin && (
         <div className="spin-overlay win">
-          <div className="spin-title">TOURNAMENT WINNER</div>
-          <div style={{ fontSize: 60, margin: '10px 0' }}>🏆</div>
+          <div className="spin-title">{finishTitle(tourneyWin.place)}</div>
+          <div style={{ fontSize: 60, margin: '10px 0' }}>{!tourneyWin.place || tourneyWin.place === 1 ? '🏆' : '🏅'}</div>
           <div className="spin-prize">{tourneyWin.nick} wins {tourneyWin.ticket ? <b>{tourneyWin.ticket} ticket</b> : <b>{money(tourneyWin.prize)}</b>}</div>
           <div className="spin-sub">{tourneyWin.tableName}</div>
           <button className="btn btn-gold" style={{ marginTop: 18 }} onClick={() => navigate('/')}>Back to lobby</button>
@@ -1359,31 +1379,9 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       )}
 
-      {reportOpen && noteTarget && playerProfile?.user && (
-        <div className="modal-backdrop" onClick={() => setReportOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head"><h3>Report {playerProfile.user.nick}</h3></div>
-            <div className="modal-body">
-              <label className="admin-label">Reason</label>
-              <select className="admin-select" style={{ width: '100%' }} value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
-                {['Abusive chat', 'Collusion', 'Slow play', 'Chip dumping', 'Offensive nickname', 'Other'].map((r) => <option key={r}>{r}</option>)}
-              </select>
-              <label className="admin-label" style={{ marginTop: 10 }}>Details</label>
-              <textarea value={reportDetail} onChange={(e) => setReportDetail(e.target.value)} rows={4} maxLength={500} placeholder="What happened?"
-                style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10, fontFamily: 'inherit' }} />
-              <p className="muted small">Reports are reviewed by the local administrator. False reports may be actioned.</p>
-            </div>
-            <div className="modal-foot">
-              <button className="btn btn-dark" onClick={() => setReportOpen(false)}>Cancel</button>
-              <button className="btn btn-red" disabled={reportBusy} onClick={async () => {
-                setReportBusy(true);
-                try { await api.reportPlayer(playerProfile.user.id, reportReason, reportDetail, state?.handId || undefined); setReportOpen(false); setReportDetail(''); toast({ kind: 'success', title: 'Report submitted', body: `Reported ${playerProfile.user.nick}` }); }
-                catch (e: any) { toast({ kind: 'error', title: 'Could not report', body: e.message }); }
-                finally { setReportBusy(false); }
-              }}>Submit report</button>
-            </div>
-          </div>
-        </div>
+      {reportOpen && reportTarget && (
+        <ReportPlayerModal target={reportTarget} handId={state?.handId} onClose={closeReport}
+          initialDetail={chatReport ? `Chat: "${chatReport.text}"` : ''} />
       )}
 
       {rebuyOpen && (

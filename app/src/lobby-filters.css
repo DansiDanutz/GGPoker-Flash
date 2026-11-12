@@ -1,0 +1,151 @@
+/* Lobby pill filters and native Group View columns (P0 slice W5a, visual brief §1.1–1.6). */
+.lobby-main {
+  --lob-row: #242424;
+  --lob-row-hover: #2c2c2c;
+  --lob-row-selected: #3c1616;
+  --lob-head: #333333;
+  --lob-head-text: #a0a0a0;
+  --lob-text: #fdfdfd;
+  --lob-count: #45fd00;
+  --lob-outline: #373737;
+  --lob-pill-on: #e6e6e6;
+  --lob-pill-on-text: #171717;
+  --lob-pill-off: #3e3e3e;
+  --lob-pill-off-text: #b4b4b4;
+  --lob-link: #058edc;
+  --lob-focus: #ffd98a;
+  --lob-acc-holdem: #12c012;
+  --lob-acc-plo: #33bbff;
+  --lob-acc-plo5: #36d9ce;
+  --lob-acc-plo6: #5260ff;
+  --lob-chip-6max: #213321;
+  --lob-chip-6max-text: #11bf11;
+  --lob-chip-9max: #303321;
+  --lob-chip-9max-text: #a4bf09;
+  --lob-queued: var(--gold);
+  --lob-pop: #1f1f1f;
+  --lob-pop-border: #333333;
+}
+
+/* ---- pill row: native pills left, "+ Host" and Filters right, one line ---- */
+.lob-pills { display: flex; align-items: center; gap: 18px; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.lob-pills::-webkit-scrollbar { display: none; }
+.lob-pill {
+  height: 21px; padding: 0 22px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--lob-pill-off); color: var(--lob-pill-off-text);
+  font: 400 13px/21px Roboto, Arial, sans-serif; white-space: nowrap;
+}
+.lob-pill:hover { background: #4a4a4a; }
+.lob-pill:active { background: #353535; }
+.lob-pill.on { background: var(--lob-pill-on); color: var(--lob-pill-on-text); }
+.lob-pill:focus-visible { outline: 2px solid var(--lob-focus); outline-offset: 2px; }
+.filter-spacer { flex: 1 1 auto; }
+
+/* ---- Filters button and popover (W5b, brief §1.5) ---- */
+/* The bar is a stacking context (backdrop-filter); lift it above the sticky column header. */
+.filter-bar { position: relative; z-index: 20; }
+.lob-filters-wrap { position: relative; flex: 0 0 auto; }
+.lob-filters-btn { padding: 0 14px; }
+.lob-filters-btn b { color: var(--lob-queued); font-weight: 700; }
+.lob-filters-btn.open { background: #4a4a4a; }
+.lob-filters-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; width: 280px;
+  display: flex; flex-direction: column; gap: 12px; padding: 12px;
+  background: var(--lob-pop); border: 1px solid var(--lob-pop-border); border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .55); font-family: Roboto, Arial, sans-serif;
+}
+.lob-flabel { margin-bottom: 6px; color: var(--lob-head-text); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.lob-fseg { display: flex; flex-wrap: wrap; gap: 6px; }
+.lob-fseg .lob-pill { padding: 0 12px; }
+.lob-filters-pop .lob-fsearch {
+  width: 100%; max-width: none; height: 28px; box-sizing: border-box; padding: 0 8px;
+  background: #101010; border: 1px solid var(--lob-pop-border); border-radius: 4px; color: var(--lob-text); font-size: 12px;
+}
+.lob-filters-pop .lob-fsearch:focus-visible { outline: 2px solid var(--lob-focus); outline-offset: 1px; }
+.lob-fchecks { display: flex; flex-direction: column; gap: 8px; }
+.lob-fcheck { display: flex; align-items: center; gap: 8px; color: var(--lob-text); font-size: 12px; cursor: pointer; }
+.lob-fcheck input { width: 14px; height: 14px; margin: 0; accent-color: var(--lob-queued); }
+.lob-fcheck input:focus-visible { outline: 2px solid var(--lob-focus); outline-offset: 2px; }
+.lob-ffoot { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--lob-pop-border); }
+.lob-ffoot .lob-link:disabled { color: var(--lob-head-text); text-decoration: none; cursor: default; }
+.lob-fcount { color: var(--lob-head-text); font-size: 11px; }
+
+/* ---- Group View rows with the per-tab column set ---- */
+.lob-group { display: flex; flex-direction: column; gap: 4px; padding: 0 12px 8px; font-family: Roboto, Arial, sans-serif; }
+.lob-ghead, .lob-grow { display: grid; align-items: center; column-gap: 8px; }
+.lob-ghead {
+  position: sticky; top: 0; z-index: 5; height: 24px; padding: 0 8px 0 12px;
+  background: var(--lob-head); color: var(--lob-head-text); font-size: 12px; text-align: center;
+}
+.lob-grow {
+  position: relative; min-height: 60px; padding: 0 8px 0 12px; cursor: pointer; text-align: center;
+  background: var(--lob-row); color: var(--lob-text); font-size: 15px;
+}
+.lob-grow::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--lob-acc-holdem); }
+.lob-grow.lob-acc-plo::before { background: var(--lob-acc-plo); }
+.lob-grow.lob-acc-plo5::before { background: var(--lob-acc-plo5); }
+.lob-grow.lob-acc-plo6::before { background: var(--lob-acc-plo6); }
+.lob-grow:hover { background: var(--lob-row-hover); }
+.lob-grow.selected { background: var(--lob-row-selected); }
+.lob-grow > div { min-width: 0; }
+.lob-grow .lob-c-action { display: flex; justify-content: flex-end; }
+
+.lob-num { font-variant-numeric: tabular-nums; }
+.lob-promo {
+  display: inline-block; max-width: 100%; padding: 2px 10px; border: 1px solid #b08a3c; border-radius: 999px;
+  background: #0f0f0f; color: #efb840; font-size: 12px; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lob-size, .lob-game { display: inline-block; min-width: 52px; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-weight: 500; }
+.lob-size-6max { background: var(--lob-chip-6max); color: var(--lob-chip-6max-text); }
+.lob-size-9max { background: var(--lob-chip-9max); color: var(--lob-chip-9max-text); }
+.lob-game { min-width: 60px; color: var(--lob-text); }
+.lob-game-holdem { background: #333814; }
+.lob-game-plo { background: #26414f; }
+.lob-game-plo5 { background: #264845; }
+.lob-game-plo6 { background: #402444; }
+.lob-players {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 80px; height: 36px;
+  border: 3px solid var(--lob-outline); border-radius: 999px; box-sizing: border-box;
+  color: var(--lob-count); font-weight: 500; font-variant-numeric: tabular-nums;
+}
+
+/* F2: a stake row's real wait (table queues + your group queue) next to the summed players. */
+.lob-players-cell { display: inline-flex; align-items: center; gap: 8px; }
+.lob-wait { color: var(--lob-head-text); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.lob-link { border: 0; background: none; padding: 0; color: var(--lob-link); cursor: pointer; font: inherit; text-decoration: underline; }
+.lob-link:focus-visible { outline: 2px solid var(--lob-focus); outline-offset: 2px; }
+
+@media (max-width: 760px) {
+  /* The popover must escape the bar, so the bar stops scrolling; the pills scroll instead. */
+  .filter-bar { overflow: visible; }
+  .lob-pills { flex: 1 1 auto; gap: 8px; }
+  .lob-pill { padding: 0 14px; }
+  .lob-filters-pop { width: min(280px, calc(100vw - 32px)); }
+  .lob-group { padding: 0 8px 8px; }
+  .lob-ghead { display: none; }
+  .lob-grow { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; row-gap: 6px; padding: 8px 8px 8px 12px; }
+  .lob-grow .lob-c-action { grid-column: 1 / -1; }
+  .lob-c-buyin::before, .lob-c-pros::before, .lob-c-handsHr::before {
+    content: attr(data-label) ' '; color: var(--lob-head-text); font-size: 11px;
+  }
+}
+
+/* Rush pool lobby right panel (P0 slice R3): leaderboard + information link. */
+.rush-board { --lob-link: #058edc; --lob-focus: #ffd98a; --lob-head-text: #a0a0a0; --lob-border: #2a2a2a;
+  margin: 8px; padding: 8px 10px; border: 1px solid var(--lob-border, #2a2a2a); border-radius: 6px; background: rgba(0, 0, 0, .25); }
+.rush-board-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.rush-board-head h4 { margin: 0; font-size: 13px; color: var(--gold2); letter-spacing: .02em; }
+.rush-board-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.rush-board-table th { text-align: left; font-weight: 600; color: var(--lob-head-text, #888); padding: 3px 4px; border-bottom: 1px solid #2a2a2a; }
+.rush-board-table th:last-child, .rush-board-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.rush-board-table td { padding: 4px; color: #ddd; border-bottom: 1px solid rgba(255, 255, 255, .04); }
+.rush-board-table tr.me td { background: rgba(216, 177, 95, .12); }
+.rush-rank { display: inline-block; min-width: 16px; margin-right: 4px; color: #888; font-variant-numeric: tabular-nums; }
+.rush-nick { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rush-board-empty { padding: 8px 4px; }
+.rush-info-link { display: block; margin-top: 8px; font-size: 12px; }
+.rush-info h4 { margin: 12px 0 4px; color: var(--gold2); font-size: 13px; }
+.rush-info h4:first-child { margin-top: 0; }
+.rush-info p { margin: 0; color: #ccc; font-size: 13px; line-height: 1.5; }

@@ -20,7 +20,7 @@ native comparison or an explicit statement of what could not be observed.
 | --- | --- | --- |
 | Multi-table tournaments (flights, balancing, breaks) | Shipped: `server/tournament-room.js` seats humans across flights, ranks/pays the whole field, balances and breaks every 2 s, and sends `table_move` to moved players | 18 room tests, 3 engine↔room tests and an 8-entrant HTTP/WebSocket test. Remaining: absent registrants are not pushed into a table at the scheduled start, and only the top three places pay |
 | Lobby wait lists and full filters | No wait lists; partial filters | Codex `FEATURES.md` lobby row: "complete native navigation, waiting lists, tournament categories and filters" |
-| Rush depth | One stake pool; no Cash Drops | Codex Rush row: "multiple stake levels, Cash Drops, native layout/timing and queue fairness" |
+| Rush depth | 7 pools (5 Hold'em, 2 PLO) with a native pool lobby (R2–R3, 2026-11-12); Cash Drop is a DanGG rule (R4); queue fairness (R5) and native screenshots (R0) still open | Codex Rush row: "multiple stake levels, Cash Drops, native layout/timing and queue fairness" |
 | Spin & Gold gameplay | Information-only screens | Codex traced exact chip/time values from incoming tourney config; multiplier mapping unresolved — do not infer from payout probabilities |
 | Battle Royale | Nothing | Reference label only; rules and format unobserved. Treat as unknown, not "coming soon" |
 | Table chat and reactions | Emotes only | Codex Hold'em row: "native chat/reaction parity" unverified |
@@ -34,7 +34,7 @@ native comparison or an explicit statement of what could not be observed.
 | Betting/settings parity | Codex verified defaults (2/3/4BB preflop, 33/50/75/100% postflop); DanGG implements the shortcuts. Enter-to-bet and the "Always confirm" option shipped 2026-11-12 (Settings → Betting), off by default. Still unverified: the native confirmation dialog's exact shape and whether it covers non-Enter bet paths |
 | Spectator mode | Shipped 2026-11-12: lobby **Watch** and tournament **Watch live** open a read-only view (public hand, board, stacks, results; hole cards hidden; no betting, table options or rabbit hunt; watching never seeds bots). Four HTTP/WebSocket tests; the watcher follows the field when a tournament table breaks. Not verified: native spectator counts or observer-chat rules |
 | Cross-room leaderboard | Codex: private room standings only; cross-room identity ranking missing in both |
-| Owner console | Multi-user permissions and in-app restore absent in both |
+| Owner console | Shipped 2026-11-12: role management (A1), backup download (A4), queued restore applied at restart (A7), audit/chat/transaction/user admin slices. Native parity not applicable. |
 | Visual / platform | Screen-by-screen comparison, accessibility and native packaging still open |
 
 Not a gap: the cashier. GGPoker has a wallet; DanGG is play-money by design.

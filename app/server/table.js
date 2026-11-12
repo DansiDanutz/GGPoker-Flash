@@ -1,6 +1,10 @@
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
+import { randomInt } from 'node:crypto';
+import { payoutFor, payoutTable } from './tournament.js';
+import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
+import { isRushGame } from './validate.js';
 
 const BOT_NAMES = [
   'SpewySally', 'NitWizard', 'CallStation', 'RiverRat', 'TiltLord', 'GTOBOT', 'BluffKing',
@@ -66,12 +70,20 @@ export class PokerTable {
     this.botSpeed = Number(cfg.botSpeed || 900);
     this.botIterations = Number(cfg.botIterations || 0);
     this.aof = cfg.game === 'aof';
-    this.rush = cfg.game === 'rush';
+    this.rush = isRushGame(cfg.game);
     this.straddle = !!cfg.straddle;
     this.spin = cfg.game === 'spingold';
     this.spinMultiplier = null;
     this.spinPrize = 0;
+    this.spinPayouts = null;
     this.spinWinner = null;
+    // Ticket source for the verified outcome table (server/spin.js); tests inject a fixed one.
+    this.spinTicket = () => randomInt(SPIN_TICKET_TOTAL);
+    // Spin blind clock (P0 slice S1c): started at the draw, read before each deal; tests inject it.
+    this.spinClock = () => Date.now();
+    this.spinStartedAt = 0;
+    this.spinCompletedHands = 0;
+    this.spinLevel = 0;
     this.tournament = cfg.tournament || null;
     this.levelStartedAt = this.tournament ? Date.now() : 0;
     if (this.tournament) {
@@ -97,13 +109,9 @@ export class PokerTable {
     this.rakeCap = Number(cfg.rakeCap) > 0 ? Number(cfg.rakeCap) : 300;
     this.rake = 0;
     this.finished = [];
-    if (this.spin) {
-      const options = [2, 2, 2, 3, 3, 5, 10, 25, 100];
-      this.spinMultiplier = options[Math.floor(Math.random() * options.length)];
-      this.spinPrize = Math.round(cfg.min_buyin * this.spinMultiplier);
-    }
     this.omahaHole = cfg.game === 'omaha5' ? 5 : cfg.game === 'omaha6' ? 6 : 4;
-    this.omaha = cfg.game === 'omaha' || cfg.game === 'omaha5' || cfg.game === 'omaha6';
+    // `rushplo` is Rush & Cash PLO: four-card pot-limit Omaha with the Rush quick fold.
+    this.omaha = ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(cfg.game);
     this.potLimit = this.omaha;
     this.holeCount = this.omaha ? this.omahaHole : 2;
     // Chips committed by players who left mid-hand; they stay in the pot as dead money.
@@ -111,6 +119,8 @@ export class PokerTable {
     this.messageSeq = 0;
     this.tableEpoch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     this.tableVersion = 0;
+    // Wait-list seat holds: seat index -> the user id the seat is held for (set by index.js).
+    this.holds = new Map();
   }
 
   /* ------------------------------ seating ------------------------------ */
@@ -127,11 +137,28 @@ export class PokerTable {
     return this.seats.find((s) => s.player && s.player.id === playerId);
   }
 
+  /** Replace the wait-list holds with `holds` (a Map or [[seatIndex, userId], …]). */
+  setHolds(holds) {
+    this.holds = new Map(holds);
+  }
+
+  /** True when the seat is held for a wait-listed player other than `playerId`. */
+  isHeldFor(seatIndex, playerId) {
+    const holder = this.holds.get(seatIndex);
+    return holder != null && holder !== playerId;
+  }
+
+  /** First empty seat `playerId` may take (held seats only go to their holder). */
+  freeSeatFor(playerId) {
+    return this.seats.find((s) => !s.player && !this.isHeldFor(s.index, playerId)) || null;
+  }
+
   sit(player, seatIndex = null, buyin = null, sessionId = null) {
     if (this.seatOf(player.id)) return { ok: false, error: 'already seated' };
-    let seat = seatIndex != null ? this.seats[seatIndex] : this.seats.find((s) => !s.player);
+    const seat = seatIndex != null ? this.seats[seatIndex] : this.freeSeatFor(player.id);
     if (!seat) return { ok: false, error: 'table full' };
     if (seat.player) return { ok: false, error: 'seat taken' };
+    if (this.isHeldFor(seat.index, player.id)) return { ok: false, error: 'seat held' };
     const stack = buyin ?? Math.min(this.cfg.max_buyin, Math.max(this.cfg.min_buyin, this.cfg.bb * 100));
     seat.player = {
       id: player.id,
@@ -199,7 +226,8 @@ export class PokerTable {
     let added = 0;
     for (let i = 0; i < this.seats.length && added < count; i++) {
       const s = this.seats[i];
-      if (!s.player) {
+      // A seat held for a wait-listed player is never given to a bot.
+      if (!s.player && !this.holds.has(i)) {
         this.sit({
           id: `bot-${this.cfg.id}-${i}-${handSeq++}`,
           nick: botName(handSeq + i * 3),
@@ -235,19 +263,109 @@ export class PokerTable {
     return this.occupiedSeats().filter((s) => this.isDealtIn(s.player));
   }
 
+  /** Spin & Gold runs only at an observed play-money stake (5,000 / 10,000, fixed buy-in). */
+  spinStakeValid() {
+    return this.spin && isSpinStake(Number(this.cfg.min_buyin), Number(this.cfg.max_buyin));
+  }
+
+  /** A Spin has started once its prize is drawn; nobody may join it after that. */
+  spinStarted() {
+    return this.spin && !!this.spinPayouts;
+  }
+
+  /** Draw the multiplier from the verified table when the first hand is dealt. */
+  drawSpin() {
+    const outcome = spinOutcome(Number(this.cfg.min_buyin), this.spinTicket());
+    this.spinMultiplier = outcome.multiplier;
+    this.spinPrize = outcome.prizePool;
+    this.spinPayouts = Object.freeze([...outcome.prizes]);
+    this.spinStartedAt = this.spinClock();
+    this.spinCompletedHands = 0;
+    this.spinLevel = 0;
+    this.emit({ type: 'spin_drawn', multiplier: this.spinMultiplier, prize: this.spinPrize, payouts: this.spinPayouts });
+  }
+
+  /**
+   * Rank a player out of a Spin and pay that place once. The ledger hook keys the payout on the
+   * seat's session, so a later cash-out of the same session cannot pay again.
+   */
+  recordSpinFinish(player, place) {
+    if (!this.spinPayouts || this.finished.some((f) => f.id === player.id)) return null;
+    const entry = { nick: player.nick, id: player.id, place, payout: this.spinPayouts[place - 1] || 0 };
+    this.finished.push(entry);
+    this.emit({ type: 'spin_payout', ...entry });
+    try {
+      if (this.hooks.onSpinPayout) this.hooks.onSpinPayout(this, { ...entry, sessionId: player.sessionId || null, isBot: !!player.isBot });
+    } catch (e) { console.error('spin payout hook', e); }
+    return entry;
+  }
+
+  /** Leaving a running Spin takes the lowest open place; the chips leave with the seat. */
+  leaveSpin(playerId) {
+    const seat = this.seatOf(playerId);
+    if (seat?.player && this.spinStarted() && !this.spinWinner && seat.player.stack > 0) {
+      const alive = this.occupiedSeats().filter((s) => s.player.stack > 0).length;
+      this.recordSpinFinish(seat.player, alive);
+    }
+    const res = this.stand(playerId);
+    const alive = this.occupiedSeats().filter((s) => s.player.stack > 0);
+    // Between hands nothing else will settle the Spin, so crown the last player now.
+    if (this.spinStarted() && !this.spinWinner && alive.length === 1 && !this.handInProgress() && !this.nextHandAt) {
+      this.awardSpinWinner();
+    }
+    return res;
+  }
+
+  /** A finished or human-less Spin goes back to a fresh, undrawn table between hands. */
+  resetSpinIfIdle() {
+    if (!this.spinStarted() || this.handInProgress()) return false;
+    if (!this.spinWinner && this.humans().length) return false;
+    for (const seat of this.seats) seat.player = null;
+    Object.assign(this, {
+      handNo: 0, spinMultiplier: null, spinPrize: 0, spinPayouts: null, spinWinner: null, finished: [],
+      spinStartedAt: 0, spinCompletedHands: 0, spinLevel: 0,
+      sb: this.cfg.sb, bb: this.cfg.bb, minRaise: this.cfg.bb, street: 'idle', nextHandAt: 0,
+    });
+    return true;
+  }
+
+  /**
+   * Set the verified Spin blind level before a deal: minute steps for the 2x-5x rows, completed
+   * hand steps for 10x and up, capped at the last level (server/spin.js spinBlindLevel).
+   */
+  applySpinBlinds() {
+    // startHand only runs between hands, so every hand dealt since the draw has completed.
+    this.spinCompletedHands = this.handNo;
+    const { level, smallBlind, bigBlind } = spinBlindLevel(this.spinMultiplier, {
+      startedAt: this.spinStartedAt, now: this.spinClock(), completedHands: this.spinCompletedHands,
+    });
+    const raised = this.spinLevel > 0 && level !== this.spinLevel;
+    Object.assign(this, { spinLevel: level, sb: smallBlind, bb: bigBlind, minRaise: bigBlind });
+    if (raised) this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb, level });
+  }
+
   awardSpinWinner() {
+    if (this.spinWinner || !this.spinPayouts) return;
     const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
     if (!w || !w.player) return;
-    w.player.stack += this.spinPrize;
+    const first = this.recordSpinFinish(w.player, 1);
     if (this.hooks.onMint) this.hooks.onMint(this, 'spin', this.spinPrize);
-    this.spinWinner = { nick: w.player.nick, id: w.player.id, prize: this.spinPrize };
+    this.spinWinner = { nick: w.player.nick, id: w.player.id, prize: first ? first.payout : 0 };
     this.emit({ type: 'spin_win', ...this.spinWinner, multiplier: this.spinMultiplier });
     this.street = 'ended';
     this.nextHandAt = 0;
     if (this.hooks.onHandComplete) this.hooks.onHandComplete({ table: this, winner: { id: w.player.id } });
   }
 
+  /** Clear the per-hand `inHand` flag once a hand is over and its delay ran out. */
+  clearHandFlags() {
+    for (const seat of this.seats) {
+      if (seat.player) seat.player.inHand = false;
+    }
+  }
+
   awardTournamentWinner() {
+    this.clearHandFlags();
     const w = this.occupiedSeats().find((s) => s.player && s.player.stack > 0);
     if (!w || !w.player) return;
     if (this.tournament?.managed) {
@@ -267,13 +385,29 @@ export class PokerTable {
       if (this.hooks.onTournamentEnd) this.hooks.onTournamentEnd(this, this.tournament.winner);
       return;
     }
-    const prize = Math.round((this.tournament.prizePool || 0) * 0.5);
+    const prize = payoutFor(this.tournamentPayouts(this.tournamentField()), 1);
     w.player.stack += prize;
     this.tournament.winner = { nick: w.player.nick, id: w.player.id, prize };
     this.emit({ type: 'tourney_win', nick: w.player.nick, id: w.player.id, prize, tableName: this.cfg.name });
     this.street = 'ended';
     this.nextHandAt = 0;
     if (this.hooks.onTournamentEnd) this.hooks.onTournamentEnd(this, this.tournament.winner);
+  }
+
+  /** Single-table field size: everyone seated plus everyone already out. */
+  tournamentField() {
+    return Math.max(Number(this.tournament?.entrants) || 0, this.occupiedSeats().length + this.finished.length);
+  }
+
+  /**
+   * Paid places for this event (DanGG rule, tournament.js). A multi-table room
+   * publishes the field-wide table on `tournament.payouts`; a single table
+   * derives it from its own field.
+   */
+  tournamentPayouts(field = this.tournamentField()) {
+    if (!this.tournament) return [];
+    if (this.tournament.managed && Array.isArray(this.tournament.payouts)) return this.tournament.payouts;
+    return payoutTable(field, this.tournament.prizePool, { mode: this.tournament.mode, ticket: this.tournament.ticket });
   }
 
   startHand() {
@@ -287,12 +421,12 @@ export class PokerTable {
     if (this.spin && this.handNo > 0 && ready.length === 1) { this.awardSpinWinner(); return; }
     if (this.tournament && this.handNo > 0 && ready.length === 1) { this.awardTournamentWinner(); return; }
     if (ready.length < 2) { this.street = 'idle'; return; }
-    if (this.spin && this.handNo > 0 && this.handNo % 8 === 0) {
-      this.sb = Math.round(this.sb * 1.5);
-      this.bb = Math.round(this.bb * 1.5);
-      this.minRaise = this.bb;
-      this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb });
+    if (this.spin && this.handNo === 0) {
+      // A Spin deals only at an observed stake and with all three seats filled.
+      if (!this.spinStakeValid() || ready.length < SPIN_SEATS) { this.street = 'idle'; return; }
+      if (!this.spinPayouts) this.drawSpin();
     }
+    if (this.spinStarted()) this.applySpinBlinds();
 
     this.handNo++;
     this.deck = shuffle(makeDeck(this.shortDeck));
@@ -501,6 +635,8 @@ export class PokerTable {
 
   setInsurance(userId, value) {
     if (!this.spin) return { ok: false, error: 'insurance is Spin & Gold only' };
+    // Native Spin insurance settlement is unobserved; do not invent premiums/payouts.
+    return { ok: false, error: 'Insurance is not available in DanGG' };
     if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };
     const seat = this.seatOf(userId);
     if (!seat?.player) return { ok: false, error: 'not seated' };
@@ -1082,6 +1218,9 @@ export class PokerTable {
         // Give a fresh bust a reload window before the next deal.
         if (this.openRebuyWindow(now)) return;
         this.nextHandAt = 0;
+        // The hand is fully resolved: nobody is in it any more, so the room
+        // may balance or break this table before the next deal.
+        this.clearHandFlags();
         // remove busted bots, rebuy bots so the table stays alive
         for (const s of this.seats) {
           if (s.player && s.player.isBot && s.player.stack <= 0 && !this.elimination) {
@@ -1091,6 +1230,8 @@ export class PokerTable {
         }
         if (this.elimination) {
           const aliveCount = this.occupiedSeats().filter((x) => x.player && x.player.stack > 0).length;
+          // Busted seats are cleared inside the loop, so size the field first.
+          const field = this.tournamentField();
           let batch = 0;
           for (const s of [...this.seats]) {
             if (s.player && s.player.stack <= 0) {
@@ -1101,11 +1242,12 @@ export class PokerTable {
                 const alive = aliveCount;
                 const place = alive + 1 + batch;
                 batch++;
-                const pool = this.tournament.prizePool || 0;
-                const pct = place === 2 ? 0.3 : place === 3 ? 0.2 : 0;
-                const payout = Math.round(pool * pct);
+                const payout = payoutFor(this.tournamentPayouts(field), place);
                 this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
                 if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
+              } else if (this.spin) {
+                this.recordSpinFinish(busted, aliveCount + 1 + batch);
+                batch++;
               }
               if (this.bounty > 0 && (this.mystery || this.tournament.mode === 'BOUNTY')) {
                 const killerSeat = this.lastAggressor ? this.seatOf(this.lastAggressor) : null;
@@ -1298,7 +1440,13 @@ export class PokerTable {
       log: this.log.slice(-40),
       lastAction: this.lastAction,
       canStart: this.street === 'idle',
-      spin: this.spin ? { multiplier: this.spinMultiplier, prize: this.spinPrize, winner: this.spinWinner } : null,
+      spin: this.spin ? {
+        multiplier: this.spinMultiplier, prize: this.spinPrize, buyIn: Number(this.cfg.min_buyin),
+        payouts: this.spinPayouts, finished: this.finished, winner: this.spinWinner,
+        blindLevel: this.spinLevel || null,
+        smallBlind: this.spinLevel ? this.sb : null,
+        bigBlind: this.spinLevel ? this.bb : null,
+      } : null,
       straddle: this.straddle,
       runItTwice: this.runItTwice,
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
@@ -1316,6 +1464,7 @@ export class PokerTable {
         tableIndex: Number(this.cfg.flightIndex) || 1,
         tables: Number(this.cfg.flightCount) || 1,
         playersLeft: this.tournament.playersLeft ?? null,
+        payouts: this.tournamentPayouts(),
       } : null,
     };
   }

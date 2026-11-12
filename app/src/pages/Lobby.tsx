@@ -5,17 +5,16 @@ import { sound } from '../lib/sound';
 import { AppHeader, GameTabs } from '../components/AppHeader';
 import { TitleBar } from '../components/TitleBar';
 import { Avatar } from '../components/Avatar';
-
-const TAB_GAME: Record<string, string[]> = {
-  home: [],
-  aof: ['aof'],
-  rush: ['rush'],
-  holdem: ['holdem'],
-  plo: ['omaha', 'omaha5', 'omaha6'],
-  short: ['shortdeck'],
-  spin: ['spingold'],
-  battle: ['battleroyale'],
-};
+import { WaitlistSideActions } from '../components/WaitlistSideActions';
+import { waitCount } from '../lib/waitlist';
+import { DEFAULT_TAB_FILTERS, filterTables, filtersForTab, FilterPrefs, readFilterPrefs, resetExtraFilters, sortTables, SortKey, TabFilters, UNAVAILABLE_TABS, withTabFilters, writeFilterPrefs } from '../lib/lobbyFilters';
+import { LobbyPills } from '../components/LobbyPills';
+import { LobbyFiltersPopover } from '../components/LobbyFiltersPopover';
+import { LobbyGroupRows } from '../components/LobbyGroupRows';
+import { RushPoolRows } from '../components/RushPoolRow';
+import { RushInfoDialog, RushSidePanel } from '../components/RushSidePanel';
+import { visiblePools } from '../lib/rushPools';
+import { CASHDROP_RULE_LABEL, cashDropRateLabel } from '../lib/cashDrop';
 
 const PROMOS = [
   { full: true, title: 'Daily $100,000 Flipout', sub: 'Daily jackpots · 6/9-max tables', to: '/tournaments' },
@@ -72,6 +71,7 @@ export function Lobby() {
   const [buyinTable, setBuyinTable] = useState<LobbyTable | null>(null);
   const [buyin, setBuyin] = useState(0);
   const [seat, setSeat] = useState<number | null>(null);
+  const [rushInfoOpen, setRushInfoOpen] = useState(false);
   const [hostOpen, setHostOpen] = useState(false);
   const [hostBusy, setHostBusy] = useState(false);
   const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000, bombPot: false });
@@ -82,13 +82,15 @@ export function Lobby() {
   const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
   const [promoIdx, setPromoIdx] = useState(0);
   const [promoPaused, setPromoPaused] = useState(false);
-  const [sortKey, setSortKey] = useState<'name'|'bb'|'players'|'avgPot'>('bb');
+  const [sortKey, setSortKey] = useState<SortKey>('bb');
   const [sortDir, setSortDir] = useState<1|-1>(-1);
-  const [search, setSearch] = useState('');
-  const [stakeFilter, setStakeFilter] = useState('all');
-  const [seatFilter, setSeatFilter] = useState('all');
-  const [speedFilter, setSpeedFilter] = useState('all');
-  const [favOnly, setFavOnly] = useState(false);
+  const [filterPrefs, setFilterPrefs] = useState<FilterPrefs>(readFilterPrefs);
+  const filters = filtersForTab(filterPrefs, gameTab);
+  const setFilter = (patch: Partial<TabFilters>) => setFilterPrefs((prev) => {
+    const next = withTabFilters(prev, gameTab, patch);
+    writeFilterPrefs(next);
+    return next;
+  });
   const [favs, setFavs] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('ggpoker.favs') || '[]'); } catch { return []; } });
   const [loading, setLoading] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
@@ -125,36 +127,19 @@ export function Lobby() {
 
   const tables: LobbyTable[] = useMemo(() => {
     if (!data) return [];
-    const gs = TAB_GAME[gameTab];
-    let list = gs.length ? data.tables.filter((t: LobbyTable) => gs.includes(t.game)) : data.tables;
-    if (gameTab === 'home') {
-      list = [...data.tables].sort((a: LobbyTable, b: LobbyTable) => Number(b.featured) - Number(a.featured) || a.bb - b.bb);
-    }
-    if (search.trim()) list = list.filter((t: LobbyTable) => t.name.toLowerCase().includes(search.toLowerCase()));
-    if (stakeFilter !== 'all') list = list.filter((t: LobbyTable) => {
-      const bb = t.bb / 100;
-      if (stakeFilter === 'low') return bb <= 2;
-      if (stakeFilter === 'mid') return bb > 2 && bb <= 20;
-      return bb > 20;
-    });
-    if (seatFilter !== 'all') list = list.filter((t: LobbyTable) => t.seats === Number(seatFilter));
-    if (speedFilter !== 'all') list = list.filter((t: LobbyTable) => t.speed === speedFilter);
-    if (favOnly) list = list.filter((t: LobbyTable) => favs.includes(t.id));
-    const key = sortKey;
-    list = [...list].sort((a: LobbyTable, b: LobbyTable) => {
-      const va = key === 'name' ? a.name : key === 'bb' ? a.bb : key === 'players' ? a.players : a.avgPot;
-      const vb = key === 'name' ? b.name : key === 'bb' ? b.bb : key === 'players' ? b.players : b.avgPot;
-      if (typeof va === 'string') return va.localeCompare(vb as string) * sortDir;
-      return ((va as number) - (vb as number)) * sortDir;
-    });
-    return list;
-  }, [data, gameTab, sortKey, sortDir, search, stakeFilter, seatFilter, speedFilter, favOnly, favs]);
+    const list = filterTables(data.tables, { ...filters, tab: gameTab, favs });
+    return sortTables(list, gameTab, sortKey, sortDir);
+  }, [data, gameTab, sortKey, sortDir, filterPrefs, favs]);
 
   useEffect(() => {
     if (tables.length && !tables.find((t) => t.id === selected)) setSelected(tables[0].id);
   }, [tables]);
 
-  const table = data?.tables.find((t: LobbyTable) => t.id === selected) || null;
+  const isRushTab = gameTab === 'rush';
+  const rushPools = useMemo(() => (isRushTab ? visiblePools(data?.rushPools || [], tables) : []), [isRushTab, data, tables]);
+  // A capture-gated tab (Battle Royale) shows an honest empty state: no rows, no Join.
+  const unavailable = UNAVAILABLE_TABS[gameTab];
+  const table = unavailable ? null : data?.tables.find((t: LobbyTable) => t.id === selected) || null;
   const previewPlayers = useMemo(() => {
     if (!table) return [];
     const names = ['tropicalTit', 'psyhoagromc', 'Mikhail Ryko', 'GGChamp', 'SpewySally', 'NitWizard', 'RiverRat'];
@@ -338,9 +323,9 @@ export function Lobby() {
                 <span>Quick-fold to a fresh table with the same stack. Look out for Cash Drops.</span>
               </div>
               <div className="rush-hero-stats">
-                <div><b>{tables.filter((t) => t.game === 'rush').reduce((n, t) => n + t.players, 0)}</b><span>players</span></div>
-                <div><b>{tables.filter((t) => t.game === 'rush').length}</b><span>pools</span></div>
-                <div><b>12%</b><span>drop chance</span></div>
+                <div><b>{rushPools.reduce((n, p) => n + p.players, 0)}</b><span>players</span></div>
+                <div><b>{rushPools.length}</b><span>pools</span></div>
+                <div title={CASHDROP_RULE_LABEL}><b>{cashDropRateLabel(data?.rushCashDrop?.rate)}</b><span>drop chance · {CASHDROP_RULE_LABEL}</span></div>
               </div>
             </div>
           )}
@@ -373,22 +358,13 @@ export function Lobby() {
             </div>
           </div>
           <div className="filter-bar">
-            <select value={stakeFilter} onChange={(e) => setStakeFilter(e.target.value)}>
-              <option value="all">All stakes</option><option value="low">Micro / low ($0–$2 BB)</option><option value="mid">Mid ($2–$20 BB)</option><option value="high">High ($20+ BB)</option>
-            </select>
-            <select value={seatFilter} onChange={(e) => setSeatFilter(e.target.value)}>
-              <option value="all">All seats</option><option value="6">6-max</option><option value="9">9-max</option><option value="3">3-max</option>
-            </select>
-            <select value={speedFilter} onChange={(e) => setSpeedFilter(e.target.value)}>
-              <option value="all">All speeds</option><option value="Normal">Normal</option><option value="Fast">Fast</option>
-            </select>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tables…" />
-            <button className={'fav-toggle' + (favOnly ? ' on' : '')} onClick={() => setFavOnly((v) => !v)}>★ Favorites</button>
+            <LobbyPills tab={gameTab} value={filters.pill} onChange={(pill) => setFilter({ pill })} />
+            <span className="filter-spacer" />
             <button className="host-table-btn" onClick={openHost}>+ Host</button>
-            <span className="filter-count">{tables.length} tables</span>
+            <LobbyFiltersPopover filters={filters} tableCount={tables.length} onChange={setFilter} onReset={() => setFilter(resetExtraFilters(filters))} />
           </div>
           <div className="table-list" key={gameTab}>
-            <div className="list-head">
+            {viewMode === 'table' && !isRushTab && !unavailable && <div className="list-head">
               <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
               <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
               <div>Buy-in</div>
@@ -396,20 +372,17 @@ export function Lobby() {
               <div>Wait</div>
               <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>AvgPot <i className="est-dot" title="Estimated demo value; not live" /></div>
               <div>VPIP% <i className="est-dot" title="Estimated demo value; not live" /></div><div>H/hr <i className="est-dot" title="Estimated demo value; not live" /></div>
-            </div>
+            </div>}
             <div className="list-scroll">
-              {viewMode === 'group' ? (
-                <div className="group-grid">
-                  {tables.map((t) => (
-                    <div key={t.id} className={'group-card' + (selected === t.id ? ' on' : '')} onClick={() => setSelected(t.id)} onDoubleClick={() => openJoin(t)}>
-                      <div className="gc-top"><span>{t.name}</span><span className="tag reg">{t.speed}</span></div>
-                      <div className="gc-stakes">{fmtStakes(t)}</div>
-                      <div className="gc-meta"><span>{t.game === 'holdem' ? "Hold'em" : t.game}</span><span>{t.players}/{t.seats} players</span></div>
-                      <div className="gc-buyin">Buy-in {money(t.min_buyin, true)}</div>
-                      <button className="btn btn-red btn-sm" onClick={(e) => { e.stopPropagation(); openJoin(t); }}>Join</button>
-                    </div>
-                  ))}
+              {unavailable ? (
+                <div className="list-empty" role="status">
+                  <strong>{unavailable.title}</strong>
+                  <div>{unavailable.detail}</div>
                 </div>
+              ) : isRushTab ? (
+                <RushPoolRows pools={rushPools} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
+              ) : viewMode === 'group' ? (
+                <LobbyGroupRows tab={gameTab} tables={tables} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
               ) : tables.map((t) => (
                 <div
                   key={t.id}
@@ -430,35 +403,41 @@ export function Lobby() {
                       <i key={i} className={i < t.players ? 'on' : ''} />
                     ))}
                   </div>
-                  <div className={t.wait ? '' : 'zero'}>{t.wait ? t.wait : '-'}</div>
+                  <div className="wait-cell">{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
                   <div className={t.avgPot ? '' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
                   <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
                   <div>{t.handsPerHour}</div>
                 </div>
               ))}
-              {!tables.length && <div className="list-empty">No tables in this category right now.</div>}
+              {!tables.length && !unavailable && (
+                <div className="list-empty">No tables match these filters.{' '}
+                  <button type="button" className="lob-link" onClick={() => setFilter(DEFAULT_TAB_FILTERS)}>Reset filters</button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         <div className="lobby-side">
-          <div className="view-toggle">
-            <button className={viewMode === 'group' ? 'on' : ''} onClick={() => setViewMode('group')}>Group View</button>
-            <button className={viewMode === 'table' ? 'on' : ''} onClick={() => setViewMode('table')}>Table View</button>
-          </div>
-          <div className="mini-table-wrap">
-            <MiniTable table={table} players={previewPlayers} />
-          </div>
-          <div className="mini-actions">
-            <button className="btn btn-dark btn-block" onClick={() => { if (table) navigate(`/table/${table.id}?observe=1`); }}>Watch</button>
-            <button className="btn btn-red btn-block" onClick={() => { if (table) openJoin(table); }}>Join</button>
-          </div>
-          <div className="mini-stats">
+          {!unavailable && (
+            <>
+              <div className="view-toggle">
+                <button className={viewMode === 'group' ? 'on' : ''} onClick={() => setViewMode('group')}>Group View</button>
+                <button className={viewMode === 'table' ? 'on' : ''} onClick={() => setViewMode('table')}>Table View</button>
+              </div>
+              <div className="mini-table-wrap">
+                <MiniTable table={table} players={previewPlayers} />
+              </div>
+              <WaitlistSideActions table={table} onJoin={openJoin} onWatch={(t) => navigate(`/table/${t.id}?observe=1`)} onChanged={load} />
+            </>
+          )}
+          {isRushTab && <RushSidePanel leaderboard={data?.rushLeaderboard} myId={user?.id} onShowInfo={() => setRushInfoOpen(true)} />}
+          {!isRushTab && <div className="mini-stats">
             <div className="between"><span className="muted small">Last jackpot</span><b className="gold">{money(data?.jackpot || 0)}</b></div>
             {(data?.recentWinners || []).slice(0, 3).map((w: any, i: number) => (
               <div key={i} className="between"><span className="muted small">{w.nick}</span><span className="small">{money(w.amount)}</span></div>
             ))}
-          </div>
+          </div>}
           <div style={{ flex: 1 }} />
           <div style={{ padding: '6px 8px', fontSize: 11, color: '#777', borderTop: '1px solid #222' }}>
             {table ? GAME_LABEL[table.game] : ''} · {table ? table.speed : ''}
@@ -483,6 +462,8 @@ export function Lobby() {
           <button className="rail-btn gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>GGPass</button>
         </div>
       </div>
+
+      {rushInfoOpen && <RushInfoDialog cashDrop={data?.rushCashDrop} onClose={() => setRushInfoOpen(false)} />}
 
       {notifOpen && (
         <div className="modal-backdrop" onClick={() => setNotifOpen(false)}>

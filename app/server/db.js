@@ -7,7 +7,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = process.env.GGPOKER_DATA || path.join(__dirname, 'data');
 
 import fs from 'node:fs';
+import { applyPendingRestore } from './admin-restore.js';
+import { SPIN_SEATS, SPIN_STAKES, spinSmallBlinds } from './spin.js';
+import { disableBattleRoyaleTables } from './battleroyale.js';
 fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// A restore queued from the admin console is applied here, before the live DB is opened.
+const RESTORE_RESULT = applyPendingRestore({ dataDir: DATA_DIR });
 
 export const db = new DatabaseSync(path.join(DATA_DIR, 'ggpoker.db'));
 db.exec('PRAGMA journal_mode = WAL;');
@@ -286,6 +292,7 @@ function init() {
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN chat_muted INTEGER DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE chat_messages ADD COLUMN kind TEXT DEFAULT 'chat'"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN elo INTEGER DEFAULT 1000'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE tournaments ADD COLUMN mode TEXT DEFAULT 'STANDARD'"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tournaments ADD COLUMN bounty INTEGER DEFAULT 0'); } catch { /* already exists */ }
@@ -327,6 +334,9 @@ function init() {
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
   ensurePloVariants();
+  ensureRushLadder();
+  ensureSpinTables();
+  disableBattleRoyaleTables(db);
   ensureSeries();
 }
 
@@ -341,10 +351,70 @@ function ensurePloVariants() {
         500, 1000, 0, 20000, 100000, 6, 'Normal', 0, sort++);
     }
   }
-  for (let i = 1; i <= 4; i++) {
-    ins.run(`spingold6-${i}`, `Spin & Gold 6-Max ${i}`, 'spingold', 'Spin',
-      500, 1000, 0, 30000, 30000, 6, 'Fast', 0, 950 + i);
-  }
+}
+
+// Spin & Gold tables (P0 slice S1b): only the observed 3-max play-money stakes. Ids are
+// deterministic so each boot inserts only missing rows; level-1 blinds come from the
+// verified ladder. Starting chips and time-bank cards are unobserved and not configured.
+const SPIN_TABLES_PER_STAKE = 4;
+const SPIN_SORT_BASE = 950;
+
+export function ensureSpinTables() {
+  const ins = db.prepare(`INSERT OR IGNORE INTO tables
+    (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,sort)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const sb = spinSmallBlinds[0];
+  let inserted = 0;
+  SPIN_STAKES.forEach((stake, stakeIndex) => {
+    for (let i = 1; i <= SPIN_TABLES_PER_STAKE; i++) {
+      const res = ins.run(`spingold-${stake}-${i}`, `Spin & Gold ${stake.toLocaleString('en-US')} ${String(i).padStart(2, '0')}`,
+        'spingold', 'Spin', sb, sb * 2, 0, stake, stake, SPIN_SEATS, 'Fast', 0,
+        SPIN_SORT_BASE + stakeIndex * 10 + i);
+      inserted += Number(res.changes);
+    }
+  });
+  // Unobserved rows (the old 15,000 3-max and 30,000 6-max seeds) are switched off, never deleted.
+  const stakes = SPIN_STAKES.join(',');
+  const disabled = db.prepare(`UPDATE tables SET enabled = 0
+    WHERE game = 'spingold' AND enabled = 1
+      AND NOT (seats = ${SPIN_SEATS} AND min_buyin = max_buyin AND min_buyin IN (${stakes}))`).run().changes;
+  return { inserted, disabled: Number(disabled) };
+}
+
+// Rush & Cash stake ladder (P0 slice R2, plan § 4). One pool = game + sb/bb; table ids are
+// deterministic, so each boot inserts only the rows that are missing. The Hold'em 500/1000
+// pool keeps the original `rush-platinum-N` tables created by seed().
+export const RUSH_LADDER = Object.freeze([
+  { game: 'rush', label: 'Rush & Cash', category: 'Bronze', sb: 50, bb: 100, tables: 4 },
+  { game: 'rush', label: 'Rush & Cash', category: 'Silver', sb: 100, bb: 200, tables: 4 },
+  { game: 'rush', label: 'Rush & Cash', category: 'Gold', sb: 250, bb: 500, tables: 4 },
+  { game: 'rush', label: 'Rush & Cash', category: 'Platinum', sb: 500, bb: 1000, tables: 8, idPrefix: 'rush-platinum' },
+  { game: 'rush', label: 'Rush & Cash', category: 'Diamond', sb: 1000, bb: 2000, tables: 4 },
+  { game: 'rushplo', label: 'Rush & Cash PLO', category: 'Silver', sb: 100, bb: 200, tables: 4 },
+  { game: 'rushplo', label: 'Rush & Cash PLO', category: 'Platinum', sb: 500, bb: 1000, tables: 4 },
+].map(Object.freeze));
+const RUSH_MIN_BUYIN_BB = 20;
+const RUSH_MAX_BUYIN_BB = 100;
+const RUSH_SEATS = 6;
+const RUSH_SORT_BASE = 1000;
+
+/** Inserts the missing Rush ladder tables; returns how many rows were added (0 when complete). */
+export function ensureRushLadder() {
+  const ins = db.prepare(`INSERT OR IGNORE INTO tables
+    (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,sort)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  let inserted = 0;
+  RUSH_LADDER.forEach((pool, poolIndex) => {
+    const prefix = pool.idPrefix || `${pool.game}-${pool.sb}-${pool.bb}`;
+    for (let i = 1; i <= pool.tables; i++) {
+      const name = `${pool.label} ${pool.category} ${pool.sb}/${pool.bb} ${String(i).padStart(2, '0')}`;
+      const res = ins.run(`${prefix}-${i}`, name, pool.game, pool.category, pool.sb, pool.bb, 0,
+        pool.bb * RUSH_MIN_BUYIN_BB, pool.bb * RUSH_MAX_BUYIN_BB, RUSH_SEATS, 'Fast', 0,
+        RUSH_SORT_BASE + poolIndex * 10 + i);
+      inserted += Number(res.changes);
+    }
+  });
+  return inserted;
 }
 
 function ensureSeries() {
@@ -418,12 +488,6 @@ function seed() {
   for (let i = 1; i <= 8; i++) {
     tables.push({ id: `aof-gold-${i}`, name: `AoF Gold ${String(i).padStart(2, '0')}`, game: 'aof', category: 'Gold', sb: 500, bb: 1000, ante: 0, min_buyin: 20000, max_buyin: 40000, seats: 6, speed: 'Fast', sort: sort++ });
   }
-  for (let i = 1; i <= 6; i++) {
-    tables.push({ id: `spingold-${i}`, name: `Spin & Gold ${i}`, game: 'spingold', category: 'Spin', sb: 500, bb: 1000, ante: 0, min_buyin: 15000, max_buyin: 15000, seats: 3, speed: 'Fast', sort: sort++ });
-  }
-  for (let i = 1; i <= 4; i++) {
-    tables.push({ id: `br-${i}`, name: `Mystery Battle Royale ${i}`, game: 'battleroyale', category: 'Battle', sb: 500, bb: 1000, ante: 0, min_buyin: 25000, max_buyin: 25000, seats: 6, speed: 'Fast', sort: sort++ });
-  }
   const ins = db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,sort) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   for (const t of tables) ins.run(t.id, t.name, t.game, t.category, t.sb, t.bb, t.ante, t.min_buyin, t.max_buyin, t.seats, t.speed || 'Normal', t.featured || 0, t.sort);
 
@@ -491,6 +555,11 @@ function seed() {
 }
 
 init();
+
+if (RESTORE_RESULT.applied) {
+  db.prepare(`INSERT INTO audit_log (actor,action,detail) VALUES ('system','restore_applied',?)`)
+    .run(RESTORE_RESULT.backupName ? `previous database kept as ${RESTORE_RESULT.backupName}` : 'no previous database');
+}
 
 export function getSetting(key, fallback = null) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);

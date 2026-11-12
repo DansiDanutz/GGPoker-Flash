@@ -1,3 +1,4 @@
+import type { LeaderMetric, LeaderboardResponse } from './leaderboard';
 export type User = {
   id: number;
   login: string;
@@ -35,7 +36,10 @@ export type LobbyTable = {
   private?: boolean;
   owner_id?: number | null;
   players: number;
+  /** Players in this table's wait list (real queue length). */
   wait: number;
+  /** Caller's 1-based position in this table's wait list; 0 when not queued. */
+  myWait?: number;
   avgPot: number;
   vpip: number;
   synthetic?: boolean;
@@ -43,6 +47,143 @@ export type LobbyTable = {
   handsPerHour: number;
   running: boolean;
 };
+
+/** One Rush pool row from `/api/lobby` `rushPools` (P0 slice R3): every table of one game + stake. */
+export type RushPool = {
+  /** `game:sb/bb`, the pool the server moves players within. */
+  poolKey: string;
+  /** `game:sb/bb:seats`, the group wait-list key. */
+  groupKey: string;
+  game: string;
+  category: string;
+  sb: number;
+  bb: number;
+  seats: number;
+  min_buyin: number;
+  max_buyin: number;
+  featured: boolean;
+  /** Tables in the pool. */
+  tables: number;
+  /** Seated players summed across the pool's tables. */
+  players: number;
+  /** Always 0 until a "pro" player is defined. */
+  pros: number;
+  /** Hands saved across the pool in the last hour. */
+  handsPerHour: number;
+  /** First pool table with a free seat; null when every table is full. */
+  firstFree: string | null;
+  /** Table queues plus the pool's group queue. */
+  wait: number;
+};
+
+/** One `/api/lobby` `rushLeaderboard` row: today's Cash Drops + Rush pot wins, play money cents. */
+export type RushLeaderRow = {
+  rank: number;
+  userId: number;
+  nick: string;
+  country: string;
+  won: number;
+};
+
+/** Where a wait-list queue points: one table, or any table in a lobby group (`game:sb/bb:seats`). */
+export type WaitlistTarget =
+  | { kind: 'table'; tableId: string; groupKey?: undefined }
+  | { kind: 'group'; groupKey: string; tableId?: undefined };
+
+/** Join answer: room was found (join the table over the socket) or the caller was queued. */
+export type WaitlistJoinResult =
+  | { status: 'seat'; tableId: string; seat?: number }
+  | ({ status: 'queued'; position: number; size: number; queueKey: string } & WaitlistTarget);
+
+export type WaitlistQueue = { queueKey: string; position: number; size: number; tableName?: string } & WaitlistTarget;
+
+export type WaitlistOffer = { tableId: string; tableName: string; seat: number; deadline: number; holdMs: number };
+
+export type MyWaitlists = { queues: WaitlistQueue[]; offers: WaitlistOffer[] };
+
+/** SSE `waitlist_update` from /api/notifications/stream. Position 0 = no longer queued. */
+export type WaitlistUpdateEvent = { type: 'waitlist_update'; queueKey: string; position: number; size: number } & WaitlistTarget;
+
+/** Admin monitor (GET /api/admin/waitlists): one non-empty table or group queue. */
+export type AdminWaitlistQueue = {
+  queueKey: string;
+  name: string;
+  length: number;
+  positions: { userId: number; nick: string; position: number; waitingMs: number }[];
+  held: { userId: number; nick: string; tableId: string; tableName: string; seat: number; deadline: number; remainingMs: number }[];
+  oldestWaitMs: number;
+} & WaitlistTarget;
+
+export type AdminWaitlists = { queues: AdminWaitlistQueue[]; totals: { queues: number; waiting: number; held: number } };
+
+/** Admin chat moderation (GET /api/admin/chat): one persisted table-chat line. */
+export type AdminChatLine = { id: number; channel: string; user_id: number | null; nick: string; text: string; created_at: string };
+
+export type AdminChatTable = { tableId: string; name: string; count: number; lastAt: string };
+
+export type AdminChatFeed = { messages: AdminChatLine[]; tables: AdminChatTable[] };
+
+/** Admin audit log (GET /api/admin/audit): one row, newest first. */
+export type AdminAuditRow = { id: number; actor: string | null; action: string; detail: string | null; created_at: string };
+
+/** Audit filters; empty strings mean "any". `limit` is clamped server-side to 1..1000. */
+export type AdminAuditFilters = { actor: string; action: string; q: string; limit: number };
+
+export type AdminAuditPage = { log: AdminAuditRow[]; filters: AdminAuditFilters };
+
+/** Query string for the audit route; blank filters are left out. */
+export function auditQuery(filters: Partial<AdminAuditFilters>, format?: 'csv'): string {
+  const entries = [
+    ['actor', filters.actor?.trim() ?? ''],
+    ['action', filters.action?.trim() ?? ''],
+    ['q', filters.q?.trim() ?? ''],
+    ['limit', filters.limit ? String(filters.limit) : ''],
+    ['format', format ?? ''],
+  ].filter(([, value]) => value !== '');
+  return new URLSearchParams(entries).toString();
+}
+
+/** Admin transactions (GET /api/admin/transactions): every ledger column plus the user's login and nick. */
+export type AdminTransactionRow = {
+  id: number; user_id: number; kind: string; currency: string; amount: number; balance_after: number;
+  memo: string | null; created_at: string; login: string | null; nick: string | null;
+};
+
+/** Transaction filters; empty strings mean "any". `limit` is clamped server-side to 1..1000. */
+export type AdminTransactionFilters = { q: string; kind: string; limit: number };
+
+export type AdminTransactionPage = { transactions: AdminTransactionRow[]; filters: AdminTransactionFilters };
+
+/** Query string for the transactions route; blank filters are left out. */
+export function transactionsQuery(filters: Partial<AdminTransactionFilters>, format?: 'csv'): string {
+  const entries = [
+    ['q', filters.q?.trim() ?? ''],
+    ['kind', filters.kind?.trim() ?? ''],
+    ['limit', filters.limit ? String(filters.limit) : ''],
+    ['format', format ?? ''],
+  ].filter(([, value]) => value !== '');
+  return new URLSearchParams(entries).toString();
+}
+
+/** Admin users list (GET /api/admin/users) status filter. */
+export type AdminUserStatus = 'all' | 'active' | 'admin' | 'banned' | 'muted';
+
+/** Users-list filters. `limit` is clamped server-side to 1..200 (default 50); `offset` is 0-based. */
+export type AdminUserFilters = { q: string; status: AdminUserStatus; limit: number; offset: number };
+
+/** One page of users plus the total match count and the count of active (unbanned) admins. */
+export type AdminUserPage = { users: User[]; total: number; filters: AdminUserFilters; activeAdmins: number };
+
+/** Query string for the users list; defaults (`status=all`, `offset=0`) and empty values are omitted. */
+export function usersQuery(filters: Partial<AdminUserFilters>): string {
+  const entries = [
+    ['q', filters.q?.trim() ?? ''],
+    ['status', filters.status && filters.status !== 'all' ? filters.status : ''],
+    ['limit', filters.limit ? String(filters.limit) : ''],
+    ['offset', filters.offset ? String(filters.offset) : ''],
+  ].filter(([, value]) => value !== '');
+  return new URLSearchParams(entries).toString();
+}
 
 const TOKEN_KEY = 'ggpoker.token';
 
@@ -72,14 +213,55 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+const BACKUP_FALLBACK_NAME = 'dangg-backup.db';
+
+/** Pull a safe `dangg-backup-*.db` name out of a content-disposition header. */
+export function backupFilenameFrom(disposition: string | null): string {
+  const m = disposition?.match(/filename="(dangg-backup-\d{8}-\d{6}\.db)"/);
+  return m ? m[1] : BACKUP_FALLBACK_NAME;
+}
+
+/** Restore uploads above this size are refused by the server (decoded bytes). */
+export const RESTORE_MAX_BYTES = 6 * 1024 * 1024;
+export const RESTORE_CONFIRM_WORD = 'RESTORE';
+
+/** Strip the `data:<mime>;base64,` prefix from a FileReader data URL. */
+export function base64FromDataUrl(dataUrl: string): string {
+  const comma = dataUrl.indexOf(',');
+  if (!dataUrl.startsWith('data:') || comma < 0 || !dataUrl.slice(0, comma).endsWith(';base64')) {
+    throw new Error('Could not read the backup file');
+  }
+  return dataUrl.slice(comma + 1);
+}
+
+function readFileBase64(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read the backup file'));
+    reader.onload = () => {
+      try { resolve(base64FromDataUrl(String(reader.result))); } catch (e) { reject(e); }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export const api = {
   hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number; bombPot?: boolean }) =>
     request<{ id: string }>('/api/tables/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTables: () => request<{ tables: any[] }>('/api/tables/host'),
+  joinTableWaitlist: (tableId: string) =>
+    request<WaitlistJoinResult>(`/api/tables/${encodeURIComponent(tableId)}/waitlist`, { method: 'POST' }),
+  leaveTableWaitlist: (tableId: string) =>
+    request<{ ok: true; left: boolean }>(`/api/tables/${encodeURIComponent(tableId)}/waitlist`, { method: 'DELETE' }),
+  joinGroupWaitlist: (groupKey: string) =>
+    request<WaitlistJoinResult>(`/api/lobby/groups/${encodeURIComponent(groupKey)}/waitlist`, { method: 'POST' }),
+  leaveGroupWaitlist: (groupKey: string) =>
+    request<{ ok: true; left: boolean }>(`/api/lobby/groups/${encodeURIComponent(groupKey)}/waitlist`, { method: 'DELETE' }),
+  myWaitlists: () => request<MyWaitlists>('/api/waitlists/me'),
   hostTournament: (data: any) => request<{ id: string }>('/api/tournaments/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTournaments: () => request<{ tournaments: any[] }>('/api/tournaments/host'),
   deleteHostTournament: (id: string) => request<any>(`/api/tournaments/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  tournament: (id: string) => request<{ tournament: any }>(`/api/tournaments/${encodeURIComponent(id)}`),
+  tournament: (id: string) => request<TournamentDetail>(`/api/tournaments/${encodeURIComponent(id)}`),
   deleteHostTable: (id: string) => request<any>(`/api/tables/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   hostMutes: (id: string) => request<{ muted: any[] }>(`/api/tables/host/${encodeURIComponent(id)}/mutes`),
   muteHostPlayer: (id: string, userId: number, muted: boolean) => request<any>(`/api/tables/host/${encodeURIComponent(id)}/mutes`, { method: 'POST', body: JSON.stringify({ userId, muted }) }),
@@ -115,7 +297,7 @@ export const api = {
   hands: () => request<{ hands: any[] }>('/api/hands'),
   missions: () => request<{ missions: any[] }>('/api/missions'),
   claimMission: (id: string) => request<any>(`/api/missions/${id}/claim`, { method: 'POST' }),
-  leaderboard: () => request<{ leaders: any[] }>('/api/leaderboard'),
+  leaderboard: (metric: LeaderMetric = 'vip') => request<LeaderboardResponse>(`/api/leaderboard?metric=${metric}`),
   ocean: () => request<any>('/api/ocean'),
   buyOcean: (item: string) => request<any>('/api/ocean/buy', { method: 'POST', body: JSON.stringify({ item }) }),
   sessions: () => request<{ sessions: any[] }>('/api/sessions'),
@@ -134,7 +316,10 @@ export const api = {
     hand: (id: string) => request<{ hand: any }>(`/api/admin/hands/${encodeURIComponent(id)}`),
     reportAction: (id: number, action: 'resolve' | 'dismiss') => request<any>(`/api/admin/reports/${id}`, { method: 'POST', body: JSON.stringify({ action }) }),
     stats: () => request<any>('/api/admin/stats'),
-    users: (q = '') => request<{ users: User[] }>(`/api/admin/users?q=${encodeURIComponent(q)}`),
+    users: (filters: Partial<AdminUserFilters> = {}) => {
+      const query = usersQuery(filters);
+      return request<AdminUserPage>(`/api/admin/users${query ? `?${query}` : ''}`);
+    },
     userAction: (id: number, body: any) => request(`/api/admin/users/${id}`, { method: 'POST', body: JSON.stringify(body) }),
     tables: () => request<{ tables: any[] }>('/api/admin/tables'),
     saveTable: (body: any) => request('/api/admin/tables', { method: 'POST', body: JSON.stringify(body) }),
@@ -146,9 +331,41 @@ export const api = {
     saveMission: (body: any) => request('/api/admin/missions', { method: 'POST', body: JSON.stringify(body) }),
     settings: () => request<{ settings: any }>('/api/admin/settings'),
     saveSettings: (body: any) => request('/api/admin/settings', { method: 'POST', body: JSON.stringify(body) }),
-    audit: () => request<{ log: any[] }>('/api/admin/audit'),
-    transactions: () => request<{ transactions: any[] }>('/api/admin/transactions'),
+    audit: (filters: Partial<AdminAuditFilters> = {}) => {
+      const query = auditQuery(filters);
+      return request<AdminAuditPage>(`/api/admin/audit${query ? `?${query}` : ''}`);
+    },
+    auditCsv: async (filters: Partial<AdminAuditFilters>) => {
+      const r = await fetch(`/api/admin/audit?${auditQuery(filters, 'csv')}`, { headers: { authorization: `Bearer ${getToken()}` } });
+      if (!r.ok) throw new Error(r.status === 403 ? 'Admin access required' : `Export failed (${r.status})`);
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = 'audit.csv'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    },
+    transactions: (filters: Partial<AdminTransactionFilters> = {}) => {
+      const query = transactionsQuery(filters);
+      return request<AdminTransactionPage>(`/api/admin/transactions${query ? `?${query}` : ''}`);
+    },
+    transactionKinds: () => request<{ kinds: string[] }>('/api/admin/transactions/kinds'),
+    transactionsCsv: async (filters: Partial<AdminTransactionFilters>) => {
+      const r = await fetch(`/api/admin/transactions?${transactionsQuery(filters, 'csv')}`, { headers: { authorization: `Bearer ${getToken()}` } });
+      if (!r.ok) throw new Error(r.status === 403 ? 'Admin access required' : `Export failed (${r.status})`);
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = 'transactions.csv'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    },
+    waitlists: () => request<AdminWaitlists>('/api/admin/waitlists'),
+    clearWaitlist: (target: { tableId: string } | { groupKey: string }) =>
+      request<{ ok: true; removed: number; released: number }>('/api/admin/waitlists/clear', { method: 'POST', body: JSON.stringify(target) }),
     chat: (message: string) => request('/api/admin/chat', { method: 'POST', body: JSON.stringify({ message }) }),
+    chatFeed: (tableId?: string, limit = 100) => {
+      const query = new URLSearchParams({ limit: String(limit), ...(tableId ? { tableId } : {}) });
+      return request<AdminChatFeed>(`/api/admin/chat?${query}`);
+    },
+    deleteChatLine: (id: number) =>
+      request<{ ok: true; id: number; channel: string }>(`/api/admin/chat/${id}/delete`, { method: 'POST' }),
     saveBrand: (slot: string, dataUrl: string) => request('/api/admin/brand', { method: 'POST', body: JSON.stringify({ slot, dataUrl }) }),
     resetBrand: (slot: string) => request(`/api/admin/brand/${slot}`, { method: 'DELETE' }),
     verifications: () => request<{ verifications: any[] }>('/api/admin/verifications'),
@@ -157,6 +374,23 @@ export const api = {
       const r = await fetch(`/api/admin/verifications/${id}/doc`, { headers: { authorization: `Bearer ${getToken()}` } });
       if (!r.ok) throw new Error('Document unavailable');
       return r.text();
+    },
+    /** Download a consistent SQLite snapshot; resolves with the server-chosen filename. */
+    backup: async (): Promise<string> => {
+      const r = await fetch('/api/admin/backup', { headers: { authorization: `Bearer ${getToken()}` } });
+      if (!r.ok) throw new Error(r.status === 403 ? 'Admin access required' : `Backup failed (${r.status})`);
+      const filename = backupFilenameFrom(r.headers.get('content-disposition'));
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      return filename;
+    },
+    /** Queue a backup restore; the server applies it on its next restart. */
+    restore: async (file: Blob, confirm: string): Promise<{ ok: true; requiresRestart: true }> => {
+      if (file.size > RESTORE_MAX_BYTES) throw new Error('Backup larger than 6 MB');
+      const data = await readFileBase64(file);
+      return request('/api/admin/restore', { method: 'POST', body: JSON.stringify({ data, confirm }) });
     },
     exportCsv: async (kind: string) => {
       const r = await fetch(`/api/admin/export/${kind}`, { headers: { authorization: `Bearer ${getToken()}` } });
@@ -190,8 +424,19 @@ export const GAME_LABEL: Record<string, string> = {
   omaha6: 'PLO6',
   shortdeck: 'Short Deck',
   rush: 'Rush & Cash',
+  rushplo: 'Rush & Cash PLO',
   aof: 'All-in or Fold',
   spingold: 'Spin & Gold',
   battleroyale: 'Mystery Battle Royale',
   flipandgo: 'Flip & Go',
 };
+
+/** GET /api/tournaments/:id — the row plus its payout table (DanGG rule). */
+export interface TournamentDetail {
+  tournament: any;
+  prizePool: number;
+  payouts: { place: number; amount: number; ticket?: string }[];
+  placesPaid: number;
+  bubble: number;
+  playersLeft: number | null;
+}

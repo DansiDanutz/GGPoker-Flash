@@ -1,10 +1,10 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { startServer, sleep } from './test-helpers.js';
+import { startServer, sleep, nextSseEvent } from './test-helpers.js';
 import { handForViewer } from './hand-history.js';
 import { isLocalHost, isLocalOrigin, resolveInside, createRateLimiter } from './security.js';
-import { toInt, cleanNick, parseTableConfig } from './validate.js';
+import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey } from './validate.js';
 
 const TABLE = 'nlh-bronze-01';
 const MIN_BUYIN = 2000;
@@ -278,4 +278,86 @@ test('a clean shutdown settles seats at their real stack, not a buy-in refund', 
     assert.equal(tx.filter((t) => String(t.reference).startsWith('out:')).length, 1);
     assert.equal(tx.filter((t) => t.kind === 'buyin_refund').length, 0);
   } finally { await second.stop(); }
+});
+
+test('wait list: a full table queues, holds a freed seat from bots and passes an expired offer to #2', async () => {
+  const wsrv = await startServer({ env: { GGPOKER_WAITLIST_HOLD_MS: '2500' } });
+  const tableId = 'nlh-silver-07';
+  const buyin = 4000;
+  const sockets = [];
+  try {
+    const users = [];
+    for (let i = 1; i <= 8; i++) {
+      const res = await wsrv.post('/api/auth/register', { body: { login: `wl_player_${i}`, nick: `WL Player ${i}`, password: 'secret12' } });
+      assert.equal(res.status, 200);
+      const sock = wsrv.socket(res.data.token);
+      await sock.opened;
+      sockets.push(sock);
+      users.push({ token: res.data.token, id: res.data.user.id, sock });
+    }
+    const [first, second, , , , , seventh, eighth] = users;
+    const joinTable = (u, extra = {}) => u.sock.send({ type: 'join_table', tableId, buyin, ...extra });
+
+    // Six humans fill the 6-max table (each one replaces a bot).
+    for (const u of users.slice(0, 6)) {
+      joinTable(u);
+      const joined = await u.sock.next((m) => m.type === 'joined' && m.tableId === tableId);
+      assert.notEqual(joined.seat, null);
+    }
+
+    // The 7th and 8th humans queue instead of taking a seat.
+    joinTable(seventh);
+    assert.equal((await seventh.sock.nextType('waitlist')).position, 1);
+    joinTable(eighth);
+    assert.equal((await eighth.sock.nextType('waitlist')).position, 2);
+
+    // A seat opens: the offer reaches #1 over WS and SSE.
+    const sse = nextSseEvent(wsrv.base, seventh.token, (e) => e.type === 'waitlist_offer');
+    await sleep(150); // let the SSE stream register before the seat frees
+    const firstSeat = (await first.sock.next((m) => m.type === 'state' && m.state.players.some((p) => p.isMe))).state
+      .players.find((p) => p.isMe).seat;
+    first.sock.send({ type: 'leave_table', tableId });
+    const wsOffer = (await seventh.sock.next((m) => m.type === 'event' && m.event.type === 'waitlist_ready')).event;
+    const sseOffer = await sse;
+    assert.equal(wsOffer.tableId, tableId);
+    assert.equal(wsOffer.seat, firstSeat);
+    assert.equal(sseOffer.seat, firstSeat);
+    assert.ok(wsOffer.deadline > Date.now());
+
+    // Bots do not fill the held seat (a seated rejoin runs the bot fill), and #2 cannot take it.
+    // A fresh socket only sees states broadcast after its own rejoin, i.e. after the bot fill.
+    const rejoin = wsrv.socket(second.token);
+    sockets.push(rejoin);
+    await rejoin.opened;
+    rejoin.send({ type: 'join_table', tableId, buyin });
+    await rejoin.next((m) => m.type === 'joined' && m.tableId === tableId);
+    const held = await rejoin.nextType('state');
+    joinTable(eighth, { seat: firstSeat });
+    assert.equal((await eighth.sock.nextType('waitlist')).position, 1, 'still queued, now first in line');
+    assert.equal(held.state.players[firstSeat].empty, true, `the held seat stays empty, got ${JSON.stringify(held.state.players[firstSeat])}`);
+
+    // #1 lets the offer expire; the sweep passes the seat to #2.
+    const expired = await seventh.sock.next((m) => m.type === 'event' && m.event.type === 'waitlist_expired', 6000);
+    assert.equal(expired.event.seat, firstSeat);
+    const passed = await eighth.sock.next((m) => m.type === 'event' && m.event.type === 'waitlist_ready', 6000);
+    assert.equal(passed.event.seat, firstSeat);
+
+    // Accepting the offer seats the player in the held seat.
+    joinTable(eighth);
+    const seated = await eighth.sock.next((m) => m.type === 'joined' && m.tableId === tableId && m.seat != null);
+    assert.equal(seated.seat, firstSeat);
+  } finally {
+    await Promise.all(sockets.map((s) => s.close()));
+    await wsrv.stop();
+  }
+});
+
+test('wait-list route params are validated', () => {
+  assert.equal(parseTableId('nlh-silver-07'), 'nlh-silver-07');
+  assert.equal(parseTableId(encodeURIComponent('home-3-abc_1')), 'home-3-abc_1');
+  for (const bad of ['', '../etc', 'a b', '%E0%A4%A', 'x'.repeat(65), null]) assert.equal(parseTableId(bad), null, String(bad));
+  assert.deepEqual(parseGroupKey(encodeURIComponent('holdem:100/200:6')), { key: 'holdem:100/200:6', game: 'holdem', sb: 100, bb: 200, seats: 6 });
+  for (const bad of ['holdem:200/100:6', 'holdem:1/2:1', 'holdem:1/2:10', 'HOLDEM:1/2:6', 'holdem:0/2:6', 'holdem-1-2-6', '%zz']) {
+    assert.equal(parseGroupKey(bad), null, bad);
+  }
 });

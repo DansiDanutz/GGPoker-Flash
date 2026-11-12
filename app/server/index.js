@@ -15,11 +15,27 @@ import { makeDeck, shuffle, cardStr } from './poker.js';
 import {
   resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
 } from './security.js';
-import { toInt, cleanNick, parseTableConfig } from './validate.js';
+import { toInt, cleanNick, parseTableConfig, parseTableId, parseGroupKey, isRushGame } from './validate.js';
 import { handForViewer } from './hand-history.js';
 import { spinSlots } from './slots.js';
+import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
-import { flightTableId, tournamentTableIds } from './tournament.js';
+import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
+import * as waitlist from './waitlist.js';
+import { buildRushPools, createRushLobby } from './rush-lobby.js';
+import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
+import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
+import { createChatService, createChatStore, dealerResultText, dealerStartText } from './chat.js';
+import { createAdminChatRoutes } from './admin-chat.js';
+import { createAdminAuditRoute } from './admin-audit.js';
+import { createAdminBackupRoute } from './admin-backup.js';
+import { createAdminRestoreRoute } from './admin-restore.js';
+import { createAdminTransactionsRoute } from './admin-transactions.js';
+import { createAdminUsersListRoute } from './admin-users-list.js';
+import * as adminWaitlist from './admin-waitlist.js';
+import { setAdminRole } from './admin-roles.js';
+import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
+import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -97,6 +113,10 @@ const PUBLIC = path.join(APP_DIR, 'public');
 
 // How long a seat is held for a player whose connection dropped before they are cashed out.
 const DISCONNECT_GRACE_MS = Number(process.env.GGPOKER_DISCONNECT_GRACE_MS || 60_000);
+const TOURNAMENT_SCHEDULER_MS = Math.max(50, Number(process.env.GGPOKER_TOURNEY_SCHEDULER_MS || 15_000));
+// Seat-offer hold for wait-listed players (DanGG design: 30 s). Tests shorten it.
+const WAITLIST_HOLD_MS = Number(process.env.GGPOKER_WAITLIST_HOLD_MS || waitlist.HOLD_MS);
+const WAITLIST_SWEEP_MS = 1000;
 const HAND_HISTORY_LIMIT = 60;
 const HAND_HISTORY_SCAN = 400;
 const MAX_BET = 1_000_000;
@@ -107,6 +127,8 @@ const SICBO_TOTAL_PAYS = Object.freeze({
 });
 const loginLimiter = createRateLimiter({ limit: 10, windowMs: 10 * 60_000 });
 const chatLimiter = createRateLimiter({ limit: 6, windowMs: 5_000 });
+// Wait-list joins and leaves per player (DanGG choice: generous for clicks, blocks scripted spam).
+const waitlistLimiter = createRateLimiter({ limit: 10, windowMs: 10_000 });
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -206,8 +228,7 @@ function occupancyFor(t) {
     let players = 1 + (h % t.seats);
     if (h % 5 === 0) players = t.seats;
     if (t.game === 'spingold') players = 1 + (h % 2);
-    const wait = players >= t.seats ? 1 + (h % 3) : 0;
-    TABLE_OCCUPANCY.set(t.id, { players, wait });
+    TABLE_OCCUPANCY.set(t.id, { players });
   }
   return TABLE_OCCUPANCY.get(t.id);
 }
@@ -224,7 +245,8 @@ function lobbyMissions(user) {
 }
 
 function lobbyTables(userId = null) {
-  const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(userId);
+  // Battle Royale is capture-gated (B0): never listed for join, even if a row is re-enabled.
+  const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND game != ? AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(BATTLE_ROYALE_GAME, userId);
   return rows.map((t) => {
     const occ = occupancyFor(t);
     const seed = [...t.id].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -235,12 +257,15 @@ function lobbyTables(userId = null) {
       sb: t.sb, bb: t.bb, ante: t.ante, min_buyin: t.min_buyin, max_buyin: t.max_buyin,
       seats: t.seats, speed: t.speed, featured: !!t.featured,
       private: !!t.private, owner_id: t.owner_id || null,
-      players, wait: occ.wait,
+      players,
+      // Real queue length and the caller's 1-based position (0 = not queued), from waitlist.js.
+      wait: waitlist.queueSize(waitState, waitlist.tableQueue(t.id)),
+      myWait: userId ? waitlist.position(waitState, userId, waitlist.tableQueue(t.id)) : 0,
       avgPot: players ? avgPot : 0,
       vpip: players ? 18 + (seed % 45) : 0,
       handsPerHour: 55 + (seed % 80),
       running: LIVE_TABLES.has(t.id),
-      pro: t.game === 'rush',
+      pro: isRushGame(t.game),
       synthetic: true,
     };
   });
@@ -256,15 +281,18 @@ function sitesStats() {
 /* ------------------------------------------------------------------ */
 
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
+const chatStore = createChatStore(db);
+const chatService = createChatService({ db, getEntry: (id) => LIVE_TABLES.get(id), store: chatStore });
 const TOURNAMENT_ROOMS = new Map(); // tournamentId -> TournamentRoom (multi-table flights)
-const WAITLISTS = new Map(); // tableId -> [{ userId, nick, since }]
-const RUSH_WAITING = new Map(); // userId -> { user, stack, bb, fromTable, since }
+let waitState = waitlist.createWaitlist(); // pure wait-list model state (see waitlist.js)
+let waitSince = Object.freeze({}); // `queueKey|userId` -> join time, for the admin monitor
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
 const CRASH_ROUNDS = new Map(); // roundId -> crash round
 
 function eloGame(game) {
   if (game === 'omaha5' || game === 'omaha6') return 'omaha';
+  if (game === 'rushplo') return 'rush';
   return ['holdem', 'omaha', 'shortdeck', 'rush'].includes(game) ? game : 'holdem';
 }
 
@@ -282,31 +310,211 @@ setInterval(() => {
   }
 }, 25000).unref();
 
-function waitlistJoin(tableId, userId, nick) {
-  const list = WAITLISTS.get(tableId) || [];
-  const existing = list.find((w) => w.userId === userId);
-  if (existing) return list.indexOf(existing) + 1;
-  list.push({ userId, nick, since: Date.now() });
-  WAITLISTS.set(tableId, list);
-  return list.length;
+/* ------------------------------ wait lists ------------------------------ */
+// The pure model in waitlist.js owns the queues and seat offers; this block applies its
+// results to live tables (seat holds) and tells players about offers over WS and SSE.
+
+const holdsFor = (tableId) => waitState.offers.filter((o) => o.tableId === tableId).map((o) => [o.seat, o.userId]);
+
+function setWaitlist(next) {
+  const before = waitState;
+  const touched = new Set([...before.offers, ...next.offers].map((o) => o.tableId));
+  waitState = next;
+  waitSince = adminWaitlist.trackJoinTimes(waitSince, before, next, Date.now());
+  for (const tableId of touched) {
+    const table = LIVE_TABLES.get(tableId)?.table;
+    if (table) table.setHolds(holdsFor(tableId));
+  }
+  announceQueueChanges(before, next);
 }
-function waitlistLeave(tableId, userId) {
-  const list = WAITLISTS.get(tableId);
-  if (!list) return;
-  const next = list.filter((w) => w.userId !== userId);
-  if (next.length) WAITLISTS.set(tableId, next); else WAITLISTS.delete(tableId);
-}
-function notifyWaitlist(tableId) {
-  const list = WAITLISTS.get(tableId);
-  if (!list || !list.length) return;
-  const first = list[0];
-  for (const client of wss.clients) {
-    if (client.readyState !== 1 || client.userId !== first.userId) continue;
-    client.send(JSON.stringify({ type: 'event', event: { type: 'waitlist_ready', tableId, position: 1 } }));
+
+/**
+ * Tell every player in (or just removed from) a changed queue their new position over
+ * the notification stream. Position 0 means they are no longer queued there.
+ */
+function announceQueueChanges(before, after) {
+  for (const queueKey of waitlist.changedQueues(before, after)) {
+    const members = new Set([...(before.queues[queueKey] || []), ...(after.queues[queueKey] || [])]);
+    const size = waitlist.queueSize(after, queueKey);
+    for (const userId of members) {
+      notifyUser(userId, {
+        type: 'waitlist_update', queueKey, ...queueTarget(queueKey),
+        position: waitlist.position(after, userId, queueKey), size,
+      });
+    }
   }
 }
 
+function sendToUser(userId, payload) {
+  const frame = JSON.stringify(payload);
+  for (const client of wss.clients) {
+    if (client.readyState === 1 && client.userId === userId) client.send(frame);
+  }
+}
+
+function announceOffer(offer) {
+  const table = LIVE_TABLES.get(offer.tableId)?.table;
+  const event = {
+    type: 'waitlist_ready', tableId: offer.tableId, tableName: table?.cfg.name || offer.tableId,
+    seat: offer.seat, deadline: offer.deadline, holdMs: offer.holdMs, position: 1,
+  };
+  sendToUser(offer.userId, { type: 'event', event });
+  notifyUser(offer.userId, { ...event, type: 'waitlist_offer' });
+}
+
+function announceExpired(offer, reason) {
+  const event = { type: 'waitlist_expired', tableId: offer.tableId, seat: offer.seat, ...(reason ? { reason } : {}) };
+  sendToUser(offer.userId, { type: 'event', event });
+  notifyUser(offer.userId, event);
+}
+
+function waitlistJoin(tableId, userId) {
+  const res = waitlist.join(waitState, userId, { tableId });
+  setWaitlist(res.state);
+  return res;
+}
+
+/** Leave a queue; a seat the player was holding is passed to the next player. */
+function waitlistLeaveQueue(queueKey, userId) {
+  const wasQueued = waitlist.position(waitState, userId, queueKey) > 0;
+  const res = waitlist.leave(waitState, userId, queueKey);
+  setWaitlist(res.state);
+  for (const released of res.released) offerSeat(released.tableId, released.seat);
+  return wasQueued || res.released.length > 0;
+}
+
+function waitlistLeave(tableId, userId) {
+  return waitlistLeaveQueue(waitlist.tableQueue(tableId), userId);
+}
+
+/** Offer a freed seat to the head of the table queue (then its group queue). */
+function offerSeat(tableId, seat, now = Date.now()) {
+  const table = LIVE_TABLES.get(tableId)?.table;
+  if (!table || table.tournament || table.seats[seat]?.player) return null;
+  const res = waitlist.offer(waitState, tableId, seat, now, { groupKey: waitlist.groupKey(table.cfg), holdMs: WAITLIST_HOLD_MS });
+  if (res.status !== 'offered') return null;
+  setWaitlist(res.state);
+  announceOffer(res.offer);
+  return res.offer;
+}
+
+/** A seat at `table` just emptied: offer every free, unheld seat to the queue. */
+function notifyWaitlist(tableId) {
+  const table = LIVE_TABLES.get(tableId)?.table;
+  if (!table) return;
+  for (const s of table.seats) {
+    if (!s.player && !table.holds.has(s.index)) offerSeat(tableId, s.index);
+  }
+}
+
+/** Accept the caller's held seat at `tableId`, if any: { seat } or null. */
+function heldSeatFor(tableId, userId, now = Date.now()) {
+  const res = waitlist.accept(waitState, userId, tableId, now);
+  return res.status === 'accepted' ? { seat: res.seat, state: res.state } : null;
+}
+
+function sweepWaitlists(now = Date.now()) {
+  const res = waitlist.expire(waitState, now);
+  if (!res.expired.length) return;
+  setWaitlist(res.state);
+  for (const old of res.expired) announceExpired(old);
+  for (const made of res.offers) announceOffer(made);
+}
+setInterval(sweepWaitlists, WAITLIST_SWEEP_MS).unref();
+
+const handleWaitlistRoute = createWaitlistRoutes({
+  json, requireUser, limiter: waitlistLimiter, db, liveTables: LIVE_TABLES,
+  getState: () => waitState, commit: setWaitlist, leaveQueue: waitlistLeaveQueue,
+});
+
+/**
+ * Admin: empty a queue and release the seats it holds. Waiting players get a
+ * `waitlist_update` (position 0) from setWaitlist; seat holders get `waitlist_expired`.
+ * A released seat is offered on as usual (e.g. to the group queue of that table).
+ */
+function clearWaitlistQueue(queueKey, admin) {
+  const res = adminWaitlist.clearQueue(waitState, queueKey);
+  setWaitlist(res.state);
+  for (const old of res.released) {
+    announceExpired(old, 'cleared');
+    offerSeat(old.tableId, old.seat);
+  }
+  db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(admin.login, 'waitlist_clear',
+    `${queueKey} · ${res.removed.length} waiting · ${res.released.length} held released`);
+  return res;
+}
+
+const handleAdminWaitlistRoute = adminWaitlist.createAdminWaitlistRoutes({
+  json, requireAdmin, readBody,
+  isActive: (queueKey) => adminWaitlist.activeQueueKeys(waitState).includes(queueKey),
+  clear: clearWaitlistQueue,
+  summarize: () => adminWaitlist.summarizeQueues(waitState, {
+    joinedAt: waitSince, now: Date.now(),
+    nickOf: (id) => db.prepare('SELECT nick FROM users WHERE id = ?').get(id)?.nick || `#${id}`,
+    tableNameOf: (id) => LIVE_TABLES.get(id)?.table.cfg.name || db.prepare('SELECT name FROM tables WHERE id = ?').get(id)?.name || id,
+  }),
+});
+
+const tableNameOf = (id) => LIVE_TABLES.get(id)?.table.cfg.name || db.prepare('SELECT name FROM tables WHERE id = ?').get(id)?.name || id;
+
+const handleAdminChatRoute = createAdminChatRoutes({
+  db, json, requireAdmin, tableNameOf,
+  onDeleted: ({ channel }) => { if (channel.startsWith('table:')) chatStore.forget(channel.slice('table:'.length)); },
+});
+
+const handleAdminAuditRoute = createAdminAuditRoute({ db, json, requireAdmin });
+const handleAdminTransactionsRoute = createAdminTransactionsRoute({ db, json, requireAdmin });
+const handleAdminUsersListRoute = createAdminUsersListRoute({ db, json, requireAdmin, publicUser });
+// Snapshots go to the OS temp dir (override with GGPOKER_BACKUP_TMP); never inside DATA_DIR.
+const handleAdminBackupRoute = createAdminBackupRoute({
+  db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
+});
+// Restore uploads are validated in the temp dir and staged as DATA_DIR/restore-pending.db;
+// db.js applies them on the next start. The live DB is never swapped while running.
+const handleAdminRestoreRoute = createAdminRestoreRoute({
+  db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
+});
+
+// Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
+const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
+
+// Cross-room leaderboard (leaderboard.js): VIP points, Elo or XP.
+const LEADERBOARD = createLeaderboard(db);
+
+// Rush pools (rush-pool.js): fold-and-move queue per pool (game + sb + bb) and the Cash Drop.
+// Rush pool lobby (rush-lobby.js): real hands/hr per pool table and today's Rush leaderboard.
+const RUSH_LOBBY = createRushLobby(db);
+
+/** `/api/lobby` `rushPools`: one row per Rush pool, with the pool's group wait-list queue. */
+function lobbyRushPools(tables) {
+  return buildRushPools(tables, {
+    handsByTable: RUSH_LOBBY.handsPerHourByTable(),
+    groupWait: (key) => waitlist.queueSize(waitState, waitlist.groupQueue(key)),
+  });
+}
+
+const RUSH_POOL = createRushPool({
+  listPoolTableIds: ({ game, sb, bb }) =>
+    db.prepare('SELECT id FROM tables WHERE game = ? AND sb = ? AND bb = ? AND enabled = 1').all(game, sb, bb).map((r) => r.id),
+  getLiveTable: (id) => getLiveTable(id),
+  getEntry: (id) => LIVE_TABLES.get(id),
+  findUser: (id) => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
+  cashOutSeat: (table, userId, reason) => cashOutSeat(table, userId, reason),
+  seatHuman: (table, user, buyin, seat) => seatHuman(table, user, buyin, seat),
+  broadcastState: (table) => broadcastState(table),
+  isRealUser: (id) => !!db.prepare('SELECT 1 FROM users WHERE id = ?').get(id),
+  getSetting: (key, fallback) => getSetting(key, fallback),
+  ledger: CASHDROP_LEDGER,
+});
+
 const CUSTOM_CFG = new Map(); // tournament tables not stored in the cash-game table list
+
+// C4 dealer log (DanGG extra). Only tables someone is watching get lines, so
+// unattended bot tables do not grow chat_messages on every hand.
+function postDealerLine(tableId, text, key) {
+  if (!LIVE_TABLES.get(tableId)?.clients?.size) return;
+  try { chatService.addSystemLine(tableId, text, { key }); } catch (e) { console.error('dealer line', e); }
+}
 
 function tableRow(id) {
   return db.prepare('SELECT * FROM tables WHERE id = ?').get(id);
@@ -315,7 +523,8 @@ function tableRow(id) {
 function getLiveTable(id) {
   if (LIVE_TABLES.has(id)) return LIVE_TABLES.get(id).table;
   const row = CUSTOM_CFG.get(id) || tableRow(id);
-  if (!row) return null;
+  // No live Battle Royale table is ever built: its rules are unverified (B0).
+  if (!row || isBattleRoyale(row.game)) return null;
   const cfg = {
     ...row,
     botSpeed: getSetting('bot_speed_ms', 900),
@@ -324,7 +533,13 @@ function getLiveTable(id) {
     rakeCap: getSetting('rake_cap', 300),
   };
   const table = new PokerTable(cfg, {
-    onEvent: (t, evt) => broadcastTable(t, evt),
+    onEvent: (t, evt) => {
+      broadcastTable(t, evt);
+      // C4 dealer log (DanGG extra): one line per hand start.
+      if (evt.type === 'hand_start') {
+        postDealerLine(t.cfg.id, dealerStartText(evt.handNo), `start:${t.handId || evt.handNo}`);
+      }
+    },
     onHandSave: (h) => {
       try {
         db.prepare(`INSERT INTO hands (hand_id,hand_no,table_id,table_name,game,players,board,pot,result,hero_cards,actions)
@@ -358,23 +573,23 @@ function getLiveTable(id) {
           db.prepare('UPDATE users SET elo = ? WHERE id = ?').run(overall, u.id);
           db.prepare('INSERT INTO elo_history (user_id,hand_id,delta,before,after,game) VALUES (?,?,?,?,?,?)').run(u.id, h.handId || null, next - before, before, next, game);
         }
-        if (h.game === 'rush' && Math.random() < 0.12) {
-          const humans = (h.players || []).filter((p) => p && p.id && !p.isBot && db.prepare('SELECT 1 FROM users WHERE id = ?').get(p.id));
-          if (humans.length) {
-            const lucky = humans[Math.floor(Math.random() * humans.length)];
-            const amount = Math.max(100, Math.min(5000, Math.round((Number(h.pot) || 0) * 0.5 / 100) * 100));
-            addTransaction(lucky.id, 'cashdrop', amount, 'Rush & Cash drop');
-            table.emit({ type: 'cashdrop', nick: lucky.nick, amount });
-          }
-        }
+        RUSH_POOL.settleHand(h, table);
       } catch (e) { console.error('hand save', e); }
+      const resultText = dealerResultText(h.result);
+      if (resultText) postDealerLine(h.tableId, resultText, `result:${h.handId || h.handNo}`);
     },
     onTournamentPayout: (table, p) => {
       try {
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(p.id);
-        if (u) addTransaction(u.id, 'tourney_payout', p.payout, `${table.cfg.name} — finished ${p.place}${p.place === 2 ? 'nd' : 'rd'}`);
+        if (u) addTransaction(u.id, 'tourney_payout', p.payout, `${table.cfg.name} — finished ${ordinal(p.place)}`);
         table.emit({ type: 'tourney_payout', ...p });
       } catch (e) { console.error('tourney payout', e); }
+    },
+    onSpinPayout: (table, p) => {
+      try {
+        const res = settleSpinPayout(table, p);
+        if (res.reason === 'no session') console.error('spin payout without session', table.cfg.id, p.id);
+      } catch (e) { console.error('spin payout', e); }
     },
     onTournamentBust: (table, p) => {
       try {
@@ -423,10 +638,8 @@ function getLiveTable(id) {
       if (!table.spin) return;
       const seat = table.seatOf(player.id);
       const sessionId = seat?.player?.sessionId;
-      if (!sessionId) return;
-      addTransactionEx(player.id, 'session_close', 0, 'Spin bust', 'USD', {
-        sessionId, reference: `out:${sessionId}`, onDuplicate: 'skip',
-      });
+      // Normally a no-op: the place payout (onSpinPayout) already closed this session.
+      closeSpinSession(player.id, sessionId, 'Spin bust');
     },
     onHandComplete: ({ table, winner, summary }) => {
       rewardHandPlayed(table, summary);
@@ -461,76 +674,15 @@ function getLiveTable(id) {
     } catch (e) { console.error('tick', e); }
   }, 260);
   LIVE_TABLES.set(id, entry);
+  // Re-apply any seat holds an earlier instance of this table left on the wait list.
+  table.setHolds(holdsFor(id));
   return table;
 }
 
-function moveRushPlayers(table) {
-  if (!table.rush) return;
-  const queued = table.humans().filter((p) => table.seatOf(p.id)?.player?.rushQueued);
-  for (const p of queued) {
-    const seat = table.seatOf(p.id);
-    const stack = seat?.player?.stack || 0;
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(p.id);
-    if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; continue; }
-    const rows = db.prepare("SELECT id FROM tables WHERE game = 'rush' AND enabled = 1 AND bb = ?").all(table.bb);
-    let target = null;
-    let targetCount = Infinity;
-    for (const row of rows) {
-      if (row.id === table.cfg.id) continue;
-      const candidate = getLiveTable(row.id);
-      const occupied = candidate ? candidate.occupiedSeats().length : 0;
-      if (candidate && occupied < candidate.cfg.seats && occupied < targetCount) { target = candidate; targetCount = occupied; }
-    }
-    if (!target) {
-      RUSH_WAITING.set(p.id, { user, stack, bb: table.bb, fromTable: table.cfg.id, since: Date.now() });
-      seat.player.rushQueued = true;
-      seat.player.sittingOut = true;
-      const entry = LIVE_TABLES.get(table.cfg.id);
-      if (entry) for (const client of entry.clients) if (client.userId === p.id && client.readyState === 1) client.send(JSON.stringify({ type: 'rush_queued' }));
-      continue;
-    }
-    RUSH_WAITING.delete(p.id);
-    cashOutSeat(table, p.id, 'Rush transfer');
-    const res = seatHuman(target, user, Math.min(stack, target.cfg.max_buyin), null);
-    if (!res.ok) { seat.player && (seat.player.rushQueued = false); continue; }
-    const entry = LIVE_TABLES.get(table.cfg.id);
-    if (entry) {
-      for (const client of entry.clients) {
-        if (client.userId === p.id && client.readyState === 1) {
-          client.send(JSON.stringify({ type: 'rush_move', tableId: target.cfg.id, stack: Math.min(stack, target.cfg.max_buyin) }));
-        }
-      }
-    }
-    broadcastState(target);
-  }
-}
+// Thin delegates: the pool logic lives in rush-pool.js.
+function moveRushPlayers(table) { RUSH_POOL.moveQueued(table); }
 
-function flushRushQueue() {
-  for (const [userId, wait] of [...RUSH_WAITING]) {
-    const fromEntry = LIVE_TABLES.get(wait.fromTable);
-    if (!fromEntry) { RUSH_WAITING.delete(userId); continue; }
-    const fromTable = fromEntry.table;
-    const oldSeat = fromTable.seatOf(userId);
-    if (!oldSeat?.player) { RUSH_WAITING.delete(userId); continue; }
-    if (!['ended', 'idle'].includes(fromTable.street)) continue;
-    let target = null, targetCount = Infinity;
-    const rows = db.prepare("SELECT id FROM tables WHERE game = 'rush' AND enabled = 1 AND bb = ?").all(wait.bb);
-    for (const row of rows) {
-      if (row.id === fromTable.cfg.id) continue;
-      const candidate = getLiveTable(row.id);
-      const occupied = candidate ? candidate.occupiedSeats().length : 0;
-      if (candidate && occupied < candidate.cfg.seats && occupied < targetCount) { target = candidate; targetCount = occupied; }
-    }
-    if (!target) continue;
-    cashOutSeat(fromTable, userId, 'Rush queue transfer');
-    const res = seatHuman(target, wait.user, Math.min(wait.stack, target.cfg.max_buyin), null);
-    if (!res.ok) { RUSH_WAITING.delete(userId); continue; }
-    RUSH_WAITING.delete(userId);
-    for (const client of fromEntry.clients) if (client.userId === userId && client.readyState === 1) {
-      client.send(JSON.stringify({ type: 'rush_move', tableId: target.cfg.id, stack: Math.min(wait.stack, target.cfg.max_buyin) }));
-    }
-  }
-}
+function flushRushQueue() { RUSH_POOL.flush(); }
 
 function broadcastTable(table, evt) {
   const entry = LIVE_TABLES.get(table.cfg.id);
@@ -553,6 +705,7 @@ function broadcastState(table) {
     if (room) {
       const stats = room.stats();
       table.tournament.playersLeft = stats.playersLeft;
+      table.tournament.payouts = room.payouts();
       table.cfg.flightCount = stats.tables;
     }
   }
@@ -567,11 +720,17 @@ function broadcastState(table) {
 function seatHuman(table, user, buyin, seatIndex = null) {
   const existing = table.seatOf(user.id);
   if (existing) return { ok: true, seat: existing.index };
+  if (table.spin) {
+    table.resetSpinIfIdle();
+    if (!table.spinStakeValid()) return { ok: false, error: 'This Spin & Gold stake is not available' };
+    if (table.spinStarted()) return { ok: false, error: 'This Spin & Gold has already started' };
+  }
   const stack = toInt(buyin) ?? table.cfg.min_buyin;
   if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
   if (user.balance < stack) return { ok: false, error: 'not enough balance' };
   const wantedSeat = toInt(seatIndex, { min: 0, max: table.cfg.seats - 1 });
-  if (!makeRoomForHuman(table, wantedSeat)) return { ok: false, error: 'table full' };
+  if (wantedSeat != null && table.isHeldFor(wantedSeat, user.id)) return { ok: false, error: 'seat held' };
+  if (!makeRoomForHuman(table, wantedSeat, user.id)) return { ok: false, error: 'table full' };
   const sessionId = `${table.cfg.id}:${randomUUID()}`;
   addTransactionEx(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`, 'USD', {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
@@ -588,13 +747,14 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   return res;
 }
 
-// Bots only fill empty chairs: a human always takes priority over one.
-function makeRoomForHuman(table, wantedSeat) {
+// Bots only fill empty chairs: a human always takes priority over one. A seat held for a
+// wait-listed player counts as free only for that player.
+function makeRoomForHuman(table, wantedSeat, userId) {
   const target = wantedSeat != null ? table.seats[wantedSeat] : null;
   if (target && !target.player) return true;
-  if (target && target.player && !target.player.isBot) return table.seats.some((s) => !s.player) || evictBot(table);
+  if (target && target.player && !target.player.isBot) return !!table.freeSeatFor(userId) || evictBot(table);
   if (target && target.player && target.player.isBot) { table.stand(target.player.id); return true; }
-  if (table.seats.some((s) => !s.player)) return true;
+  if (table.freeSeatFor(userId)) return true;
   return evictBot(table);
 }
 
@@ -610,6 +770,13 @@ function cashOutSeat(table, userId, reason) {
   const seat = table.seatOf(userId);
   if (!seat || !seat.player) return;
   const sessionId = seat.player.sessionId;
+  if (table.spinStarted()) {
+    // Spin chips are not cash: leaving takes the lowest open place (paid by onSpinPayout),
+    // and this close is skipped when that payout already closed the session.
+    table.leaveSpin(userId);
+    closeSpinSession(userId, sessionId, reason);
+    return;
+  }
   // stand() folds a live hand first, so the returned stack is what the player really keeps.
   const { stack } = table.stand(userId);
   if (table.tournament) {
@@ -636,7 +803,8 @@ function hasLiveSocket(entry, userId, except = null) {
   return false;
 }
 
-// Cash out players whose connection has been gone longer than the grace period.
+// Cash out players whose connection has been gone longer than the grace period
+// (tournament players are blinded out instead; their seat is never forfeited).
 function sweepDisconnected(entry) {
   const table = entry.table;
   const now = Date.now();
@@ -644,6 +812,12 @@ function sweepDisconnected(entry) {
     if (!p.disconnectedAt) continue;
     if (hasLiveSocket(entry, p.id)) { p.disconnectedAt = 0; p.disconnected = false; continue; }
     if (now - p.disconnectedAt < DISCONNECT_GRACE_MS) continue;
+    if (table.tournament || table.spinStarted()) {
+      // A tournament or running Spin seat is never forfeited by a dropped connection: the
+      // player is blinded out (auto-fold / auto-check) until they come back.
+      Object.assign(p, { away: true, sittingOut: true, disconnectedAt: 0 });
+      continue;
+    }
     cashOutSeat(table, p.id, `Disconnected from ${table.cfg.name}`);
     notifyWaitlist(table.cfg.id);
   }
@@ -671,7 +845,8 @@ function clearTable(id) {
 function tournamentDescriptor(t) {
   const bb = Math.max(20, Math.round(Number(t.starting_stack || 10000) / 100));
   return {
-    prizePool: Math.max(Number(t.gtd) || 0, Number(t.entrants) * (Number(t.buyin) + Number(t.fee))),
+    prizePool: prizePoolOf(t),
+    entrants: Number(t.entrants) || 0,
     level: 1,
     blindEvery: Math.max(5, Number(t.blind_speed) || 10),
     mode: t.mode || 'STANDARD',
@@ -738,8 +913,7 @@ function ensureTournamentRoom(t) {
         if (table) table.finished.push({ id: playerId, nick, place, payout });
         if (payout <= 0) return;
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(playerId);
-        const suffix = place === 2 ? 'nd' : place === 3 ? 'rd' : 'th';
-        if (u) addTransaction(u.id, 'tourney_payout', payout, `${t.name} — finished ${place}${suffix}`);
+        if (u) addTransaction(u.id, 'tourney_payout', payout, `${t.name} — finished ${ordinal(place)}`);
         if (table) table.emit({ type: 'tourney_payout', id: playerId, nick, place, payout });
       },
       persistWinner: ({ playerId, nick, prize, tableId }) => {
@@ -774,6 +948,42 @@ function disposeTournamentRoom(tournamentId, { force = false } = {}) {
   if (!room) return;
   room.dispose({ force });
   TOURNAMENT_ROOMS.delete(tournamentId);
+}
+
+/**
+ * Flip a tournament from registering to running and seat its whole field.
+ * Every registrant gets a seat, online or not; whoever is not at the table yet
+ * is blinded out until they open it. Returns false when another caller won the
+ * race to start the event.
+ */
+function startTournament(t) {
+  const flipped = db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(t.id);
+  if (!flipped.changes) return false;
+  const room = ensureTournamentRoom(t);
+  room.syncLevel();
+  const registrants = db.prepare(`SELECT u.id, u.nick, u.avatar FROM tourney_regs r JOIN users u ON u.id = r.user_id
+    WHERE r.tournament_id = ? ORDER BY r.created_at, r.rowid`).all(t.id);
+  const { seated, failed } = room.seatRegistrants(registrants, { stack: t.starting_stack });
+  for (const seat of seated) notifyTournamentStarted(t, seat.id, seat.tableId, seat.index);
+  for (const miss of failed) console.error('tournament start seat', t.id, miss.id, miss.error);
+  return true;
+}
+
+/** Tell a registrant where their flight is (SSE; the client shows a "Go to table" toast). */
+function notifyTournamentStarted(t, userId, tableId, index) {
+  notifyUser(userId, { type: 'tournament_started', id: t.id, name: t.name, tableId, index });
+}
+
+/** Re-announce every running event where this player still has an untouched seat. */
+function announceAwaySeats(userId) {
+  for (const room of TOURNAMENT_ROOMS.values()) {
+    const table = room.tableOf(userId);
+    if (!table?.seatOf(userId)?.player?.away) continue;
+    notifyUser(userId, {
+      type: 'tournament_started', id: room.id, name: room.tournament.name,
+      tableId: table.cfg.id, index: room.flightIndexOf(table.cfg.id),
+    });
+  }
 }
 
 function rewardHandPlayed(table, summary) {
@@ -884,6 +1094,9 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, nick });
     }
 
+    // ---------- wait lists (waitlist-http.js) ----------
+    if (handleWaitlistRoute(req, res, p)) return;
+
     // ---------- lobby ----------
     if (p === '/api/lobby') {
       const u = userByToken(tokenFrom(req));
@@ -891,9 +1104,12 @@ const server = http.createServer(async (req, res) => {
       const banners = db.prepare('SELECT * FROM banners WHERE slot = ? AND enabled = 1 ORDER BY sort').all('home');
       return json(res, 200, {
         tables,
+        rushPools: lobbyRushPools(tables),
+        rushLeaderboard: RUSH_LOBBY.leaderboard(),
         banners,
         online: sitesStats().online,
         jackpot: getSetting('jackpot', 199026635),
+        rushCashDrop: readCashDropConfig(getSetting),
         recentWinners: Array.from({ length: 5 }, (_, i) => ({
           nick: botName((hashStr('winner' + i) + i) % 100),
           amount: 500 + ((hashStr('amount' + i) + i * 733) % 9000),
@@ -1049,7 +1265,16 @@ const server = http.createServer(async (req, res) => {
       const id = decodeURIComponent(p.slice('/api/tournaments/'.length));
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ? AND enabled = 1').get(id);
       if (!t) return json(res, 404, { error: 'not found' });
-      return json(res, 200, { tournament: t });
+      const room = t.status === 'running' ? TOURNAMENT_ROOMS.get(id) : null;
+      const payouts = room ? room.payouts() : payoutTable(t.entrants, prizePoolOf(t), { mode: t.mode, ticket: t.ticket });
+      return json(res, 200, {
+        tournament: t,
+        prizePool: prizePoolOf(t),
+        payouts,
+        placesPaid: payouts.length,
+        bubble: bubblePlace(payouts),
+        playersLeft: room ? room.stats().playersLeft : null,
+      });
     }
 
     if (p.startsWith('/api/tournaments/') && p.endsWith('/register') && req.method === 'POST') {
@@ -1092,7 +1317,11 @@ const server = http.createServer(async (req, res) => {
       }
       // One registration buys exactly one stack; it is consumed when the player busts, leaves or wins.
       if (!reg && !seated) return json(res, 400, { error: 'Register first' });
-      db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(id);
+      // Opening an event early starts it, and starting seats the whole field.
+      if (startTournament(t)) {
+        const own = room.tableOf(u.id);
+        if (own) return json(res, 200, { ok: true, tableId: own.cfg.id, tableIndex: room.flightIndexOf(own.cfg.id) });
+      }
       // Flights are allocated by the seating engine: humans fill one table
       // before the next opens, and a bot steps aside when a human arrives.
       const result = room.seat({ id: u.id, nick: u.nick, avatar: u.avatar }, { stack: t.starting_stack });
@@ -1276,8 +1505,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/leaderboard') {
-      const rows = db.prepare('SELECT nick, vip_level, xp, vip_points, avatar FROM users WHERE banned = 0 ORDER BY vip_points DESC LIMIT 50').all();
-      return json(res, 200, { leaders: rows.map((r, i) => ({ rank: i + 1, ...r })) });
+      const metric = parseMetric(url.searchParams.get('metric'));
+      if (!metric) return json(res, 400, { error: `metric must be one of ${LEADERBOARD_METRICS.join(', ')}` });
+      const u = userByToken(tokenFrom(req));
+      return json(res, 200, LEADERBOARD.read(metric, u?.id ?? null));
     }
 
     if (p === '/api/rewards/daily' && req.method === 'POST') {
@@ -1838,6 +2069,8 @@ const server = http.createServer(async (req, res) => {
       const set = SSE_CLIENTS.get(u.id) || new Set();
       set.add(res);
       SSE_CLIENTS.set(u.id, set);
+      // A registrant who opens the app after the start still learns where they sit.
+      announceAwaySeats(u.id);
       const cleanup = () => { set.delete(res); if (!set.size) SSE_CLIENTS.delete(u.id); };
       req.on('close', cleanup);
       req.on('aborted', cleanup);
@@ -1919,6 +2152,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     /* ---------------- admin ---------------- */
+    if (await handleAdminWaitlistRoute(req, res, p)) return;
+    if (await handleAdminBackupRoute(req, res, url)) return;
+    if (await handleAdminRestoreRoute(req, res, url)) return;
+    if (handleAdminChatRoute(req, res, url)) return;
     if (p === '/api/admin/verifications' && req.method === 'GET') {
       const a = requireAdmin(req, res); if (!a) return;
       const rows = db.prepare(`SELECT v.id, v.user_id, u.nick, u.login, v.full_name, v.dob, v.country, v.doc_type, v.status, v.note, v.created_at, v.reviewed_at
@@ -2012,18 +2249,16 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
-    if (p === '/api/admin/users') {
-      const a = requireAdmin(req, res); if (!a) return;
-      const q = (url.searchParams.get('q') || '').toLowerCase();
-      const rows = db.prepare('SELECT * FROM users WHERE deleted_at IS NULL ORDER BY id').all()
-        .filter((u) => !q || u.login.toLowerCase().includes(q) || u.nick.toLowerCase().includes(q));
-      return json(res, 200, { users: rows.map(publicUser) });
-    }
+    if (handleAdminUsersListRoute(req, res, url)) return;
 
     if (p.startsWith('/api/admin/users/') && req.method === 'POST') {
       const a = requireAdmin(req, res); if (!a) return;
       const id = Number(p.split('/')[4]);
       const body = await readBody(req);
+      if (body.action === 'set_admin') {
+        const result = setAdminRole(a, id, body.admin);
+        return json(res, result.status, result.body);
+      }
       const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
       if (!target) return json(res, 404, { error: 'not found' });
       if (body.action === 'credit') {
@@ -2218,7 +2453,10 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/admin/settings' && req.method === 'POST') {
       const a = requireAdmin(req, res); if (!a) return;
       const b = await readBody(req);
-      for (const [k, v] of Object.entries(b || {})) setSetting(k, v);
+      if (!b || typeof b !== 'object' || Array.isArray(b)) return json(res, 400, { error: 'Settings must be an object' });
+      const invalid = validateCashDropSettings(b);
+      if (invalid.length) return json(res, 400, { error: invalid.join('; '), errors: invalid });
+      for (const [k, v] of Object.entries(b)) setSetting(k, v);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'settings', JSON.stringify(b));
       return json(res, 200, { ok: true });
     }
@@ -2228,19 +2466,15 @@ const server = http.createServer(async (req, res) => {
       const rows = db.prepare('SELECT * FROM settings').all();
       const out = {};
       for (const r of rows) { try { out[r.key] = JSON.parse(r.value); } catch { out[r.key] = r.value; } }
+      const cashDrop = readCashDropConfig(getSetting);
+      out[CASHDROP_SETTING_KEYS.rate] ??= cashDrop.rate;
+      out[CASHDROP_SETTING_KEYS.amountBb] ??= cashDrop.amountBb;
       return json(res, 200, { settings: out });
     }
 
-    if (p === '/api/admin/audit') {
-      const a = requireAdmin(req, res); if (!a) return;
-      return json(res, 200, { log: db.prepare('SELECT * FROM audit_log ORDER BY id DESC LIMIT 200').all() });
-    }
+    if (handleAdminAuditRoute(req, res, url)) return;
 
-    if (p === '/api/admin/transactions') {
-      const a = requireAdmin(req, res); if (!a) return;
-      const rows = db.prepare(`SELECT t.*, u.login, u.nick FROM transactions t LEFT JOIN users u ON u.id=t.user_id ORDER BY t.id DESC LIMIT 300`).all();
-      return json(res, 200, { transactions: rows });
-    }
+    if (handleAdminTransactionsRoute(req, res, url)) return;
 
     if (p === '/api/admin/chat' && req.method === 'POST') {
       const a = requireAdmin(req, res); if (!a) return;
@@ -2319,6 +2553,9 @@ wss.on('connection', (ws, req) => {
       }
     }
     if (msg.type === 'join_table') {
+      if (isBattleRoyale(tableRow(msg.tableId)?.game)) {
+        return ws.send(JSON.stringify({ type: 'error', error: BATTLE_ROYALE_UNAVAILABLE }));
+      }
       const table = getLiveTable(msg.tableId);
       if (!table) return ws.send(JSON.stringify({ type: 'error', error: 'table not found' }));
       const entry = LIVE_TABLES.get(msg.tableId);
@@ -2330,6 +2567,7 @@ wss.on('connection', (ws, req) => {
         entry.clients.add(ws);
         ws.tables.add(msg.tableId);
         ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true }));
+        chatService.sendHistory(ws, msg.tableId);
         broadcastState(table);
         return;
       }
@@ -2338,6 +2576,12 @@ wss.on('connection', (ws, req) => {
         // Reconnect (or a second window): the seat and stack are still here.
         seated.player.disconnected = false;
         seated.player.disconnectedAt = 0;
+        if (seated.player.away) {
+          // Seated in absence at the tournament start: opening the table sits them back in.
+          seated.player.away = false;
+          seated.player.missedTurns = 0;
+          table.requestSitOut(u.id, false);
+        }
       } else {
         if (table.tournament) {
           // Tournament seats are only handed out by /play, which checks the registration.
@@ -2354,26 +2598,35 @@ wss.on('connection', (ws, req) => {
           entry.clients.add(ws);
           ws.tables.add(msg.tableId);
           ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true }));
+          chatService.sendHistory(ws, msg.tableId);
           broadcastState(table);
           return;
         }
         if (getSetting('maintenance', false) && !u.is_admin) {
           return ws.send(JSON.stringify({ type: 'error', error: 'Tables are closed for maintenance' }));
         }
-        const hasRoom = table.occupiedSeats().some((s) => s.player.isBot) || table.occupiedSeats().length < table.cfg.seats;
+        const held = heldSeatFor(msg.tableId, u.id);
+        const hasRoom = held || table.occupiedSeats().some((s) => s.player.isBot) || table.freeSeatFor(u.id);
         if (!hasRoom) {
-          const pos = waitlistJoin(msg.tableId, u.id, u.nick);
+          const queued = waitlistJoin(msg.tableId, u.id);
+          if (queued.status !== 'queued') {
+            const error = queued.status === 'full' ? 'The waiting list is full' : 'You are on too many waiting lists';
+            return ws.send(JSON.stringify({ type: 'error', error }));
+          }
           entry.clients.add(ws);
           ws.tables.add(msg.tableId);
-          ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true, waitlist: pos }));
-          ws.send(JSON.stringify({ type: 'waitlist', position: pos, tableId: msg.tableId }));
+          ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true, waitlist: queued.position }));
+          chatService.sendHistory(ws, msg.tableId);
+          ws.send(JSON.stringify({ type: 'waitlist', position: queued.position, tableId: msg.tableId }));
           broadcastState(table);
           return;
         }
         const buyin = toInt(msg.buyin) || table.cfg.min_buyin;
-        let res = seatHuman(table, u, buyin, msg.seat);
-        if (!res.ok && msg.seat != null) res = seatHuman(table, u, buyin, null);
+        let res = seatHuman(table, u, buyin, held ? held.seat : msg.seat);
+        if (!res.ok && msg.seat != null && !held) res = seatHuman(table, u, buyin, null);
         if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+        // Taking the held seat consumes the offer; any other seat just leaves the queue.
+        if (held) setWaitlist(held.state);
         waitlistLeave(msg.tableId, u.id);
       }
       // fill part of the table with bots, always leaving the choice of seats to humans
@@ -2383,6 +2636,7 @@ wss.on('connection', (ws, req) => {
       ws.tables.add(msg.tableId);
       table.maybeStart();
       ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: table.seatOf(u.id)?.index ?? null }));
+      chatService.sendHistory(ws, msg.tableId);
       broadcastState(table);
       return;
     }
@@ -2517,32 +2771,8 @@ wss.on('connection', (ws, req) => {
       }
       return;
     }
-    if (msg.type === 'chat') {
-      const entry = LIVE_TABLES.get(msg.tableId);
-      if (!entry) return;
-      const chatter = db.prepare('SELECT chat_muted FROM users WHERE id = ?').get(ws.userId);
-      if (chatter?.chat_muted) return;
-      if (db.prepare('SELECT 1 FROM table_mutes WHERE table_id = ? AND user_id = ?').get(msg.tableId, ws.userId)) return;
-      const text = String(msg.message || '').slice(0, 200);
-      if (!text.trim() || !ws.userId) return;
-      if (chatLimiter.isBlocked(`ws:${ws.userId}`)) return ws.send(JSON.stringify({ type: 'error', error: 'You are sending messages too quickly' }));
-      chatLimiter.record(`ws:${ws.userId}`);
-      const evt = { type: 'chat', nick: ws.nick, userId: ws.userId, message: text, at: Date.now() };
-      for (const client of entry.clients) if (client.readyState === 1) client.send(JSON.stringify({ type: 'event', event: evt }));
-      return;
-    }
-    if (msg.type === 'emote') {
-      const entry = LIVE_TABLES.get(msg.tableId);
-      if (!entry) return;
-      const muted = db.prepare('SELECT chat_muted FROM users WHERE id = ?').get(ws.userId);
-      if (muted?.chat_muted) return;
-      if (db.prepare('SELECT 1 FROM table_mutes WHERE table_id = ? AND user_id = ?').get(msg.tableId, ws.userId)) return;
-      const emote = [...String(msg.emote || '')].slice(0, 4).join('');
-      if (!emote || !ws.userId || chatLimiter.isBlocked(`ws:${ws.userId}`)) return;
-      chatLimiter.record(`ws:${ws.userId}`);
-      const evt = { type: 'emote', nick: ws.nick, userId: ws.userId, emote, at: Date.now() };
-      for (const client of entry.clients) if (client.readyState === 1) client.send(JSON.stringify({ type: 'event', event: evt }));
-      return;
+    if (msg.type === 'chat' || msg.type === 'reaction' || msg.type === 'emote') {
+      return chatService.handleFrame(ws, msg);
     }
     if (msg.type === 'ping') ws.send(JSON.stringify({ type: 'pong', t: Date.now() }));
   }
@@ -2578,17 +2808,14 @@ setInterval(() => {
     const rows = db.prepare("SELECT * FROM tournaments WHERE status = 'registering' AND enabled = 1").all();
     for (const t of rows) {
       const start = Date.parse(t.start_at);
-      if (Number.isFinite(start) && start <= Date.now() && Number(t.entrants) >= 2) {
-        db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(t.id);
-        ensureTournamentRoom(t).syncLevel();
-      }
+      if (Number.isFinite(start) && start <= Date.now() && Number(t.entrants) >= 2) startTournament(t);
     }
     // A finished event whose tables are all gone no longer needs its room.
     for (const [id, room] of TOURNAMENT_ROOMS) {
       if (room.winner && !room.flights.length) TOURNAMENT_ROOMS.delete(id);
     }
   } catch (err) { console.error('tournament scheduler', err); }
-}, 15000).unref();
+}, TOURNAMENT_SCHEDULER_MS).unref();
 
 // Multi-table tournaments rebalance and break short tables between hands.
 setInterval(() => {
