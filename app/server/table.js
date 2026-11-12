@@ -2,6 +2,7 @@ import { buildPots, oddChipOrder } from './pots.js';
 import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
 import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
 import { badBeatPayout } from './badBeat.js';
+import { activeReservations, reserve, withoutPlayer } from './seatReserve.js';
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
@@ -130,6 +131,8 @@ export class PokerTable {
     this.tableVersion = 0;
     // Wait-list seat holds: seat index -> the user id the seat is held for (set by index.js).
     this.holds = new Map();
+    // Take-seat reservations: seat index -> { playerId, until } (seatReserve.js).
+    this.reservations = new Map();
   }
 
   /* ------------------------------ seating ------------------------------ */
@@ -151,10 +154,32 @@ export class PokerTable {
     this.holds = new Map(holds);
   }
 
-  /** True when the seat is held for a wait-listed player other than `playerId`. */
+  /** True when the seat is held (wait list or take-seat reservation) for someone other than `playerId`. */
   isHeldFor(seatIndex, playerId) {
     const holder = this.holds.get(seatIndex);
-    return holder != null && holder !== playerId;
+    if (holder != null && holder !== playerId) return true;
+    const r = this.reservations.get(seatIndex);
+    return !!r && r.playerId !== playerId && r.until > Date.now();
+  }
+
+  /** Native Take Seat: hold an empty seat while the player picks a buy-in. */
+  reserveSeat(seatIndex, playerId, now = Date.now()) {
+    const seat = this.seats[seatIndex];
+    if (!seat) return { ok: false, error: 'no such seat' };
+    if (this.seatOf(playerId)) return { ok: false, error: 'already seated' };
+    if (this.holds.has(seatIndex) && this.holds.get(seatIndex) !== playerId) return { ok: false, error: 'seat held' };
+    const res = reserve(this.reservations, { seat: seatIndex, playerId, now, seatEmpty: !seat.player });
+    if (!res.ok) return res;
+    this.reservations = res.reservations;
+    return { ok: true, seat: seatIndex, until: res.until };
+  }
+
+  cancelReservation(playerId) {
+    this.reservations = withoutPlayer(this.reservations, playerId);
+  }
+
+  expireReservations(now = Date.now()) {
+    this.reservations = activeReservations(this.reservations, now);
   }
 
   /** First empty seat `playerId` may take (held seats only go to their holder). */
@@ -169,6 +194,7 @@ export class PokerTable {
     if (seat.player) return { ok: false, error: 'seat taken' };
     if (this.isHeldFor(seat.index, player.id)) return { ok: false, error: 'seat held' };
     const stack = buyin ?? Math.min(this.cfg.max_buyin, Math.max(this.cfg.min_buyin, this.cfg.bb * 100));
+    this.reservations = withoutPlayer(this.reservations, player.id);
     seat.player = {
       id: player.id,
       nick: player.nick,
@@ -244,7 +270,7 @@ export class PokerTable {
     for (let i = 0; i < this.seats.length && added < count; i++) {
       const s = this.seats[i];
       // A seat held for a wait-listed player is never given to a bot.
-      if (!s.player && !this.holds.has(i)) {
+      if (!s.player && !this.holds.has(i) && !this.reservations.has(i)) {
         this.sit({
           id: `bot-${this.cfg.id}-${i}-${handSeq++}`,
           nick: botName(handSeq + i * 3),
@@ -1471,6 +1497,7 @@ export class PokerTable {
   }
 
   tick(now = Date.now()) {
+    this.expireReservations(now);
     if (this.tournament) {
       // Flights share one level clock; the first table to tick advances it and
       // every other flight picks the new level up on its own next tick.
@@ -1682,7 +1709,11 @@ export class PokerTable {
       botActAt: this.botActAt,
       result: this.result,
       players: this.seats.map((s) => {
-        if (!s.player) return { seat: s.index, empty: true };
+        if (!s.player) {
+          const r = this.reservations.get(s.index);
+          if (!r || r.until <= now) return { seat: s.index, empty: true };
+          return { seat: s.index, empty: true, reserved: true, mine: viewerId != null && r.playerId === viewerId };
+        }
         const p = s.player;
         const mine = viewerId != null && p.id === viewerId;
         return {

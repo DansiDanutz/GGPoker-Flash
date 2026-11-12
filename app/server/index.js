@@ -2755,6 +2755,22 @@ wss.on('connection', (ws, req) => {
         return;
       }
     }
+    if (msg.type === 'reserve_seat' || msg.type === 'cancel_reservation') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry || !ws.userId) return;
+      const table = entry.table;
+      if (msg.type === 'cancel_reservation') {
+        table.cancelReservation(ws.userId);
+        broadcastState(table);
+        return;
+      }
+      if (table.tournament || table.spin) return ws.send(JSON.stringify({ type: 'error', error: 'seats are assigned at this table' }));
+      const res = table.reserveSeat(toInt(msg.seat, { min: 0, max: table.cfg.seats - 1 }) ?? -1, ws.userId);
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      ws.send(JSON.stringify({ type: 'seat_reserved', tableId: msg.tableId, seat: res.seat, until: res.until }));
+      broadcastState(table);
+      return;
+    }
     if (msg.type === 'join_table') {
       if (isBattleRoyale(tableRow(msg.tableId)?.game)) {
         return ws.send(JSON.stringify({ type: 'error', error: BATTLE_ROYALE_UNAVAILABLE }));

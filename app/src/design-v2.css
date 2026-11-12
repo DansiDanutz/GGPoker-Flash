@@ -591,3 +591,13 @@ body { background: #050706; }
 .bbj-row b { color: #fff; font-weight: 700; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bbj-row em { font-style: normal; color: #ffe6a6; font-weight: 700; }
 @keyframes bbjIn { from { opacity: 0; transform: translate(-50%, -12px) scale(.9); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+
+/* Native PlayerTakeSeat3D: 160px cell, arrow, "Take Seat" label; reserved seats show a disabled R. */
+.seat-take .take-seat { position: relative; width: 80px; height: 80px; border: 0; padding: 0; border-radius: 50%; cursor: pointer;
+  background: url('/assets/table/native-take-seat-base.png') center/100% 100% no-repeat; transition: transform .2s; }
+.seat-take .take-seat:hover { background-image: url('/assets/table/native-take-seat-glow.png'), url('/assets/table/native-take-seat-base.png'); background-size: 115% 115%, 100% 100%; }
+.seat-take .take-seat:active { transform: scale(1.05); }
+.take-seat-arrow { position: absolute; left: 50%; top: 22%; width: 16px; height: 21px; transform: translateX(-50%); background: url('/assets/table/native-take-seat-arrow.png') center/100% 100% no-repeat; }
+.take-seat-label { position: absolute; left: 0; right: 0; top: 50%; font-size: 12px; font-weight: 700; color: #fff; text-align: center; }
+.seat-take .take-seat.reserved { cursor: default; display: flex; align-items: center; justify-content: center; }
+.take-seat-r { font-size: 34px; font-weight: 800; color: #fff; text-shadow: 0 2px 4px rgba(0, 0, 0, .6); }
