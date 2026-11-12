@@ -6,6 +6,7 @@ import { PageShell } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { PlayingCard } from '../components/Card';
 import { AdminWaitlists } from '../components/AdminWaitlists';
+import { AdminChatModeration } from '../components/AdminChatModeration';
 import {
   CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
   CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
@@ -21,6 +22,7 @@ const SECTIONS = [
   { key: 'branding', label: 'Branding', icon: '🎨' },
   { key: 'verifications', label: 'Verifications', icon: '🪪' },
   { key: 'reports', label: 'Player reports', icon: '🚩' },
+  { key: 'chatmod', label: 'Chat moderation', icon: '💬' },
   { key: 'missions', label: 'Missions', icon: '📋' },
   { key: 'settings', label: 'Game settings', icon: '⚙️' },
   { key: 'transactions', label: 'Transactions', icon: '💳' },
@@ -350,6 +352,8 @@ export function Admin() {
           )}
 
           {section === 'waitlists' && <AdminWaitlists />}
+
+          {section === 'chatmod' && <AdminChatModeration />}
 
           {section === 'banners' && (
             <>

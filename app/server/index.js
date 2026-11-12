@@ -22,7 +22,8 @@ import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
-import { createChatService } from './chat.js';
+import { createChatService, createChatStore } from './chat.js';
+import { createAdminChatRoutes } from './admin-chat.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, readCashDropConfig, settleCashDrop, validateCashDropSettings } from './rush-pool.js';
@@ -270,7 +271,8 @@ function sitesStats() {
 /* ------------------------------------------------------------------ */
 
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
-const chatService = createChatService({ db, getEntry: (id) => LIVE_TABLES.get(id) });
+const chatStore = createChatStore(db);
+const chatService = createChatService({ db, getEntry: (id) => LIVE_TABLES.get(id), store: chatStore });
 const TOURNAMENT_ROOMS = new Map(); // tournamentId -> TournamentRoom (multi-table flights)
 let waitState = waitlist.createWaitlist(); // pure wait-list model state (see waitlist.js)
 let waitSince = Object.freeze({}); // `queueKey|userId` -> join time, for the admin monitor
@@ -441,6 +443,13 @@ const handleAdminWaitlistRoute = adminWaitlist.createAdminWaitlistRoutes({
     nickOf: (id) => db.prepare('SELECT nick FROM users WHERE id = ?').get(id)?.nick || `#${id}`,
     tableNameOf: (id) => LIVE_TABLES.get(id)?.table.cfg.name || db.prepare('SELECT name FROM tables WHERE id = ?').get(id)?.name || id,
   }),
+});
+
+const tableNameOf = (id) => LIVE_TABLES.get(id)?.table.cfg.name || db.prepare('SELECT name FROM tables WHERE id = ?').get(id)?.name || id;
+
+const handleAdminChatRoute = createAdminChatRoutes({
+  db, json, requireAdmin, tableNameOf,
+  onDeleted: ({ channel }) => { if (channel.startsWith('table:')) chatStore.forget(channel.slice('table:'.length)); },
 });
 
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
@@ -2125,6 +2134,7 @@ const server = http.createServer(async (req, res) => {
 
     /* ---------------- admin ---------------- */
     if (await handleAdminWaitlistRoute(req, res, p)) return;
+    if (handleAdminChatRoute(req, res, url)) return;
     if (p === '/api/admin/verifications' && req.method === 'GET') {
       const a = requireAdmin(req, res); if (!a) return;
       const rows = db.prepare(`SELECT v.id, v.user_id, u.nick, u.login, v.full_name, v.dob, v.country, v.doc_type, v.status, v.note, v.created_at, v.reviewed_at

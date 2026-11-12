@@ -101,6 +101,13 @@ export function createChatStore(db, { limit = CHAT_HISTORY_LIMIT } = {}) {
       buffers = new Map(buffers).set(tableId, appendLine(prior, line, limit));
       return line;
     },
+    /** Drop a table's cached history so the next read reloads it (after an admin delete). */
+    forget(tableId) {
+      if (!buffers.has(tableId)) return;
+      const next = new Map(buffers);
+      next.delete(tableId);
+      buffers = next;
+    },
   };
 }
 

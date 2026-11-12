@@ -78,6 +78,13 @@ export type AdminWaitlistQueue = {
 
 export type AdminWaitlists = { queues: AdminWaitlistQueue[]; totals: { queues: number; waiting: number; held: number } };
 
+/** Admin chat moderation (GET /api/admin/chat): one persisted table-chat line. */
+export type AdminChatLine = { id: number; channel: string; user_id: number | null; nick: string; text: string; created_at: string };
+
+export type AdminChatTable = { tableId: string; name: string; count: number; lastAt: string };
+
+export type AdminChatFeed = { messages: AdminChatLine[]; tables: AdminChatTable[] };
+
 const TOKEN_KEY = 'ggpoker.token';
 
 export function getToken() {
@@ -195,6 +202,12 @@ export const api = {
     clearWaitlist: (target: { tableId: string } | { groupKey: string }) =>
       request<{ ok: true; removed: number; released: number }>('/api/admin/waitlists/clear', { method: 'POST', body: JSON.stringify(target) }),
     chat: (message: string) => request('/api/admin/chat', { method: 'POST', body: JSON.stringify({ message }) }),
+    chatFeed: (tableId?: string, limit = 100) => {
+      const query = new URLSearchParams({ limit: String(limit), ...(tableId ? { tableId } : {}) });
+      return request<AdminChatFeed>(`/api/admin/chat?${query}`);
+    },
+    deleteChatLine: (id: number) =>
+      request<{ ok: true; id: number; channel: string }>(`/api/admin/chat/${id}/delete`, { method: 'POST' }),
     saveBrand: (slot: string, dataUrl: string) => request('/api/admin/brand', { method: 'POST', body: JSON.stringify({ slot, dataUrl }) }),
     resetBrand: (slot: string) => request(`/api/admin/brand/${slot}`, { method: 'DELETE' }),
     verifications: () => request<{ verifications: any[] }>('/api/admin/verifications'),
