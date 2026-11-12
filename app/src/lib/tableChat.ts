@@ -21,9 +21,15 @@ export function reactionById(id: unknown): Reaction | null {
   return REACTIONS.find((r) => r.id === id) || null;
 }
 
+/** `dealer` lines are the C4 dealer log — a DanGG extra, not native parity. */
+export type ChatKind = 'chat' | 'reaction' | 'dealer';
+/** Panel filter: Chat (default) hides dealer lines; Dealer shows only them. */
+export type ChatView = 'chat' | 'dealer';
+export const DEALER_NICK = 'Dealer';
+
 export type ChatLine = {
   id: string;
-  kind: 'chat' | 'reaction';
+  kind: ChatKind;
   userId: number;
   nick: string;
   text: string;
@@ -52,7 +58,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'append': {
       if (state.lines.some((l) => l.id === action.line.id)) return state;
       const lines = [...state.lines, action.line].slice(-CHAT_HISTORY_LIMIT);
-      const unread = state.open || action.own ? state.unread : state.unread + 1;
+      // Dealer lines are opt-in, so they never raise the Chat badge.
+      const quiet = state.open || action.own || isDealerLine(action.line);
+      const unread = quiet ? state.unread : state.unread + 1;
       return { ...state, lines, unread };
     }
     case 'history': {
@@ -75,11 +83,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 /** Server `chat` event or `chat_history` row → a chat line. Null for malformed input. */
 export function chatLineFrom(raw: any): ChatLine | null {
   if (!raw || typeof raw.message !== 'string' || raw.id == null) return null;
+  const dealer = raw.kind === 'dealer';
   return {
     id: `c:${raw.id}`,
-    kind: 'chat',
-    userId: Number(raw.userId) || 0,
-    nick: String(raw.nick || 'Player'),
+    kind: dealer ? 'dealer' : 'chat',
+    userId: dealer ? 0 : Number(raw.userId) || 0,
+    nick: dealer ? DEALER_NICK : String(raw.nick || 'Player'),
     text: raw.message,
     at: Number(raw.at) || 0,
   };
@@ -108,7 +117,23 @@ export function chatCounter(text: string): number | null {
   return left < CHAT_COUNTER_FROM ? left : null;
 }
 
-export type SenderRole = 'self' | 'other';
-export function senderRole(line: Pick<ChatLine, 'userId'>, selfId: number | null | undefined): SenderRole {
+export type SenderRole = 'self' | 'other' | 'system';
+export function senderRole(line: Pick<ChatLine, 'userId'> & Partial<Pick<ChatLine, 'kind'>>, selfId: number | null | undefined): SenderRole {
+  if (line.kind === 'dealer') return 'system';
   return selfId != null && line.userId === selfId ? 'self' : 'other';
+}
+
+export function isDealerLine(line: Pick<ChatLine, 'kind'>): boolean {
+  return line.kind === 'dealer';
+}
+
+/** Lines visible in a panel view: Chat shows players' chat and reactions, Dealer shows the log. */
+export function linesForView(lines: readonly ChatLine[], view: ChatView): readonly ChatLine[] {
+  return lines.filter((l) => isDealerLine(l) === (view === 'dealer'));
+}
+
+/** Class names for a log line; dealer lines use the muted system style. */
+export function chatLineClass(line: Pick<ChatLine, 'kind'>, active = false): string {
+  const system = isDealerLine(line) ? ' tchat-system' : '';
+  return `tchat-line tchat-${line.kind}${system}${active ? ' active' : ''}`;
 }

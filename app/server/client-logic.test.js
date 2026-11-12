@@ -484,6 +484,7 @@ test('tournament empty-state copy names the filters', () => {
 // ---- Table chat reducer (P0 slice C3) ----
 import {
   chatReducer, INITIAL_CHAT, CHAT_HISTORY_LIMIT, chatLineFrom, reactionLineFrom, chatCounter, senderRole,
+  linesForView, chatLineClass, isDealerLine, DEALER_NICK,
 } from '../src/lib/tableChat.ts';
 
 const chatLine = (n, over = {}) => ({ id: `c:${n}`, kind: 'chat', userId: 7, nick: 'Bo', text: `m${n}`, at: n, ...over });
@@ -751,4 +752,37 @@ test('leaderboard metrics: values formatted with separators and unit', () => {
   assert.equal(metricValueLabel('vip', 12500), '12,500 pts');
   assert.equal(metricValueLabel('elo', 1240), '1,240 Elo');
   assert.equal(metricValueLabel('xp', 900), '900 XP');
+});
+
+// ---- C4 dealer log (DanGG extra) ----
+
+test('dealer frames parse as dealer lines with the Dealer nick', () => {
+  const line = chatLineFrom({ id: 9, kind: 'dealer', nick: 'spoof', userId: 4, message: 'Hand #3 started', at: 5 });
+  assert.equal(line.kind, 'dealer');
+  assert.equal(line.nick, DEALER_NICK);
+  assert.equal(line.userId, 0);
+  assert.equal(line.text, 'Hand #3 started');
+  assert.equal(isDealerLine(line), true);
+  assert.equal(chatLineFrom({ id: 1, nick: 'Bo', userId: 7, message: 'hi' }).kind, 'chat', 'no kind stays chat');
+});
+
+test('chat view hides dealer lines; dealer view shows only them', () => {
+  const lines = [chatLine(1), chatLine(2, { kind: 'dealer', userId: 0, nick: 'Dealer' }), chatLine(3, { kind: 'reaction' })];
+  assert.deepEqual(linesForView(lines, 'chat').map((l) => l.id), ['c:1', 'c:3']);
+  assert.deepEqual(linesForView(lines, 'dealer').map((l) => l.id), ['c:2']);
+  assert.equal(lines.length, 3, 'filtering does not mutate');
+});
+
+test('dealer lines get the muted system style and no moderation role', () => {
+  const dealer = chatLine(1, { kind: 'dealer', userId: 0 });
+  assert.equal(chatLineClass(dealer), 'tchat-line tchat-dealer tchat-system');
+  assert.equal(chatLineClass(chatLine(2), true), 'tchat-line tchat-chat active');
+  assert.equal(senderRole(dealer, 0), 'system', 'never self, even for a zero id');
+  assert.equal(senderRole(chatLine(3), 7), 'self');
+});
+
+test('dealer lines append but never raise the unread badge', () => {
+  const s = chatReducer(INITIAL_CHAT, { type: 'append', line: chatLine(1, { kind: 'dealer', userId: 0 }) });
+  assert.equal(s.lines.length, 1);
+  assert.equal(s.unread, 0);
 });

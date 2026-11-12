@@ -286,6 +286,7 @@ function init() {
   try { db.exec("ALTER TABLE sessions ADD COLUMN device TEXT DEFAULT ''"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN chat_muted INTEGER DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE chat_messages ADD COLUMN kind TEXT DEFAULT 'chat'"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE users ADD COLUMN elo INTEGER DEFAULT 1000'); } catch { /* already exists */ }
   try { db.exec("ALTER TABLE tournaments ADD COLUMN mode TEXT DEFAULT 'STANDARD'"); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tournaments ADD COLUMN bounty INTEGER DEFAULT 0'); } catch { /* already exists */ }

@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   CHAT_MAX_CHARS, CHAT_HISTORY_LIMIT, validateChat, validateReaction, reactionIdForEmote,
   appendLine, createSenderLimiter, createChatStore, createChatService, tableChannel,
+  DEALER_NICK, dealerStartText, dealerResultText,
 } from './chat.js';
 
 function memoryDb() {
@@ -13,7 +14,7 @@ function memoryDb() {
     CREATE TABLE table_mutes (table_id TEXT, user_id INTEGER);
     CREATE TABLE chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, nick TEXT, table_id TEXT,
-      channel TEXT DEFAULT 'lobby', message TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      channel TEXT DEFAULT 'lobby', message TEXT NOT NULL, kind TEXT DEFAULT 'chat', created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );`);
   return db;
 }
@@ -139,4 +140,67 @@ test('service maps reactions and legacy emotes, rejecting non-integer IDs', () =
   service.handleFrame(player, { type: 'emote', tableId: 't1', emote: '🤣' });
   assert.equal(other.sent.at(-1).event.reactionId, 3);
   assert.equal(other.sent.at(-1).event.label, 'Laughing');
+});
+
+// ---- C4 dealer log (DanGG extra) ----
+
+test('dealer text formats hand start and sums split winners per player', () => {
+  assert.equal(dealerStartText(42), 'Hand #42 started');
+  assert.equal(dealerResultText({ winners: [{ id: 1, nick: 'Ana', amount: 120, hand: 'Two Pair' }] }), 'Ana wins 120 with Two Pair');
+  assert.equal(dealerResultText({ winners: [{ id: 1, nick: 'Ana', amount: 30, hand: null }] }), 'Ana wins 30', 'a fold win names no hand');
+  assert.equal(dealerResultText({
+    winners: [
+      { id: 1, nick: 'Ana', amount: 50, hand: 'Flush' },
+      { id: 2, nick: 'Bo', amount: 50, hand: 'Straight' },
+      { id: 1, nick: 'Ana', amount: 25, hand: 'Flush' },
+    ],
+  }), 'Ana wins 75 with Flush; Bo wins 50 with Straight');
+  assert.equal(dealerResultText({ winners: [] }), null);
+  assert.equal(dealerResultText(null), null);
+});
+
+test('addSystemLine persists a dealer line and broadcasts it with kind dealer', () => {
+  const { db, service, player, observer } = serviceFixture();
+  const line = service.addSystemLine('t1', 'Hand #1 started', { key: 'start:h1' });
+  assert.equal(line.kind, 'dealer');
+  assert.equal(line.nick, DEALER_NICK);
+  assert.equal(line.userId, null);
+  for (const ws of [player, observer]) {
+    const evt = ws.sent.at(-1).event;
+    assert.equal(evt.type, 'chat');
+    assert.equal(evt.kind, 'dealer');
+    assert.equal(evt.nick, DEALER_NICK);
+    assert.equal(evt.message, 'Hand #1 started');
+  }
+  const row = db.prepare('SELECT nick, kind, channel, user_id FROM chat_messages WHERE id = ?').get(line.id);
+  assert.deepEqual({ ...row }, { nick: 'Dealer', kind: 'dealer', channel: tableChannel('t1'), user_id: null });
+  service.sendHistory(observer, 't1');
+  assert.equal(observer.sent.at(-1).lines.at(-1).kind, 'dealer', 'history keeps the kind');
+  assert.equal(createChatStore(db).history('t1').at(-1).kind, 'dealer', 'a restart keeps the kind');
+});
+
+test('addSystemLine is idempotent per key and table', () => {
+  const { db, service, other } = serviceFixture();
+  assert.ok(service.addSystemLine('t1', 'Ana wins 10', { key: 'result:h1' }));
+  const sent = other.sent.length;
+  assert.equal(service.addSystemLine('t1', 'Ana wins 10', { key: 'result:h1' }), null);
+  assert.equal(other.sent.length, sent, 'a repeat is not broadcast');
+  assert.ok(service.addSystemLine('t2', 'Ana wins 10', { key: 'result:h1' }), 'another table has its own keys');
+  assert.ok(service.addSystemLine('t1', 'Hand #2 started', { key: 'start:h2' }));
+  const n = db.prepare("SELECT COUNT(*) AS n FROM chat_messages WHERE kind = 'dealer'").get().n;
+  assert.equal(n, 3);
+  assert.equal(service.addSystemLine('t1', '   ', { key: 'blank' }), null, 'empty text is skipped');
+});
+
+test('dealer lines never touch the player sender limiter', () => {
+  const { service, player, other } = serviceFixture();
+  service.handleFrame(player, { type: 'chat', tableId: 't1', message: 'gl' });
+  for (let i = 1; i <= 5; i += 1) assert.ok(service.addSystemLine('t1', `Hand #${i} started`, { key: `start:${i}` }));
+  const before = player.sent.length;
+  service.handleFrame(player, { type: 'chat', tableId: 't1', message: 'again' });
+  assert.equal(player.sent.at(-1).type, 'error', 'the player is still limited on their own clock');
+  assert.equal(player.sent.length, before + 1);
+  service.handleFrame(other, { type: 'chat', tableId: 't1', message: 'hi' });
+  assert.equal(other.sent.at(-1).event.message, 'hi', 'dealer lines did not consume another sender\'s slot');
+  assert.equal(other.sent.at(-1).event.kind, 'chat');
 });

@@ -5,6 +5,9 @@
 export const CHAT_MAX_CHARS = 280;
 export const CHAT_HISTORY_LIMIT = 50;
 export const CHAT_SENDER_INTERVAL_MS = 1000;
+/** C4 dealer log (DanGG extra, not native parity): system lines share the chat buffer. */
+export const DEALER_NICK = 'Dealer';
+export const DEALER_KEYS_LIMIT = 500;
 
 // Reaction allowlist (Codex: three shipped client emoticons, integer IDs 1–3).
 // `glyph` keeps the current client's emoji rendering working until the artwork lands (C2/C3).
@@ -83,9 +86,9 @@ export const tableChannel = (tableId) => `table:${tableId}`;
 export function createChatStore(db, { limit = CHAT_HISTORY_LIMIT } = {}) {
   let buffers = new Map();
   const load = (tableId) => db.prepare(
-    'SELECT id, user_id, nick, message, created_at FROM chat_messages WHERE channel = ? ORDER BY id DESC LIMIT ?',
+    "SELECT id, user_id, nick, message, COALESCE(kind, 'chat') AS kind, created_at FROM chat_messages WHERE channel = ? ORDER BY id DESC LIMIT ?",
   ).all(tableChannel(tableId), limit).reverse().map((r) => Object.freeze({
-    id: r.id, userId: r.user_id, nick: r.nick, message: r.message, at: Date.parse(`${r.created_at}Z`) || 0,
+    id: r.id, userId: r.user_id, nick: r.nick, message: r.message, kind: r.kind, at: Date.parse(`${r.created_at}Z`) || 0,
   }));
   const history = (tableId) => {
     if (!buffers.has(tableId)) buffers = new Map(buffers).set(tableId, load(tableId));
@@ -93,11 +96,11 @@ export function createChatStore(db, { limit = CHAT_HISTORY_LIMIT } = {}) {
   };
   return {
     history,
-    append(tableId, { userId, nick, message, at = Date.now() }) {
+    append(tableId, { userId, nick, message, kind = 'chat', at = Date.now() }) {
       const prior = history(tableId);
-      const info = db.prepare('INSERT INTO chat_messages (user_id,nick,table_id,channel,message) VALUES (?,?,?,?,?)')
-        .run(userId, nick, tableId, tableChannel(tableId), message);
-      const line = Object.freeze({ id: Number(info.lastInsertRowid), userId, nick, message, at });
+      const info = db.prepare('INSERT INTO chat_messages (user_id,nick,table_id,channel,message,kind) VALUES (?,?,?,?,?,?)')
+        .run(userId, nick, tableId, tableChannel(tableId), message, kind);
+      const line = Object.freeze({ id: Number(info.lastInsertRowid), userId, nick, message, kind, at });
       buffers = new Map(buffers).set(tableId, appendLine(prior, line, limit));
       return line;
     },
@@ -109,6 +112,29 @@ export function createChatStore(db, { limit = CHAT_HISTORY_LIMIT } = {}) {
       buffers = next;
     },
   };
+}
+
+/** Dealer start line for a hand. */
+export function dealerStartText(handNo) {
+  return `Hand #${Number(handNo) || 0} started`;
+}
+
+/**
+ * Dealer result line from a saved hand summary: one clause per winner, split pots
+ * (run it twice, side pots) summed per player. Null when nobody won.
+ * @param {{ winners?: Array<{ id: unknown, nick?: string, amount?: number, hand?: string | null }> } | null | undefined} result
+ */
+export function dealerResultText(result) {
+  const totals = new Map();
+  for (const w of result?.winners || []) {
+    const prior = totals.get(w.id) || { nick: String(w.nick || 'Player'), amount: 0, hands: [] };
+    const hands = w.hand && !prior.hands.includes(w.hand) ? [...prior.hands, w.hand] : prior.hands;
+    totals.set(w.id, { ...prior, amount: prior.amount + (Number(w.amount) || 0), hands });
+  }
+  if (!totals.size) return null;
+  return [...totals.values()]
+    .map((w) => `${w.nick} wins ${w.amount}${w.hands.length ? ` with ${w.hands.join(' / ')}` : ''}`)
+    .join('; ');
 }
 
 const TOO_FAST = 'You are sending messages too quickly';
@@ -143,7 +169,26 @@ export function createChatService({ db, getEntry, store = createChatStore(db), l
     if (!checked.ok) return send(ws, { type: 'error', error: checked.error });
     if (!limiter.tryAcquire(ws.userId)) return send(ws, { type: 'error', error: TOO_FAST });
     const line = store.append(msg.tableId, { userId: ws.userId, nick: ws.nick, message: checked.text });
-    broadcast(entry, { type: 'chat', id: line.id, nick: line.nick, userId: line.userId, message: line.message, at: line.at });
+    broadcast(entry, { type: 'chat', kind: 'chat', id: line.id, nick: line.nick, userId: line.userId, message: line.message, at: line.at });
+  }
+
+  // Dealer keys already written; bounded so a long-running table cannot grow it forever.
+  let dealerKeys = [];
+  /**
+   * Append a dealer line (C4, DanGG extra). Never touches the sender limiter, and a
+   * repeated `key` (hand id + phase) for the same table is a no-op.
+   * @returns the stored line, or null when skipped (duplicate or empty text).
+   */
+  function addSystemLine(tableId, text, { key } = {}) {
+    const dedupe = key == null ? null : `${tableId}|${key}`;
+    if (dedupe && dealerKeys.includes(dedupe)) return null;
+    const checked = validateChat(text);
+    if (!checked.ok) return null;
+    if (dedupe) dealerKeys = [...dealerKeys, dedupe].slice(-DEALER_KEYS_LIMIT);
+    const line = store.append(tableId, { userId: null, nick: DEALER_NICK, message: checked.text, kind: 'dealer' });
+    const entry = getEntry(tableId);
+    if (entry) broadcast(entry, { type: 'chat', kind: 'dealer', id: line.id, nick: line.nick, userId: null, message: line.message, at: line.at });
+    return line;
   }
 
   function postReaction(ws, tableId, reactionId) {
@@ -158,6 +203,7 @@ export function createChatService({ db, getEntry, store = createChatStore(db), l
   }
 
   return {
+    addSystemLine,
     handleFrame(ws, msg) {
       if (msg.type === 'chat') return postChat(ws, msg);
       if (msg.type === 'reaction') return postReaction(ws, msg.tableId, msg.id);

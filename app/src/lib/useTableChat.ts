@@ -5,7 +5,7 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { sound } from './sound';
 import {
-  chatLineFrom, chatReducer, INITIAL_CHAT, reactionLineFrom, SEAT_BUBBLE_MS, SEAT_REACTION_MS,
+  chatLineFrom, chatReducer, INITIAL_CHAT, isDealerLine, reactionLineFrom, SEAT_BUBBLE_MS, SEAT_REACTION_MS,
   type ChatAction, type ChatLine, type ChatState, type ReactionId,
 } from './tableChat';
 
@@ -56,7 +56,9 @@ export function createTableChatStore() {
   };
 
   const receiveLine = (line: ChatLine | null) => {
-    if (!line || muted.has(line.userId)) return;
+    if (!line) return;
+    if (isDealerLine(line)) { dispatch({ type: 'append', line }); return; } // no seat bubble, no sound
+    if (muted.has(line.userId)) return;
     dispatch({ type: 'append', line, own: line.userId === selfId });
     showOnSeat(line);
     if (line.kind === 'reaction') sound.play('bubble', { volume: .55 });
@@ -82,13 +84,13 @@ export function createTableChatStore() {
     },
     receiveHistory(rows: unknown) {
       if (!Array.isArray(rows)) return;
-      const lines = rows.map(chatLineFrom).filter((l): l is ChatLine => !!l && !muted.has(l.userId));
+      const lines = rows.map(chatLineFrom).filter((l): l is ChatLine => !!l && (isDealerLine(l) || !muted.has(l.userId)));
       dispatch({ type: 'history', lines });
     },
     /** Hide a player's lines and seat effects on this device. */
     mute(userId: number) {
       muted = new Set(muted).add(userId);
-      state = { ...state, lines: state.lines.filter((l) => l.userId !== userId) };
+      state = { ...state, lines: state.lines.filter((l) => isDealerLine(l) || l.userId !== userId) };
       fx = new Map([...fx].filter(([id]) => id !== userId));
       emit();
     },

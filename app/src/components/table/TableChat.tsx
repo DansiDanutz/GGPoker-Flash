@@ -1,5 +1,8 @@
-import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { CHAT_MAX_CHARS, chatCounter, senderRole, type ChatLine, type ReactionId } from '../../lib/tableChat';
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  CHAT_MAX_CHARS, chatCounter, chatLineClass, linesForView, senderRole,
+  type ChatLine, type ChatView, type ReactionId, type SenderRole,
+} from '../../lib/tableChat';
 import { useTableChat, type TableChatStore } from '../../lib/useTableChat';
 import { ReactionArt, ReactionPicker } from './ReactionPicker';
 
@@ -19,7 +22,7 @@ const COUNTER_WARN_AT = 10;
 
 type LineProps = {
   line: ChatLine;
-  role: 'self' | 'other';
+  role: SenderRole;
   active: boolean;
   onToggle: (id: string) => void;
   onMute: (line: ChatLine) => void;
@@ -29,7 +32,7 @@ type LineProps = {
 function ChatLogLine({ line, role, active, onToggle, onMute, onReport }: LineProps) {
   const canModerate = role === 'other';
   return (
-    <li className={`tchat-line tchat-${line.kind}${active ? ' active' : ''}`}
+    <li className={chatLineClass(line, active)}
       onClick={() => canModerate && onToggle(line.id)}>
       <span className={`tchat-nick tchat-${role}`}>{line.nick}</span>
       {line.kind === 'reaction' && line.reactionId
@@ -53,6 +56,9 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
   const [draft, setDraft] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeLine, setActiveLine] = useState<string | null>(null);
+  // Panel-local so switching never re-renders the table. Dealer is opt-in (C4, DanGG extra).
+  const [view, setView] = useState<ChatView>('chat');
+  const shown = useMemo(() => linesForView(lines, view), [lines, view]);
   const logRef = useRef<HTMLOListElement>(null);
   const pinned = useRef(true);
 
@@ -60,7 +66,7 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
   useLayoutEffect(() => {
     const el = logRef.current;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [lines, open]);
+  }, [shown, open]);
 
   const onScroll = () => {
     const el = logRef.current;
@@ -87,15 +93,23 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
       {open && (
         <section className="tchat-panel" aria-label="Table chat">
           <header className="tchat-head">
-            <span>Table chat</span>
+            <span className="tchat-tabs" role="tablist" aria-label="Chat view">
+              <button type="button" role="tab" aria-selected={view === 'chat'}
+                className={'tchat-tab' + (view === 'chat' ? ' active' : '')}
+                onClick={() => { setView('chat'); pinned.current = true; }}>Chat</button>
+              <button type="button" role="tab" aria-selected={view === 'dealer'}
+                className={'tchat-tab' + (view === 'dealer' ? ' active' : '')}
+                title="Dealer log (DanGG extra)"
+                onClick={() => { setView('dealer'); pinned.current = true; }}>Dealer</button>
+            </span>
             <button type="button" className="tchat-close" onClick={store.close} aria-label="Close chat">✕</button>
           </header>
           <ol ref={logRef} className="tchat-log chat-log" onScroll={onScroll} aria-live="polite" aria-relevant="additions">
-            {lines.map((line) => (
+            {shown.map((line) => (
               <ChatLogLine key={line.id} line={line} role={senderRole(line, selfId)}
                 active={activeLine === line.id} onToggle={toggleLine} onMute={onMute} onReport={onReport} />
             ))}
-            {!lines.length && <li className="tchat-empty">No messages yet.</li>}
+            {!shown.length && <li className="tchat-empty">{view === 'dealer' ? 'No dealer lines yet.' : 'No messages yet.'}</li>}
           </ol>
           <form className="tchat-form" onSubmit={submit}>
             <input value={draft} maxLength={CHAT_MAX_CHARS} disabled={readOnly}

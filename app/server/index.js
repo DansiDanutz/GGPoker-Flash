@@ -24,7 +24,7 @@ import * as waitlist from './waitlist.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
-import { createChatService, createChatStore } from './chat.js';
+import { createChatService, createChatStore, dealerResultText, dealerStartText } from './chat.js';
 import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
@@ -500,6 +500,13 @@ const RUSH_POOL = createRushPool({
 
 const CUSTOM_CFG = new Map(); // tournament tables not stored in the cash-game table list
 
+// C4 dealer log (DanGG extra). Only tables someone is watching get lines, so
+// unattended bot tables do not grow chat_messages on every hand.
+function postDealerLine(tableId, text, key) {
+  if (!LIVE_TABLES.get(tableId)?.clients?.size) return;
+  try { chatService.addSystemLine(tableId, text, { key }); } catch (e) { console.error('dealer line', e); }
+}
+
 function tableRow(id) {
   return db.prepare('SELECT * FROM tables WHERE id = ?').get(id);
 }
@@ -516,7 +523,13 @@ function getLiveTable(id) {
     rakeCap: getSetting('rake_cap', 300),
   };
   const table = new PokerTable(cfg, {
-    onEvent: (t, evt) => broadcastTable(t, evt),
+    onEvent: (t, evt) => {
+      broadcastTable(t, evt);
+      // C4 dealer log (DanGG extra): one line per hand start.
+      if (evt.type === 'hand_start') {
+        postDealerLine(t.cfg.id, dealerStartText(evt.handNo), `start:${t.handId || evt.handNo}`);
+      }
+    },
     onHandSave: (h) => {
       try {
         db.prepare(`INSERT INTO hands (hand_id,hand_no,table_id,table_name,game,players,board,pot,result,hero_cards,actions)
@@ -552,6 +565,8 @@ function getLiveTable(id) {
         }
         RUSH_POOL.settleHand(h, table);
       } catch (e) { console.error('hand save', e); }
+      const resultText = dealerResultText(h.result);
+      if (resultText) postDealerLine(h.tableId, resultText, `result:${h.handId || h.handNo}`);
     },
     onTournamentPayout: (table, p) => {
       try {

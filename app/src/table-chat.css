@@ -37,6 +37,13 @@
 .tchat-self { color: var(--tchat-self); }
 .tchat-other { color: var(--tchat-other); }
 .tchat-reaction .tchat-text { color: var(--tchat-muted); }
+/* C4 dealer log (DanGG extra): muted system lines and the Chat / Dealer tabs. */
+.tchat-tabs { display: inline-flex; gap: 2px; }
+.tchat-tab { padding: 2px 8px; border-radius: 4px; color: var(--tchat-muted); font: inherit; text-transform: inherit; letter-spacing: inherit; }
+.tchat-tab:hover { color: #fff; }
+.tchat-tab.active { background: rgba(255, 255, 255, .1); color: #fff; }
+.tchat-system { color: var(--tchat-muted); font-style: italic; }
+.tchat-system .tchat-nick { color: var(--tchat-muted); }
 .tchat-empty { color: var(--tchat-muted); font-size: 12px; padding: 4px; }
 .tchat-line-actions { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: none; gap: 4px; }
 .tchat-line:hover .tchat-line-actions, .tchat-line:focus-within .tchat-line-actions, .tchat-line.active .tchat-line-actions { display: flex; }
