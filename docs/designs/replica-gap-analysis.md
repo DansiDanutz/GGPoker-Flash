@@ -34,7 +34,7 @@ native comparison or an explicit statement of what could not be observed.
 | Betting/settings parity | Codex verified defaults (2/3/4BB preflop, 33/50/75/100% postflop); DanGG implements the shortcuts. Enter-to-bet and the "Always confirm" option shipped 2026-11-12 (Settings → Betting), off by default. Still unverified: the native confirmation dialog's exact shape and whether it covers non-Enter bet paths |
 | Spectator mode | Shipped 2026-11-12: lobby **Watch** and tournament **Watch live** open a read-only view (public hand, board, stacks, results; hole cards hidden; no betting, table options or rabbit hunt; watching never seeds bots). Four HTTP/WebSocket tests; the watcher follows the field when a tournament table breaks. Not verified: native spectator counts or observer-chat rules |
 | Cross-room leaderboard | Codex: private room standings only; cross-room identity ranking missing in both |
-| Owner console | Multi-user permissions and in-app restore absent in both |
+| Owner console | Shipped 2026-11-12: role management (A1), backup download (A4), queued restore applied at restart (A7), audit/chat/transaction/user admin slices. Native parity not applicable. |
 | Visual / platform | Screen-by-screen comparison, accessibility and native packaging still open |
 
 Not a gap: the cashier. GGPoker has a wallet; DanGG is play-money by design.

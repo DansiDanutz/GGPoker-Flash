@@ -30,8 +30,9 @@ node tools/soak-tournament.mjs           # 60 bots, must PASS
 - **Rush (R1–R5):** pool module keyed by game+blinds, stake ladder + PLO Rush,
   pool lobby + leaderboard/info, admin-configurable Cash Drop (DanGG rule),
   fair FIFO queue with starvation bound.
-- **Admin (A1–A6):** role management, chat moderation, audit filters/CSV,
-  transaction filters/CSV, user search/pagination, DB backup download.
+- **Admin (A1–A7):** role management, chat moderation, audit filters/CSV,
+  transaction filters/CSV, user search/pagination, DB backup download, queued
+  restore applied at restart.
 - **Leaderboard (L1):** cross-room VIP/Elo/XP tabs, me-rank.
 - **Mobile fixes:** admin nav wrap, users card rows, compact leaderboard
   podium, page overflow 0 at 390×844.
