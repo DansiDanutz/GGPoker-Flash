@@ -18,10 +18,10 @@ import { visiblePools } from '../lib/rushPools';
 import { CASHDROP_RULE_LABEL, cashDropRateLabel } from '../lib/cashDrop';
 
 const PROMOS = [
-  { full: true, title: 'Daily $100,000 Flipout', sub: 'Daily jackpots · 6/9-max tables', to: '/tournaments' },
+  { full: true, title: 'Daily Chip Flipout', sub: 'Daily jackpots · 6/9-max tables', to: '/tournaments' },
   { img: '/assets/ui/discover/Bg_Discover_AoF.png', bg: 'radial-gradient(120% 160% at 18% 10%, #3c1b17, #150c0b 68%)', title: 'All-in or Fold', sub: 'One decision. Fast action.', to: '/?tab=aof' },
   { img: '/assets/ui/discover/Bg_Discover_Leaderboard_PLO6.png', bg: 'radial-gradient(120% 160% at 15% 10%, #1a2740, #0a111d 70%)', title: 'PLO6 is live', sub: 'Six cards. Six-max. More outs.', to: '/?tab=plo' },
-  { img: '/assets/ui/discover/Bg_Discover_GGcare.png', bg: 'radial-gradient(120% 160% at 18% 10%, #3a2a12, #140f08 70%)', title: 'GG Care', sub: 'Daily rewards and community drops', to: '/ggcare' },
+  { img: '/assets/ui/discover/Bg_Discover_GGcare.png', bg: 'radial-gradient(120% 160% at 18% 10%, #3a2a12, #140f08 70%)', title: 'Player Care', sub: 'Daily rewards and community drops', to: '/ggcare' },
 ];
 
 const PREVIEW_SEATS = [
@@ -319,7 +319,7 @@ export function Lobby() {
             <div className="rush-hero">
               <div className="rush-hero-bg" style={{ backgroundImage: "url('/assets/ui/discover/Bg_Discover_RushNCash_Holdem.png')" }} />
               <div className="rush-hero-copy">
-                <small>RUSH &amp; CASH</small>
+                <small>FAST FOLD</small>
                 <b>Fold. Move. Play again.</b>
                 <span>Quick-fold to a fresh table with the same stack. Look out for Cash Drops.</span>
               </div>
@@ -455,14 +455,14 @@ export function Lobby() {
           <button className="cashier-btn" onClick={() => { sound.play('coin'); navigate('/cashier'); }}>Cashier</button>
           <div className="rail-sep" />
           <button className="rail-btn" onClick={() => navigate('/propbet')}><span className="ico">🎯</span>Prop Bet</button>
-          <button className="rail-btn" onClick={() => navigate('/rewards')}><span className="ico">🐟</span>GG Left</button>
+          <button className="rail-btn" onClick={() => navigate('/rewards')}><span className="ico">🐟</span>Rewards</button>
           <button className="rail-btn" onClick={() => navigate('/promotions')}><span className="ico">🎁</span>My Promo</button>
           <div className="rail-sep" />
           <button className="rail-btn" onClick={() => navigate('/my-page')}><span className="ico">👤</span>My Page</button>
           <button className="rail-btn" onClick={() => navigate('/missions')}><span className="ico">📋</span>Missions</button>
           <button className="rail-btn" onClick={() => navigate('/leaderboard')}><span className="ico">🏆</span>Leaders</button>
           <div style={{ flex: 1 }} />
-          <button className="rail-btn gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>GGPass</button>
+          <button className="rail-btn gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>DanGG Pass</button>
         </div>
       </div>
 

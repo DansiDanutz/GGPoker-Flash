@@ -23,10 +23,10 @@ const TABS = [
 ];
 
 const PROMOS = [
-  ['Daily $100,000 Flipout', '#ThanksGG', '/assets/chrome/promo.png'],
-  ['Fish Buffet', 'Spin the wheel', '/assets/ui/discover/Bg_Discover_Fishbuffet.png'],
-  ['GG Care', 'Bad beat protection', '/assets/ui/discover/Bg_Discover_GGcare.png'],
-  ['Honeymoon Bonus', 'New player package', '/assets/ui/discover/Bg_Discover_Honeymoon.png'],
+  ['Daily Chip Flipout', '#ThanksDanGG', '/assets/chrome/promo.png'],
+  ['Prize Wheel', 'Spin the wheel', '/assets/ui/discover/Bg_Discover_Fishbuffet.png'],
+  ['Player Care', 'Bad beat protection', '/assets/ui/discover/Bg_Discover_GGcare.png'],
+  ['Welcome Bonus', 'New player package', '/assets/ui/discover/Bg_Discover_Honeymoon.png'],
 ];
 
 export function MyPage() {
@@ -162,7 +162,7 @@ export function MyPage() {
                 ))}
               </div>
               <div className="card" onClick={() => navigate('/rewards')} style={{ cursor: 'pointer' }}>
-                <div className="panel-title">GGPass</div>
+                <div className="panel-title">DanGG Pass</div>
                 <div className="kv"><span>Level</span><b>{level}</b></div>
                 <div className="kv"><span>VIP points</span><b>{(user?.vip_points ?? 0).toLocaleString()}</b></div>
                 <div className="kv"><span>Next reward</span><b className="gold">T$5 ticket</b></div>

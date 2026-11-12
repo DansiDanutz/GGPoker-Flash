@@ -20,20 +20,20 @@ export function Promotions() {
   }, []);
 
   const promos = [
-    { title: 'Daily $100,000 Flipout', sub: '#ThanksGG · every day', img: '/assets/ui/discover/Bg_Discover_Leaderboard_FlipNGo.png', tag: 'All-in' },
-    { title: 'Fish Buffet', sub: 'Spin the wheel, win up to 100,000x', img: '/assets/ui/discover/Bg_Discover_Fishbuffet.png', tag: 'Rewards', link: '/rewards' },
-    { title: 'GG Care', sub: 'Bad beat protection & daily prizes', img: '/assets/ui/discover/Bg_Discover_GGcare.png', tag: 'Cashback', link: '/ggcare' },
-    { title: 'Ocean Rewards', sub: 'Collect gems, climb the reef', img: '/assets/ui/discover/D_Discover_OceanRewards_Whale.png', tag: 'Rewards', link: '/ocean' },
+    { title: 'Daily Chip Flipout', sub: '#ThanksDanGG · every day', img: '/assets/ui/discover/Bg_Discover_Leaderboard_FlipNGo.png', tag: 'All-in' },
+    { title: 'Prize Wheel', sub: 'Spin the wheel, win up to 100,000x', img: '/assets/ui/discover/Bg_Discover_Fishbuffet.png', tag: 'Rewards', link: '/rewards' },
+    { title: 'Player Care', sub: 'Bad beat protection & daily prizes', img: '/assets/ui/discover/Bg_Discover_GGcare.png', tag: 'Cashback', link: '/ggcare' },
+    { title: 'DanGG Rewards', sub: 'Collect gems, climb the reef', img: '/assets/ui/discover/D_Discover_OceanRewards_Whale.png', tag: 'Rewards', link: '/ocean' },
     { title: 'Hold’em Leaderboards', sub: '$50,000 weekly race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_Holdem.png', tag: 'Leaderboard' },
-    { title: 'Mystery Battle Royale', sub: 'Bounty tournaments with hidden prizes', img: '/assets/ui/discover/Bg_Discover_Leaderboard_MysterBattleRoyal.png', tag: 'Tournament' },
-    { title: 'Honeymoon Bonus', sub: 'New player welcome package', img: '/assets/ui/discover/Bg_Discover_Honeymoon.png', tag: 'Bonus' },
+    { title: 'Battle Royale', sub: 'Bounty tournaments with hidden prizes', img: '/assets/ui/discover/Bg_Discover_Leaderboard_MysterBattleRoyal.png', tag: 'Tournament' },
+    { title: 'Welcome Bonus', sub: 'New player welcome package', img: '/assets/ui/discover/Bg_Discover_Honeymoon.png', tag: 'Bonus' },
     { title: 'Weekly Freeroll', sub: 'Free entry, real prizes', img: '/assets/ui/discover/Bg_Discove_WeeklyFreeroll_EN.png', tag: 'Freeroll' },
     { title: 'After The Fold', sub: 'Win your share of $40,000 daily', img: '/assets/ui/discover/Bg_Discover_AoF.png', tag: 'All-in or Fold' },
     { title: 'Daily Freebie', sub: 'A free gift every day', img: '/assets/ui/discover/Bg_Discover_DailyFreebie.png', tag: 'Gift' },
     { title: 'Casino Bonus', sub: 'Weekly casino free spins', img: '/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png', tag: 'Casino' },
-    { title: 'Fish Buffet Platinum', sub: 'Higher ranks, bigger wheels', img: '/assets/ui/discover/Bg_Discover_Fishbuffet_Platinum.png', tag: 'Rewards' },
-    { title: 'Spin & Gold Leaderboard', sub: 'Weekly SNG race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_SpinNGold.png', tag: 'Leaderboard' },
-    { title: 'Rush & Cash Leaderboard', sub: 'Fast-fold race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_RushNCash_Holdem.png', tag: 'Leaderboard' },
+    { title: 'Prize Wheel Platinum', sub: 'Higher ranks, bigger wheels', img: '/assets/ui/discover/Bg_Discover_Fishbuffet_Platinum.png', tag: 'Rewards' },
+    { title: 'Jackpot SNG Leaderboard', sub: 'Weekly SNG race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_SpinNGold.png', tag: 'Leaderboard' },
+    { title: 'Fast Fold Leaderboard', sub: 'Fast-fold race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_RushNCash_Holdem.png', tag: 'Leaderboard' },
     { title: 'Short Deck Leaderboard', sub: 'Six-plus race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_ShortDeck.png', tag: 'Leaderboard' },
   ];
 

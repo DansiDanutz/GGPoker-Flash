@@ -129,7 +129,7 @@ export function Tournaments() {
           <div className="th-bg" style={SERIES_ART[filters.category] ? { backgroundImage: `url(${SERIES_ART[filters.category]})` } : undefined} />
           <div className="th-content">
             <div className="th-kicker">TOURNAMENT SERIES</div>
-            <h1>{featured?.name || 'Daily $100,000 Flipout'}</h1>
+            <h1>{featured?.name || 'Daily Chip Flipout'}</h1>
             <div className="th-meta">
               <div><span>Guaranteed</span><b>{money(featured?.gtd || 10000000, true)}</b></div>
               <div><span>Buy-in</span><b>{featured ? money(featured.buyin + featured.fee) : '$27.50'}</b></div>

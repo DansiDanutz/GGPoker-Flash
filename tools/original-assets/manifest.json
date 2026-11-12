@@ -1,0 +1,2638 @@
+[
+ {
+  "path": "cards/back_green.png",
+  "bytes": 21937,
+  "width": 105,
+  "height": 157
+ },
+ {
+  "path": "cards/backs/black-pattern.png",
+  "bytes": 14498,
+  "width": 122,
+  "height": 162
+ },
+ {
+  "path": "cards/backs/blue-pattern.png",
+  "bytes": 14102,
+  "width": 122,
+  "height": 162
+ },
+ {
+  "path": "cards/backs/gg-gray.png",
+  "bytes": 6248,
+  "width": 122,
+  "height": 162
+ },
+ {
+  "path": "cards/backs/gray-pattern.png",
+  "bytes": 13706,
+  "width": 122,
+  "height": 162
+ },
+ {
+  "path": "cards/backs/green-pattern.png",
+  "bytes": 13645,
+  "width": 122,
+  "height": 162
+ },
+ {
+  "path": "cards/backs/orange-pattern.png",
+  "bytes": 13913,
+  "width": 122,
+  "height": 162
+ },
+ {
+  "path": "cards/backs/pink-pattern.png",
+  "bytes": 14436,
+  "width": 122,
+  "height": 162
+ },
+ {
+  "path": "cards/backs/red-pattern.png",
+  "bytes": 15194,
+  "width": 122,
+  "height": 162
+ },
+ {
+  "path": "cards/backs/red-plain.png",
+  "bytes": 3336,
+  "width": 122,
+  "height": 162
+ },
+ {
+  "path": "cards/faces_classic.png",
+  "bytes": 315704,
+  "width": 1586,
+  "height": 648
+ },
+ {
+  "path": "cards/faces_classic_four.png",
+  "bytes": 319374,
+  "width": 1586,
+  "height": 648
+ },
+ {
+  "path": "cards/faces_filled.png",
+  "bytes": 291473,
+  "width": 1586,
+  "height": 648
+ },
+ {
+  "path": "cards/faces_four.png",
+  "bytes": 175004,
+  "width": 1586,
+  "height": 648
+ },
+ {
+  "path": "cards/faces_gold.png",
+  "bytes": 177592,
+  "width": 1586,
+  "height": 648
+ },
+ {
+  "path": "cards/faces_two.png",
+  "bytes": 172965,
+  "width": 1586,
+  "height": 648
+ },
+ {
+  "path": "chips/native-chip-1.png",
+  "bytes": 2002,
+  "width": 36,
+  "height": 35
+ },
+ {
+  "path": "chips/native-chip-100.png",
+  "bytes": 1714,
+  "width": 36,
+  "height": 35
+ },
+ {
+  "path": "chips/native-chip-25.png",
+  "bytes": 1779,
+  "width": 36,
+  "height": 35
+ },
+ {
+  "path": "chips/native-chip-5.png",
+  "bytes": 1663,
+  "width": 36,
+  "height": 35
+ },
+ {
+  "path": "chips/native-chip-shuffle.png",
+  "bytes": 4915450,
+  "width": 2320,
+  "height": 2640
+ },
+ {
+  "path": "chrome/jackpot.png",
+  "bytes": 28361,
+  "width": 324,
+  "height": 51
+ },
+ {
+  "path": "chrome/promo.png",
+  "bytes": 171994,
+  "width": 845,
+  "height": 143
+ },
+ {
+  "path": "chrome/splash.png",
+  "bytes": 618870,
+  "width": 800,
+  "height": 481
+ },
+ {
+  "path": "chrome/tab_aof.png",
+  "bytes": 7254,
+  "width": 135,
+  "height": 50
+ },
+ {
+  "path": "chrome/tab_battle.png",
+  "bytes": 7797,
+  "width": 135,
+  "height": 50
+ },
+ {
+  "path": "chrome/tab_holdem.png",
+  "bytes": 3779,
+  "width": 135,
+  "height": 50
+ },
+ {
+  "path": "chrome/tab_home.png",
+  "bytes": 3692,
+  "width": 141,
+  "height": 50
+ },
+ {
+  "path": "chrome/tab_plo.png",
+  "bytes": 2357,
+  "width": 135,
+  "height": 50
+ },
+ {
+  "path": "chrome/tab_rush.png",
+  "bytes": 7140,
+  "width": 134,
+  "height": 50
+ },
+ {
+  "path": "chrome/tab_short.png",
+  "bytes": 5122,
+  "width": 135,
+  "height": 50
+ },
+ {
+  "path": "chrome/tab_spin.png",
+  "bytes": 6138,
+  "width": 134,
+  "height": 50
+ },
+ {
+  "path": "login/hero-mobile.png",
+  "bytes": 636241,
+  "width": 840,
+  "height": 630
+ },
+ {
+  "path": "login/hero.png",
+  "bytes": 971533,
+  "width": 860,
+  "height": 964
+ },
+ {
+  "path": "ocean/Banner_Ocean_Whale.png",
+  "bytes": 220151,
+  "width": 816,
+  "height": 400
+ },
+ {
+  "path": "ocean/Ocean_Rewards_Rank_0.png",
+  "bytes": 42916,
+  "width": 169,
+  "height": 182
+ },
+ {
+  "path": "ocean/Ocean_Rewards_Rank_1.png",
+  "bytes": 69308,
+  "width": 247,
+  "height": 339
+ },
+ {
+  "path": "ocean/Ocean_Rewards_Rank_2.png",
+  "bytes": 133027,
+  "width": 393,
+  "height": 342
+ },
+ {
+  "path": "ocean/Ocean_Rewards_Rank_3.png",
+  "bytes": 104712,
+  "width": 256,
+  "height": 339
+ },
+ {
+  "path": "ocean/Ocean_Rewards_Rank_4.png",
+  "bytes": 205340,
+  "width": 412,
+  "height": 450
+ },
+ {
+  "path": "ocean/Ocean_Rewards_Rank_5.png",
+  "bytes": 127575,
+  "width": 325,
+  "height": 398
+ },
+ {
+  "path": "ocean/Ocean_Rewards_Rank_6.png",
+  "bytes": 114418,
+  "width": 390,
+  "height": 439
+ },
+ {
+  "path": "ocean/Ocean_Rewards_Rank_7.png",
+  "bytes": 163399,
+  "width": 449,
+  "height": 416
+ },
+ {
+  "path": "reserved/native-reserved-background.png",
+  "bytes": 666,
+  "width": 40,
+  "height": 40
+ },
+ {
+  "path": "reserved/native-reserved-box.png",
+  "bytes": 528,
+  "width": 26,
+  "height": 26
+ },
+ {
+  "path": "reserved/native-reserved-check.png",
+  "bytes": 548,
+  "width": 23,
+  "height": 17
+ },
+ {
+  "path": "reserved/native-reserved-hover.png",
+  "bytes": 505,
+  "width": 26,
+  "height": 26
+ },
+ {
+  "path": "reserved/native-reserved-selected.png",
+  "bytes": 733,
+  "width": 26,
+  "height": 26
+ },
+ {
+  "path": "sounds/AofBingoComplete.mp3",
+  "bytes": 32249,
+  "seconds": 1.862688
+ },
+ {
+  "path": "sounds/AofBingoLine.mp3",
+  "bytes": 22879,
+  "seconds": 0.499525
+ },
+ {
+  "path": "sounds/AofBingoMarking.mp3",
+  "bytes": 15376,
+  "seconds": 0.870265
+ },
+ {
+  "path": "sounds/AofBingoMatching.mp3",
+  "bytes": 30514,
+  "seconds": 1.732063
+ },
+ {
+  "path": "sounds/AofBingoslot.mp3",
+  "bytes": 127895,
+  "seconds": 10.126667
+ },
+ {
+  "path": "sounds/AofButton.mp3",
+  "bytes": 10280,
+  "seconds": 0.358821
+ },
+ {
+  "path": "sounds/BgmLobby.mp3",
+  "bytes": 1870363,
+  "seconds": 46.5872
+ },
+ {
+  "path": "sounds/BubbleInWater.mp3",
+  "bytes": 18438,
+  "seconds": 0.689025
+ },
+ {
+  "path": "sounds/CoinDrop.mp3",
+  "bytes": 125835,
+  "seconds": 5.182563
+ },
+ {
+  "path": "sounds/FishBubblePop.mp3",
+  "bytes": 37700,
+  "seconds": 1.5
+ },
+ {
+  "path": "sounds/FishWheelCelebration.mp3",
+  "bytes": 131277,
+  "seconds": 5.400023
+ },
+ {
+  "path": "sounds/FishWheelStuckHigh.mp3",
+  "bytes": 12019,
+  "seconds": 0.343594
+ },
+ {
+  "path": "sounds/FishWheelStuckLow.mp3",
+  "bytes": 4496,
+  "seconds": 0.1085
+ },
+ {
+  "path": "sounds/MissionReward.mp3",
+  "bytes": 19057,
+  "seconds": 0.725624
+ },
+ {
+  "path": "sounds/NotificationTimeBank.mp3",
+  "bytes": 18428,
+  "seconds": 0.687483
+ },
+ {
+  "path": "sounds/NotificationTimeBankChime.mp3",
+  "bytes": 11676,
+  "seconds": 0.1337
+ },
+ {
+  "path": "sounds/NotificationTimeTurnToAct.mp3",
+  "bytes": 13413,
+  "seconds": 0.486032
+ },
+ {
+  "path": "sounds/NotificationTimeWinding.mp3",
+  "bytes": 16896,
+  "seconds": 0.2642
+ },
+ {
+  "path": "sounds/SoundAllIn.mp3",
+  "bytes": 197734,
+  "seconds": 8.155351
+ },
+ {
+  "path": "sounds/SoundAllInAoF.mp3",
+  "bytes": 109722,
+  "seconds": 2.5712
+ },
+ {
+  "path": "sounds/SoundAofDynamiteBomb.mp3",
+  "bytes": 69976,
+  "seconds": 1.5632
+ },
+ {
+  "path": "sounds/SoundAofDynamiteFuse.mp3",
+  "bytes": 261460,
+  "seconds": 16.125563
+ },
+ {
+  "path": "sounds/SoundBet.mp3",
+  "bytes": 7142,
+  "seconds": 0.216871
+ },
+ {
+  "path": "sounds/SoundBoard.mp3",
+  "bytes": 6525,
+  "seconds": 0.185986
+ },
+ {
+  "path": "sounds/SoundBountyBullet.mp3",
+  "bytes": 33169,
+  "seconds": 1.565669
+ },
+ {
+  "path": "sounds/SoundBubbleEffect.mp3",
+  "bytes": 66243,
+  "seconds": 2.645333
+ },
+ {
+  "path": "sounds/SoundCall.mp3",
+  "bytes": 10278,
+  "seconds": 0.349365
+ },
+ {
+  "path": "sounds/SoundCashdropBig.mp3",
+  "bytes": 135043,
+  "seconds": 5.564082
+ },
+ {
+  "path": "sounds/SoundCashdropGet.mp3",
+  "bytes": 21567,
+  "seconds": 0.835918
+ },
+ {
+  "path": "sounds/SoundCashdropSmall.mp3",
+  "bytes": 57305,
+  "seconds": 2.324898
+ },
+ {
+  "path": "sounds/SoundCashdropSweep.mp3",
+  "bytes": 22822,
+  "seconds": 0.888163
+ },
+ {
+  "path": "sounds/SoundCashdropTable.mp3",
+  "bytes": 44139,
+  "seconds": 1.776327
+ },
+ {
+  "path": "sounds/SoundCheck.mp3",
+  "bytes": 10906,
+  "seconds": 0.367029
+ },
+ {
+  "path": "sounds/SoundCrpFadeIn.mp3",
+  "bytes": 19683,
+  "seconds": 0.75
+ },
+ {
+  "path": "sounds/SoundDealCard.mp3",
+  "bytes": 5266,
+  "seconds": 0.147551
+ },
+ {
+  "path": "sounds/SoundFold.mp3",
+  "bytes": 10905,
+  "seconds": 0.382222
+ },
+ {
+  "path": "sounds/SoundGatherChips.mp3",
+  "bytes": 24694,
+  "seconds": 0.960544
+ },
+ {
+  "path": "sounds/SoundJackPotAof.mp3",
+  "bytes": 62944,
+  "seconds": 2.53839
+ },
+ {
+  "path": "sounds/SoundJackPotFlush.mp3",
+  "bytes": 112585,
+  "seconds": 5.537868
+ },
+ {
+  "path": "sounds/SoundJackPotFlushMade.mp3",
+  "bytes": 35987,
+  "seconds": 1.436735
+ },
+ {
+  "path": "sounds/SoundJackPotFlushPlayer.mp3",
+  "bytes": 48325,
+  "seconds": 2.320544
+ },
+ {
+  "path": "sounds/SoundJackPotToast.mp3",
+  "bytes": 59807,
+  "seconds": 1.3232
+ },
+ {
+  "path": "sounds/SoundRERCashDropLight.mp3",
+  "bytes": 56030,
+  "seconds": 3.08242
+ },
+ {
+  "path": "sounds/SoundRERCashDropSmall.mp3",
+  "bytes": 102583,
+  "seconds": 2.878336
+ },
+ {
+  "path": "sounds/SoundRabbitCard.mp3",
+  "bytes": 5041,
+  "seconds": 0.3135
+ },
+ {
+  "path": "sounds/SoundRaise.mp3",
+  "bytes": 11533,
+  "seconds": 0.393288
+ },
+ {
+  "path": "sounds/SoundSNGWheelStuckHigh.mp3",
+  "bytes": 9511,
+  "seconds": 0.265219
+ },
+ {
+  "path": "sounds/SoundSNGWheelStuckLow.mp3",
+  "bytes": 6168,
+  "seconds": 0.16075
+ },
+ {
+  "path": "sounds/SoundShowCard.mp3",
+  "bytes": 8397,
+  "seconds": 0.265737
+ },
+ {
+  "path": "sounds/SoundShuffleCombine.mp3",
+  "bytes": 2507,
+  "seconds": 0.313375
+ },
+ {
+  "path": "sounds/SoundShuffleOther.mp3",
+  "bytes": 21524,
+  "seconds": 2.6905
+ },
+ {
+  "path": "sounds/SoundShuffleUp.mp3",
+  "bytes": 2089,
+  "seconds": 0.261125
+ },
+ {
+  "path": "sounds/SoundSngBigWin.mp3",
+  "bytes": 175709,
+  "seconds": 10.808
+ },
+ {
+  "path": "sounds/SoundSngChallengeCoin.mp3",
+  "bytes": 30050,
+  "seconds": 1.705938
+ },
+ {
+  "path": "sounds/SoundSngChallengeFail.mp3",
+  "bytes": 30571,
+  "seconds": 1.990667
+ },
+ {
+  "path": "sounds/SoundSngChallengeSuccess.mp3",
+  "bytes": 22177,
+  "seconds": 1.3845
+ },
+ {
+  "path": "sounds/SoundSngFireworks.mp3",
+  "bytes": 31093,
+  "seconds": 2.361667
+ },
+ {
+  "path": "sounds/SoundSngInsuranceText.mp3",
+  "bytes": 27555,
+  "seconds": 1.54925
+ },
+ {
+  "path": "sounds/SoundSngPrizeCheers.mp3",
+  "bytes": 27555,
+  "seconds": 1.54925
+ },
+ {
+  "path": "sounds/SoundSngWheelBaseLight.mp3",
+  "bytes": 76512,
+  "seconds": 4.780438
+ },
+ {
+  "path": "sounds/SoundSngWheelCountStart.mp3",
+  "bytes": 21566,
+  "seconds": 1.270667
+ },
+ {
+  "path": "sounds/SoundSngWheelFrameEffect.mp3",
+  "bytes": 27234,
+  "seconds": 1.54925
+ },
+ {
+  "path": "sounds/SoundSngWheelFrameLight.mp3",
+  "bytes": 48967,
+  "seconds": 2.907563
+ },
+ {
+  "path": "sounds/SoundSqueezeOpen.mp3",
+  "bytes": 7462,
+  "seconds": 0.645286
+ },
+ {
+  "path": "sounds/SoundSqueezeRaise.mp3",
+  "bytes": 6671,
+  "seconds": 0.243125
+ },
+ {
+  "path": "sounds/SoundTournamentWin.mp3",
+  "bytes": 230425,
+  "seconds": 11.52
+ },
+ {
+  "path": "sounds/SoundWinCongratulation.mp3",
+  "bytes": 89900,
+  "seconds": 3.668231
+ },
+ {
+  "path": "sounds/SoundWinPot.mp3",
+  "bytes": 23441,
+  "seconds": 0.900907
+ },
+ {
+  "path": "sounds/VoiceAllIn.mp3",
+  "bytes": 42996,
+  "seconds": 0.9167
+ },
+ {
+  "path": "sounds/VoiceBet.mp3",
+  "bytes": 34644,
+  "seconds": 0.7079
+ },
+ {
+  "path": "sounds/VoiceCall.mp3",
+  "bytes": 34644,
+  "seconds": 0.7079
+ },
+ {
+  "path": "sounds/VoiceCheck.mp3",
+  "bytes": 32556,
+  "seconds": 0.6557
+ },
+ {
+  "path": "sounds/VoiceFold.mp3",
+  "bytes": 34644,
+  "seconds": 0.7079
+ },
+ {
+  "path": "sounds/VoiceRaise.mp3",
+  "bytes": 38820,
+  "seconds": 0.8123
+ },
+ {
+  "path": "sounds/VoiceStraddle.mp3",
+  "bytes": 35688,
+  "seconds": 0.734
+ },
+ {
+  "path": "sounds/tick.mp3",
+  "bytes": 4681,
+  "seconds": 0.268367
+ },
+ {
+  "path": "squeeze/native-squeeze-felt.png",
+  "bytes": 117420,
+  "width": 323,
+  "height": 262
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem.json",
+  "bytes": 35030
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0000.png",
+  "bytes": 75568,
+  "width": 347,
+  "height": 237
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0001.png",
+  "bytes": 75380,
+  "width": 347,
+  "height": 236
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0002.png",
+  "bytes": 74811,
+  "width": 347,
+  "height": 235
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0003.png",
+  "bytes": 74694,
+  "width": 347,
+  "height": 234
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0004.png",
+  "bytes": 74274,
+  "width": 347,
+  "height": 232
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0005.png",
+  "bytes": 73912,
+  "width": 347,
+  "height": 230
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0006.png",
+  "bytes": 73500,
+  "width": 347,
+  "height": 227
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0007.png",
+  "bytes": 73080,
+  "width": 347,
+  "height": 224
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0008.png",
+  "bytes": 72314,
+  "width": 347,
+  "height": 220
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0009.png",
+  "bytes": 71478,
+  "width": 347,
+  "height": 216
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0010.png",
+  "bytes": 70666,
+  "width": 347,
+  "height": 211
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0011.png",
+  "bytes": 69633,
+  "width": 347,
+  "height": 206
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0012.png",
+  "bytes": 68732,
+  "width": 347,
+  "height": 200
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0013.png",
+  "bytes": 67472,
+  "width": 347,
+  "height": 194
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0014.png",
+  "bytes": 66377,
+  "width": 347,
+  "height": 187
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0015.png",
+  "bytes": 64991,
+  "width": 347,
+  "height": 181
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0016.png",
+  "bytes": 63654,
+  "width": 347,
+  "height": 175
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0017.png",
+  "bytes": 61917,
+  "width": 347,
+  "height": 170
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0018.png",
+  "bytes": 59912,
+  "width": 347,
+  "height": 166
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0019.png",
+  "bytes": 58125,
+  "width": 347,
+  "height": 163
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0020.png",
+  "bytes": 56843,
+  "width": 347,
+  "height": 160
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0021.png",
+  "bytes": 55049,
+  "width": 347,
+  "height": 158
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0022.png",
+  "bytes": 53330,
+  "width": 347,
+  "height": 156
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0023.png",
+  "bytes": 51468,
+  "width": 347,
+  "height": 155
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0024.png",
+  "bytes": 49764,
+  "width": 347,
+  "height": 153
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0025.png",
+  "bytes": 47994,
+  "width": 347,
+  "height": 152
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0026.png",
+  "bytes": 46405,
+  "width": 347,
+  "height": 151
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0027.png",
+  "bytes": 45151,
+  "width": 347,
+  "height": 150
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0028.png",
+  "bytes": 43882,
+  "width": 347,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0029.png",
+  "bytes": 42704,
+  "width": 347,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0030.png",
+  "bytes": 41513,
+  "width": 347,
+  "height": 148
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0031.png",
+  "bytes": 40278,
+  "width": 347,
+  "height": 147
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0032.png",
+  "bytes": 39777,
+  "width": 347,
+  "height": 147
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0033.png",
+  "bytes": 39134,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0034.png",
+  "bytes": 38749,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0035.png",
+  "bytes": 38146,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0036.png",
+  "bytes": 37521,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0037.png",
+  "bytes": 37424,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0038.png",
+  "bytes": 37380,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0039.png",
+  "bytes": 37299,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0040.png",
+  "bytes": 37009,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0041.png",
+  "bytes": 37113,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0042.png",
+  "bytes": 36602,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0043.png",
+  "bytes": 36477,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0044.png",
+  "bytes": 36371,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0045.png",
+  "bytes": 35685,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0046.png",
+  "bytes": 35169,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0047.png",
+  "bytes": 34660,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0048.png",
+  "bytes": 33957,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0049.png",
+  "bytes": 33433,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0050.png",
+  "bytes": 32619,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0051.png",
+  "bytes": 32116,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0052.png",
+  "bytes": 31598,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0053.png",
+  "bytes": 31101,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0054.png",
+  "bytes": 30477,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0055.png",
+  "bytes": 30510,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0056.png",
+  "bytes": 30035,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0057.png",
+  "bytes": 29410,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0058.png",
+  "bytes": 29203,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0059.png",
+  "bytes": 29023,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-holdem0060.png",
+  "bytes": 29090,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-inner.png",
+  "bytes": 216501,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "squeeze/native-squeeze-open-down.png",
+  "bytes": 16807,
+  "width": 148,
+  "height": 94
+ },
+ {
+  "path": "squeeze/native-squeeze-open.png",
+  "bytes": 18125,
+  "width": 148,
+  "height": 94
+ },
+ {
+  "path": "squeeze/native-squeeze-plo-inner.png",
+  "bytes": 160273,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "squeeze/native-squeeze-plo.json",
+  "bytes": 62480
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0000.png",
+  "bytes": 76350,
+  "width": 349,
+  "height": 239
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0001.png",
+  "bytes": 76306,
+  "width": 349,
+  "height": 239
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0002.png",
+  "bytes": 75458,
+  "width": 349,
+  "height": 237
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0003.png",
+  "bytes": 75145,
+  "width": 349,
+  "height": 235
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0004.png",
+  "bytes": 74577,
+  "width": 349,
+  "height": 231
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0005.png",
+  "bytes": 73847,
+  "width": 349,
+  "height": 226
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0006.png",
+  "bytes": 72808,
+  "width": 349,
+  "height": 221
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0007.png",
+  "bytes": 71380,
+  "width": 349,
+  "height": 214
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0008.png",
+  "bytes": 70074,
+  "width": 349,
+  "height": 206
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0009.png",
+  "bytes": 68734,
+  "width": 349,
+  "height": 198
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0010.png",
+  "bytes": 66857,
+  "width": 349,
+  "height": 189
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0011.png",
+  "bytes": 65108,
+  "width": 349,
+  "height": 180
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0012.png",
+  "bytes": 62793,
+  "width": 349,
+  "height": 173
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0013.png",
+  "bytes": 60046,
+  "width": 349,
+  "height": 168
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0014.png",
+  "bytes": 57328,
+  "width": 349,
+  "height": 163
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0015.png",
+  "bytes": 55114,
+  "width": 349,
+  "height": 160
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0016.png",
+  "bytes": 52836,
+  "width": 349,
+  "height": 158
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0017.png",
+  "bytes": 50328,
+  "width": 349,
+  "height": 156
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0018.png",
+  "bytes": 48281,
+  "width": 349,
+  "height": 154
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0019.png",
+  "bytes": 46205,
+  "width": 349,
+  "height": 153
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0020.png",
+  "bytes": 44692,
+  "width": 349,
+  "height": 152
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0021.png",
+  "bytes": 42983,
+  "width": 349,
+  "height": 151
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0022.png",
+  "bytes": 41736,
+  "width": 349,
+  "height": 150
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0023.png",
+  "bytes": 40975,
+  "width": 349,
+  "height": 150
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0024.png",
+  "bytes": 39605,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0025.png",
+  "bytes": 38953,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0026.png",
+  "bytes": 38365,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0027.png",
+  "bytes": 38408,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0028.png",
+  "bytes": 38143,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0029.png",
+  "bytes": 37966,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0030.png",
+  "bytes": 38005,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0031.png",
+  "bytes": 37361,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0032.png",
+  "bytes": 37025,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0033.png",
+  "bytes": 36599,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0034.png",
+  "bytes": 35954,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0035.png",
+  "bytes": 35593,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0036.png",
+  "bytes": 34884,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0037.png",
+  "bytes": 34351,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0038.png",
+  "bytes": 34112,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0039.png",
+  "bytes": 33602,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0040.png",
+  "bytes": 33268,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0041.png",
+  "bytes": 33188,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0042.png",
+  "bytes": 32401,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0043.png",
+  "bytes": 32045,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0044.png",
+  "bytes": 31468,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0045.png",
+  "bytes": 31010,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0046.png",
+  "bytes": 30673,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0047.png",
+  "bytes": 30485,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0048.png",
+  "bytes": 30240,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0049.png",
+  "bytes": 30134,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0050.png",
+  "bytes": 29825,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0051.png",
+  "bytes": 29909,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0052.png",
+  "bytes": 30166,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0053.png",
+  "bytes": 29687,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0054.png",
+  "bytes": 30137,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0055.png",
+  "bytes": 29608,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0056.png",
+  "bytes": 29644,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0057.png",
+  "bytes": 29712,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0058.png",
+  "bytes": 29655,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0059.png",
+  "bytes": 29667,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo0060.png",
+  "bytes": 29797,
+  "width": 349,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo5-inner.png",
+  "bytes": 176620,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "squeeze/native-squeeze-plo5.json",
+  "bytes": 90983
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50000.png",
+  "bytes": 120090,
+  "width": 347,
+  "height": 233
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50001.png",
+  "bytes": 118853,
+  "width": 347,
+  "height": 231
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50002.png",
+  "bytes": 117801,
+  "width": 347,
+  "height": 227
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50003.png",
+  "bytes": 115844,
+  "width": 347,
+  "height": 219
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50004.png",
+  "bytes": 112929,
+  "width": 347,
+  "height": 210
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50005.png",
+  "bytes": 108746,
+  "width": 347,
+  "height": 197
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50006.png",
+  "bytes": 104274,
+  "width": 347,
+  "height": 182
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50007.png",
+  "bytes": 98606,
+  "width": 347,
+  "height": 169
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50008.png",
+  "bytes": 92467,
+  "width": 347,
+  "height": 161
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50009.png",
+  "bytes": 86474,
+  "width": 347,
+  "height": 155
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50010.png",
+  "bytes": 81207,
+  "width": 347,
+  "height": 152
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50011.png",
+  "bytes": 75471,
+  "width": 347,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50012.png",
+  "bytes": 70317,
+  "width": 347,
+  "height": 147
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50013.png",
+  "bytes": 66982,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50014.png",
+  "bytes": 63698,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50015.png",
+  "bytes": 61902,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50016.png",
+  "bytes": 61528,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50017.png",
+  "bytes": 61307,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50018.png",
+  "bytes": 61020,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50019.png",
+  "bytes": 60942,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50020.png",
+  "bytes": 60355,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50021.png",
+  "bytes": 60244,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50022.png",
+  "bytes": 59745,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50023.png",
+  "bytes": 58647,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50024.png",
+  "bytes": 58386,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50025.png",
+  "bytes": 57562,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50026.png",
+  "bytes": 56519,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50027.png",
+  "bytes": 55381,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50028.png",
+  "bytes": 54620,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50029.png",
+  "bytes": 53669,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50030.png",
+  "bytes": 52857,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50031.png",
+  "bytes": 52307,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50032.png",
+  "bytes": 51853,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50033.png",
+  "bytes": 51051,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50034.png",
+  "bytes": 50436,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50035.png",
+  "bytes": 50308,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50036.png",
+  "bytes": 49813,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50037.png",
+  "bytes": 49413,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50038.png",
+  "bytes": 48770,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50039.png",
+  "bytes": 48614,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50040.png",
+  "bytes": 48688,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50041.png",
+  "bytes": 48163,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50042.png",
+  "bytes": 48259,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50043.png",
+  "bytes": 48137,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50044.png",
+  "bytes": 48069,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50045.png",
+  "bytes": 47581,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50046.png",
+  "bytes": 47603,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50047.png",
+  "bytes": 47679,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50048.png",
+  "bytes": 47186,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50049.png",
+  "bytes": 47256,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50050.png",
+  "bytes": 47579,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50051.png",
+  "bytes": 47648,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50052.png",
+  "bytes": 48290,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50053.png",
+  "bytes": 48601,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50054.png",
+  "bytes": 48738,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50055.png",
+  "bytes": 49174,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50056.png",
+  "bytes": 49594,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50057.png",
+  "bytes": 50113,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50058.png",
+  "bytes": 50387,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50059.png",
+  "bytes": 51031,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo50060.png",
+  "bytes": 50959,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo6-inner.png",
+  "bytes": 162199,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "squeeze/native-squeeze-plo6.json",
+  "bytes": 105836
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60000.png",
+  "bytes": 111911,
+  "width": 347,
+  "height": 227
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60001.png",
+  "bytes": 111259,
+  "width": 347,
+  "height": 227
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60002.png",
+  "bytes": 110816,
+  "width": 347,
+  "height": 225
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60003.png",
+  "bytes": 110476,
+  "width": 347,
+  "height": 222
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60004.png",
+  "bytes": 109365,
+  "width": 347,
+  "height": 217
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60005.png",
+  "bytes": 108113,
+  "width": 347,
+  "height": 211
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60006.png",
+  "bytes": 105641,
+  "width": 347,
+  "height": 204
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60007.png",
+  "bytes": 103458,
+  "width": 347,
+  "height": 196
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60008.png",
+  "bytes": 101007,
+  "width": 347,
+  "height": 186
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60009.png",
+  "bytes": 98007,
+  "width": 347,
+  "height": 176
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60010.png",
+  "bytes": 94321,
+  "width": 347,
+  "height": 167
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60011.png",
+  "bytes": 90153,
+  "width": 347,
+  "height": 161
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60012.png",
+  "bytes": 86687,
+  "width": 347,
+  "height": 157
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60013.png",
+  "bytes": 82869,
+  "width": 347,
+  "height": 154
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60014.png",
+  "bytes": 78969,
+  "width": 347,
+  "height": 151
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60015.png",
+  "bytes": 75869,
+  "width": 347,
+  "height": 149
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60016.png",
+  "bytes": 72783,
+  "width": 347,
+  "height": 148
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60017.png",
+  "bytes": 68901,
+  "width": 347,
+  "height": 146
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60018.png",
+  "bytes": 66246,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60019.png",
+  "bytes": 64626,
+  "width": 347,
+  "height": 145
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60020.png",
+  "bytes": 62627,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60021.png",
+  "bytes": 61384,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60022.png",
+  "bytes": 60744,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60023.png",
+  "bytes": 60441,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60024.png",
+  "bytes": 60824,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60025.png",
+  "bytes": 60625,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60026.png",
+  "bytes": 60181,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60027.png",
+  "bytes": 59783,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60028.png",
+  "bytes": 59062,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60029.png",
+  "bytes": 57685,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60030.png",
+  "bytes": 56706,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60031.png",
+  "bytes": 55631,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60032.png",
+  "bytes": 55064,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60033.png",
+  "bytes": 54153,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60034.png",
+  "bytes": 53514,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60035.png",
+  "bytes": 52477,
+  "width": 347,
+  "height": 143
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60036.png",
+  "bytes": 52178,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60037.png",
+  "bytes": 51396,
+  "width": 347,
+  "height": 143
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60038.png",
+  "bytes": 50864,
+  "width": 347,
+  "height": 143
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60039.png",
+  "bytes": 50764,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60040.png",
+  "bytes": 50366,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60041.png",
+  "bytes": 50182,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60042.png",
+  "bytes": 49791,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60043.png",
+  "bytes": 49530,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60044.png",
+  "bytes": 49027,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60045.png",
+  "bytes": 48944,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60046.png",
+  "bytes": 48802,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60047.png",
+  "bytes": 48177,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60048.png",
+  "bytes": 47704,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60049.png",
+  "bytes": 47274,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60050.png",
+  "bytes": 46752,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60051.png",
+  "bytes": 46371,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60052.png",
+  "bytes": 46130,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60053.png",
+  "bytes": 46286,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60054.png",
+  "bytes": 46223,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60055.png",
+  "bytes": 46107,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60056.png",
+  "bytes": 45980,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60057.png",
+  "bytes": 45984,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60058.png",
+  "bytes": 45844,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60059.png",
+  "bytes": 45869,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "squeeze/native-squeeze-plo60060.png",
+  "bytes": 46084,
+  "width": 347,
+  "height": 144
+ },
+ {
+  "path": "swf/chip_shuffle.swf",
+  "bytes": 141354
+ },
+ {
+  "path": "swf/mystery_box.swf",
+  "bytes": 886788
+ },
+ {
+  "path": "swf/spin_intro.swf",
+  "bytes": 75360
+ },
+ {
+  "path": "swf/spin_win.swf",
+  "bytes": 154374
+ },
+ {
+  "path": "swf/win_effect.swf",
+  "bytes": 113366
+ },
+ {
+  "path": "table/bet-thumb.png",
+  "bytes": 8810,
+  "width": 59,
+  "height": 63
+ },
+ {
+  "path": "table/clock/0-hot.png",
+  "bytes": 349,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/0.png",
+  "bytes": 286,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/1-hot.png",
+  "bytes": 234,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/1.png",
+  "bytes": 216,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/10-hot.png",
+  "bytes": 180,
+  "width": 5,
+  "height": 26
+ },
+ {
+  "path": "table/clock/10.png",
+  "bytes": 181,
+  "width": 5,
+  "height": 26
+ },
+ {
+  "path": "table/clock/2-hot.png",
+  "bytes": 435,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/2.png",
+  "bytes": 407,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/3-hot.png",
+  "bytes": 349,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/3.png",
+  "bytes": 331,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/4-hot.png",
+  "bytes": 327,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/4.png",
+  "bytes": 304,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/5-hot.png",
+  "bytes": 399,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/5.png",
+  "bytes": 377,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/6-hot.png",
+  "bytes": 392,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/6.png",
+  "bytes": 355,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/7-hot.png",
+  "bytes": 273,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/7.png",
+  "bytes": 275,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/8-hot.png",
+  "bytes": 439,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/8.png",
+  "bytes": 415,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/9-hot.png",
+  "bytes": 399,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/9.png",
+  "bytes": 387,
+  "width": 15,
+  "height": 26
+ },
+ {
+  "path": "table/clock/frame.png",
+  "bytes": 4329,
+  "width": 116,
+  "height": 50
+ },
+ {
+  "path": "table/dealer-disc.png",
+  "bytes": 1803,
+  "width": 40,
+  "height": 38
+ },
+ {
+  "path": "table/native-take-seat-arrow.png",
+  "bytes": 977,
+  "width": 32,
+  "height": 42
+ },
+ {
+  "path": "table/native-take-seat-base.png",
+  "bytes": 6287,
+  "width": 160,
+  "height": 160
+ },
+ {
+  "path": "table/native-take-seat-glow.png",
+  "bytes": 15937,
+  "width": 184,
+  "height": 184
+ },
+ {
+  "path": "table/native-win-effect.png",
+  "bytes": 3819739,
+  "width": 729,
+  "height": 622
+ },
+ {
+  "path": "table/native-win-final.png",
+  "bytes": 50190,
+  "width": 729,
+  "height": 622
+ },
+ {
+  "path": "table/ring_gold.png",
+  "bytes": 33571,
+  "width": 190,
+  "height": 230
+ },
+ {
+  "path": "table/ring_silver.png",
+  "bytes": 39526,
+  "width": 200,
+  "height": 250
+ },
+ {
+  "path": "tables/featured_6ring.png",
+  "bytes": 466201,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "tables/room_dark.png",
+  "bytes": 296438,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "tables/room_floor.png",
+  "bytes": 40129,
+  "width": 1200,
+  "height": 220
+ },
+ {
+  "path": "tables/table_5ring.png",
+  "bytes": 482889,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "tables/table_envelope.png",
+  "bytes": 411753,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "tables/table_mystery.png",
+  "bytes": 402452,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "tables/table_plo5_envelope.png",
+  "bytes": 413244,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "tables/table_plo6_supercircuit.png",
+  "bytes": 477811,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "tables/table_supercircuit.png",
+  "bytes": 387872,
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "path": "ui/discover/Bg_Discove_WeeklyFreeroll_EN.png",
+  "bytes": 77207,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_AoF.png",
+  "bytes": 51551,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_CasinoBonus_EN.png",
+  "bytes": 64886,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_DailyFreebie.png",
+  "bytes": 62968,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_Fishbuffet.png",
+  "bytes": 69787,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_Fishbuffet_Platinum.png",
+  "bytes": 84893,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_GGcare.png",
+  "bytes": 61216,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_Honeymoon.png",
+  "bytes": 87262,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_Leaderboard_FlipNGo.png",
+  "bytes": 67512,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_Leaderboard_Holdem.png",
+  "bytes": 56548,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_Leaderboard_MysterBattleRoyal.png",
+  "bytes": 67263,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_Leaderboard_PLO6.png",
+  "bytes": 56274,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_Leaderboard_RushNCash_Holdem.png",
+  "bytes": 60987,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_Leaderboard_ShortDeck.png",
+  "bytes": 65747,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_Leaderboard_SpinNGold.png",
+  "bytes": 58179,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_MysteryBattleRoyal.png",
+  "bytes": 59657,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_RushNCash_Holdem.png",
+  "bytes": 54016,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_SpinNGold.png",
+  "bytes": 62982,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/Bg_Discover_WSOPExpress_Promo1_EN.png",
+  "bytes": 81971,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/discover/D_Discover_OceanRewards_Whale.png",
+  "bytes": 74604,
+  "width": 226,
+  "height": 230
+ },
+ {
+  "path": "ui/option_page/SettingPage_ColoredBG_Black.png",
+  "bytes": 138222,
+  "width": 564,
+  "height": 400
+ },
+ {
+  "path": "ui/option_page/SettingPage_ColoredBG_Brown.png",
+  "bytes": 161287,
+  "width": 564,
+  "height": 400
+ },
+ {
+  "path": "ui/option_page/SettingPage_ColoredBG_ChocoBrown.png",
+  "bytes": 154055,
+  "width": 564,
+  "height": 400
+ },
+ {
+  "path": "ui/option_page/SettingPage_ColoredBG_Cobalt.png",
+  "bytes": 164178,
+  "width": 564,
+  "height": 400
+ },
+ {
+  "path": "ui/option_page/SettingPage_ColoredBG_Cooper.png",
+  "bytes": 169155,
+  "width": 564,
+  "height": 400
+ },
+ {
+  "path": "ui/option_page/SettingPage_ColoredBG_Gray.png",
+  "bytes": 174575,
+  "width": 564,
+  "height": 400
+ },
+ {
+  "path": "ui/option_page/SettingPage_ColoredBG_Green.png",
+  "bytes": 163417,
+  "width": 564,
+  "height": 400
+ },
+ {
+  "path": "ui/option_page/SettingPage_ColoredBG_Navy.png",
+  "bytes": 162256,
+  "width": 564,
+  "height": 400
+ },
+ {
+  "path": "ui/option_page/SettingPage_ColoredBG_Purple.png",
+  "bytes": 162483,
+  "width": 564,
+  "height": 400
+ },
+ {
+  "path": "ui/option_page/SettingPage_ColoredBG_Red.png",
+  "bytes": 161553,
+  "width": 564,
+  "height": 400
+ }
+]

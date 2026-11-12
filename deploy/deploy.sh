@@ -41,9 +41,9 @@ trap 'rm -rf "$stage"' EXIT
 git archive "$sha" app tools deploy | tar -x -C "$stage"
 
 # Mirror app/ and tools/ exactly, so files deleted from Git also leave the host. Protect what is
-# generated on the host and never committed: extracted client assets, Ruffle, local data.
+# generated on the host and never committed: local data and build output. Client assets are
+# committed, so anything under public/ that is not in Git (old extracted files) is removed.
 rsync_opts=(-az --delete
-  --filter='P /public/assets/**' --filter='P /public/ruffle/**'
   --filter='P /server/data/**' --filter='P /node_modules/**' --filter='P /dist/**')
 if [[ $DRY_RUN == 1 ]]; then
   rsync "${rsync_opts[@]}" --dry-run --itemize-changes "$stage/app/" "$HOST:$REMOTE_ROOT/app/"

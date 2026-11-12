@@ -3,7 +3,7 @@ import { useApp } from '../lib/store';
 import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
-import { SwfEffect } from '../components/SwfEffect';
+import { FxEffect, type FxName } from '../components/FxEffect';
 import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
@@ -221,8 +221,8 @@ export function TablePage({ tableId }: { tableId: string }) {
     setButtonLayout(layout);
     localStorage.setItem('ggpoker.buttonLayout', layout);
   };
-  const [swfEffect, setSwfEffect] = useState<string | null>(null);
-  const clearSwf = useCallback(() => setSwfEffect(null), []);
+  const [fxEffect, setFxEffect] = useState<FxName | null>(null);
+  const clearFx = useCallback(() => setFxEffect(null), []);
   const spinIntroSeen = useRef(false);
   const [squeeze, setSqueeze] = useState(false);
   const autoRebuyPending = useRef(false);
@@ -327,7 +327,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       } else if (msg.type === 'rush_queued') {
         toast({ kind: 'info', title: 'Rush queue', body: 'Waiting for the next open Rush seat — you are sitting out meanwhile.' });
       } else if (msg.type === 'rush_move') {
-        toast({ kind: 'info', title: 'Rush & Cash', body: 'New table, same stack.' });
+        toast({ kind: 'info', title: 'Fast Fold', body: 'New table, same stack.' });
         navigate(`/table/${msg.tableId}?buyin=${msg.stack || 0}`);
       } else if (msg.type === 'table_move') {
         // A tournament flight balanced or broke: the stack travels, the view follows.
@@ -530,12 +530,12 @@ export function TablePage({ tableId }: { tableId: string }) {
       toast({ kind: 'reward', title: 'Rush Cash Drop', body: `${evt.nick} won ${money(evt.amount)}` });
       window.setTimeout(() => setCashDrop(null), 4500);
     } else if (evt.type === 'spin_win') {
-      setSwfEffect('/assets/swf/spin_win.swf');
+      setFxEffect('spin_win');
       setSpinWin(evt);
       sound.play('sngWin');
       setTimeout(() => sound.play('fireworks', { volume: .7 }), 600);
     } else if (evt.type === 'bounty') {
-      if (evt.mystery) setSwfEffect('/assets/swf/mystery_box.swf');
+      if (evt.mystery) setFxEffect('mystery_box');
       toast({ kind: 'reward', title: evt.mystery ? 'Mystery bounty' : 'Bounty', body: `${evt.winnerNick} wins ${money(evt.amount)} (${evt.bustedNick})` });
       sound.play('coin');
     } else if (evt.type === 'tourney_payout') {
@@ -547,7 +547,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         setTourneyWin({ ...evt, prize: evt.payout, tableName: stateRef.current?.name || '' });
       }
     } else if (evt.type === 'tourney_win') {
-      if (!evt.ticket) setSwfEffect('/assets/swf/win_effect.swf');
+      if (!evt.ticket) setFxEffect('win_effect');
       // Keep the hero's own paid-place presentation if it is already showing.
       setTourneyWin((prev: any) => (prev && prev.place > 1 ? prev : evt));
       sound.play('tournamentWin');
@@ -949,7 +949,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => {
     if (state?.spin && state.handNo === 1 && !spinIntroSeen.current) {
       spinIntroSeen.current = true;
-      setSwfEffect('/assets/swf/spin_intro.swf');
+      setFxEffect('spin_intro');
     }
   }, [state?.spin, state?.handNo]);
 
@@ -1089,7 +1089,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button disabled={!me || rebuyMax <= 0 || !!state?.tournament || !!state?.spin} onClick={() => { setRebuyAmount(rebuyMin); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
           <button disabled={!canRabbit} title={canRabbit ? '' : 'Rabbit hunt is available after a hand ends with an incomplete board'} onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
-          <button onClick={() => setSwfEffect('/assets/swf/chip_shuffle.swf')}>Official FX preview</button>
+          <button onClick={() => setFxEffect('chip_shuffle')}>FX preview</button>
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'shuffle' })}>Shuffle chips</button>
           {state?.ownerId === user?.id && state.private && (
             <button onClick={async () => { setMuteOpen(true); setMenuOpen(false); try { const r = await api.hostMutes(tableId); setMutes((r.muted || []).map((m) => m.user_id)); } catch { setMutes([]); } }}>Table moderation…</button>
@@ -1555,7 +1555,7 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {spinShow && state?.spin && (
         <div className="spin-overlay">
-          <div className="spin-title">SPIN & GOLD</div>
+          <div className="spin-title">JACKPOT SNG</div>
           <div className="spin-ring">
             {SPIN_WHEEL_MULTIPLIERS.map((m, i) => (
               <span key={m} style={{ transform: `rotate(${i * (360 / SPIN_WHEEL_MULTIPLIERS.length)}deg) translateY(-118px)` }}>{m}x</span>
@@ -1571,7 +1571,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       )}
 
-      {swfEffect && <SwfEffect src={swfEffect} onDone={clearSwf} />}
+      {fxEffect && <FxEffect key={fxEffect} name={fxEffect} onDone={clearFx} />}
 
       {tourneyWin && (
         <div className="spin-overlay win">

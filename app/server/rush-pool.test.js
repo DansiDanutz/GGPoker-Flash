@@ -160,7 +160,7 @@ test('admin settings: Cash Drop keys are listed, validated and exposed to the lo
       assert.ok(res.data.error);
     }
     const unchanged = (await srv.get('/api/admin/settings', { token: admin })).data.settings;
-    assert.equal(unchanged.site_name, 'GGPoker', 'a rejected payload writes nothing');
+    assert.equal(unchanged.site_name, 'DanGG', 'a rejected payload writes nothing');
 
     assert.equal((await srv.post('/api/admin/settings', { token: admin, body: { rush_cashdrop_rate: 0.25, rush_cashdrop_amount_bb: 10 } })).status, 200);
     const lobby = (await srv.get('/api/lobby')).data;

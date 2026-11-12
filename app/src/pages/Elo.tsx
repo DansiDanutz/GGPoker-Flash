@@ -35,7 +35,7 @@ export function Elo() {
         </div>
 
         <div className="elo-tabs">
-          {([['all', 'All'], ['holdem', "Hold'em"], ['omaha', 'PLO'], ['shortdeck', 'Short Deck'], ['rush', 'Rush & Cash']] as const).map(([id, label]) => (
+          {([['all', 'All'], ['holdem', "Hold'em"], ['omaha', 'PLO'], ['shortdeck', 'Short Deck'], ['rush', 'Fast Fold']] as const).map(([id, label]) => (
             <button key={id} className={game === id ? 'on' : ''} onClick={() => setGame(id)}>{label}</button>
           ))}
         </div>

@@ -12,7 +12,7 @@ import { isRushGame } from './validate.js';
 
 export const CASHDROP_RULE_LABEL = 'DanGG rule';
 export const CASHDROP_KIND = 'cashdrop';
-export const CASHDROP_MEMO = 'Rush & Cash drop';
+export const CASHDROP_MEMO = 'Fast Fold cash drop';
 
 export const CASHDROP_SETTING_KEYS = Object.freeze({
   rate: 'rush_cashdrop_rate',
