@@ -48,6 +48,7 @@ function makeClient(child, port, dataDir, exited) {
     child, port, base, dataDir, exited,
     get: (route, opts) => call('GET', route, opts),
     post: (route, opts) => call('POST', route, opts),
+    put: (route, opts) => call('PUT', route, opts),
     del: (route, opts) => call('DELETE', route, opts),
     login: async (login, password) => (await call('POST', '/api/auth/login', { body: { login, password } })).data.token,
     balance: async (token) => (await call('GET', '/api/me', { token })).data.user.balance,

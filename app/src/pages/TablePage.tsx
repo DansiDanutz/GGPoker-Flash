@@ -13,6 +13,8 @@ import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_F
 import { createSqueezePanel } from '../game/squeeze';
 import { showdownComplete, showdownPlan } from '../game/showdown';
 import { turnUrgencyClass } from '../game/turnClock';
+import { DEFAULT_NOTE_COLOR, noteColorHex, noteColorTitle, normalizeLabels } from '../lib/noteColors';
+import { NoteColorPicker } from '../components/NoteColorPicker';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { useWaitlist } from '../lib/waitlistState';
 import { formatCountdown, queuePositionLabel } from '../lib/waitlist';
@@ -154,7 +156,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [muteOpen, setMuteOpen] = useState(false);
   const [mutes, setMutes] = useState<number[]>([]);
   const [noteText, setNoteText] = useState('');
-  const [noteColor, setNoteColor] = useState('yellow');
+  const [noteColor, setNoteColor] = useState(DEFAULT_NOTE_COLOR);
+  const [noteLabels, setNoteLabels] = useState<string[]>(() => normalizeLabels(null));
   const [autoRebuy, setAutoRebuy] = useState(() => localStorage.getItem('ggpoker.autorebuy') === '1');
   const [autoMuck, setAutoMuck] = useState(() => localStorage.getItem('ggpoker.automuck') === '1');
   const [autoTopup] = useState(() => localStorage.getItem('ggpoker.autoTopup') === '1');
@@ -520,6 +523,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         const m: Record<string, { note: string; color: string }> = {};
         for (const n of d.notes || []) m[n.target] = { note: n.note, color: n.color };
         setNotes(m);
+        setNoteLabels(normalizeLabels(d.labels));
       }).catch(() => {});
   }, []);
 
@@ -845,7 +849,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     const existing = notes[p.nick];
     setNoteTarget(p);
     setNoteText(existing?.note || '');
-    setNoteColor(existing?.color || 'yellow');
+    setNoteColor(existing?.color || DEFAULT_NOTE_COLOR);
   };
 
   const saveNote = async () => {
@@ -1103,7 +1107,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 {narrowScreen && (p.bet || 0) > 0 ? <span className="seat-bet-inline"> · {chip(p.bet).replace(/\.00$/, '')}</span> : null}
               </div>
             </div>
-            {p.nick && notes[p.nick] && <span className="note-dot" title={notes[p.nick].note}>📝</span>}
+            {p.nick && notes[p.nick] && <span className="note-dot" title={`${noteColorTitle(notes[p.nick].color, noteLabels)}: ${notes[p.nick].note}`} style={{ '--note-color': noteColorHex(notes[p.nick].color) } as React.CSSProperties}>📝</span>}
             {p.lastAction && !p.folded && (
               <div className={'action-badge ' + (p.lastAction.action || '').toLowerCase()}>
                 {p.lastAction.action}{p.lastAction.amount ? ` ${money(p.lastAction.amount)}` : ''}
@@ -1412,9 +1416,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={4} placeholder="Notes are private and only visible to you…"
                 style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10, fontFamily: 'inherit' }} />
               <div className="row" style={{ marginTop: 10 }}>
-                {['yellow', 'green', 'red', 'blue'].map((c) => (
-                  <button key={c} onClick={() => setNoteColor(c)} style={{ width: 26, height: 26, borderRadius: '50%', background: c === 'yellow' ? '#e0b34b' : c === 'green' ? '#45c777' : c === 'red' ? '#d0455a' : '#3f9ad0', border: noteColor === c ? '2px solid #fff' : '2px solid transparent' }} />
-                ))}
+                <NoteColorPicker value={noteColor} labels={noteLabels} onChange={setNoteColor} />
                 <div style={{ flex: 1 }} />
                 <button className="btn btn-ghost btn-sm" onClick={() => { setNoteText(''); saveNote(); }}>Delete</button>
               </div>

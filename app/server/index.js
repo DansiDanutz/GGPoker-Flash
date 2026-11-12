@@ -24,6 +24,7 @@ import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tourname
 import * as waitlist from './waitlist.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createTableStats } from './table-stats.js';
+import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService, createChatStore, dealerResultText, dealerStartText } from './chat.js';
@@ -504,6 +505,7 @@ const LEADERBOARD = createLeaderboard(db);
 // Rush pool lobby (rush-lobby.js): real hands/hr per pool table and today's Rush leaderboard.
 const RUSH_LOBBY = createRushLobby(db);
 const TABLE_STATS = createTableStats(db);
+const PLAYER_LABELS = createPlayerLabels(db);
 
 /** `/api/lobby` `rushPools`: one row per Rush pool, with the pool's group wait-list queue. */
 function lobbyRushPools(tables) {
@@ -2053,8 +2055,15 @@ const server = http.createServer(async (req, res) => {
     // ---------- player notes ----------
     if (p === '/api/notes' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
-      const rows = db.prepare('SELECT target, note, color, updated_at FROM player_notes WHERE user_id = ?').all(u.id);
-      return json(res, 200, { notes: rows });
+      const rows = db.prepare('SELECT target, note, color, updated_at FROM player_notes WHERE user_id = ?').all(u.id)
+        .map((r) => ({ ...r, color: normalizeNoteColor(r.color) || 'c9' }));
+      return json(res, 200, { notes: rows, labels: PLAYER_LABELS.get(u.id) });
+    }
+    if (p === '/api/notes/labels' && req.method === 'PUT') {
+      const u = requireUser(req, res); if (!u) return;
+      const b = await readBody(req);
+      if (!PLAYER_LABELS.set(u.id, b.labels)) return json(res, 400, { error: 'Use ten single-line label titles, each at most 20 characters' });
+      return json(res, 200, { ok: true, labels: PLAYER_LABELS.get(u.id) });
     }
     if (p === '/api/notes' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
@@ -2062,10 +2071,12 @@ const server = http.createServer(async (req, res) => {
       const target = String(b.target || '').slice(0, 40);
       const note = String(b.note || '').slice(0, 1000);
       if (!target) return json(res, 400, { error: 'missing target' });
+      const color = normalizeNoteColor(b.color);
+      if (!color) return json(res, 400, { error: 'unknown note colour' });
       if (!note.trim()) { db.prepare('DELETE FROM player_notes WHERE user_id = ? AND target = ?').run(u.id, target); return json(res, 200, { ok: true, deleted: true }); }
       db.prepare(`INSERT INTO player_notes (user_id,target,note,color) VALUES (?,?,?,?)
         ON CONFLICT(user_id,target) DO UPDATE SET note=excluded.note, color=excluded.color, updated_at=datetime('now')`)
-        .run(u.id, target, note, String(b.color || 'yellow'));
+        .run(u.id, target, note, color);
       return json(res, 200, { ok: true });
     }
 
