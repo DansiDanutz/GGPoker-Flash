@@ -12,17 +12,20 @@ const seatsFrom = (table, start) => {
 
 /**
  * The seat that would post the big blind if the next hand were dealt now. Mirrors
- * startHand(): the button moves to the next dealt-in seat, a waiter for the big blind
- * takes it when it reaches them, heads-up the non-button seat posts it.
+ * startHand() and promoteWaitingBigBlind(): the button moves to the next dealt-in seat, a
+ * waiter who has sat through a full orbit is dealt back in, a waiter for the big blind takes
+ * it when it reaches them, heads-up the non-button seat posts it.
  */
 export function nextBigBlindSeat(table) {
   const dealt = (s) => !!s.player && table.isDealtIn(s.player);
   const waiting = (s) => !!s.player && table.waitsForBigBlind(s.player);
+  const expiring = (s) => waiting(s) && (s.player.waitedHands || 0) + 1 > table.seats.length;
+  const stillWaiting = (s) => waiting(s) && !expiring(s);
   const button = seatsFrom(table, table.button + 1).find(dealt);
   if (!button) return null;
   const ring = seatsFrom(table, button.index + 1).filter((s) => dealt(s) || waiting(s));
-  if (ring.length >= 3 && !waiting(ring[0]) && waiting(ring[1])) return ring[1];
-  const postOrder = ring.filter(dealt);
+  const promoted = ring.length >= 3 && !stillWaiting(ring[0]) && stillWaiting(ring[1]) ? ring[1] : null;
+  const postOrder = ring.filter((s) => dealt(s) || expiring(s) || s === promoted);
   if (postOrder.length < 2) return null;
   if (postOrder.length === 2) return postOrder.find((s) => s !== button) || null;
   return postOrder[1];
