@@ -74,7 +74,7 @@ server, and the service worker is not registered in dev.
 ```bash
 pnpm build          # production bundle → app/dist
 pnpm start          # serve app/dist + API on :5198
-pnpm test           # server suite (149 tests)
+pnpm test           # server suite (150 tests)
 pnpm smoke          # read-only smoke test against a running server
 ```
 
@@ -212,8 +212,8 @@ production start); only allowlisted loopback/tunnel addresses may reach the admi
 ### Settings
 Language (20 locales), sound channels and volume, animations, run-it-twice, auto-muck,
 four-colour deck, time bank, table themes, card backs/fronts and room backgrounds,
-betting shortcuts, stack display, auto top-up, hotkeys, **Always confirm bets** (Enter
-bets the amount on screen; with the option on it asks first) and password/session
+betting shortcuts, stack display, auto top-up, hotkeys, **Betting controls** (mouse-wheel
+direction, big/small-blind step, Enter Always/Never confirm) and password/session
 management.
 
 ### Admin console (`#/admin`)
@@ -297,7 +297,7 @@ package_app.sh         Build, sign and relaunch the desktop app
 cd app
 pnpm install         # dependencies
 pnpm dev             # Vite + API/WebSocket
-pnpm test            # node --test server/*.test.js (149 tests)
+pnpm test            # node --test server/*.test.js (150 tests)
 pnpm exec tsc --noEmit -p tsconfig.json
 pnpm build           # production client
 pnpm smoke           # read-only API smoke test (needs a running server)
@@ -330,7 +330,7 @@ Every push to `main` and every pull request runs the **CI** workflow
 
 | Job | What it runs |
 |---|---|
-| **Server tests** | `node --test server/*.test.js` (149 tests) |
+| **Server tests** | `node --test server/*.test.js` (150 tests) |
 | **Typecheck and build** | `tsc --noEmit`, then `vite build` |
 
 `main` is protected by the `protect-main` ruleset: both checks are required, force-pushes

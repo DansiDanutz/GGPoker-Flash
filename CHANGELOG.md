@@ -6,6 +6,21 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Betting controls (ported from the Codex clone)
+- The reference clone's **Betting options** are now in Settings → Betting: mouse-wheel
+  direction (scroll up to increase or decrease), the wheel/step unit (big or small blind),
+  and Enter **Always confirm / Never confirm** — defaulting to Always, as the clone does.
+  Wheel over the presets, slider or amount changes the bet by the chosen unit; arrow keys
+  and the +/- steppers use the same unit.
+- The earlier single "Always confirm bets" switch is migrated: only an explicit off setting
+  disables confirmation.
+- A new [port ledger](docs/designs/codex-clone-port.md) records what the clone has that
+  DanGG still lacks (Card Squeeze, Chip Shuffle, native chip denominations, showdown
+  sequencing, native reserved-action artwork, owner backup) so the gap is tracked rather
+  than summarised.
+- Tests: betting-option parsing, unit selection and the fallback to native defaults.
+  Full suite 150/150.
+
 ### Showing cards
 - **Show one card or both.** After a hand ends, a player who was dealt in can tap any of
   their hole cards and press **Show** (or **Show all**) to reveal them to the whole table.
