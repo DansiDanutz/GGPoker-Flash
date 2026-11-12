@@ -13,6 +13,7 @@ import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_F
 import { createSqueezePanel } from '../game/squeeze';
 import { showdownComplete, showdownPlan } from '../game/showdown';
 import { turnUrgencyClass } from '../game/turnClock';
+import { seatNick, isAllInStatus } from '../game/seatLabel';
 import { DEFAULT_NOTE_COLOR, noteColorHex, noteColorTitle, normalizeLabels } from '../lib/noteColors';
 import { NoteColorPicker } from '../components/NoteColorPicker';
 import { OpponentHud } from '../components/OpponentHud';
@@ -1140,7 +1141,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                     onClick={pickable ? (ev) => { ev.stopPropagation(); setShowPick((cur) => cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i]); } : undefined}
                     title={pickable ? 'Select this card to show it' : undefined}
                   >
-                    <PlayingCard card={c} size="mini" dim={p.folded} dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
+                    <PlayingCard card={c} size="mini" dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
                       style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
                   </span>
                 );
@@ -1153,9 +1154,9 @@ export function TablePage({ tableId }: { tableId: string }) {
               </div>
             </div>
             <div className="plate">
-              <div className="nm">{p.nick}</div>
-              <div className="st" onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
-                {stackLabel(p.stack)}
+              <div className="nm" title={p.nick || undefined}>{seatNick(p.nick)}</div>
+              <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
+                {isAllInStatus(p) ? 'All-In' : stackLabel(p.stack)}
                 {narrowScreen && (p.bet || 0) > 0 ? <span className="seat-bet-inline"> · {chip(p.bet).replace(/\.00$/, '')}</span> : null}
               </div>
             </div>
@@ -1166,8 +1167,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               </div>
             )}
             {p.folded && <div className="action-badge fold">Fold</div>}
-            {p.allIn && <div className="action-badge" style={{ color: '#ffd98a' }}>ALL IN</div>}
-            {(p.disconnected || p.sittingOut) && !p.allIn && <div className="action-badge away">{p.disconnected ? 'Reconnecting' : 'Sitting out'}</div>}
+            {(p.disconnected || p.sittingOut) && !isAllInStatus(p) && <div className="action-badge away">{p.disconnected ? 'Reconnecting' : 'Sitting out'}</div>}
             {p.id != null && (
               <SeatReaction store={chatStore} userId={Number(p.id)} showBubbles={showChatBubbles} showReactions={showReactions} />
             )}

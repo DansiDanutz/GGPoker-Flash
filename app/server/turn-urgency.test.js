@@ -1,5 +1,6 @@
-// Native PlayerTurnEffect3D: normal 0.5 s glow; final five seconds turn urgent, and the
-// seated player's own seat pulses at 0.2 s (ported via the Codex clone's REA notes).
+// Native PlayerTurnEffect3D (REA six-seat-turn-indicator / aof-turn-urgency): the turn glow
+// blinks at a 500 ms half-period for every actor; only the viewer's OWN seat turns urgent
+// (tint #ff7f7f, 200 ms half-period) in its final five seconds (`userOnly: true`).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { URGENT_SECONDS, turnUrgencyClass } from '../src/game/turnClock.ts';
@@ -13,9 +14,10 @@ test('normal turn above the final five seconds', () => {
   assert.equal(turnUrgencyClass(URGENT_SECONDS + 1, true), '');
 });
 
-test('final five seconds: urgent for everyone, faster for the own seat', () => {
+test('final five seconds: urgent only on the viewer\'s own seat', () => {
   assert.equal(URGENT_SECONDS, 5);
-  assert.equal(turnUrgencyClass(5, false), ' urgent');
-  assert.equal(turnUrgencyClass(0, false), ' urgent');
-  assert.equal(turnUrgencyClass(3, true), ' urgent urgent-me');
+  assert.equal(turnUrgencyClass(3, true), ' urgent');
+  assert.equal(turnUrgencyClass(0, true), ' urgent');
+  assert.equal(turnUrgencyClass(5, false), '', 'opponents keep the normal glow');
+  assert.equal(turnUrgencyClass(0, false), '');
 });
