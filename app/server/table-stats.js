@@ -56,6 +56,42 @@ export function summarizeHands(rows) {
   };
 }
 
+/** Hands per table the opponent HUD looks back over. */
+export const HUD_WINDOW = 100;
+const HUD_RECENT = 5;
+const RAISES = new Set(['bet', 'raise', 'all-in', 'allin']);
+
+/**
+ * Room-scoped opponent HUD (Codex clone hud-room/hud-history): hands dealt, VPIP, PFR and
+ * wins for one nickname at this table, plus the latest hands. Hole cards are included
+ * only when the player showed them; everything else is public table information.
+ * @param {Array<{hand_no:number,pot:number,board?:string,players?:string,actions?:string|null}>} rows newest first
+ */
+export function playerHud(rows, nick) {
+  const mine = [];
+  for (const row of rows.slice(0, HUD_WINDOW)) {
+    const players = parseList(row.players) || [];
+    const me = players.find((p) => p && p.nick === nick && Array.isArray(p.cards) && p.cards.length > 0);
+    if (me) mine.push({ row, me, actions: parseList(row.actions) || [] });
+  }
+  if (!mine.length) return { hands: 0, vpip: 0, pfr: 0, wins: 0, recent: [] };
+  const pre = ({ actions }, set) => actions.some((a) => a && a.nick === nick && a.street === 'preflop' && set.has(String(a.action).toLowerCase()));
+  const pct = (n) => Math.round((n / mine.length) * 100);
+  return {
+    hands: mine.length,
+    vpip: pct(mine.filter((h) => pre(h, VOLUNTARY)).length),
+    pfr: pct(mine.filter((h) => pre(h, RAISES)).length),
+    wins: mine.filter((h) => (Number(h.me.win) || 0) > 0).length,
+    recent: mine.slice(0, HUD_RECENT).map(({ row, me }) => ({
+      handNo: Number(row.hand_no),
+      pot: Number(row.pot) || 0,
+      won: Number(me.win) || 0,
+      board: String(row.board || '').split(' ').filter(Boolean),
+      cards: me.showed ? [...me.cards] : null,
+    })),
+  };
+}
+
 const CACHE_MS = 5000;
 
 /**
@@ -81,6 +117,11 @@ export function createTableStats(db, now = () => Date.now()) {
     cache.set(tableId, { at: now(), value });
     return value;
   }
+
+  const hudHands = db.prepare(
+    `SELECT hand_no, pot, board, players, actions FROM hands WHERE table_id = ? ORDER BY id DESC LIMIT ${HUD_WINDOW}`,
+  );
+  statsFor.hud = (tableId, nick) => playerHud(hudHands.all(tableId), nick);
 
   /** Drop a table's cached stats after a new hand is recorded. */
   statsFor.invalidate = (tableId) => cache.delete(tableId);

@@ -62,3 +62,41 @@ test('malformed JSON rows do not throw', () => {
 test('window is the native-like last 20 hands', () => {
   assert.equal(STATS_WINDOW, 20);
 });
+
+import { playerHud, HUD_WINDOW } from './table-stats.js';
+
+const row = (id, pot, players, actions, board = 'As Kd 7c 2h 9s') => ({
+  hand_no: id, pot, board, players: JSON.stringify(players), actions: JSON.stringify(actions),
+});
+
+test('playerHud: room-scoped VPIP, PFR, hands and wins for one nick', () => {
+  const rows = [
+    row(3, 400, [{ nick: 'v', cards: ['Qh', 'Qd'], win: 400, showed: true }, { nick: 'h', cards: ['2c', '3c'], win: 0 }],
+      [{ nick: 'v', action: 'raise', amount: 60, street: 'preflop' }, { nick: 'h', action: 'call', amount: 60, street: 'preflop' }]),
+    row(2, 100, [{ nick: 'v', cards: ['8h', '7d'], win: 0 }, { nick: 'h', cards: ['Ac', 'Ad'], win: 100 }],
+      [{ nick: 'h', action: 'raise', amount: 60, street: 'preflop' }, { nick: 'v', action: 'call', amount: 60, street: 'preflop' }]),
+    row(1, 30, [{ nick: 'v', cards: ['9h', '4d'], win: 0 }, { nick: 'h', cards: ['Kc', 'Qd'], win: 30 }],
+      [{ nick: 'v', action: 'fold', street: 'preflop' }]),
+    row(0, 30, [{ nick: 'other', cards: ['9h', '4d'] }], []),
+  ];
+  const hud = playerHud(rows, 'v');
+  assert.equal(hud.hands, 3);
+  assert.equal(hud.vpip, 67);
+  assert.equal(hud.pfr, 33);
+  assert.equal(hud.wins, 1);
+});
+
+test('playerHud: recent hands reveal cards only when the player showed them', () => {
+  const rows = [
+    row(5, 400, [{ nick: 'v', cards: ['Qh', 'Qd'], win: 400, showed: true }], []),
+    row(4, 100, [{ nick: 'v', cards: ['8h', '7d'], win: 0, showed: false }], []),
+  ];
+  const { recent } = playerHud(rows, 'v');
+  assert.deepEqual(recent.map((r) => r.cards), [['Qh', 'Qd'], null]);
+  assert.deepEqual(recent[0], { handNo: 5, pot: 400, won: 400, board: ['As', 'Kd', '7c', '2h', '9s'], cards: ['Qh', 'Qd'] });
+});
+
+test('playerHud: unknown player gives an empty HUD; window is bounded', () => {
+  assert.deepEqual(playerHud([], 'v'), { hands: 0, vpip: 0, pfr: 0, wins: 0, recent: [] });
+  assert.ok(HUD_WINDOW >= 20 && HUD_WINDOW <= 200);
+});

@@ -15,6 +15,7 @@ import { showdownComplete, showdownPlan } from '../game/showdown';
 import { turnUrgencyClass } from '../game/turnClock';
 import { DEFAULT_NOTE_COLOR, noteColorHex, noteColorTitle, normalizeLabels } from '../lib/noteColors';
 import { NoteColorPicker } from '../components/NoteColorPicker';
+import { OpponentHud } from '../components/OpponentHud';
 import { actionForCombo, comboFromEvent, readHotkeys, type HotkeyAction } from '../lib/hotkeys';
 import { LOOK_KEY, ROOM_BGS, TABLE_THEMES, parseLookOverrides, resolveLook, withLookOverride, type LookOverride, type LookOverrides } from '../lib/tableLook';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
@@ -1470,6 +1471,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                   </div>
                 </div>
               )}
+              {noteTarget?.nick && user && <OpponentHud tableId={tableId} nick={noteTarget.nick} formatChips={chip} />}
               {playerProfile?.stats && (
                 <div className="player-stats-row"><span><b>{playerProfile.stats.played}</b> hands</span><span><b>{playerProfile.stats.won}</b> wins</span><span><b>{chip(playerProfile.stats.biggest)}</b> biggest</span></div>
               )}

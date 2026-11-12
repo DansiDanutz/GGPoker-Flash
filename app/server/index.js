@@ -2052,6 +2052,17 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    // ---------- opponent HUD (room-scoped, public information only) ----------
+    {
+      const m = /^\/api\/tables\/([\w-]{1,64})\/hud$/.exec(p);
+      if (m && req.method === 'GET') {
+        const u = requireUser(req, res); if (!u) return;
+        const nick = String(url.searchParams.get('nick') || '').slice(0, 40);
+        if (!nick) return json(res, 400, { error: 'missing nick' });
+        if (!db.prepare('SELECT 1 FROM tables WHERE id = ?').get(m[1])) return json(res, 404, { error: 'table not found' });
+        return json(res, 200, { hud: TABLE_STATS.hud(m[1], nick) });
+      }
+    }
     // ---------- player notes ----------
     if (p === '/api/notes' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;

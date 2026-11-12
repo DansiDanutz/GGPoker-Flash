@@ -1347,3 +1347,9 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .hotkey-group { margin-top: 6px; }
 .hotkey-group-title { text-transform: uppercase; letter-spacing: .6px; font-size: 10.5px; margin: 6px 0 2px; }
 .hotkey-binding.unassigned { opacity: .55; font-style: italic; }
+.opp-hud { margin: 8px 0; }
+.opp-hud-recent { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.opp-hud-recent li { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 8px; }
+.opp-hud-cards { display: flex; gap: 2px; min-height: 18px; }
+.opp-hud-cards .pcard.mini { transform: scale(.7); transform-origin: left center; margin-right: -10px; }
+.opp-hud-recent .won { color: #7fdc8c; font-weight: 600; }
