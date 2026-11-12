@@ -305,7 +305,7 @@ app/
   electron/            Desktop shell (main/preload) and CSP
   public/              Brand assets, manifest, service worker, PWA icons, ruffle
   dist/                Production client build (generated)
-deploy/                Docker Compose, Traefik/Caddy notes, DNS, backups, watchdog
+deploy/                Docker Compose, Traefik labels, DNS, backups, watchdog
 docs/                  Architecture, CI, releases, designs, audits, reviews
 research/              Reverse-engineering evidence and decoded client assets (local)
 tools/                 Asset extraction, ATF decoding, UI automation and packaging
@@ -339,7 +339,7 @@ Useful environment variables:
 | `GGPOKER_PUBLIC_ORIGIN` / `GGPOKER_ALLOWED_HOSTS` | Origin/host allowlists |
 | `GGPOKER_BIND` | Bind address (default `127.0.0.1`) |
 | `GGPOKER_DISCONNECT_GRACE_MS` | Seat hold after a dropped connection |
-| `GGPOKER_TRUST_PROXY` | Trust proxy headers behind Traefik/Caddy |
+| `GGPOKER_TRUST_PROXY` | Trust proxy headers behind Traefik |
 | `GGPOKER_SERVER_URL` | Desktop shell: use a remote server instead of starting one |
 
 Desktop development: `pnpm dev` plus `GGPOKER_DEV=1 pnpm desktop:dev`.
