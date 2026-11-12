@@ -803,10 +803,10 @@ export function TablePage({ tableId }: { tableId: string }) {
   const winnerFocus = state && state.street === 'ended' && focusReady ? showdownFocus(state.result, state.board, state.game) : null;
   const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(state.game), state.game === 'shortdeck') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
-  // After the hand I can reveal one card or both to the table.
-  const canShowCards = !!me && state?.street === 'ended' && me.inHand && !me.folded
-    && (me.cards?.length || 0) > 0
-    && (me.shown?.length || 0) < (me.cards?.length || 0)
+  // After the hand (native ShowMuck) anyone dealt in, folded or not, picks cards to show once.
+  const canShowCards = !!me && state?.street === 'ended' && me.inHand && !me.reveal
+    && (me.cards?.length || 0) > 0 && !(me.cards || []).includes('??')
+    && !(me.shown?.length)
     && !observing;
   const showCards = (indices: number[]) => {
     if (!indices.length) return;

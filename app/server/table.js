@@ -630,12 +630,18 @@ export class PokerTable {
     const seat = this.seatOf(playerId);
     const p = seat?.player;
     if (!p) return { ok: false, error: 'not seated' };
-    if (!p.inHand || p.folded) return { ok: false, error: 'Only a player still in the hand can show cards' };
+    // Native ShowMuck: anyone dealt into the hand may show, folded or not, once per hand.
+    if (!p.inHand || !p.cards.length) return { ok: false, error: 'Only a player dealt into the hand can show cards' };
     if (!Array.isArray(indices) || !indices.length) return { ok: false, error: 'Pick a card first' };
     const picked = [...new Set(indices.map(Number))]
-      .filter((i) => Number.isInteger(i) && i >= 0 && i < p.cards.length);
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < p.cards.length)
+      .sort((a, b) => a - b);
     if (!picked.length) return { ok: false, error: 'Pick a card first' };
-    p.shown = [...new Set([...(p.shown || []), ...picked])].sort((a, b) => a - b);
+    if (p.shown?.length) {
+      const same = p.shown.length === picked.length && p.shown.every((i, k) => i === picked[k]);
+      return same ? { ok: true, shown: p.shown } : { ok: false, error: 'Cards already selected' };
+    }
+    p.shown = picked;
     if (p.shown.length >= p.cards.length) p.reveal = true;
     this.emit({
       type: 'cards_shown',

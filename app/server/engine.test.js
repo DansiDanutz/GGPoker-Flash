@@ -452,8 +452,9 @@ test('a player can show one card or both after the hand ends', () => {
   assert.equal(t.showCards(1, [0]).ok, false, 'cards can only be shown after the hand');
   t.street = 'ended';
   assert.equal(t.showCards(1, [9]).ok, false, 'only dealt cards can be picked');
+  // Native ShowMuck / Codex rooms.mjs: a player dealt into the hand may show after folding.
   other.folded = true;
-  assert.equal(t.showCards(2, [0]).ok, false, 'a folded player cannot show');
+  assert.equal(t.showCards(2, [0]).ok, true, 'a folded player may show');
   other.folded = false;
 
   assert.equal(t.showCards(1, [0]).ok, true);
@@ -464,11 +465,12 @@ test('a player can show one card or both after the hand ends', () => {
   const own = t.snapshotFor(1).players.find((p) => p.id === 1);
   assert.deepEqual(own.cards, ['As', 'Kh'], 'the owner always sees both');
 
-  assert.equal(t.showCards(1, [1]).ok, true);
-  const all = t.snapshotFor(2).players.find((p) => p.id === 1);
-  assert.deepEqual(all.cards, ['As', 'Kh']);
-  assert.equal(all.reveal, true);
-  assert.deepEqual(events.find((e) => e.type === 'cards_shown').cards, ['As']);
+  // One selection per hand: repeating it is fine, a different selection is refused.
+  assert.equal(t.showCards(1, [0]).ok, true, 'the same selection again is idempotent');
+  assert.equal(t.showCards(1, [0, 1]).ok, false, 'cards already selected for this hand');
+  assert.deepEqual(t.snapshotFor(2).players.find((p) => p.id === 1).cards, ['As', '??']);
+  assert.deepEqual(events.find((e) => e.type === 'cards_shown' && e.playerId === 1).cards, ['As']);
+  assert.equal(events.filter((e) => e.type === 'cards_shown' && e.playerId === 1).length, 1);
 });
 
 test('a busted cash player gets a reload window before the next deal', () => {
