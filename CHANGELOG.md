@@ -6,6 +6,13 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Daily Leaderboard ribbon at the table
+- Cash tables now show a "{stake} Daily Leaderboard" ribbon with Total Prize, My Points and your
+  rank, as in GGPoker. Click it to see today's top ten and what each place pays.
+- You earn one point for each raked hand you put chips into at that stake (UTC day). The prize is
+  500 big blinds, paid to the top ten (30/20/15/10/8/6/4/3/2/2%) once the day is over.
+  Tournaments, Spins and private tables do not count.
+
 ### Take Seat and reserved seats
 - Watching a cash table, every empty seat shows GGPoker's Take Seat control. Clicking it holds the
   seat for you for 30 seconds and opens the buy-in dialog; Cancel releases it.

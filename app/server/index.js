@@ -25,6 +25,7 @@ import * as waitlist from './waitlist.js';
 import { waitingForTable } from './sitOut.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createTableStats } from './table-stats.js';
+import { createDailyLeaderboard, leaderboardStake, pointEarners } from './dailyLeaderboard.js';
 import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
 import { spinInfo } from './spin.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
@@ -518,6 +519,10 @@ const LEADERBOARD = createLeaderboard(db);
 // Rush pool lobby (rush-lobby.js): real hands/hr per pool table and today's Rush leaderboard.
 const RUSH_LOBBY = createRushLobby(db);
 const TABLE_STATS = createTableStats(db);
+const DAILY_LEADERBOARD = createDailyLeaderboard(db, {
+  pay: (userId, amount, memo, reference) =>
+    addTransactionEx(userId, 'daily_leaderboard', amount, memo, 'USD', { reference, onDuplicate: 'skip' }),
+});
 const PLAYER_LABELS = createPlayerLabels(db);
 
 /** `/api/lobby` `rushPools`: one row per Rush pool, with the pool's group wait-list queue. */
@@ -1095,6 +1100,11 @@ function rewardHandPlayed(table, summary) {
     db.prepare('UPDATE users SET xp = xp + 1, vip_points = vip_points + ? WHERE id = ?').run(points, p.id);
     if (points) bumpMission(p.id, 'weekly-vip', points);
   }
+  // Daily Leaderboard: the same raked, chips-in hands earn one point at this stake.
+  const stake = raked ? leaderboardStake(table) : null;
+  if (!stake) return;
+  const userIds = pointEarners(table);
+  if (userIds.length) DAILY_LEADERBOARD.record({ stake, userIds });
 }
 
 /* ------------------------------------------------------------------ */
@@ -2163,6 +2173,18 @@ const server = http.createServer(async (req, res) => {
         if (!live) return json(res, 404, { error: 'table not found' });
         const nicks = live.table.occupiedSeats().map((s) => s.player.nick).filter(Boolean);
         return json(res, 200, { vpip: TABLE_STATS.vpips(m[1], nicks) });
+      }
+    }
+    // ---------- table Daily Leaderboard ribbon (native "{0} Daily Leaderboard", Total Prize, My Points) ----------
+    {
+      const m = /^\/api\/tables\/([\w-]{1,64})\/leaderboard$/.exec(p);
+      if (m && req.method === 'GET') {
+        const u = requireUser(req, res); if (!u) return;
+        const live = LIVE_TABLES.get(m[1]);
+        if (!live) return json(res, 404, { error: 'table not found' });
+        const stake = leaderboardStake(live.table);
+        if (!stake) return json(res, 200, { leaderboard: null });
+        return json(res, 200, { leaderboard: DAILY_LEADERBOARD.view({ stake, userId: u.id }) });
       }
     }
     // ---------- player notes ----------

@@ -261,7 +261,7 @@ export class PokerTable {
       // splitPots: only matched chips can be won), so nobody has to answer a departed bet.
       this.returnLeaverExcess(p);
       // Keep the departed player's matched chips in the pot instead of losing them with the seat.
-      this.ghosts.push({ id: p.id, nick: p.nick, bet: p.bet, totalBet: p.totalBet });
+      this.ghosts.push({ id: p.id, nick: p.nick, bet: p.bet, totalBet: p.totalBet, isBot: !!p.isBot });
     }
     seat.player = null;
     this.emit({ type: 'stand', seat: seat.index });
