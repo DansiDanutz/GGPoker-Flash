@@ -2,19 +2,49 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { money } from '../lib/api';
 import { PlayingCard } from './Card';
 import { showdownFocus, focusClass } from '../game/eval';
-import { handStreetColumns, STREET_BOARD_CARDS } from '../lib/handDetail';
+import { anonymizeHand, formatHandAmount, handExportFileName, handExportLines, handStreetColumns, STREET_BOARD_CARDS, type AmountUnit } from '../lib/handDetail';
+import { downloadBlob, renderHandPng } from '../lib/handPng';
 
 const REPLAY_STEP_MS = 700;
 const BOARD_SIZE = 5;
 
 /** Recorded hand detail: board replay, positions, winning five highlight and per-street actions. */
-export function HandDetailModal({ hand, userId, onClose }: { hand: any; userId?: number; onClose: () => void }) {
+type HandDetailModalProps = {
+  hand: any;
+  userId?: number;
+  onClose: () => void;
+  /** Hide or unhide this hand in the player's history; omitted where hiding does not apply. */
+  onSetHidden?: (hidden: boolean) => void;
+};
+
+export function HandDetailModal({ hand: stored, userId, onClose, onSetHidden }: HandDetailModalProps) {
   const [replay, setReplay] = useState(0);
   const [playing, setPlaying] = useState(true);
+  const [unit, setUnit] = useState<AmountUnit>('chips');
+  const [anonymous, setAnonymous] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const hand = useMemo(() => (anonymous ? anonymizeHand(stored, userId) : stored), [anonymous, stored, userId]);
   const board = useMemo(() => (hand.board || '').split(' ').filter(Boolean), [hand.board]);
   const focus = useMemo(() => showdownFocus(hand.result, board, hand.game), [hand.result, board, hand.game]);
   const columns = useMemo(() => handStreetColumns(hand.actions), [hand.actions]);
   const players: any[] = hand.players || [];
+  const canShowBlinds = Number(hand.blinds?.bb) > 0;
+  const amount = (v: number) => formatHandAmount(v, unit, hand.blinds?.bb, money);
+
+  const exportPng = async () => {
+    setExporting(true);
+    setExportError('');
+    try {
+      const lines = handExportLines(hand, { unit, viewerId: userId, money });
+      const blob = await renderHandPng(lines, `DanGG play-money hand history · ${hand.created_at?.slice(0, 16) ?? ''}`);
+      downloadBlob(blob, handExportFileName(hand));
+    } catch (e: unknown) {
+      setExportError(e instanceof Error ? e.message : 'PNG export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (!playing || replay >= BOARD_SIZE) return;
@@ -35,13 +65,28 @@ export function HandDetailModal({ hand, userId, onClose }: { hand: any; userId?:
       <div className="modal wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head"><h3>{hand.tableName} · hand #{hand.handNo}</h3><button className="title-icon" onClick={onClose}>✕</button></div>
         <div className="modal-body">
+          <div className="row hh-tools" style={{ marginBottom: 12, gap: 6, flexWrap: 'wrap' }}>
+            <div className="row" role="group" aria-label="Amounts in" style={{ gap: 2 }}>
+              <button className={'btn btn-sm ' + (unit === 'chips' ? 'btn-red' : 'btn-ghost')} aria-pressed={unit === 'chips'} onClick={() => setUnit('chips')}>Chips</button>
+              <button className={'btn btn-sm ' + (unit === 'bb' ? 'btn-red' : 'btn-ghost')} aria-pressed={unit === 'bb'} disabled={!canShowBlinds}
+                title={canShowBlinds ? 'Show amounts in big blinds' : 'This hand has no recorded blinds'} onClick={() => setUnit('bb')}>BB</button>
+            </div>
+            <label className="row small" style={{ gap: 4 }}>
+              <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} />Anonymise
+            </label>
+            {onSetHidden && (
+              <button className="btn btn-ghost btn-sm" onClick={() => onSetHidden(!stored.hidden)}>{stored.hidden ? 'Unhide hand' : 'Hide hand'}</button>
+            )}
+            <button className="btn btn-ghost btn-sm" disabled={exporting} onClick={exportPng}>{exporting ? 'Exporting…' : 'Export PNG'}</button>
+            {exportError && <span className="small" role="alert" style={{ color: '#e08a8a' }}>{exportError}</span>}
+          </div>
           <div className="between" style={{ marginBottom: 12 }}>
-            <span className="muted">Pot</span><b className="gold">{money(hand.pot)}</b>
+            <span className="muted">Pot</span><b className="gold">{amount(hand.pot)}</b>
           </div>
           {hand.blinds && (
             <div className="between" style={{ marginBottom: 12 }}>
               <span className="muted">Blinds</span>
-              <span>{money(hand.blinds.sb)} / {money(hand.blinds.bb)}{hand.blinds.ante ? ` · Ante ${money(hand.blinds.ante)}` : ''}</span>
+              <span>{amount(hand.blinds.sb)} / {amount(hand.blinds.bb)}{hand.blinds.ante ? ` · Ante ${amount(hand.blinds.ante)}` : ''}</span>
             </div>
           )}
           <div className="board" style={{ marginBottom: 14 }}>
@@ -64,8 +109,8 @@ export function HandDetailModal({ hand, userId, onClose }: { hand: any; userId?:
                       ))}</div>
                       : '—'}
                   </td>
-                  <td>{money(p.stack)}</td>
-                  <td className="gold">{p.win ? money(p.win) : '—'}</td>
+                  <td>{amount(p.stack)}</td>
+                  <td className="gold">{p.win ? amount(p.win) : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -91,7 +136,7 @@ export function HandDetailModal({ hand, userId, onClose }: { hand: any; userId?:
                         ? col.rows.map((r, i) => (
                           <div key={i} className="hh-action-row">
                             <b>{r.nick}</b>
-                            <span>{r.action}{r.amount ? ` · ${money(r.amount)}` : ''}</span>
+                            <span>{r.action}{r.amount ? ` · ${amount(r.amount)}` : ''}</span>
                           </div>
                         ))
                         : <span className="muted small">—</span>}
