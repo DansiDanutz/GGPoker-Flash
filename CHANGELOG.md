@@ -6,6 +6,11 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Live side-pot piles
+- During a hand with an all-in, the collected chips now show as separate main and side pot piles at
+  GGPoker's positions, each with its amount. Bets on the current street stay in front of the
+  players until the street ends. With a single pot the table looks as before.
+
 ### Bad Beat Jackpot that pays
 - The header jackpot now grows: a quarter of the rake from every raked cash hand goes into the pool.
 - When a strong hand loses at showdown (Hold'em: quad 8s or better, using both hole cards; Omaha:
