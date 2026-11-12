@@ -6,6 +6,29 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Codex clone feature parity pass
+- Lobby AvgPot, VPIP and H/hr are now measured from the last 20 hands of each table
+  instead of estimated demo numbers.
+- At showdown the winning five cards lift and the rest dim (native best-five focus).
+- The last 5 seconds of a turn pulse red, faster on your own seat.
+- Player notes use the 11 native colours, and you can name ten of them on My Page.
+- SB and BB markers sit beside the blinds.
+- Each table can keep its own felt and background from the table menu.
+- Hotkeys cover 13 actions in three groups with F1–F4 and Ctrl+1–4 defaults; assigning a
+  key that is already in use moves it and tells you which action lost it.
+- "Don't round to nearest blind" in Settings → Betting; pot-fraction shortcuts otherwise
+  round up to the small blind.
+- Clicking an opponent shows a HUD: VPIP, PFR, hands, wins and recent hands at this table.
+- Hand history shows positions and a per-street detail view.
+- Owners can set the action time per cash table and keep bounded database snapshots.
+- The Spin & Gold lobby panel shows Info, Blind Structure and Payout.
+- Fixed: mucked hole cards were sent to every player in the live showdown event.
+- Verified in a real browser against a temporary server with bots: markers, best-five
+  focus, HUD, per-table look, hotkeys, Don't round, label titles, Spin panel and
+  measured lobby stats; 507 tests, type check and build pass.
+
+## 2026-11-12
+
 ### All-in-or-Fold tables now play by AoF rules
 - AoF tables were showing the full preflop bar (Call, bet presets, slider, Raise), which the
   engine rejects. They now show only **Fold** and **All-in** (with the stack), the F1/F4
