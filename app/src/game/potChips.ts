@@ -10,7 +10,7 @@ export type PotChipColumn = { denom: number; count: number };
 const POT_DENOMS = [100, 25, 5, 1];
 const COLUMN_CAP = 9;
 
-export function potChipLayout(pot: number, bb: number): PotChipColumn[] {
+export function potChipLayout(pot: number, bb: number, cap: number = COLUMN_CAP): PotChipColumn[] {
   const value = Math.max(0, Number(pot) || 0);
   if (value <= 0) return [];
   const unit = Math.max(1, Number(bb) || 1);
@@ -18,7 +18,7 @@ export function potChipLayout(pot: number, bb: number): PotChipColumn[] {
   const columns: PotChipColumn[] = [];
   for (const denom of POT_DENOMS) {
     let count = 0;
-    while (remaining >= denom && count < COLUMN_CAP) {
+    while (remaining >= denom && count < cap) {
       count += 1;
       remaining -= denom;
     }

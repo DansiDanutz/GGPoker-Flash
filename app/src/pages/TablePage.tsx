@@ -879,24 +879,31 @@ export function TablePage({ tableId }: { tableId: string }) {
       <div className="felt" />
       <div className="table-watermark" style={{ top: '34%', fontSize: 20, letterSpacing: 5 }}>{state?.name || ''}</div>
       <div className="table-center">
-        {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
-        {chipShuffle ? (
-          <div
-            className="chip-shuffle"
-            aria-hidden="true"
-            style={{ backgroundPosition: `${shuffleFramePosition(chipShuffle.frame).x}% ${shuffleFramePosition(chipShuffle.frame).y}%` }}
-          />
-        ) : potColumns.length > 0 && (
-          <div className="pot-chips" aria-hidden="true">
-            {potColumns.map((col) => (
-              <span key={col.denom} className={`pot-chip-col denom-${col.denom}`}>
-                {Array.from({ length: col.count }, (_, i) => <i key={i} />)}
-              </span>
-            ))}
-          </div>
-        )}
+        <div className="pot-stack">
+          {chipShuffle ? (
+            <div
+              className="chip-shuffle"
+              aria-hidden="true"
+              style={{ backgroundPosition: `${shuffleFramePosition(chipShuffle.frame).x}% ${shuffleFramePosition(chipShuffle.frame).y}%` }}
+            />
+          ) : potColumns.length > 0 && (
+            <div className="pot-chips" aria-hidden="true">
+              {potColumns.map((col) => (
+                <span key={col.denom} className={`pot-chip-col denom-${col.denom}`}>
+                  {Array.from({ length: col.count }, (_, i) => <i key={i} />)}
+                </span>
+              ))}
+            </div>
+          )}
+          {!winFx && <div className="pot-label">Total Pot : {chip(state?.pot)}</div>}
+        </div>
         <div className="board">
-          {(state?.board || []).map((c, i) => <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt style={{ '--dx': '0px', '--dy': '34px', animationDelay: `${i * 0.08}s` } as React.CSSProperties} />)}
+          {(state?.board || []).map((c, i) => {
+            const [dxp, dyp] = state && state.button >= 0 ? seatPos(state.button) : [50, 12];
+            const fromX = Math.round((50 - dxp) * 4);
+            const fromY = Math.round((45 - dyp) * 3);
+            return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: `${(i < 3 ? i : 0) * 0.07}s` } as React.CSSProperties} />;
+          })}
           {state?.boards && state.boards.length > 1 && (
             <div className="board second-board">
               {state.boards[1].map((c, i) => <PlayingCard key={`second-${state?.handNo}-${i}-${c}`} card={c} size="mini" />)}
@@ -948,6 +955,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             title={p.nick ? 'Player note' : ''}
           >
             {p.winAmount ? <div className="win-amount">+{chip(p.winAmount)}</div> : null}
+            {p.winAmount ? <img className="native-win" src={animOff ? '/assets/table/native-win-final.png' : '/assets/table/native-win-effect.png'} alt="" /> : null}
             {isActor && !p.folded ? <div className="timer" style={{ animationDuration: '1.4s' }} /> : null}
             {!(p.isMe && squeezing) && <div
               className={'cards' + (showdownReveals[p.seat] != null && p.reveal ? ' showdown-reveal' : '')}
@@ -1004,14 +1012,26 @@ export function TablePage({ tableId }: { tableId: string }) {
         const [x, y] = seatPos(state.button);
         const dx = x + (x <= 50 ? 6.2 : -6.2);
         const dy = y + (y < 45 ? 4.5 : -4.5);
-        return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }}>D</div>;
+        return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }} />;
       })()}
 
       {(state?.players || []).filter((p) => p && !p.empty && (p.bet || 0) > 0).map((p) => {
         const [x, y] = seatPos(p.seat!);
         const bx = x + (50 - x) * 0.2;
         const by = y + (45 - y) * 0.2;
-        return <div key={'bet' + p.seat} className="table-bet" style={{ left: `${bx}%`, top: `${by}%` }}><span className="chip-ico" />{chip(p.bet)}</div>;
+        const betCols = potChipLayout(p.bet || 0, state?.bb || 1, 4);
+        return (
+          <div key={'bet' + p.seat} className="table-bet" style={{ left: `${bx}%`, top: `${by}%` }}>
+            <span className="wager-chips" aria-hidden="true">
+              {betCols.map((col) => (
+                <span key={col.denom} className={`wager-col denom-${col.denom}`}>
+                  {Array.from({ length: Math.min(4, col.count) }, (_, i) => <i key={i} />)}
+                </span>
+              ))}
+            </span>
+            <span className="wager-amount">{chip(p.bet)}</span>
+          </div>
+        );
       })}
 
       {fx.map((f) => {

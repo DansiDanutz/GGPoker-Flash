@@ -76,6 +76,7 @@ test('the pot pile uses native denominations with per-column caps', () => {
   assert.deepEqual(potChipLayout(180000, 200), [{ denom: 100, count: 9 }], 'a 900 BB pot caps the column');
   assert.deepEqual(potChipLayout(200000, 200), [{ denom: 25, count: 4 }, { denom: 100, count: 9 }], 'overflow uses the next denomination');
   for (const col of potChipLayout(10000000, 200)) assert.ok(col.count <= 9);
+  for (const col of potChipLayout(200000, 200, 4)) assert.ok(col.count <= 4, 'wager piles use a smaller cap');
   assert.deepEqual(shuffleFramePosition(1), { x: 0, y: 0 });
   assert.ok(Math.abs(shuffleFramePosition(15).x - 93.3333) < 0.01);
   assert.deepEqual(shuffleFramePosition(16), { x: 100, y: 0 });

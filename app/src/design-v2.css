@@ -390,15 +390,16 @@ body { background: #050706; }
 .room-light { opacity: .7; }
 .table-screen::after { background: radial-gradient(ellipse at 50% 48%, transparent 52%, rgba(0, 0, 0, .38) 100%); }
 .table-watermark { font-size: 29px; letter-spacing: 9px; color: rgba(245, 221, 162, .13); text-shadow: 0 0 22px rgba(245, 221, 162, .06); }
-.pot-chips { position: absolute; left: 50%; top: -26px; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 5px; z-index: 0; opacity: .95; pointer-events: none; }
+.pot-stack { position: relative; display: flex; flex-direction: column; align-items: center; }
+.pot-chips { position: absolute; left: 50%; bottom: 100%; margin-bottom: 4px; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 5px; z-index: 0; opacity: .97; pointer-events: none; }
 .pot-chip-col { display: flex; flex-direction: column; align-items: center; }
-.pot-chip-col i { width: 15px; height: 15px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f6dda2, #b9842a 55%, #5e3a08); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .45), 0 2px 4px rgba(0, 0, 0, .5); animation: potChipIn .28s cubic-bezier(.2, .9, .3, 1.25) both; }
-.pot-chip-col i + i { margin-top: -9px; }
-.pot-chip-col.denom-5 i { background: radial-gradient(circle at 35% 30%, #ffb9a6, #c2452e 55%, #5e1a10); }
-.pot-chip-col.denom-25 i { background: radial-gradient(circle at 35% 30%, #bfe8c4, #2f8a4a 55%, #123c1f); }
-.pot-chip-col.denom-100 i { background: radial-gradient(circle at 35% 30%, #d9d2c2, #2a2a2a 58%, #0b0b0b); box-shadow: 0 0 0 1.5px rgba(255, 215, 130, .55), 0 2px 4px rgba(0, 0, 0, .55); }
+.pot-chip-col i { width: 20px; height: 19px; background: url('/assets/chips/native-chip-1.png') center/100% 100% no-repeat; animation: potChipIn .28s cubic-bezier(.2, .9, .3, 1.25) both; }
+.pot-chip-col i + i { margin-top: -12px; }
+.pot-chip-col.denom-5 i { background-image: url('/assets/chips/native-chip-5.png'); }
+.pot-chip-col.denom-25 i { background-image: url('/assets/chips/native-chip-25.png'); }
+.pot-chip-col.denom-100 i { background-image: url('/assets/chips/native-chip-100.png'); }
 @keyframes potChipIn { from { transform: translateY(7px) scale(.55); opacity: 0; } to { transform: none; opacity: 1; } }
-.chip-shuffle { position: absolute; left: 50%; top: -96px; width: 92px; height: 104px; transform: translateX(-50%); background-image: url('/assets/chips/native-chip-shuffle.png'); background-size: 1600% 1600%; background-repeat: no-repeat; pointer-events: none; z-index: 1; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .5)); }
+.chip-shuffle { position: absolute; left: 50%; bottom: 100%; margin-bottom: 2px; width: 92px; height: 104px; transform: translateX(-50%); background-image: url('/assets/chips/native-chip-shuffle.png'); background-size: 1600% 1600%; background-repeat: no-repeat; pointer-events: none; z-index: 1; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .5)); }
 .promo-wrap::before {
   content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background: linear-gradient(108deg, transparent 20%, rgba(255, 240, 200, .10) 38%, transparent 52%);
@@ -490,4 +491,40 @@ body { background: #050706; }
   .reserved-actions { gap: 4px; }
   .reserved-actions button { width: 31%; height: 48px; border-width: 13px 12px; font-size: 14px; }
   .reserved-actions .reserve-text { left: 0; width: 100%; height: 24px; line-height: 24px; }
+}
+
+/* Larger fanned seat cards, closer to the native hole-card layout */
+.seat .cards { gap: 0; }
+.seat .cards .card-slot + .card-slot { margin-left: -8px; }
+.seat .cards .card-slot:nth-child(1) { rotate: -5deg; }
+.seat .cards .card-slot:nth-child(2) { rotate: 4deg; translate: 0 -2px; }
+.seat .cards .pcard.mini { width: 58px; height: 81px; }
+.seat.me .cards .pcard.mini { width: 66px; height: 92px; }
+.seat .cards .pcard.mini .rank { font-size: 22px; }
+.seat .cards .pcard.mini .suit { font-size: 26px; }
+
+/* Native wager piles, dealer disc and WIN artwork */
+.table-bet { background: none; border: 0; box-shadow: none; padding: 0; flex-direction: column; gap: 3px; }
+.wager-chips { display: flex; align-items: flex-end; gap: 4px; }
+.wager-col { display: flex; flex-direction: column; }
+.wager-col i { width: 16px; height: 15px; background: url('/assets/chips/native-chip-1.png') center/100% 100% no-repeat; }
+.wager-col i + i { margin-top: -9px; }
+.wager-col.denom-5 i { background-image: url('/assets/chips/native-chip-5.png'); }
+.wager-col.denom-25 i { background-image: url('/assets/chips/native-chip-25.png'); }
+.wager-col.denom-100 i { background-image: url('/assets/chips/native-chip-100.png'); }
+.wager-amount { background: rgba(0, 0, 0, .6); border: 1px solid rgba(255, 215, 130, .3); color: #ffe1a0; padding: 1px 7px; border-radius: 10px; font-size: 11.5px; font-weight: 700; }
+.dealer-btn { width: 26px; height: 25px; border-radius: 0; background: url('/assets/table/dealer-disc.png') center/100% 100% no-repeat; color: transparent; font-size: 0; box-shadow: none; }
+.native-win { position: absolute; left: 50%; top: -104px; width: 168px; height: auto; transform: translateX(-50%); z-index: 12; pointer-events: none; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, .55)); }
+.board .pcard.dealt { animation-duration: .3s; }
+@media (max-width: 760px) {
+  .native-win { width: 118px; top: -80px; }
+  .pot-chip-col i { width: 16px; height: 15px; }
+  .pot-chip-col i + i { margin-top: -10px; }
+}
+
+@media (max-width: 760px) {
+  .seat .cards .pcard.mini { width: 44px; height: 62px; }
+  .seat.me .cards .pcard.mini { width: 50px; height: 70px; }
+  .seat .cards .pcard.mini .rank { font-size: 17px; }
+  .seat .cards .pcard.mini .suit { font-size: 20px; }
 }

@@ -21,3 +21,12 @@ Rows marked **next** are not implemented in DanGG yet.
 Evidence for the reference rows lives in the clone's `FEATURES.md` and
 `home-art/rea/*.json`. The clone is not a source to copy blindly: its server, table model
 and client are different, so ports keep DanGG's server-authoritative design and tests.
+
+## Table fidelity pass (2026-11-12)
+
+Done after the three main ports, following the audit in
+`docs/designs/table-fidelity-audit.md`: native pot/wager chip sprites and caps, native
+dealer disc, native 46-frame WIN APNG, dealer-origin board throw with a staggered flop,
+and larger fanned seat cards. DanGG keeps its responsive seat ring, themes and action bar.
+Still open: frame-exact native timings, portrait/plate frames, clock/bet-widget art,
+AOF/Rush reserved layouts.
