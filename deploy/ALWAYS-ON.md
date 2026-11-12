@@ -58,8 +58,11 @@ ssh nano 'chmod +x ~/dangro-backup-pull.sh'
 0 5 * * * /home/Nano1981/dangro-backup-pull.sh >> /home/Nano1981/dangro-backup-pull.log 2>&1
 ```
 
-Nano keeps 30 days under `~/dangro-backups`; Dexter keeps 14. The pull mirrors
-with `--delete`, so the copy never drifts from the source. It authenticates with
+Nano keeps 30 days under `~/dangro-backups`; Dexter keeps 14. The pull copies new
+snapshots without `--delete`, so files Dexter prunes stay on Nano until its own
+30-day `find` removes them (an earlier `--delete` mirror capped Nano at 14 days).
+`backup.sh` also removes the snapshot it leaves in the live data volume, so the only
+copies are in `deploy/backups/` and on Nano. It authenticates with
 Nano's existing key, which is trusted by Dexter's `authorized_keys`, and needs one
 firewall rule on Dexter: `ufw allow from 157.230.23.158 to any port 22` (Nano's
 public IP only).
