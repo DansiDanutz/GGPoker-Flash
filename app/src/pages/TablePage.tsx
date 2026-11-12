@@ -4,7 +4,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { SwfEffect } from '../components/SwfEffect';
-import { betLabel, betTarget, betUnitOf, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readHotkeys, normalizeHotkey, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readHotkeys, normalizeHotkey, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval';
@@ -585,7 +585,8 @@ export function TablePage({ tableId }: { tableId: string }) {
     });
   };
   const nudgeBet = (direction: number) => setRaiseTo((v) => Math.max(minTo, Math.min(maxTo, v + direction * betStep)));
-  const presets = state ? sizingPresets(betCtx, chipStep) : [];
+  const roundUnit = shortcutRoundUnit(bettingOptions, state?.sb || 0);
+  const presets = state ? sizingPresets(betCtx, roundUnit) : [];
   const odds = myTurn ? potOdds(state?.pot || 0, toCall) : null;
   const sittingOut = !!me?.sittingOut;
   const sitOutNext = !!me?.sitOutNext;
@@ -1263,7 +1264,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="quick-bets">
             {(state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0) ? betPrefs.opening : betPrefs.normal).map((value, i) => {
               const opening = state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0);
-              const target = state ? betTarget(value, opening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo) : minTo;
+              const target = state ? betTarget(value, opening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo, roundUnit) : minTo;
               return <button key={`${value}-${i}`} disabled={!myTurn || !canRaise} onClick={() => setRaiseTo(target)}>{betLabel(value, opening)}</button>;
             })}
           </div>

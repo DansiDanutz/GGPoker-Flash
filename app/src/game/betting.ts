@@ -36,22 +36,30 @@ export function betLimits(ctx: BetContext): BetLimits {
   return { toCall, minTo, maxTo, allInTo, canRaise: maxTo > ctx.currentBet };
 }
 
-function clampToLimits(target: number, limits: BetLimits, step: number): number {
-  const rounded = Math.round(target / step) * step;
-  return Math.max(limits.minTo, Math.min(limits.maxTo, rounded));
+function clamp(target: number, limits: BetLimits): number {
+  return Math.max(limits.minTo, Math.min(limits.maxTo, target));
+}
+
+/** Native shortcut rounding: always up, to a whole multiple of `unit` (minimum 1 chip). */
+export function ceilToUnit(target: number, unit: number): number {
+  const step = unit >= 1 ? unit : 1;
+  return Math.ceil(target / step - 1e-9) * step;
 }
 
 /** A pot-fraction raise: call first, then raise by `fraction` of the pot as it stands after the call. */
 export function potFractionTarget(ctx: BetContext, fraction: number, step = 1): number {
   const limits = betLimits(ctx);
-  return clampToLimits(ctx.currentBet + fraction * (ctx.pot + limits.toCall), limits, step);
+  const raw = ctx.currentBet + fraction * (ctx.pot + limits.toCall);
+  // Pot is its own native path and is never rounded; smaller fractions ceil to the unit.
+  return clamp(fraction >= 1 ? Math.round(raw) : ceilToUnit(raw, step), limits);
 }
 
 export function sizingPresets(ctx: BetContext, step = 1): SizingPreset[] {
   const limits = betLimits(ctx);
   const isUnopenedPreflop = ctx.street === 'preflop' && ctx.currentBet <= ctx.bb;
   if (isUnopenedPreflop) {
-    return PREFLOP_OPEN_MULTIPLES.map((m) => ({ label: `${m}x`, target: clampToLimits(ctx.bb * m, limits, step) }));
+    // The native opening buttons bypass shortcut rounding.
+    return PREFLOP_OPEN_MULTIPLES.map((m) => ({ label: `${m}x`, target: clamp(Math.round(ctx.bb * m), limits) }));
   }
   return POT_FRACTIONS.map(([label, fraction]) => ({ label, target: potFractionTarget(ctx, fraction, step) }));
 }

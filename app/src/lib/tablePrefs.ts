@@ -46,15 +46,30 @@ export function betLabel(v: BetValue, opening: boolean): string {
   return opening ? `${v}BB` : `${v}%`;
 }
 
-export function betTarget(v: BetValue, opening: boolean, state: { pot: number; currentBet: number; bb: number }, toCall: number, minTo: number, maxTo: number): number {
+// Same rule as ceilToUnit in game/betting.ts; kept local because these modules are
+// also loaded directly by Node's test runner, which cannot resolve extension-less imports.
+function ceilToUnit(target: number, unit: number): number {
+  const step = unit >= 1 ? unit : 1;
+  return Math.ceil(target / step - 1e-9) * step;
+}
+
+export function betTarget(v: BetValue, opening: boolean, state: { pot: number; currentBet: number; bb: number }, toCall: number, minTo: number, maxTo: number, roundUnit = 1): number {
   let target: number;
   if (v === 'max') target = maxTo;
   else if (opening) {
     target = v === 'pot' ? state.currentBet + state.pot + toCall : Math.round(Number(v) * state.bb);
+  } else if (v === 'pot') {
+    target = state.currentBet + state.pot + toCall;
   } else {
-    target = state.currentBet + Math.round((state.pot + toCall) * (v === 'pot' ? 1 : Number(v) / 100));
+    // Native normal shortcuts ceil to the rounding unit before the legal clamp.
+    target = ceilToUnit(state.currentBet + (state.pot + toCall) * (Number(v) / 100), roundUnit);
   }
   return Math.max(minTo, Math.min(maxTo, target));
+}
+
+/** Small blind, or one chip when "Don't round to nearest blind" is on. */
+export function shortcutRoundUnit(options: Pick<BettingOptions, 'dontRound'>, sb: number): number {
+  return options.dontRound ? 1 : Math.max(1, Number(sb) || 1);
 }
 
 
@@ -95,12 +110,15 @@ export type BettingOptions = {
   wheelUp: 'increase' | 'decrease';
   unit: 'bb' | 'sb';
   confirm: 'always' | 'never';
+  /** "Don't round to nearest blind": shortcuts ceil to one chip instead of the small blind. */
+  dontRound: boolean;
 };
 
 export const DEFAULT_BETTING_OPTIONS: BettingOptions = {
   wheelUp: 'increase',
   unit: 'bb',
   confirm: 'always',
+  dontRound: false,
 };
 
 export function normalizeBettingOptions(raw: unknown): BettingOptions {
@@ -109,6 +127,7 @@ export function normalizeBettingOptions(raw: unknown): BettingOptions {
     wheelUp: p.wheelUp === 'decrease' ? 'decrease' : 'increase',
     unit: p.unit === 'sb' ? 'sb' : 'bb',
     confirm: p.confirm === 'never' ? 'never' : 'always',
+    dontRound: p.dontRound === true,
   };
 }
 

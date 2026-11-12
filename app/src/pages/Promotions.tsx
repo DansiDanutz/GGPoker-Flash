@@ -390,7 +390,12 @@ export function Settings() {
                 <option value="always">Always confirm</option>
                 <option value="never">Never confirm</option>
               </select>
-              <p className="muted small">Mouse wheel and the arrow keys move the amount by the chosen unit; Enter bets it. Always confirm asks first; Escape cancels.</p>
+              <label className="admin-label" style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input type="checkbox" checked={bettingOptions.dontRound}
+                  onChange={(e) => saveBettingOptions({ ...bettingOptions, dontRound: e.target.checked })} />
+                Don't round to nearest blind
+              </label>
+              <p className="muted small">Mouse wheel and the arrow keys move the amount by the chosen unit; Enter bets it. Always confirm asks first; Escape cancels. Pot-fraction shortcuts round up to the small blind unless Don't round is on.</p>
             </div>
             <div className="card" style={{ gridColumn: '1 / -1' }}>
               <div className="panel-title">Preview</div>
