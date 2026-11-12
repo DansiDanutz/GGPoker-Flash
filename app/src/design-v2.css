@@ -533,3 +533,14 @@ body { background: #050706; }
 .native-clock { position: absolute; left: -22px; top: 24%; transform: translateX(-100%); width: 64px; height: 28px; background: url('/assets/table/clock/frame.png') center/100% 100% no-repeat; display: flex; align-items: center; justify-content: center; gap: 1px; z-index: 11; pointer-events: none; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .6)); }
 .native-clock .clock-digit { height: 20px; width: auto; }
 .native-clock.clock-right { left: auto; right: -22px; transform: translateX(100%); }
+
+/* Final five seconds of a turn (native PlayerTurnEffect3D urgent tint; own seat pulses
+   at a 0.2 s half-period, others at 0.5 s). */
+.seat.active.urgent .avatar-wrap {
+  background: conic-gradient(#ffb3a3, #c4372a, #ffd0c2, #8a1e14, #ffb3a3);
+  box-shadow: 0 0 0 3px rgba(255, 120, 100, .28), 0 0 30px rgba(255, 80, 60, .55);
+  animation: urgentPulse .5s ease-in-out infinite alternate;
+}
+.seat.active.urgent-me .avatar-wrap { animation-duration: .2s; }
+@keyframes urgentPulse { from { filter: brightness(1); } to { filter: brightness(1.35); } }
+@media (prefers-reduced-motion: reduce) { .seat.active.urgent .avatar-wrap { animation: none; } }

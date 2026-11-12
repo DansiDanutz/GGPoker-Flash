@@ -12,6 +12,7 @@ import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/bett
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { showdownComplete, showdownPlan } from '../game/showdown';
+import { turnUrgencyClass } from '../game/turnClock';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { useWaitlist } from '../lib/waitlistState';
 import { formatCountdown, queuePositionLabel } from '../lib/waitlist';
@@ -1052,7 +1053,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         return (
           <div
             key={p.seat}
-            className={'seat' + (p.isMe ? ' me' : '') + (landscapePhone && (y < 25 || y > 70) ? ' seat-row' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
+            className={'seat' + (p.isMe ? ' me' : '') + (landscapePhone && (y < 25 || y > 70) ? ' seat-row' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' + turnUrgencyClass(clockSeconds, !!p.isMe) : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
             style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default' }}
             onClick={() => { if (p.nick) openNote(p); }}
             title={p.nick ? 'Player note' : ''}
