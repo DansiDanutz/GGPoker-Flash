@@ -32,4 +32,4 @@ jobs:
 
       - name: Tournament crash/restart soak
         working-directory: ${{ github.workspace }}
-        run: node tools/tournament-soak.mjs --cycles 2
+        run: node tools/tournament-soak.mjs --cycles 2 --rooms 3
