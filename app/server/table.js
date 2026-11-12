@@ -610,8 +610,9 @@ export class PokerTable {
         if (s.player.stack === 0) s.player.allIn = true;
       }
     }
-    this.postBlind(sbSeat, this.sb, 'SB');
-    this.postBlind(bbSeat, this.bb, 'BB');
+    // Chips a short-stacked blind could not post. Preflop pot-limit sizing counts them as if
+    // the full blinds were in (TDA 2026 rule 56); the pot that is paid out never does.
+    this.blindShortfall = this.postBlind(sbSeat, this.sb, 'SB') + this.postBlind(bbSeat, this.bb, 'BB');
     this.sbSeat = sbSeat ? sbSeat.index : -1;
     this.bbSeat = bbSeat ? bbSeat.index : -1;
     this.postMissedBlinds(inHand, sbSeat, bbSeat);
@@ -740,13 +741,15 @@ export class PokerTable {
     }
   }
 
+  /** Posts a blind and returns how many chips of it the player was short. */
   postBlind(seat, amount, label) {
-    if (!seat || !seat.player) return;
+    if (!seat || !seat.player) return 0;
     const p = seat.player;
     const amt = Math.min(amount, p.stack);
     this.commit(p, amt);
     p.lastAction = { action: label, amount: amt };
     if (p.stack === 0) p.allIn = true;
+    return Math.max(0, amount - amt);
   }
 
   commit(player, amount) {
@@ -964,8 +967,10 @@ export class PokerTable {
   /* ------------------------------ actions ------------------------------ */
 
   // Largest legal raise-to in a pot-limit game: the bet to call plus the pot after calling.
+  // Preflop, a short blind is sized as if it had been posted in full.
   potLimitMax(player) {
-    const potAfterCall = this.pot + this.totalBets() + this.toCall(player);
+    const nominal = this.street === 'preflop' ? this.blindShortfall || 0 : 0;
+    const potAfterCall = this.pot + this.totalBets() + nominal + this.toCall(player);
     return Math.min(player.bet + player.stack, this.currentBet + potAfterCall);
   }
 
