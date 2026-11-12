@@ -2477,11 +2477,11 @@ wss.on('connection', (ws, req) => {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
       const seat = entry.table.seatOf(ws.userId);
-      if (seat) {
-        seat.player.sittingOut = !!msg.value;
-        if (!msg.value) { seat.player.missedTurns = 0; entry.table.maybeStart(); }
-        broadcastState(entry.table);
-      }
+      if (!seat) return ws.send(JSON.stringify({ type: 'error', error: 'Take a seat first' }));
+      if (!msg.value) seat.player.missedTurns = 0;
+      const res = entry.table.requestSitOut(ws.userId, !!msg.value);
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      broadcastState(entry.table);
       return;
     }
     if (msg.type === 'show_cards') {

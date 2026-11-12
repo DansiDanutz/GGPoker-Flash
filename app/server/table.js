@@ -156,7 +156,8 @@ export class PokerTable {
       joinedAt: Date.now(),
       handsPlayed: 0,
       won: 0,
-      autoMuck: false,
+      autoMuck: true,
+      sitOutNextHand: false,
       insurance: false,
       sessionId,
     };
@@ -277,6 +278,11 @@ export class PokerTable {
 
   startHand() {
     this.timeBankUsed = new Set();
+    // A deferred "sit out next hand" takes effect before this deal.
+    for (const seat of this.seats) {
+      const p = seat.player;
+      if (p?.sitOutNextHand) { p.sittingOut = true; p.sitOutNextHand = false; }
+    }
     const ready = this.readySeats();
     if (this.spin && this.handNo > 0 && ready.length === 1) { this.awardSpinWinner(); return; }
     if (this.tournament && this.handNo > 0 && ready.length === 1) { this.awardTournamentWinner(); return; }
@@ -466,6 +472,25 @@ export class PokerTable {
       cards: p.shown.map((i) => cardStr(p.cards[i])),
     });
     return { ok: true, shown: p.shown };
+  }
+
+  /**
+   * Sit out now, or finish the current hand first like the native "Sit out next
+   * hand" item. Value false sits the player back in immediately.
+   */
+  requestSitOut(playerId, value) {
+    const seat = this.seatOf(playerId);
+    const p = seat?.player;
+    if (!p) return { ok: false, error: 'not seated' };
+    if (!value) {
+      p.sittingOut = false;
+      p.sitOutNextHand = false;
+      this.maybeStart();
+      return { ok: true };
+    }
+    if (this.handInProgress() && p.inHand && !p.folded) p.sitOutNextHand = true;
+    else p.sittingOut = true;
+    return { ok: true };
   }
 
   setAutoMuck(userId, value) {
@@ -772,6 +797,11 @@ export class PokerTable {
       award(scored[1], pot.amount - half, 1, pot.ids);
     }
 
+    const doubleWinnerIds = new Set(results.map((r) => r.id));
+    for (const sc of alive) {
+      const p = sc.player;
+      if (doubleWinnerIds.has(p.id) || !p.autoMuck) p.reveal = true;
+    }
     this.board = board1;
     this.boards = [board1, board2];
     const summary = {
@@ -928,6 +958,13 @@ export class PokerTable {
           hand: w.name, cards: w.cards.map(cardStr), pot: pot.amount,
         });
       }
+    }
+    // Winners show at showdown; losing hands muck unless the player turned
+    // auto-muck off.
+    const winnerIds = new Set(results.map((r) => r.id));
+    for (const sc of scored) {
+      const p = sc.player;
+      if (winnerIds.has(p.id) || !p.autoMuck) p.reveal = true;
     }
     const summary = {
       pot: this.pot,
@@ -1254,6 +1291,7 @@ export class PokerTable {
           lastAction: p.lastAction,
           winAmount: p.winAmount,
           disconnected: p.disconnected,
+          sitOutNext: !!p.sitOutNextHand,
           timeBank: p.timeBank,
         };
       }),

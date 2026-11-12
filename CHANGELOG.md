@@ -6,6 +6,24 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Table menu
+- Every item in the table **Menu** now does what it says:
+  - **Sit out next hand** finishes the current hand and sits out at the next deal,
+    with Cancel sit out / Post blinds to reverse it.
+  - **Rabbit hunt** is only enabled after a hand ends with an incomplete board, says why
+    when disabled, and the revealed cards clear at the next deal.
+  - **Auto-muck losing hand** now has an engine effect: winners show at showdown and
+    losing hands muck by default; turning it off shows the losing hand too. The seat's
+    preference is sent when a player joins, so it survives reconnects.
+  - **Official FX preview** (and the win/spin/mystery SWF effects) works again: Ruffle
+    compiles a self-hosted WebAssembly module, which the page CSP blocked. `script-src`
+    now allows `'wasm-unsafe-eval'` only — no eval and no remote script.
+  - **Table settings** opens the Table & cards tab instead of the General tab.
+  - Seat-only items (rebuy, sit out, straddle, run it twice, auto-muck, rabbit, spin
+    insurance) are disabled for spectators with a "Take a seat first" hint.
+- Tests: deferred sit-out, immediate sit-out between hands, and showdown
+  reveal/muck with auto-muck on and off. Full suite 153/153.
+
 ### Betting controls (ported from the Codex clone)
 - The reference clone's **Betting options** are now in Settings → Betting: mouse-wheel
   direction (scroll up to increase or decrease), the wheel/step unit (big or small blind),

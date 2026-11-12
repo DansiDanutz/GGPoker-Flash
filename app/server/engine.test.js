@@ -368,6 +368,70 @@ test('flights of one tournament share the blind level and clock', () => {
   assert.equal(late.bb, a.bb);
 });
 
+test('sit out next hand keeps the current hand and applies at the next deal', () => {
+  const t = new PokerTable({
+    id: 'sitout', name: 'Sit out', game: 'holdem', sb: 50, bb: 100, seats: 2,
+    min_buyin: 1000, max_buyin: 5000,
+  });
+  const a = player(1, 'A', 1000, 100, [C('As'), C('Kh')]);
+  const b = player(2, 'B', 1000, 100, [C('Qd'), C('Jc')]);
+  t.seats[0].player = a;
+  t.seats[1].player = b;
+  t.street = 'preflop';
+  t.handNo = 1;
+
+  assert.equal(t.requestSitOut(1, true).ok, true);
+  assert.equal(a.sitOutNextHand, true);
+  assert.equal(a.sittingOut, false, 'the current hand is not cut short');
+
+  // The next deal consumes the flag and does not put the player in blinds.
+  t.street = 'ended';
+  t.nextHandAt = 0;
+  t.startHand();
+  assert.equal(a.sittingOut, true);
+  assert.equal(a.sitOutNextHand, false);
+
+  // Cancelling sits back in.
+  t.requestSitOut(1, false);
+  assert.equal(a.sittingOut, false);
+  assert.equal(a.sitOutNextHand, false);
+});
+
+test('sitting out between hands takes effect immediately', () => {
+  const t = new PokerTable({
+    id: 'sitout2', name: 'Sit out', game: 'holdem', sb: 50, bb: 100, seats: 2,
+    min_buyin: 1000, max_buyin: 5000,
+  });
+  t.seats[0].player = player(1, 'A', 1000, 0, []);
+  t.seats[1].player = player(2, 'B', 1000, 0, []);
+  t.street = 'ended';
+  t.requestSitOut(1, true);
+  assert.equal(t.seats[0].player.sittingOut, true);
+  assert.ok(!t.seats[0].player.sitOutNextHand, 'not deferred when no hand is running');
+});
+
+test('winners show at showdown and losers muck unless auto-muck is off', () => {
+  const winner = player(1, 'Winner', 1000, 100, [C('As'), C('Ah')]);
+  const mucker = player(2, 'Mucker', 1000, 100, [C('Kd'), C('Qc')]);
+  mucker.autoMuck = true;
+  const t = tableWith([winner, mucker]);
+  t.board = ['2c', '7d', '9s', 'Jh', '3c'].map(C);
+  t.pot = 200;
+  t.doShowdown();
+  assert.equal(winner.reveal, true, 'the winner shows');
+  assert.equal(mucker.reveal, false, 'a loser mucks by default');
+  assert.equal(t.snapshotFor(9).players.find((p) => p.id === 2).cards.every((c) => c === '??'), true);
+
+  const winner2 = player(1, 'Winner', 1000, 100, [C('As'), C('Ah')]);
+  const shower = player(2, 'Shower', 1000, 100, [C('Kd'), C('Qc')]);
+  shower.autoMuck = false;
+  const t2 = tableWith([winner2, shower]);
+  t2.board = ['2c', '7d', '9s', 'Jh', '3c'].map(C);
+  t2.pot = 200;
+  t2.doShowdown();
+  assert.equal(shower.reveal, true, 'auto-muck off shows the losing hand');
+});
+
 test('a player can show one card or both after the hand ends', () => {
   const t = new PokerTable({
     id: 'show', name: 'Show', game: 'holdem', sb: 50, bb: 100, seats: 2,

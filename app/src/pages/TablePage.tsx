@@ -14,7 +14,7 @@ import { potChipTiers } from '../game/potChips';
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
-  reveal?: boolean; shown?: number[]; cards?: string[]; lastAction?: { action: string; amount: number } | null;
+  reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; lastAction?: { action: string; amount: number } | null;
   winAmount?: number; empty?: boolean; disconnected?: boolean;
 };
 
@@ -206,7 +206,11 @@ export function TablePage({ tableId }: { tableId: string }) {
       } else if (msg.type === 'joined') {
         everJoined.current = true;
         setMySeat(msg.seat);
-        if (msg.observe) setObserving(true); else setObserving(false);
+        if (msg.observe) setObserving(true); else {
+          setObserving(false);
+          // Keep the seat's auto-muck preference in sync with this device.
+          ws.send(JSON.stringify({ type: 'option', tableId, autoMuck }));
+        }
         if (msg.waitlist) setWaitlistPos(msg.waitlist);
         setOpeningTable(null);
       } else if (msg.type === 'waitlist') {
@@ -466,6 +470,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const presets = state ? sizingPresets(betCtx, chipStep) : [];
   const odds = myTurn ? potOdds(state?.pot || 0, toCall) : null;
   const sittingOut = !!me?.sittingOut;
+  const sitOutNext = !!me?.sitOutNext;
+  const canRabbit = !!me && state?.street === 'ended' && (state?.board?.length || 0) < 5;
   const facingShove = !!state?.players.some((p) => !p.empty && !p.isMe && p.allIn && !p.folded);
   const canPreAct = !!(state && me && !myTurn && me.inHand && !me.folded && !me.allIn
     && ['preflop', 'flop', 'turn', 'river'].includes(state.street) && !state.allInOrFold);
@@ -625,7 +631,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     send({ type: 'show_cards', cards: indices });
     setShowPick([]);
   };
-  useEffect(() => { setShowPick([]); }, [state?.handNo]);
+  useEffect(() => { setShowPick([]); setRabbit([]); }, [state?.handNo]);
 
   useEffect(() => {
     if (state?.spin && state.handNo === 1 && !spinIntroSeen.current) {
@@ -757,10 +763,14 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {menuOpen && (
         <div className="table-menu" onClick={() => setMenuOpen(false)}>
-          <button onClick={() => send({ type: 'sit_out', value: !sittingOut })}>{sittingOut ? 'Post blinds / sit in' : 'Sit out next hand'}</button>
-          <button disabled={rebuyMax <= 0 || !!state?.tournament || !!state?.spin} onClick={() => { setRebuyAmount(rebuyMin); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
+          <button disabled={!me} onClick={() => {
+            const value = !(sittingOut || sitOutNext);
+            send({ type: 'sit_out', value });
+            toast({ kind: 'info', title: value ? 'Sitting out next hand' : sittingOut ? 'Sitting back in' : 'Sit out cancelled' });
+          }}>{sittingOut ? 'Post blinds / sit in' : sitOutNext ? '✓ Sitting out next hand' : 'Sit out next hand'}</button>
+          <button disabled={!me || rebuyMax <= 0 || !!state?.tournament || !!state?.spin} onClick={() => { setRebuyAmount(rebuyMin); setRebuyOpen(true); setMenuOpen(false); }}>Rebuy / add chips</button>
           <button onClick={() => { const v = !autoRebuy; setAutoRebuy(v); localStorage.setItem('ggpoker.autorebuy', v ? '1' : '0'); }}>{autoRebuy ? '✓ ' : ''}Auto rebuy</button>
-          <button onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
+          <button disabled={!canRabbit} title={canRabbit ? '' : 'Rabbit hunt is available after a hand ends with an incomplete board'} onClick={() => { send({ type: 'rabbit' }); sound.play('rabbit'); }}>Rabbit hunt</button>
           <button onClick={() => setSwfEffect('/assets/swf/chip_shuffle.swf')}>Official FX preview</button>
           {state?.ownerId === user?.id && state.private && (
             <button onClick={async () => { setMuteOpen(true); setMenuOpen(false); try { const r = await api.hostMutes(tableId); setMutes((r.muted || []).map((m) => m.user_id)); } catch { setMutes([]); } }}>Table moderation…</button>
@@ -777,14 +787,14 @@ export function TablePage({ tableId }: { tableId: string }) {
               <button key={key} className={buttonLayout === key ? 'on' : ''} aria-pressed={buttonLayout === key} onClick={() => chooseLayout(key)}>{label}</button>
             ))}
           </div>
-          <button onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Straddle</button>
-          <button onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
-          <button onClick={() => send({ type: 'option', tableId, runItTwice: !state?.runItTwice })}>{state?.runItTwice ? '✓ ' : ''}Run it twice</button>
-          {state?.spin && <button onClick={() => send({ type: 'option', tableId, insurance: true })}>Buy Spin insurance (5%)</button>}
+          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Straddle</button>
+          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
+          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItTwice: !state?.runItTwice })}>{state?.runItTwice ? '✓ ' : ''}Run it twice</button>
+          {state?.spin && <button disabled={!me} onClick={() => send({ type: 'option', tableId, insurance: true })}>Buy Spin insurance (5%)</button>}
           <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
           <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
           <button onClick={() => navigate('/hand-history')}>Hand history</button>
-          <button onClick={() => navigate('/settings')}>Table settings</button>
+          <button onClick={() => { sessionStorage.setItem('ggpoker.settingsTab', 'table'); navigate('/settings'); }}>Table settings</button>
           <button onClick={() => setConfirmLeave(true)}>Leave table</button>
         </div>
       )}
