@@ -152,10 +152,15 @@ list of flight tables:
 - **Reconnect** reuses the same table id; a player whose table broke receives
   `table_move` and navigates with `?buyin=<stack>`. A stale flight link is redirected to
   the player's real table.
-- **Restart caveat** — live tables and tournament rooms are in process memory. After a
-  game-container restart, tables are recreated from persisted table config and rooms are
-  re-created on the next `/play`; in-flight hands are not replayed. This is the main
-  availability limitation for a dedicated tournament service (see capacity below).
+- **Restart recovery** — running rooms snapshot their flights, seats, stacks, blind clock,
+  finished places and winner to `tourney_state` after every settled hand, after
+  start/seating and balance/break moves, every 15 s and on graceful shutdown. The server
+  restores every `running` event before accepting connections, so a restart keeps the field,
+  stacks and level; `/play` returns the original table. A hand that was in progress at the
+  crash is voided (the last settled snapshot is restored), not replayed. Rooms are
+  snapshotted **before** the shutdown closes live tables; otherwise the snapshot would be
+  empty. This removes the old "rooms re-created empty after a restart" limitation; a hard
+  crash can still lose the current hand and up to ~15 s of out-of-hand changes.
 
 ## Platform administration and observability
 
@@ -211,7 +216,8 @@ SQLite in WAL mode (`node:sqlite`). Main tables:
 
 - **Accounts** — `users`, `sessions`, `user_settings`, `verifications`, `player_notes`,
   `friends`, `friend_requests`, `reports`, `table_mutes`, `notification_reads`.
-- **Game** — `tables`, `hands`, `tournaments`, `tourney_regs`, `elo_ratings`, `elo_history`.
+- **Game** — `tables`, `hands`, `tournaments`, `tourney_regs`, `tourney_state` (restart
+  snapshots of running tournament rooms), `elo_ratings`, `elo_history`.
 - **Economy** — `transactions` (ledger), `bonus_claims`, `daily_claims`, `player_claims`,
   `missions`.
 - **Content** — `banners`, `brand_assets`, `chat_messages`, `direct_messages`, `settings`,
