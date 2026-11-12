@@ -6,6 +6,11 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Native emote artwork
+- The three table reactions (Angry, Listening, Laughing) now show GGPoker's own emoticon art at the
+  seat and in the React menu instead of text chips. `tools/setup_assets.sh` extracts them, with the
+  Take Seat textures, from the installed client; like all client art they are not committed.
+
 ### Live side-pot piles
 - During a hand with an all-in, the collected chips now show as separate main and side pot piles at
   GGPoker's positions, each with its amount. Bets on the current street stay in front of the
