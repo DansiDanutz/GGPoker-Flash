@@ -6,6 +6,12 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Tournament hero art
+- Tournament series without dedicated artwork no longer fall back to the Flipout promo
+  art, whose baked "DAILY $100,000 FLIPOUT" text collided with the series title. They use
+  the neutral room background with a gold radial; series with their own art are unchanged.
+
+## 2026-11-12
 ### Mobile lobby polish and native bet slider
 - The full-art promotion banner no longer draws a duplicate text overlay on phones; the
   baked artwork keeps its own title, with the Discover button and dots over it.
