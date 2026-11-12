@@ -46,6 +46,7 @@ import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
+import { JACKPOT_SEED, jackpotAccrual } from './badBeat.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -678,7 +679,23 @@ function getLiveTable(id) {
       // Normally a no-op: the place payout (onSpinPayout) already closed this session.
       closeSpinSession(player.id, sessionId, 'Spin bust');
     },
+    jackpotPool: () => Number(getSetting('jackpot', JACKPOT_SEED)) || 0,
+    onBadBeatJackpot: (table, badBeat) => {
+      setSetting('jackpot', Math.max(0, (Number(getSetting('jackpot', JACKPOT_SEED)) || 0) - badBeat.total));
+      // A dealt-in player who already left gets the share in their wallet (bots have none).
+      for (const share of badBeat.shares) {
+        if (!share.departed || share.amount <= 0) continue;
+        if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(share.id)) continue;
+        addTransaction(share.id, 'bad_beat_jackpot', share.amount, `Bad Beat Jackpot (${share.role}): ${table.cfg.name}`);
+      }
+      const who = badBeat.shares.map((s) => `${s.nick}:${s.role}:${s.amount}`).join(' ');
+      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bad_beat_jackpot', `${table.cfg.name} ${badBeat.total} ${who}`);
+    },
     onHandComplete: ({ table, winner, summary }) => {
+      if (table.badBeatEligible()) {
+        const add = jackpotAccrual(summary?.rake);
+        if (add > 0) setSetting('jackpot', (Number(getSetting('jackpot', JACKPOT_SEED)) || 0) + add);
+      }
       rewardHandPlayed(table, summary);
       // mission progress for humans who were dealt in
       moveRushPlayers(table);
@@ -1202,7 +1219,7 @@ const server = http.createServer(async (req, res) => {
         rushLeaderboard: RUSH_LOBBY.leaderboard(),
         banners,
         online: sitesStats().online,
-        jackpot: getSetting('jackpot', 199026635),
+        jackpot: getSetting('jackpot', JACKPOT_SEED),
         rushCashDrop: readCashDropConfig(getSetting),
         recentWinners: Array.from({ length: 5 }, (_, i) => ({
           nick: botName((hashStr('winner' + i) + i) % 100),
@@ -2072,7 +2089,7 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       const day = new Date().toISOString().slice(0, 10);
       const claimed = getClaim(u.id, 'ggcare', day);
-      return json(res, 200, { jackpot: getSetting('jackpot', 199026635), claimed: !!claimed?.claimed, amount: claimed?.amount || 0 });
+      return json(res, 200, { jackpot: getSetting('jackpot', JACKPOT_SEED), claimed: !!claimed?.claimed, amount: claimed?.amount || 0 });
     }
     if (p === '/api/ggcare/claim' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
