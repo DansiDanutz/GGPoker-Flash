@@ -138,3 +138,10 @@ export function nextTableIndex(occupancies, seats, maxTables) {
   if (occupancies.length >= maxTables) return null;
   return occupancies.length + 1;
 }
+
+/** Table ids for a tournament's flights, oldest naming first for compatibility. */
+export function tournamentTableIds(tournamentId, maxTables = 12) {
+  const ids = [`tourney-${tournamentId}`];
+  for (let i = 1; i <= maxTables; i += 1) ids.push(`tourney-${tournamentId}-${i}`);
+  return ids;
+}
