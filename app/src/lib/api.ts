@@ -299,6 +299,7 @@ export const api = {
   deposit: (amount: number, method?: string, key?: string) => request<any>('/api/cashier/deposit', { method: 'POST', headers: key ? { 'idempotency-key': key } : {}, body: JSON.stringify({ amount, method }) }),
   withdraw: (amount: number, method?: string, key?: string) => request<any>('/api/cashier/withdraw', { method: 'POST', headers: key ? { 'idempotency-key': key } : {}, body: JSON.stringify({ amount, method }) }),
   hands: () => request<{ hands: any[] }>('/api/hands'),
+  setHandHidden: (id: number, hidden: boolean) => request<{ ok: boolean; hidden: boolean }>(`/api/hands/${id}/hidden`, { method: 'POST', body: JSON.stringify({ hidden }) }),
   missions: () => request<{ missions: any[] }>('/api/missions'),
   claimMission: (id: string) => request<any>(`/api/missions/${id}/claim`, { method: 'POST' }),
   leaderboard: (metric: LeaderMetric = 'vip') => request<LeaderboardResponse>(`/api/leaderboard?metric=${metric}`),
