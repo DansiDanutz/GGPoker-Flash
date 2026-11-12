@@ -102,3 +102,19 @@ export function spinBlindLevel(multiplier, { startedAt, now, completedHands } = 
   const smallBlind = spinSmallBlinds[index];
   return { level: index + 1, smallBlind, bigBlind: smallBlind * 2, unit, interval };
 }
+
+/**
+ * Lobby Info / Blind Structure / Payout data for one observed stake. Odds are shown as
+ * "1 in N" tickets; starting chips and time-bank cards stay null (unobserved).
+ */
+export function spinInfo(buyIn) {
+  const payouts = spinPayouts(buyIn).map((row) => ({
+    multiplier: row.multiplier,
+    prizePool: row.prizePool,
+    prizes: row.prizes,
+    oneIn: Math.round(SPIN_TICKET_TOTAL / row.frequency),
+    blindUp: `every ${row.interval} ${row.unit === 'hands' ? 'hands' : row.interval === 1 ? 'minute' : 'minutes'}`,
+  }));
+  const blinds = spinSmallBlinds.map((smallBlind, i) => ({ level: i + 1, smallBlind, bigBlind: smallBlind * 2 }));
+  return { buyIn, seats: SPIN_SEATS, payouts, blinds, startingChips: null, timeBankCards: null };
+}

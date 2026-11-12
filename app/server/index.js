@@ -25,6 +25,7 @@ import * as waitlist from './waitlist.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createTableStats } from './table-stats.js';
 import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
+import { spinInfo } from './spin.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService, createChatStore, dealerResultText, dealerStartText } from './chat.js';
@@ -2060,6 +2061,10 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    if (p === '/api/spin/info' && req.method === 'GET') {
+      const buyIn = Number(url.searchParams.get('buyin'));
+      try { return json(res, 200, { info: spinInfo(buyIn) }); } catch { return json(res, 400, { error: 'unknown Spin & Gold stake' }); }
+    }
     // ---------- opponent HUD (room-scoped, public information only) ----------
     {
       const m = /^\/api\/tables\/([\w-]{1,64})\/hud$/.exec(p);

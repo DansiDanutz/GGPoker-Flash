@@ -13,6 +13,7 @@ import { LobbyFiltersPopover } from '../components/LobbyFiltersPopover';
 import { LobbyGroupRows } from '../components/LobbyGroupRows';
 import { RushPoolRows } from '../components/RushPoolRow';
 import { RushInfoDialog, RushSidePanel } from '../components/RushSidePanel';
+import { SpinInfoPanel } from '../components/SpinInfoPanel';
 import { visiblePools } from '../lib/rushPools';
 import { CASHDROP_RULE_LABEL, cashDropRateLabel } from '../lib/cashDrop';
 
@@ -433,7 +434,8 @@ export function Lobby() {
             </>
           )}
           {isRushTab && <RushSidePanel leaderboard={data?.rushLeaderboard} myId={user?.id} onShowInfo={() => setRushInfoOpen(true)} />}
-          {!isRushTab && <div className="mini-stats">
+          {gameTab === 'spin' && <SpinInfoPanel buyIn={table && table.game === 'spingold' ? table.min_buyin : null} formatChips={(n) => money(n)} />}
+          {!isRushTab && gameTab !== 'spin' && <div className="mini-stats">
             <div className="between"><span className="muted small">Last jackpot</span><b className="gold">{money(data?.jackpot || 0)}</b></div>
             {(data?.recentWinners || []).slice(0, 3).map((w: any, i: number) => (
               <div key={i} className="between"><span className="muted small">{w.nick}</span><span className="small">{money(w.amount)}</span></div>

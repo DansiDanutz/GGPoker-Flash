@@ -1360,3 +1360,13 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .opp-hud-cards { display: flex; gap: 2px; min-height: 18px; }
 .opp-hud-cards .pcard.mini { transform: scale(.7); transform-origin: left center; margin-right: -10px; }
 .opp-hud-recent .won { color: #7fdc8c; font-weight: 600; }
+
+/* Spin & Gold lobby side panel. */
+.spin-info { padding: 6px 8px; display: grid; gap: 6px; overflow-x: auto; }
+.spin-info-tabs { display: flex; gap: 4px; }
+.spin-info-tabs button { flex: 1; background: #1a1a1a; color: #bbb; border: 1px solid #2c2c2c; border-radius: 4px; padding: 4px 2px; font: inherit; font-size: 11px; cursor: pointer; }
+.spin-info-tabs button.on { background: #3a2c12; color: #f0c96a; border-color: #6b5320; }
+.spin-info-body p { margin: 0 0 6px; }
+.spin-info-table { width: 100%; border-collapse: collapse; }
+.spin-info-table th, .spin-info-table td { text-align: left; padding: 2px 4px; border-bottom: 1px solid #222; white-space: nowrap; }
+.spin-info-table th { color: #888; font-weight: 600; }
