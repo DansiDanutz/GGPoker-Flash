@@ -313,3 +313,72 @@ test('wait-list API: private tables answer only to the owner and invitees', asyn
     await srv.stop();
   }
 });
+
+/* ------------------------------ Rush pool lobby (P0 slice R3) ------------------------------ */
+
+test('lobby rushPools: one row per pool, players summed, PLO pools separate, stakes descending', async () => {
+  const srv = await startTestServer();
+  try {
+    const { status, data } = await srv.get('/api/lobby');
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(data.tables) && data.tables.length, 'the table payload is kept');
+    const pools = data.rushPools;
+    const rushTables = data.tables.filter((t) => t.game === 'rush' || t.game === 'rushplo');
+    const keys = new Set(rushTables.map((t) => `${t.game}:${t.sb}/${t.bb}`));
+    assert.equal(pools.length, keys.size);
+    assert.ok(pools.length >= 7, `at least 7 pools seeded, got ${pools.length}`);
+    for (const pool of pools) {
+      const members = rushTables.filter((t) => t.game === pool.game && t.sb === pool.sb && t.bb === pool.bb);
+      assert.equal(pool.poolKey, `${pool.game}:${pool.sb}/${pool.bb}`);
+      assert.equal(pool.tables, members.length);
+      assert.equal(pool.players, members.reduce((n, t) => n + t.players, 0), `${pool.poolKey} sums players`);
+      assert.equal(pool.wait, members.reduce((n, t) => n + t.wait, 0));
+      assert.equal(pool.pros, 0);
+      assert.equal(pool.handsPerHour, 0, 'no hands played yet on a fresh server');
+      assert.equal(pool.groupKey, `${pool.game}:${pool.sb}/${pool.bb}:${pool.seats}`);
+      const free = members.find((t) => t.players < t.seats);
+      assert.equal(pool.firstFree, free ? free.id : null);
+    }
+    // Hold'em and PLO at the same stake stay separate pools.
+    const at500 = pools.filter((p) => p.bb === 1000);
+    assert.deepEqual(at500.map((p) => p.game), ['rush', 'rushplo']);
+    for (let i = 1; i < pools.length; i++) {
+      const [a, b] = [pools[i - 1], pools[i]];
+      assert.ok(a.bb > b.bb || (a.bb === b.bb && a.sb >= b.sb), `${a.poolKey} before ${b.poolKey}`);
+    }
+    assert.deepEqual(data.rushLeaderboard, [], 'empty leaderboard on a fresh server');
+  } finally {
+    await srv.stop();
+  }
+});
+
+test('lobby rushLeaderboard: today\'s Cash Drops and Rush pot wins per real player, play money', async () => {
+  const srv = await startTestServer();
+  try {
+    const alice = await register(srv, 'rush_alice');
+    const bob = await register(srv, 'rush_bob');
+    const db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
+    try {
+      const credit = db.prepare(`INSERT INTO transactions (user_id,kind,amount,balance_after,memo,reference,created_at)
+        VALUES (?,?,?,?,?,?,?)`);
+      credit.run(alice.id, 'cashdrop', 5000, 0, 'drop', 'cashdrop:h1', new Date().toISOString().replace('T', ' ').slice(0, 19));
+      credit.run(bob.id, 'cashdrop', 9000, 0, 'old drop', 'cashdrop:h0', '2000-01-01 00:00:00');
+      const hand = db.prepare(`INSERT INTO hands (hand_no,table_id,table_name,game,players,board,pot,result)
+        VALUES (1,?,?,?,'[]','',?,?)`);
+      hand.run('rush-platinum-1', 'Rush', 'rush', 3000, JSON.stringify({ winners: [{ id: bob.id, nick: 'rush_bob', amount: 3000 }, { id: 'bot-x', nick: 'Bot', amount: 99999 }] }));
+      hand.run('rush-platinum-1', 'Rush', 'rush', 4000, JSON.stringify({ winners: [{ id: alice.id, nick: 'rush_alice', amount: 4000 }] }));
+      hand.run('nlh-diamond-01', 'Cash', 'holdem', 70000, JSON.stringify({ winners: [{ id: bob.id, nick: 'rush_bob', amount: 70000 }] }));
+    } finally {
+      db.close();
+    }
+    const { data } = await srv.get('/api/lobby');
+    assert.deepEqual(data.rushLeaderboard.map(({ rank, nick, won }) => ({ rank, nick, won })), [
+      { rank: 1, nick: 'rush_alice', won: 9000 },
+      { rank: 2, nick: 'rush_bob', won: 3000 },
+    ], 'bots, yesterday\'s drops and non-Rush hands are excluded');
+    const platinum = data.rushPools.find((p) => p.poolKey === 'rush:500/1000');
+    assert.equal(platinum.handsPerHour, 2, 'hands in the last hour count toward the pool');
+  } finally {
+    await srv.stop();
+  }
+});

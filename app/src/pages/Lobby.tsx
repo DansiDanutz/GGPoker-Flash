@@ -11,6 +11,9 @@ import { DEFAULT_TAB_FILTERS, filterTables, filtersForTab, FilterPrefs, readFilt
 import { LobbyPills } from '../components/LobbyPills';
 import { LobbyFiltersPopover } from '../components/LobbyFiltersPopover';
 import { LobbyGroupRows } from '../components/LobbyGroupRows';
+import { RushPoolRows } from '../components/RushPoolRow';
+import { RushInfoDialog, RushSidePanel } from '../components/RushSidePanel';
+import { visiblePools } from '../lib/rushPools';
 import { CASHDROP_RULE_LABEL, cashDropRateLabel } from '../lib/cashDrop';
 
 const PROMOS = [
@@ -68,6 +71,7 @@ export function Lobby() {
   const [buyinTable, setBuyinTable] = useState<LobbyTable | null>(null);
   const [buyin, setBuyin] = useState(0);
   const [seat, setSeat] = useState<number | null>(null);
+  const [rushInfoOpen, setRushInfoOpen] = useState(false);
   const [hostOpen, setHostOpen] = useState(false);
   const [hostBusy, setHostBusy] = useState(false);
   const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000, bombPot: false });
@@ -131,6 +135,8 @@ export function Lobby() {
     if (tables.length && !tables.find((t) => t.id === selected)) setSelected(tables[0].id);
   }, [tables]);
 
+  const isRushTab = gameTab === 'rush';
+  const rushPools = useMemo(() => (isRushTab ? visiblePools(data?.rushPools || [], tables) : []), [isRushTab, data, tables]);
   const table = data?.tables.find((t: LobbyTable) => t.id === selected) || null;
   const previewPlayers = useMemo(() => {
     if (!table) return [];
@@ -315,8 +321,8 @@ export function Lobby() {
                 <span>Quick-fold to a fresh table with the same stack. Look out for Cash Drops.</span>
               </div>
               <div className="rush-hero-stats">
-                <div><b>{tables.filter((t) => t.game === 'rush').reduce((n, t) => n + t.players, 0)}</b><span>players</span></div>
-                <div><b>{tables.filter((t) => t.game === 'rush').length}</b><span>pools</span></div>
+                <div><b>{rushPools.reduce((n, p) => n + p.players, 0)}</b><span>players</span></div>
+                <div><b>{rushPools.length}</b><span>pools</span></div>
                 <div title={CASHDROP_RULE_LABEL}><b>{cashDropRateLabel(data?.rushCashDrop?.rate)}</b><span>drop chance · {CASHDROP_RULE_LABEL}</span></div>
               </div>
             </div>
@@ -356,7 +362,7 @@ export function Lobby() {
             <LobbyFiltersPopover filters={filters} tableCount={tables.length} onChange={setFilter} onReset={() => setFilter(resetExtraFilters(filters))} />
           </div>
           <div className="table-list" key={gameTab}>
-            {viewMode === 'table' && <div className="list-head">
+            {viewMode === 'table' && !isRushTab && <div className="list-head">
               <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
               <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
               <div>Buy-in</div>
@@ -366,7 +372,9 @@ export function Lobby() {
               <div>VPIP% <i className="est-dot" title="Estimated demo value; not live" /></div><div>H/hr <i className="est-dot" title="Estimated demo value; not live" /></div>
             </div>}
             <div className="list-scroll">
-              {viewMode === 'group' ? (
+              {isRushTab ? (
+                <RushPoolRows pools={rushPools} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
+              ) : viewMode === 'group' ? (
                 <LobbyGroupRows tab={gameTab} tables={tables} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
               ) : tables.map((t) => (
                 <div
@@ -412,12 +420,13 @@ export function Lobby() {
             <MiniTable table={table} players={previewPlayers} />
           </div>
           <WaitlistSideActions table={table} onJoin={openJoin} onWatch={(t) => navigate(`/table/${t.id}?observe=1`)} onChanged={load} />
-          <div className="mini-stats">
+          {isRushTab && <RushSidePanel leaderboard={data?.rushLeaderboard} myId={user?.id} onShowInfo={() => setRushInfoOpen(true)} />}
+          {!isRushTab && <div className="mini-stats">
             <div className="between"><span className="muted small">Last jackpot</span><b className="gold">{money(data?.jackpot || 0)}</b></div>
             {(data?.recentWinners || []).slice(0, 3).map((w: any, i: number) => (
               <div key={i} className="between"><span className="muted small">{w.nick}</span><span className="small">{money(w.amount)}</span></div>
             ))}
-          </div>
+          </div>}
           <div style={{ flex: 1 }} />
           <div style={{ padding: '6px 8px', fontSize: 11, color: '#777', borderTop: '1px solid #222' }}>
             {table ? GAME_LABEL[table.game] : ''} · {table ? table.speed : ''}
@@ -442,6 +451,8 @@ export function Lobby() {
           <button className="rail-btn gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>GGPass</button>
         </div>
       </div>
+
+      {rushInfoOpen && <RushInfoDialog cashDrop={data?.rushCashDrop} onClose={() => setRushInfoOpen(false)} />}
 
       {notifOpen && (
         <div className="modal-backdrop" onClick={() => setNotifOpen(false)}>

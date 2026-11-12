@@ -47,6 +47,43 @@ export type LobbyTable = {
   running: boolean;
 };
 
+/** One Rush pool row from `/api/lobby` `rushPools` (P0 slice R3): every table of one game + stake. */
+export type RushPool = {
+  /** `game:sb/bb`, the pool the server moves players within. */
+  poolKey: string;
+  /** `game:sb/bb:seats`, the group wait-list key. */
+  groupKey: string;
+  game: string;
+  category: string;
+  sb: number;
+  bb: number;
+  seats: number;
+  min_buyin: number;
+  max_buyin: number;
+  featured: boolean;
+  /** Tables in the pool. */
+  tables: number;
+  /** Seated players summed across the pool's tables. */
+  players: number;
+  /** Always 0 until a "pro" player is defined. */
+  pros: number;
+  /** Hands saved across the pool in the last hour. */
+  handsPerHour: number;
+  /** First pool table with a free seat; null when every table is full. */
+  firstFree: string | null;
+  /** Table queues plus the pool's group queue. */
+  wait: number;
+};
+
+/** One `/api/lobby` `rushLeaderboard` row: today's Cash Drops + Rush pot wins, play money cents. */
+export type RushLeaderRow = {
+  rank: number;
+  userId: number;
+  nick: string;
+  country: string;
+  won: number;
+};
+
 /** Where a wait-list queue points: one table, or any table in a lobby group (`game:sb/bb:seats`). */
 export type WaitlistTarget =
   | { kind: 'table'; tableId: string; groupKey?: undefined }

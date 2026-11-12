@@ -21,6 +21,7 @@ import { spinSlots } from './slots.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
+import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService, createChatStore } from './chat.js';
 import { createAdminChatRoutes } from './admin-chat.js';
@@ -456,6 +457,17 @@ const handleAdminChatRoute = createAdminChatRoutes({
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
 
 // Rush pools (rush-pool.js): fold-and-move queue per pool (game + sb + bb) and the Cash Drop.
+// Rush pool lobby (rush-lobby.js): real hands/hr per pool table and today's Rush leaderboard.
+const RUSH_LOBBY = createRushLobby(db);
+
+/** `/api/lobby` `rushPools`: one row per Rush pool, with the pool's group wait-list queue. */
+function lobbyRushPools(tables) {
+  return buildRushPools(tables, {
+    handsByTable: RUSH_LOBBY.handsPerHourByTable(),
+    groupWait: (key) => waitlist.queueSize(waitState, waitlist.groupQueue(key)),
+  });
+}
+
 const RUSH_POOL = createRushPool({
   listPoolTableIds: ({ game, sb, bb }) =>
     db.prepare('SELECT id FROM tables WHERE game = ? AND sb = ? AND bb = ? AND enabled = 1').all(game, sb, bb).map((r) => r.id),
@@ -1035,6 +1047,8 @@ const server = http.createServer(async (req, res) => {
       const banners = db.prepare('SELECT * FROM banners WHERE slot = ? AND enabled = 1 ORDER BY sort').all('home');
       return json(res, 200, {
         tables,
+        rushPools: lobbyRushPools(tables),
+        rushLeaderboard: RUSH_LOBBY.leaderboard(),
         banners,
         online: sitesStats().online,
         jackpot: getSetting('jackpot', 199026635),

@@ -20,7 +20,7 @@ native comparison or an explicit statement of what could not be observed.
 | --- | --- | --- |
 | Multi-table tournaments (flights, balancing, breaks) | Shipped: `server/tournament-room.js` seats humans across flights, ranks/pays the whole field, balances and breaks every 2 s, and sends `table_move` to moved players | 18 room tests, 3 engine↔room tests and an 8-entrant HTTP/WebSocket test. Remaining: absent registrants are not pushed into a table at the scheduled start, and only the top three places pay |
 | Lobby wait lists and full filters | No wait lists; partial filters | Codex `FEATURES.md` lobby row: "complete native navigation, waiting lists, tournament categories and filters" |
-| Rush depth | One stake pool; no Cash Drops | Codex Rush row: "multiple stake levels, Cash Drops, native layout/timing and queue fairness" |
+| Rush depth | 7 pools (5 Hold'em, 2 PLO) with a native pool lobby (R2–R3, 2026-11-12); Cash Drop is a DanGG rule (R4); queue fairness (R5) and native screenshots (R0) still open | Codex Rush row: "multiple stake levels, Cash Drops, native layout/timing and queue fairness" |
 | Spin & Gold gameplay | Information-only screens | Codex traced exact chip/time values from incoming tourney config; multiplier mapping unresolved — do not infer from payout probabilities |
 | Battle Royale | Nothing | Reference label only; rules and format unobserved. Treat as unknown, not "coming soon" |
 | Table chat and reactions | Emotes only | Codex Hold'em row: "native chat/reaction parity" unverified |

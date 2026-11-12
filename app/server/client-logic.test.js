@@ -17,6 +17,9 @@ import {
   DEFAULT_TAB_FILTERS, filtersForTab, withTabFilters, parseFilterPrefs, filterTables, sortTables,
   activeFilterCount, resetExtraFilters, SEARCH_MAX, groupTables, tableGroupKey,
 } from '../src/lib/lobbyFilters.ts';
+import {
+  poolVariant, sortPools, visiblePools, poolTables, poolAsGroup, playersLabel, chipsWonLabel, countryFlag, leaderboardRows,
+} from '../src/lib/rushPools.ts';
 
 import {
   ordinal as prizeOrdinal, prizeText, placesPaidLabel, bubbleLabel, finishToast, finishTitle,
@@ -656,4 +659,75 @@ test('groupTables does not mutate its input and ignores junk wait values', () =>
   const [g] = groupTables(input);
   assert.equal(g.wait, 0);
   assert.equal(input.length, 2);
+});
+
+/* ------------------------------ Rush pool lobby (P0 slice R3) ------------------------------ */
+
+const pool = (over = {}) => ({
+  poolKey: 'rush:500/1000', groupKey: 'rush:500/1000:6', game: 'rush', category: 'Platinum', sb: 500, bb: 1000, seats: 6,
+  min_buyin: 20000, max_buyin: 100000, featured: false, tables: 2, players: 9, pros: 0, handsPerHour: 0,
+  firstFree: 'rp-2', wait: 0, ...over,
+});
+const rushTable = (over = {}) => ({
+  id: 'rp-1', name: 'Rush & Cash Platinum 01', game: 'rush', category: 'Platinum', sb: 500, bb: 1000, ante: 0,
+  min_buyin: 20000, max_buyin: 100000, seats: 6, speed: 'Fast', featured: false, players: 6, wait: 0,
+  avgPot: 0, vpip: 0, handsPerHour: 60, running: false, ...over,
+});
+
+test('rush pools: sorted by stakes descending, Hold\'em before PLO, input untouched', () => {
+  const input = Object.freeze([
+    pool({ poolKey: 'rush:50/100', sb: 50, bb: 100 }),
+    pool({ poolKey: 'rushplo:500/1000', game: 'rushplo' }),
+    pool(),
+    pool({ poolKey: 'rush:1000/2000', sb: 1000, bb: 2000 }),
+  ]);
+  assert.deepEqual(sortPools(input).map((p) => p.poolKey), ['rush:1000/2000', 'rush:500/1000', 'rushplo:500/1000', 'rush:50/100']);
+  assert.equal(input[0].poolKey, 'rush:50/100');
+  assert.equal(poolVariant({ game: 'rushplo' }), 'plo');
+  assert.equal(poolVariant({ game: 'rush' }), 'holdem');
+});
+
+test('rush pools: a pool shows when any of its tables survives the filters', () => {
+  const pools = [pool(), pool({ poolKey: 'rushplo:500/1000', game: 'rushplo' }), pool({ poolKey: 'rush:50/100', sb: 50, bb: 100 })];
+  const visible = [rushTable({ game: 'rushplo', name: 'Rush & Cash PLO Platinum 01' }), rushTable({ sb: 50, bb: 100 })];
+  assert.deepEqual(visiblePools(pools, visible).map((p) => p.poolKey), ['rushplo:500/1000', 'rush:50/100']);
+  assert.deepEqual(visiblePools(pools, []), []);
+});
+
+test('rush pools: Join uses the server firstFree table; a full pool joins the group wait list', () => {
+  const tables = [rushTable(), rushTable({ id: 'rp-2', players: 3 }), rushTable({ id: 'other', bb: 200, sb: 100 }), rushTable({ id: 'priv', private: true })];
+  assert.deepEqual(poolTables(pool(), tables).map((t) => t.id), ['rp-1', 'rp-2']);
+  const open = poolAsGroup(pool(), tables);
+  assert.equal(open.key, 'rush:500/1000:6');
+  assert.equal(open.action, 'join');
+  assert.equal(open.firstFree?.id, 'rp-2');
+  assert.equal(open.players, 9);
+  const full = poolAsGroup(pool({ firstFree: null, wait: 3 }), tables);
+  assert.equal(full.action, 'joinWait');
+  assert.equal(full.firstFree, null);
+  assert.equal(full.wait, 3);
+});
+
+test('rush pools: players, chips and flag formatting', () => {
+  assert.equal(playersLabel(1), '1 player');
+  assert.equal(playersLabel(1234), '1,234 players');
+  assert.equal(playersLabel(-2), '0 players');
+  assert.equal(chipsWonLabel(1234567), '12,345');
+  assert.equal(chipsWonLabel(-5), '0');
+  assert.equal(countryFlag('ro'), '🇷🇴');
+  assert.equal(countryFlag('GB'), '🇬🇧');
+  assert.equal(countryFlag(''), '🏳️');
+  assert.equal(countryFlag('ROU'), '🏳️');
+});
+
+test('rush leaderboard rows: rank, flag, nick, chips won, and the viewer marked', () => {
+  const rows = leaderboardRows([
+    { rank: 1, userId: 7, nick: 'Ana', country: 'RO', won: 900000 },
+    { rank: 2, userId: 9, nick: 'Ben', country: '', won: 3000 },
+  ], 9);
+  assert.deepEqual(rows, [
+    { key: '1-7', rank: 1, flag: '🇷🇴', nick: 'Ana', chips: '9,000', isMe: false },
+    { key: '2-9', rank: 2, flag: '🏳️', nick: 'Ben', chips: '30', isMe: true },
+  ]);
+  assert.deepEqual(leaderboardRows(undefined), []);
 });

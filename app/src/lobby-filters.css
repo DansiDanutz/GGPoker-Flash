@@ -131,3 +131,21 @@
     content: attr(data-label) ' '; color: var(--lob-head-text); font-size: 11px;
   }
 }
+
+/* Rush pool lobby right panel (P0 slice R3): leaderboard + information link. */
+.rush-board { --lob-link: #058edc; --lob-focus: #ffd98a; --lob-head-text: #a0a0a0; --lob-border: #2a2a2a;
+  margin: 8px; padding: 8px 10px; border: 1px solid var(--lob-border, #2a2a2a); border-radius: 6px; background: rgba(0, 0, 0, .25); }
+.rush-board-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.rush-board-head h4 { margin: 0; font-size: 13px; color: var(--gold2); letter-spacing: .02em; }
+.rush-board-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.rush-board-table th { text-align: left; font-weight: 600; color: var(--lob-head-text, #888); padding: 3px 4px; border-bottom: 1px solid #2a2a2a; }
+.rush-board-table th:last-child, .rush-board-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.rush-board-table td { padding: 4px; color: #ddd; border-bottom: 1px solid rgba(255, 255, 255, .04); }
+.rush-board-table tr.me td { background: rgba(216, 177, 95, .12); }
+.rush-rank { display: inline-block; min-width: 16px; margin-right: 4px; color: #888; font-variant-numeric: tabular-nums; }
+.rush-nick { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rush-board-empty { padding: 8px 4px; }
+.rush-info-link { display: block; margin-top: 8px; font-size: 12px; }
+.rush-info h4 { margin: 12px 0 4px; color: var(--gold2); font-size: 13px; }
+.rush-info h4:first-child { margin-top: 0; }
+.rush-info p { margin: 0; color: #ccc; font-size: 13px; line-height: 1.5; }
