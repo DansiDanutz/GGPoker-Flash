@@ -416,6 +416,10 @@ a { color: inherit; text-decoration: none; }
 .bet-slider { -webkit-appearance: none; height: 6px; border-radius: 3px; background: #3a3a3a; outline: none; flex: 1; }
 .bet-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(#ffe4a0, #c8992f); border: 1px solid #6b5320; box-shadow: 0 2px 5px rgba(0,0,0,.6); cursor: pointer; }
 .amount-input { width: 96px; height: 34px; background: #101010; border: 1px solid #3a3a3a; border-radius: 4px; color: #ffe1a0; text-align: center; font-weight: 700; font-size: 14px; }
+.bet-stepper { display: flex; align-items: center; gap: 4px; }
+.bet-step { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 4px; background: #161616; border: 1px solid #3a3a3a; color: #ffd98a; font-size: 18px; font-weight: 700; line-height: 1; display: grid; place-items: center; cursor: pointer; }
+.bet-step:hover:not(:disabled) { background: #232323; border-color: #5a4a22; }
+.bet-step:disabled { opacity: .38; cursor: not-allowed; }
 .quick-bets button { height: 26px; padding: 0 9px; font-size: 11.5px; border-radius: 3px; background: #222; border: 1px solid #383838; color: #ccc; }
 .quick-bets button:hover { background: #333; }
 .turn-timer-bar { height: 3px; background: #2a2a2a; border-radius: 2px; overflow: hidden; }

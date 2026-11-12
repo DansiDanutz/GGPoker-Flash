@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { betLimits, potFractionTarget, sizingPresets, potOdds } from '../src/game/betting.ts';
 import { enterBetRequest } from '../src/lib/tablePrefs.ts';
+import { potChipTiers } from '../src/game/potChips.ts';
 import { bestHand } from '../src/game/eval.ts';
 
 const ctx = (over = {}) => ({
@@ -64,4 +65,15 @@ test('Enter bets the amount on screen, optionally asking first', () => {
   assert.equal(enterBetRequest({ myTurn: false, canRaise: true, raiseTo: 450, allInTo: 5000 }), null);
   assert.equal(enterBetRequest({ myTurn: true, canRaise: false, raiseTo: 450, allInTo: 5000 }), null);
   assert.equal(enterBetRequest({ myTurn: true, canRaise: true, raiseTo: 0, allInTo: 5000 }), null);
+});
+
+test('the middle chip pile grows with the pot and caps at twelve chips', () => {
+  assert.deepEqual(potChipTiers(0, 100), [], 'an empty pot shows no chips');
+  assert.equal(potChipTiers(50, 100).length, 3, 'a small pot still looks like a pile');
+  assert.equal(potChipTiers(400, 100).length, 4, 'a chip per big blind');
+  assert.ok(potChipTiers(2000, 100).length > potChipTiers(1000, 100).length, 'a bigger pot shows more chips');
+  assert.equal(potChipTiers(100000, 100).length, 12, 'the pile is capped');
+  assert.deepEqual(potChipTiers(5000, 100).slice(0, 4), [0, 0, 0, 0]);
+  assert.deepEqual(potChipTiers(5000, 100).slice(4, 8), [1, 1, 1, 1], 'bigger denominations join later');
+  assert.deepEqual(potChipTiers(9000, 100), [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2]);
 });

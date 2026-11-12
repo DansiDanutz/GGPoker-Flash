@@ -391,6 +391,8 @@ body.electron .app-window::before { display: none; }
 .table-screen.layout-side .quick-bets button { width: 100%; }
 .table-screen.layout-side .bet-slider { width: 100%; flex: none; margin: 4px 0; }
 .table-screen.layout-side .amount-input { width: 100%; }
+.table-screen.layout-side .bet-stepper { width: 100%; }
+.table-screen.layout-side .bet-stepper .amount-input { width: auto; flex: 1; min-width: 0; }
 .table-screen.layout-side .action-bar .action-row + .action-row { display: none; }
 .table-screen.layout-side .turn-timer-bar { order: -1; }
 

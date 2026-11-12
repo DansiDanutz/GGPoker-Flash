@@ -10,6 +10,8 @@ const BOT_NAMES = [
 ];
 
 const MAX_MISSED_TURNS = 2;
+// A cash-table player who busts gets this long to reload before the next deal.
+const REBUY_WINDOW_MS = 10_000;
 const OMAHA_EQUITY_ITERATIONS = 60;
 
 let handSeq = Date.now() % 100000;
@@ -39,6 +41,7 @@ export class PokerTable {
     this.timeBankUsed = new Set();
     this.botActAt = 0;
     this.nextHandAt = 0;
+    this.rebuyHoldUntil = 0;
     this.streetStartedAt = 0;
     this.lastAggressor = null;
     this.history = [];
@@ -943,6 +946,43 @@ export class PokerTable {
 
   /* ------------------------------ tick / bots ------------------------------ */
 
+  /**
+   * Cash tables pause the next deal for a busted human so they can reload.
+   * Returns true when a window was opened (and nextHandAt pushed out by it).
+   */
+  openRebuyWindow(now = Date.now()) {
+    if (this.tournament || this.spin) return false;
+    const busted = this.humans().filter((p) => p.stack <= 0 && !p.rebuyPrompted);
+    if (!busted.length) return false;
+    const until = now + REBUY_WINDOW_MS;
+    this.rebuyHoldUntil = until;
+    this.nextHandAt = Math.max(this.nextHandAt || 0, until);
+    for (const p of busted) {
+      p.rebuyPrompted = true;
+      this.emit({
+        type: 'rebuy_offer',
+        playerId: p.id,
+        nick: p.nick,
+        until,
+        min: Math.max(0, Number(this.cfg.min_buyin) - p.stack),
+        max: Math.max(0, Number(this.cfg.max_buyin) - p.stack),
+      });
+    }
+    return true;
+  }
+
+  /** A reload clears the prompt; when every busted player reloaded, deal sooner. */
+  clearRebuyHold(playerId) {
+    const seat = this.seatOf(playerId);
+    if (seat?.player) seat.player.rebuyPrompted = false;
+    this.rebuyHoldUntil = 0;
+    const stillWaiting = this.humans().some((p) => p.stack <= 0 && p.rebuyPrompted);
+    if (stillWaiting) return;
+    if (this.nextHandAt && (this.street === 'ended' || this.street === 'idle')) {
+      this.nextHandAt = Math.min(this.nextHandAt, Date.now() + 1500);
+    }
+  }
+
   /** Recompute this flight's blinds when the shared tournament level moved. */
   applyTournamentLevel() {
     if (!this.tournament) return;
@@ -974,6 +1014,8 @@ export class PokerTable {
     }
     if (this.street === 'ended' || this.street === 'idle') {
       if (this.nextHandAt && now >= this.nextHandAt) {
+        // Give a fresh bust a reload window before the next deal.
+        if (this.openRebuyWindow(now)) return;
         this.nextHandAt = 0;
         // remove busted bots, rebuy bots so the table stays alive
         for (const s of this.seats) {

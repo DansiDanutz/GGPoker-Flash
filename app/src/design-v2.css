@@ -390,12 +390,11 @@ body { background: #050706; }
 .room-light { opacity: .7; }
 .table-screen::after { background: radial-gradient(ellipse at 50% 48%, transparent 52%, rgba(0, 0, 0, .38) 100%); }
 .table-watermark { font-size: 29px; letter-spacing: 9px; color: rgba(245, 221, 162, .13); text-shadow: 0 0 22px rgba(245, 221, 162, .06); }
-.pot-chips { position: absolute; left: 50%; top: -26px; transform: translateX(-50%); display: flex; gap: 2px; z-index: 0; opacity: .9; pointer-events: none; }
-.pot-chips i { width: 15px; height: 15px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f6dda2, #b9842a 55%, #5e3a08); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .45), 0 2px 4px rgba(0, 0, 0, .5); }
-.pot-chips i:nth-child(2) { transform: translateY(-5px); }
-.pot-chips i:nth-child(3) { transform: translateY(-10px); }
-.pot-chips i:nth-child(4) { transform: translateY(-5px); }
-.pot-chips i:nth-child(5) { transform: translateY(-2px); }
+.pot-chips { position: absolute; left: 50%; top: -26px; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 2px; z-index: 0; opacity: .95; pointer-events: none; }
+.pot-chips i { width: 15px; height: 15px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f6dda2, #b9842a 55%, #5e3a08); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .45), 0 2px 4px rgba(0, 0, 0, .5); animation: potChipIn .28s cubic-bezier(.2, .9, .3, 1.25) both; }
+.pot-chips i.chip-1 { background: radial-gradient(circle at 35% 30%, #ffb9a6, #c2452e 55%, #5e1a10); }
+.pot-chips i.chip-2 { background: radial-gradient(circle at 35% 30%, #d9d2c2, #2a2a2a 58%, #0b0b0b); box-shadow: 0 0 0 1.5px rgba(255, 215, 130, .55), 0 2px 4px rgba(0, 0, 0, .55); }
+@keyframes potChipIn { from { transform: translateY(7px) scale(.55); opacity: 0; } to { transform: none; opacity: 1; } }
 .promo-wrap::before {
   content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background: linear-gradient(108deg, transparent 20%, rgba(255, 240, 200, .10) 38%, transparent 52%);
