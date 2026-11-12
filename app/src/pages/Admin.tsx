@@ -7,6 +7,7 @@ import { Avatar } from '../components/Avatar';
 import { PlayingCard } from '../components/Card';
 import { AdminWaitlists } from '../components/AdminWaitlists';
 import { AdminChatModeration } from '../components/AdminChatModeration';
+import { AdminAuditLog } from '../components/AdminAuditLog';
 import {
   CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
   CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
@@ -45,7 +46,6 @@ export function Admin() {
   const [missions, setMissions] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [audit, setAudit] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [handView, setHandView] = useState<any>(null);
@@ -61,13 +61,13 @@ export function Admin() {
   const loadAll = async () => {
     if (!isAdmin) return;
     try {
-      const [s, u, t, tt, b, m, st, tx, au, v, rp] = await Promise.all([
+      const [s, u, t, tt, b, m, st, tx, v, rp] = await Promise.all([
         api.admin.stats(), api.admin.users(), api.admin.tables(), api.admin.tournaments(),
-        api.admin.banners(), api.admin.missions(), api.admin.settings(), api.admin.transactions(), api.admin.audit(), api.admin.verifications(), api.admin.reports(),
+        api.admin.banners(), api.admin.missions(), api.admin.settings(), api.admin.transactions(), api.admin.verifications(), api.admin.reports(),
       ]);
       setStats(s); setUsers(u.users); setTables(t.tables); setTourneys(tt.tournaments);
       setBanners(b.banners); setMissions(m.missions); setSettings(st.settings);
-      setTransactions(tx.transactions); setAudit(au.log); setVerifications(v.verifications || []); setReports(rp.reports || []);
+      setTransactions(tx.transactions); setVerifications(v.verifications || []); setReports(rp.reports || []);
     } catch (e: any) { toast({ kind: 'error', title: 'Admin', body: e.message }); }
   };
 
@@ -619,19 +619,7 @@ export function Admin() {
             </>
           )}
 
-          {section === 'audit' && (
-            <>
-              <h2 className="admin-title">Audit log</h2>
-              <div className="admin-card" style={{ padding: 0 }}>
-                <table className="admin-table">
-                  <thead><tr><th>#</th><th>Actor</th><th>Action</th><th>Detail</th><th>Date</th></tr></thead>
-                  <tbody>
-                    {audit.map((a) => <tr key={a.id}><td>{a.id}</td><td>{a.actor}</td><td>{a.action}</td><td className="muted">{a.detail}</td><td className="muted">{a.created_at}</td></tr>)}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+          {section === 'audit' && <AdminAuditLog />}
 
           {section === 'chat' && (
             <>

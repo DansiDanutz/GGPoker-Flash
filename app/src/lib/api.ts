@@ -123,6 +123,26 @@ export type AdminChatTable = { tableId: string; name: string; count: number; las
 
 export type AdminChatFeed = { messages: AdminChatLine[]; tables: AdminChatTable[] };
 
+/** Admin audit log (GET /api/admin/audit): one row, newest first. */
+export type AdminAuditRow = { id: number; actor: string | null; action: string; detail: string | null; created_at: string };
+
+/** Audit filters; empty strings mean "any". `limit` is clamped server-side to 1..1000. */
+export type AdminAuditFilters = { actor: string; action: string; q: string; limit: number };
+
+export type AdminAuditPage = { log: AdminAuditRow[]; filters: AdminAuditFilters };
+
+/** Query string for the audit route; blank filters are left out. */
+export function auditQuery(filters: Partial<AdminAuditFilters>, format?: 'csv'): string {
+  const entries = [
+    ['actor', filters.actor?.trim() ?? ''],
+    ['action', filters.action?.trim() ?? ''],
+    ['q', filters.q?.trim() ?? ''],
+    ['limit', filters.limit ? String(filters.limit) : ''],
+    ['format', format ?? ''],
+  ].filter(([, value]) => value !== '');
+  return new URLSearchParams(entries).toString();
+}
+
 const TOKEN_KEY = 'ggpoker.token';
 
 export function getToken() {
@@ -234,7 +254,18 @@ export const api = {
     saveMission: (body: any) => request('/api/admin/missions', { method: 'POST', body: JSON.stringify(body) }),
     settings: () => request<{ settings: any }>('/api/admin/settings'),
     saveSettings: (body: any) => request('/api/admin/settings', { method: 'POST', body: JSON.stringify(body) }),
-    audit: () => request<{ log: any[] }>('/api/admin/audit'),
+    audit: (filters: Partial<AdminAuditFilters> = {}) => {
+      const query = auditQuery(filters);
+      return request<AdminAuditPage>(`/api/admin/audit${query ? `?${query}` : ''}`);
+    },
+    auditCsv: async (filters: Partial<AdminAuditFilters>) => {
+      const r = await fetch(`/api/admin/audit?${auditQuery(filters, 'csv')}`, { headers: { authorization: `Bearer ${getToken()}` } });
+      if (!r.ok) throw new Error(r.status === 403 ? 'Admin access required' : `Export failed (${r.status})`);
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = 'audit.csv'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    },
     transactions: () => request<{ transactions: any[] }>('/api/admin/transactions'),
     waitlists: () => request<AdminWaitlists>('/api/admin/waitlists'),
     clearWaitlist: (target: { tableId: string } | { groupKey: string }) =>

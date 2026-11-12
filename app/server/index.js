@@ -26,6 +26,7 @@ import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboa
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService, createChatStore } from './chat.js';
 import { createAdminChatRoutes } from './admin-chat.js';
+import { createAdminAuditRoute } from './admin-audit.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
@@ -453,6 +454,8 @@ const handleAdminChatRoute = createAdminChatRoutes({
   db, json, requireAdmin, tableNameOf,
   onDeleted: ({ channel }) => { if (channel.startsWith('table:')) chatStore.forget(channel.slice('table:'.length)); },
 });
+
+const handleAdminAuditRoute = createAdminAuditRoute({ db, json, requireAdmin });
 
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
@@ -2423,10 +2426,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { settings: out });
     }
 
-    if (p === '/api/admin/audit') {
-      const a = requireAdmin(req, res); if (!a) return;
-      return json(res, 200, { log: db.prepare('SELECT * FROM audit_log ORDER BY id DESC LIMIT 200').all() });
-    }
+    if (handleAdminAuditRoute(req, res, url)) return;
 
     if (p === '/api/admin/transactions') {
       const a = requireAdmin(req, res); if (!a) return;
