@@ -11,6 +11,7 @@ import { randomInt } from 'node:crypto';
 import { payoutFor, payoutTable } from './tournament.js';
 import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
 import { ACTION_SECONDS, isRushGame, parseActionSeconds } from './validate.js';
+import { clampTournamentLevel, tournamentLevelBlinds } from './tournament-blinds.js';
 
 const BOT_NAMES = [
   'SpewySally', 'NitWizard', 'CallStation', 'RiverRat', 'TiltLord', 'GTOBOT', 'BluffKing',
@@ -100,15 +101,14 @@ export class PokerTable {
     if (this.tournament) {
       // Every flight of a multi-table event shares one tournament descriptor,
       // so blinds and the level clock stay in step across tables.
-      this.tournament.level = Math.max(1, Number(this.tournament.level) || 1);
+      this.tournament.level = clampTournamentLevel(this.tournament.level);
       this.tournament.baseSb = Number(this.tournament.baseSb) || Number(cfg.sb);
       this.tournament.baseBb = Number(this.tournament.baseBb) || Number(cfg.bb);
+      // The first flight records the base ante; antes then rise with the blinds.
+      this.tournament.baseAnte = Number(this.tournament.baseAnte ?? cfg.ante) || 0;
       this.tournament.levelStartedAt = Number(this.tournament.levelStartedAt) || this.levelStartedAt;
       this.appliedLevel = this.tournament.level;
-      const level = this.tournament.level - 1;
-      this.sb = Math.round(this.tournament.baseSb * 1.5 ** level);
-      this.bb = Math.round(this.tournament.baseBb * 1.5 ** level);
-      this.minRaise = this.bb;
+      this.setTournamentBlinds(this.tournament.level);
       this.levelStartedAt = this.tournament.levelStartedAt;
     }
     this.elimination = this.spin || !!this.tournament;
@@ -1528,17 +1528,26 @@ export class PokerTable {
   /** Recompute this flight's blinds when the shared tournament level moved. */
   applyTournamentLevel() {
     if (!this.tournament) return;
-    const level = Math.max(1, Number(this.tournament.level) || 1);
+    const level = clampTournamentLevel(this.tournament.level);
     if (this.appliedLevel === level) return;
     this.appliedLevel = level;
-    const baseSb = Number(this.tournament.baseSb) || this.sb;
-    const baseBb = Number(this.tournament.baseBb) || this.bb;
-    this.sb = Math.round(baseSb * 1.5 ** (level - 1));
-    this.bb = Math.round(baseBb * 1.5 ** (level - 1));
-    this.minRaise = this.bb;
+    this.setTournamentBlinds(level);
     this.levelStartedAt = Number(this.tournament.levelStartedAt) || this.levelStartedAt;
     const nextBlindAt = this.levelStartedAt + Number(this.tournament.blindEvery || 0) * 60000;
-    this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb, level, nextBlindAt });
+    this.emit({ type: 'blinds_up', sb: this.sb, bb: this.bb, ante: this.ante, level, nextBlindAt });
+  }
+
+  /** Blinds and ante for a tournament level; the bomb-pot ante rule never applies to events. */
+  setTournamentBlinds(level) {
+    const { sb, bb, ante } = tournamentLevelBlinds({
+      baseSb: Number(this.tournament.baseSb) || this.sb,
+      baseBb: Number(this.tournament.baseBb) || this.bb,
+      baseAnte: this.tournament.baseAnte,
+    }, level);
+    this.sb = sb;
+    this.bb = bb;
+    this.ante = ante;
+    this.minRaise = bb;
   }
 
   tick(now = Date.now()) {
@@ -1550,7 +1559,7 @@ export class PokerTable {
       const startedAt = Number(this.tournament.levelStartedAt) || this.levelStartedAt;
       if (interval > 0 && now - startedAt >= interval) {
         const levels = Math.floor((now - startedAt) / interval);
-        this.tournament.level = (Number(this.tournament.level) || 1) + levels;
+        this.tournament.level = clampTournamentLevel((Number(this.tournament.level) || 1) + levels);
         this.tournament.levelStartedAt = startedAt + levels * interval;
       }
       this.applyTournamentLevel();

@@ -18,6 +18,7 @@ import {
   payoutFor,
   payoutTable,
 } from './tournament.js';
+import { clampTournamentLevel } from './tournament-blinds.js';
 
 export const MAX_FLIGHTS = 24;
 
@@ -186,7 +187,7 @@ export class TournamentRoom {
     const elapsed = now - startedAt;
     if (elapsed >= interval) {
       const levels = Math.floor(elapsed / interval);
-      this.tournament.level = (Number(this.tournament.level) || 1) + levels;
+      this.tournament.level = clampTournamentLevel((Number(this.tournament.level) || 1) + levels);
       this.tournament.levelStartedAt = startedAt + levels * interval;
     }
     return this.tournament.level || 1;
