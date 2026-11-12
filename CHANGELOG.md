@@ -6,6 +6,20 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Spectating
+- Watching a table is now truly read-only. `join_table` with `observe: true` no longer seeds
+  bots or starts a hand, so opening a quiet private table no longer spawns a bot game and
+  watching a tournament flight can no longer add players to the field.
+- Table-wide actions need a seat: a watcher can no longer flip the straddle or run-it-twice,
+  and cannot trigger a rabbit hunt for the players.
+- The table header shows a **Spectating** pill, and the lobby side panel's **Open** button is
+  now **Watch**.
+- New `GET /api/tournaments/:id/watch` returns the busiest live flight; the tournament
+  detail offers **Watch live**, and a watcher whose table breaks follows the field to the
+  next flight automatically.
+- Tests: four new HTTP/WebSocket cases (no bot seeding, hidden hole cards, refused actions
+  and options, tournament watch endpoint and flight follow). Full suite 144/144.
+
 ### Tournaments
 - **Multi-table tournaments are live.** The pure seating engine (`app/server/tournament.js`)
   is now driven by a tournament room (`app/server/tournament-room.js`) against the live

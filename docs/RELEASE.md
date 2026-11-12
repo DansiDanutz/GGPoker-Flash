@@ -15,7 +15,7 @@ Play-money only. Server-authoritative. No real-money flows.
 
 ```bash
 cd app
-pnpm test                 # node --test server/*.test.js — 140 tests
+pnpm test                 # node --test server/*.test.js — 144 tests
 pnpm exec tsc --noEmit -p tsconfig.json
 pnpm build                # → app/dist
 pnpm smoke                # read-only API smoke against a running server
@@ -37,7 +37,7 @@ the allowlisted loopback/SSH tunnel.
 
 ## Verified before a release
 
-- `pnpm test` — 140/140.
+- `pnpm test` — 144/144.
 - `pnpm exec tsc --noEmit` and `pnpm build` (also enforced by CI on every PR).
 - Login → lobby → table join → first hand → fold/call/raise on desktop 1200×957 and phone
   390×844.

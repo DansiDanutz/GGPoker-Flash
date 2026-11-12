@@ -1027,7 +1027,25 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, id });
     }
 
-    if (p.startsWith('/api/tournaments/') && !p.includes('/register') && !p.includes('/play') && !p.includes('/unregister') && req.method === 'GET') {
+    // Where a spectator should watch this tournament: the busiest live flight.
+    if (p.startsWith('/api/tournaments/') && p.endsWith('/watch') && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const id = decodeURIComponent(p.slice('/api/tournaments/'.length, -'/watch'.length));
+      const room = TOURNAMENT_ROOMS.get(id);
+      const flights = room ? room.flightState().filter((flight) => flight.players.length) : [];
+      if (!flights.length) return json(res, 404, { error: 'This tournament has no live table' });
+      const busiest = flights.sort((a, b) => b.players.length - a.players.length)[0];
+      const stats = room.stats();
+      return json(res, 200, {
+        ok: true,
+        tableId: busiest.id,
+        tableIndex: busiest.index,
+        tables: stats.tables,
+        playersLeft: stats.playersLeft,
+      });
+    }
+
+    if (p.startsWith('/api/tournaments/') && !p.includes('/register') && !p.includes('/play') && !p.includes('/unregister') && !p.endsWith('/watch') && req.method === 'GET') {
       const id = decodeURIComponent(p.slice('/api/tournaments/'.length));
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ? AND enabled = 1').get(id);
       if (!t) return json(res, 404, { error: 'not found' });
@@ -2308,8 +2326,7 @@ wss.on('connection', (ws, req) => {
       const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
       if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
       if (msg.observe) {
-        table.fillBots(Math.max(3, table.cfg.seats - 1));
-        table.maybeStart();
+        // Watching is read-only: never seed bots, start a hand or take a seat.
         entry.clients.add(ws);
         ws.tables.add(msg.tableId);
         ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true }));
@@ -2372,6 +2389,10 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'option') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
+      // Table options belong to the players at the table, not to watchers.
+      if (!entry.table.seatOf(ws.userId)) {
+        return ws.send(JSON.stringify({ type: 'error', error: 'Take a seat to change table options' }));
+      }
       if (msg.straddle != null) {
         const res = entry.table.setStraddle(!!msg.straddle);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
@@ -2465,6 +2486,8 @@ wss.on('connection', (ws, req) => {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
       const t = entry.table;
+      // Revealing the undealt board is a player action, not a spectator one.
+      if (!t.seatOf(ws.userId)) return;
       if (t.street === 'ended' && t.board.length < 5) {
         const deck = [...t.deck];
         const cards = [];
