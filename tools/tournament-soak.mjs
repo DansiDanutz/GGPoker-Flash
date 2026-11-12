@@ -4,7 +4,7 @@
  * server while a snapshot exists, restart on the same data dir and prove the
  * room comes back with its players, stacks/level and the same table id.
  *
- * Usage: node tools/tournament-soak.mjs [--cycles 2]
+ * Usage: node tools/tournament-soak.mjs [--cycles 2] [--rooms 3]
  * Runs against a disposable temp database and random port; never touches the
  * production database or the 5197/5198 servers.
  */
@@ -19,6 +19,8 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 const APP = path.join(ROOT, 'app');
 const arg = process.argv.indexOf('--cycles');
 const CYCLES = Math.max(1, Number(arg > 0 ? process.argv[arg + 1] : process.env.SOAK_CYCLES) || 2);
+const roomsArg = process.argv.indexOf('--rooms');
+const ROOMS = Math.max(1, Number(roomsArg > 0 ? process.argv[roomsArg + 1] : process.env.SOAK_ROOMS) || 1);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function startServer(dataDir) {
@@ -106,50 +108,56 @@ async function waitForSnapshot(dataDir, id, predicate, timeoutMs = 15_000) {
   return null;
 }
 
-async function cycle(index) {
+async function cycle(index, rooms = ROOMS) {
   const dataDir = mkdtempSync(path.join(tmpdir(), `dangg-soak-${process.pid}-${index}-`));
-  const id = `soak-${Date.now()}-${index}`;
   let first = null;
   let second = null;
+  const checks = [];
   try {
     first = await startServer(dataDir);
-    insertTournament(dataDir, id);
-    const tag = String(Date.now()).slice(-7);
-    const a = await register(first.base, `soaka${tag}`);
-    const b = await register(first.base, `soakb${tag}`);
-    for (const token of [a, b]) {
-      const res = await fetch(`${first.base}/api/tournaments/${id}/register`, { method: 'POST', headers: { authorization: `Bearer ${token}` } });
-      assert.equal(res.status, 200, 'register entrant');
+    for (let r = 0; r < rooms; r += 1) {
+      const id = `soak-${Date.now()}-${index}-${r}`;
+      insertTournament(dataDir, id);
+      const tag = `${String(Date.now()).slice(-5)}${r}`;
+      const a = await register(first.base, `soaka${tag}`);
+      const b = await register(first.base, `soakb${tag}`);
+      for (const token of [a, b]) {
+        const res = await fetch(`${first.base}/api/tournaments/${id}/register`, { method: 'POST', headers: { authorization: `Bearer ${token}` } });
+        assert.equal(res.status, 200, `register entrant room ${r}`);
+      }
+      const played = await join(first.base, a, id);
+      assert.equal(played.status, 200, `start tournament room ${r}: ${JSON.stringify(played.body)}`);
+      const tableId = played.body.tableId;
+      assert.ok(tableId, `table id returned room ${r}`);
+
+      const snapshot = await waitForSnapshot(dataDir, id, (state) =>
+        (state.flights || []).some((flight) => (flight.players || []).length >= 2));
+      assert.ok(snapshot, `settled snapshot with both players room ${r}`);
+      const before = snapshot.flights.flatMap((flight) => flight.players).map((p) => ({ nick: p.nick, stack: p.stack }));
+      assert.equal(before.length, 2, `two players snapshotted room ${r}`);
+      checks.push({ id, tableId, token: a, before });
     }
-    const played = await join(first.base, a, id);
-    assert.equal(played.status, 200, `start tournament: ${JSON.stringify(played.body)}`);
-    const tableId = played.body.tableId;
-    assert.ok(tableId, 'table id returned');
 
-    const snapshot = await waitForSnapshot(dataDir, id, (state) =>
-      (state.flights || []).some((flight) => (flight.players || []).length >= 2));
-    assert.ok(snapshot, 'a settled-hand snapshot with both players exists');
-    const before = snapshot.flights.flatMap((flight) => flight.players).map((p) => ({ nick: p.nick, stack: p.stack }));
-    assert.equal(before.length, 2, 'two players snapshotted');
-
-    // Hard crash: no graceful save, no shutdown hook.
+    // Hard crash once, after every room has a settled-hand snapshot.
     await stopServer(first.child, 'SIGKILL');
     first = null;
 
     second = await startServer(dataDir);
     const admin = await login(second.base, 'admin', 'admin123');
     const live = await (await fetch(`${second.base}/api/admin/tournaments/live`, { headers: { authorization: `Bearer ${admin}` } })).json();
-    const room = live.tournaments.items.find((r) => r.id === id);
-    assert.ok(room, 'room restored after the crash');
-    assert.equal(room.playersLeft, 2, 'both players restored');
-    assert.ok(room.restoredAt, 'restoredAt marker set');
-    assert.ok(room.snapshot, 'recovery snapshot reported');
+    for (const check of checks) {
+      const room = live.tournaments.items.find((r) => r.id === check.id);
+      assert.ok(room, `room ${check.id} restored after the crash`);
+      assert.equal(room.playersLeft, 2, `both players restored in ${check.id}`);
+      assert.ok(room.restoredAt, `restoredAt marker set in ${check.id}`);
+      assert.ok(room.snapshot, `recovery snapshot reported in ${check.id}`);
+      const reconnect = await join(second.base, check.token, check.id);
+      assert.equal(reconnect.status, 200, `player can reconnect to ${check.id}`);
+      assert.equal(reconnect.body.tableId, check.tableId, `reconnect returns the original table for ${check.id}`);
+    }
 
-    const reconnect = await join(second.base, a, id);
-    assert.equal(reconnect.status, 200, 'player can reconnect');
-    assert.equal(reconnect.body.tableId, tableId, 'reconnect returns the original table');
-
-    console.log(`cycle ${index + 1}: PASS  table=${tableId}  players=${before.map((p) => `${p.nick}:${p.stack}`).join(', ')}  level=${room.level}  snapshot=${room.snapshot.bytes}B  restoredAt=${room.restoredAt}`);
+    const summary = checks.map((check) => `${check.tableId}[${check.before.map((p) => `${p.nick}:${p.stack}`).join(',')}]`).join(' ');
+    console.log(`cycle ${index + 1}: PASS  rooms=${checks.length}  ${summary}`);
     return true;
   } catch (err) {
     console.error(`cycle ${index + 1}: FAIL\n${err.stack || err}`);
@@ -166,5 +174,5 @@ let failures = 0;
 for (let i = 0; i < CYCLES; i += 1) {
   if (!(await cycle(i))) failures += 1;
 }
-console.log(`\n${CYCLES - failures}/${CYCLES} soak cycles passed`);
+console.log(`\n${CYCLES - failures}/${CYCLES} soak cycles passed (${ROOMS} room(s) per cycle)`);
 process.exit(failures ? 1 : 0);

@@ -6,6 +6,16 @@ The project started as a local desktop clone and became the live play-money room
 
 ## 2026-11-12
 
+### Multi-room crash soak
+- `tools/tournament-soak.mjs --rooms N` now creates N two-player events per cycle (unique
+  users/tournaments), waits for a settled-hand snapshot in every room, `SIGKILL`s the server
+  once, restarts on the same data and verifies every room's players, `restoredAt`, snapshot
+  and original table id on reconnect.
+- Local run: **2 cycles × 3 rooms passed** (six events, players 9,900/10,100 each). The
+  nightly workflow now runs `--cycles 2 --rooms 3`; `--rooms` is documented in the runbook.
+  The unit suite is unchanged at 428/428.
+
+## 2026-11-12
 ### Room-owner boundary extracted
 - `TournamentRoomOwner` now owns the live room map and its lifecycle: creation, restart
   restore, snapshot scheduling, sweeps, snapshot-all and disposal. `index.js` injects
