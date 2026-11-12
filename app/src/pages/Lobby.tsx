@@ -5,6 +5,7 @@ import { sound } from '../lib/sound';
 import { AppHeader, GameTabs } from '../components/AppHeader';
 import { TitleBar } from '../components/TitleBar';
 import { Avatar } from '../components/Avatar';
+import { GroupCardAction } from '../components/GroupCardAction';
 import { WaitlistSideActions } from '../components/WaitlistSideActions';
 import { waitCount } from '../lib/waitlist';
 
@@ -408,7 +409,7 @@ export function Lobby() {
                       <div className="gc-stakes">{fmtStakes(t)}</div>
                       <div className="gc-meta"><span>{t.game === 'holdem' ? "Hold'em" : t.game}</span><span>{t.players}/{t.seats} players</span></div>
                       <div className="gc-buyin">Buy-in {money(t.min_buyin, true)}</div>
-                      <button className="btn btn-red btn-sm" onClick={(e) => { e.stopPropagation(); openJoin(t); }}>Join</button>
+                      <GroupCardAction table={t} allTables={data?.tables || []} onJoin={openJoin} onChanged={load} />
                     </div>
                   ))}
                 </div>

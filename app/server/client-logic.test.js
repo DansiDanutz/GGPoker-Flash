@@ -7,7 +7,11 @@ import { potChipLayout, shuffleFramePosition } from '../src/game/potChips.ts';
 import { cardOrdinal, squeezeDragFrame, squeezeWheelFrame } from '../src/game/squeeze.ts';
 import { showdownComplete, showdownPlan } from '../src/game/showdown.ts';
 import { bestHand } from '../src/game/eval.ts';
-import { WAITLIST_TABLE_CAP, waitlistActionFor, waitCount } from '../src/lib/waitlist.ts';
+import {
+  WAITLIST_TABLE_CAP, waitlistActionFor, waitCount,
+  offerSecondsLeft, formatCountdown, isOfferUrgent, offerProgress, chipCount, waitlistChipLabel,
+  queuePositionLabel, groupKeyOf, queueName, applyQueueUpdate, groupActionFor,
+} from '../src/lib/waitlist.ts';
 
 const ctx = (over = {}) => ({
   pot: 300, currentBet: 0, minRaise: 100, bb: 100, myBet: 0, myStack: 5000, maxRaiseTo: 0, street: 'flop', ...over,
@@ -145,4 +149,62 @@ test('wait count is a whole number and 0 when empty', () => {
   assert.equal(waitCount({ wait: -2 }), 0);
   assert.equal(waitCount({ wait: Number.NaN }), 0);
   assert.equal(waitCount(null), 0);
+});
+
+test('seat-offer countdown: whole seconds rounded up, m:ss label, urgent in the last 10 s', () => {
+  const now = 1_000_000;
+  assert.equal(offerSecondsLeft(now + 30_000, now), 30);
+  assert.equal(offerSecondsLeft(now + 23_001, now), 24, 'a partial second still shows');
+  assert.equal(offerSecondsLeft(now, now), 0, 'the deadline itself has expired');
+  assert.equal(offerSecondsLeft(now - 500, now), 0, 'never negative');
+  assert.equal(offerSecondsLeft(Number.NaN, now), 0);
+  assert.equal(formatCountdown(24), '0:24');
+  assert.equal(formatCountdown(8), '0:08');
+  assert.equal(formatCountdown(65), '1:05');
+  assert.equal(formatCountdown(0), '0:00');
+  assert.equal(formatCountdown(-3), '0:00');
+  assert.equal(isOfferUrgent(11), false);
+  assert.equal(isOfferUrgent(10), true);
+  assert.equal(isOfferUrgent(1), true);
+  assert.equal(isOfferUrgent(0), false, 'an expired offer is closed, not urgent');
+  assert.equal(offerProgress(15), 0.5);
+  assert.equal(offerProgress(40), 1, 'clamped to a full ring');
+  assert.equal(offerProgress(5, 0), 0, 'no hold length means no ring');
+});
+
+test('header chip counts real queues and hides when there are none', () => {
+  const q = (key, position, size = 5) => ({ queueKey: key, position, size, kind: 'table', tableId: key.slice(2) });
+  assert.equal(chipCount([q('t:a', 3), q('t:b', 1)]), 2);
+  assert.equal(chipCount([q('t:a', 0)]), 0, 'position 0 is not a queue');
+  assert.equal(chipCount(null), 0);
+  assert.equal(waitlistChipLabel(2), '2 wait lists');
+  assert.equal(waitlistChipLabel(1), '1 wait list');
+  assert.equal(waitlistChipLabel(0), '', 'no label: the chip hides');
+  assert.equal(queuePositionLabel({ position: 3, size: 5 }), '#3 of 5');
+  assert.equal(queuePositionLabel({ position: 4, size: 2 }), '#4 of 4', 'a stale size never reads below the position');
+});
+
+test('queue updates are applied immutably: update, append, or remove at position 0', () => {
+  const a = Object.freeze({ queueKey: 't:a', position: 3, size: 5, kind: 'table', tableId: 'a', tableName: 'Alpha' });
+  const queues = Object.freeze([a]);
+  const moved = applyQueueUpdate(queues, { queueKey: 't:a', position: 2, size: 4, kind: 'table', tableId: 'a' });
+  assert.deepEqual(moved.map((q) => [q.position, q.size, q.tableName]), [[2, 4, 'Alpha']], 'keeps the known table name');
+  assert.equal(queues[0].position, 3, 'the input is untouched');
+  const added = applyQueueUpdate(queues, { queueKey: 'g:holdem:50/100:6', position: 1, size: 1, kind: 'group', groupKey: 'holdem:50/100:6' });
+  assert.deepEqual(added.map((q) => q.queueKey), ['t:a', 'g:holdem:50/100:6']);
+  assert.deepEqual(applyQueueUpdate(queues, { queueKey: 't:a', position: 0, size: 4, kind: 'table', tableId: 'a' }), []);
+  assert.deepEqual(applyQueueUpdate(queues, { queueKey: 't:zz', position: 0, size: 0, kind: 'table', tableId: 'zz' }), [a]);
+});
+
+test('group view: key, name and the card action', () => {
+  const t = (players, seats = 6) => ({ game: 'holdem', sb: 50, bb: 100, seats, players });
+  assert.equal(groupKeyOf(t(6)), 'holdem:50/100:6');
+  assert.equal(queueName({ queueKey: 'g:holdem:50/100:6', kind: 'group', groupKey: 'holdem:50/100:6', position: 1, size: 1 }), "Hold'em 50/100 · 6-Max");
+  assert.equal(queueName({ queueKey: 't:a', kind: 'table', tableId: 'a', tableName: 'Alpha', position: 1, size: 1 }), 'Alpha');
+  assert.equal(queueName({ queueKey: 't:a', kind: 'table', tableId: 'a', position: 1, size: 1 }), 'a', 'falls back to the id');
+  assert.equal(groupActionFor([t(6), t(5)]), 'join', 'any free seat in the group means a plain join');
+  assert.equal(groupActionFor([t(6), t(6)]), 'joinWait', 'a full group offers its wait list');
+  assert.equal(groupActionFor([t(6)], 2), 'queued');
+  assert.equal(groupActionFor([t(3)], 1), 'queued', 'queued wins over a free seat');
+  assert.equal(groupActionFor([]), 'joinWait', 'no visible table with room');
 });

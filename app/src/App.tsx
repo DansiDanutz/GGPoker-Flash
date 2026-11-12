@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from './lib/store';
 import { TitleBar } from './components/TitleBar';
 import { AppHeader } from './components/AppHeader';
+import { SeatOfferModal } from './components/SeatOfferModal';
 import { Login } from './pages/Login';
 import { Lobby } from './pages/Lobby';
 import { TablePage } from './pages/TablePage';
@@ -140,6 +141,7 @@ export default function App() {
       {firstLaunch && <FirstLaunch />}
       <MobileNav />
       <QuickMenu />
+      {user && <SeatOfferModal />}
       <div className="toasts">
         {toasts.map((t) => (
           <div key={t.id} className={'toast ' + t.kind} onClick={() => dismissToast(t.id)}>

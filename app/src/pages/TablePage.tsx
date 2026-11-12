@@ -12,6 +12,9 @@ import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/bett
 import { potChipLayout, shuffleFramePosition, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { showdownComplete, showdownPlan } from '../game/showdown';
+import { useWaitlist } from '../lib/waitlistState';
+import { formatCountdown, queuePositionLabel } from '../lib/waitlist';
+import { useOfferSeconds } from '../components/SeatOfferModal';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -108,7 +111,20 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [fourColor, setFourColor] = useState(() => localStorage.getItem('ggpoker.fourcolor') === '1');
   const [animOff, setAnimOff] = useState(() => localStorage.getItem('ggpoker.animations') === '0');
   const [observing, setObserving] = useState(false);
-  const [waitlistPos, setWaitlistPos] = useState(0);
+  // Wait-list position and held-seat offer come from the global wait-list state (W4b).
+  const { queues: waitQueues, offer: seatOffer, refresh: refreshWaitlist, dismissOffer } = useWaitlist();
+  const myTableQueue = waitQueues.find((q) => q.kind === 'table' && q.tableId === tableId && q.position > 0) || null;
+  const offerHere = seatOffer && seatOffer.tableId === tableId ? seatOffer : null;
+  const offerSeconds = useOfferSeconds(offerHere);
+  const offerLive = !!offerHere && offerSeconds > 0;
+  const dismissOfferRef = useRef<(id: string) => void>(() => {});
+  dismissOfferRef.current = (id: string) => { if (seatOffer?.tableId === id) dismissOffer(); };
+  const waitBannerText = offerLive && offerHere ? (
+    <><b>Seat available.</b> Seat {offerHere.seat + 1} is held for you{' '}
+      <span aria-hidden="true" style={{ fontVariantNumeric: 'tabular-nums' }}>· {formatCountdown(offerSeconds)}</span></>
+  ) : myTableQueue
+    ? `You are ${queuePositionLabel(myTableQueue)} on the waiting list. We will hold the next open seat for you.`
+    : 'You are observing this table. Take a seat to join the action.';
   const [rebuyOpen, setRebuyOpen] = useState(false);
   const [rebuyAmount, setRebuyAmount] = useState(0);
   const [rebuyOffer, setRebuyOffer] = useState<{ min: number; max: number; until: number } | null>(null);
@@ -239,10 +255,12 @@ export function TablePage({ tableId }: { tableId: string }) {
           // Keep the seat's auto-muck preference in sync with this device.
           ws.send(JSON.stringify({ type: 'option', tableId, autoMuck }));
         }
-        if (msg.waitlist) setWaitlistPos(msg.waitlist);
+        if (msg.waitlist) refreshWaitlist();
+        // Sitting down accepts a seat held for us here.
+        if (!msg.observe) dismissOfferRef.current(tableId);
         setOpeningTable(null);
       } else if (msg.type === 'waitlist') {
-        setWaitlistPos(msg.position || 1);
+        refreshWaitlist();
         setObserving(true);
         toast({ kind: 'info', title: 'Waitlist', body: `You are #${msg.position || 1} in line. We will hold the next seat for you.` });
       } else if (msg.type === 'rush_queued') {
@@ -433,8 +451,9 @@ export function TablePage({ tableId }: { tableId: string }) {
     } else if (evt.type === 'rabbit') {
       setRabbit(evt.cards || []);
     } else if (evt.type === 'waitlist_ready') {
+      // The banner shows the held seat and its countdown; the stream usually beats this refresh.
       sound.play('turn', { volume: .6 });
-      toast({ kind: 'success', title: 'Seat available', body: 'A seat just opened — click Take a seat.' });
+      refreshWaitlist();
     } else if (evt.type === 'timebank') {
       sound.play('timebank', { volume: .6 });
       toast({ kind: 'info', title: 'Time bank', body: `+${evt.seconds || timeBankSeconds} seconds` });
@@ -1115,8 +1134,8 @@ export function TablePage({ tableId }: { tableId: string }) {
       {observing ? (
         <div className="action-bar">
           <div className="action-row">
-            <div style={{ flex: 1, color: '#cfcfcf', fontSize: 13 }}>{waitlistPos > 0 ? `You are #${waitlistPos} on the waitlist. We will hold the next open seat for you.` : 'You are observing this table. Take a seat to join the action.'}</div>
-            {!state?.tournament && <button className={'btn ' + (waitlistPos > 0 ? 'btn-gold' : 'btn-red')} onClick={sitIn}>Take a seat · {chip(state?.minBuyin)}</button>}
+            <div style={{ flex: 1, color: '#cfcfcf', fontSize: 13 }} role="status" aria-live="polite">{waitBannerText}</div>
+            {!state?.tournament && <button className={'btn ' + (myTableQueue && !offerLive ? 'btn-gold' : 'btn-red')} onClick={sitIn}>{offerLive ? 'Take seat' : 'Take a seat'} · {chip(state?.minBuyin)}</button>}
             <button className="btn btn-dark" onClick={() => setConfirmLeave(true)}>Leave</button>
           </div>
         </div>

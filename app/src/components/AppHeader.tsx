@@ -3,6 +3,7 @@ import { useApp } from '../lib/store';
 import { money, User } from '../lib/api';
 import { sound } from '../lib/sound';
 import { Avatar } from './Avatar';
+import { WaitlistChip } from './WaitlistChip';
 
 export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { online: number; jackpot: number; user: User | null; activeTop?: string }) {
   const { navigate, brand } = useApp();
@@ -26,6 +27,7 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
         <div className="jackpot-label"><b>BAD BEAT</b><span>JACKPOT</span></div>
         <div className="jackpot-amount">{money(jackpot).replace('$', '$')}</div>
       </div>
+      {user && <WaitlistChip />}
       <div className="account-block" onClick={() => { sound.play('click', { volume: .4 }); window.dispatchEvent(new Event('gg:quickmenu')); }} title="Account">
         <div className="avatar-ring">
           <div className="inner">
