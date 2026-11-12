@@ -290,7 +290,7 @@ export function Lobby() {
       <AppHeader online={online} jackpot={data?.jackpot || 199026635} user={user} activeTop="poker" />
       <GameTabs active={gameTab} onChange={(k) => { setGameTab(k); }} />
       {(!user) && (
-        <div style={{ background: 'linear-gradient(90deg,#3a2413,#2a1a0e)', borderBottom: '1px solid #6b5320', padding: '6px 14px', fontSize: 12.5, color: '#f0d9a8', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ background: '#141414', borderBottom: '1px solid #2a2a2a', padding: '6px 14px', fontSize: 12.5, color: '#e6e6e6', display: 'flex', alignItems: 'center', gap: 12 }}>
           <b>You are browsing as guest.</b> Log in to keep your balance, rewards and hand history.
           <button className="btn btn-red btn-sm" style={{ marginLeft: 'auto' }} onClick={() => navigate('/login')}>Log in / Sign up</button>
         </div>
@@ -381,7 +381,7 @@ export function Lobby() {
               ) : tables.map((t) => (
                 <div
                   key={t.id}
-                  className={'table-row' + (selected === t.id ? ' selected' : '')}
+                  className={'table-row game-' + t.game + (selected === t.id ? ' selected' : '')}
                   onClick={() => { setSelected(t.id); if (coarsePointer()) openJoin(t); }}
                   onDoubleClick={() => openJoin(t)}
                 >
@@ -391,15 +391,15 @@ export function Lobby() {
                     <span>{t.name}</span>
                     {t.pro && <span className="tag pro">PRO</span>}
                   </div>
-                  <div>{fmtStakes(t)}</div>
-                  <div>{money(t.min_buyin, true)}</div>
+                  <div className="c-stakes">{fmtStakes(t)}</div>
+                  <div className="c-buyin">{money(t.min_buyin, true)}</div>
                   <div className="player-bars">
                     {Array.from({ length: t.seats }).map((_, i) => (
                       <i key={i} className={i < t.players ? 'on' : ''} />
                     ))}
                   </div>
-                  <div className="wait-cell">{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
-                  <div className={t.avgPot ? '' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
+                  <div className={'wait-cell' + (waitCount(t) ? ' has-wait' : '')}>{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
+                  <div className={t.avgPot ? 'c-pot' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
                   <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
                   <div className={t.handsPerHour ? '' : 'zero'}>{t.handsPerHour || '-'}</div>
                 </div>

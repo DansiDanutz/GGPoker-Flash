@@ -63,7 +63,7 @@ export function GameTabs({ active, onChange }: { active: string; onChange: (key:
           onClick={() => { sound.play('click', { volume: .5 }); onChange(t.key); }}
           title={t.label}
         >
-          <img src={`/assets/chrome/${t.img}.png?v=5`} alt={t.label} style={{ opacity: active === t.key && t.key !== 'holdem' ? .0001 : 1 }} />
+          <img src={`/assets/chrome/${t.img}.png?v=6`} alt={t.label} style={{ opacity: active === t.key && t.key !== 'holdem' ? .0001 : 1 }} />
           {active === t.key && t.key !== 'holdem' && <span className="active-plate">{t.label}</span>}
         </button>
       ))}

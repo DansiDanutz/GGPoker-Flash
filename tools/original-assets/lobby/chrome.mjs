@@ -3,16 +3,17 @@
 import { renderPng } from '../render.mjs';
 import { FONT, PALETTE, svg, card, cardDefs, chipStack, chipDefs, chipTop, dust, gem, sparkle } from './shared.mjs';
 
-/** [file, width, label, icon] — labels are neutral DanGG names for each game type. */
+/** [file, width, label, icon, [light, deep]]: labels are neutral DanGG names; each game
+ *  has its own bright colour pair, matched by the lobby row stripes in app/src/vivid.css. */
 const TABS = Object.freeze([
-  ['tab_home', 141, 'Home', 'home'],
-  ['tab_aof', 135, 'All-in or Fold', 'bolt'],
-  ['tab_rush', 134, 'Fast Fold', 'fast'],
-  ['tab_holdem', 135, "Hold'em", 'spade'],
-  ['tab_plo', 135, 'PLO', 'diamond'],
-  ['tab_short', 135, 'Short Deck', 'club'],
-  ['tab_spin', 134, 'Jackpot SNG', 'star'],
-  ['tab_battle', 135, 'Battle Royale', 'crown'],
+  ['tab_home', 141, 'Home', 'home', ['#ffffff', '#c9c9c9']],
+  ['tab_aof', 135, 'All-in or Fold', 'bolt', ['#ffb36b', '#ff3b3b']],
+  ['tab_rush', 134, 'Fast Fold', 'fast', ['#8ff5ea', '#14c2b2']],
+  ['tab_holdem', 135, "Hold'em", 'spade', ['#a6ff9e', '#2fcf3f']],
+  ['tab_plo', 135, 'PLO', 'diamond', ['#b8ddff', '#3f9cff']],
+  ['tab_short', 135, 'Short Deck', 'club', ['#ffc27a', '#ff6a2e']],
+  ['tab_spin', 134, 'Jackpot SNG', 'star', ['#fff0a0', '#ffb21f']],
+  ['tab_battle', 135, 'Battle Royale', 'crown', ['#e6c2ff', '#a24dff']],
 ]);
 
 const ICONS = Object.freeze({
@@ -26,22 +27,22 @@ const ICONS = Object.freeze({
   crown: '<path d="M2 16L1 5L6.5 9.5L10 2.5L13.5 9.5L19 5L18 16Z"/>',
 });
 
-function tabHtml(w, label, icon) {
-  const size = label.length > 11 ? 12.5 : 15;
-  return `<div style="position:absolute;inset:2px 2px 3px;border-radius:7px;background:linear-gradient(180deg,#1f2a25 0%,#121a16 48%,#0a0f0d 100%);
-    box-shadow:inset 0 1px 0 rgba(245,221,162,.22),inset 0 -1px 0 rgba(0,0,0,.6),0 1px 2px rgba(0,0,0,.7);border:1px solid #3a3a2c;
+function tabHtml(w, label, icon, [light, deep]) {
+  const size = label.length > 10 ? 12.5 : 15;
+  return `<div style="position:absolute;inset:2px 2px 3px;border-radius:7px;background:linear-gradient(180deg,#2c2c2c 0%,#1a1a1a 50%,#0e0e0e 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -1px 0 rgba(0,0,0,.6),0 1px 2px rgba(0,0,0,.7);border:1px solid #3a3a3a;
     display:flex;align-items:center;justify-content:center;gap:6px;font-family:${FONT.display};">
-    <svg width="17" height="17" viewBox="0 0 20 20" fill="${PALETTE.gold}" style="flex:none;filter:drop-shadow(0 1px 0 #000)">${ICONS[icon]}</svg>
-    <span style="font-size:${size}px;font-weight:700;white-space:nowrap;letter-spacing:.2px;color:transparent;
-      background:linear-gradient(180deg,${PALETTE.goldLight},${PALETTE.gold} 60%,#b48a3e);-webkit-background-clip:text;background-clip:text;
-      filter:drop-shadow(0 1px 0 rgba(0,0,0,.85))">${label}</span>
-    <div style="position:absolute;left:10%;right:10%;top:2px;height:1px;background:linear-gradient(90deg,transparent,rgba(245,221,162,.45),transparent)"></div>
+    <svg width="17" height="17" viewBox="0 0 20 20" fill="${deep}" style="flex:none;filter:drop-shadow(0 0 4px ${deep}88) drop-shadow(0 1px 0 #000)">${ICONS[icon]}</svg>
+    <span style="font-size:${size}px;font-weight:800;white-space:nowrap;letter-spacing:.2px;color:transparent;
+      background:linear-gradient(180deg,${light},${deep} 75%);-webkit-background-clip:text;background-clip:text;
+      filter:drop-shadow(0 1px 0 rgba(0,0,0,.9)) drop-shadow(0 0 6px ${deep}55)">${label}</span>
+    <div style="position:absolute;left:10%;right:10%;top:2px;height:1px;background:linear-gradient(90deg,transparent,${light}66,transparent)"></div>
   </div>`;
 }
 
 async function renderTabs() {
   const out = [];
-  for (const [file, w, label, icon] of TABS) out.push(await renderPng(`chrome/${file}.png`, tabHtml(w, label, icon), w, 50));
+  for (const [file, w, label, icon, colors] of TABS) out.push(await renderPng(`chrome/${file}.png`, tabHtml(w, label, icon, colors), w, 50));
   return out;
 }
 

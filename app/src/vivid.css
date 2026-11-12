@@ -1,0 +1,129 @@
+/* DanGG vivid layer: neutral black base, bright text and colour that carries meaning.
+   Loaded after design-v2.css. It replaces the green-brown "noir" haze with true blacks
+   and charcoals, so white text and saturated accents read crisply, as in the reference
+   client. Colour encodes data: green = people, gold = money, red = urgency, blue/orange
+   = game type. */
+
+:root {
+  --bg: #000;
+  --bg2: #0b0b0b;
+  --panel: #141414;
+  --panel2: #1b1b1b;
+  --panel3: #242424;
+  --line: #2c2c2c;
+  --line2: #333;
+  --text: #f2f2f2;
+  --muted: #b4b4b4;
+  --dim: #8a8a8a;
+  --gold: #ffc23d;
+  --gold2: #ffd76a;
+  --red: #e0283a;
+  --red2: #ff3b4e;
+  --green: #36d14f;
+  --green2: #5cff6e;
+  --blue: #3fa2ff;
+  --orange: #ff9a2e;
+  --row-a: #0d0d0d;
+  --row-b: #171717;
+  --row-hover: #262626;
+}
+
+body { background: #000; }
+
+/* ---------- shell: no fog, no tint ---------- */
+.app-window { background: #000; }
+.app-window::before { background: none; }
+.titlebar { background: #0a0a0a; border-bottom-color: #1f1f1f; }
+.online-pill { color: var(--green2); font-weight: 600; }
+.online-pill .dot { background: var(--green2); box-shadow: 0 0 8px rgba(92, 255, 110, .7); }
+.app-header { background: #0d0d0d; border-bottom-color: #222; backdrop-filter: none; }
+.topnav { background: #1e1e1e; border-color: #333; }
+.topnav button { color: #bdbdbd; }
+.topnav button:hover { color: #fff; }
+.topnav button.active { background: linear-gradient(180deg, #ef3a4c, #a5121f); color: #fff; }
+.game-tabs { background: #111; border-bottom-color: #262626; }
+.game-tab { color: #e6e6e6; }
+
+/* ---------- lobby surfaces ---------- */
+.lobby-content { background: #000; }
+.lobby-content::before { display: none; }
+.lobby-left { background: #0b0b0b; border-right-color: #1f1f1f; }
+.ll-label { color: #9a9a9a; }
+.ll-item { color: #d8d8d8; }
+.ll-item:hover { background: #1f1f1f; color: #fff; }
+.ll-item.on { background: linear-gradient(90deg, rgba(255, 194, 61, .2), rgba(255, 194, 61, .04)); color: var(--gold2); }
+.lobby-side, .lobby-rail { background: #0d0d0d; border-left-color: #1f1f1f; }
+.filter-bar { background: #111; border-color: #262626; backdrop-filter: none; }
+.filter-bar select, .filter-bar input { background: #000; border-color: #333; color: #f2f2f2; }
+.promo-wrap::after { background: linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, .55) 100%); }
+.promo-wrap { border-color: #2a2a2a; }
+
+/* ---------- table list ---------- */
+.table-list { background: #000; border-color: #222; }
+.list-head { background: #1c1c1c; color: #c8c8c8; border-bottom-color: #2c2c2c; }
+.table-row { background: var(--row-a); border-bottom-color: #1c1c1c; color: #fff; position: relative; }
+.table-row:nth-child(even) { background: var(--row-b); }
+.table-row:nth-child(4n+3) { background: var(--row-a); }
+.table-row:hover { background: var(--row-hover); box-shadow: none; }
+.table-row.selected { background: linear-gradient(90deg, #7a0f1a, #4a0c12); box-shadow: inset 3px 0 0 var(--red2); }
+.table-row.selected .name { color: #fff; }
+
+/* Game stripe at the row's left edge (the same colour as the game's tab, from
+   tools/original-assets/lobby/chrome.mjs), and the table name tinted by game. */
+.table-row::before { content: ''; position: absolute; left: 0; top: 3px; bottom: 3px; width: 3px; border-radius: 2px; background: #666; }
+.table-row .name { color: var(--gold); font-weight: 600; }
+.table-row.game-holdem::before { background: #2fcf3f; }
+.table-row.game-omaha::before, .table-row.game-rushplo::before { background: #3f9cff; }
+.table-row.game-omaha .name, .table-row.game-rushplo .name { color: #7cc0ff; }
+.table-row.game-shortdeck::before { background: #ff6a2e; }
+.table-row.game-shortdeck .name { color: var(--orange); }
+.table-row.game-rush::before { background: #14c2b2; }
+.table-row.game-rush .name { color: #56e6d8; }
+.table-row.game-aof::before { background: #ff3b3b; }
+.table-row.game-aof .name { color: #ff8a5c; }
+.table-row.game-spingold::before, .table-row.game-jackpot::before { background: #ffb21f; }
+.table-row.game-spingold .name, .table-row.game-jackpot .name { color: #ffd76a; }
+
+.table-row .c-stakes, .table-row .c-buyin { color: #fff; font-weight: 600; }
+.table-row .c-pot { color: var(--gold2); }
+.table-row .zero { color: #6f6f6f; }
+.table-row .wait-cell { color: #8a8a8a; }
+.table-row .wait-cell.has-wait { color: var(--orange); font-weight: 700; }
+.player-bars i { background: #3a3a3a; }
+.player-bars i.on { background: linear-gradient(180deg, #8dff8a, #2fbf3c); box-shadow: 0 0 5px rgba(92, 255, 110, .55); }
+
+/* ---------- right rail preview ---------- */
+.mini-table {
+  border-color: #2b2b2b;
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(255, 255, 255, .16), transparent 50%),
+    radial-gradient(ellipse at 50% 50%, #2f8f5a 0%, #1d6b40 55%, #0d3a22 100%);
+  box-shadow: 0 0 0 1px #3a3a3a, 0 0 0 6px rgba(0, 0, 0, .5), 0 22px 50px rgba(0, 0, 0, .6);
+}
+.mini-seat { background: #0a0a0a; border-color: #4a4a4a; }
+.buyin-range { color: #fff; }
+.mini-stats { background: #111; border-color: #262626; }
+
+/* ---------- tournaments: same colour rules ---------- */
+.tourney-list { background: #000; border-color: #222; }
+.tourney-row { background: var(--row-a); border-bottom-color: #1c1c1c; color: #fff; }
+.tourney-row:nth-child(odd):not(.head) { background: var(--row-b); }
+.tourney-row:hover:not(.head) { background: var(--row-hover); }
+.tourney-row.head { background: #1c1c1c; color: #c8c8c8; }
+.t-time { color: #fff; }
+.t-time.phase-late { color: #ff4d5e; }
+.t-time.phase-running { color: #ff9a2e; }
+.t-time.phase-registering { color: #5cff6e; }
+.t-time.phase-completed { color: #7a7a7a; }
+.t-name b { color: #fff; }
+.t-name.fmt-plo b { color: #7cc0ff; }
+.t-name.mode-bounty b { color: var(--orange); }
+.t-name.mode-mystery b { color: #cf9bff; }
+.t-name.mode-flip b { color: #ffe14d; }
+.t-name.mode-satellite b { color: #c9d4e3; }
+.t-name small { color: #a8a8a8; }
+.t-buyin { color: #fff; }
+.t-gtd { color: var(--gold); font-weight: 700; }
+.t-entrants { color: var(--green2); font-weight: 600; }
+.tag.live { background: #0f3d1a; color: var(--green2); }
+.tag.reg { background: #0f2c4d; color: #7cc0ff; }
