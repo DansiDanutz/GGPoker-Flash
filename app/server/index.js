@@ -28,6 +28,7 @@ import { createChatService, createChatStore } from './chat.js';
 import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
+import { createAdminTransactionsRoute } from './admin-transactions.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
@@ -457,6 +458,7 @@ const handleAdminChatRoute = createAdminChatRoutes({
 });
 
 const handleAdminAuditRoute = createAdminAuditRoute({ db, json, requireAdmin });
+const handleAdminTransactionsRoute = createAdminTransactionsRoute({ db, json, requireAdmin });
 // Snapshots go to the OS temp dir (override with GGPOKER_BACKUP_TMP); never inside DATA_DIR.
 const handleAdminBackupRoute = createAdminBackupRoute({
   db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
@@ -2434,11 +2436,7 @@ const server = http.createServer(async (req, res) => {
 
     if (handleAdminAuditRoute(req, res, url)) return;
 
-    if (p === '/api/admin/transactions') {
-      const a = requireAdmin(req, res); if (!a) return;
-      const rows = db.prepare(`SELECT t.*, u.login, u.nick FROM transactions t LEFT JOIN users u ON u.id=t.user_id ORDER BY t.id DESC LIMIT 300`).all();
-      return json(res, 200, { transactions: rows });
-    }
+    if (handleAdminTransactionsRoute(req, res, url)) return;
 
     if (p === '/api/admin/chat' && req.method === 'POST') {
       const a = requireAdmin(req, res); if (!a) return;

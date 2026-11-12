@@ -143,6 +143,28 @@ export function auditQuery(filters: Partial<AdminAuditFilters>, format?: 'csv'):
   return new URLSearchParams(entries).toString();
 }
 
+/** Admin transactions (GET /api/admin/transactions): every ledger column plus the user's login and nick. */
+export type AdminTransactionRow = {
+  id: number; user_id: number; kind: string; currency: string; amount: number; balance_after: number;
+  memo: string | null; created_at: string; login: string | null; nick: string | null;
+};
+
+/** Transaction filters; empty strings mean "any". `limit` is clamped server-side to 1..1000. */
+export type AdminTransactionFilters = { q: string; kind: string; limit: number };
+
+export type AdminTransactionPage = { transactions: AdminTransactionRow[]; filters: AdminTransactionFilters };
+
+/** Query string for the transactions route; blank filters are left out. */
+export function transactionsQuery(filters: Partial<AdminTransactionFilters>, format?: 'csv'): string {
+  const entries = [
+    ['q', filters.q?.trim() ?? ''],
+    ['kind', filters.kind?.trim() ?? ''],
+    ['limit', filters.limit ? String(filters.limit) : ''],
+    ['format', format ?? ''],
+  ].filter(([, value]) => value !== '');
+  return new URLSearchParams(entries).toString();
+}
+
 const TOKEN_KEY = 'ggpoker.token';
 
 export function getToken() {
@@ -274,7 +296,19 @@ export const api = {
       a.href = url; a.download = 'audit.csv'; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     },
-    transactions: () => request<{ transactions: any[] }>('/api/admin/transactions'),
+    transactions: (filters: Partial<AdminTransactionFilters> = {}) => {
+      const query = transactionsQuery(filters);
+      return request<AdminTransactionPage>(`/api/admin/transactions${query ? `?${query}` : ''}`);
+    },
+    transactionKinds: () => request<{ kinds: string[] }>('/api/admin/transactions/kinds'),
+    transactionsCsv: async (filters: Partial<AdminTransactionFilters>) => {
+      const r = await fetch(`/api/admin/transactions?${transactionsQuery(filters, 'csv')}`, { headers: { authorization: `Bearer ${getToken()}` } });
+      if (!r.ok) throw new Error(r.status === 403 ? 'Admin access required' : `Export failed (${r.status})`);
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = 'transactions.csv'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    },
     waitlists: () => request<AdminWaitlists>('/api/admin/waitlists'),
     clearWaitlist: (target: { tableId: string } | { groupKey: string }) =>
       request<{ ok: true; removed: number; released: number }>('/api/admin/waitlists/clear', { method: 'POST', body: JSON.stringify(target) }),

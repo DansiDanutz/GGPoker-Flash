@@ -8,6 +8,7 @@ import { PlayingCard } from '../components/Card';
 import { AdminWaitlists } from '../components/AdminWaitlists';
 import { AdminChatModeration } from '../components/AdminChatModeration';
 import { AdminAuditLog } from '../components/AdminAuditLog';
+import { AdminTransactions } from '../components/AdminTransactions';
 import {
   CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
   CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
@@ -563,28 +564,7 @@ export function Admin() {
             </>
           )}
 
-          {section === 'transactions' && (
-            <>
-              <div className="between">
-                <h2 className="admin-title" style={{ margin: 0 }}>Transactions</h2>
-                <button className="btn btn-ghost btn-sm" onClick={() => api.admin.exportCsv('transactions')}>⤓ Export CSV</button>
-              </div>
-              <div className="admin-card" style={{ padding: 0 }}>
-                <table className="admin-table">
-                  <thead><tr><th>#</th><th>User</th><th>Type</th><th>Currency</th><th>Amount</th><th>Balance</th><th>Memo</th><th>Date</th></tr></thead>
-                  <tbody>
-                    {transactions.map((t) => (
-                      <tr key={t.id}>
-                        <td>{t.id}</td><td>{t.nick || t.login || t.user_id}</td><td style={{ textTransform: 'capitalize' }}>{t.kind.replace(/_/g, ' ')}</td>
-                        <td>{t.currency}</td><td style={{ color: t.amount >= 0 ? '#7fe0a0' : '#ff9a9a' }}>{money(t.amount)}</td>
-                        <td>{money(t.balance_after)}</td><td className="muted">{t.memo}</td><td className="muted">{t.created_at}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+          {section === 'transactions' && <AdminTransactions />}
 
           {section === 'reports' && (
             <>
