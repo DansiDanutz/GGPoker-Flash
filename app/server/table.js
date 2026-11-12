@@ -111,6 +111,8 @@ export class PokerTable {
     this.messageSeq = 0;
     this.tableEpoch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     this.tableVersion = 0;
+    // Wait-list seat holds: seat index -> the user id the seat is held for (set by index.js).
+    this.holds = new Map();
   }
 
   /* ------------------------------ seating ------------------------------ */
@@ -127,11 +129,28 @@ export class PokerTable {
     return this.seats.find((s) => s.player && s.player.id === playerId);
   }
 
+  /** Replace the wait-list holds with `holds` (a Map or [[seatIndex, userId], …]). */
+  setHolds(holds) {
+    this.holds = new Map(holds);
+  }
+
+  /** True when the seat is held for a wait-listed player other than `playerId`. */
+  isHeldFor(seatIndex, playerId) {
+    const holder = this.holds.get(seatIndex);
+    return holder != null && holder !== playerId;
+  }
+
+  /** First empty seat `playerId` may take (held seats only go to their holder). */
+  freeSeatFor(playerId) {
+    return this.seats.find((s) => !s.player && !this.isHeldFor(s.index, playerId)) || null;
+  }
+
   sit(player, seatIndex = null, buyin = null, sessionId = null) {
     if (this.seatOf(player.id)) return { ok: false, error: 'already seated' };
-    let seat = seatIndex != null ? this.seats[seatIndex] : this.seats.find((s) => !s.player);
+    const seat = seatIndex != null ? this.seats[seatIndex] : this.freeSeatFor(player.id);
     if (!seat) return { ok: false, error: 'table full' };
     if (seat.player) return { ok: false, error: 'seat taken' };
+    if (this.isHeldFor(seat.index, player.id)) return { ok: false, error: 'seat held' };
     const stack = buyin ?? Math.min(this.cfg.max_buyin, Math.max(this.cfg.min_buyin, this.cfg.bb * 100));
     seat.player = {
       id: player.id,
@@ -199,7 +218,8 @@ export class PokerTable {
     let added = 0;
     for (let i = 0; i < this.seats.length && added < count; i++) {
       const s = this.seats[i];
-      if (!s.player) {
+      // A seat held for a wait-listed player is never given to a bot.
+      if (!s.player && !this.holds.has(i)) {
         this.sit({
           id: `bot-${this.cfg.id}-${i}-${handSeq++}`,
           nick: botName(handSeq + i * 3),

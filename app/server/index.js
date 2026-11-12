@@ -20,6 +20,7 @@ import { handForViewer } from './hand-history.js';
 import { spinSlots } from './slots.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { flightTableId, tournamentTableIds } from './tournament.js';
+import * as waitlist from './waitlist.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -97,6 +98,9 @@ const PUBLIC = path.join(APP_DIR, 'public');
 
 // How long a seat is held for a player whose connection dropped before they are cashed out.
 const DISCONNECT_GRACE_MS = Number(process.env.GGPOKER_DISCONNECT_GRACE_MS || 60_000);
+// Seat-offer hold for wait-listed players (DanGG design: 30 s). Tests shorten it.
+const WAITLIST_HOLD_MS = Number(process.env.GGPOKER_WAITLIST_HOLD_MS || waitlist.HOLD_MS);
+const WAITLIST_SWEEP_MS = 1000;
 const HAND_HISTORY_LIMIT = 60;
 const HAND_HISTORY_SCAN = 400;
 const MAX_BET = 1_000_000;
@@ -257,7 +261,7 @@ function sitesStats() {
 
 const LIVE_TABLES = new Map(); // id -> { table, clients:Set<ws>, timer }
 const TOURNAMENT_ROOMS = new Map(); // tournamentId -> TournamentRoom (multi-table flights)
-const WAITLISTS = new Map(); // tableId -> [{ userId, nick, since }]
+let waitState = waitlist.createWaitlist(); // pure wait-list model state (see waitlist.js)
 const RUSH_WAITING = new Map(); // userId -> { user, stack, bb, fromTable, since }
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
@@ -282,29 +286,91 @@ setInterval(() => {
   }
 }, 25000).unref();
 
-function waitlistJoin(tableId, userId, nick) {
-  const list = WAITLISTS.get(tableId) || [];
-  const existing = list.find((w) => w.userId === userId);
-  if (existing) return list.indexOf(existing) + 1;
-  list.push({ userId, nick, since: Date.now() });
-  WAITLISTS.set(tableId, list);
-  return list.length;
-}
-function waitlistLeave(tableId, userId) {
-  const list = WAITLISTS.get(tableId);
-  if (!list) return;
-  const next = list.filter((w) => w.userId !== userId);
-  if (next.length) WAITLISTS.set(tableId, next); else WAITLISTS.delete(tableId);
-}
-function notifyWaitlist(tableId) {
-  const list = WAITLISTS.get(tableId);
-  if (!list || !list.length) return;
-  const first = list[0];
-  for (const client of wss.clients) {
-    if (client.readyState !== 1 || client.userId !== first.userId) continue;
-    client.send(JSON.stringify({ type: 'event', event: { type: 'waitlist_ready', tableId, position: 1 } }));
+/* ------------------------------ wait lists ------------------------------ */
+// The pure model in waitlist.js owns the queues and seat offers; this block applies its
+// results to live tables (seat holds) and tells players about offers over WS and SSE.
+
+const holdsFor = (tableId) => waitState.offers.filter((o) => o.tableId === tableId).map((o) => [o.seat, o.userId]);
+
+function setWaitlist(next) {
+  const touched = new Set([...waitState.offers, ...next.offers].map((o) => o.tableId));
+  waitState = next;
+  for (const tableId of touched) {
+    const table = LIVE_TABLES.get(tableId)?.table;
+    if (table) table.setHolds(holdsFor(tableId));
   }
 }
+
+function sendToUser(userId, payload) {
+  const frame = JSON.stringify(payload);
+  for (const client of wss.clients) {
+    if (client.readyState === 1 && client.userId === userId) client.send(frame);
+  }
+}
+
+function announceOffer(offer) {
+  const table = LIVE_TABLES.get(offer.tableId)?.table;
+  const event = {
+    type: 'waitlist_ready', tableId: offer.tableId, tableName: table?.cfg.name || offer.tableId,
+    seat: offer.seat, deadline: offer.deadline, holdMs: offer.holdMs, position: 1,
+  };
+  sendToUser(offer.userId, { type: 'event', event });
+  notifyUser(offer.userId, { ...event, type: 'waitlist_offer' });
+}
+
+function announceExpired(offer) {
+  const event = { type: 'waitlist_expired', tableId: offer.tableId, seat: offer.seat };
+  sendToUser(offer.userId, { type: 'event', event });
+  notifyUser(offer.userId, event);
+}
+
+function waitlistJoin(tableId, userId) {
+  const res = waitlist.join(waitState, userId, { tableId });
+  setWaitlist(res.state);
+  return res;
+}
+
+/** Leave a table queue; a seat the player was holding is passed to the next player. */
+function waitlistLeave(tableId, userId) {
+  const res = waitlist.leave(waitState, userId, waitlist.tableQueue(tableId));
+  setWaitlist(res.state);
+  for (const released of res.released) offerSeat(released.tableId, released.seat);
+}
+
+/** Offer a freed seat to the head of the table queue (then its group queue). */
+function offerSeat(tableId, seat, now = Date.now()) {
+  const table = LIVE_TABLES.get(tableId)?.table;
+  if (!table || table.tournament || table.seats[seat]?.player) return null;
+  const res = waitlist.offer(waitState, tableId, seat, now, { groupKey: waitlist.groupKey(table.cfg), holdMs: WAITLIST_HOLD_MS });
+  if (res.status !== 'offered') return null;
+  setWaitlist(res.state);
+  announceOffer(res.offer);
+  return res.offer;
+}
+
+/** A seat at `table` just emptied: offer every free, unheld seat to the queue. */
+function notifyWaitlist(tableId) {
+  const table = LIVE_TABLES.get(tableId)?.table;
+  if (!table) return;
+  for (const s of table.seats) {
+    if (!s.player && !table.holds.has(s.index)) offerSeat(tableId, s.index);
+  }
+}
+
+/** Accept the caller's held seat at `tableId`, if any: { seat } or null. */
+function heldSeatFor(tableId, userId, now = Date.now()) {
+  const res = waitlist.accept(waitState, userId, tableId, now);
+  return res.status === 'accepted' ? { seat: res.seat, state: res.state } : null;
+}
+
+function sweepWaitlists(now = Date.now()) {
+  const res = waitlist.expire(waitState, now);
+  if (!res.expired.length) return;
+  setWaitlist(res.state);
+  for (const old of res.expired) announceExpired(old);
+  for (const made of res.offers) announceOffer(made);
+}
+setInterval(sweepWaitlists, WAITLIST_SWEEP_MS).unref();
 
 const CUSTOM_CFG = new Map(); // tournament tables not stored in the cash-game table list
 
@@ -461,6 +527,8 @@ function getLiveTable(id) {
     } catch (e) { console.error('tick', e); }
   }, 260);
   LIVE_TABLES.set(id, entry);
+  // Re-apply any seat holds an earlier instance of this table left on the wait list.
+  table.setHolds(holdsFor(id));
   return table;
 }
 
@@ -571,7 +639,8 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
   if (user.balance < stack) return { ok: false, error: 'not enough balance' };
   const wantedSeat = toInt(seatIndex, { min: 0, max: table.cfg.seats - 1 });
-  if (!makeRoomForHuman(table, wantedSeat)) return { ok: false, error: 'table full' };
+  if (wantedSeat != null && table.isHeldFor(wantedSeat, user.id)) return { ok: false, error: 'seat held' };
+  if (!makeRoomForHuman(table, wantedSeat, user.id)) return { ok: false, error: 'table full' };
   const sessionId = `${table.cfg.id}:${randomUUID()}`;
   addTransactionEx(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`, 'USD', {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
@@ -588,13 +657,14 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   return res;
 }
 
-// Bots only fill empty chairs: a human always takes priority over one.
-function makeRoomForHuman(table, wantedSeat) {
+// Bots only fill empty chairs: a human always takes priority over one. A seat held for a
+// wait-listed player counts as free only for that player.
+function makeRoomForHuman(table, wantedSeat, userId) {
   const target = wantedSeat != null ? table.seats[wantedSeat] : null;
   if (target && !target.player) return true;
-  if (target && target.player && !target.player.isBot) return table.seats.some((s) => !s.player) || evictBot(table);
+  if (target && target.player && !target.player.isBot) return !!table.freeSeatFor(userId) || evictBot(table);
   if (target && target.player && target.player.isBot) { table.stand(target.player.id); return true; }
-  if (table.seats.some((s) => !s.player)) return true;
+  if (table.freeSeatFor(userId)) return true;
   return evictBot(table);
 }
 
@@ -2360,20 +2430,27 @@ wss.on('connection', (ws, req) => {
         if (getSetting('maintenance', false) && !u.is_admin) {
           return ws.send(JSON.stringify({ type: 'error', error: 'Tables are closed for maintenance' }));
         }
-        const hasRoom = table.occupiedSeats().some((s) => s.player.isBot) || table.occupiedSeats().length < table.cfg.seats;
+        const held = heldSeatFor(msg.tableId, u.id);
+        const hasRoom = held || table.occupiedSeats().some((s) => s.player.isBot) || table.freeSeatFor(u.id);
         if (!hasRoom) {
-          const pos = waitlistJoin(msg.tableId, u.id, u.nick);
+          const queued = waitlistJoin(msg.tableId, u.id);
+          if (queued.status !== 'queued') {
+            const error = queued.status === 'full' ? 'The waiting list is full' : 'You are on too many waiting lists';
+            return ws.send(JSON.stringify({ type: 'error', error }));
+          }
           entry.clients.add(ws);
           ws.tables.add(msg.tableId);
-          ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true, waitlist: pos }));
-          ws.send(JSON.stringify({ type: 'waitlist', position: pos, tableId: msg.tableId }));
+          ws.send(JSON.stringify({ type: 'joined', tableId: msg.tableId, seat: null, observe: true, waitlist: queued.position }));
+          ws.send(JSON.stringify({ type: 'waitlist', position: queued.position, tableId: msg.tableId }));
           broadcastState(table);
           return;
         }
         const buyin = toInt(msg.buyin) || table.cfg.min_buyin;
-        let res = seatHuman(table, u, buyin, msg.seat);
-        if (!res.ok && msg.seat != null) res = seatHuman(table, u, buyin, null);
+        let res = seatHuman(table, u, buyin, held ? held.seat : msg.seat);
+        if (!res.ok && msg.seat != null && !held) res = seatHuman(table, u, buyin, null);
         if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+        // Taking the held seat consumes the offer; any other seat just leaves the queue.
+        if (held) setWaitlist(held.state);
         waitlistLeave(msg.tableId, u.id);
       }
       // fill part of the table with bots, always leaving the choice of seats to humans

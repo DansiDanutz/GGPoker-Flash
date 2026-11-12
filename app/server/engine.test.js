@@ -519,3 +519,14 @@ test('table snapshot exposes the active hand id for evidence reporting', () => {
   t.handId = 'hand-evidence-42';
   assert.equal(t.snapshotFor().handId, 'hand-evidence-42');
 });
+
+test('a wait-list seat hold keeps bots and other players out of that seat', () => {
+  const t = new PokerTable({ id: 'held', name: 'Held', game: 'holdem', sb: 50, bb: 100, seats: 3, min_buyin: 100, max_buyin: 100000 });
+  t.setHolds([[0, 42]]);
+  assert.equal(t.fillBots(3), 2, 'bots fill only the unheld seats');
+  assert.equal(t.seats[0].player, null);
+  assert.equal(t.freeSeatFor(7), null, 'nobody else sees the held seat as free');
+  assert.deepEqual(t.sit({ id: 7, nick: 'Other' }, 0), { ok: false, error: 'seat held' });
+  assert.equal(t.freeSeatFor(42).index, 0);
+  assert.equal(t.sit({ id: 42, nick: 'Holder' }, null, 1000).seat, 0, 'the holder takes it');
+});

@@ -7,7 +7,8 @@ The project started as a local desktop clone and became the live play-money room
 ## 2026-11-12
 
 ### Wait lists
-- Added a pure, immutable wait-list model (`app/server/waitlist.js`, P0 slice W1): FIFO table and group queues with DanGG caps (10 per table, 25 per group, 4 per player), 30 s seat offers that pass to #2 on expiry, and group joins that resolve to the first free table. Not yet wired into the server.
+- Added a pure, immutable wait-list model (`app/server/waitlist.js`, P0 slice W1): FIFO table and group queues with DanGG caps (10 per table, 25 per group, 4 per player), 30 s seat offers that pass to #2 on expiry, and group joins that resolve to the first free table.
+- Wired the wait-list model into live tables (P0 slice W2). A player who joins a full table is queued (the old inline `WAITLISTS` map is gone). When a seat frees up, it is offered to #1 over the table socket (`waitlist_ready`) and the notification stream (`waitlist_offer`), and the seat is held for them. Bots and other players can't take a held seat (`PokerTable.setHolds`/`isHeldFor`/`freeSeatFor`, `seatHuman` returns `seat held`). A 1 s sweep expires offers, tells the old holder (`waitlist_expired`) and passes the seat to #2. Rejoining the table accepts the offer. `GGPOKER_WAITLIST_HOLD_MS` overrides the 30 s hold (used by tests).
 
 ### Mobile table layout and the native turn clock
 - The table now genuinely fits **portrait phones, landscape phones and tablets**:
