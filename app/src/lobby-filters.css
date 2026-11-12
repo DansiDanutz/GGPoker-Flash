@@ -110,6 +110,10 @@
   color: var(--lob-count); font-weight: 500; font-variant-numeric: tabular-nums;
 }
 
+/* F2: a stake row's real wait (table queues + your group queue) next to the summed players. */
+.lob-players-cell { display: inline-flex; align-items: center; gap: 8px; }
+.lob-wait { color: var(--lob-head-text); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 .lob-link { border: 0; background: none; padding: 0; color: var(--lob-link); cursor: pointer; font: inherit; text-decoration: underline; }
 .lob-link:focus-visible { outline: 2px solid var(--lob-focus); outline-offset: 2px; }
 

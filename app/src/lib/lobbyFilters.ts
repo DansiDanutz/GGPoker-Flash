@@ -238,3 +238,52 @@ export function sortTables(tables: readonly LobbyTable[], tab: string, key: Sort
     return (Number(va) - Number(vb)) * dir;
   });
 }
+
+// ---- Group View (P0 slice F2) --------------------------------------------------------
+
+/** One Group View row: every public table sharing game + stakes + seats. */
+export type TableGroup = {
+  /** `game:sb/bb:seats`, the group wait-list key. */
+  readonly key: string;
+  readonly game: string;
+  readonly sb: number;
+  readonly bb: number;
+  readonly seats: number;
+  readonly tables: readonly LobbyTable[];
+  /** Seated players across the group. */
+  readonly players: number;
+  /** Real queue lengths summed across the group's table wait lists. */
+  readonly wait: number;
+  /** First table (lobby order) with a free seat; null when the whole group is full. */
+  readonly firstFree: LobbyTable | null;
+  /** `join` takes `firstFree`; `joinWait` queues on the group wait list. */
+  readonly action: 'join' | 'joinWait';
+};
+
+// Same key as `groupKeyOf` in waitlist.ts / `groupKey` in server/waitlist.js; local so Node loads this module unbundled.
+export const tableGroupKey = (t: Pick<LobbyTable, 'game' | 'sb' | 'bb' | 'seats'>) => `${t.game}:${t.sb}/${t.bb}:${t.seats}`;
+
+function toGroup(key: string, members: readonly LobbyTable[]): TableGroup {
+  const [first] = members;
+  const firstFree = members.find((t) => !isFull(t)) ?? null;
+  return {
+    key, game: first.game, sb: first.sb, bb: first.bb, seats: first.seats, tables: members,
+    players: members.reduce((n, t) => n + t.players, 0),
+    wait: members.reduce((n, t) => n + (Number(t.wait) > 0 ? Math.floor(Number(t.wait)) : 0), 0),
+    firstFree,
+    action: firstFree ? 'join' : 'joinWait',
+  };
+}
+
+/**
+ * Folds the cash list into Group View rows (`game + sb + bb + seats`); private tables are
+ * excluded. Rows are ordered by stakes descending (bb, then sb), then seats, then game.
+ */
+export function groupTables(tables: readonly LobbyTable[]): TableGroup[] {
+  const byKey = tables.filter((t) => !t.private).reduce((acc, t) => {
+    const key = tableGroupKey(t);
+    return acc.set(key, [...(acc.get(key) ?? []), t]);
+  }, new Map<string, LobbyTable[]>());
+  return [...byKey].map(([key, members]) => toGroup(key, members))
+    .sort((a, b) => b.bb - a.bb || b.sb - a.sb || b.seats - a.seats || a.game.localeCompare(b.game));
+}

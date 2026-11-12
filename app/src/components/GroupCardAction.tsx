@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { api, LobbyTable } from '../lib/api';
 import { useApp } from '../lib/store';
-import { groupActionFor, groupKeyOf } from '../lib/waitlist';
+import type { TableGroup } from '../lib/lobbyFilters';
 import { useWaitlist } from '../lib/waitlistState';
 
 type Props = {
-  table: LobbyTable;
-  /** Every lobby table, so the group is judged on all its tables, not just the filtered ones. */
-  allTables: readonly LobbyTable[];
+  /** The stake row, built from every public lobby table so filters never hide a free seat. */
+  group: TableGroup;
   onJoin: (table: LobbyTable) => void;
   /** Called after the queue changed so the lobby can refresh counts. */
   onChanged: () => void;
@@ -17,17 +16,16 @@ const FULL_REASON = 'Waiting list is currently full.';
 const errorMessage = (e: unknown) => (e instanceof Error ? e.message : 'Please try again.');
 
 /**
- * Group View card button (P0 slice W4b): **Join** while any table in the group has a free
- * seat, **Join Wait List** for a full group, and an outline "#n · Leave" once queued.
+ * Group View row button (P0 slices W4b, F2): **Join** takes the first free seat in the
+ * group, **Join Wait List** queues on a full group, and an outline "#n · Leave" once queued.
  */
-export function GroupCardAction({ table, allTables, onJoin, onChanged }: Props) {
+export function GroupCardAction({ group, onJoin, onChanged }: Props) {
   const { user, navigate, toast } = useApp();
   const { groupPosition, queues, leaveQueue, refresh } = useWaitlist();
   const [isBusy, setIsBusy] = useState(false);
-  const key = groupKeyOf(table);
-  const groupTables = allTables.filter((t) => !t.private && groupKeyOf(t) === key);
+  const { key, firstFree } = group;
   const position = groupPosition(key);
-  const action = groupActionFor(groupTables.length ? groupTables : [table], position);
+  const action = position > 0 ? 'queued' : group.action;
 
   const run = (fn: () => Promise<void>) => async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -40,10 +38,12 @@ export function GroupCardAction({ table, allTables, onJoin, onChanged }: Props) 
     try {
       const r = await api.joinGroupWaitlist(key);
       if (r.status === 'seat') {
-        onJoin(allTables.find((t) => t.id === r.tableId) || table);
+        const seated = group.tables.find((t) => t.id === r.tableId);
+        if (seated) onJoin(seated);
+        else onChanged();
         return;
       }
-      toast({ kind: 'success', title: 'Joined waiting list', body: `You are #${r.position} for ${fmtGroup(table)}.` });
+      toast({ kind: 'success', title: 'Joined waiting list', body: `You are #${r.position} for ${fmtGroup(group)}.` });
       await refresh();
       onChanged();
     } catch (err) {
@@ -57,7 +57,7 @@ export function GroupCardAction({ table, allTables, onJoin, onChanged }: Props) 
     if (!queue) return;
     try {
       await leaveQueue(queue);
-      toast({ kind: 'info', title: 'Left waiting list', body: fmtGroup(table) });
+      toast({ kind: 'info', title: 'Left waiting list', body: fmtGroup(group) });
       onChanged();
     } catch (err) {
       toast({ kind: 'error', title: 'Could not leave waiting list', body: errorMessage(err) });
@@ -67,7 +67,7 @@ export function GroupCardAction({ table, allTables, onJoin, onChanged }: Props) 
   if (action === 'queued') {
     return (
       <button type="button" className="btn btn-sm wl-queued" disabled={isBusy} onClick={leave}
-        aria-label={`You are #${position} on the waiting list for ${fmtGroup(table)}. Leave`}>
+        aria-label={`You are #${position} on the waiting list for ${fmtGroup(group)}. Leave`}>
         #{position} · Leave
       </button>
     );
@@ -76,10 +76,11 @@ export function GroupCardAction({ table, allTables, onJoin, onChanged }: Props) 
     return <button type="button" className="btn btn-red btn-sm" disabled={isBusy} onClick={joinWait}>Join Wait List</button>;
   }
   return (
-    <button type="button" className="btn btn-red btn-sm" onClick={(e) => { e.stopPropagation(); onJoin(table); }}>Join</button>
+    <button type="button" className="btn btn-red btn-sm"
+      onClick={(e) => { e.stopPropagation(); if (firstFree) onJoin(firstFree); }}>Join</button>
   );
 }
 
-function fmtGroup(t: LobbyTable): string {
+function fmtGroup(t: Pick<TableGroup, 'sb' | 'bb' | 'seats'>): string {
   return `${t.sb}/${t.bb} · ${t.seats}-Max`;
 }

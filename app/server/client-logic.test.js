@@ -15,7 +15,7 @@ import {
 import {
   TAB_GAMES, pillsFor, columnsFor, COLUMN_LABEL, variantOf, VARIANT_LABEL, tableSizeChip, promotionOf,
   DEFAULT_TAB_FILTERS, filtersForTab, withTabFilters, parseFilterPrefs, filterTables, sortTables,
-  activeFilterCount, resetExtraFilters, SEARCH_MAX,
+  activeFilterCount, resetExtraFilters, SEARCH_MAX, groupTables, tableGroupKey,
 } from '../src/lib/lobbyFilters.ts';
 
 import {
@@ -596,4 +596,64 @@ test('cashDropFieldErrors flags out-of-range and non-numeric Cash Drop settings 
   assert.deepEqual(Object.keys(cashDropFieldErrors({ [CASHDROP_RATE_KEY]: 1.5, [CASHDROP_AMOUNT_BB_KEY]: 2.5 })).sort(),
     [CASHDROP_AMOUNT_BB_KEY, CASHDROP_RATE_KEY]);
   assert.ok(cashDropFieldErrors({ [CASHDROP_RATE_KEY]: '' })[CASHDROP_RATE_KEY]);
+});
+
+// ---- Group View stake rows (P0 slice F2) ----
+const gt = (id, over = {}) => ({
+  id, name: id, game: 'holdem', category: 'Low', sb: 50, bb: 100, ante: 0, min_buyin: 4000, max_buyin: 10000,
+  seats: 6, speed: 'Normal', featured: false, players: 0, wait: 0, avgPot: 0, vpip: 0, handsPerHour: 0, running: true, ...over,
+});
+
+test('groupTables folds tables by game + sb + bb + seats and sums players and wait', () => {
+  const groups = groupTables([
+    gt('a', { players: 2, wait: 0 }), gt('b', { players: 6, wait: 3 }), gt('c', { players: 4, wait: 1 }),
+    gt('d', { seats: 9, players: 5 }), gt('e', { game: 'omaha', players: 1 }),
+  ]);
+  const g = groups.find((x) => x.key === 'holdem:50/100:6');
+  assert.equal(groups.length, 3, '6-max, 9-max and PLO at the same stakes are separate rows');
+  assert.deepEqual(g.tables.map((t) => t.id), ['a', 'b', 'c']);
+  assert.equal(g.players, 12);
+  assert.equal(g.wait, 4);
+  assert.deepEqual([g.game, g.sb, g.bb, g.seats], ['holdem', 50, 100, 6]);
+});
+
+test('groupTables key matches the group wait-list key', () => {
+  const t = gt('a', { game: 'omaha', sb: 25, bb: 50, seats: 9 });
+  assert.equal(tableGroupKey(t), 'omaha:25/50:9');
+  assert.equal(tableGroupKey(t), groupKeyOf(t));
+  assert.equal(groupTables([t])[0].key, 'omaha:25/50:9');
+});
+
+test('groupTables orders rows by stakes descending', () => {
+  const groups = groupTables([
+    gt('lo', { sb: 5, bb: 10 }), gt('hi', { sb: 500, bb: 1000 }), gt('mid', { sb: 50, bb: 100 }),
+    gt('ante', { sb: 25, bb: 100 }), gt('hi9', { sb: 500, bb: 1000, seats: 9 }),
+  ]);
+  assert.deepEqual(groups.map((g) => g.tables[0].id), ['hi9', 'hi', 'mid', 'ante', 'lo']);
+});
+
+test('groupTables excludes private tables', () => {
+  const groups = groupTables([gt('pub', { players: 2 }), gt('priv', { private: true, players: 5, wait: 2 }), gt('solo', { private: true, bb: 200 })]);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].tables.map((t) => t.id), ['pub']);
+  assert.equal(groups[0].players, 2);
+  assert.equal(groups[0].wait, 0);
+  assert.deepEqual(groupTables([gt('x', { private: true })]), []);
+});
+
+test('groupTables picks the first free seat, or Join Wait List for a full group', () => {
+  const open = groupTables([gt('full', { players: 6 }), gt('free1', { players: 3 }), gt('free2', { players: 0 })])[0];
+  assert.equal(open.action, 'join');
+  assert.equal(open.firstFree.id, 'free1', 'first table in lobby order with a free seat');
+  const full = groupTables([gt('f1', { players: 6, wait: 2 }), gt('f2', { players: 6 })])[0];
+  assert.equal(full.action, 'joinWait');
+  assert.equal(full.firstFree, null);
+  assert.equal(full.wait, 2);
+});
+
+test('groupTables does not mutate its input and ignores junk wait values', () => {
+  const input = Object.freeze([Object.freeze(gt('a', { wait: -1 })), Object.freeze(gt('b', { wait: Number.NaN }))]);
+  const [g] = groupTables(input);
+  assert.equal(g.wait, 0);
+  assert.equal(input.length, 2);
 });
