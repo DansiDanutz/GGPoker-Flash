@@ -49,10 +49,12 @@ test('showdownFocus selects main-pot winners only and unions their board cards',
   const board = ['2c', '7d', 'Ks', 'Kh', '9c'];
   const result = {
     reason: 'showdown',
+    // Server shape: winners[].cards is the made five-card hand; hole cards live in hands[].
     winners: [
-      { seat: 1, cards: ['Kd', 'Qs'], potIndex: 0 },
-      { seat: 4, cards: ['9d', '9h'], potIndex: 1 },
+      { seat: 1, cards: ['Kd', 'Ks', 'Kh', 'Qs', '9c'], potIndex: 0 },
+      { seat: 4, cards: ['9d', '9h', '9c', 'Ks', 'Kh'], potIndex: 1 },
     ],
+    hands: [{ seat: 1, cards: ['Kd', 'Qs'] }, { seat: 4, cards: ['9d', '9h'] }],
   };
   const focus = showdownFocus(result, board, 'holdem');
   // Trip kings with Q and 9 kickers: both hole cards, Ks Kh 9c from the board.
@@ -62,12 +64,27 @@ test('showdownFocus selects main-pot winners only and unions their board cards',
 
 test('showdownFocus is empty for fold wins, hidden cards, run-it-twice and short boards', () => {
   const board = ['2c', '7d', 'Ks', 'Kh', '9c'];
-  const win = { seat: 1, cards: ['Kd', 'Qs'], potIndex: 0 };
-  assert.equal(showdownFocus({ reason: 'fold', winners: [win] }, board, 'holdem'), null);
-  assert.equal(showdownFocus({ reason: 'showdown', runItTwice: true, winners: [win] }, board, 'holdem'), null);
-  assert.equal(showdownFocus({ reason: 'showdown', winners: [win] }, board.slice(0, 4), 'holdem'), null);
-  assert.equal(showdownFocus({ reason: 'showdown', winners: [{ ...win, cards: ['??', '??'] }] }, board, 'holdem'), null);
+  const win = { seat: 1, cards: ['Kd', 'Ks', 'Kh', 'Qs', '9c'], potIndex: 0 };
+  const hands = [{ seat: 1, cards: ['Kd', 'Qs'] }];
+  assert.equal(showdownFocus({ reason: 'fold', winners: [win], hands }, board, 'holdem'), null);
+  assert.equal(showdownFocus({ reason: 'showdown', runItTwice: true, winners: [win], hands }, board, 'holdem'), null);
+  assert.equal(showdownFocus({ reason: 'showdown', winners: [win], hands }, board.slice(0, 4), 'holdem'), null);
+  assert.equal(showdownFocus({ reason: 'showdown', winners: [win], hands: [{ seat: 1, cards: null }] }, board, 'holdem'), null);
+  assert.equal(showdownFocus({ reason: 'showdown', winners: [win] }, board, 'holdem'), null, 'no hole cards known');
   assert.equal(showdownFocus(null, board, 'holdem'), null);
+});
+
+test('showdownFocus reads hole cards from hands, not the made five in winners (live payload)', () => {
+  // Captured from a live DanGG 'win' event: one winner across three pots.
+  const result = {
+    reason: 'showdown',
+    board: ['7h', 'Kc', 'Jh', '7s', 'Ah'],
+    winners: [0, 1, 2].map((potIndex) => ({ seat: 0, hand: 'Two Pair', cards: ['Ad', '7h', 'Kc', '7s', 'Ah'], potIndex })),
+    hands: [{ seat: 0, cards: ['Ad', '9s'] }, { seat: 3, cards: null }],
+  };
+  const focus = showdownFocus(result, result.board, 'holdem');
+  assert.deepEqual(focus.hole, { 0: [0] }, 'Ad plays, 9s does not');
+  assert.deepEqual(focus.board, [0, 1, 3, 4]);
 });
 
 import { focusClass } from '../src/game/eval.ts';

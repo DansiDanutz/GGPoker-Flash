@@ -145,8 +145,10 @@ export function bestFiveFocus(hole: string[], board: string[], omaha = false, sh
 
 const OMAHA_GAMES = ['omaha', 'omaha5', 'omaha6', 'rushplo'];
 
-type ShowdownWinner = { seat?: number; cards?: string[]; potIndex?: number };
-type ShowdownResult = { reason?: string; runItTwice?: boolean; winners?: ShowdownWinner[] } | null | undefined;
+type ShowdownWinner = { seat?: number; potIndex?: number };
+type ShowdownHand = { seat?: number; cards?: string[] | null };
+/** `winners[].cards` is the server's made five-card hand; the hole cards are in `hands[]`. */
+type ShowdownResult = { reason?: string; runItTwice?: boolean; winners?: ShowdownWinner[]; hands?: ShowdownHand[] } | null | undefined;
 export type ShowdownFocus = { board: number[]; hole: Record<number, number[]> };
 
 /**
@@ -162,9 +164,12 @@ export function showdownFocus(result: ShowdownResult, board: string[], game: str
   const shortDeck = game === 'shortdeck';
   const boardSet = new Set<number>();
   const hole: Record<number, number[]> = {};
+  const holeBySeat = new Map((result.hands || []).map((h) => [h.seat, h.cards]));
   for (const w of winners) {
-    if ((w.potIndex ?? 0) !== mainPot || typeof w.seat !== 'number' || !w.cards) continue;
-    const focus = bestFiveFocus(w.cards, board, omaha, shortDeck);
+    if ((w.potIndex ?? 0) !== mainPot || typeof w.seat !== 'number' || hole[w.seat]) continue;
+    const cards = holeBySeat.get(w.seat);
+    if (!cards) continue;
+    const focus = bestFiveFocus(cards, board, omaha, shortDeck);
     if (!focus) continue;
     focus.board.forEach((i) => boardSet.add(i));
     hole[w.seat] = focus.hole;
