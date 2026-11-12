@@ -239,6 +239,8 @@ export function createRushPool(deps) {
     const pool = poolOf(table);
     const queued = table.humans().filter((p) => table.seatOf(p.id)?.player?.rushQueued);
     for (const p of queued) {
+      // A reserved leave is cashed out by the server's leave sweep, never moved on.
+      if (p.leaveAfterHand) { p.rushQueued = false; dequeue(p.id); continue; }
       const seat = table.seatOf(p.id);
       const stack = seat?.player?.stack || 0;
       const user = deps.findUser(p.id);
@@ -270,7 +272,9 @@ export function createRushPool(deps) {
   /** Where a waiting player stands: gone from their old seat, mid-hand there, or free to move. */
   function readiness(wait) {
     const fromEntry = deps.getEntry(wait.fromTable);
-    if (!fromEntry || !fromEntry.table.seatOf(wait.userId)?.player) return { state: 'stale' };
+    const from = fromEntry?.table.seatOf(wait.userId)?.player;
+    // Gone, or leaving after the hand (the leave sweep cashes them out): drop from the queue.
+    if (!from || from.leaveAfterHand) return { state: 'stale' };
     if (!SETTLED_STREETS.includes(fromEntry.table.street)) return { state: 'busy', fromEntry };
     return { state: 'ready', fromEntry };
   }

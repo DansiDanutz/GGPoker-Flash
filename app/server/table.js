@@ -3,6 +3,7 @@ import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
 import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
 import { badBeatPayout } from './badBeat.js';
 import { activeReservations, reserve, withoutPlayer } from './seatReserve.js';
+import { RESERVATION_KINDS, applyBigBlindSitOuts } from './reservations.js';
 import { TB_CARD_SECONDS, TB_START_CARDS, canSpendCard, refillAfterHand } from './timeBankCards.js';
 import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
@@ -234,6 +235,9 @@ export class PokerTable {
       won: 0,
       autoMuck: true,
       sitOutNextHand: false,
+      leaveAfterHand: false,
+      sitOutNextBigBlind: false,
+      sitOutAll: false,
       insurance: false,
       sessionId,
     };
@@ -516,7 +520,10 @@ export class PokerTable {
     for (const seat of this.seats) {
       const p = seat.player;
       if (p?.sitOutNextHand) { p.sittingOut = true; p.sitOutNextHand = false; }
+      // A reserved leave is cashed out by the server sweep; never deal the seat in meanwhile.
+      if (p?.leaveAfterHand) p.sittingOut = true;
     }
+    applyBigBlindSitOuts(this);
     const ready = this.readySeats();
     if (this.spin && this.handNo > 0 && ready.length === 1) { this.awardSpinWinner(); return; }
     if (this.tournament && this.handNo > 0 && ready.length === 1) { this.awardTournamentWinner(); return; }
@@ -825,6 +832,7 @@ export class PokerTable {
       }
       p.sittingOut = false;
       p.sitOutNextHand = false;
+      p.sitOutAll = false;
       this.maybeStart();
       return { ok: true };
     }
@@ -859,6 +867,16 @@ export class PokerTable {
       .map((s) => s.player)
       .filter((p) => p && p.sittingOut && p.kickOutAt && now >= p.kickOutAt && !(this.handInProgress() && p.inHand && !p.folded))
       .map((p) => p.id);
+  }
+
+  /** Arm or cancel a seat reservation (reservations.js); cash tables only. */
+  setReservation(userId, kind, value) {
+    const p = this.seatOf(userId)?.player;
+    if (!p) return { ok: false, error: 'Take a seat first' };
+    if (!RESERVATION_KINDS.includes(kind)) return { ok: false, error: 'Unknown reservation' };
+    if (this.tournament || this.spin) return { ok: false, error: 'Not available in this game' };
+    p[kind] = !!value;
+    return { ok: true };
   }
 
   setAutoStraddle(userId, value) {
@@ -1803,7 +1821,7 @@ export class PokerTable {
           sitOutNext: !!p.sitOutNextHand,
           timeBank: p.timeBank,
           timeBankCards: p.timeBankCards ?? 0,
-          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p) } : {}),
+          ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p), leaveAfterHand: !!p.leaveAfterHand, sitOutNextBigBlind: !!p.sitOutNextBigBlind, sitOutAll: !!p.sitOutAll } : {}),
         };
       }),
       log: this.log.slice(-40),

@@ -26,6 +26,7 @@ import { ensureWaitlistTable, loadWaitlist, saveWaitlist } from './waitlist-stor
 import { botFillCount, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, waitingFor } from './bot-seats.js';
 import { staleHandError } from './action-version.js';
 import { waitingForTable } from './sitOut.js';
+import { RESERVATION_KINDS, pendingLeaves, sitOutEverywhere } from './reservations.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
 import { createTableStats } from './table-stats.js';
 import { createDailyLeaderboard, leaderboardStake, pointEarners } from './dailyLeaderboard.js';
@@ -777,6 +778,7 @@ function getLiveTable(id) {
       if (Date.now() - entry.lastBroadcast > 450) broadcastState(table);
       sweepDisconnected(entry);
       sweepExpiredSitOuts(entry);
+      sweepReservedLeaves(entry);
       if (entry.clients.size === 0) {
         if (!entry.emptySince) entry.emptySince = Date.now();
         else if (Date.now() - entry.emptySince > Math.max(45000, DISCONNECT_GRACE_MS)) {
@@ -955,6 +957,16 @@ function sweepExpiredSitOuts(entry) {
   for (const id of table.expiredSitOuts()) {
     table.emit({ type: 'sit_out_expired', playerId: id });
     cashOutSeat(table, id, `Sit-out time expired at ${table.cfg.name}`);
+    notifyWaitlist(table.cfg.id);
+  }
+}
+
+/** "Leave table after this hand": cash the seat out once its hand is over. */
+function sweepReservedLeaves(entry) {
+  const table = entry.table;
+  for (const id of pendingLeaves(table)) {
+    table.emit({ type: 'left_after_hand', playerId: id });
+    cashOutSeat(table, id, `Left ${table.cfg.name} after the hand`);
     notifyWaitlist(table.cfg.id);
   }
 }
@@ -3000,6 +3012,10 @@ wss.on('connection', (ws, req) => {
       if (msg.autoMuck != null) entry.table.setAutoMuck(ws.userId, !!msg.autoMuck);
       if (msg.autoStraddle != null) entry.table.setAutoStraddle(ws.userId, !!msg.autoStraddle);
       if (msg.waitForBlinds != null) entry.table.setWaitForBlinds(ws.userId, !!msg.waitForBlinds);
+      for (const kind of RESERVATION_KINDS.filter((k) => msg[k] != null)) {
+        const res = entry.table.setReservation(ws.userId, kind, !!msg[kind]);
+        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      }
       if (msg.insurance != null) {
         const res = entry.table.setInsurance(ws.userId, !!msg.insurance);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
@@ -3087,6 +3103,14 @@ wss.on('connection', (ws, req) => {
       const res = entry.table.requestSitOut(ws.userId, !!msg.value);
       if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
       broadcastState(entry.table);
+      return;
+    }
+    if (msg.type === 'sit_out_all') {
+      const tables = [...LIVE_TABLES.values()].map((e) => e.table);
+      const res = sitOutEverywhere(tables, ws.userId, !!msg.value);
+      if (!res.tables && !res.errors.length) return ws.send(JSON.stringify({ type: 'error', error: 'Take a seat first' }));
+      if (res.errors.length) ws.send(JSON.stringify({ type: 'error', error: res.errors[0] }));
+      for (const t of tables) if (t.seatOf(ws.userId)) broadcastState(t);
       return;
     }
     if (msg.type === 'shuffle') {
