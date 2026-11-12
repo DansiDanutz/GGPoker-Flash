@@ -20,6 +20,8 @@ for c in Green Black Red Navy; do
 done
 # 2. Slice atlases, copy sounds/fonts/tables.
 $PY tools/build_assets.py
+# 2b. Reaction (emote) and Take Seat sprites from the table atlas.
+$PY tools/extract_table_art.py "$SRC" app/public/assets
 # 3. Crop the client chrome from the lobby reference screenshot.
 if [ -f research/screens/lobby_1200.png ]; then
   $PY tools/crop_chrome.py research/screens/lobby_1200.png app/public/assets/chrome
