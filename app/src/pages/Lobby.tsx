@@ -60,9 +60,9 @@ function fmtStakes(t: LobbyTable) {
 }
 
 export function Lobby() {
-  const { user, navigate, toast, refreshUser, setOpeningTable } = useApp();
+  const { user, route, navigate, toast, refreshUser, setOpeningTable } = useApp();
   const [data, setData] = useState<any>(null);
-  const [gameTab, setGameTab] = useState('home');
+  const [gameTab, setGameTab] = useState(route.includes('play=1') ? 'holdem' : 'home');
   const [selected, setSelected] = useState<string | null>(null);
   const [buyinTable, setBuyinTable] = useState<LobbyTable | null>(null);
   const [buyin, setBuyin] = useState(0);
@@ -125,6 +125,10 @@ export function Lobby() {
     const id = window.setInterval(() => setPromoIdx((i) => stepSlide(i, 1, HERO_SLIDES.length)), HERO_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, [gameTab, promoPaused]);
+
+  useEffect(() => {
+    setGameTab(route.includes('play=1') ? 'holdem' : 'home');
+  }, [route]);
 
 
   const tables: LobbyTable[] = useMemo(() => {
