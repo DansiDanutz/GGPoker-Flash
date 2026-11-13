@@ -164,11 +164,11 @@ export function Tournaments() {
             const isReg = registered.includes(t.id);
             return (
               <div key={t.id} className="tourney-row" onClick={() => { setDetail(t); setDetailTab('overview'); }}>
-                <div className={'t-time phase-' + phaseOf(t, Date.now())}>
+                <div className="t-time">
                   {new Date(t.start_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                   <small>{new Date(t.start_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</small>
                 </div>
-                <div className={'t-name fmt-' + String(t.format || 'nlh').toLowerCase() + ' mode-' + String(t.mode || 'standard').toLowerCase().replace(/[^a-z]+/g, '-')}>
+                <div className="t-name">
                   <span className={'chip-dot ' + (t.buyin >= 10000 ? 'diamond' : t.buyin >= 3000 ? 'platinum' : 'gold')} />
                   <div>
                     <b>{t.name}</b>
@@ -177,7 +177,7 @@ export function Tournaments() {
                 </div>
                 <div className="t-buyin">{t.buyin === 0 ? 'Freeroll' : money(t.buyin + t.fee)}</div>
                 <div className="t-gtd">{money(t.gtd, true)}</div>
-                <div className="t-entrants">{(t.entrants || 0).toLocaleString()}</div>
+                <div>{(t.entrants || 0).toLocaleString()}</div>
                 <div><span className={'tag ' + (t.status === 'running' ? 'live' : 'reg')}>{PHASE_LABEL[phaseOf(t, Date.now())]}</span></div>
                 <div style={{ textAlign: 'right' }}>
                   {isReg ? (

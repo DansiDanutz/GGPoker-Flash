@@ -18,8 +18,6 @@ type Toast = {
 type TournamentStarted = { type: 'tournament_started'; id: string; name?: string; tableId: string; index?: number };
 
 const TOAST_MS = 4200;
-/** Dan's animated DanGG wordmark (a light sheen across it, 4 s loop); an admin brand upload still overrides it. */
-const BRAND_LOGO = '/assets/brand/logo-animated.gif';
 const LINK_TOAST_MS = 15000;
 
 function isTournamentStarted(detail: unknown): detail is TournamentStarted {
@@ -113,8 +111,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [soundOn, setSoundOn] = useState(sound.enabled);
   const [animations, setAnimations] = useState(() => localStorage.getItem('ggpoker.animations') !== '0');
   const [openingTable, setOpeningTable] = useState<string | null>(null);
-  const [meta, setMeta] = useState({ online: 0, jackpot: 199026635 });
-  const [brand, setBrand] = useState({ logo: BRAND_LOGO, promo: '/assets/chrome/promo.png' });
+  const [meta, setMeta] = useState({ online: 192203, jackpot: 199026635 });
+  const [brand, setBrand] = useState({ logo: '/assets/brand/logo.png?v=20261111', promo: '/assets/chrome/promo.png' });
   const [dmUnread, setDmUnread] = useState(0);
   const toastId = useRef(1);
 
@@ -192,7 +190,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const b = await api.brand();
       setBrand({
-        logo: b.logo || BRAND_LOGO,
+        logo: b.logo || '/assets/brand/logo.png?v=20261111',
         promo: b.promo || '/assets/chrome/promo.png',
       });
     } catch { /* keep defaults */ }

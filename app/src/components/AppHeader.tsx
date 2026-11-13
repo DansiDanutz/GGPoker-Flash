@@ -41,22 +41,15 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
   );
 }
 
-type GameTab = { key: string; label: string; img: string };
-
-/** Tab plate width in px; Dan's plates are 330x100 (2x), fitted inside the tab. */
-const TAB_WIDTH = 156;
-
-// Every game tab is Dan's own plate: dark when idle, `${img}_active` (red) when selected.
-// The red plate crossfades in on click and back out when another tab is chosen (vivid.css).
-const TABS: readonly GameTab[] = [
-  { key: 'home', label: 'Home', img: 'tab_home' },
-  { key: 'aof', label: 'All-in or Fold', img: 'tab_aof' },
-  { key: 'rush', label: 'Rush & Cash', img: 'tab_rush' },
-  { key: 'holdem', label: "Hold'em", img: 'tab_holdem' },
-  { key: 'plo', label: 'PLO', img: 'tab_plo' },
-  { key: 'short', label: 'Short Deck', img: 'tab_short' },
-  { key: 'spin', label: 'Spin & Gold', img: 'tab_spin' },
-  { key: 'battle', label: 'Mystery Battle Royale', img: 'tab_battle' },
+const TABS = [
+  { key: 'home', label: 'Home', img: 'tab_home', w: 141 },
+  { key: 'aof', label: 'All-in or Fold', img: 'tab_aof', w: 135 },
+  { key: 'rush', label: 'Fast Fold', img: 'tab_rush', w: 134 },
+  { key: 'holdem', label: "Hold'em", img: 'tab_holdem', w: 135 },
+  { key: 'plo', label: 'PLO', img: 'tab_plo', w: 135 },
+  { key: 'short', label: 'Short Deck', img: 'tab_short', w: 135 },
+  { key: 'spin', label: 'Jackpot SNG', img: 'tab_spin', w: 134 },
+  { key: 'battle', label: 'Battle Royale', img: 'tab_battle', w: 135 },
 ];
 
 export function GameTabs({ active, onChange }: { active: string; onChange: (key: string) => void }) {
@@ -65,13 +58,13 @@ export function GameTabs({ active, onChange }: { active: string; onChange: (key:
       {TABS.map((t) => (
         <button
           key={t.key}
-          className={'game-tab plate-tab' + (active === t.key ? ' active' : '')}
-          style={{ width: TAB_WIDTH }}
+          className={'game-tab' + (active === t.key ? ' active' : '')}
+          style={{ width: t.w }}
           onClick={() => { sound.play('click', { volume: .5 }); onChange(t.key); }}
           title={t.label}
         >
-          <img src={`/assets/chrome/${t.img}.png?v=9`} alt={t.label} />
-          <img className="plate-on" src={`/assets/chrome/${t.img}_active.png?v=9`} alt="" aria-hidden="true" />
+          <img src={`/assets/chrome/${t.img}.png?v=5`} alt={t.label} style={{ opacity: active === t.key && t.key !== 'holdem' ? .0001 : 1 }} />
+          {active === t.key && t.key !== 'holdem' && <span className="active-plate">{t.label}</span>}
         </button>
       ))}
       <div className="spacer" />
