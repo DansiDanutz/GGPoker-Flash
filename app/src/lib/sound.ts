@@ -1,5 +1,10 @@
 // Sound engine using the original GGPoker client audio files.
+import { MusicLoop } from './music-loop';
+
 const BASE = '/assets/sounds/';
+// DanGG lobby loop: seamless 42.35 s loop that opens on the login hit.
+// Ogg first (exact, gapless decode); AAC for browsers without Vorbis.
+const LOBBY_LOOP = ['DanGG-Lobby-Loop.ogg', 'DanGG-Lobby-Loop.m4a'].map((f) => BASE + f);
 
 const FILES = {
   click: 'tick.mp3',
@@ -40,7 +45,7 @@ const FILES = {
   voiceFold: 'VoiceFold.mp3',
   voiceCall: 'VoiceCall.mp3',
   voiceBet: 'VoiceBet.mp3',
-  bgm: 'BgmLobby.mp3',
+  bgm: 'BgmLobby.mp3', // fallback when Web Audio cannot play the lobby loop
 };
 
 type Channel = 'sfx' | 'voice' | 'alerts' | 'music' | 'ambience';
@@ -52,6 +57,8 @@ class SoundEngine {
   musicVolume = 0.16;
   cache = new Map<string, HTMLAudioElement>();
   music: HTMLAudioElement | null = null;
+  musicLoop = new MusicLoop(LOBBY_LOOP, this.musicVolume);
+  useFallbackMusic = false;
   unlocked = false;
   channels: Record<Channel, boolean> = { ...DEFAULT_CHANNELS };
 
@@ -75,7 +82,7 @@ class SoundEngine {
   setChannel(channel: Channel, on: boolean) {
     this.channels[channel] = on;
     try { localStorage.setItem('ggpoker.soundChannels', JSON.stringify(this.channels)); } catch { /* ignore */ }
-    if (channel === 'music') { if (on && this.enabled) this.startMusic(); else this.music?.pause(); }
+    if (channel === 'music') { if (on && this.enabled) this.startMusic(); else this.pauseMusic(); }
   }
 
   unlock() {
@@ -109,6 +116,20 @@ class SoundEngine {
 
   startMusic() {
     if (!this.enabled || !this.channels.music) return;
+    if (this.useFallbackMusic) { this.startFallbackMusic(); return; }
+    void this.musicLoop.start().then((ok) => {
+      if (ok) return;
+      this.useFallbackMusic = true;
+      if (this.enabled && this.channels.music) this.startFallbackMusic();
+    });
+  }
+
+  pauseMusic() {
+    void this.musicLoop.pause();
+    this.music?.pause();
+  }
+
+  startFallbackMusic() {
     if (!this.music) {
       this.music = new Audio(BASE + FILES.bgm);
       this.music.loop = true;
@@ -121,7 +142,7 @@ class SoundEngine {
     this.enabled = on;
     try { localStorage.setItem('ggpoker.sound', on ? '1' : '0'); } catch { /* ignore */ }
     if (on) { this.unlock(); this.startMusic(); }
-    else if (this.music) this.music.pause();
+    else this.pauseMusic();
   }
 }
 
