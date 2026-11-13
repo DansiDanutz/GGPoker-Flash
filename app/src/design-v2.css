@@ -668,8 +668,65 @@ body { background: #050706; }
 
 /* Tablet widths keep the hero copy clear of the poster and the CTA. */
 @media (max-width: 1024px) {
-  .promo-wrap .promo-art { display: none; }
   .promo-badge { display: none; }
   .promo-copy { max-width: 82%; }
   .promo-cta { right: 16px; }
+}
+
+/* ---------- panoramic hero key art (1200x236 SVG set) ---------- */
+.promo-wrap .promo-art-wide {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;
+  border: 0; border-radius: 0; box-shadow: none;
+}
+
+/* Home is a feed: the table preview and join panel belong to the game tabs. */
+.lobby-content.is-home .lobby-side { display: none; }
+
+/* ---------- DanGG.TV row ---------- */
+.home-tv { padding: 16px 2px 2px; }
+.home-tv-row {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(214px, 1fr);
+  gap: 10px; overflow-x: auto; padding: 0 2px 8px; scrollbar-width: thin;
+}
+.tv-card {
+  position: relative; min-height: 124px; overflow: hidden; text-align: left;
+  border: 1px solid rgba(216, 177, 95, .18); border-radius: 8px; background: #0c0f12;
+}
+.tv-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .6; transition: transform .3s var(--ease); }
+.tv-card:hover img { transform: scale(1.04); }
+.tv-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0, 0, 0, .94), rgba(0, 0, 0, .18) 72%); }
+.tv-live {
+  position: absolute; z-index: 2; top: 8px; left: 8px; display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: 3px; background: #c3272f; color: #fff;
+  font-size: 9.5px; font-weight: 900; letter-spacing: .8px; font-style: normal;
+}
+.tv-live span { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: tvPulse 1.6s infinite; }
+@keyframes tvPulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.tv-play {
+  position: absolute; z-index: 2; top: 46%; left: 50%; transform: translate(-50%, -50%);
+  width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(0, 0, 0, .5); border: 1px solid rgba(255, 255, 255, .38); color: #fff;
+  font-size: 13px; font-style: normal; backdrop-filter: blur(2px);
+}
+.tv-copy { position: absolute; z-index: 2; left: 10px; right: 10px; bottom: 8px; display: flex; flex-direction: column; gap: 1px; }
+.tv-copy b { color: #fff5df; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-copy small { color: #b6b2a8; font-size: 10px; }
+
+/* ---------- 44px parallelogram game tabs, like the reference strip ---------- */
+.game-tabs { gap: 2px; padding: 0 4px; background: #08090b; }
+.game-tab {
+  height: 46px; background: #0d0f12;
+  clip-path: polygon(11px 0, 100% 0, calc(100% - 11px) 100%, 0 100%);
+  border-right: 0;
+}
+.game-tab img { height: 46px; width: 100%; object-fit: cover; object-position: center; }
+.game-tab .plate-on { display: none; }
+.game-tab.active::after {
+  content: ''; position: absolute; inset: 0;
+  box-shadow: inset 0 0 0 200px rgba(150, 22, 34, .42), inset 0 -3px 0 var(--red2);
+  pointer-events: none;
+}
+
+@media (max-width: 1024px) {
+  .home-tv-row { grid-auto-columns: minmax(200px, 46%); }
 }

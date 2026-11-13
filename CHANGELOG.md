@@ -1,3 +1,13 @@
+## 2026-11-14 — Home parity, round 2
+
+- Wide 1200x236 SVG hero key art per campaign (`tools/hero-art.mjs`); the desktop
+  hero is full-bleed again, the phone keeps its square art.
+- Home gains a DanGG.TV row: the busiest public tables as LIVE watch cards.
+- Home is now a feed: the table preview/join panel moved back to the game tabs.
+- Game tabs are 44-46px parallelograms with a red active wash.
+- <=360px phones: shorter hero, tighter gutters, smaller cards, live row peeking
+  above the tab bar.
+
 # Changelog
 
 Notable changes to DanGG, newest first. Dates are local (Europe/Bucharest).

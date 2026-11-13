@@ -149,6 +149,8 @@ export function Lobby() {
     const list = filterTables(data.tables, { ...filters, tab: gameTab, favs });
     return sortTables(list, gameTab, sortKey, sortDir);
   }, [data, gameTab, sortKey, sortDir, filterPrefs, favs]);
+  // Watched tables behind the DanGG.TV row: busiest public tables, best first.
+  const liveStreams = useMemo(() => [...tables].filter((t) => !t.private).sort((a, b) => b.players - a.players).slice(0, 4), [tables]);
 
   useEffect(() => {
     if (tables.length && !tables.find((t) => t.id === selected)) setSelected(tables[0].id);
@@ -382,7 +384,7 @@ export function Lobby() {
             >
               {HERO_SLIDES.map((slide, i) => (
                 <div key={slide.key} className={'promo-art-bg' + (i === promoIdx ? ' on' : '')} style={{ background: slide.bg }}>
-                  <img className="promo-art" src={slide.art} alt="" />
+                  <img className="promo-art-wide" src={slide.artWide} alt="" />
                 </div>
               ))}
               <span className="promo-badge">FEATURED</span>
@@ -412,6 +414,19 @@ export function Lobby() {
                   <button key={card.key} className="home-promo-card" onClick={() => openHomeTarget(card.target)}>
                     <img src={card.art} alt="" />
                     <span><b>{card.title}</b><small>{card.sub}</small></span>
+                  </button>
+                ))}
+              </div>
+            </section>
+            <section className="home-tv" aria-labelledby="home-tv-title">
+              <div className="home-promos-head"><b id="home-tv-title">DanGG.TV</b><button onClick={() => navigate('/tournaments')}>Watch live</button></div>
+              <div className="home-tv-row">
+                {liveStreams.map((t) => (
+                  <button key={t.id} className="tv-card" onClick={() => navigate(`/table/${t.id}?observe=1`)} aria-label={`Watch ${t.name} live`}>
+                    <img src={`/assets/tables/${t.seats <= 6 ? 'table_5ring.png' : 'featured_6ring.png'}`} alt="" />
+                    <i className="tv-live"><span /> LIVE</i>
+                    <i className="tv-play" aria-hidden="true">▶</i>
+                    <span className="tv-copy"><b>{t.name}</b><small>{GAME_LABEL[t.game]} · {fmtStakes(t)} · {t.players}/{t.seats}</small></span>
                   </button>
                 ))}
               </div>

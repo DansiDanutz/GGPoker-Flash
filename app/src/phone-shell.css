@@ -238,3 +238,19 @@
   .mh-slide-copy { right: 44%; }
   .mh-slide img { right: -14%; max-width: 66%; opacity: .9; }
 }
+
+/* ---- ≤360px phones: tighter gutters, shorter hero, cards that peek ------------- */
+@media (max-width: 360px) {
+  .mh, .mg, .me, .mc { --ph-pad: 13px; }
+  .mh-hero { height: 258px; }
+  .mh-head h2 { font-size: 21px; }
+  .mh-online { font-size: 13px; padding: 2px 9px; }
+  .mh-card { width: 188px; height: 244px; padding: 12px; }
+  .mh-card b { font-size: 17px; }
+  .mh-live { width: 264px; }
+  .mh-live-thumb { height: 148px; }
+  .mh-slide-copy { gap: 4px; }
+  .mh-slide-copy em { padding: 5px 11px; font-size: 11px; }
+  .mh-jackpot b { font-size: 26px; }
+  .mh-jackpot span { font-size: 11px; }
+}
