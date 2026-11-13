@@ -1,6 +1,6 @@
 // Lobby, promo and chrome art generator (chrome/*, login/*, ocean/*, ui/*).
 // Run from the repo root: node tools/original-assets/lobby.mjs
-// chrome/logo.png is DanGG's own artwork and is intentionally left untouched.
+// chrome/logo.png and chrome/tab_home*.png are DanGG's own artwork and are intentionally left untouched.
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { OUT, closeRenderer, manifestEntries } from './render.mjs';
@@ -10,7 +10,8 @@ import { renderOcean } from './lobby/ocean.mjs';
 import { renderDiscover } from './lobby/discover.mjs';
 
 const OWNED = ['chrome/', 'login/', 'ocean/', 'ui/'];
-const SKIP = new Set(['chrome/logo.png']);
+// Dan's own artwork, not generated: the logo and the Home tab plates (330x100, see AppHeader).
+const SKIP = new Set(['chrome/logo.png', 'chrome/tab_home.png']);
 
 /** Read a PNG's pixel size with sips; returns [width, height]. */
 function pngSize(file) {
