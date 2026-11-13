@@ -4,6 +4,8 @@ import { bubbleLabel, ordinal, placesPaidLabel, prizeText } from '../lib/tournam
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { Countdown, PageShell } from '../components/PageShell';
+import { MobileEvents } from '../components/mobile/MobileEvents';
+import { useIsPhone } from '../lib/useIsPhone';
 import { TournamentCategoryRail, TournamentFilterBar } from '../components/TournamentFilterBar';
 import {
   emptyTournamentMessage, filterTournaments, phaseOf, PHASE_LABEL, readTournamentFilters, resetTournamentFilters,
@@ -18,6 +20,7 @@ const SERIES_ART: Record<string, string> = {
 
 export function Tournaments() {
   const { user, refreshUser, toast, navigate, brand } = useApp();
+  const isPhone = useIsPhone();
   const [data, setData] = useState<any>(null);
   const [filters, setFilters] = useState<TournamentFilters>(() => readTournamentFilters());
   const [detail, setDetail] = useState<any>(null);
@@ -122,7 +125,22 @@ export function Tournaments() {
   }, [detailId]);
   const bubble = prizes && detail?.status === 'running' ? bubbleLabel(prizes.payouts, prizes.playersLeft) : null;
 
+  const openDetail = (t: any) => { setDetail(t); setDetailTab('overview'); };
+
   return (
+    <>
+    {isPhone ? (
+      <MobileEvents
+        list={list}
+        featured={featured || null}
+        heroArt={SERIES_ART[filters.category]}
+        filters={filters}
+        onFilters={updateFilters}
+        onReset={resetFilters}
+        onOpen={openDetail}
+        emptyText={data ? emptyTournamentMessage(filters) : 'Loading events…'}
+      />
+    ) : (
     <PageShell activeTop="tournaments">
       <div className="page">
         <div className="tourney-hero">
@@ -204,6 +222,8 @@ export function Tournaments() {
           )}
         </div>
       </div>
+    </PageShell>
+    )}
 
       {detail && (
         <div className="modal-backdrop" onClick={() => setDetail(null)}>
@@ -298,6 +318,6 @@ export function Tournaments() {
           </div>
         </div>
       )}
-    </PageShell>
+    </>
   );
 }

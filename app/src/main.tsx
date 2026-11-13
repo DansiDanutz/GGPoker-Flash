@@ -12,6 +12,7 @@ import './responsive.css';
 import './lobby-filters.css';
 import './tournament-filters.css';
 import './table-chat.css';
+import './phone-shell.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>

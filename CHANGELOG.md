@@ -4,6 +4,21 @@ Notable changes to DanGG, newest first. Dates are local (Europe/Bucharest).
 The project started as a local desktop clone and became the live play-money room at
 [dangg.live](https://dangg.live).
 
+## 2026-11-13
+
+### Phone app laid out like the GGPoker mobile client
+- New icon tab bar: Poker, Events, the round DanGG button for Home, Casino and your avatar with
+  an unread badge.
+- Home: full-width hero carousel with your balance and wallet, the Bad Beat Jackpot strip,
+  For You cards with the online count, Live Tables you can watch, and a Casino row.
+- Poker: one row per game (All-in or Fold, Hold'em, PLO, Short Deck, Rush & Cash, Spin & Gold)
+  with live player counts; a tap opens that game's tables with a back bar.
+- Events: hero, four format tiles, search and filter buttons, the series circles and rows with a
+  "Registering · Starts in" or "Late reg · Ends in" countdown and a prize box.
+- Casino: hero and one row per game with its badge, Play pill, blurb and tags.
+- Login on phones opens on a splash (logo, Join, Log in, Play as guest).
+- Layout only: desktop is unchanged and all art is DanGG's own (no GGPoker logos or promo art).
+
 ## 2026-11-12
 
 ### Daily Leaderboard ribbon at the table

@@ -3,6 +3,9 @@ import { api, getToken, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
+import { MobileCasino } from '../components/mobile/MobileCasino';
+import { casinoTabFromRoute } from '../components/mobile/casinoGames';
+import { useIsPhone } from '../lib/useIsPhone';
 import { AgeNotice } from '../components/AgeNotice';
 
 const CASINO_NAV = [
@@ -448,8 +451,10 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
 }
 
 export function Casino() {
-  const { navigate } = useApp();
-  const [tab, setTab] = useState('lobby');
+  const { navigate, route } = useApp();
+  const isPhone = useIsPhone();
+  const [tab, setTab] = useState(() => casinoTabFromRoute(route));
+  useEffect(() => { setTab(casinoTabFromRoute(route)); }, [route]);
   const games = [
     { key: 'slots', name: 'Slots', art: '/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png', desc: 'Spin for your next big win' },
     { key: 'roulette', name: 'Roulette', art: '/assets/ui/discover/Bg_Discover_AoF.png', desc: 'European wheel' },
@@ -466,6 +471,7 @@ export function Casino() {
   if (tab === 'baccarat') return <Baccarat onTab={setTab} />;
   if (tab === 'dragontiger') return <DragonTiger onTab={setTab} />;
   if (tab === 'sicbo') return <SicBo onTab={setTab} />;
+  if (isPhone) return <MobileCasino />;
   return (
     <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active={tab} onChange={setTab} />}>
       <div className="page">
