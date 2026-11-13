@@ -451,14 +451,14 @@ export function Casino() {
   const { navigate } = useApp();
   const [tab, setTab] = useState('lobby');
   const games = [
-    { key: 'slots', name: 'Slots', emoji: '🎰', desc: '5×3 · 10 paylines' },
-    { key: 'roulette', name: 'Roulette', emoji: '🎡', desc: 'European wheel' },
-    { key: 'blackjack', name: 'Blackjack', emoji: '🃏', desc: 'Classic 21' },
-    { key: 'crash', name: 'Crash', emoji: '📈', desc: 'Cash out before it crashes' },
-    { key: 'baccarat', name: 'Baccarat', emoji: '🀄', desc: 'Player vs Banker' },
-    { key: 'dragontiger', name: 'Dragon Tiger', emoji: '🐉', desc: 'Fast card duel' },
-    { key: 'sicbo', name: 'Sic Bo', emoji: '🎲', desc: 'Three dice' },
-    { key: 'holdem', name: 'Casino Hold’em', emoji: '♠️', desc: 'Poker vs dealer' },
+    { key: 'slots', name: 'Slots', art: '/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png', desc: 'Spin for your next big win' },
+    { key: 'roulette', name: 'Roulette', art: '/assets/ui/discover/Bg_Discover_AoF.png', desc: 'European wheel' },
+    { key: 'blackjack', name: 'Blackjack', art: '/assets/ui/discover/Bg_Discover_WSOPExpress_Promo1_EN.png', desc: 'Classic 21' },
+    { key: 'crash', name: 'Crash', art: '/assets/ui/discover/Bg_Discover_RushNCash_Holdem.png', desc: 'Cash out before it crashes' },
+    { key: 'baccarat', name: 'Baccarat', art: '/assets/ui/discover/Bg_Discover_Leaderboard_Holdem.png', desc: 'Player vs Banker' },
+    { key: 'dragontiger', name: 'Dragon Tiger', art: '/assets/ui/discover/Bg_Discover_MysteryBattleRoyal.png', desc: 'Fast card duel' },
+    { key: 'sicbo', name: 'Sic Bo', art: '/assets/ui/discover/Bg_Discover_SpinNGold.png', desc: 'Three dice' },
+    { key: 'holdem', name: 'Casino Hold’em', art: '/assets/ui/discover/Bg_Discover_Leaderboard_PLO6.png', desc: 'Poker vs dealer' },
   ];
   if (tab === 'roulette') return <Roulette onTab={setTab} />;
   if (tab === 'blackjack') return <Blackjack onTab={setTab} />;
@@ -469,13 +469,18 @@ export function Casino() {
   return (
     <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active={tab} onChange={setTab} />}>
       <div className="page">
+        <div className="casino-hub-hero">
+          <img src="/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png" alt="" />
+          <div><small>PLAY-MONEY CASINO</small><b>Pick a game.<br />Take a seat.</b><span>Instant tables, zero cash at stake.</span></div>
+        </div>
         <h1 className="page-title">Casino</h1>
-        <p className="page-sub">Play-money table games · instant play</p>
+        <p className="page-sub">Play-money games · instant play</p>
         <AgeNotice />
         <div className="grid g3">
           {games.map((g) => (
             <div key={g.key} className="casino-card" onClick={() => (g.key === 'slots' ? navigate('/slots') : setTab(g.key))}>
-              <div className="cc-emoji">{g.emoji}</div>
+              <img className="casino-card-art" src={g.art} alt="" />
+              <div className="casino-card-shade" />
               <div className="cc-name">{g.name}</div>
               <div className="cc-desc">{g.desc}</div>
               <div className="cc-play">Play →</div>
