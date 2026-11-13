@@ -55,3 +55,10 @@ test('a range past the end gets 416', async () => {
   assert.match(res.headers.get('content-range'), /^bytes \*\/\d+$/);
   await res.arrayBuffer();
 });
+
+test('the animated brand logo is served as image/gif', async () => {
+  const res = await fetch(srv.base + '/assets/brand/logo-animated.gif');
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'image/gif');
+  await res.arrayBuffer();
+});
