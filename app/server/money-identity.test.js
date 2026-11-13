@@ -52,13 +52,13 @@ test('deposits are capped per request and per UTC day, keeping idempotent replay
   } finally { await srv.stop(); }
 });
 
-test('lobby occupancy is the real seated count, with bots reported separately', async () => {
+test('lobby occupancy uses demo counts until real seats exist, with bots reported separately', async () => {
   const srv = await startServer();
   try {
     const token = await register(srv, 'lobby_seat');
     const tableId = await hostTable(srv, token, 'Occupancy Room');
     const idle = (await srv.get('/api/lobby', { token })).data.tables.find((t) => t.id === tableId);
-    assert.equal(idle.players, 0, 'a table nobody sits at is empty');
+    assert.ok(idle.players >= 1 && idle.players <= idle.seats, 'an unopened table keeps the original demo count');
     assert.equal(idle.bots, 0);
     const ws = srv.socket(token);
     await ws.opened;
