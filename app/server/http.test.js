@@ -39,6 +39,7 @@ test('server binds an ephemeral port and serves the API', async () => {
     assert.equal(lobby.tables[0].synthetic, undefined);
     assert.equal(lobby.tables[0].avgPot, 0);
     assert.equal(lobby.tables[0].vpip, 0);
+    assert.ok(lobby.online > 100_000, `the room-sized Online count stays populated, got ${lobby.online}`);
     // The login screen only offers the demo shortcut when this account exists.
     assert.equal(lobby.demoAccount, true);
     const badOrigin = await fetch(`http://127.0.0.1:${port}/api/lobby`, { headers: { origin: 'http://evil.example' } });
