@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PokerTable } from './table.js';
 import * as waitlist from './waitlist.js';
-import { botFillCount, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, waitingFor } from './bot-seats.js';
+import { botFillCount, ensureBots, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, waitingFor } from './bot-seats.js';
 
 const cfg = (over = {}) => ({ id: 'bp', name: 'BP', game: 'holdem', sb: 50, bb: 100, seats: 3, min_buyin: 1000, max_buyin: 5000, ...over });
 
@@ -57,6 +57,14 @@ test('bots never take a seat while humans are waiting', () => {
   assert.equal(botFillCount(t, 1), 0);
   t.tournament = { level: 1 };
   assert.equal(botFillCount(t, 0), 0, 'tournament tables never get bots');
+});
+
+test('an empty cash lobby table is warmed once with three idle bots', () => {
+  const t = new PokerTable(cfg({ seats: 6 }));
+  assert.equal(ensureBots(t, 0, false), 3);
+  assert.equal(t.occupiedSeats().length, 3);
+  assert.equal(t.street, 'idle', 'unattended bots do not generate hands or database growth');
+  assert.equal(ensureBots(t, 0, false), 0, 'lobby polling does not add another bot batch');
 });
 
 test('between hands a waiting human makes one bot stand up per queued human', () => {
