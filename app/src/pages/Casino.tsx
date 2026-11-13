@@ -7,6 +7,8 @@ import { MobileCasino } from '../components/mobile/MobileCasino';
 import { casinoTabFromRoute } from '../components/mobile/casinoGames';
 import { useIsPhone } from '../lib/useIsPhone';
 import { AgeNotice } from '../components/AgeNotice';
+import { WinnersTicker } from '../components/WinnersTicker';
+import { loadWinners, type WinnerRow } from '../lib/slotGames';
 
 const CASINO_NAV = [
   { key: 'lobby', label: 'Lobby' }, { key: 'roulette', label: 'Roulette' }, { key: 'blackjack', label: 'Blackjack' },
@@ -14,104 +16,6 @@ const CASINO_NAV = [
   { key: 'sicbo', label: 'Sic Bo' },
 ];
 
-const SYM: Record<string, { g: string; c: string }> = {
-  cherry: { g: '🍒', c: '#e2454f' }, lemon: { g: '🍋', c: '#e3c53c' }, bell: { g: '🔔', c: '#e3b23c' },
-  star: { g: '⭐', c: '#f0d060' }, diamond: { g: '💎', c: '#63d2f0' }, seven: { g: '7️⃣', c: '#f06a6a' },
-  clover: { g: '🍀', c: '#5fd07a' }, wild: { g: '🃏', c: '#c78bf0' },
-};
-
-export function Slots() {
-  const { user, refreshUser, toast, navigate } = useApp();
-  const [grid, setGrid] = useState<string[][]>(Array.from({ length: 5 }, () => ['cherry', 'lemon', 'bell']));
-  const [bet, setBet] = useState(100);
-  const [spinning, setSpinning] = useState(false);
-  const [win, setWin] = useState(0);
-  const [lines, setLines] = useState<any[]>([]);
-  const [balance, setBalance] = useState(user?.balance ?? 0);
-
-  useEffect(() => { setBalance(user?.balance ?? 0); }, [user?.balance]);
-
-  const spin = async () => {
-    if (!user) { navigate('/login'); return; }
-    if (spinning) return;
-    setSpinning(true); setWin(0); setLines([]);
-    sound.play('wheel', { volume: .5 });
-    try {
-      const res = await fetch('/api/games/slot', {
-        method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ bet }),
-      }).then((r) => r.json());
-      if (res.error) throw new Error(res.error);
-      for (let i = 0; i < 12; i++) {
-        setGrid(Array.from({ length: 5 }, () => Array.from({ length: 3 }, () => {
-          const keys = Object.keys(SYM); return keys[Math.floor(Math.random() * keys.length)];
-        })));
-        await new Promise((r) => setTimeout(r, 80));
-      }
-      setGrid(res.grid);
-      setWin(res.win);
-      setLines(res.lines || []);
-      setBalance(res.balance);
-      if (res.win) { sound.play('win'); toast({ kind: 'reward', title: 'Big win!', body: money(res.win) }); }
-      else sound.play('click', { volume: .4 });
-      await refreshUser();
-    } catch (e: any) {
-      toast({ kind: 'error', title: 'Slots', body: e.message });
-    } finally { setSpinning(false); }
-  };
-
-  return (
-    <PageShell activeTop="slots">
-      <div className="page">
-        <h1 className="page-title">Slots</h1>
-        <p className="page-sub">Tumbling-reels play-money slot · 10 paylines</p>
-        <AgeNotice />
-        <div className="slot-machine">
-          <div className="slot-head">
-            <span>⚡ OLYMPUS GOLD</span>
-            <span className="gold">{money(balance)}</span>
-          </div>
-          <div className="slot-grid">
-            {Array.from({ length: 3 }).map((_, row) => (
-              <div className="slot-row" key={row}>
-                {Array.from({ length: 5 }).map((_, col) => {
-                  const s = grid[col]?.[row] || 'cherry';
-                  return (
-                    <div key={col} className={'slot-cell' + (spinning ? ' spinning' : '')} style={{ color: SYM[s].c }}>
-                      {SYM[s].g}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-            {!!win && (
-              <div className="slot-win">
-                <div className="win-title" style={{ fontSize: 40 }}>WIN</div>
-                <div>{money(win)}</div>
-              </div>
-            )}
-          </div>
-          <div className="slot-controls">
-            <div className="row">
-              <span className="muted small">Bet</span>
-              {[50, 100, 500, 1000].map((b) => (
-                <button key={b} className={'btn btn-sm ' + (bet === b ? 'btn-gold' : 'btn-ghost')} onClick={() => setBet(b)}>{money(b)}</button>
-              ))}
-            </div>
-            <button className="btn btn-gold" style={{ height: 46, minWidth: 190, fontSize: 17, fontWeight: 800 }} disabled={spinning} onClick={spin}>
-              {spinning ? 'SPINNING…' : 'SPIN'}
-            </button>
-          </div>
-          {!!lines.length && (
-            <div className="slot-lines">
-              {lines.map((l, i) => <div key={i}>Line {l.line + 1}: {l.count}× {SYM[l.symbols[0]]?.g} → {money(l.amount)}</div>)}
-            </div>
-          )}
-        </div>
-      </div>
-    </PageShell>
-  );
-}
 
 const RED = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 
@@ -450,21 +354,45 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
   );
 }
 
+const HUB_GAMES = [
+  { key: 'slots', name: 'Slots', art: '/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png', desc: 'Six DanGG Originals', tags: ['slots'] },
+  { key: 'roulette', name: 'Roulette', art: '/assets/ui/discover/Bg_Discover_AoF.png', desc: 'European wheel', tags: ['table'] },
+  { key: 'blackjack', name: 'Blackjack', art: '/assets/ui/discover/Bg_Discover_WSOPExpress_Promo1_EN.png', desc: 'Classic 21', tags: ['table'] },
+  { key: 'crash', name: 'Crash', art: '/assets/ui/discover/Bg_Discover_RushNCash_Holdem.png', desc: 'Cash out before it crashes', tags: ['arcade'] },
+  { key: 'baccarat', name: 'Baccarat', art: '/assets/ui/discover/Bg_Discover_Leaderboard_Holdem.png', desc: 'Player vs Banker', tags: ['table'] },
+  { key: 'dragontiger', name: 'Dragon Tiger', art: '/assets/ui/discover/Bg_Discover_MysteryBattleRoyal.png', desc: 'Fast card duel', tags: ['table'] },
+  { key: 'sicbo', name: 'Sic Bo', art: '/assets/ui/discover/Bg_Discover_SpinNGold.png', desc: 'Three dice', tags: ['table'] },
+  { key: 'holdem', name: "Casino Hold'em", art: '/assets/ui/discover/Bg_Discover_Leaderboard_PLO6.png', desc: 'Poker vs dealer', tags: ['table', 'poker'] },
+];
+const HUB_CATEGORIES = [
+  { key: 'all', label: 'All' }, { key: 'slots', label: 'Slots' }, { key: 'table', label: 'Table' },
+  { key: 'arcade', label: 'Arcade' }, { key: 'poker', label: 'Poker' },
+];
+const HUB_SLIDES = [
+  { key: 'slots', accent: '#f2c45c', art: '/assets/slots/wild-jungle.svg', kicker: 'Only on DanGG', title: 'Six slots. One floor.', sub: 'Wilds, wheels and clover cash — every one a real playable game.', cta: 'Browse slots', to: '/slots' },
+  { key: 'crash', accent: '#48c8e0', art: '/assets/slots/robo-rush.svg', kicker: 'Crash', title: 'Cash out before it pops.', sub: 'The multiplier climbs until it does not. You decide when to leave.', cta: 'Play Crash', tab: 'crash' },
+  { key: 'freebie', accent: '#c05cff', art: '/assets/slots/disco-cat.svg', kicker: 'Every day', title: 'Free play chips.', sub: 'Claim the daily freebie and take it straight to the reels.', cta: 'Claim now', to: '/rewards' },
+];
+const KIND_LABEL: Record<string, string> = { slots: 'Slots', roulette: 'Roulette', crash_win: 'Crash', blackjack: 'Blackjack' };
+
 export function Casino() {
   const { navigate, route } = useApp();
   const isPhone = useIsPhone();
   const [tab, setTab] = useState(() => casinoTabFromRoute(route));
+  const [category, setCategory] = useState('all');
+  const [slide, setSlide] = useState(0);
+  const [winners, setWinners] = useState<WinnerRow[]>([]);
   useEffect(() => { setTab(casinoTabFromRoute(route)); }, [route]);
-  const games = [
-    { key: 'slots', name: 'Slots', art: '/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png', desc: 'Spin for your next big win' },
-    { key: 'roulette', name: 'Roulette', art: '/assets/ui/discover/Bg_Discover_AoF.png', desc: 'European wheel' },
-    { key: 'blackjack', name: 'Blackjack', art: '/assets/ui/discover/Bg_Discover_WSOPExpress_Promo1_EN.png', desc: 'Classic 21' },
-    { key: 'crash', name: 'Crash', art: '/assets/ui/discover/Bg_Discover_RushNCash_Holdem.png', desc: 'Cash out before it crashes' },
-    { key: 'baccarat', name: 'Baccarat', art: '/assets/ui/discover/Bg_Discover_Leaderboard_Holdem.png', desc: 'Player vs Banker' },
-    { key: 'dragontiger', name: 'Dragon Tiger', art: '/assets/ui/discover/Bg_Discover_MysteryBattleRoyal.png', desc: 'Fast card duel' },
-    { key: 'sicbo', name: 'Sic Bo', art: '/assets/ui/discover/Bg_Discover_SpinNGold.png', desc: 'Three dice' },
-    { key: 'holdem', name: 'Casino Hold’em', art: '/assets/ui/discover/Bg_Discover_Leaderboard_PLO6.png', desc: 'Poker vs dealer' },
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    loadWinners(14).then((feed) => { if (!cancelled) setWinners(feed.winners); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  useEffect(() => {
+    const id = window.setInterval(() => setSlide((s) => (s + 1) % HUB_SLIDES.length), 6500);
+    return () => window.clearInterval(id);
+  }, []);
+
   if (tab === 'roulette') return <Roulette onTab={setTab} />;
   if (tab === 'blackjack') return <Blackjack onTab={setTab} />;
   if (tab === 'crash') return <Crash onTab={setTab} />;
@@ -472,19 +400,47 @@ export function Casino() {
   if (tab === 'dragontiger') return <DragonTiger onTab={setTab} />;
   if (tab === 'sicbo') return <SicBo onTab={setTab} />;
   if (isPhone) return <MobileCasino />;
+
+  const shown = category === 'all' ? HUB_GAMES : HUB_GAMES.filter((g) => g.tags.includes(category));
+  const go = (target?: string, nextTab?: string) => {
+    if (target) navigate(target);
+    else if (nextTab) setTab(nextTab);
+  };
+
   return (
-    <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active={tab} onChange={setTab} />}>
+    <PageShell activeTop="casino">
       <div className="page">
-        <div className="casino-hub-hero">
-          <img src="/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png" alt="" />
-          <div><small>PLAY-MONEY CASINO</small><b>Pick a game.<br />Take a seat.</b><span>Instant tables, zero cash at stake.</span></div>
+        <div className="casino-hero" aria-roledescription="carousel" aria-label="Casino highlights">
+          {HUB_SLIDES.map((s, i) => (
+            <div key={s.key} className={'casino-hero-slide' + (i === slide ? ' on' : '')} style={{ ['--accent' as any]: s.accent }} aria-hidden={i !== slide}>
+              <img className="casino-hero-art" src={s.art} alt="" />
+              <div className="casino-hero-copy">
+                <small>{s.kicker}</small>
+                <b>{s.title}</b>
+                <span>{s.sub}</span>
+              </div>
+              <button type="button" className="casino-hero-cta" onClick={() => go(s.to, s.tab)} tabIndex={i === slide ? 0 : -1}>{s.cta} →</button>
+            </div>
+          ))}
+          <div className="casino-hero-dots" role="tablist" aria-label="Choose slide">
+            {HUB_SLIDES.map((s, i) => (
+              <button key={s.key} type="button" role="tab" aria-selected={i === slide} aria-label={s.title} className={i === slide ? 'on' : ''} onClick={() => setSlide(i)} />
+            ))}
+          </div>
         </div>
-        <h1 className="page-title">Casino</h1>
-        <p className="page-sub">Play-money games · instant play</p>
-        <AgeNotice />
+
+        <nav className="slots-chips" aria-label="Casino categories">
+          {HUB_CATEGORIES.map((c) => (
+            <button key={c.key} type="button" className={'slots-chip' + (category === c.key ? ' on' : '')} aria-pressed={category === c.key} onClick={() => setCategory(c.key)}>{c.label}</button>
+          ))}
+        </nav>
+
+        <WinnersTicker winners={winners} labelFor={(w) => KIND_LABEL[w.kind] || w.memo} empty="No casino wins yet today — take a seat." />
+
+        <div className="casino-hub-head"><h2>Only on DanGG</h2><span className="muted small">{shown.length} games</span></div>
         <div className="grid g3">
-          {games.map((g) => (
-            <div key={g.key} className="casino-card" onClick={() => (g.key === 'slots' ? navigate('/slots') : setTab(g.key))}>
+          {shown.map((g) => (
+            <div key={g.key} className="casino-card" onClick={() => go(g.key === 'slots' ? '/slots' : undefined, g.key)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(g.key === 'slots' ? '/slots' : undefined, g.key); } }}>
               <img className="casino-card-art" src={g.art} alt="" />
               <div className="casino-card-shade" />
               <div className="cc-name">{g.name}</div>

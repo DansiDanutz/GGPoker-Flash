@@ -17,7 +17,7 @@ import {
 } from './security.js';
 import { toInt, cleanNick, cleanGrantReason, GRANT_REASON, parseTableConfig, parseTableId, parseGroupKey, isRushGame, ACTION_SECONDS } from './validate.js';
 import { createHandHistoryStore } from './hand-history-store.js';
-import { spinSlots } from './slots.js';
+import { spinSlots, slotGame, slotCatalog } from './slots.js';
 import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
 import {
   addChipsLimits, cancelPendingTopUp, inLiveHand, refundPendingTopUp, removeChips, setAutoReduce,
@@ -1904,14 +1904,41 @@ const server = http.createServer(async (req, res) => {
       return json(res, 400, { error: 'Unknown action' });
     }
 
+    if (p === '/api/games/slots' && req.method === 'GET') {
+      return json(res, 200, { games: slotCatalog() });
+    }
+
+    if (p === '/api/games/winners' && req.method === 'GET') {
+      const limit = Math.min(20, Math.max(1, Number(url.searchParams.get('limit')) || 8));
+      const kinds = ['slots', 'roulette', 'crash_win', 'blackjack'];
+      const rows = db.prepare(`
+        SELECT t.amount, t.kind, t.memo, t.created_at, u.nick
+        FROM transactions t JOIN users u ON u.id = t.user_id
+        WHERE t.currency = 'USD' AND t.amount > 0 AND t.created_at >= date('now')
+          AND t.kind IN (${kinds.map(() => '?').join(',')})
+        ORDER BY t.amount DESC LIMIT ?`).all(...kinds, limit);
+      const auth = String(req.headers.authorization || '');
+      const me = auth.startsWith('Bearer ') ? userByToken(auth.slice(7)) : null;
+      const mine = me ? db.prepare(`
+        SELECT t.amount, t.kind, t.memo, t.created_at, u.nick
+        FROM transactions t JOIN users u ON u.id = t.user_id
+        WHERE t.user_id = ? AND t.currency = 'USD' AND t.kind = 'slots' AND t.amount > 0
+          AND t.created_at >= date('now')
+        ORDER BY t.amount DESC LIMIT 1`).get(me.id) || null : null;
+      return json(res, 200, { winners: rows, mine });
+    }
+
     if (p === '/api/games/slot' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
       const bet = parseBet(body.bet);
+      const game = slotGame(String(body.game || 'olympus-gold'));
+      if (!game) return json(res, 400, { error: 'Unknown game' });
+      if (!game.bets.includes(bet)) return json(res, 400, { error: `Choose a stake: ${game.bets.join(', ')}` });
       if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
-      const { grid, lines, win } = spinSlots(bet);
-      const after = addTransaction(u.id, 'slots', win - bet, `Slots ${win ? 'win ' + win : 'spin'}`, 'USD');
-      return json(res, 200, { grid, lines, win, bet, balance: after });
+      const { grid, lines, win } = spinSlots(bet, undefined, game.id);
+      const after = addTransaction(u.id, 'slots', win - bet, `Slots ${game.name} ${win ? 'win ' + win : 'spin'}`, 'USD');
+      return json(res, 200, { grid, lines, win, bet, game: game.id, balance: after });
     }
 
     if (p === '/api/games/roulette' && req.method === 'POST') {
