@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      /* DanGG 30 s spot. Music: DanGG lobby loop, 68 BPM (beat 0.882 s, bar 3.529 s). */
+      :root {
+        --ground: #070605;
+        --cream: #f3ead8;
+        --gold: #d9a94b;
+        --red: #c8102e;
+        --font-display: "Montserrat", sans-serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ground); }
+      #root { position: relative; width: 100%; height: 100%; font-family: var(--font-display); color: var(--cream); overflow: hidden; }
+      .bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, #2a1d10 0%, #0d0a07 55%, #050404 100%); }
+      .scene { position: absolute; inset: 0; overflow: hidden; }
+      .shot { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; transform-origin: 50% 50%; }
+      .shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,4,3,0.88) 0%, rgba(5,4,3,0.55) 38%, rgba(5,4,3,0) 70%); }
+      .shade.full { background: rgba(5,4,3,0.55); }
+      .cap { position: absolute; left: 150px; top: 700px; width: 1100px; }
+      .kicker { font-size: 32px; font-weight: 700; letter-spacing: 0.42em; color: var(--gold); text-transform: uppercase; }
+      .head { margin-top: 14px; font-size: 104px; font-weight: 900; line-height: 0.98; letter-spacing: -0.03em; }
+      .head em { font-style: normal; color: var(--gold); }
+      .logo { position: absolute; left: 50%; top: 50%; width: 1100px; margin-left: -550px; margin-top: -257px; }
+      .tag { position: absolute; left: 0; right: 0; top: 640px; text-align: center; font-size: 30px; font-weight: 700; letter-spacing: 0.5em; color: var(--gold); text-transform: uppercase; }
+      .flash { position: absolute; inset: 0; background: #fff6e2; opacity: 0; }
+      .sweep { position: absolute; top: 0; bottom: 0; width: 420px; left: -600px; background: linear-gradient(100deg, rgba(255,230,170,0) 0%, rgba(255,230,170,0.28) 50%, rgba(255,230,170,0) 100%); }
+      .word { position: absolute; left: 0; right: 0; top: 50%; margin-top: -110px; text-align: center; font-size: 200px; font-weight: 900; letter-spacing: -0.04em; line-height: 220px; }
+      .word.gold { color: var(--gold); }
+      .word.red { color: var(--red); }
+      .endlogo { position: absolute; left: 50%; top: 300px; width: 960px; margin-left: -480px; }
+      .cta { position: absolute; left: 50%; top: 640px; width: 560px; margin-left: -280px; height: 96px; border-radius: 14px; background: var(--red); color: #fff; font-size: 38px; font-weight: 800; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: center; box-shadow: 0 18px 60px rgba(200,16,46,0.45); }
+      .fine { position: absolute; left: 0; right: 0; top: 790px; text-align: center; font-size: 28px; font-weight: 400; letter-spacing: 0.12em; color: rgba(243,234,216,0.62); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="30" data-width="1920" data-height="1080">
+      <div class="bg"></div>
+
+      <!-- 0.00 – 3.53  Logo slam on the login hit -->
+      <div id="open" class="scene clip" data-start="0" data-duration="3.53" data-track-index="1" style="z-index:2">
+        <div class="sweep" id="open-sweep"></div>
+        <img id="open-logo" class="logo" src="assets/logo.png" alt="DanGG" />
+        <div id="open-tag" class="tag">Play money poker</div>
+        <div id="open-flash" class="flash"></div>
+      </div>
+
+      <!-- 3.53 – 7.06  The login screen -->
+      <div id="login" class="scene clip" data-start="3.53" data-duration="3.53" data-track-index="1" style="z-index:3">
+        <img id="login-img" class="shot" src="assets/01-login.jpg" alt="" />
+        <div class="shade" style="background: linear-gradient(0deg, rgba(5,4,3,0.9) 0%, rgba(5,4,3,0) 45%)"></div>
+        <div class="cap" style="left: 1060px; top: 960px; width: 760px; text-align: center">
+          <div id="login-kick" class="kicker">Your seat is open</div>
+        </div>
+      </div>
+
+      <!-- 7.06 – 10.59  The lobby -->
+      <div id="lobby" class="scene clip" data-start="7.06" data-duration="3.53" data-track-index="1" style="z-index:4">
+        <img id="lobby-img" class="shot" src="assets/02-lobby.jpg" alt="" />
+        <div class="shade"></div>
+        <div class="cap" style="top: 560px">
+          <div id="lobby-kick" class="kicker">Cash games</div>
+          <div id="lobby-head" class="head">Hold'em. PLO.<br /><em>Short Deck.</em></div>
+        </div>
+      </div>
+
+      <!-- 10.59 – 14.12  Jackpot close-up -->
+      <div id="jack" class="scene clip" data-start="10.59" data-duration="3.53" data-track-index="1" style="z-index:5">
+        <img id="jack-img" class="shot" src="assets/02-lobby.jpg" alt="" style="transform-origin: 1628px 68px" />
+        <div class="shade full" style="background: linear-gradient(0deg, rgba(5,4,3,0.92) 0%, rgba(5,4,3,0.2) 60%)"></div>
+        <div class="cap" style="top: 640px">
+          <div id="jack-kick" class="kicker">Bad Beat Jackpot</div>
+          <div id="jack-head" class="head"><em>$1,990,266</em></div>
+        </div>
+      </div>
+
+      <!-- 14.12 – 17.65  Tournaments hero -->
+      <div id="tour" class="scene clip" data-start="14.12" data-duration="3.53" data-track-index="1" style="z-index:6">
+        <img id="tour-img" class="shot" src="assets/03-tournaments.jpg" alt="" style="transform-origin: 0% 0%" />
+        <div class="shade"></div>
+        <div class="cap" style="top: 600px">
+          <div id="tour-kick" class="kicker">Tournaments</div>
+          <div id="tour-head" class="head">Sunday Major<br /><em>$250K GTD</em></div>
+        </div>
+      </div>
+
+      <!-- 17.65 – 21.18  Schedule -->
+      <div id="sched" class="scene clip" data-start="17.65" data-duration="3.53" data-track-index="1" style="z-index:7">
+        <img id="sched-img" class="shot" src="assets/03-tournaments.jpg" alt="" style="transform-origin: 45% 50%" />
+        <div class="shade"></div>
+        <div class="cap" style="top: 600px">
+          <div id="sched-kick" class="kicker">Around the clock</div>
+          <div id="sched-head" class="head">A shot at it<br /><em>every hour.</em></div>
+        </div>
+      </div>
+
+      <!-- 21.18 – 28.235  Build: one word per beat over flashes of the app -->
+      <div id="build" class="scene clip" data-start="21.18" data-duration="7.055" data-track-index="1" style="z-index:8">
+        <img id="build-img1" class="shot" src="assets/02-lobby.jpg" alt="" />
+        <img id="build-img2" class="shot" src="assets/03-tournaments.jpg" alt="" style="opacity:0" />
+        <img id="build-img3" class="shot" src="assets/01-login.jpg" alt="" style="opacity:0" />
+        <div class="shade full" style="background: rgba(5,4,3,0.72)"></div>
+        <div id="w1" class="word">Shuffle.</div>
+        <div id="w2" class="word">Deal.</div>
+        <div id="w3" class="word gold">Raise.</div>
+        <div id="w4" class="word red">All in.</div>
+        <div id="build-black" class="flash" style="background:#000"></div>
+      </div>
+
+      <!-- 28.235 – 30  End card on the final hit -->
+      <div id="end" class="scene clip" data-start="28.235" data-duration="1.765" data-track-index="1" style="z-index:9">
+        <div class="sweep" id="end-sweep"></div>
+        <img id="end-logo" class="endlogo" src="assets/logo.png" alt="DanGG" />
+        <div id="end-cta" class="cta">Take your seat</div>
+        <div id="end-fine" class="fine">Play money only · No real-money gambling</div>
+        <div id="end-flash" class="flash"></div>
+      </div>
+
+      <audio id="music" class="clip" src="assets/music.wav" data-start="0" data-duration="30" data-track-index="0" data-volume="1"></audio>
+    </div>
+
+    <script>
+      const BEAT = 60 / 68;
+      const tl = gsap.timeline({ paused: true });
+
+      // Opening: logo slams in on the hit, flash, gold sweep, tagline on beat 2.
+      tl.fromTo("#open-flash", { opacity: 0.45 }, { opacity: 0, duration: 0.35, ease: "power2.out" }, 0);
+      tl.fromTo("#open-logo", { scale: 1.35, opacity: 0.7, filter: "blur(10px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.32, ease: "expo.out" }, 0);
+      tl.to("#open-logo", { scale: 1.06, duration: 3.1, ease: "none" }, 0.32);
+      tl.fromTo("#open-sweep", { x: 0 }, { x: 2900, duration: 1.1, ease: "power2.inOut" }, 0.45);
+      tl.fromTo("#open-tag", { opacity: 0, scale: 1.15 }, { opacity: 1, scale: 1, duration: 0.7, ease: "power3.out" }, BEAT * 2);
+
+      // Login screen: slow push-in.
+      tl.fromTo("#login-img", { scale: 1.12 }, { scale: 1.0, duration: 3.53, ease: "power1.out" }, 3.53);
+      tl.fromTo("#login-kick", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 3.53 + BEAT);
+
+      // Lobby: drift left, captions land on the beat.
+      tl.fromTo("#lobby-img", { scale: 1.18, x: 120 }, { scale: 1.1, x: -60, duration: 3.53, ease: "none" }, 7.06);
+      tl.fromTo("#lobby-kick", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.35, ease: "power3.out" }, 7.06 + 0.1);
+      tl.fromTo("#lobby-head", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.45, ease: "expo.out" }, 7.06 + BEAT);
+
+      // Jackpot: punch into the top-right jackpot panel.
+      tl.fromTo("#jack-img", { scale: 2.2, x: -668, y: 300 }, { scale: 2.6, x: -668, y: 300, duration: 3.53, ease: "none" }, 10.59);
+      tl.fromTo("#jack-kick", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 10.59 + 0.1);
+      tl.fromTo("#jack-head", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, 10.59 + BEAT);
+
+      // Tournaments: brass anthem, hero reveal.
+      tl.fromTo("#tour-img", { scale: 1.3, y: 0 }, { scale: 1.12, y: 0, duration: 3.53, ease: "power1.out" }, 14.12);
+      tl.fromTo("#tour-kick", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.35, ease: "power3.out" }, 14.12 + 0.1);
+      tl.fromTo("#tour-head", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.45, ease: "expo.out" }, 14.12 + BEAT);
+
+      // Schedule: scroll down the list.
+      tl.fromTo("#sched-img", { scale: 1.3, y: 120 }, { scale: 1.3, y: -200, duration: 3.53, ease: "none" }, 17.65);
+      tl.fromTo("#sched-kick", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.35, ease: "power3.out" }, 17.65 + 0.1);
+      tl.fromTo("#sched-head", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.45, ease: "expo.out" }, 17.65 + BEAT);
+
+      // Build: four words, one per beat pair, background swaps faster toward the hit.
+      const B0 = 21.18;
+      ["#w1", "#w2", "#w3", "#w4"].forEach((id, i) => {
+        const at = B0 + i * BEAT * 2;
+        tl.fromTo(id, { opacity: 0, scale: 1.5 }, { opacity: 1, scale: 1, duration: 0.18, ease: "expo.out" }, at);
+        if (i < 3) tl.to(id, { opacity: 0, duration: 0.1 }, at + BEAT * 2 - 0.1);
+      });
+      tl.fromTo("#w4", { scale: 1 }, { scale: 1.25, duration: BEAT * 2 - 0.3, ease: "power2.in" }, B0 + BEAT * 6 + 0.18);
+      tl.fromTo("#build-img1", { scale: 1.1 }, { scale: 1.3, duration: 7.055, ease: "none" }, B0);
+      [[2, 3], [3, 4], [2, 5], [3, 6], [2, 6.5], [3, 7]].forEach(([n, beat]) => {
+        tl.fromTo("#build-img" + n, { opacity: 0.9 }, { opacity: 0, duration: BEAT * 0.45, ease: "power1.in" }, B0 + beat * BEAT);
+      });
+      tl.fromTo("#build-black", { opacity: 0 }, { opacity: 1, duration: 0.1, ease: "none" }, 28.235 - 0.14);
+
+      // End card: final hit.
+      tl.fromTo("#end-flash", { opacity: 1 }, { opacity: 0, duration: 0.4, ease: "power2.out" }, 28.235);
+      tl.fromTo("#end-logo", { scale: 1.7, opacity: 0, filter: "blur(16px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "expo.out" }, 28.235);
+      tl.fromTo("#end-sweep", { x: 0 }, { x: 2900, duration: 0.9, ease: "power2.inOut" }, 28.4);
+      tl.fromTo("#end-cta", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 28.235);
+      tl.fromTo("#end-fine", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 28.3);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
