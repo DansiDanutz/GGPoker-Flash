@@ -4,6 +4,7 @@ import { sound } from '../lib/sound';
 import { useI18n } from '../lib/i18n';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { ensureCurrentVersion } from '../lib/versionCheck';
+import { useIsPhone } from '../lib/useIsPhone';
 
 const UserIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
@@ -42,6 +43,9 @@ export function Login() {
   const { login, register, navigate, toast, brand, demoAccount, enterGuest } = useApp();
   const { lang, setLang, languages } = useI18n();
   const [mode, setMode] = useState<'login' | 'register'>('login');
+  // Phones open on a splash (logo, Join, Log in); the form shows after a choice.
+  const isPhone = useIsPhone();
+  const [phoneForm, setPhoneForm] = useState(false);
   const [loginId, setLoginId] = useState(() => {
     try { return localStorage.getItem('ggpoker.rememberLogin') || ''; } catch { return ''; }
   });
@@ -158,8 +162,11 @@ export function Login() {
   const registering = mode === 'register';
   const openHelp = () => { setHelpOpen(true); sound.play('click', { volume: .4 }); };
 
+  const splash = isPhone && !phoneForm;
+  const openPhoneForm = (next: 'login' | 'register') => { switchMode(next); setPhoneForm(true); sound.play('click', { volume: .4 }); };
+
   return (
-    <div className="login2">
+    <div className={'login2' + (splash ? ' login2-splash' : '')}>
       <h1 className="login2-sr">The table is waiting. Play money poker.</h1>
 
       <header className="login2-top">
@@ -184,6 +191,18 @@ export function Login() {
         </div>
       </header>
 
+      {splash ? (
+        <div className="login2-splash-body">
+          <img className="login2-splash-logo" src={brand.logo} alt="DanGG" />
+          <p className="login2-splash-tag">Play-money poker room</p>
+          <div className="login2-splash-actions">
+            <button type="button" className="login2-splash-join" onClick={() => openPhoneForm('register')}>Join</button>
+            <button type="button" className="login2-splash-login" onClick={() => openPhoneForm('login')}>Log in</button>
+            <button type="button" className="login2-splash-guest" onClick={() => { enterGuest(); navigate('/'); }}>Play as guest</button>
+          </div>
+          <p className="login2-splash-legal">18+ · Play money only · No real-money gambling</p>
+        </div>
+      ) : <>
       <div className="login2-hero" aria-hidden="true" />
 
 
@@ -277,6 +296,7 @@ export function Login() {
           <p className="login2-version">v{APP_VERSION} · build {buildLabel(APP_BUILD)}</p>
         </div>
       </div>
+      </>}
 
       <footer className="login2-foot">
         <button type="button" onClick={() => setLegal('terms')}>Terms</button>

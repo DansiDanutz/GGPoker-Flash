@@ -8,7 +8,7 @@ const read = (file) => fs.readFileSync(path.resolve(import.meta.dirname, '..', f
 test('mobile shell mirrors the measured five-destination navigation', () => {
   const source = read('src/components/MobileNav.tsx');
   const labels = [...source.matchAll(/label: '([^']+)'/g)].map((match) => match[1]);
-  assert.deepEqual(labels, ['Home', 'Events', 'PLAY', 'Casino', 'My Page']);
+  assert.deepEqual(labels, ['Poker', 'Events', 'Home', 'Casino', 'My Page']);
   assert.match(source, /className=\{'mobile-nav-item' \+ \(item\.center \? ' center' : ''\)/);
 });
 

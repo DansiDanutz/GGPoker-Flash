@@ -56,44 +56,44 @@ export function TitleBar({ online, onOpenChat, onOpenSettings, onOpenNotificatio
   return (
     <div className="titlebar">
       <div className="traffic">
-        <button className="r" title="Close" onClick={() => (window as any).ggDesktop?.close()} />
-        <button className="y" title="Minimize" onClick={() => (window as any).ggDesktop?.minimize()} />
-        <button className="g" title="Zoom" onClick={() => (window as any).ggDesktop?.maximize()} />
+        <button className="r" title="Close" aria-label="Close window" onClick={() => (window as any).ggDesktop?.close()} />
+        <button className="y" title="Minimize" aria-label="Minimize window" onClick={() => (window as any).ggDesktop?.minimize()} />
+        <button className="g" title="Zoom" aria-label="Zoom window" onClick={() => (window as any).ggDesktop?.maximize()} />
       </div>
       <div className="online-pill"><span className="dot" />{online.toLocaleString('en-US')} Online</div>
       <div className="spacer" />
       <div className="title-icons">
-        <button className="title-icon" title="Live chat" onClick={() => { sound.play('click'); onOpenChat?.(); }}>
+        <button className="title-icon" title="Live chat" aria-label="Live chat" onClick={() => { sound.play('click'); onOpenChat?.(); }}>
           <Icon name="chat" />
         </button>
-        <button className="title-icon" title="Tournaments" onClick={() => navigate('/tournaments')}>
+        <button className="title-icon" title="Tournaments" aria-label="Tournaments" onClick={() => navigate('/tournaments')}>
           <Icon name="trophy" />
         </button>
-        <button className="title-icon" title="Messages" onClick={() => { onOpenNotifications?.(); }}>
+        <button className="title-icon" title="Messages" aria-label="Messages" onClick={() => { onOpenNotifications?.(); }}>
           <Icon name="mail" />
           {unread > 0 && <span className="badge">{unread}</span>}
         </button>
-        <button className="title-icon" title="Help & info" onClick={() => navigate('/support')}>
+        <button className="title-icon" title="Help & info" aria-label="Help and info" onClick={() => navigate('/support')}>
           <Icon name="info" />
         </button>
-        <button className="title-icon" title="Responsible gaming" onClick={() => navigate('/settings')}>
+        <button className="title-icon" title="Responsible gaming" aria-label="Responsible gaming" onClick={() => navigate('/settings')}>
           <Icon name="shield" />
         </button>
-        <button className="title-icon" title="Connection" onClick={() => navigate('/settings')}>
+        <button className="title-icon" title="Connection" aria-label="Connection status" onClick={() => navigate('/settings')}>
           <Icon name="wifi" />
         </button>
-        <button className="title-icon" title={soundOn ? 'Sound on' : 'Sound off'} onClick={toggleSound} style={{ color: soundOn ? '#9fd8b0' : '#777' }}>
+        <button className="title-icon" aria-label="Toggle sound" title={soundOn ? 'Sound on' : 'Sound off'} onClick={toggleSound} style={{ color: soundOn ? '#9fd8b0' : '#777' }}>
           {soundOn ? '🔊' : '🔇'}
         </button>
-        <button className="lang-chip" onClick={() => setLangOpen(true)} title="Language">{lang.toUpperCase()}</button>
-        <button className="title-icon" title="Settings" onClick={() => { onOpenSettings?.(); navigate('/settings'); }}>
+        <button className="lang-chip" onClick={() => setLangOpen(true)} title="Language" aria-label="Language">{lang.toUpperCase()}</button>
+        <button className="title-icon" title="Settings" aria-label="Settings" onClick={() => { onOpenSettings?.(); navigate('/settings'); }}>
           <Icon name="gear" />
         </button>
       </div>
       {langOpen && (
         <div className="modal-backdrop" style={{ position: 'fixed' }} onClick={() => setLangOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head"><h3>Language</h3><button className="title-icon" onClick={() => setLangOpen(false)}>✕</button></div>
+            <div className="modal-head"><h3>Language</h3><button className="title-icon" aria-label="Close language menu" onClick={() => setLangOpen(false)}>✕</button></div>
             <div className="modal-body">
               <div className="lang-grid">
                 {languages.map((l) => (

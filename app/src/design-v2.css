@@ -84,8 +84,8 @@ body { background: #050706; }
 }
 .promo-wrap {
   margin: 12px 12px 0;
-  height: 156px;
-  flex-basis: 156px;
+  height: 236px;
+  flex-basis: 236px;
   border-radius: 12px;
   border: 1px solid rgba(216, 177, 95, .24);
   box-shadow: 0 18px 48px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255, 255, 255, .05);
@@ -419,13 +419,13 @@ body { background: #050706; }
 .promo-wrap .promo-img.on { opacity: 1; animation: heroDrift 22s ease-in-out infinite alternate; }
 .promo-wrap.paused .promo-img { animation-play-state: paused; }
 .promo-copy {
-  position: absolute; left: 16px; bottom: 14px; z-index: 3;
-  display: flex; flex-direction: column; gap: 2px; max-width: 46%;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, .9);
+  position: absolute; left: 30px; bottom: 40px; z-index: 3;
+  display: flex; flex-direction: column; gap: 7px; max-width: 58%;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .95);
 }
-.promo-copy small { color: rgba(245, 221, 162, .8); font-size: 9px; letter-spacing: 1.7px; font-weight: 800; }
-.promo-copy b { color: #fff7e4; font-size: 19px; line-height: 1.1; font-weight: 800; }
-.promo-copy span { color: rgba(236, 232, 220, .76); font-size: 11px; }
+.promo-copy small { color: rgba(245, 221, 162, .92); font-size: 11px; letter-spacing: 2.2px; font-weight: 800; text-transform: uppercase; }
+.promo-copy b { color: #fff7e4; font-size: clamp(24px, 2.6vw, 40px); line-height: 1.02; font-weight: 900; letter-spacing: -.6px; }
+.promo-copy span { color: rgba(236, 232, 220, .82); font-size: 13px; max-width: 44ch; }
 .promo-arrow {
   position: absolute; top: 50%; z-index: 4; width: 28px; height: 28px; border-radius: 50%;
   transform: translateY(-50%); background: rgba(5, 9, 7, .62); border: 1px solid rgba(245, 221, 162, .22);
@@ -460,12 +460,12 @@ body { background: #050706; }
 .home-promos-head b { font-size: 13px; letter-spacing: .02em; }
 .home-promos-head button { color: #aaa; font-size: 11px; }
 .home-promos-head button:hover { color: #fff; }
-.home-promo-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); gap: 8px; overflow-x: auto; padding: 0 2px 6px; scrollbar-width: thin; }
-.home-promo-card { position: relative; min-height: 82px; overflow: hidden; border: 1px solid rgba(216, 177, 95, .18); border-radius: 8px; text-align: left; background: #111; }
+.home-promo-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(186px, 1fr); gap: 8px; overflow-x: auto; padding: 0 2px 6px; scrollbar-width: thin; }
+.home-promo-card { position: relative; min-height: 144px; overflow: hidden; border: 1px solid rgba(216, 177, 95, .18); border-radius: 8px; text-align: left; background: #111; }
 .home-promo-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0, 0, 0, .92), rgba(0, 0, 0, .08) 75%); }
 .home-promo-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .25s var(--ease); }
 .home-promo-card:hover img { transform: scale(1.04); }
-.home-promo-card > span { position: absolute; z-index: 1; left: 9px; right: 9px; bottom: 7px; display: flex; flex-direction: column; }
+.home-promo-card > span { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 1px; padding: 28px 11px 10px; background: linear-gradient(180deg, transparent, rgba(4, 6, 5, .92) 58%); }
 .home-promo-card b { color: #fff7e4; font-size: 12px; }
 .home-promo-card small { color: #b9b6ae; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-jump { background: radial-gradient(130% 150% at 12% 0%, #3a0d10, #120607 70%); border-color: rgba(229, 57, 53, .45); }
@@ -511,9 +511,10 @@ body { background: #050706; }
 .promo-art-bg { position: absolute; inset: 0; opacity: 0; transition: opacity .65s var(--ease); overflow: hidden; }
 .promo-art-bg.on { opacity: 1; }
 .promo-art-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.45), transparent 65%), linear-gradient(0deg, rgba(0,0,0,.7), transparent 55%); }
-.promo-art { position: absolute; right: 8%; top: 50%; height: 150%; transform: translateY(-50%); opacity: .9; filter: drop-shadow(0 14px 34px rgba(0,0,0,.55)); }
+.promo-wrap .promo-art { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); height: 172px !important; width: 172px !important; object-fit: cover; border-radius: 12px; border: 1px solid rgba(216, 177, 95, .38); box-shadow: 0 20px 44px rgba(0, 0, 0, .62), inset 0 0 0 1px rgba(255, 255, 255, .06); opacity: .98; }
 .promo-art-bg .promo-art { transition: transform .7s var(--ease); }
-.promo-wrap:hover .promo-art-bg.on .promo-art { transform: translateY(-50%) scale(1.03); }
+.promo-art-bg::before { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(4,6,5,.94) 0%, rgba(4,6,5,.6) 40%, transparent 74%); }
+.promo-wrap:hover .promo-art-bg.on .promo-art { transform: translateY(-50%) scale(1.035); }
 .fx-effect {
   position: absolute; inset: 0; z-index: 80; pointer-events: none;
   display: grid; place-items: center; overflow: hidden;
@@ -661,3 +662,14 @@ body { background: #050706; }
 .live-pot .pot-chips.live { position: static; transform: none; margin: 0 0 3px; }
 .live-pot-label { background: rgba(0, 0, 0, .7); border: 1px solid rgba(255, 215, 130, .25); color: #ffe0a0; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .tb-btn .tb-cards { margin-left: 4px; font-size: 11px; color: #ffd27a; }
+
+/* Home is a feed, like the reference client: the game-lobby rail belongs to the game tabs. */
+.lobby-content.is-home .lobby-left { display: none; }
+
+/* Tablet widths keep the hero copy clear of the poster and the CTA. */
+@media (max-width: 1024px) {
+  .promo-wrap .promo-art { display: none; }
+  .promo-badge { display: none; }
+  .promo-copy { max-width: 82%; }
+  .promo-cta { right: 16px; }
+}

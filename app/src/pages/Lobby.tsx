@@ -18,6 +18,10 @@ import { visiblePools } from '../lib/rushPools';
 import { previewSeats } from '../lib/lobbyPreview';
 import { CASHDROP_RULE_LABEL, cashDropRateLabel } from '../lib/cashDrop';
 import { HERO_INTERVAL_MS, HERO_SLIDES, HomeTarget, PROMO_CARDS, stepSlide, suggestedTable } from '../lib/homeContent';
+import { useIsPhone } from '../lib/useIsPhone';
+import { MOBILE_GAMES } from '../lib/mobileLobby';
+import { MobileHome } from '../components/mobile/MobileHome';
+import { MobileBackBar, MobileGameList } from '../components/mobile/MobileGameList';
 
 const PREVIEW_SEATS = [
   { x: 50, y: 8 }, { x: 10, y: 30 }, { x: 90, y: 30 },
@@ -59,10 +63,19 @@ function fmtStakes(t: LobbyTable) {
   return `${money(t.sb, true)} / ${money(t.bb, true)}`;
 }
 
+/** `?game=<tab>` picks a lobby tab; plain `?play=1` means Hold'em (the phone shows its game list first). */
+function playRouteTab(route: string): string | null {
+  const q = new URLSearchParams(route.split('?')[1] || '');
+  const game = q.get('game');
+  if (game && MOBILE_GAMES.some((g) => g.key === game)) return game;
+  return q.get('play') === '1' ? null : 'home';
+}
+
 export function Lobby() {
   const { user, route, navigate, toast, refreshUser, setOpeningTable } = useApp();
+  const isPhone = useIsPhone();
   const [data, setData] = useState<any>(null);
-  const [gameTab, setGameTab] = useState(route.includes('play=1') ? 'holdem' : 'home');
+  const [gameTab, setGameTab] = useState(playRouteTab(route) ?? 'holdem');
   const [selected, setSelected] = useState<string | null>(null);
   const [buyinTable, setBuyinTable] = useState<LobbyTable | null>(null);
   const [buyin, setBuyin] = useState(0);
@@ -127,7 +140,7 @@ export function Lobby() {
   }, [gameTab, promoPaused]);
 
   useEffect(() => {
-    setGameTab(route.includes('play=1') ? 'holdem' : 'home');
+    setGameTab(playRouteTab(route) ?? 'holdem');
   }, [route]);
 
 
@@ -295,19 +308,38 @@ export function Lobby() {
   }
 
   const online = data?.online || 192203;
+  // Phone shell: Home and the Poker game list replace the desktop lobby; a picked game keeps the table list.
+  const phoneView = !isPhone ? null : gameTab === 'home' ? 'home' : playRouteTab(route) === null ? 'games' : 'tables';
+  const pickGame = (tab: string) => { sound.play('click', { volume: .6 }); navigate(`/?play=1&game=${tab}`); };
+  const phoneGameTitle = MOBILE_GAMES.find((g) => g.key === gameTab)?.label || 'Tables';
 
   return (
     <>
-      <TitleBar online={online} unread={user ? 3 : 0} onOpenChat={() => { setChatOpen(true); loadChat(); }} onOpenNotifications={() => setNotifOpen(true)} />
-      <AppHeader online={online} jackpot={data?.jackpot || 199026635} user={user} activeTop="poker" />
-      <GameTabs active={gameTab} onChange={(k) => { setGameTab(k); }} />
-      {(!user) && (
+      {!phoneView && <>
+        <TitleBar online={online} unread={user ? 3 : 0} onOpenChat={() => { setChatOpen(true); loadChat(); }} onOpenNotifications={() => setNotifOpen(true)} />
+        <AppHeader online={online} jackpot={data?.jackpot || 199026635} user={user} activeTop="poker" />
+        <GameTabs active={gameTab} onChange={(k) => { setGameTab(k); }} />
+      </>}
+      {phoneView === 'home' && (
+        <MobileHome
+          tables={data?.tables || []}
+          online={online}
+          jackpot={data?.jackpot || 199026635}
+          jumpBackIn={jumpBackIn}
+          gameLabel={(t) => GAME_LABEL[t.game]}
+          onJoin={openJoin}
+          onTarget={(target) => ('tab' in target ? pickGame(target.tab) : openHomeTarget(target))}
+        />
+      )}
+      {phoneView === 'games' && <MobileGameList tables={data?.tables || []} onPick={pickGame} />}
+      {phoneView === 'tables' && <MobileBackBar title={phoneGameTitle} onBack={() => navigate('/?play=1')} />}
+      {(!user) && (!phoneView || phoneView === 'tables') && (
         <div style={{ background: '#141414', borderBottom: '1px solid #2a2a2a', padding: '6px 14px', fontSize: 12.5, color: '#e6e6e6', display: 'flex', alignItems: 'center', gap: 12 }}>
           <b>You are browsing as guest.</b> Log in to keep your balance, rewards and hand history.
           <button className="btn btn-red btn-sm" style={{ marginLeft: 'auto' }} onClick={() => navigate('/login')}>Log in / Sign up</button>
         </div>
       )}
-      <div className="lobby-content">
+      {(!phoneView || phoneView === 'tables') && <div className={'lobby-content' + (gameTab === 'home' ? ' is-home' : '')}>
         <aside className="lobby-left" aria-label="Poker navigation">
           <div className="ll-label">POKER</div>
           <button className="ll-item on" aria-current="page" onClick={() => navigate('/')}><span className="ll-mark" />Game Lobby</button>
@@ -353,12 +385,6 @@ export function Lobby() {
                   <img className="promo-art" src={slide.art} alt="" />
                 </div>
               ))}
-              {promoIdx === 0 && user && (
-                <div className="home-hero-avatar" aria-label={`${user.nick}'s avatar`}>
-                  <Avatar name={user.nick} src={user.avatar} size={120} />
-                  <span>Welcome back, <b>{user.nick}</b></span>
-                </div>
-              )}
               <span className="promo-badge">FEATURED</span>
               <div className="promo-copy">
                 <small>{HERO_SLIDES[promoIdx].kicker}</small>
@@ -499,7 +525,7 @@ export function Lobby() {
           <div style={{ flex: 1 }} />
           <button className="rail-btn gold tone-gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>DanGG Pass</button>
         </div>
-      </div>
+      </div>}
 
       {rushInfoOpen && <RushInfoDialog cashDrop={data?.rushCashDrop} onClose={() => setRushInfoOpen(false)} />}
 
