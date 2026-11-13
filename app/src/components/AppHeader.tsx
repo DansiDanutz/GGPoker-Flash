@@ -41,8 +41,11 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
   );
 }
 
-const TABS = [
-  { key: 'home', label: 'Home', img: 'tab_home', w: 141 },
+type GameTab = { key: string; label: string; img: string; w: number; activeImg?: string };
+
+// Home uses Dan's own plates: dark when idle, red when selected (no generated label plate).
+const TABS: readonly GameTab[] = [
+  { key: 'home', label: 'Home', img: 'tab_home', w: 172, activeImg: 'tab_home_active' },
   { key: 'aof', label: 'All-in or Fold', img: 'tab_aof', w: 135 },
   { key: 'rush', label: 'Fast Fold', img: 'tab_rush', w: 134 },
   { key: 'holdem', label: "Hold'em", img: 'tab_holdem', w: 135 },
@@ -55,18 +58,23 @@ const TABS = [
 export function GameTabs({ active, onChange }: { active: string; onChange: (key: string) => void }) {
   return (
     <div className="game-tabs">
-      {TABS.map((t) => (
-        <button
-          key={t.key}
-          className={'game-tab' + (active === t.key ? ' active' : '')}
-          style={{ width: t.w }}
-          onClick={() => { sound.play('click', { volume: .5 }); onChange(t.key); }}
-          title={t.label}
-        >
-          <img src={`/assets/chrome/${t.img}.png?v=6`} alt={t.label} style={{ opacity: active === t.key && t.key !== 'holdem' ? .0001 : 1 }} />
-          {active === t.key && t.key !== 'holdem' && <span className="active-plate">{t.label}</span>}
-        </button>
-      ))}
+      {TABS.map((t) => {
+        const isActive = active === t.key;
+        const img = isActive && t.activeImg ? t.activeImg : t.img;
+        const showPlate = isActive && !t.activeImg && t.key !== 'holdem';
+        return (
+          <button
+            key={t.key}
+            className={'game-tab' + (isActive ? ' active' : '') + (t.activeImg ? ' plate-tab' : '')}
+            style={{ width: t.w }}
+            onClick={() => { sound.play('click', { volume: .5 }); onChange(t.key); }}
+            title={t.label}
+          >
+            <img src={`/assets/chrome/${img}.png?v=7`} alt={t.label} style={{ opacity: showPlate ? .0001 : 1 }} />
+            {showPlate && <span className="active-plate">{t.label}</span>}
+          </button>
+        );
+      })}
       <div className="spacer" />
     </div>
   );

@@ -61,6 +61,7 @@ import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from '.
 import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
 import { JACKPOT_SEED, jackpotAccrual } from './badBeat.js';
 import { countOnline, createPresence } from './online-count.js';
+import { parseByteRange } from './byte-range.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -270,22 +271,32 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
-  '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
+  '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
   '.ico': 'image/x-icon', '.wasm': 'application/wasm',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
 
-function serveFile(res, file) {
+function serveFile(req, res, file) {
   const ext = path.extname(file).toLowerCase();
   const stat = fs.statSync(file);
-  res.writeHead(200, {
+  const headers = {
     ...SECURITY_HEADERS,
     ...(ext === '.html' ? { 'content-security-policy': HTML_CSP } : {}),
     'content-type': MIME[ext] || 'application/octet-stream',
-    'content-length': stat.size,
+    'accept-ranges': 'bytes',
     // The service worker must be revalidated so a deploy can replace it.
     'cache-control': ext === '.html' || path.basename(file) === 'sw.js' ? 'no-store' : 'public, max-age=3600',
-  });
+  };
+  const range = ext === '.html' ? null : parseByteRange(req.headers.range, stat.size);
+  if (range === 'unsatisfiable') {
+    res.writeHead(416, { ...headers, 'content-range': `bytes */${stat.size}`, 'content-length': 0 });
+    return res.end();
+  }
+  if (range) {
+    res.writeHead(206, { ...headers, 'content-range': `bytes ${range.start}-${range.end}/${stat.size}`, 'content-length': range.end - range.start + 1 });
+    return fs.createReadStream(file, range).pipe(res);
+  }
+  res.writeHead(200, { ...headers, 'content-length': stat.size });
   fs.createReadStream(file).pipe(res);
 }
 
@@ -2904,7 +2915,7 @@ const server = http.createServer(async (req, res) => {
       else if (!path.extname(p)) file = path.join(DIST, 'index.html');
     }
     if (!file && fs.existsSync(path.join(PUBLIC, 'index.html'))) file = path.join(PUBLIC, 'index.html');
-    if (file && fs.existsSync(file)) return serveFile(res, file);
+    if (file && fs.existsSync(file)) return serveFile(req, res, file);
     res.writeHead(404, { 'content-type': 'text/plain' });
     res.end('Not found');
   } catch (err) {
