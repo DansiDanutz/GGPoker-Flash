@@ -27,7 +27,7 @@ import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
 import { ensureWaitlistTable, loadWaitlist, saveWaitlist } from './waitlist-store.js';
-import { botFillCount, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, waitingFor } from './bot-seats.js';
+import { ensureBots, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, waitingFor } from './bot-seats.js';
 import { staleHandError } from './action-version.js';
 import { waitingForTable } from './sitOut.js';
 import { RESERVATION_KINDS, pendingLeaves, sitOutEverywhere } from './reservations.js';
@@ -325,6 +325,10 @@ function lobbyTables(userId = null) {
   // Battle Royale is capture-gated (B0): never listed for join, even if a row is re-enabled.
   const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND game != ? AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(BATTLE_ROYALE_GAME, userId);
   return rows.map((t) => {
+    if (!t.private) {
+      const table = getLiveTable(t.id);
+      if (table) ensureBots(table, waitingFor(waitState, table.cfg), false);
+    }
     // Real seats from the live table (bots included, and reported as `bots`); 0 when not running.
     const { players, bots, seated } = occupancyOf(LIVE_TABLES.get(t.id)?.table);
     const stats = TABLE_STATS(t.id);
@@ -3062,8 +3066,7 @@ wss.on('connection', (ws, req) => {
       }
       // Fill part of the table with bots, always leaving the choice of seats to humans; no
       // bot sits down while anyone is waiting for this table or its group.
-      const bots = botFillCount(table, waitingFor(waitState, table.cfg));
-      if (bots) table.fillBots(bots);
+      ensureBots(table, waitingFor(waitState, table.cfg));
       entry.clients.add(ws);
       ws.tables.add(msg.tableId);
       table.maybeStart();

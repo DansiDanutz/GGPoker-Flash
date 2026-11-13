@@ -12,7 +12,7 @@
  */
 import * as waitlist from './waitlist.js';
 
-/** Bots seeded next to a human: half the table (at least 3), never more than the free seats. */
+/** Keep a small bot pool ready: half the table (at least 3), never more than the free seats. */
 const BOT_FILL_SHARE = 0.5;
 const BOT_FILL_MIN = 3;
 
@@ -38,9 +38,17 @@ export function waitingFor(state, cfg) {
 
 /** How many bots may sit down now; zero while any human is waiting. */
 export function botFillCount(table, waiting) {
-  if (table.tournament || waiting > 0) return 0;
+  if (!isCashTable(table) || waiting > 0) return 0;
   const free = Math.max(0, table.cfg.seats - table.occupiedSeats().length);
-  return Math.min(free, Math.max(BOT_FILL_MIN, Math.ceil(table.cfg.seats * BOT_FILL_SHARE)));
+  const bots = table.occupiedSeats().filter((seat) => seat.player.isBot).length;
+  const target = Math.max(BOT_FILL_MIN, Math.ceil(table.cfg.seats * BOT_FILL_SHARE));
+  return Math.min(free, Math.max(0, target - bots));
+}
+
+/** Add only the missing bots. Safe to call on every lobby refresh or join. */
+export function ensureBots(table, waiting, start = true) {
+  const count = botFillCount(table, waiting);
+  return count ? table.fillBots(count, start) : 0;
 }
 
 /**

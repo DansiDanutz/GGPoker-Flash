@@ -290,7 +290,7 @@ export class PokerTable {
     return { ok: true, stack: p.stack };
   }
 
-  fillBots(count) {
+  fillBots(count, start = true) {
     // Seat everyone first so the opening hand is dealt to the whole table, not just the first two.
     this.holdStart = true;
     let added = 0;
@@ -307,7 +307,7 @@ export class PokerTable {
       }
     }
     this.holdStart = false;
-    this.maybeStart();
+    if (start) this.maybeStart();
     return added;
   }
 
