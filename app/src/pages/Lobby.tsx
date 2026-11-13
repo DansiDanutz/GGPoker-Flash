@@ -17,13 +17,7 @@ import { SpinInfoPanel } from '../components/SpinInfoPanel';
 import { visiblePools } from '../lib/rushPools';
 import { previewSeats } from '../lib/lobbyPreview';
 import { CASHDROP_RULE_LABEL, cashDropRateLabel } from '../lib/cashDrop';
-
-const PROMOS = [
-  { full: true, title: 'Daily Chip Flipout', sub: 'Daily jackpots · 6/9-max tables', to: '/tournaments' },
-  { img: '/assets/ui/discover/Bg_Discover_AoF.png', bg: 'radial-gradient(120% 160% at 18% 10%, #3c1b17, #150c0b 68%)', title: 'All-in or Fold', sub: 'One decision. Fast action.', to: '/?tab=aof' },
-  { img: '/assets/ui/discover/Bg_Discover_Leaderboard_PLO6.png', bg: 'radial-gradient(120% 160% at 15% 10%, #1a2740, #0a111d 70%)', title: 'PLO6 is live', sub: 'Six cards. Six-max. More outs.', to: '/?tab=plo' },
-  { img: '/assets/ui/discover/Bg_Discover_GGcare.png', bg: 'radial-gradient(120% 160% at 18% 10%, #3a2a12, #140f08 70%)', title: 'Player Care', sub: 'Daily rewards and community drops', to: '/ggcare' },
-];
+import { HERO_INTERVAL_MS, HERO_SLIDES, HomeTarget, PROMO_CARDS, stepSlide, suggestedTable } from '../lib/homeContent';
 
 const PREVIEW_SEATS = [
   { x: 50, y: 8 }, { x: 10, y: 30 }, { x: 90, y: 30 },
@@ -66,9 +60,9 @@ function fmtStakes(t: LobbyTable) {
 }
 
 export function Lobby() {
-  const { user, navigate, toast, refreshUser, setOpeningTable, brand } = useApp();
+  const { user, navigate, toast, refreshUser, setOpeningTable } = useApp();
   const [data, setData] = useState<any>(null);
-  const [gameTab, setGameTab] = useState('holdem');
+  const [gameTab, setGameTab] = useState('home');
   const [selected, setSelected] = useState<string | null>(null);
   const [buyinTable, setBuyinTable] = useState<LobbyTable | null>(null);
   const [buyin, setBuyin] = useState(0);
@@ -126,6 +120,12 @@ export function Lobby() {
     return () => { if (timer.current) window.clearInterval(timer.current); };
   }, []);
 
+  useEffect(() => {
+    if (gameTab !== 'home' || promoPaused) return;
+    const id = window.setInterval(() => setPromoIdx((i) => stepSlide(i, 1, HERO_SLIDES.length)), HERO_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [gameTab, promoPaused]);
+
 
   const tables: LobbyTable[] = useMemo(() => {
     if (!data) return [];
@@ -151,6 +151,14 @@ export function Lobby() {
       localStorage.setItem('ggpoker.favs', JSON.stringify(next));
       return next;
     });
+  };
+
+  const jumpBackIn = useMemo(() => (data ? suggestedTable<LobbyTable>(data.tables) : null), [data]);
+
+  const openHomeTarget = (target: HomeTarget) => {
+    sound.play('click', { volume: .6 });
+    if ('tab' in target) setGameTab(target.tab);
+    else navigate(target.route);
   };
 
   const openHost = async () => {
@@ -323,34 +331,62 @@ export function Lobby() {
               </div>
             </div>
           )}
-          <div
-            className={'promo-wrap' + (PROMOS[promoIdx]?.full ? ' full-art' : '') + (promoPaused ? ' paused' : '') + (gameTab === 'rush' ? ' rush-hidden' : '')}
-            onMouseEnter={() => setPromoPaused(true)}
-            onMouseLeave={() => setPromoPaused(false)}
-            onClick={() => { sound.play('click'); navigate(PROMOS[promoIdx]?.to || '/promotions'); }}
-          >
-            {PROMOS.map((p, i) => p.full ? (
-              <img key={`promo-${i}`} className={'promo-img' + (i === promoIdx ? ' on' : '')} src={brand.promo} alt={p.title} />
-            ) : (
-              <div key={p.img} className={'promo-art-bg' + (i === promoIdx ? ' on' : '')} style={{ background: p.bg }}>
-                <img className="promo-art" src={p.img} alt="" />
-              </div>
-            ))}
-            <span className="promo-badge">FEATURED</span>
-            <div className="promo-copy">
-              <small>PROMOTION</small>
-              <b>{PROMOS[promoIdx]?.title}</b>
-              <span>{PROMOS[promoIdx]?.sub}</span>
-            </div>
-            <span className="promo-cta">Discover <span>→</span></span>
-            <button className="promo-arrow prev" aria-label="Previous promotion" onClick={(e) => { e.stopPropagation(); setPromoIdx((i) => (i - 1 + PROMOS.length) % PROMOS.length); }}>‹</button>
-            <button className="promo-arrow next" aria-label="Next promotion" onClick={(e) => { e.stopPropagation(); setPromoIdx((i) => (i + 1) % PROMOS.length); }}>›</button>
-            <div className="promo-dots">
-              {PROMOS.map((p, i) => (
-                <button key={`dot-${i}`} className={i === promoIdx ? 'on' : ''} aria-label={`Show ${p.title}`} onClick={(e) => { e.stopPropagation(); setPromoIdx(i); }} />
+          {gameTab === 'home' && <>
+            <div
+              className={'promo-wrap' + (promoPaused ? ' paused' : '')}
+              role="button"
+              tabIndex={0}
+              aria-label={`${HERO_SLIDES[promoIdx].title}: ${HERO_SLIDES[promoIdx].cta}`}
+              onMouseEnter={() => setPromoPaused(true)}
+              onMouseLeave={() => setPromoPaused(false)}
+              onFocusCapture={() => setPromoPaused(true)}
+              onBlurCapture={() => setPromoPaused(false)}
+              onClick={() => openHomeTarget(HERO_SLIDES[promoIdx].target)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openHomeTarget(HERO_SLIDES[promoIdx].target); } }}
+            >
+              {HERO_SLIDES.map((slide, i) => (
+                <div key={slide.key} className={'promo-art-bg' + (i === promoIdx ? ' on' : '')} style={{ background: slide.bg }}>
+                  <img className="promo-art" src={slide.art} alt="" />
+                </div>
               ))}
+              {promoIdx === 0 && user && (
+                <div className="home-hero-avatar" aria-label={`${user.nick}'s avatar`}>
+                  <Avatar name={user.nick} src={user.avatar} size={120} />
+                  <span>Welcome back, <b>{user.nick}</b></span>
+                </div>
+              )}
+              <span className="promo-badge">FEATURED</span>
+              <div className="promo-copy">
+                <small>{HERO_SLIDES[promoIdx].kicker}</small>
+                <b>{HERO_SLIDES[promoIdx].title}</b>
+                <span>{HERO_SLIDES[promoIdx].sub}</span>
+              </div>
+              <span className="promo-cta">{HERO_SLIDES[promoIdx].cta} <span>→</span></span>
+              <button className="promo-arrow prev" aria-label="Previous promotion" onClick={(e) => { e.stopPropagation(); setPromoIdx((i) => stepSlide(i, -1, HERO_SLIDES.length)); }}>‹</button>
+              <button className="promo-arrow next" aria-label="Next promotion" onClick={(e) => { e.stopPropagation(); setPromoIdx((i) => stepSlide(i, 1, HERO_SLIDES.length)); }}>›</button>
+              <div className="promo-dots">
+                {HERO_SLIDES.map((slide, i) => (
+                  <button key={slide.key} className={i === promoIdx ? 'on' : ''} aria-label={`Show ${slide.title}`} onClick={(e) => { e.stopPropagation(); setPromoIdx(i); }} />
+                ))}
+              </div>
             </div>
-          </div>
+            <section className="home-promos" aria-labelledby="home-promos-title">
+              <div className="home-promos-head"><b id="home-promos-title">For You</b><button onClick={() => navigate('/promotions')}>View all</button></div>
+              <div className="home-promo-row">
+                {jumpBackIn && (
+                  <button className="home-promo-card home-jump" onClick={() => openJoin(jumpBackIn)}>
+                    <span><small className="home-jump-kicker">Jump back in</small><b>{jumpBackIn.name}</b><small>{GAME_LABEL[jumpBackIn.game]} · {fmtStakes(jumpBackIn)} · {jumpBackIn.players}/{jumpBackIn.seats} seated</small></span>
+                  </button>
+                )}
+                {PROMO_CARDS.map((card) => (
+                  <button key={card.key} className="home-promo-card" onClick={() => openHomeTarget(card.target)}>
+                    <img src={card.art} alt="" />
+                    <span><b>{card.title}</b><small>{card.sub}</small></span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </>}
           <div className="filter-bar">
             {!pillsFor(gameTab).length && <span className="filter-label">Tables</span>}
             <LobbyPills tab={gameTab} value={filters.pill} onChange={(pill) => setFilter({ pill })} />
