@@ -7,6 +7,7 @@ import { I18nProvider } from './lib/i18n';
 import { VersionGate } from './components/VersionGate';
 import './styles.css';
 import './design-v2.css';
+import './vivid.css';
 import './responsive.css';
 import './lobby-filters.css';
 import './tournament-filters.css';

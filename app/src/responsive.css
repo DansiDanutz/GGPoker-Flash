@@ -148,8 +148,8 @@ body.electron .app-window::before { display: none; }
   .app-content { padding-bottom: 62px; }
   .mobile-nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
-    display: grid; grid-template-columns: repeat(6, 1fr);
-    height: 60px; padding-bottom: env(safe-area-inset-bottom, 0);
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    height: calc(60px + env(safe-area-inset-bottom, 0)); padding-bottom: env(safe-area-inset-bottom, 0);
     background: rgba(7, 12, 10, .97); border-top: 1px solid rgba(216, 177, 95, .2);
     backdrop-filter: blur(16px); box-shadow: 0 -10px 30px rgba(0, 0, 0, .4);
   }
@@ -169,7 +169,7 @@ body.electron .app-window::before { display: none; }
   .lobby-content { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .lobby-main { flex: 1 1 auto; min-height: 0; }
   .list-scroll { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-  .promo-wrap { height: 122px; flex-basis: 122px; margin: 8px 8px 0; }
+  .promo-wrap { height: clamp(150px, 43vw, 188px); flex-basis: clamp(150px, 43vw, 188px); margin: 8px 8px 0; }
   .promo-copy { left: 10px; bottom: 10px; max-width: 62%; }
   .promo-copy b { font-size: 15px; }
   .promo-copy span { font-size: 9.5px; }
