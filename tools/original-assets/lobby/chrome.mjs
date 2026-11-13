@@ -1,47 +1,7 @@
-// Lobby chrome: game-type tab plates, the jackpot ticker banner, the header promo banner
-// and the gem-sale splash. Tab labels are baked into the images (AppHeader renders <img>).
+// Lobby chrome: the jackpot ticker banner, the header promo banner and the gem-sale splash.
+// The game tab plates (chrome/tab_*.png) are Dan's own artwork and are not generated here.
 import { renderPng } from '../render.mjs';
 import { FONT, PALETTE, svg, card, cardDefs, chipStack, chipDefs, chipTop, dust, gem, sparkle } from './shared.mjs';
-
-/** [file, width, label, icon, [light, deep]]: labels are neutral DanGG names; each game
- *  has its own bright colour pair, matched by the lobby row stripes in app/src/vivid.css. */
-// tab_home*.png and tab_aof*.png are Dan's own plates (idle + active), not generated here.
-const TABS = Object.freeze([
-  ['tab_rush', 134, 'Fast Fold', 'fast', ['#8ff5ea', '#14c2b2']],
-  ['tab_holdem', 135, "Hold'em", 'spade', ['#a6ff9e', '#2fcf3f']],
-  ['tab_plo', 135, 'PLO', 'diamond', ['#b8ddff', '#3f9cff']],
-  ['tab_short', 135, 'Short Deck', 'club', ['#ffc27a', '#ff6a2e']],
-  ['tab_spin', 134, 'Jackpot SNG', 'star', ['#fff0a0', '#ffb21f']],
-  ['tab_battle', 135, 'Battle Royale', 'crown', ['#e6c2ff', '#a24dff']],
-]);
-
-const ICONS = Object.freeze({
-  fast: '<path d="M2 4L10 10L2 16Z M9 4L17 10L9 16Z"/>',
-  spade: '<text x="10" y="16.5" text-anchor="middle" font-size="19" font-family="Georgia">♠</text>',
-  diamond: '<path d="M10 1L17 10L10 19L3 10Z"/>',
-  club: '<text x="10" y="16.5" text-anchor="middle" font-size="19" font-family="Georgia">♣</text>',
-  star: '<path d="M10 1L12.6 7.2L19 7.6L14 11.8L15.6 18.4L10 14.8L4.4 18.4L6 11.8L1 7.6L7.4 7.2Z"/>',
-  crown: '<path d="M2 16L1 5L6.5 9.5L10 2.5L13.5 9.5L19 5L18 16Z"/>',
-});
-
-function tabHtml(w, label, icon, [light, deep]) {
-  const size = label.length > 10 ? 12.5 : 15;
-  return `<div style="position:absolute;inset:2px 2px 3px;border-radius:7px;background:linear-gradient(180deg,#2c2c2c 0%,#1a1a1a 50%,#0e0e0e 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -1px 0 rgba(0,0,0,.6),0 1px 2px rgba(0,0,0,.7);border:1px solid #3a3a3a;
-    display:flex;align-items:center;justify-content:center;gap:6px;font-family:${FONT.display};">
-    <svg width="17" height="17" viewBox="0 0 20 20" fill="${deep}" style="flex:none;filter:drop-shadow(0 0 4px ${deep}88) drop-shadow(0 1px 0 #000)">${ICONS[icon]}</svg>
-    <span style="font-size:${size}px;font-weight:800;white-space:nowrap;letter-spacing:.2px;color:transparent;
-      background:linear-gradient(180deg,${light},${deep} 75%);-webkit-background-clip:text;background-clip:text;
-      filter:drop-shadow(0 1px 0 rgba(0,0,0,.9)) drop-shadow(0 0 6px ${deep}55)">${label}</span>
-    <div style="position:absolute;left:10%;right:10%;top:2px;height:1px;background:linear-gradient(90deg,transparent,${light}66,transparent)"></div>
-  </div>`;
-}
-
-async function renderTabs() {
-  const out = [];
-  for (const [file, w, label, icon, colors] of TABS) out.push(await renderPng(`chrome/${file}.png`, tabHtml(w, label, icon, colors), w, 50));
-  return out;
-}
 
 function jackpotSvg() {
   const w = 324;
@@ -137,7 +97,7 @@ function splashSvg() {
 }
 
 export async function renderChrome() {
-  const out = await renderTabs();
+  const out = [];
   out.push(await renderPng('chrome/jackpot.png', jackpotSvg(), 324, 51));
   out.push(await renderPng('chrome/promo.png', promoSvg(), 845, 143));
   out.push(await renderPng('chrome/splash.png', splashSvg(), 800, 481));

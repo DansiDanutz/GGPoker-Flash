@@ -41,41 +41,39 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
   );
 }
 
-type GameTab = { key: string; label: string; img: string; w: number; activeImg?: string };
+type GameTab = { key: string; label: string; img: string };
 
-// Home and All-in or Fold use Dan's own plates: dark when idle, red when selected. The red
-// plate crossfades in on click and back out when another tab is chosen (vivid.css).
+/** Tab plate width in px; Dan's plates are 330x100 (2x), fitted inside the tab. */
+const TAB_WIDTH = 156;
+
+// Every game tab is Dan's own plate: dark when idle, `${img}_active` (red) when selected.
+// The red plate crossfades in on click and back out when another tab is chosen (vivid.css).
 const TABS: readonly GameTab[] = [
-  { key: 'home', label: 'Home', img: 'tab_home', w: 172, activeImg: 'tab_home_active' },
-  { key: 'aof', label: 'All-in or Fold', img: 'tab_aof', w: 172, activeImg: 'tab_aof_active' },
-  { key: 'rush', label: 'Fast Fold', img: 'tab_rush', w: 134 },
-  { key: 'holdem', label: "Hold'em", img: 'tab_holdem', w: 135 },
-  { key: 'plo', label: 'PLO', img: 'tab_plo', w: 135 },
-  { key: 'short', label: 'Short Deck', img: 'tab_short', w: 135 },
-  { key: 'spin', label: 'Jackpot SNG', img: 'tab_spin', w: 134 },
-  { key: 'battle', label: 'Battle Royale', img: 'tab_battle', w: 135 },
+  { key: 'home', label: 'Home', img: 'tab_home' },
+  { key: 'aof', label: 'All-in or Fold', img: 'tab_aof' },
+  { key: 'rush', label: 'Rush & Cash', img: 'tab_rush' },
+  { key: 'holdem', label: "Hold'em", img: 'tab_holdem' },
+  { key: 'plo', label: 'PLO', img: 'tab_plo' },
+  { key: 'short', label: 'Short Deck', img: 'tab_short' },
+  { key: 'spin', label: 'Spin & Gold', img: 'tab_spin' },
+  { key: 'battle', label: 'Mystery Battle Royale', img: 'tab_battle' },
 ];
 
 export function GameTabs({ active, onChange }: { active: string; onChange: (key: string) => void }) {
   return (
     <div className="game-tabs">
-      {TABS.map((t) => {
-        const isActive = active === t.key;
-        const showPlate = isActive && !t.activeImg && t.key !== 'holdem';
-        return (
-          <button
-            key={t.key}
-            className={'game-tab' + (isActive ? ' active' : '') + (t.activeImg ? ' plate-tab' : '')}
-            style={{ width: t.w }}
-            onClick={() => { sound.play('click', { volume: .5 }); onChange(t.key); }}
-            title={t.label}
-          >
-            <img src={`/assets/chrome/${t.img}.png?v=8`} alt={t.label} style={{ opacity: showPlate ? .0001 : 1 }} />
-            {t.activeImg && <img className="plate-on" src={`/assets/chrome/${t.activeImg}.png?v=8`} alt="" aria-hidden="true" />}
-            {showPlate && <span className="active-plate">{t.label}</span>}
-          </button>
-        );
-      })}
+      {TABS.map((t) => (
+        <button
+          key={t.key}
+          className={'game-tab plate-tab' + (active === t.key ? ' active' : '')}
+          style={{ width: TAB_WIDTH }}
+          onClick={() => { sound.play('click', { volume: .5 }); onChange(t.key); }}
+          title={t.label}
+        >
+          <img src={`/assets/chrome/${t.img}.png?v=9`} alt={t.label} />
+          <img className="plate-on" src={`/assets/chrome/${t.img}_active.png?v=9`} alt="" aria-hidden="true" />
+        </button>
+      ))}
       <div className="spacer" />
     </div>
   );
