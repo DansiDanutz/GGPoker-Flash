@@ -20,7 +20,7 @@ A 42.353 s seamless loop: 12 bars at 68 BPM in B minor, mastered to −14 LUFS. 
 
 `build/` holds the scripts that made the loop. They build it from the Apple Loops library installed with GarageBand/Logic, in `/Library/Audio/Apple Loops/Apple`. The raw loops are not redistributed here.
 
-They need Python 3 with `numpy`, `soundfile` and `scipy`, plus `ffmpeg` and `rubberband` on the PATH.
+They need Python 3 with `numpy`, `scipy`, `soundfile` and `librosa`, plus `ffmpeg` and `rubberband` on the PATH.
 
 ```bash
 python make_lobby_loop.py <work_dir> <out_prefix>
