@@ -1,3 +1,14 @@
+## 2026-11-14 — Casino / Slots catalogue, round 3
+
+- Slots becomes a catalogue: category chips, top-win / your-best / freebie cards, a
+  biggest-wins ticker and an "Only on DanGG" grid with a featured tile.
+- Six real playable games with their own weights, paytables and bet ladders
+  (`server/slots.js`), verified RTP 0.925-0.969 by simulation (`tools/slot-rtp.mjs`).
+- `POST /api/games/slot` takes `game`; `GET /api/games/slots` and
+  `GET /api/games/winners` are new.
+- Casino hub gains category chips, a three-slide hero carousel and the winners ticker.
+- Phone Casino hub gains the winners strip and a slots catalogue entry card.
+
 ## 2026-11-14 — Home parity, round 2
 
 - Wide 1200x236 SVG hero key art per campaign (`tools/hero-art.mjs`); the desktop

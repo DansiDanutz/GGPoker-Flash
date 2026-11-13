@@ -254,3 +254,18 @@
   .mh-jackpot b { font-size: 26px; }
   .mh-jackpot span { font-size: 11px; }
 }
+
+/* ---- Casino phone hub: winners strip + slots catalogue entry ---- */
+.mc .slots-ticker { margin: 14px var(--ph-pad) 4px; height: 34px; }
+.mc .slots-ticker-item { font-size: 13px; }
+.mc-feature {
+  display: flex; align-items: center; gap: 14px; margin: 12px var(--ph-pad) 6px; padding: 12px;
+  border: 1px solid rgba(242, 196, 92, .32); border-radius: 14px; text-align: left;
+  background: radial-gradient(220px 140px at 18% 0%, rgba(242, 196, 92, .18), transparent 70%), #161618;
+}
+.mc-feature img { width: 86px; height: 108px; border-radius: 10px; object-fit: cover; border: 1px solid rgba(242, 196, 92, .3); }
+.mc-feature span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mc-feature small { color: var(--ph-gold); font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.mc-feature b { color: #fff; font-size: 19px; line-height: 1.1; }
+.mc-feature em { color: #b9b6ae; font-size: 13px; font-style: normal; }
+.mc-feature i { margin-top: 4px; color: var(--ph-gold); font-size: 13px; font-style: normal; font-weight: 700; }
