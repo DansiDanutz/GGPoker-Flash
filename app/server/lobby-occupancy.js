@@ -20,3 +20,22 @@ export function occupancyOf(table) {
     .map((s) => ({ seat: s.index, nick: s.player.nick, stack: Number(s.player.stack) || 0, bot: !!s.player.isBot }));
   return { players: seated.length, bots: seated.filter((s) => s.bot).length, seated };
 }
+
+function hash(str) {
+  let value = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    value ^= str.charCodeAt(i);
+    value = Math.imul(value, 16777619);
+  }
+  return Math.abs(value);
+}
+
+/** Preserve the original lobby demo counts until a table has real live occupancy. */
+export function lobbyOccupancy(table, cfg) {
+  if (table) return occupancyOf(table);
+  const value = hash(cfg.id + cfg.name);
+  let players = 1 + (value % cfg.seats);
+  if (value % 5 === 0) players = cfg.seats;
+  if (cfg.game === 'spingold') players = 1 + (value % 2);
+  return { players, bots: 0, seated: [] };
+}

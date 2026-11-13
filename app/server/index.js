@@ -36,7 +36,7 @@ import { createTableStats } from './table-stats.js';
 import { createDailyLeaderboard, leaderboardStake, pointEarners } from './dailyLeaderboard.js';
 import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
 import { createPlayerNotes } from './player-notes.js';
-import { occupancyOf } from './lobby-occupancy.js';
+import { lobbyOccupancy } from './lobby-occupancy.js';
 import { checkDeposit, depositedToday, depositLimits, rebuyReference } from './play-money.js';
 import { loadTimeBank, saveTimeBank } from './time-bank-store.js';
 import { spinInfo } from './spin.js';
@@ -325,8 +325,8 @@ function lobbyTables(userId = null) {
   // Battle Royale is capture-gated (B0): never listed for join, even if a row is re-enabled.
   const rows = db.prepare('SELECT * FROM tables WHERE enabled = 1 AND game != ? AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY sort ASC').all(BATTLE_ROYALE_GAME, userId);
   return rows.map((t) => {
-    // Real seats from the live table (bots included, and reported as `bots`); 0 when not running.
-    const { players, bots, seated } = occupancyOf(LIVE_TABLES.get(t.id)?.table);
+    // Keep the original demo counts until a live table can provide real seat occupancy.
+    const { players, bots, seated } = lobbyOccupancy(LIVE_TABLES.get(t.id)?.table, t);
     const stats = TABLE_STATS(t.id);
     return {
       id: t.id, name: t.name, game: t.game, category: t.category,

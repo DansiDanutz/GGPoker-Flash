@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { backfillWelcomeClaims, migrateIdentity, migrateNoteTargets } from './identity-migrations.js';
 import { checkDeposit, cleanIdempotencyKey, depositLimits, rebuyReference, utcDayStart } from './play-money.js';
-import { occupancyOf } from './lobby-occupancy.js';
+import { lobbyOccupancy, occupancyOf } from './lobby-occupancy.js';
 import { playerHud, seatVpips } from './table-stats.js';
 import { loadTimeBank, saveTimeBank } from './time-bank-store.js';
 import { createPlayerNotes } from './player-notes.js';
@@ -86,6 +86,15 @@ test('occupancyOf counts seated players and bots from the live table', () => {
     players: 2, bots: 1,
     seated: [{ seat: 0, nick: 'Ann', stack: 5000, bot: false }, { seat: 3, nick: 'Bot', stack: 4000, bot: true }],
   });
+});
+
+test('lobbyOccupancy restores stable demo counts only until a table is live', () => {
+  const cfg = { id: 'bronze-1', name: 'Bronze 1', game: 'holdem', seats: 6 };
+  const first = lobbyOccupancy(null, cfg);
+  assert.ok(first.players >= 1 && first.players <= 6);
+  assert.deepEqual(lobbyOccupancy(null, cfg), first, 'the demo count is stable across polls');
+  assert.deepEqual(lobbyOccupancy({ occupiedSeats: () => [] }, cfg), { players: 0, bots: 0, seated: [] }, 'real occupancy wins once the table is live');
+  assert.ok(lobbyOccupancy(null, { ...cfg, id: 'spin-1', game: 'spingold' }).players <= 2);
 });
 
 test('playerHud by id follows a rename and ignores a new holder of the old nick', () => {
