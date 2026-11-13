@@ -134,3 +134,48 @@ body { background: #000; }
 .t-entrants { color: var(--green2); font-weight: 600; }
 .tag.live { background: #0f3d1a; color: var(--green2); }
 .tag.reg { background: #0f2c4d; color: #7cc0ff; }
+
+/* ---------- right rail: compact wallet, framed Cashier, pill shortcuts ---------- */
+div.lobby-rail { background: #050505; border-left: 1px solid #1c1c1c; padding: 10px 8px; gap: 6px; }
+.rail-wallet { border: 1px solid #262626; border-radius: 8px; background: #0e0e0e; overflow: hidden; }
+.rail-wallet .currency-row {
+  min-height: 0; padding: 7px 10px; border: 0; border-radius: 0; background: none;
+  border-bottom: 1px solid #222; font-size: 12.5px;
+}
+.rail-wallet .currency-row:last-child { border-bottom: 0; }
+.rail-wallet .currency-row span { color: var(--gold); font-weight: 700; }
+.rail-wallet .currency-row span::before { display: none; }
+.rail-wallet .currency-row b { color: var(--gold2); font-weight: 700; font-size: 12.5px; }
+
+.lobby-rail .cashier-btn {
+  position: relative; height: 46px; margin: 4px 0 2px; border-radius: 10px;
+  background: linear-gradient(180deg, #1a1a1a, #050505);
+  border: 2px solid #c99a3c; box-shadow: inset 0 0 0 2px #050505, inset 0 0 0 3px rgba(255, 215, 120, .55), 0 6px 16px rgba(0, 0, 0, .55);
+  color: transparent; font-size: 18px; font-weight: 900; letter-spacing: .4px;
+}
+.lobby-rail .cashier-btn span {
+  background: linear-gradient(180deg, #fff1bf 0%, #f3c759 45%, #b9822a 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .9));
+}
+.lobby-rail .cashier-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+
+.lobby-rail .rail-sep { background: #1f1f1f; margin: 3px 4px; }
+.lobby-rail .rail-btn {
+  height: 38px; padding: 0 12px 0 4px; gap: 8px; border-radius: 999px;
+  background: linear-gradient(180deg, #232323, #161616); border: 1px solid #303030;
+  color: #fff; font-size: 13px; font-weight: 700;
+}
+.lobby-rail .rail-btn::after { display: none; }
+.lobby-rail .rail-btn:hover { background: linear-gradient(180deg, #2e2e2e, #1d1d1d); color: #fff; padding-left: 4px; border-color: #444; }
+.lobby-rail .rail-btn .ico {
+  width: 30px; height: 30px; flex: none; font-size: 15px; border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 2px 4px rgba(0, 0, 0, .6);
+}
+.lobby-rail .rail-btn.tone-red .ico { background: radial-gradient(circle at 35% 30%, #ff8a8a, #c4162a); }
+.lobby-rail .rail-btn.tone-blue .ico { background: radial-gradient(circle at 35% 30%, #8fd0ff, #1d6fd1); }
+.lobby-rail .rail-btn.tone-pink .ico { background: radial-gradient(circle at 35% 30%, #ffa3d7, #c2186f); }
+.lobby-rail .rail-btn.tone-teal .ico { background: radial-gradient(circle at 35% 30%, #8ff3e6, #109c8c); }
+.lobby-rail .rail-btn.tone-green .ico { background: radial-gradient(circle at 35% 30%, #a6f59a, #2f9e3b); }
+.lobby-rail .rail-btn.tone-gold .ico { background: radial-gradient(circle at 35% 30%, #ffe8a0, #c08a1c); }
+.lobby-rail .rail-btn.gold { border-color: #6b5320; background: linear-gradient(180deg, #2b2413, #15110a); color: var(--gold2); }
