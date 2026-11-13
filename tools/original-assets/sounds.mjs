@@ -9,7 +9,6 @@ import { spawnSync } from 'node:child_process';
 import { SR, edgeFade } from './sound-dsp.mjs';
 import { TABLE } from './sound-table.mjs';
 import { FX } from './sound-fx.mjs';
-import { bgm } from './sound-bgm.mjs';
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const ROOT = path.resolve(HERE, '../..');
@@ -22,13 +21,13 @@ const VOICES = {
   'VoiceRaise.mp3': 'VoiceRaise.wav', 'VoiceAllIn.mp3': 'VoiceAllIn.wav', 'VoiceCheck.mp3': 'VoiceCheck.wav',
   'VoiceFold.mp3': 'VoiceFold.wav', 'VoiceCall.mp3': 'VoiceCall.wav', 'VoiceBet.mp3': 'VoiceBet.wav',
 };
-const RECIPES = { ...TABLE, ...FX, 'BgmLobby.mp3': bgm };
+// Lobby music is not generated: it is Dan's own loop in app/public/assets/music (see app/src/lib/lobbyMusic.ts).
+const RECIPES = { ...TABLE, ...FX };
 
 // Loudness targets (dBFS): loudest 50 ms RMS window, with a hard peak ceiling.
 const LEVELS = {
   sfx: { rms: -14, peak: -1 },
   alert: { rms: -16, peak: -1.5 },
-  music: { rms: -20, peak: -3 },
 };
 const ALERTS = new Set(['NotificationTimeTurnToAct.mp3', 'NotificationTimeBank.mp3', 'NotificationTimeWinding.mp3', 'tick.mp3']);
 const DURATION_TOLERANCE = 0.3;
@@ -114,10 +113,9 @@ function main() {
     else {
       const recipe = RECIPES[name]();
       data = recipe.post ? ffFilter(recipe.data, recipe.post) : recipe.data;
-      if (name === 'BgmLobby.mp3') level = LEVELS.music;
     }
     const file = path.join(OUT_DIR, name);
-    encode(file, edgeFade(normalise(data, level)), name === 'BgmLobby.mp3' ? '112k' : '96k');
+    encode(file, edgeFade(normalise(data, level)), '96k');
     const p = probe(file);
     const ok = p.codec === 'mp3' && p.rate === SR && Math.abs(p.seconds - target) <= target * DURATION_TOLERANCE;
     if (!ok) failures.push(name);

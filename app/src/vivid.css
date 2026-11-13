@@ -43,6 +43,10 @@ body { background: #000; }
 .topnav button.active { background: linear-gradient(180deg, #ef3a4c, #a5121f); color: #fff; }
 .game-tabs { background: #111; border-bottom-color: #262626; }
 .game-tab { color: #e6e6e6; }
+/* Dan's Home plates keep their gold frame: fit the whole plate instead of cropping it,
+   and let the red plate itself mark the selection. */
+.game-tab.plate-tab img { object-fit: contain; padding: 3px 4px; box-sizing: border-box; }
+.game-tab.plate-tab.active::after { box-shadow: none; }
 
 /* ---------- lobby surfaces ---------- */
 .lobby-content { background: #000; }

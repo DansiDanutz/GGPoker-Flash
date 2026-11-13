@@ -5,8 +5,8 @@ import { FONT, PALETTE, svg, card, cardDefs, chipStack, chipDefs, chipTop, dust,
 
 /** [file, width, label, icon, [light, deep]]: labels are neutral DanGG names; each game
  *  has its own bright colour pair, matched by the lobby row stripes in app/src/vivid.css. */
+// tab_home.png and tab_home_active.png are Dan's own Home plates, not generated here.
 const TABS = Object.freeze([
-  ['tab_home', 141, 'Home', 'home', ['#ffffff', '#c9c9c9']],
   ['tab_aof', 135, 'All-in or Fold', 'bolt', ['#ffb36b', '#ff3b3b']],
   ['tab_rush', 134, 'Fast Fold', 'fast', ['#8ff5ea', '#14c2b2']],
   ['tab_holdem', 135, "Hold'em", 'spade', ['#a6ff9e', '#2fcf3f']],
@@ -17,7 +17,6 @@ const TABS = Object.freeze([
 ]);
 
 const ICONS = Object.freeze({
-  home: '<path d="M2 9L10 2L18 9V18H12.5V12.5H7.5V18H2Z"/>',
   bolt: '<path d="M11.5 1L3 11H9L7.5 19L17 8H11Z"/>',
   fast: '<path d="M2 4L10 10L2 16Z M9 4L17 10L9 16Z"/>',
   spade: '<text x="10" y="16.5" text-anchor="middle" font-size="19" font-family="Georgia">♠</text>',

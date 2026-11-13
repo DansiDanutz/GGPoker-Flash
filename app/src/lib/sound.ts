@@ -1,7 +1,8 @@
-// Sound engine using the original GGPoker client audio files.
+// Sound engine for the original DanGG sound set (tools/original-assets) and Dan's lobby music loop.
 import { savedVolume, VOLUME_KEY } from './volume';
 import { CHANNEL_VOLUMES_KEY, DEFAULT_CHANNEL_VOLUMES, mixedVolume, parseChannelVolumes, withChannelVolume, type Channel, type ChannelVolumes } from './soundMix';
 import { subscribePrefs } from './prefsSync';
+import { LOBBY_MUSIC_BASE_VOLUME, lobbyMusicSrc } from './lobbyMusic';
 
 const BASE = '/assets/sounds/';
 
@@ -44,7 +45,8 @@ const FILES = {
   voiceFold: 'VoiceFold.mp3',
   voiceCall: 'VoiceCall.mp3',
   voiceBet: 'VoiceBet.mp3',
-  bgm: 'BgmLobby.mp3',
+  // Not in /assets/sounds: resolved by lobbyMusicSrc() (Ogg, or AAC on Safari).
+  bgm: 'DanGG-Lobby-Loop',
 };
 
 const DEFAULT_CHANNELS: Record<Channel, boolean> = { sfx: true, voice: true, alerts: true, music: true, ambience: true };
@@ -52,7 +54,7 @@ const DEFAULT_CHANNELS: Record<Channel, boolean> = { sfx: true, voice: true, ale
 class SoundEngine {
   enabled = true;
   volume = 0.7;
-  musicVolume = 0.16;
+  musicVolume = LOBBY_MUSIC_BASE_VOLUME;
   cache = new Map<string, HTMLAudioElement>();
   music: HTMLAudioElement | null = null;
   unlocked = false;
@@ -124,7 +126,7 @@ class SoundEngine {
   preview(key: keyof typeof FILES, levels: { master: number; channel: number }) {
     this.stopPreview();
     try {
-      const a = new Audio(BASE + FILES[key]);
+      const a = new Audio(this.srcFor(key));
       // Music has its own quiet base level and, as in play(), ignores the master slider.
       const isMusic = this.channelFor(key) === 'music';
       a.volume = mixedVolume(isMusic ? this.musicVolume : 1, isMusic ? 1 : levels.master, levels.channel);
@@ -170,10 +172,15 @@ class SoundEngine {
     } catch { /* ignore */ }
   }
 
+  private srcFor(key: keyof typeof FILES): string {
+    if (key !== 'bgm') return BASE + FILES[key];
+    return lobbyMusicSrc((type) => new Audio().canPlayType(type));
+  }
+
   startMusic() {
     if (!this.enabled || !this.channels.music) return;
     if (!this.music) {
-      this.music = new Audio(BASE + FILES.bgm);
+      this.music = new Audio(this.srcFor('bgm'));
       this.music.loop = true;
       this.music.volume = this.musicLevel();
     }
