@@ -1,6 +1,6 @@
 // Lobby, promo and chrome art generator (chrome/*, login/*, ocean/*, ui/*).
 // Run from the repo root: node tools/original-assets/lobby.mjs
-// chrome/logo.png and chrome/tab_home*.png and chrome/tab_aof*.png are DanGG's own artwork and are intentionally left untouched.
+// chrome/logo.png and the chrome/tab_*.png plates are DanGG's own artwork and are intentionally left untouched.
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { OUT, closeRenderer, manifestEntries } from './render.mjs';
@@ -10,8 +10,8 @@ import { renderOcean } from './lobby/ocean.mjs';
 import { renderDiscover } from './lobby/discover.mjs';
 
 const OWNED = ['chrome/', 'login/', 'ocean/', 'ui/'];
-// Dan's own artwork, not generated: the logo and the Home and All-in or Fold tab plates (330x100, see AppHeader).
-const SKIP = new Set(['chrome/logo.png', 'chrome/tab_home.png', 'chrome/tab_aof.png']);
+// Dan's own artwork, not generated: the logo and every game tab plate (330x100, see AppHeader).
+const isDanArt = (p) => p === 'chrome/logo.png' || /^chrome\/tab_[a-z]+\.png$/.test(p);
 
 /** Read a PNG's pixel size with sips; returns [width, height]. */
 function pngSize(file) {
@@ -21,7 +21,7 @@ function pngSize(file) {
 
 function verify() {
   const problems = [];
-  const entries = manifestEntries(...OWNED).filter((e) => !SKIP.has(e.path));
+  const entries = manifestEntries(...OWNED).filter((e) => !isDanArt(e.path));
   for (const e of entries) {
     try {
       const [w, h] = pngSize(path.join(OUT, e.path));
