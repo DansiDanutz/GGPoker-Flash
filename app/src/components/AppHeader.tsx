@@ -43,10 +43,11 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
 
 type GameTab = { key: string; label: string; img: string; w: number; activeImg?: string };
 
-// Home uses Dan's own plates: dark when idle, red when selected (no generated label plate).
+// Home and All-in or Fold use Dan's own plates: dark when idle, red when selected. The red
+// plate crossfades in on click and back out when another tab is chosen (vivid.css).
 const TABS: readonly GameTab[] = [
   { key: 'home', label: 'Home', img: 'tab_home', w: 172, activeImg: 'tab_home_active' },
-  { key: 'aof', label: 'All-in or Fold', img: 'tab_aof', w: 135 },
+  { key: 'aof', label: 'All-in or Fold', img: 'tab_aof', w: 172, activeImg: 'tab_aof_active' },
   { key: 'rush', label: 'Fast Fold', img: 'tab_rush', w: 134 },
   { key: 'holdem', label: "Hold'em", img: 'tab_holdem', w: 135 },
   { key: 'plo', label: 'PLO', img: 'tab_plo', w: 135 },
@@ -60,7 +61,6 @@ export function GameTabs({ active, onChange }: { active: string; onChange: (key:
     <div className="game-tabs">
       {TABS.map((t) => {
         const isActive = active === t.key;
-        const img = isActive && t.activeImg ? t.activeImg : t.img;
         const showPlate = isActive && !t.activeImg && t.key !== 'holdem';
         return (
           <button
@@ -70,7 +70,8 @@ export function GameTabs({ active, onChange }: { active: string; onChange: (key:
             onClick={() => { sound.play('click', { volume: .5 }); onChange(t.key); }}
             title={t.label}
           >
-            <img src={`/assets/chrome/${img}.png?v=7`} alt={t.label} style={{ opacity: showPlate ? .0001 : 1 }} />
+            <img src={`/assets/chrome/${t.img}.png?v=8`} alt={t.label} style={{ opacity: showPlate ? .0001 : 1 }} />
+            {t.activeImg && <img className="plate-on" src={`/assets/chrome/${t.activeImg}.png?v=8`} alt="" aria-hidden="true" />}
             {showPlate && <span className="active-plate">{t.label}</span>}
           </button>
         );
