@@ -1,7 +1,7 @@
 // macOS app icon for the DanGG desktop app: research/brand/AppIcon.png and AppIcon.icns.
 // Run from the repo root: node tools/original-assets/app-icon.mjs
 // The mark is the gold GG (with its red flick) from Dan's own DanGG wordmark
-// (research/brand/gg-mark.png). The tile follows the macOS icon grid: an 824 px rounded
+// (research/brand/gg-mark.png), on a flat pure-black tile like the T3 Code icon. The tile follows the macOS icon grid: an 824 px rounded
 // square centred in the 1024 px canvas, with the drop shadow in the transparent margin.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -27,14 +27,10 @@ const ICONSET = Object.freeze([
 function iconHtml(markDataUri) {
   const inset = (CANVAS - TILE) / 2;
   return `<div style="position:absolute;left:${inset}px;top:${inset}px;width:${TILE}px;height:${TILE}px;border-radius:${RADIUS}px;overflow:hidden;
-      background:
-        radial-gradient(ellipse 62% 42% at 50% 54%, rgba(226,178,92,.20), rgba(226,178,92,0) 70%),
-        linear-gradient(180deg, #1d1d20 0%, #0d0d0f 48%, #050506 100%);
-      box-shadow: 0 14px 26px rgba(0,0,0,.42), 0 2px 5px rgba(0,0,0,.35),
-        inset 0 0 0 2px rgba(255,255,255,.07), inset 0 3px 0 rgba(255,255,255,.10);">
-    <div style="position:absolute;left:0;right:0;top:0;height:46%;background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0));"></div>
+      background: #000;
+      box-shadow: 0 14px 26px rgba(0,0,0,.42), 0 2px 5px rgba(0,0,0,.35), inset 0 0 0 2px rgba(255,255,255,.06);">
     <img src="${markDataUri}" style="position:absolute;left:50%;top:50%;width:${MARK_WIDTH}px;transform:translate(-50%,-52%);
-      filter:brightness(1.12) saturate(1.08) drop-shadow(0 10px 18px rgba(0,0,0,.65)) drop-shadow(0 0 26px rgba(226,178,92,.24));" />
+      filter:brightness(1.12) saturate(1.08);" />
   </div>`;
 }
 
