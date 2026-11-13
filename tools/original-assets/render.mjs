@@ -23,7 +23,8 @@ let browserPromise = null;
 const browser = () => (browserPromise ??= puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] }));
 
 /**
- * Render `html` (a full body fragment) at exactly width×height and write a PNG to OUT/relPath.
+ * Render `html` (a full body fragment) at exactly width×height and write a PNG to OUT/relPath
+ * (or to relPath itself when it is absolute).
  * The page background is transparent unless the HTML paints one.
  */
 export async function renderPng(relPath, html, width, height) {
@@ -31,7 +32,7 @@ export async function renderPng(relPath, html, width, height) {
   try {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;width:${width}px;height:${height}px;overflow:hidden;background:transparent}</style></head><body>${html}</body></html>`, { waitUntil: 'load' });
-    const file = path.join(OUT, relPath);
+    const file = path.isAbsolute(relPath) ? relPath : path.join(OUT, relPath);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     await page.screenshot({ path: file, omitBackground: true, clip: { x: 0, y: 0, width, height } });
     return file;
