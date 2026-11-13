@@ -342,7 +342,7 @@ export function Lobby() {
               onFocusCapture={() => setPromoPaused(true)}
               onBlurCapture={() => setPromoPaused(false)}
               onClick={() => openHomeTarget(HERO_SLIDES[promoIdx].target)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openHomeTarget(HERO_SLIDES[promoIdx].target); } }}
+              onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openHomeTarget(HERO_SLIDES[promoIdx].target); } }}
             >
               {HERO_SLIDES.map((slide, i) => (
                 <div key={slide.key} className={'promo-art-bg' + (i === promoIdx ? ' on' : '')} style={{ background: slide.bg }}>
