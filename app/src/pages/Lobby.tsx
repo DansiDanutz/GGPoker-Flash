@@ -441,21 +441,23 @@ export function Lobby() {
         </div>
 
         <div className="lobby-rail">
-          <div className="currency-row"><span>USD</span><b>{money(user?.balance ?? 0)}</b></div>
-          <div className="currency-row"><span>P$</span><b style={{ color: '#f0c96a' }}>{(user?.play_chips ?? 0).toLocaleString()}</b></div>
-          <div className="currency-row"><span>T$</span><b style={{ color: '#f0c96a' }}>T${(user?.tickets ?? 0).toLocaleString()}</b></div>
-          <div className="currency-row coin"><span>XP</span><b>{((user?.xp ?? 0) / 1000).toFixed(1)}K</b></div>
-          <button className="cashier-btn" onClick={() => { sound.play('coin'); navigate('/cashier'); }}>Cashier</button>
+          <div className="rail-wallet">
+            <div className="currency-row"><span>USD</span><b>{money(user?.balance ?? 0)}</b></div>
+            <div className="currency-row"><span>P$</span><b>P${(user?.play_chips ?? 0).toLocaleString()}</b></div>
+            <div className="currency-row"><span>T$</span><b>T${(user?.tickets ?? 0).toLocaleString()}</b></div>
+            <div className="currency-row coin"><span>XP</span><b>{((user?.xp ?? 0) / 1000).toFixed(1)}K</b></div>
+          </div>
+          <button className="cashier-btn" onClick={() => { sound.play('coin'); navigate('/cashier'); }}><span>Cashier</span></button>
           <div className="rail-sep" />
-          <button className="rail-btn" onClick={() => navigate('/propbet')}><span className="ico">🎯</span>Prop Bet</button>
-          <button className="rail-btn" onClick={() => navigate('/rewards')}><span className="ico">🐟</span>Rewards</button>
-          <button className="rail-btn" onClick={() => navigate('/promotions')}><span className="ico">🎁</span>My Promo</button>
+          <button className="rail-btn tone-red" onClick={() => navigate('/propbet')}><span className="ico">🎯</span>Prop Bet</button>
+          <button className="rail-btn tone-blue" onClick={() => navigate('/rewards')}><span className="ico">🐟</span>Rewards</button>
+          <button className="rail-btn tone-pink" onClick={() => navigate('/promotions')}><span className="ico">🎁</span>My Promo</button>
           <div className="rail-sep" />
-          <button className="rail-btn" onClick={() => navigate('/my-page')}><span className="ico">👤</span>My Page</button>
-          <button className="rail-btn" onClick={() => navigate('/missions')}><span className="ico">📋</span>Missions</button>
-          <button className="rail-btn" onClick={() => navigate('/leaderboard')}><span className="ico">🏆</span>Leaders</button>
+          <button className="rail-btn tone-teal" onClick={() => navigate('/my-page')}><span className="ico">👤</span>My Page</button>
+          <button className="rail-btn tone-green" onClick={() => navigate('/missions')}><span className="ico">📋</span>Missions</button>
+          <button className="rail-btn tone-gold" onClick={() => navigate('/leaderboard')}><span className="ico">🏆</span>Leaders</button>
           <div style={{ flex: 1 }} />
-          <button className="rail-btn gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>DanGG Pass</button>
+          <button className="rail-btn gold tone-gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>DanGG Pass</button>
         </div>
       </div>
 
