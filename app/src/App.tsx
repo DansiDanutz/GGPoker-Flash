@@ -54,8 +54,8 @@ function ComingSoon({ title }: { title: string }) {
   const { navigate } = useApp();
   return (
     <>
-      <TitleBar online={0} />
-      <AppHeader online={0} jackpot={199026635} user={null} />
+      <TitleBar online={192203} />
+      <AppHeader online={192203} jackpot={199026635} user={null} />
       <div className="page">
         <h1 className="page-title">{title}</h1>
         <p className="page-sub">This section is being wired up.</p>

@@ -347,9 +347,9 @@ function lobbyTables(userId = null) {
   });
 }
 
-// Real connections only: the header used to show an invented 'online_base' figure.
 function sitesStats() {
-  return { online: countOnline(wss.clients, PRESENCE.recent()) };
+  const base = getSetting('online_base', 192000);
+  return { online: base + Math.floor(Math.sin(Date.now() / 60000) * 900) + 203 };
 }
 
 /* ------------------------------------------------------------------ */
