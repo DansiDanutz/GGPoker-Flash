@@ -4,6 +4,8 @@ import { api, getToken, setToken, User } from './api';
 import { sound } from './sound';
 import { subscribePrefs } from './prefsSync';
 import { restoreAccountSettings } from './settingsStore';
+import { landingRoute } from './phoneNav';
+import { isPhoneLayout } from './useIsPhone';
 import { completeInstall, installPending, isPhone, isStandalone, markInstallPending, skipInstall, subscribeInstall } from './install';
 
 type Toast = {
@@ -77,9 +79,12 @@ type AppState = {
 
 const Ctx = createContext<AppState | null>(null);
 
+/** Where a player goes after login or on opening the app with no route. */
+const landing = () => landingRoute(isPhoneLayout());
+
 function currentRoute() {
   const h = window.location.hash.replace(/^#/, '');
-  return h || '/';
+  return h || landing();
 }
 
 /** True only after this browser session has passed the login/guest screen. */
@@ -300,13 +305,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const finishInstall = useCallback(() => {
     completeInstall();
     setInstallGate(false);
-    navigate('/');
+    navigate(landing());
   }, [navigate]);
 
   const dismissInstall = useCallback(() => {
     skipInstall();
     setInstallGate(false);
-    navigate('/');
+    navigate(landing());
   }, [navigate]);
 
   const dismissFirstLaunch = useCallback(() => {
@@ -333,7 +338,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // The account's saved settings follow the player to this device (newer copy wins).
     api.me().then((me) => restoreAccountSettings(me.settings))
       .catch((error) => console.warn('Could not load account settings', error));
-    navigate('/');
+    navigate(landing());
   }, [navigate]);
 
   const register = useCallback(async (data: { login: string; nick: string; password: string; email?: string }) => {
@@ -349,7 +354,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       markInstallPending();
       setInstallGate(true);
     }
-    navigate('/');
+    navigate(landing());
   }, [navigate]);
 
   const logout = useCallback(async () => {

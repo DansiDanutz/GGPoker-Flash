@@ -1,7 +1,7 @@
 // Phone tab bar: five destinations, Home in the centre, and the tab each route lights up.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { activeNavKey, PHONE_NAV } from '../src/lib/phoneNav.ts';
+import { activeNavKey, landingRoute, PHONE_NAV } from '../src/lib/phoneNav.ts';
 
 test('the tab bar has five items with the Home brand button in the centre', () => {
   assert.deepEqual(PHONE_NAV.map((i) => i.key), ['poker', 'events', 'home', 'casino', 'me']);
@@ -28,4 +28,10 @@ test('home and unknown routes fall back to Home', () => {
   assert.equal(activeNavKey(''), 'home');
   assert.equal(activeNavKey('/leaderboard'), 'home');
   assert.equal(activeNavKey('/?play=10'), 'home');
+});
+
+test('after login a phone lands on the Poker game menu and a desktop on Home', () => {
+  assert.equal(landingRoute(true), '/?play=1');
+  assert.equal(activeNavKey(landingRoute(true)), 'poker');
+  assert.equal(landingRoute(false), '/');
 });

@@ -120,13 +120,13 @@
   .mg-row { display: grid; gap: 10px; width: 100%; padding: 16px var(--ph-pad) 18px; border-bottom: 1px solid var(--ph-line); }
   .mg-top { display: flex; align-items: center; gap: 18px; }
   .mg-top b { font-size: 26px; font-weight: 600; color: #fff; }
-  .mg-pills { display: flex; flex-wrap: wrap; gap: 10px; }
+  .mg-pills { display: flex; flex-wrap: nowrap; gap: 8px; min-width: 0; }
   .mg-pills i {
-    display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 16px; border-radius: 999px;
-    font-style: normal; font-size: 15px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 999px;
+    font-style: normal; font-size: 15px; font-weight: 600; white-space: nowrap;
   }
-  .mg-players { min-width: 120px; border: 1.5px solid #2f8a4c; color: var(--ph-green); background: rgba(70, 211, 111, .06); }
-  .mg-perk { border: 1.5px solid var(--ph-gold-dim); color: var(--ph-gold); background: rgba(242, 196, 92, .06); }
+  .mg-players { flex: 0 0 auto; min-width: 84px; border: 1.5px solid #2f8a4c; color: var(--ph-green); background: rgba(70, 211, 111, .06); }
+  .mg-perk { min-width: 0; overflow: hidden; text-overflow: ellipsis; border: 1.5px solid var(--ph-gold-dim); color: var(--ph-gold); background: rgba(242, 196, 92, .06); }
 
   .m-backbar { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 8px; background: var(--ph-bg); border-bottom: 1px solid var(--ph-line); }
   .m-backbar button { display: grid; place-items: center; width: 40px; height: 40px; color: #fff; }

@@ -7,7 +7,7 @@ import { GameBadge, type BadgeName } from './PhoneIcons';
 
 const KIND_LABEL: Record<string, string> = { slots: 'Slots', roulette: 'Roulette', crash_win: 'Crash', blackjack: 'Blackjack' };
 
-/** Phone Casino tab: hero, today's wins, the slots catalogue entry, then one row per game. */
+/** Phone Casino tab, as on the GGPoker mobile lobby: hero, one row per game, then today's wins and the slots catalogue. */
 export function MobileCasino() {
   const { navigate } = useApp();
   const [winners, setWinners] = useState<WinnerRow[]>([]);
@@ -23,16 +23,6 @@ export function MobileCasino() {
         <span><small>Play-money casino</small><b>Pick a game.<br />Take a seat.</b><em>18+ · chips have no cash value</em></span>
       </div>
       <h1 className="sr-only">Casino</h1>
-      <WinnersTicker winners={winners} labelFor={(w) => KIND_LABEL[w.kind] || w.memo} empty="No casino wins yet today." />
-      <button type="button" className="mc-feature" onClick={() => navigate('/slots')}>
-        <img src="/assets/slots/wild-jungle.svg" alt="" />
-        <span>
-          <small>Only on DanGG</small>
-          <b>Six slots. One floor.</b>
-          <em>Wilds, wheels and clover cash — all playable now.</em>
-          <i>Browse slots →</i>
-        </span>
-      </button>
       {CASINO_GAMES.map((g) => (
         <button key={g.key} type="button" className="mc-row" onClick={() => navigate(g.route)}>
           <span className="mc-art">
@@ -46,6 +36,16 @@ export function MobileCasino() {
           </span>
         </button>
       ))}
+      <WinnersTicker winners={winners} labelFor={(w) => KIND_LABEL[w.kind] || w.memo} empty="No casino wins yet today." />
+      <button type="button" className="mc-feature" onClick={() => navigate('/slots')}>
+        <img src="/assets/slots/wild-jungle.svg" alt="" />
+        <span>
+          <small>Only on DanGG</small>
+          <b>Six slots. One floor.</b>
+          <em>Wilds, wheels and clover cash — all playable now.</em>
+          <i>Browse slots →</i>
+        </span>
+      </button>
     </div>
   );
 }
