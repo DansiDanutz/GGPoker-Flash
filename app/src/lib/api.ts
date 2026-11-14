@@ -20,7 +20,7 @@ export type User = {
   created_at: string;
 };
 
-export type SeatedPreview = { seat: number; nick: string; stack: number; bot: boolean };
+export type SeatedPreview = { seat: number; nick: string; stack: number; bot: boolean; country?: string };
 
 export type LobbyTable = {
   id: string;
@@ -280,6 +280,11 @@ export const api = {
     request<{ token: string; user: User }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, password }) }),
   register: (data: { login: string; nick: string; password: string; email?: string }) =>
     request<{ token: string; user: User }>('/api/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  guest: () => request<{ token: string; user: User }>('/api/auth/guest', { method: 'POST', body: '{}' }),
+  propBets: (type = '') => request<PropBetBoard>(`/api/propbets${type ? `?type=${encodeURIComponent(type)}` : ''}`),
+  propBet: (id: number) => request<{ bet: PropBet }>(`/api/propbets/${id}`),
+  createPropBet: (data: PropBetDraft) => request<{ bet: PropBet; balance: number }>('/api/propbets', { method: 'POST', body: JSON.stringify(data) }),
+  joinPropBet: (id: number) => request<{ bet: PropBet; balance: number }>(`/api/propbets/${id}/join`, { method: 'POST', body: '{}' }),
   logout: () => request('/api/auth/logout', { method: 'POST' }),
   me: () => request<{ user: User; settings: any }>('/api/me'),
   saveSettings: (settings: any) => request('/api/me/settings', { method: 'POST', body: JSON.stringify(settings) }),
@@ -474,4 +479,31 @@ export interface TournamentDetail {
   placesPaid: number;
   bubble: number;
   playersLeft: number | null;
+  structure: BlindLevel[];
+  lateReg: { minutes: number; endsAt: number | null; closesAtLevel: number; open: boolean };
+  clock: (Blinds & { level: number; next: (Blinds & { level: number }) | null; levelEndsAt: number | null; minutes: number }) | null;
+  players: TournamentPlayer[];
+  stacks: { starting: number; largest: number; average: number; smallest: number } | null;
+  tables: { index: number; id: string; players: number; seats: number; largest: number; smallest: number }[];
+}
+export interface Blinds { sb: number; bb: number; ante: number }
+export interface BlindLevel extends Blinds { level: number; minutes: number }
+export interface TournamentPlayer { rank: number; id: number; nick: string; stack: number; table: number | null; isBot: boolean; country: string }
+
+export type PropBetType = 'last_longer' | 'bankroll' | 'elo';
+export interface PropBetEntry { userId: number; nick: string; side: 'creator' | 'bettor'; stake: number; out: boolean }
+export interface PropBet {
+  id: number; type: PropBetType; status: 'open' | 'running' | 'settled' | 'refunded';
+  creatorId: number; creatorNick: string; amount: number; maxBettors: number; bettors: number; players: number; pot: number;
+  goal: number | null; target: number | null; progress: number | null;
+  tournamentId: string | null; tournamentName: string | null; startAt: number; endAt: number | null;
+  winnerId: number | null; winnerNick: string | null; entries?: PropBetEntry[];
+}
+export interface PropBetRule { minAmount: number; maxAmount: number; minBettors: number; maxBettors: number; minGoal?: number; maxGoal?: number; minLeadMs?: number }
+export interface PropBetBoard {
+  bets: PropBet[]; rules: Record<PropBetType, PropBetRule>;
+  eligibleTournaments: { id: string; name: string; startAt: number; buyin: number }[]; elo: number | null;
+}
+export interface PropBetDraft {
+  type: PropBetType; amount: number; maxBettors: number; tournamentId?: string; goal?: number; startAt?: number; endAt?: number;
 }

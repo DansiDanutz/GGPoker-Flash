@@ -2634,5 +2634,173 @@
   "bytes": 161553,
   "width": 564,
   "height": 400
+ },
+ {
+  "path": "ui/creatives/casino-clover-cash.png",
+  "bytes": 120422,
+  "width": 450,
+  "height": 410
+ },
+ {
+  "path": "ui/creatives/casino-disco-cat.png",
+  "bytes": 115645,
+  "width": 450,
+  "height": 410
+ },
+ {
+  "path": "ui/creatives/casino-olympus-gold.png",
+  "bytes": 108929,
+  "width": 450,
+  "height": 410
+ },
+ {
+  "path": "ui/creatives/casino-robo-rush.png",
+  "bytes": 110148,
+  "width": 450,
+  "height": 410
+ },
+ {
+  "path": "ui/creatives/feature-hand-history.png",
+  "bytes": 59581,
+  "width": 450,
+  "height": 280
+ },
+ {
+  "path": "ui/creatives/feature-run-it-twice.png",
+  "bytes": 81738,
+  "width": 450,
+  "height": 280
+ },
+ {
+  "path": "ui/creatives/feature-social.png",
+  "bytes": 65359,
+  "width": 450,
+  "height": 280
+ },
+ {
+  "path": "ui/creatives/feature-time-bank.png",
+  "bytes": 73143,
+  "width": 450,
+  "height": 280
+ },
+ {
+  "path": "ui/creatives/foryou-freebie.png",
+  "bytes": 118994,
+  "width": 452,
+  "height": 468
+ },
+ {
+  "path": "ui/creatives/foryou-live-series.png",
+  "bytes": 124566,
+  "width": 452,
+  "height": 468
+ },
+ {
+  "path": "ui/creatives/foryou-ocean.png",
+  "bytes": 121479,
+  "width": 452,
+  "height": 468
+ },
+ {
+  "path": "ui/creatives/foryou-recent.png",
+  "bytes": 137483,
+  "width": 452,
+  "height": 468
+ },
+ {
+  "path": "ui/creatives/hero-november.png",
+  "bytes": 377051,
+  "width": 1600,
+  "height": 500
+ },
+ {
+  "path": "ui/creatives/series-battle.png",
+  "bytes": 8186,
+  "width": 290,
+  "height": 88
+ },
+ {
+  "path": "ui/creatives/series-flip.png",
+  "bytes": 7862,
+  "width": 290,
+  "height": 88
+ },
+ {
+  "path": "ui/creatives/series-jackpot.png",
+  "bytes": 10716,
+  "width": 290,
+  "height": 88
+ },
+ {
+  "path": "ui/creatives/series-live.png",
+  "bytes": 10399,
+  "width": 290,
+  "height": 88
+ },
+ {
+  "path": "ui/creatives/series-masters.png",
+  "bytes": 7290,
+  "width": 290,
+  "height": 88
+ },
+ {
+  "path": "ui/creatives/series-millions.png",
+  "bytes": 10094,
+  "width": 290,
+  "height": 88
+ },
+ {
+  "path": "ui/creatives/series-plo.png",
+  "bytes": 9188,
+  "width": 290,
+  "height": 88
+ },
+ {
+  "path": "ui/creatives/series-tournaments.png",
+  "bytes": 11127,
+  "width": 294,
+  "height": 88
+ },
+ {
+  "path": "ui/creatives/tourn-daily.png",
+  "bytes": 129410,
+  "width": 690,
+  "height": 280
+ },
+ {
+  "path": "ui/creatives/tourn-masters.png",
+  "bytes": 126458,
+  "width": 690,
+  "height": 280
+ },
+ {
+  "path": "ui/creatives/tourn-weekender.png",
+  "bytes": 128121,
+  "width": 690,
+  "height": 280
+ },
+ {
+  "path": "ui/creatives/tv-0.png",
+  "bytes": 67671,
+  "width": 450,
+  "height": 280
+ },
+ {
+  "path": "ui/creatives/tv-1.png",
+  "bytes": 70107,
+  "width": 450,
+  "height": 280
+ },
+ {
+  "path": "ui/creatives/tv-2.png",
+  "bytes": 68187,
+  "width": 450,
+  "height": 280
+ },
+ {
+  "path": "ui/creatives/tv-3.png",
+  "bytes": 69361,
+  "width": 450,
+  "height": 280
  }
 ]

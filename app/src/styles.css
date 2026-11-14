@@ -1372,7 +1372,7 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .opp-hud-cards .pcard.mini { transform: scale(.7); transform-origin: left center; margin-right: -10px; }
 .opp-hud-recent .won { color: #7fdc8c; font-weight: 600; }
 
-/* Spin & Gold lobby side panel. */
+/* Jackpot SNG lobby side panel. */
 .spin-info { padding: 6px 8px; display: grid; gap: 6px; overflow-x: auto; }
 .spin-info-tabs { display: flex; gap: 4px; }
 .spin-info-tabs button { flex: 1; background: #1a1a1a; color: #bbb; border: 1px solid #2c2c2c; border-radius: 4px; padding: 4px 2px; font: inherit; font-size: 11px; cursor: pointer; }

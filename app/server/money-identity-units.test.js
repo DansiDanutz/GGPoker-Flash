@@ -79,12 +79,12 @@ test('rebuyReference uses a valid client key and falls back to the counter', () 
 test('occupancyOf counts seated players and bots from the live table', () => {
   assert.deepEqual(occupancyOf(null), { players: 0, bots: 0, seated: [] });
   const table = { occupiedSeats: () => [
-    { index: 0, player: { nick: 'Ann', stack: 5000 } },
+    { index: 0, player: { nick: 'Ann', stack: 5000, country: 'RO' } },
     { index: 3, player: { nick: 'Bot', stack: 4000, isBot: true } },
   ] };
   assert.deepEqual(occupancyOf(table), {
     players: 2, bots: 1,
-    seated: [{ seat: 0, nick: 'Ann', stack: 5000, bot: false }, { seat: 3, nick: 'Bot', stack: 4000, bot: true }],
+    seated: [{ seat: 0, nick: 'Ann', stack: 5000, bot: false, country: 'RO' }, { seat: 3, nick: 'Bot', stack: 4000, bot: true, country: '' }],
   });
 });
 

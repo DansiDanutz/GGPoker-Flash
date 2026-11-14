@@ -19,7 +19,7 @@ function insertLegacyRows(dataDir) {
   const raw = new DatabaseSync(path.join(dataDir, 'ggpoker.db'));
   const ins = raw.prepare(`INSERT OR REPLACE INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort)
     VALUES (?,?,'battleroyale','Battle',500,1000,0,25000,25000,6,'Fast',0,1,?)`);
-  BR_ROWS.forEach((id, i) => ins.run(id, `Mystery Battle Royale ${i + 1}`, 990 + i));
+  BR_ROWS.forEach((id, i) => ins.run(id, `Battle Royale ${i + 1}`, 990 + i));
   raw.close();
 }
 
@@ -138,7 +138,7 @@ test('joining a Battle Royale table is refused with a clear error and no buy-in'
 test('creating a Battle Royale table is refused', async () => {
   const res = await srv.post('/api/admin/tables', {
     token: admin,
-    body: { id: 'br-new', name: 'Mystery Battle Royale X', game: 'battleroyale', sb: 500, bb: 1000, min_buyin: 25000, max_buyin: 25000 },
+    body: { id: 'br-new', name: 'Battle Royale X', game: 'battleroyale', sb: 500, bb: 1000, min_buyin: 25000, max_buyin: 25000 },
   });
   assert.equal(res.status, 400);
   assert.equal(res.data.error, BATTLE_ROYALE_UNAVAILABLE);

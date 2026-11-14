@@ -36,6 +36,7 @@ import { createTableStats } from './table-stats.js';
 import { createDailyLeaderboard, leaderboardStake, pointEarners } from './dailyLeaderboard.js';
 import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
 import { createPlayerNotes } from './player-notes.js';
+import { createPropBets, PropBetError, PROP_BET_RULES } from './prop-bets.js';
 import { lobbyOccupancy } from './lobby-occupancy.js';
 import { checkDeposit, depositedToday, depositLimits, rebuyReference } from './play-money.js';
 import { loadTimeBank, saveTimeBank } from './time-bank-store.js';
@@ -53,6 +54,8 @@ import { buildHealthSummary, buildPlatformReport } from './admin-platform.js';
 import { advanceRoomLevel } from './tournament-controls.js';
 import { TournamentRoomOwner } from './tournament-room-owner.js';
 import { deleteRoomSnapshot, loadRoomSnapshot, saveRoomSnapshot } from './tournament-state.js';
+import { tournamentGame, tournamentLobby } from './tournament-lobby.js';
+
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
@@ -584,6 +587,14 @@ function findSeatedByNick(nick, tableId = null) {
   return null;
 }
 const PLAYER_NOTES = createPlayerNotes(db, { findSeated: findSeatedByNick });
+
+const PROP_BETS = createPropBets({
+  db,
+  ledger: (userId, kind, amount, memo, reference) => addTransactionEx(userId, kind, amount, memo, 'USD', { reference, onDuplicate: 'skip' }),
+});
+PROP_BETS.ensureSchema();
+const PROP_BET_SWEEP_MS = 15_000;
+setInterval(() => PROP_BETS.sweep(), PROP_BET_SWEEP_MS).unref();
 // HUD subject: an explicit id, else the player seated at this table under that nick, else
 // the account currently holding it; a nick with no account (an old bot) stays a nick.
 function hudIdentity(tableId, { id, nick }) {
@@ -705,6 +716,7 @@ function getLiveTable(id) {
     onTournamentBust: (table, p) => {
       try {
         consumeTournamentEntry(table, p.id);
+        if (table.cfg.tournamentId) PROP_BETS.recordBust(table.cfg.tournamentId, p.id);
         // Multi-table events rank the whole field, not the seat's own table.
         if (table.tournament?.managed) {
           TOURNAMENT_ROOMS.get(table.cfg.tournamentId)?.onBust(table.cfg.id, p);
@@ -890,7 +902,7 @@ function seatHuman(table, user, buyin, seatIndex = null) {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
   });
   const res = table.sit({
-    id: user.id, nick: user.nick, avatar: user.avatar, ...loadTimeBank(table, user),
+    id: user.id, nick: user.nick, avatar: user.avatar, country: user.country, ...loadTimeBank(table, user),
   }, wantedSeat, stack, sessionId);
   if (!res.ok) {
     addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
@@ -1081,6 +1093,9 @@ function clearTable(id) {
   CUSTOM_CFG.delete(id);
 }
 
+/** The tournament lobby lists at most this many players (the field can be thousands). */
+const LOBBY_PLAYER_LIMIT = 500;
+
 /** The shared descriptor every flight of one tournament hands to its table. */
 function tournamentDescriptor(t) {
   const bb = Math.max(20, Math.round(Number(t.starting_stack || 10000) / 100));
@@ -1106,7 +1121,7 @@ function tournamentTableConfig(t, tournament, index, seats) {
   return {
     id: flightTableId(t.id, index),
     name: t.name,
-    game: 'holdem',
+    game: tournamentGame(t),
     category: 'Tournament',
     sb: bb,
     bb: bb * 2,
@@ -1330,19 +1345,24 @@ const server = http.createServer(async (req, res) => {
       if (!nick) return json(res, 400, { error: 'Nickname must be 2-20 letters, digits, spaces, dots, dashes or underscores' });
       if (String(body.password || '').length < 6) return json(res, 400, { error: 'Password must be at least 6 characters' });
       if (identityTaken(login) || identityTaken(nick)) return json(res, 400, { error: 'That account ID or nickname is already taken' });
-      const welcome = getSetting('welcome_bonus', 100000);
-      const start = getSetting('default_balance', 5000) + welcome;
-      db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
-        .run(login, nick, hashPassword(String(body.password)), String(body.email || '').slice(0, 120), 0, 5);
-      const created = db.prepare('SELECT id FROM users WHERE login = ?').get(login);
-      // The account starts at zero and the ledger entry carries the whole opening balance,
-      // so the balance and the ledger agree (it used to be credited twice).
-      addTransaction(created.id, 'welcome', start, 'Welcome bonus');
-      // The opening credit is the welcome bonus: record the claim so the Cashier cannot pay it again.
-      db.prepare("INSERT OR IGNORE INTO bonus_claims (user_id,claim_key,amount) VALUES (?,'welcome',?)").run(created.id, welcome);
+      const user = createAccount(login, nick, String(body.password), String(body.email || '').slice(0, 120));
       // Count only accounts actually created, so typos in the form do not use up the allowance.
       if (clientKey) registerLimiter.record(clientKey);
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
+      const token = newSession(user.id, req.headers['user-agent'] || '');
+      return json(res, 200, { token, user: publicUser(user) });
+    }
+
+    // Play as guest: a throwaway play-money account so a guest can sit, spin and register
+    // like everyone else. It shares the per-network account allowance with registration.
+    if (p === '/api/auth/guest' && req.method === 'POST') {
+      const clientKey = abuseClientKey(req);
+      if (clientKey && registerLimiter.isBlocked(clientKey)) {
+        return json(res, 429, { error: 'Too many new accounts from your network. Try again in an hour.' });
+      }
+      const nick = freeGuestNick();
+      if (!nick) return json(res, 503, { error: 'Guest seats are busy right now. Try again in a moment.' });
+      if (clientKey) registerLimiter.record(clientKey);
+      const user = createAccount(`guest_${randomUUID().slice(0, 12)}`, nick, randomUUID(), '');
       const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
     }
@@ -1577,6 +1597,12 @@ const server = http.createServer(async (req, res) => {
       if (!t) return json(res, 404, { error: 'not found' });
       const room = t.status === 'running' ? TOURNAMENT_ROOMS.get(id) : null;
       const payouts = room ? room.payouts() : payoutTable(t.entrants, prizePoolOf(t), { mode: t.mode, ticket: t.ticket });
+      const registrants = t.status === 'registering'
+        ? db.prepare(`SELECT u.id, u.nick, u.country FROM tourney_regs r JOIN users u ON u.id = r.user_id
+            WHERE r.tournament_id = ? ORDER BY r.created_at, r.rowid LIMIT ?`).all(id, LOBBY_PLAYER_LIMIT)
+        : [];
+      const countryOf = db.prepare('SELECT country FROM users WHERE id = ?');
+      const lobby = tournamentLobby({ t, room, registrants, countryOf: (uid) => countryOf.get(uid)?.country || '' });
       return json(res, 200, {
         tournament: t,
         prizePool: prizePoolOf(t),
@@ -1584,6 +1610,8 @@ const server = http.createServer(async (req, res) => {
         placesPaid: payouts.length,
         bubble: bubblePlace(payouts),
         playersLeft: room ? room.stats().playersLeft : null,
+        ...lobby,
+        players: lobby.players.slice(0, LOBBY_PLAYER_LIMIT),
       });
     }
 
@@ -2105,6 +2133,43 @@ const server = http.createServer(async (req, res) => {
       payout = Math.round(payout);
       const after = addTransaction(u.id, game, payout - bet, `${game} ${pick} ${payout ? 'won' : 'lost'}`, 'USD');
       return json(res, 200, { result, payout, bet, balance: after });
+    }
+
+    // ---------- player prop bets (Last Longer, Bankroll, ELO) ----------
+    if (p === '/api/propbets' && req.method === 'GET') {
+      const viewer = userByToken(tokenFrom(req) || '');
+      return json(res, 200, {
+        bets: PROP_BETS.list({ type: url.searchParams.get('type') || '', includeClosed: url.searchParams.get('closed') === '1' }),
+        rules: PROP_BET_RULES,
+        eligibleTournaments: viewer ? PROP_BETS.eligibleTournaments(viewer.id) : [],
+        elo: viewer ? Number(viewer.elo ?? 1000) : null,
+      });
+    }
+    if (p === '/api/propbets' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const body = await readBody(req);
+      try {
+        return json(res, 200, { bet: PROP_BETS.create(u.id, body), balance: db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id).balance });
+      } catch (e) {
+        if (e instanceof PropBetError) return json(res, 400, { error: e.message });
+        throw e;
+      }
+    }
+    {
+      const m = p.match(/^\/api\/propbets\/(\d+)(\/join)?$/);
+      if (m && req.method === 'GET' && !m[2]) {
+        const bet = PROP_BETS.detail(m[1]);
+        return bet ? json(res, 200, { bet }) : json(res, 404, { error: 'Prop bet not found' });
+      }
+      if (m && req.method === 'POST' && m[2]) {
+        const u = requireUser(req, res); if (!u) return;
+        try {
+          return json(res, 200, { bet: PROP_BETS.join(u.id, m[1]), balance: db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id).balance });
+        } catch (e) {
+          if (e instanceof PropBetError) return json(res, 400, { error: e.message });
+          throw e;
+        }
+      }
     }
 
     if (p === '/api/games/propbet' && req.method === 'POST') {
@@ -3366,6 +3431,33 @@ setInterval(() => {
 setInterval(() => {
   try { ROOM_OWNER.scheduleAll(); } catch (err) { console.error('tournament snapshot schedule', err); }
 }, 15000).unref();
+
+const GUEST_NICK_ATTEMPTS = 20;
+
+/** A free "Guest1234" nickname, or null when every attempt collided. */
+function freeGuestNick() {
+  for (let i = 0; i < GUEST_NICK_ATTEMPTS; i++) {
+    const nick = `Guest${randomInt(1000, 1000000)}`;
+    if (!identityTaken(nick)) return nick;
+  }
+  return null;
+}
+
+/**
+ * Create an account with the opening play balance. The row starts at zero and the
+ * ledger entry carries the whole opening balance, so balance and ledger agree; the
+ * welcome claim is recorded so the Cashier cannot pay it again.
+ */
+function createAccount(login, nick, password, email) {
+  const welcome = getSetting('welcome_bonus', 100000);
+  const start = getSetting('default_balance', 5000) + welcome;
+  db.prepare('INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)')
+    .run(login, nick, hashPassword(password), email, 0, 5);
+  const created = db.prepare('SELECT id FROM users WHERE login = ?').get(login);
+  addTransaction(created.id, 'welcome', start, 'Welcome bonus');
+  db.prepare("INSERT OR IGNORE INTO bonus_claims (user_id,claim_key,amount) VALUES (?,'welcome',?)").run(created.id, welcome);
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
+}
 
 function identityTaken(name, exceptUserId = 0) {
   return !!db.prepare('SELECT 1 FROM users WHERE (lower(login) = lower(?) OR lower(nick) = lower(?)) AND id != ?').get(name, name, exceptUserId);

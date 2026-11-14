@@ -153,7 +153,7 @@ export function MyPage() {
               { key: 'coupons', label: 'Redeem Coupons', go: () => navigate('/promotions'), ext: true },
               { key: 'stakers', label: 'Current Stakers', go: () => setTab('stakers') },
               { key: 'sellers', label: 'Sellers you follow', go: () => setTab('sellers') },
-              { key: 'pokercraft', label: 'PokerCraft', go: () => navigate('/hand-history'), ext: true },
+              { key: 'pokercraft', label: 'Hand History', go: () => navigate('/hand-history'), ext: true },
               { key: 'security', label: 'Responsible Gaming', go: () => setTab('security') },
             ].map((item) => (
               <button
@@ -169,7 +169,7 @@ export function MyPage() {
             ))}
             <button type="button" className="mp-menu-signout" onClick={async () => { await logout(); navigate('/login'); }}>Sign out</button>
             <div className="mp-menu-tiles">
-              <button type="button" onClick={() => navigate('/hand-history')}><i aria-hidden="true">📊</i>PokerCraft</button>
+              <button type="button" onClick={() => navigate('/hand-history')}><i aria-hidden="true">📊</i>Hand History</button>
               <button type="button" onClick={() => setTab('messages')}><i aria-hidden="true">✉️</i>Message</button>
             </div>
           </aside>

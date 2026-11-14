@@ -10,7 +10,7 @@ from another poker client.
 | `cards/` | `cards.mjs` | Six face sheets (13×4 grid of 122×162 cells) and ten backs |
 | `squeeze/` | `squeeze.mjs` | Card-squeeze frames, inner sheets and JSON per format |
 | `table/`, `tables/`, `chips/`, `reserved/` | `table.mjs` | Felts, rooms, clock digits, dealer button, chips, chip-shuffle sheet, win animation |
-| `chrome/`, `login/`, `ocean/`, `ui/` | `lobby.mjs` | Header tabs and banners, login heroes, rank crests, promotion tiles, colour previews |
+| `chrome/`, `login/`, `ocean/`, `ui/` | `lobby.mjs` | Header tabs and banners, login heroes, rank crests, promotion tiles, colour previews, home-feed and series art (`ui/creatives/`, 2x) |
 | `fx/` | `effects.mjs` | Animated WebP table effects (jackpot intro and win, mystery box, pot win, chip shuffle) |
 
 `chrome/logo.png` is the DanGG logo and is not generated.

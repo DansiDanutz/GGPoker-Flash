@@ -43,7 +43,7 @@ export function tournamentStartedToast(evt: TournamentStarted): Omit<Toast, 'id'
 type AppState = {
   user: User | null;
   guest: boolean;
-  enterGuest: () => void;
+  enterGuest: () => Promise<void>;
   loading: boolean;
   route: string;
   navigate: (to: string) => void;
@@ -280,10 +280,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => { alive = false; window.clearInterval(t); };
   }, []);
 
-  const enterGuest = useCallback(() => {
+  const enterGuest = useCallback(async () => {
     markEntered();
-    localStorage.setItem('ggpoker.guest', '1');
-    setGuest(true);
+    try {
+      // A throwaway play-money account, so a guest can sit down like everyone else.
+      const res = await api.guest();
+      setToken(res.token);
+      localStorage.removeItem('ggpoker.guest');
+      setGuest(false);
+      setUser(res.user);
+    } catch (error) {
+      // Server refused (rate limit or offline): browse the lobby read-only instead.
+      console.warn('Guest account unavailable, browsing only', error);
+      localStorage.setItem('ggpoker.guest', '1');
+      setGuest(true);
+    }
   }, []);
 
   const finishInstall = useCallback(() => {

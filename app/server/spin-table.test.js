@@ -1,4 +1,4 @@
-// P0 slices S1b/S1c: the live Spin & Gold table draws from the verified table (server/spin.js),
+// P0 slices S1b/S1c: the live Jackpot SNG table draws from the verified table (server/spin.js),
 // pays places 1-3 through the ledger exactly once and steps the verified blind schedule.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -216,8 +216,8 @@ test('Spin migration disables legacy 15,000 and 6-max rows and backfills missing
     boot(dataDir);
     const legacy = `
       const ins = db.prepare("INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,sort) VALUES (?,?,'spingold','Spin',500,1000,0,?,?,?,'Fast',0,1)");
-      ins.run('spingold-1', 'Spin & Gold 1', 15000, 15000, 3);
-      ins.run('spingold6-1', 'Spin & Gold 6-Max 1', 30000, 30000, 6);
+      ins.run('spingold-1', 'Jackpot SNG 1', 15000, 15000, 3);
+      ins.run('spingold6-1', 'Jackpot SNG 6-Max 1', 30000, 30000, 6);
       db.prepare("DELETE FROM tables WHERE id = 'spingold-5000-2'").run();`;
     const migrated = boot(dataDir, legacy);
     // The boot itself ran the migration before the legacy rows existed, so the re-run does the work.

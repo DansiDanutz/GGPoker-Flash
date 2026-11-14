@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { api, money, TournamentDetail } from '../lib/api';
-import { bubbleLabel, ordinal, placesPaidLabel, prizeText } from '../lib/tournamentPrizes';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { Countdown, PageShell } from '../components/PageShell';
@@ -8,6 +7,7 @@ import { MobileEvents } from '../components/mobile/MobileEvents';
 import { MobileShell } from '../components/mobile/MobileShell';
 import { useIsPhone } from '../lib/useIsPhone';
 import { TournamentReferenceList } from '../components/tournaments/TournamentReferenceList';
+import { TournamentLobby } from '../components/tournaments/TournamentLobby';
 import {
   emptyTournamentMessage, filterTournaments, phaseOf, PHASE_LABEL, readTournamentFilters, resetTournamentFilters,
   TournamentFilters, tournamentFilterCount, withTournamentFilters, writeTournamentFilters,
@@ -25,8 +25,6 @@ export function Tournaments() {
   const [data, setData] = useState<any>(null);
   const [filters, setFilters] = useState<TournamentFilters>(() => readTournamentFilters());
   const [detail, setDetail] = useState<any>(null);
-  const [detailTab, setDetailTab] = useState<'overview' | 'structure' | 'prizes'>('overview');
-  const [prizes, setPrizes] = useState<TournamentDetail | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
@@ -87,7 +85,8 @@ export function Tournaments() {
   };
 
   // Watch the busiest live flight; an event only has tables once it is running.
-  const watchLive = async (t: any) => {
+  const watchLive = async (t: any, tableId?: string) => {
+    if (tableId) { navigate(`/table/${tableId}?observe=1`); return; }
     setBusy(t.id);
     try {
       const token = localStorage.getItem('ggpoker.token');
@@ -112,21 +111,11 @@ export function Tournaments() {
 
   const featured = list.length ? list.reduce((a: any, b: any) => (b.gtd > a.gtd ? b : a), list[0]) : data?.tournaments?.[0];
 
-  // The payout table comes from the server (DanGG rule) so the Prizes tab shows
-  // exactly what settlement will credit.
-  const detailId = detail?.id;
-  useEffect(() => {
-    setPrizes(null);
-    if (!detailId) return;
-    let cancelled = false;
-    api.tournament(detailId)
-      .then((r) => { if (!cancelled) setPrizes(r); })
-      .catch((e) => { if (!cancelled) toast({ kind: 'error', title: 'Prizes', body: e.message }); });
-    return () => { cancelled = true; };
-  }, [detailId]);
-  const bubble = prizes && detail?.status === 'running' ? bubbleLabel(prizes.payouts, prizes.playersLeft) : null;
-
-  const openDetail = (t: any) => { setDetail(t); setDetailTab('overview'); };
+  // Keep the open lobby in step with the list's latest row (entrants, status).
+  const liveDetail = detail ? (data?.tournaments || []).find((t: any) => t.id === detail.id) || detail : null;
+  const openDetail = (t: any) => setDetail(t);
+  const closeDetail = useCallback(() => setDetail(null), []);
+  const lobbyError = useCallback((message: string) => toast({ kind: 'error', title: 'Tournament', body: message }), [toast]);
 
   return (
     <>
@@ -150,7 +139,7 @@ export function Tournaments() {
         filters={filters}
         onChange={updateFilters}
         onReset={resetFilters}
-        onLobby={(t) => { setDetail(t); setDetailTab('overview'); }}
+        onLobby={openDetail}
         onRegister={register}
         onPlay={play}
         balance={user?.balance ?? 0}
@@ -159,97 +148,22 @@ export function Tournaments() {
     )}
 
       {detail && (
-        <div className="modal-backdrop" onClick={() => setDetail(null)}>
-          <div className="modal wide" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head">
-              <h3>{detail.name}</h3>
-              <button className="title-icon" onClick={() => setDetail(null)}>✕</button>
-            </div>
-            <div className="tabs-line" style={{ margin: '0 16px' }}>
-              {(['overview', 'structure', 'prizes'] as const).map((k) => (
-                <button key={k} className={detailTab === k ? 'on' : ''} onClick={() => setDetailTab(k)}>
-                  {k === 'overview' ? 'Overview' : k === 'structure' ? 'Blind structure' : 'Prizes'}
-                </button>
-              ))}
-            </div>
-            <div className="modal-body" style={{ maxHeight: 420, overflowY: 'auto' }}>
-              {detailTab === 'overview' && (
-                <>
-                  <div className="grid g2">
-                    <div className="kv"><span>Buy-in</span><b>{detail.buyin === 0 ? 'Freeroll' : money(detail.buyin + detail.fee)}</b></div>
-                    <div className="kv"><span>Guarantee</span><b className="gold">{money(detail.gtd, true)}</b></div>
-                    <div className="kv"><span>Starting stack</span><b>{detail.starting_stack.toLocaleString()}</b></div>
-                    <div className="kv"><span>Blind levels</span><b>{detail.blind_speed} min</b></div>
-                    <div className="kv"><span>Entrants</span><b>{detail.entrants.toLocaleString()}</b></div>
-                    <div className="kv"><span>Game</span><b>{detail.format}</b></div>
-                    <div className="kv"><span>Start</span><b>{new Date(detail.start_at).toLocaleString('en-GB')}</b></div>
-                    <div className="kv"><span>Late registration</span><b>{new Date(new Date(detail.start_at).getTime() + (detail.late_reg || 0) * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b></div>
-                    {detail.mode && detail.mode !== 'STANDARD' && <div className="kv"><span>Format</span><b>{detail.mode}</b></div>}
-                    {detail.mode === 'BOUNTY' && <div className="kv"><span>Bounty</span><b className="gold">{money(detail.bounty || 0)}</b></div>}
-                    {detail.mode === 'MYSTERY' && <div className="kv"><span>Mystery bounty</span><b className="gold">up to {money((detail.bounty || 0) * 10)}</b></div>}
-                    {detail.mode === 'SATELLITE' && <div className="kv"><span>Ticket</span><b>{detail.ticket || 'Target event'}</b></div>}
-                  </div>
-                  <p className="muted small" style={{ marginTop: 14 }}>
-                    Play-money tournament. Prizes are credited to your play balance. Blind levels increase every {detail.blind_speed} minutes;
-                    late registration closes at the start of level 12.
-                  </p>
-                </>
-              )}
-              {detailTab === 'structure' && (
-                <table className="admin-table">
-                  <thead><tr><th>Level</th><th>Blinds</th><th>Ante</th><th>Duration</th></tr></thead>
-                  <tbody>
-                    {Array.from({ length: 16 }).map((_, i) => {
-                      const bb = Math.round(detail.starting_stack / 100 * Math.pow(1.35, i));
-                      return (
-                        <tr key={i}>
-                          <td>{i + 1}</td><td>{Math.round(bb / 2).toLocaleString()} / {bb.toLocaleString()}</td>
-                          <td>{i > 3 ? Math.round(bb / 10).toLocaleString() : '—'}</td><td>{detail.blind_speed} min</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-              {detailTab === 'prizes' && (
-                prizes ? (
-                  <>
-                    <div className="grid g2" style={{ marginBottom: 12 }}>
-                      <div className="kv"><span>Prize pool</span><b className="gold">{money(prizes.prizePool)}</b></div>
-                      <div className="kv"><span>Places paid</span><b>{placesPaidLabel(prizes.payouts)}</b></div>
-                      {prizes.playersLeft != null && <div className="kv"><span>Players left</span><b>{prizes.playersLeft.toLocaleString()}</b></div>}
-                      {bubble && <div className="kv"><span>Bubble</span><b className="gold">{bubble}</b></div>}
-                    </div>
-                    <table className="admin-table">
-                      <thead><tr><th>Place</th><th>Prize</th></tr></thead>
-                      <tbody>
-                        {prizes.payouts.map((p) => (
-                          <tr key={p.place}><td>{ordinal(p.place)}</td><td className="gold">{prizeText(p, (n) => money(n))}</td></tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </>
-                ) : <p className="muted small">Loading prizes…</p>
-              )}
-            </div>
-            <div className="modal-foot">
-              <span className="muted small" style={{ marginRight: 'auto' }}>Balance: {money(user?.balance ?? 0)}</span>
-              {detail.status === 'running' && (
-                <button className="btn btn-ghost" disabled={busy === detail.id} onClick={() => watchLive(detail)}>Watch live</button>
-              )}
-              {registered.includes(detail.id) ? (
-                <>
-                  <button className="btn btn-ghost" onClick={() => unregister(detail)}>Unregister</button>
-                  <button className="btn btn-gold" onClick={() => play(detail)}>Play now</button>
-                </>
-              ) : (
-                <button className="btn btn-red" disabled={busy === detail.id} onClick={() => register(detail)}>
-                  Register · {detail.buyin === 0 ? 'Free' : money(detail.buyin + detail.fee)}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <TournamentLobby
+          tournament={liveDetail}
+          all={data?.tournaments || []}
+          registered={registered.includes(detail.id)}
+          busy={busy === detail.id}
+          balance={user?.balance ?? 0}
+          meId={user?.id}
+          onClose={closeDetail}
+          onRegister={() => register(detail)}
+          onUnregister={() => unregister(detail)}
+          onPlay={() => play(detail)}
+          onWatch={(tableId) => watchLive(detail, tableId)}
+          onOpen={openDetail}
+          onPropBet={() => navigate(`/propbet?create=last_longer&tournament=${encodeURIComponent(detail.id)}`)}
+          onError={lobbyError}
+        />
       )}
     </>
   );

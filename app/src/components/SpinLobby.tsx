@@ -3,7 +3,7 @@ import { money, type LobbyTable } from '../lib/api';
 
 type Info = { buyIn: number; seats: number; payouts: { multiplier: number; prizePool: number; oneIn?: number }[] };
 
-/** Spin & Gold buy-in grid (reference 10): stone tiles per stake + top prize. */
+/** Jackpot SNG buy-in grid (reference 10): stone tiles per stake + top prize. */
 export function SpinLobby({ tables, onJoin }: { tables: readonly LobbyTable[]; onJoin: (t: LobbyTable) => void }) {
   const [infos, setInfos] = useState<Record<number, Info>>({});
   const [picked, setPicked] = useState<number | null>(null);

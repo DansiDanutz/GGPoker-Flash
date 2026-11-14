@@ -1,4 +1,4 @@
-/* Mystery Battle Royale lobby (reference 11). */
+/* Battle Royale lobby (reference 11). */
 .battle { flex: 1 1 auto; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: auto auto 1fr; gap: 12px; padding: 12px; overflow-y: auto; background: radial-gradient(900px 500px at 20% 0%, rgba(120, 80, 20, .16), transparent 62%), #0b0c0d; }
 .battle-hero { position: relative; grid-column: 1; min-height: 248px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(231, 194, 115, .24); box-shadow: 0 20px 44px rgba(0, 0, 0, .5); }
 .battle-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center 38%; filter: saturate(.9) brightness(.75); transform: scale(1.03); }

@@ -197,7 +197,7 @@ test('PLO5 and PLO6 deal five and six hole cards', () => {
 });
 
 
-test('Flip & Go marks its first hand all-in', () => {
+test('Quick Flip marks its first hand all-in', () => {
   const p1 = player(1, 'A', 10000, 0, []);
   const p2 = player(2, 'B', 10000, 0, []);
   const t = tableWith([p1, p2], { seats: 2, tournament: { prizePool: 100000, mode: 'FLIP' } });
@@ -509,7 +509,7 @@ test('a busted cash player gets a reload window before the next deal', () => {
   assert.equal(t.openRebuyWindow(now + 200), false, 'a prompted bust is not offered twice');
 });
 
-test('tournaments and Spin & Gold never open a reload window', () => {
+test('tournaments and Jackpot SNG never open a reload window', () => {
   for (const extra of [{ tournament: { prizePool: 1000, level: 1, blindEvery: 10 } }, { game: 'spingold' }]) {
     const t = new PokerTable({
       id: 'noreload', name: 'No reload', game: 'holdem', sb: 50, bb: 100, seats: 2,

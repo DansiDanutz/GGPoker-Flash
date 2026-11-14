@@ -1,4 +1,4 @@
-/* PokerCraft timeline (reference pokercraft__01). */
+/* Hand History timeline (reference pokercraft__01). */
 .pc { flex: 1 1 auto; min-height: 0; display: flex; background: #151517; }
 .pc-rail {
   flex: 0 0 250px; width: 250px; min-height: 0; overflow-y: auto;

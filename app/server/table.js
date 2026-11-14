@@ -212,6 +212,7 @@ export class PokerTable {
       id: player.id,
       nick: player.nick,
       avatar: player.avatar || '',
+      country: /^[A-Za-z]{2}$/.test(String(player.country || '')) ? String(player.country).toUpperCase() : '',
       stack,
       isBot: !!player.isBot,
       sittingOut: false,
@@ -383,7 +384,7 @@ export class PokerTable {
     return this.occupiedSeats().filter((s) => this.isDealtIn(s.player));
   }
 
-  /** Spin & Gold runs only at an observed play-money stake (5,000 / 10,000, fixed buy-in). */
+  /** Jackpot SNG runs only at an observed play-money stake (5,000 / 10,000, fixed buy-in). */
   spinStakeValid() {
     return this.spin && isSpinStake(Number(this.cfg.min_buyin), Number(this.cfg.max_buyin));
   }
@@ -1903,6 +1904,7 @@ export class PokerTable {
           lastAction: p.lastAction,
           winAmount: p.winAmount,
           disconnected: p.disconnected,
+          country: p.country || '',
           sitOutNext: !!p.sitOutNextHand,
           timeBank: p.timeBank,
           timeBankCards: p.timeBankCards ?? 0,

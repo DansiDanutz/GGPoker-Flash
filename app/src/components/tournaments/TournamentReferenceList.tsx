@@ -3,26 +3,26 @@ import { money } from '../../lib/api';
 import { Countdown } from '../PageShell';
 import { phaseOf, PHASE_LABEL, type TournamentFilters } from '../../lib/tournamentFilters';
 
-const CREATIVE = '/assets/gg-creatives';
+const CREATIVE = '/assets/ui/creatives';
 
 const SERIES_TABS = [
-  { key: 'all', label: 'Tournaments', art: 'series-tab-tournaments.jpg' },
-  { key: 'all', label: 'GGMillion$ Festival', art: 'series-tab-0.jpg' },
-  { key: 'all', label: 'PLO Series', art: 'series-tab-1.jpg' },
-  { key: 'ggmasters', label: 'GGMasters', art: 'series-tab-2.jpg' },
-  { key: 'wsop', label: 'WSOP Express', art: 'series-tab-3.jpg' },
-  { key: 'spin', label: 'Spin & Gold', art: 'series-tab-4.jpg' },
-  { key: 'mystery', label: 'Mystery Battle Royale', art: 'series-tab-5.jpg' },
-  { key: 'quickflip', label: 'Flip & Go', art: 'series-tab-6.jpg' },
+  { key: 'all', label: 'Tournaments', art: 'series-tournaments.png' },
+  { key: 'all', label: 'Millions Festival', art: 'series-millions.png' },
+  { key: 'all', label: 'PLO Series', art: 'series-plo.png' },
+  { key: 'ggmasters', label: 'Masters', art: 'series-masters.png' },
+  { key: 'wsop', label: 'Live Series', art: 'series-live.png' },
+  { key: 'spin', label: 'Jackpot SNG', art: 'series-jackpot.png' },
+  { key: 'mystery', label: 'Battle Royale', art: 'series-battle.png' },
+  { key: 'quickflip', label: 'Quick Flip', art: 'series-flip.png' },
 ];
 
 const CHIPS = [
   { key: 'all', label: 'All' },
-  { key: 'ggmasters', label: 'GGMasters' },
+  { key: 'ggmasters', label: 'Masters' },
   { key: 'bounty', label: 'Bounty Hunters' },
-  { key: 'mystery', label: 'Mystery Battle Royale' },
-  { key: 'spin', label: 'Spin & Gold' },
-  { key: 'quickflip', label: 'Flip & Go' },
+  { key: 'mystery', label: 'Battle Royale' },
+  { key: 'spin', label: 'Jackpot SNG' },
+  { key: 'quickflip', label: 'Quick Flip' },
   { key: 'satellites', label: 'Satellites' },
   { key: 'live', label: 'Live Series' },
 ];
