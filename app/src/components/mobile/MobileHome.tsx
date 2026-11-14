@@ -94,7 +94,7 @@ export function MobileHome({ tables, online, jackpot, jumpBackIn, gameLabel, onJ
               </button>
             )}
             <div className="p-rail" role="list" aria-label="Promotions">
-              {PROMO_CARDS.slice(0, 4).map((c) => (
+              {PROMO_CARDS.map((c) => (
                 <button key={c.key} type="button" role="listitem" className="p-rail-card" onClick={() => onTarget(c.target)}>
                   <span className="p-rail-art" style={{ backgroundImage: `url(${c.art})` }} aria-hidden="true" />
                   <span className="p-rail-copy"><b>{c.title}</b><small>{c.sub}</small></span>

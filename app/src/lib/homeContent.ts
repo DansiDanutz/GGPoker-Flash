@@ -23,6 +23,7 @@ export type PromoCard = {
   key: string;
   title: string;
   sub: string;
+  /** Wide 2.8:1 photo-real strip (see docs/designs/promo-card-art-prompts.md). */
   art: string;
   target: HomeTarget;
 };
@@ -63,14 +64,14 @@ export const HERO_SLIDES: readonly HeroSlide[] = Object.freeze([
 ]);
 
 export const PROMO_CARDS: readonly PromoCard[] = Object.freeze([
-  { key: 'freebie', title: 'Daily Freebie', sub: 'A free gift every day', art: `${DISCOVER}Bg_Discover_DailyFreebie.png`, target: { route: '/rewards' } },
-  { key: 'freeroll', title: 'Weekly Freeroll', sub: 'Free entry, real prizes', art: `${DISCOVER}Bg_Discove_WeeklyFreeroll_EN.png`, target: { route: '/tournaments' } },
-  { key: 'welcome', title: 'Welcome Bonus', sub: 'New player welcome package', art: `${DISCOVER}Bg_Discover_Honeymoon.png`, target: { route: '/promotions' } },
-  { key: 'wheel', title: 'Prize Wheel', sub: 'Spin to win up to 100,000x', art: `${DISCOVER}Bg_Discover_Fishbuffet.png`, target: { route: '/rewards' } },
-  { key: 'ocean', title: 'DanGG Rewards', sub: 'Collect gems, climb the reef', art: `${DISCOVER}D_Discover_OceanRewards_Whale.png`, target: { route: '/ocean' } },
-  { key: 'holdem-lb', title: "Hold'em Leaderboard", sub: 'Weekly race for the top', art: `${DISCOVER}Bg_Discover_Leaderboard_Holdem.png`, target: { route: '/leaderboard' } },
-  { key: 'care', title: 'Player Care', sub: 'Bad beat protection & daily prizes', art: `${DISCOVER}Bg_Discover_GGcare.png`, target: { route: '/promotions' } },
-  { key: 'casino', title: 'Casino Bonus', sub: 'Weekly free spins', art: `${DISCOVER}Bg_Discover_CasinoBonus_EN.png`, target: { route: '/casino' } },
+  { key: 'freebie', title: 'Daily Freebie', sub: 'A free gift every day', art: '/assets/promo/freebie.webp', target: { route: '/rewards' } },
+  { key: 'freeroll', title: 'Weekly Freeroll', sub: 'Free entry, real prizes', art: '/assets/promo/freeroll.webp', target: { route: '/tournaments' } },
+  { key: 'welcome', title: 'Welcome Bonus', sub: 'New player welcome package', art: '/assets/promo/welcome.webp', target: { route: '/promotions' } },
+  { key: 'wheel', title: 'Prize Wheel', sub: 'Spin to win up to 100,000x', art: '/assets/promo/wheel.webp', target: { route: '/rewards' } },
+  { key: 'ocean', title: 'DanGG Rewards', sub: 'Collect gems, climb the reef', art: '/assets/promo/rewards.webp', target: { route: '/ocean' } },
+  { key: 'holdem-lb', title: "Hold'em Leaderboard", sub: 'Weekly race for the top', art: '/assets/promo/leaderboard.webp', target: { route: '/leaderboard' } },
+  { key: 'care', title: 'Player Care', sub: 'Bad beat protection & daily prizes', art: '/assets/promo/care.webp', target: { route: '/promotions' } },
+  { key: 'casino', title: 'Casino Bonus', sub: 'Weekly free spins', art: '/assets/promo/casino.webp', target: { route: '/casino' } },
 ]);
 
 /** How often the hero carousel advances on its own. */
