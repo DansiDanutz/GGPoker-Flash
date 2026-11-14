@@ -216,20 +216,21 @@
 
   /* ---- Login splash ------------------------------------------------------------------- */
   .titlebar:has(+ .login2-splash) { display: none; }
-  .login2-splash { background: #232325; }
-  .login2-splash .login2-top { border-bottom: 0; background: transparent; padding: calc(18px + env(safe-area-inset-top, 0px)) 22px 0; }
+  .login2-splash { background: #12061a; }
+  .login2-splash .login2-top { position: relative; z-index: 2; border-bottom: 0; background: transparent; padding: calc(18px + env(safe-area-inset-top, 0px)) 22px 0; }
   .login2-splash .login2-logo { display: none; }
   .login2-splash .login2-top-actions { width: 100%; justify-content: space-between; }
-  .login2-splash .login2-top-actions button { font-size: 17px; color: #e8e8ea; }
-  .login2-splash-body { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; padding: 0 30px calc(26px + env(safe-area-inset-bottom, 0px)); }
-  .login2-splash-logo { margin-top: auto; width: min(82vw, 340px); height: auto; }
-  .login2-splash-tag { margin: 12px 0 auto; color: #b8b8bd; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
+  .login2-splash .login2-top-actions button { font-size: 17px; color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, .7); }
+  .login2-splash-body { position: relative; z-index: 2; flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; padding: 0 30px calc(26px + env(safe-area-inset-bottom, 0px)); }
+  .login2-splash-logo { margin-top: 7vh; width: min(78vw, 330px); height: auto; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .75)) drop-shadow(0 0 26px rgba(255, 186, 84, .35)); }
+  .login2-splash-tag { margin: 10px 0 auto; color: #ffe2a6; font-size: 12px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 0 14px rgba(255, 180, 70, .55), 0 2px 6px rgba(0, 0, 0, .8); }
   .login2-splash-actions { display: grid; gap: 14px; width: 100%; max-width: 420px; }
   .login2-splash-actions button { height: 54px; border-radius: 999px; font-size: 20px; font-weight: 600; }
-  .login2-splash-join { background: #c9403f; color: #fff; box-shadow: 0 6px 18px rgba(201, 64, 63, .35); }
-  .login2-splash-login { background: transparent; color: #e8e8ea; border: 1.5px solid #8b8b90; }
-  .login2-splash-guest { height: 40px !important; background: none; color: #a8a8ad; font-size: 15px !important; text-decoration: underline; text-underline-offset: 3px; }
-  .login2-splash-legal { margin: 20px 0 0; color: #8b8b90; font-size: 12px; text-align: center; }
+  .login2-splash-join { position: relative; overflow: hidden; background: linear-gradient(180deg, #ff5a52 0%, #d82b33 48%, #a5121f 100%); color: #fff; font-weight: 800 !important; letter-spacing: .02em; text-shadow: 0 1px 2px rgba(80, 0, 10, .6); border: 1px solid rgba(255, 170, 150, .55); box-shadow: 0 10px 28px rgba(230, 40, 60, .5), inset 0 1px rgba(255, 255, 255, .45), inset 0 -3px rgba(90, 0, 15, .35); }
+  .login2-splash-join::after { content: ''; position: absolute; inset: 0 auto 0 -40%; width: 40%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .38), transparent); transform: skewX(-18deg); animation: lh-sweep 3.6s ease-in-out infinite; }
+  .login2-splash-login { background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .05)); color: #fff; border: 1.5px solid rgba(255, 214, 140, .55); box-shadow: 0 8px 24px rgba(0, 0, 0, .45), inset 0 1px rgba(255, 255, 255, .22); backdrop-filter: blur(10px); }
+  .login2-splash-guest { height: 40px !important; background: none; color: #d8cfe0; font-size: 15px !important; text-decoration: underline; text-underline-offset: 3px; }
+  .login2-splash-legal { margin: 20px 0 0; color: #9d93a8; font-size: 12px; text-align: center; }
 }
 
 /* Narrow phones: keep the headline clear of the hero art. */
