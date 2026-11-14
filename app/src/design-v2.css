@@ -731,6 +731,31 @@ body { background: #050706; }
   .home-tv-row { grid-auto-columns: minmax(200px, 46%); }
 }
 
+/* ---------- reference-scoped Home metrics (001–003) ---------- */
+.promo-wrap { height: 252px; flex-basis: 252px; border-radius: 8px; }
+.promo-copy { bottom: 34px; }
+.promo-copy b { font-size: clamp(26px, 2.8vw, 44px); }
+.home-promo-row { grid-auto-columns: 226px; gap: 10px; }
+.home-promo-card { min-height: 232px; }
+.home-promo-card b { font-size: 15px; }
+.home-promo-card small { font-size: 11.5px; }
+.home-promos-head b { font-size: 16px; }
+.lobby-rail { width: 112px; min-width: 112px; max-width: 112px; flex: 0 0 112px; padding: 4px; overflow: hidden; }
+.rail-btn { font-size: 10.5px; }
+.cashier-btn { font-size: 12px; }
+.rail-wallet .currency-row { font-size: 11px; }
+
+/* DanGG.TV cards follow the reference thumbnail-then-caption shape. */
+.tv-card { display: flex; flex-direction: column; min-height: 0; background: #0d0d0f; }
+.tv-card img { position: relative; inset: auto; width: 100%; height: 118px; opacity: 1; object-fit: cover; }
+.tv-card::after { display: none; }
+.tv-card .tv-play { top: 59px; }
+.tv-card .tv-live { top: 8px; left: 8px; }
+.tv-copy { position: static; padding: 9px 10px 10px; background: #0d0d0f; }
+.tv-copy b { font-size: 12.5px; }
+.tv-copy small { font-size: 10.5px; }
+.home-tv-row { grid-auto-columns: minmax(200px, 1fr); }
+
 /* ---------- global account rail (reference: present on every screen) ---------- */
 .app-content.has-rail { flex-direction: row; min-height: 0; }
 .app-page { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
