@@ -1,3 +1,11 @@
+## 2026-11-14 — Ocean Rewards 048 ported from the reference
+
+- /rewards is the Ocean Rewards account window: window tabs, left menu, underwater
+  hero with rank art, live TP bar and the eight-tier Fish→Shark parchment with GEM
+  multipliers and cashback.
+- GEM Store keeps DanGG Pass, missions, Prize Wheel, fish ranks and leaderboard.
+- Responsive to 320px; parchment scrolls inside its card.
+
 ## 2026-11-14 — Message 043 ported from the reference
 
 - Message centre: Mark All as Read, range counter and pager, dated notice rows,

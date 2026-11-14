@@ -1,0 +1,90 @@
+/* Ocean Rewards (reference 048). */
+.ocean { max-width: 980px; margin: 0 auto; }
+.ocean-hero {
+  position: relative; border-radius: 8px; overflow: hidden; min-height: 360px;
+  background: url('/assets/ocean/Banner_Ocean_Whale.png') center/cover no-repeat, linear-gradient(#1a4a63, #0b2432);
+  border: 1px solid rgba(120, 200, 230, .25);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  padding: 14px 18px 18px;
+}
+.ocean-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,40,55,.15), rgba(4,18,26,.55)); }
+.ocean-gems {
+  position: absolute; top: 14px; left: 14px; z-index: 2; display: inline-flex; align-items: center; gap: 8px;
+  min-width: 150px; height: 34px; padding: 0 14px; border-radius: 17px;
+  background: rgba(8, 26, 36, .72); border: 1px solid rgba(160, 220, 240, .35);
+  color: #eaf6fb; font-size: 16px; font-weight: 700;
+}
+.ocean-gem { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 32% 28%, #bff4ff, #2f9fd0 55%, #0f5f8a); box-shadow: 0 0 10px rgba(120,220,255,.7); }
+.ocean-bubble {
+  position: absolute; top: 24px; right: 26px; z-index: 2; padding: 10px 16px;
+  background: #fff; color: #20303a; border-radius: 16px; font-size: 13.5px; font-weight: 600; line-height: 1.25;
+  box-shadow: 0 6px 18px rgba(0,0,0,.3);
+}
+.ocean-bubble::after { content: ''; position: absolute; left: -8px; bottom: 10px; border: 8px solid transparent; border-right-color: #fff; }
+.ocean-fish { position: relative; z-index: 1; width: 170px; height: auto; margin-bottom: 2px; filter: drop-shadow(0 12px 20px rgba(0,0,0,.4)); }
+.ocean-hero-copy { position: relative; z-index: 1; text-align: center; }
+.ocean-hero-copy h2 { margin: 2px 0 0; color: #fff; font-size: 30px; font-weight: 800; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
+.ocean-hero-copy p { margin: 2px 0 10px; color: #dff3fb; font-size: 13.5px; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
+.ocean-progress {
+  position: relative; z-index: 2; width: min(640px, 92%); height: 34px; border-radius: 17px;
+  background: rgba(6, 30, 44, .82); border: 2px solid #2f7fa6; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.ocean-progress-fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #1d6fa6, #35b7e8); border-radius: 15px 0 0 15px; }
+.ocean-progress span { position: relative; z-index: 1; color: #fff; font-size: 15px; font-weight: 800; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.ocean-progress img { position: absolute; right: 5px; top: 5px; width: 24px; height: 24px; object-fit: contain; }
+.ocean-caption { text-align: center; color: #e8e4da; font-size: 14px; margin: 18px 0 12px; }
+.ocean-caption b { color: #c9f0ff; }
+
+.ocean-tiers {
+  display: flex; flex-direction: column; border-radius: 10px; overflow: hidden;
+  background: linear-gradient(180deg, #e9e2d2, #d8cdb6); color: #2a2a2a;
+  box-shadow: 0 16px 34px rgba(0,0,0,.4), inset 0 0 0 1px rgba(90,70,40,.35);
+}
+.ocean-tier-row { display: grid; grid-template-columns: 92px repeat(8, minmax(0, 1fr)); align-items: center; }
+.ocean-tier-row > span { padding: 7px 4px; text-align: center; font-size: 11.5px; }
+.ocean-tier-row > span:first-child { text-align: left; padding-left: 12px; color: #6b5b3d; font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: .3px; }
+.ocean-tier-row.head > span { padding-top: 12px; color: #3d3320; font-weight: 800; font-size: 12.5px; }
+.ocean-tier-row.icons img { width: 48px; height: 52px; object-fit: contain; display: block; margin: 0 auto; }
+.ocean-tier-row .on { background: rgba(47, 159, 208, .18); }
+.ocean-tier-row.head .on { color: #14698f; }
+.ocean-tier-row:last-child > span { padding-bottom: 14px; }
+.ocean-more { text-align: right; padding: 14px 4px 0; }
+.ocean-more button { color: #cfe9f5; font-size: 12.5px; text-decoration: underline; }
+
+@media (max-width: 900px) {
+  .ocean-tier-row { grid-template-columns: 70px repeat(8, minmax(0, 1fr)); }
+  .ocean-tier-row > span { font-size: 10px; padding: 6px 2px; }
+  .ocean-tier-row.icons img { width: 36px; height: 40px; }
+  .ocean-hero { min-height: 300px; }
+  .ocean-fish { width: 140px; }
+}
+@media (max-width: 760px) {
+  .ocean-hero { min-height: 250px; padding: 10px 10px 14px; }
+  .ocean-fish { width: 110px; }
+  .ocean-hero-copy h2 { font-size: 24px; }
+  .ocean-bubble { top: 12px; right: 10px; font-size: 11.5px; padding: 8px 11px; }
+  .ocean-gems { top: 10px; left: 10px; min-width: 120px; height: 30px; font-size: 13px; }
+  .ocean-caption { font-size: 12px; margin: 12px 0; }
+  .ocean-tiers { overflow-x: auto; }
+  .ocean-tier-row { min-width: 640px; }
+  .ocean-more { text-align: center; }
+}
+
+.ocean-window { flex: 1 1 auto; min-height: 0; }
+.ocean-pane { padding: 16px 18px 24px; }
+.ocean-wintabs button.on { background: linear-gradient(180deg, #c52b38, #8d1420); color: #fff; box-shadow: inset 0 1px rgba(255,255,255,.16); }
+.ocean-store-title { margin: 2px 0 10px; color: #f2c45c; font-size: 20px; }
+.ocean-about { max-width: 760px; margin: 0 auto; padding: 10px 4px; }
+.ocean-about h2 { margin: 0 0 8px; color: #c9f0ff; font-size: 24px; }
+.ocean-about p { color: #cfcbc2; font-size: 13.5px; line-height: 1.6; }
+.ocean-about-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 20px; }
+.ocean-about-grid > div { background: #232327; border: 1px solid #2f2f35; border-radius: 6px; padding: 12px; }
+.ocean-about-grid b { display: block; color: #f2c45c; font-size: 13px; margin-bottom: 6px; }
+.ocean-about-grid span { color: #b9b5ac; font-size: 12px; line-height: 1.5; }
+.ocean-back { height: 38px; padding: 0 16px; border-radius: 5px; border: 1px solid #3a3a40; background: #2a2a2f; color: #e8e4da; font-size: 12.5px; }
+.ocean-back:hover { background: #34343a; color: #fff; }
+@media (max-width: 760px) {
+  .ocean-pane { padding: 10px 10px 18px; }
+  .ocean-about-grid { grid-template-columns: 1fr; }
+}
