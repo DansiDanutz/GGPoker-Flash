@@ -200,6 +200,9 @@ black lacquer with a warm gold trim and a soft rim light along the top edge. Emp
 chips, no seats. Saturated, vibrant, premium game-promo look, octane-style 3D render, glossy
 materials, ultra detailed. No text, no letters, no numbers, no logos, no watermark, no people.
 
+**Delivered:** cropped to the rail and saved as `cash-felt.webp` (440×758); it paints the cash lobby
+table preview, whose own border and shadow are dropped in favour of the art's rail.
+
 ---
 
 Paste each image into the chat (4a first). I crop each one to its slot, convert it to WebP, and wire
