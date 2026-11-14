@@ -26,6 +26,7 @@ import { MobileShell } from '../components/mobile/MobileShell';
 import { HomeFeed } from '../components/home/HomeFeed';
 import { CashHero } from '../components/CashHero';
 import { SpinLobby } from '../components/SpinLobby';
+import { BattleLobby } from '../components/BattleLobby';
 import { AccountRail } from '../components/AccountRail';
 
 const PREVIEW_SEATS = [
@@ -379,8 +380,10 @@ export function Lobby() {
           {gameTab === 'home' && (
             <HomeFeed tables={tables} online={online} onTarget={openHomeTarget} onJoin={openJoin} />
           )}
-          {gameTab !== 'home' && gameTab !== 'rush' && gameTab !== 'spin' && <CashHero />}
-          {gameTab === 'spin' ? (
+          {gameTab !== 'home' && gameTab !== 'rush' && gameTab !== 'spin' && gameTab !== 'battle' && <CashHero />}
+          {gameTab === 'battle' ? (
+            <BattleLobby />
+          ) : gameTab === 'spin' ? (
             <SpinLobby tables={tables} onJoin={openJoin} />
           ) : (
             <>
@@ -448,7 +451,7 @@ export function Lobby() {
           )}
         </div>
 
-        <div className="lobby-side">
+        {gameTab !== 'battle' && <div className="lobby-side">
           {!unavailable && (
             <>
               <div className="view-toggle">
@@ -473,7 +476,7 @@ export function Lobby() {
           <div style={{ padding: '6px 8px', fontSize: 11, color: '#777', borderTop: '1px solid #222' }}>
             {table ? GAME_LABEL[table.game] : ''} · {table ? table.speed : ''}
           </div>
-        </div>
+        </div>}
 
         <AccountRail />
       </div>}

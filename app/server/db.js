@@ -485,6 +485,19 @@ function ensureSeries() {
       db.prepare("UPDATE tournaments SET mode='SATELLITE', ticket='Sunday Major $250K' WHERE id=?").run(id);
     }
   }
+  // Mystery Battle Royale tiers (reference 11): seeded once, then left alone.
+  for (const [id, name, buyin, gtd, hours, entrants] of [
+    ['mbr-1', 'Mystery Battle Royale $5K', 25, 5000, 1.5, 1841],
+    ['mbr-2', 'Mystery Battle Royale $10K', 100, 10000, 3, 1622],
+    ['mbr-3', 'Mystery Battle Royale $30K', 300, 30000, 5, 1408],
+    ['mbr-4', 'Mystery Battle Royale $100K', 1000, 100000, 8, 977],
+    ['mbr-5', 'Mystery Battle Royale $250K', 2500, 250000, 12, 412],
+  ]) {
+    if (!db.prepare('SELECT 1 FROM tournaments WHERE id = ?').get(id)) {
+      tins.run(id, name, buyin, 0, gtd * 100, new Date(Date.now() + hours * 3600_000).toISOString(), entrants, 'NLH');
+    }
+  }
+  db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=MAX(1, buyin/2), blind_speed=3 WHERE id LIKE 'mbr-%'");
   db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Quick Flip%' AND mode='STANDARD'");
   db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND mode='STANDARD'");
   db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND mode='STANDARD'");
