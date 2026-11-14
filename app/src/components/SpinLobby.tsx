@@ -76,7 +76,7 @@ export function SpinLobby({ tables, onJoin }: { tables: readonly LobbyTable[]; o
             </button>
           );
         })}
-        {!groups.length && <div className="list-empty">No Spin &amp; Gold stakes are open right now.</div>}
+        {!groups.length && <div className="list-empty">No Jackpot SNG stakes are open right now.</div>}
       </div>
 
       {picked != null && infos[picked] && (
