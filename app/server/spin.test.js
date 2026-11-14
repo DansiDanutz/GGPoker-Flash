@@ -1,4 +1,4 @@
-// Spin & Gold verified play-money table (slice S1a), ported 1:1 from Codex `spin-test.mjs`.
+// Jackpot SNG verified play-money table (slice S1a), ported 1:1 from Codex `spin-test.mjs`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {

@@ -6,10 +6,10 @@ import { Avatar } from '../components/Avatar';
 
 const GAMES = [
   { key: 'all', label: 'All games' },
-  { key: 'spin', label: 'Spin & Gold' },
+  { key: 'spin', label: 'Jackpot SNG' },
   { key: 'aof', label: 'All-in or Fold' },
   { key: 'rush', label: 'Rush & Cash' },
-  { key: 'mystery', label: 'Mystery Battle Royale' },
+  { key: 'mystery', label: 'Battle Royale' },
   { key: 'holdem', label: "Hold'em" },
   { key: 'omaha', label: 'PLO' },
   { key: 'shortdeck', label: 'Short Deck' },
@@ -24,7 +24,7 @@ const fmtDay = (key: string) => {
   return `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}`;
 };
 
-/** PokerCraft: timeline of the player's hands, reference pokercraft__01. */
+/** Hand History: timeline of the player's hands, reference pokercraft__01. */
 export function PokerCraft() {
   const { user, navigate } = useApp();
   const [hands, setHands] = useState<any[] | null>(null);
@@ -73,7 +73,7 @@ export function PokerCraft() {
             <Avatar name={user?.nick || '?'} src={user?.avatar} size={92} />
             <b>{user?.nick || 'Guest'}</b>
           </div>
-          <nav className="pc-nav" aria-label="PokerCraft">
+          <nav className="pc-nav" aria-label="Hand History">
             <button type="button" className={game === 'all' ? 'on' : ''} onClick={() => setGame('all')}><i>⏱</i>Timeline</button>
             <button type="button" onClick={() => navigate('/my-page?tab=notes')}><i>✎</i>Player Notes &amp; Labels</button>
             <button type="button" onClick={() => navigate('/my-page?tab=stakers')}><i>◔</i>Staking Profile</button>
@@ -109,7 +109,7 @@ export function PokerCraft() {
             {hands && !groups.length && (
               <div className="pc-empty">
                 <b>No hands in this range</b>
-                <span>Play a hand and it will appear on your PokerCraft timeline.</span>
+                <span>Play a hand and it will appear on your Hand History timeline.</span>
                 <button type="button" onClick={() => navigate('/')}>Find a table</button>
               </div>
             )}
@@ -153,7 +153,7 @@ export function PokerCraft() {
 
           <footer className="pc-foot">
             <span>Times shown in local time.</span>
-            <span>© 2026 DanGG PokerCraft</span>
+            <span>© 2026 DanGG Hand History</span>
           </footer>
         </section>
       </div>

@@ -1,4 +1,4 @@
-/* Spin & Gold lobby (reference 10): stone buy-in tiles + prize panel. */
+/* Jackpot SNG lobby (reference 10): stone buy-in tiles + prize panel. */
 .spin-lobby { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 14px 14px 0; background: radial-gradient(900px 500px at 50% 0%, rgba(120, 70, 10, .18), transparent 65%), #0b0c0d; }
 .spin-head { display: flex; align-items: flex-start; gap: 16px; }
 .spin-kicker { color: #e7c273; font-size: 10.5px; letter-spacing: 2px; font-weight: 700; }

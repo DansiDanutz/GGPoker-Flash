@@ -1,4 +1,4 @@
-// Spin & Gold ledger settlement (P0 slice S1b). A Spin seat's chips are not cash: the buy-in
+// Jackpot SNG ledger settlement (P0 slice S1b). A Spin seat's chips are not cash: the buy-in
 // opens a session, and the session is closed exactly once by the place payout from the
 // verified table (server/spin.js). `out:<session>` is unique per user in `transactions`, so a
 // later cash-out, bust close or repeated hook call for the same session is skipped.

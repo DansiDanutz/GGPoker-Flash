@@ -1,6 +1,6 @@
 // Tournament lobby content (reference section 16). Every row and explainer mirrors
 // what the server implements: tournament-lobby.js (structure, late reg, clock),
-// table.js (bounty, mystery tiers, Flip & Go first hand) and tournament.js (payouts).
+// table.js (bounty, mystery tiers, Quick Flip first hand) and tournament.js (payouts).
 import { money, type TournamentDetail } from './api';
 import { ordinal } from './tournamentPrizes';
 
@@ -26,7 +26,7 @@ export function lobbyTheme(t: any): LobbyTheme {
 const GAME_NAME: Record<string, string> = { NLH: "No Limit Hold'em", PLO: 'Pot Limit Omaha', 'Short Deck': "Short Deck Hold'em" };
 export const gameName = (t: any) => GAME_NAME[t.format] || "No Limit Hold'em";
 
-const MODE_NAME: Record<string, string> = { BOUNTY: 'Bounty', MYSTERY: 'Mystery Bounty', SATELLITE: 'Satellite', FLIP: 'Flip & Go' };
+const MODE_NAME: Record<string, string> = { BOUNTY: 'Bounty', MYSTERY: 'Mystery Bounty', SATELLITE: 'Satellite', FLIP: 'Quick Flip' };
 export const modeName = (t: any) => MODE_NAME[t.mode] || 'Freezeout';
 
 export const timeOf = (ms: number | string) =>
@@ -45,7 +45,7 @@ export function explainers(t: any, d: TournamentDetail | null): Record<string, E
       body: `Each knockout pays a random bounty of ${MYSTERY_TIERS.map((x) => `${x}×`).join(', ')} the ${money(t.bounty || 0)} base — up to ${money((t.bounty || 0) * 10)}. It is paid to your balance as soon as the player is out.`,
     },
     flip: {
-      title: 'Flip & Go',
+      title: 'Quick Flip',
       body: 'The first hand at every table is dealt with everyone all-in, no decisions. From the second hand on it is a normal tournament.',
     },
     satellite: {

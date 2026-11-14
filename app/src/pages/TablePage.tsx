@@ -88,7 +88,7 @@ type TableState = {
 };
 
 
-// Observed Spin & Gold multipliers (server/spin.js), shown on the intro wheel.
+// Observed Jackpot SNG multipliers (server/spin.js), shown on the intro wheel.
 const SPIN_WHEEL_MULTIPLIERS = [2, 3, 4, 5, 10, 50, 100, 20000];
 const DEFAULT_ACTION_TIME_MS = 15000;
 const HOTKEY_HINT_KEYS = ['ggpoker.hotkeyHints'];

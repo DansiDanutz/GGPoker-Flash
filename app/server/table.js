@@ -384,7 +384,7 @@ export class PokerTable {
     return this.occupiedSeats().filter((s) => this.isDealtIn(s.player));
   }
 
-  /** Spin & Gold runs only at an observed play-money stake (5,000 / 10,000, fixed buy-in). */
+  /** Jackpot SNG runs only at an observed play-money stake (5,000 / 10,000, fixed buy-in). */
   spinStakeValid() {
     return this.spin && isSpinStake(Number(this.cfg.min_buyin), Number(this.cfg.max_buyin));
   }

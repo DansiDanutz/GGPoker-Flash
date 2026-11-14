@@ -22,7 +22,7 @@ export const MOBILE_GAMES: readonly MobileGame[] = Object.freeze([
   { key: 'plo', label: 'PLO', icon: 'plo', perk: 'Bad Beat Jackpot', games: ['omaha', 'omaha5', 'omaha6'] },
   { key: 'short', label: 'Short Deck', icon: 'short', perk: 'Flush beats full house', games: ['shortdeck'] },
   { key: 'rush', label: 'Rush & Cash', icon: 'rush', perk: 'Cash Drops', games: ['rush', 'rushplo'] },
-  { key: 'spin', label: 'Spin & Gold', icon: 'spin', perk: 'Up to 12,000x', games: ['spingold'] },
+  { key: 'spin', label: 'Jackpot SNG', icon: 'spin', perk: 'Up to 12,000x', games: ['spingold'] },
 ]);
 
 type SeatedTable = { readonly game: string; readonly players: number };

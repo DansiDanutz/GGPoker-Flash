@@ -49,12 +49,12 @@ export const HERO_SLIDES: readonly HeroSlide[] = Object.freeze([
     target: { tab: 'plo' },
   },
   {
-    key: 'spin', kicker: 'Spin & Gold', title: 'Spin for the jackpot', sub: 'Three players, one wheel, prizes up to 12,000x.',
+    key: 'spin', kicker: 'Jackpot SNG', title: 'Spin for the jackpot', sub: 'Three players, one wheel, prizes up to 12,000x.',
     cta: 'Spin now', art: `${DISCOVER}Bg_Discover_SpinNGold.png`, artWide: '/assets/hero/spin.svg', artPhone: '/assets/hero/phone-spin.svg', bg: 'linear-gradient(110deg, #47330a 0%, #1f1604 55%, #0b0802 100%)',
     target: { tab: 'spin' },
   },
   {
-    key: 'battle', kicker: 'Mystery Battle Royale', title: 'Last one standing', sub: 'Bounty tournaments with hidden prizes on every head.',
+    key: 'battle', kicker: 'Battle Royale', title: 'Last one standing', sub: 'Bounty tournaments with hidden prizes on every head.',
     cta: 'Register', art: `${DISCOVER}Bg_Discover_MysteryBattleRoyal.png`, artWide: '/assets/hero/battle.svg', artPhone: '/assets/hero/phone-battle.svg', bg: 'linear-gradient(110deg, #2c0f4a 0%, #150725 55%, #07030c 100%)',
     target: { tab: 'battle' },
   },

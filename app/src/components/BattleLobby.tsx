@@ -8,7 +8,7 @@ const NOTES = [
   ['Final Table Stage', 'Mystery bounties are revealed at the final table.'],
 ];
 
-/** Mystery Battle Royale lobby (reference 11): rush stages, buy-in tiles, prize pools. */
+/** Battle Royale lobby (reference 11): rush stages, buy-in tiles, prize pools. */
 export function BattleLobby() {
   const { navigate } = useApp();
   const [events, setEvents] = useState<any[] | null>(null);
@@ -42,7 +42,7 @@ export function BattleLobby() {
       <div className="battle-hero">
         <div className="battle-hero-bg" style={{ backgroundImage: "url('/assets/ui/discover/Bg_Discover_MysteryBattleRoyal.png')" }} />
         <div className="battle-hero-copy">
-          <div className="battle-kicker">MYSTERY BATTLE ROYALE</div>
+          <div className="battle-kicker">BATTLE ROYALE</div>
           <h2>Survive the rush. Reveal the bounty.</h2>
           <div className="battle-notes">
             {NOTES.map(([title, body]) => (
@@ -65,12 +65,12 @@ export function BattleLobby() {
             </button>
           );
         })}
-        {events && !groups.length && <div className="list-empty">No Mystery Battle Royale events scheduled right now.</div>}
+        {events && !groups.length && <div className="list-empty">No Battle Royale events scheduled right now.</div>}
       </div>
 
       <div className="battle-join">
         <button type="button" className="battle-join-btn" disabled={!biggest} onClick={() => biggest && navigate(`/tournaments?id=${encodeURIComponent(biggest.id)}`)}>Join Now</button>
-        <button type="button" className="battle-more" onClick={() => navigate('/tournaments')}>Mystery Battle Royale details ↗</button>
+        <button type="button" className="battle-more" onClick={() => navigate('/tournaments')}>Battle Royale details ↗</button>
       </div>
 
       <aside className="battle-side">

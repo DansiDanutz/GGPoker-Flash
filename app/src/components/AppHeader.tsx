@@ -81,8 +81,8 @@ const TABS: readonly GameTab[] = [
   { key: 'holdem', label: "Hold'em", img: 'tab_holdem' },
   { key: 'plo', label: 'PLO', img: 'tab_plo' },
   { key: 'short', label: 'Short Deck', img: 'tab_short' },
-  { key: 'spin', label: 'Spin & Gold', img: 'tab_spin' },
-  { key: 'battle', label: 'Mystery Battle Royale', img: 'tab_battle' },
+  { key: 'spin', label: 'Jackpot SNG', img: 'tab_spin' },
+  { key: 'battle', label: 'Battle Royale', img: 'tab_battle' },
 ];
 
 export function GameTabs({ active, onChange }: { active: string; onChange: (key: string) => void }) {
