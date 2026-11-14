@@ -1397,3 +1397,16 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .channel-volume input[type="range"] { flex: 1; }
 .channel-volume .muted { width: 38px; text-align: right; }
 .hotkey-group-title.switch-row { padding: 0; }
+
+/* Desktop app: "Update" when this copy's build differs from dangg.live (DesktopUpdateButton). */
+.title-update {
+  -webkit-app-region: no-drag; display: inline-flex; align-items: center; gap: 7px; height: 26px; margin-left: 14px; padding: 0 13px;
+  border: 1px solid rgba(255, 214, 120, .65); border-radius: 13px; cursor: pointer;
+  background: linear-gradient(180deg, #f3d27a, #c08d34); color: #1a0d03; font-size: 12.5px; font-weight: 800; letter-spacing: .2px;
+  box-shadow: 0 0 14px rgba(243, 210, 122, .45);
+}
+.title-update:hover:not(:disabled) { filter: brightness(1.08); }
+.title-update:disabled { opacity: .7; cursor: default; }
+.title-update-dot { width: 7px; height: 7px; border-radius: 50%; background: #c0182a; box-shadow: 0 0 0 0 rgba(192, 24, 42, .7); animation: title-update-pulse 1.6s ease-out infinite; }
+@keyframes title-update-pulse { 70% { box-shadow: 0 0 0 7px rgba(192, 24, 42, 0); } 100% { box-shadow: 0 0 0 0 rgba(192, 24, 42, 0); } }
+@media (prefers-reduced-motion: reduce) { .title-update-dot { animation: none; } }
