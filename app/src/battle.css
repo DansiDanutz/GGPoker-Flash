@@ -1,0 +1,35 @@
+/* Mystery Battle Royale lobby (reference 11). */
+.battle { flex: 1 1 auto; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: auto auto 1fr; gap: 12px; padding: 12px; overflow-y: auto; background: radial-gradient(900px 500px at 20% 0%, rgba(120, 80, 20, .16), transparent 62%), #0b0c0d; }
+.battle-hero { position: relative; grid-column: 1; min-height: 248px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(231, 194, 115, .24); box-shadow: 0 20px 44px rgba(0, 0, 0, .5); }
+.battle-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center 38%; filter: saturate(.9) brightness(.75); transform: scale(1.03); }
+.battle-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8, 8, 8, .86) 0%, rgba(8, 8, 8, .55) 45%, rgba(8, 8, 8, .1) 100%); }
+.battle-hero-copy { position: relative; z-index: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; max-width: 560px; }
+.battle-kicker { color: #e7c273; font-size: 10.5px; letter-spacing: 2px; font-weight: 800; }
+.battle-hero h2 { margin: 0; color: #fbf6e8; font-size: 27px; letter-spacing: -.5px; line-height: 1.15; }
+.battle-notes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.battle-notes > div { display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; border-radius: 7px; background: rgba(8, 8, 8, .62); border: 1px solid rgba(231, 194, 115, .2); backdrop-filter: blur(6px); }
+.battle-notes b { color: #ffe4a0; font-size: 11.5px; }
+.battle-notes span { color: #b9b5ac; font-size: 10.5px; max-width: 190px; }
+
+.battle-tiles { grid-column: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.battle-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 8px 12px; min-height: 138px; border-radius: 8px; border: 1px solid rgba(231, 194, 115, .28); background: radial-gradient(70% 55% at 50% 0%, rgba(255, 255, 255, .08), transparent 70%), linear-gradient(165deg, #4d463a, #29251f 55%, #151310); box-shadow: 0 12px 24px rgba(0, 0, 0, .45), inset 0 1px rgba(255, 255, 255, .08); transition: transform .2s var(--spring), border-color .2s ease; }
+.battle-tile:hover { transform: translateY(-3px); border-color: rgba(255, 228, 160, .6); }
+.battle-buy { color: #e8e4da; font-size: 11.5px; font-weight: 700; }
+.battle-up { color: #b9a06a; font-size: 9.5px; text-transform: uppercase; letter-spacing: 1.2px; margin-top: 4px; }
+.battle-tile b { color: #ffe4a0; font-size: 21px; font-weight: 900; letter-spacing: -.4px; }
+.battle-players { margin-top: auto; color: #a5a199; font-size: 10.5px; }
+
+.battle-join { grid-column: 1; display: flex; align-items: center; gap: 14px; }
+.battle-join-btn { height: 46px; min-width: 220px; border-radius: 7px; border: 1px solid rgba(255, 150, 160, .3); background: linear-gradient(180deg, #d43a48, #8a1220); color: #fff; font-size: 14px; font-weight: 800; box-shadow: 0 10px 24px rgba(160, 26, 40, .35), inset 0 1px rgba(255, 255, 255, .16); }
+.battle-join-btn:disabled { opacity: .45; }
+.battle-more { border: 0; background: transparent; color: #9fd8ff; font-size: 11.5px; text-decoration: underline; }
+
+.battle-side { grid-column: 2; grid-row: 1 / span 3; min-height: 0; overflow-y: auto; border: 1px solid #2a2a2f; border-radius: 10px; background: linear-gradient(180deg, #17171a, #0d0d0f); }
+.battle-side-head { position: sticky; top: 0; z-index: 1; padding: 12px 14px; color: #f6f0e2; font-size: 13px; font-weight: 800; background: linear-gradient(180deg, #1d1d21, #151518); border-bottom: 1px solid #2a2a2f; }
+.battle-pool { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 11px 14px; border: 0; border-bottom: 1px solid #222226; background: transparent; text-align: left; }
+.battle-pool:hover { background: #202024; }
+.battle-pool b { color: #ffe4a0; font-size: 17px; font-weight: 900; }
+.battle-pool span { color: #d8d4cb; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.battle-pool small { color: #7f7c75; font-size: 10px; }
+@media (max-width: 1180px) { .battle { grid-template-columns: minmax(0, 1fr) 250px; } }
+@media (max-width: 900px) { .battle { grid-template-columns: 1fr; grid-template-rows: auto; } .battle-side { grid-column: 1; grid-row: auto; max-height: 300px; } .battle-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

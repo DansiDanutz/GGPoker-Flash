@@ -1,3 +1,10 @@
+## 2026-11-14 — Mystery Battle Royale lobby
+
+- Dedicated MBR lobby: stage-note hero, 3x2 buy-in tiles (up to prize, entrants),
+  Join Now and a live Mystery prize-pool rail.
+- Seed adds five idempotent MBR tiers ($0.25 -> $25, $5K -> $250K guarantees).
+- Generic cash list, carousel and side panel are skipped on this tab.
+
 ## 2026-11-14 — Spin & Gold stone-tile lobby
 
 - Spin & Gold tab gets a dedicated stake lobby: octagonal stone tiles (seats, buy-in,
