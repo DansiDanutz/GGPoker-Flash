@@ -1,0 +1,506 @@
+[
+  {
+    "width": 320,
+    "route": "/",
+    "file": "0320-lobby.png",
+    "text": "$9,950.00 EVERY DAY · PLAY CHIPS Daily Chip Flipout Join now → BAD BEAT JACKPOT ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/tournaments",
+    "file": "0320-tournaments.png",
+    "text": "$9,950.00 TOURNAMENT SERIES SUNDAY MAJOR $250K $250K GTD Nov 15, 01:12 · Buy-in ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/casino",
+    "file": "0320-casino.png",
+    "text": "$9,950.00 PLAY-MONEY CASINO Pick a game. Take a seat. 18+ · chips have no cash v",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/slots",
+    "file": "0320-slots.png",
+    "text": "Slots $9,950.00 6 DanGG Originals · play-money only 18+ For adults only. Play ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/my-page",
+    "file": "0320-my-page.png",
+    "text": "$9,950.00 My Page Prop Bet Ocean Rewards My Promo Game Settings ✕ GGPass Account",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/rewards",
+    "file": "0320-rewards.png",
+    "text": "$9,950.00 My Page Prop Bet Ocean Rewards My Promo Game Settings ✕ My Ocean Level",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/cashier",
+    "file": "0320-cashier.png",
+    "text": "Cashier $9,950.00 DanGG Cashier Balance $9,950.00 P$ P$5,000 T$ T$50 Ticket 50 D",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/settings",
+    "file": "0320-settings.png",
+    "text": "Settings $9,950.00 My Page Prop Bet Ocean Rewards My Promo Game Settings ✕ Gener",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/hand-history",
+    "file": "0320-hand-history.png",
+    "text": "Hand history $9,950.00 ♠ Poker Craft DansiDanutz ⏱ Timeline ✎ Player Notes & Lab",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/",
+    "file": "0390-lobby.png",
+    "text": "$9,950.00 EVERY DAY · PLAY CHIPS Daily Chip Flipout Join now → BAD BEAT JACKPOT ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/tournaments",
+    "file": "0390-tournaments.png",
+    "text": "$9,950.00 TOURNAMENT SERIES SUNDAY MAJOR $250K $250K GTD Nov 15, 01:12 · Buy-in ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/casino",
+    "file": "0390-casino.png",
+    "text": "$9,950.00 PLAY-MONEY CASINO Pick a game. Take a seat. 18+ · chips have no cash v",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/slots",
+    "file": "0390-slots.png",
+    "text": "Slots $9,950.00 6 DanGG Originals · play-money only 18+ For adults only. Play ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/my-page",
+    "file": "0390-my-page.png",
+    "text": "$9,950.00 My Page Prop Bet Ocean Rewards My Promo Game Settings ✕ GGPass Account",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/rewards",
+    "file": "0390-rewards.png",
+    "text": "$9,950.00 My Page Prop Bet Ocean Rewards My Promo Game Settings ✕ My Ocean Level",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/cashier",
+    "file": "0390-cashier.png",
+    "text": "Cashier $9,950.00 DanGG Cashier Balance $9,950.00 P$ P$5,000 T$ T$50 Ticket 50 D",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/settings",
+    "file": "0390-settings.png",
+    "text": "Settings $9,950.00 My Page Prop Bet Ocean Rewards My Promo Game Settings ✕ Gener",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/hand-history",
+    "file": "0390-hand-history.png",
+    "text": "Hand history $9,950.00 ♠ Poker Craft DansiDanutz ⏱ Timeline ✎ Player Notes & Lab",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 430,
+    "route": "/",
+    "file": "0430-lobby.png",
+    "text": "$9,950.00 EVERY DAY · PLAY CHIPS Daily Chip Flipout Join now → BAD BEAT JACKPOT ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 430,
+    "route": "/tournaments",
+    "file": "0430-tournaments.png",
+    "text": "$9,950.00 TOURNAMENT SERIES SUNDAY MAJOR $250K $250K GTD Nov 15, 01:12 · Buy-in ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 430,
+    "route": "/casino",
+    "file": "0430-casino.png",
+    "text": "$9,950.00 PLAY-MONEY CASINO Pick a game. Take a seat. 18+ · chips have no cash v",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 430,
+    "route": "/slots",
+    "file": "0430-slots.png",
+    "text": "Slots $9,950.00 6 DanGG Originals · play-money only 18+ For adults only. Play ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 430,
+    "route": "/my-page",
+    "file": "0430-my-page.png",
+    "text": "$9,950.00 My Page Prop Bet Ocean Rewards My Promo Game Settings ✕ GGPass Account",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 430,
+    "route": "/rewards",
+    "file": "0430-rewards.png",
+    "text": "$9,950.00 My Page Prop Bet Ocean Rewards My Promo Game Settings ✕ My Ocean Level",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 430,
+    "route": "/cashier",
+    "file": "0430-cashier.png",
+    "text": "Cashier $9,950.00 DanGG Cashier Balance $9,950.00 P$ P$5,000 T$ T$50 Ticket 50 D",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 430,
+    "route": "/settings",
+    "file": "0430-settings.png",
+    "text": "Settings $9,950.00 My Page Prop Bet Ocean Rewards My Promo Game Settings ✕ Gener",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 430,
+    "route": "/hand-history",
+    "file": "0430-hand-history.png",
+    "text": "Hand history $9,950.00 ♠ Poker Craft DansiDanutz ⏱ Timeline ✎ Player Notes & Lab",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 768,
+    "route": "/",
+    "file": "0768-lobby.png",
+    "text": "193,075 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO 5 Ends in 16 days For You ",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/tournaments",
+    "file": "0768-tournaments.png",
+    "text": "193,067 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO 5 All GGMasters Bounty Hun",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/casino",
+    "file": "0768-casino.png",
+    "text": "193,067 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO 5 ONLY ON DANGG Six slots.",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/slots",
+    "file": "0768-slots.png",
+    "text": "193,067 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO 5 Slots 6 DanGG Originals",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/my-page",
+    "file": "0768-my-page.png",
+    "text": "193,067 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO 5 My Page Prop Bet Ocean R",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/rewards",
+    "file": "0768-rewards.png",
+    "text": "193,067 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO 5 My Page Prop Bet Ocean R",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/cashier",
+    "file": "0768-cashier.png",
+    "text": "193,067 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO 5 DanGG Cashier Balance $9",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/settings",
+    "file": "0768-settings.png",
+    "text": "193,067 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO 5 My Page Prop Bet Ocean R",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/hand-history",
+    "file": "0768-hand-history.png",
+    "text": "193,067 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO 5 ♠ Poker Craft DansiDanut",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/",
+    "file": "1024-lobby.png",
+    "text": "193,101 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,981,75",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/tournaments",
+    "file": "1024-tournaments.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,936,90",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/casino",
+    "file": "1024-casino.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,948,29",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/slots",
+    "file": "1024-slots.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,944,01",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/my-page",
+    "file": "1024-my-page.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,937,64",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/rewards",
+    "file": "1024-rewards.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,931,94",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/cashier",
+    "file": "1024-cashier.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,917,84",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/settings",
+    "file": "1024-settings.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,918,34",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/hand-history",
+    "file": "1024-hand-history.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,924,39",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1440,
+    "route": "/",
+    "file": "1440-lobby.png",
+    "text": "193,096 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,982,96",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/tournaments",
+    "file": "1440-tournaments.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,948,50",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/casino",
+    "file": "1440-casino.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,952,22",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/slots",
+    "file": "1440-slots.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,957,89",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/my-page",
+    "file": "1440-my-page.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,953,81",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/rewards",
+    "file": "1440-rewards.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,952,52",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/cashier",
+    "file": "1440-cashier.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,934,52",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/settings",
+    "file": "1440-settings.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,939,45",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/hand-history",
+    "file": "1440-hand-history.png",
+    "text": "193,099 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,943,30",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/",
+    "file": "1920-lobby.png",
+    "text": "193,060 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,973,14",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/tournaments",
+    "file": "1920-tournaments.png",
+    "text": "193,069 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,940,84",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/casino",
+    "file": "1920-casino.png",
+    "text": "193,069 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,952,91",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/slots",
+    "file": "1920-slots.png",
+    "text": "193,069 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,954,92",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/my-page",
+    "file": "1920-my-page.png",
+    "text": "193,069 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,948,11",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/rewards",
+    "file": "1920-rewards.png",
+    "text": "193,069 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,949,12",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/cashier",
+    "file": "1920-cashier.png",
+    "text": "193,069 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,921,46",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/settings",
+    "file": "1920-settings.png",
+    "text": "193,069 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,934,06",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/hand-history",
+    "file": "1920-hand-history.png",
+    "text": "193,069 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,936,45",
+    "overflowX": 0,
+    "scrollH": 900
+  }
+]
