@@ -1,3 +1,9 @@
+## 2026-11-14 — slots catalogue layout
+
+- The six originals now sit in an even 4-up landscape grid (3-up on tablet, 2-up on
+  phones) under “DanGG Originals”, matching the reference shelf shape.
+- Ticker, daily-freebie cards and the 18+ notice unchanged.
+
 ## 2026-11-14 — casino sections
 
 - Casino “All” is now sectioned like the reference: Table games, Slots, Arcade, Poker,
