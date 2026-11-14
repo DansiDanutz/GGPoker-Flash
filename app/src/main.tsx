@@ -18,6 +18,7 @@ import './tournaments-ref.css';
 import './home-feed.css';
 import './mypage.css';
 import './ocean.css';
+import './game-tabs.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>

@@ -1,0 +1,67 @@
+/* Game tabs: rounded gold-rimmed tiles instead of square plates.
+   Loaded last so it owns the tab shape at every breakpoint. */
+.game-tabs {
+  height: 58px; flex: 0 0 58px; gap: 8px; padding: 6px 10px;
+  background: linear-gradient(180deg, #0d1311, #070a09);
+  border-bottom: 1px solid rgba(216, 177, 95, .16);
+  overflow-x: auto; scrollbar-width: none;
+  align-items: center;
+}
+.game-tabs::-webkit-scrollbar { display: none; }
+.game-tabs .spacer { flex: 1 1 0; min-width: 0; }
+
+.game-tab.plate-tab {
+  position: relative; flex: 1 1 0; min-width: 118px; max-width: 156px;
+  height: 46px; border-radius: 13px; overflow: hidden;
+  border: 1px solid rgba(216, 177, 95, .22);
+  background: linear-gradient(180deg, #171717, #0a0a0a);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .45), inset 0 1px rgba(255, 255, 255, .06);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .2s ease, filter .18s ease;
+  isolation: isolate;
+}
+.game-tab.plate-tab img {
+  display: block; width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+  padding: 0; border-radius: inherit;
+  transition: transform .25s ease;
+}
+.game-tab.plate-tab:hover {
+  transform: translateY(-2px);
+  border-color: rgba(242, 196, 92, .62);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .5), 0 0 18px rgba(216, 177, 95, .16), inset 0 1px rgba(255, 255, 255, .1);
+  filter: brightness(1.1);
+}
+.game-tab.plate-tab:hover img { transform: scale(1.03); }
+
+/* A slow gold sheen across the tile on hover. */
+.game-tab.plate-tab::before {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(112deg, transparent 40%, rgba(255, 235, 190, .13) 50%, transparent 60%);
+  transform: translateX(-130%);
+  transition: transform .55s ease;
+}
+.game-tab.plate-tab:hover::before { transform: translateX(130%); }
+
+.game-tab.plate-tab.active {
+  border-color: #f2c45c;
+  box-shadow:
+    0 0 0 1px rgba(242, 196, 92, .55),
+    0 8px 20px rgba(0, 0, 0, .5),
+    0 0 22px rgba(216, 177, 95, .22),
+    inset 0 1px rgba(255, 255, 255, .16);
+}
+.game-tab.plate-tab.active::after {
+  content: ''; position: absolute; left: 14px; right: 14px; bottom: 3px; height: 3px;
+  border-radius: 2px; background: linear-gradient(90deg, transparent, #ffe4a0, #f2c45c, transparent);
+  box-shadow: 0 0 10px rgba(242, 196, 92, .8);
+  z-index: 3; pointer-events: none;
+}
+
+@media (max-width: 1100px) {
+  .game-tabs { height: 54px; flex-basis: 54px; gap: 6px; padding: 5px 8px; }
+  .game-tab.plate-tab { height: 42px; border-radius: 12px; min-width: 108px; }
+}
+@media (max-width: 760px) {
+  .game-tabs { height: 50px; flex-basis: 50px; gap: 5px; padding: 4px 6px; }
+  .game-tab.plate-tab { height: 40px; border-radius: 11px; min-width: 100px; max-width: 132px; }
+}
