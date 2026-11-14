@@ -9,6 +9,7 @@ import { PageShell } from '../components/PageShell';
 import { ProfilePane } from '../components/mypage/ProfilePane';
 import { WalletPane } from '../components/mypage/WalletPane';
 import { TransactionsPane } from '../components/mypage/TransactionsPane';
+import { MessagesPane } from '../components/mypage/MessagesPane';
 import { Avatar } from '../components/Avatar';
 
 const TABS = [
@@ -239,7 +240,11 @@ export function MyPage() {
         )}
 
         {tab === 'messages' && (
-          <div className="grid g2" style={{ alignItems: 'start' }}>
+          <>
+            <MessagesPane />
+            <details className="msgs-dms">
+              <summary>Direct messages</summary>
+              <div className="grid g2" style={{ alignItems: 'start' }}>
             <div className="card" style={{ padding: 0 }}>
               <div className="panel-title" style={{ padding: '12px 12px 6px' }}>Direct messages</div>
               {dms.map((d) => (
@@ -278,6 +283,8 @@ export function MyPage() {
               )}
             </div>
           </div>
+            </details>
+          </>
         )}
 
         {tab === 'friends' && (

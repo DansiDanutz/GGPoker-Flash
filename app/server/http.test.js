@@ -650,3 +650,33 @@ test('preset avatar paths are stored as-is and arbitrary paths are rejected', as
     fs.rmSync(data, { recursive: true, force: true });
   }
 });
+
+test('notification history keeps read items when ?all=1 and clears the unread feed', async () => {
+  const { child, port, data } = await startServer();
+  try {
+    const login = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ login: 'DansiDanutz', password: 'ggpoker' }),
+    }).then((r) => r.json());
+    const auth = { authorization: `Bearer ${login.token}` };
+    const before = await fetch(`http://127.0.0.1:${port}/api/notifications?all=1`, { headers: auth }).then((r) => r.json());
+    assert.ok(before.items.length >= 1, 'a fresh demo user has at least the daily freebie notice');
+    assert.ok(before.items.every((i) => i.read === false));
+
+    const read = await fetch(`http://127.0.0.1:${port}/api/notifications/read`, {
+      method: 'POST', headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({ keys: before.items.map((i) => i.key) }),
+    });
+    assert.equal(read.status, 200);
+
+    const after = await fetch(`http://127.0.0.1:${port}/api/notifications?all=1`, { headers: auth }).then((r) => r.json());
+    assert.equal(after.items.length, before.items.length);
+    assert.ok(after.items.every((i) => i.read === true));
+    const unread = await fetch(`http://127.0.0.1:${port}/api/notifications`, { headers: auth }).then((r) => r.json());
+    assert.equal(unread.items.length, 0);
+    assert.equal(unread.unread, 0);
+  } finally {
+    child.kill();
+    fs.rmSync(data, { recursive: true, force: true });
+  }
+});
