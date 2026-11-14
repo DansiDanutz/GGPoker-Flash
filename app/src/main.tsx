@@ -14,6 +14,7 @@ import './tournament-filters.css';
 import './table-chat.css';
 import './phone-shell.css';
 import './slots.css';
+import './home-feed.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>
