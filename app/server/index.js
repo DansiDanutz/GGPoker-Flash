@@ -900,7 +900,7 @@ function seatHuman(table, user, buyin, seatIndex = null) {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
   });
   const res = table.sit({
-    id: user.id, nick: user.nick, avatar: user.avatar, ...loadTimeBank(table, user),
+    id: user.id, nick: user.nick, avatar: user.avatar, country: user.country, ...loadTimeBank(table, user),
   }, wantedSeat, stack, sessionId);
   if (!res.ok) {
     addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { seatFlag } from '../lib/seatFlag';
 import { useApp } from '../lib/store';
 import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
@@ -51,7 +52,7 @@ import { NATIVE_TABLE_WIDTH, PAYOUT_EASING, PAYOUT_FADE_MS, PAYOUT_HOLD_MS, PAYO
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
 type PlayerState = {
-  seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
+  seat: number; id?: string; nick?: string; country?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
   reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
   winAmount?: number; empty?: boolean; reserved?: boolean; mine?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
@@ -131,12 +132,6 @@ function useNarrowScreen(maxWidth = 760) {
   }, [query]);
   return narrow;
 }
-
-const SEAT_FLAGS = ['🇷🇴', '🇬🇧', '🇩🇪', '🇫🇷', '🇪🇸', '🇧🇷', '🇨🇦', '🇯🇵', '🇰🇷', '🇦🇺', '🇸🇪', '🇵🇱', '🇮🇹', '🇳🇱', '🇦🇷', '🇺🇦'];
-const seatFlag = (nick?: string | null) => {
-  const sum = [...(nick || 'p')].reduce((a, c) => a + c.charCodeAt(0), 0);
-  return SEAT_FLAGS[sum % SEAT_FLAGS.length];
-};
 
 const BOT_FACES = 20;
 const botFace = (nick?: string | null) => {
@@ -1385,7 +1380,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="plate">
               <div className="nm" title={p.nick || undefined}>
                 {p.isBot && <span className="bot-badge" title="Computer player" aria-label="Bot">BOT</span>}
-                {seatNick(p.nick)}{p.nick ? <span className="seat-flag" aria-hidden="true">{seatFlag(p.nick)}</span> : null}
+                {seatNick(p.nick)}{p.nick ? <span className="seat-flag" aria-hidden="true">{seatFlag(p.nick, p.country)}</span> : null}
               </div>
               <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
                 {isAllInStatus(p) ? 'All-In' : stackLabel(p.stack)}

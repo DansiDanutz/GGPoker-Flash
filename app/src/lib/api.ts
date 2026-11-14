@@ -20,7 +20,7 @@ export type User = {
   created_at: string;
 };
 
-export type SeatedPreview = { seat: number; nick: string; stack: number; bot: boolean };
+export type SeatedPreview = { seat: number; nick: string; stack: number; bot: boolean; country?: string };
 
 export type LobbyTable = {
   id: string;

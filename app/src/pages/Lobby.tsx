@@ -28,6 +28,9 @@ import { CashHero } from '../components/CashHero';
 import { SpinLobby } from '../components/SpinLobby';
 import { BattleLobby } from '../components/BattleLobby';
 import { AccountRail } from '../components/AccountRail';
+import { GameInfoDrawer } from '../components/GameInfoDrawer';
+import { SeatedPlayersList } from '../components/SeatedPlayersList';
+import { gameRules } from '../lib/gameRules';
 
 const PREVIEW_SEATS = [
   { x: 50, y: 8 }, { x: 10, y: 30 }, { x: 90, y: 30 },
@@ -87,6 +90,7 @@ export function Lobby() {
   const [buyin, setBuyin] = useState(0);
   const [seat, setSeat] = useState<number | null>(null);
   const [rushInfoOpen, setRushInfoOpen] = useState(false);
+  const [gameInfoOpen, setGameInfoOpen] = useState(false);
   const [hostOpen, setHostOpen] = useState(false);
   const [hostBusy, setHostBusy] = useState(false);
   const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000, bombPot: false });
@@ -167,6 +171,7 @@ export function Lobby() {
   // A capture-gated tab (Battle Royale) shows an honest empty state: no rows, no Join.
   const unavailable = UNAVAILABLE_TABS[gameTab];
   const table = unavailable ? null : data?.tables.find((t: LobbyTable) => t.id === selected) || null;
+  const hasRules = !['home', 'spin', 'battle'].includes(gameTab) && !unavailable;
   // Real seated players from the live table (empty chairs when nobody sits there).
   const previewPlayers = useMemo(() => (table ? previewSeats(table.seated, PREVIEW_SEATS.length) : []), [table]);
 
@@ -362,6 +367,7 @@ export function Lobby() {
           <button className="ll-item ll-play" onClick={() => setGameTab('holdem')}><span className="ll-mark" />Play Money</button>
         </aside>
         <div className="lobby-main">
+          {gameInfoOpen && hasRules && <GameInfoDrawer game={gameTab} table={table} onClose={() => setGameInfoOpen(false)} />}
           {gameTab === 'rush' && (
             <div className="rush-hero">
               <div className="rush-hero-bg" style={{ backgroundImage: "url('/assets/ui/discover/Bg_Discover_RushNCash_Holdem.png')" }} />
@@ -462,6 +468,12 @@ export function Lobby() {
                 <MiniTable table={table} players={previewPlayers} />
               </div>
               <WaitlistSideActions table={table} onJoin={openJoin} onWatch={(t) => navigate(`/table/${t.id}?observe=1`)} onChanged={load} />
+              {!isRushTab && gameTab !== 'spin' && <SeatedPlayersList table={table} />}
+              {hasRules && (
+                <button type="button" className="gi-link" aria-expanded={gameInfoOpen} onClick={() => setGameInfoOpen((v) => !v)}>
+                  {gameRules(gameTab, table).title} <span aria-hidden="true">ⓘ</span>
+                </button>
+              )}
             </>
           )}
           {isRushTab && <RushSidePanel leaderboard={data?.rushLeaderboard} myId={user?.id} onShowInfo={() => setRushInfoOpen(true)} />}
