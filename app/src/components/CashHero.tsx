@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../lib/store';
 
 const SLIDES = [
-  { art: 'hero-november.jpg', title: 'November Giveaway', to: '/tournaments' },
-  { art: 'tourn-ggmasters.jpg', title: 'GGMasters', to: '/tournaments' },
-  { art: 'foryou-wsop.jpg', title: 'WSOP Express', to: '/tournaments' },
+  { art: 'hero-november.png', title: 'November Chip Rush', to: '/tournaments' },
+  { art: 'tourn-masters.png', title: 'Masters', to: '/tournaments' },
+  { art: 'foryou-live-series.png', title: 'Live Series', to: '/tournaments' },
 ];
 
 /** Promo carousel above the cash-game table list (reference 07 hero + dots). */
@@ -35,7 +35,7 @@ export function CashHero() {
           onClick={() => navigate(s.to)}
           aria-label={s.title}
         >
-          <img src={`/assets/gg-creatives/${s.art}`} alt="" loading={idx === 0 ? 'eager' : 'lazy'} />
+          <img src={`/assets/ui/creatives/${s.art}`} alt="" loading={idx === 0 ? 'eager' : 'lazy'} />
         </button>
       ))}
       <div className="cash-dots" role="tablist" aria-label="Promotions">

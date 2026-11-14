@@ -8,6 +8,7 @@ import { renderChrome } from './lobby/chrome.mjs';
 import { renderLogin } from './lobby/login.mjs';
 import { renderOcean } from './lobby/ocean.mjs';
 import { renderDiscover } from './lobby/discover.mjs';
+import { renderCreatives } from './lobby/creatives.mjs';
 
 const OWNED = ['chrome/', 'login/', 'ocean/', 'ui/'];
 // Dan's own artwork, not generated: the logo and every game tab plate (330x100, see AppHeader).
@@ -34,7 +35,7 @@ function verify() {
 }
 
 try {
-  const written = [...await renderChrome(), ...await renderLogin(), ...await renderOcean(), ...await renderDiscover()];
+  const written = [...await renderChrome(), ...await renderLogin(), ...await renderOcean(), ...await renderDiscover(), ...await renderCreatives()];
   const { count, problems } = verify();
   console.log(`wrote ${written.length} files; verified ${count} manifest entries`);
   if (problems.length) {

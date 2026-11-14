@@ -3,8 +3,8 @@ import { money, type LobbyTable } from '../../lib/api';
 import { useApp } from '../../lib/store';
 import type { HomeTarget } from '../../lib/homeContent';
 
-const CREATIVE = '/assets/gg-creatives';
-const TABLE_ART = ['tv-0.jpg', 'tv-1.jpg', 'tv-2.jpg', 'tv-3.jpg'];
+const CREATIVE = '/assets/ui/creatives';
+const TABLE_ART = ['tv-0.png', 'tv-1.png', 'tv-2.png', 'tv-3.png'];
 
 type Props = {
   tables: readonly LobbyTable[];
@@ -53,8 +53,8 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
   return (
     <div className="home-feed" ref={feedRef}>
       <div className="hf-bokeh" aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
-      <button type="button" className="hf-hero tilt" onClick={() => onTarget({ route: '/tournaments' })} aria-label="November Giveaway — open tournaments">
-        <img src={`${CREATIVE}/hero-november.jpg`} alt="November Giveaway · Nov 1st to Nov 30th" />
+      <button type="button" className="hf-hero tilt" onClick={() => onTarget({ route: '/tournaments' })} aria-label="November Chip Rush — open tournaments">
+        <img src={`${CREATIVE}/hero-november.png`} alt="November Chip Rush · freerolls and guarantees all month" />
         <span className="hf-sheen" aria-hidden="true" />
         <span className="hf-chip"><i aria-hidden="true" />Ends in {Math.max(0, Math.ceil((new Date(new Date().getFullYear(), 10, 30).getTime() - Date.now()) / 86400000))} days</span>
       </button>
@@ -63,10 +63,10 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
         <div className="hf-head"><h2 id="hf-foryou">For You</h2></div>
         <div className="hf-row">
           {[
-            { art: 'foryou-recent.jpg', label: 'Recent game', target: null },
-            { art: 'foryou-freebie.jpg', label: 'Daily Freebie', target: { route: '/rewards' } as HomeTarget },
-            { art: 'foryou-fish.jpg', label: 'Fish', target: { route: '/rewards' } as HomeTarget },
-            { art: 'foryou-wsop.jpg', label: 'WSOP Express Promotion', target: { route: '/tournaments' } as HomeTarget },
+            { art: 'foryou-recent.png', label: 'Recent game', target: null },
+            { art: 'foryou-freebie.png', label: 'Daily Freebie', target: { route: '/rewards' } as HomeTarget },
+            { art: 'foryou-ocean.png', label: 'Ocean Rewards', target: { route: '/ocean' } as HomeTarget },
+            { art: 'foryou-live-series.png', label: 'Live Series', target: { route: '/tournaments' } as HomeTarget },
           ].map((c, i) => (
             <button
               key={c.art}
@@ -100,7 +100,7 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
       <section className="hf-section" aria-labelledby="hf-tourn">
         <div className="hf-head"><h2 id="hf-tourn">Tournaments For You</h2><button type="button" onClick={() => navigate('/tournaments')}>View all</button></div>
         <div className="hf-row">
-          {['tourn-ggmasters.jpg', 'tourn-weekender.jpg', 'tourn-daily.jpg'].map((art) => (
+          {['tourn-masters.png', 'tourn-weekender.png', 'tourn-daily.png'].map((art) => (
             <button key={art} type="button" className="hf-card hf-tourn tilt" onClick={() => navigate('/tournaments')} aria-label="Open tournaments">
               <img src={`${CREATIVE}/${art}`} alt="" />
             </button>
@@ -112,10 +112,10 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
         <div className="hf-head"><h2 id="hf-features">Special Features</h2></div>
         <div className="hf-row">
           {[
-            { art: 'feature-0.jpg', label: 'Time Bank Card', to: '/settings' },
-            { art: 'feature-1.jpg', label: 'EV Cashout', to: '/settings' },
-            { art: 'feature-2.jpg', label: 'Social Features', to: '/support' },
-            { art: 'feature-3.jpg', label: 'PokerCraft', to: '/hand-history' },
+            { art: 'feature-time-bank.png', label: 'Time Bank Card', to: '/settings' },
+            { art: 'feature-run-it-twice.png', label: 'Run It Twice', to: '/settings' },
+            { art: 'feature-social.png', label: 'Social Features', to: '/support' },
+            { art: 'feature-hand-history.png', label: 'Hand History', to: '/hand-history' },
           ].map((f) => (
             <button key={f.art} type="button" className="hf-card hf-feature tilt" onClick={() => navigate(f.to)} aria-label={f.label}>
               <img src={`${CREATIVE}/${f.art}`} alt="" />
@@ -127,7 +127,7 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
       <section className="hf-section" aria-labelledby="hf-casino">
         <div className="hf-head"><h2 id="hf-casino">Casino</h2><button type="button" onClick={() => navigate('/casino')}>View all</button></div>
         <div className="hf-row">
-          {['casino-0.jpg', 'casino-1.jpg', 'casino-2.jpg', 'casino-3.jpg'].map((art) => (
+          {['casino-olympus-gold.png', 'casino-disco-cat.png', 'casino-robo-rush.png', 'casino-clover-cash.png'].map((art) => (
             <button key={art} type="button" className="hf-card hf-casino tilt" onClick={() => navigate('/casino')} aria-label="Open casino">
               <img src={`${CREATIVE}/${art}`} alt="" />
             </button>
