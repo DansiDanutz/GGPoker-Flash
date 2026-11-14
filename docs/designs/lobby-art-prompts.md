@@ -287,5 +287,22 @@ All four leaderboard cards share 8f (Fast Fold's uses 8l); Daily Freebie reuses 
 
 ---
 
+## Step 9: Casino table games
+
+The Casino page tiles still borrow poker images (Roulette shows the All-in art, Blackjack a tournament
+banner). **Size: landscape 1536×1024**, same framing as Step 8: the game name is drawn bottom-left, so keep
+every object in the right 55% of the frame and inside the middle band. Each prompt ends with the shared
+style text from Step 7.
+
+- **9a. Roulette** (`casino-roulette`): a glossy European roulette wheel in polished mahogany and gold, tilted toward the camera, a white ball caught mid-bounce, a few chips stacked beside it. Deep red, black and gold palette.
+- **9b. Blackjack** (`casino-blackjack`): an ace and a king of spades fanned face-up on emerald felt, a neat stack of chips beside them, a soft spotlight from above. Emerald, black and gold palette.
+- **9c. Crash** (`casino-crash`): a glossy cartoon rocket blasting up and to the right along a glowing rising line, sparks and a few gold coins trailing behind it. Electric orange, hot pink and midnight blue palette.
+- **9d. Baccarat** (`casino-baccarat`): two face-up cards on rich navy felt split by a thin gold line into two halves, one side glowing blue and the other red, a stack of gold chips between them. Navy, crimson and gold palette.
+- **9e. Dragon Tiger** (`casino-dragontiger`): a glossy jade dragon head and a glossy golden tiger head facing each other, a single face-up card glowing between them, swirling mist. Jade green, amber and red palette.
+- **9f. Sic Bo** (`casino-sicbo`): three glossy translucent red dice tumbling in mid-air above a gold bowl, small sparkles and a soft glow around them. Crimson, gold and black palette.
+- **9g. Casino Hold'em** (`casino-holdem`): three face-up community cards on dark blue felt with two face-down cards in front of them, a small gold dealer button and a stack of chips, a cool spotlight. Sapphire, white and gold palette.
+
+---
+
 Paste each image into the chat (4a first). I crop each one to its slot, convert it to WebP, and wire
 in the live layer.
