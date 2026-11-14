@@ -17,6 +17,7 @@ import './slots.css';
 import './tournaments-ref.css';
 import './home-feed.css';
 import './mypage.css';
+import './ocean.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>

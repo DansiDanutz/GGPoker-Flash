@@ -3,6 +3,7 @@ import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
+import { OceanLevel } from '../components/rewards/OceanLevel';
 import { Avatar } from '../components/Avatar';
 import { LEADER_METRICS, formatMetricValue, metricInfo, metricValueLabel, type LeaderMetric, type LeaderboardResponse } from '../lib/leaderboard';
 
@@ -15,6 +16,7 @@ const WHEEL = [
 export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {}) {
   const { user, refreshUser, toast, navigate } = useApp();
   const [tab, setTab] = useState(initialTab);
+  const [section, setSection] = useState<'level' | 'store' | 'about'>('level');
   const [missions, setMissions] = useState<any[]>([]);
   const [leaders, setLeaders] = useState<any[]>([]);
   const [spin, setSpin] = useState(0);
@@ -87,10 +89,42 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
   const pct = Math.min(100, Math.round(((xp % levelXp) / levelXp) * 100));
 
   return (
-    <PageShell activeTop="poker" subnav={<SubNav items={[{ key: 'ggpass', label: 'DanGG Pass' }, { key: 'missions', label: 'Daily missions' }, { key: 'wheel', label: 'Prize Wheel' }, { key: 'ranks', label: 'Fish ranks' }, { key: 'fishhistory', label: 'Fish history' }, { key: 'leaders', label: 'Leaderboard' }]} active={tab} onChange={setTab} />}>
-      <div className="page">
-        <h1 className="page-title">My Rewards</h1>
-        <p className="page-sub">DanGG Pass progress, daily missions, Prize Wheel and leaderboards</p>
+    <PageShell activeTop="poker">
+      <div className="mp ocean-window">
+        <div className="mp-wintabs ocean-wintabs" role="tablist" aria-label="Account windows">
+          <button type="button" role="tab" onClick={() => navigate('/my-page')}>My Page</button>
+          <button type="button" role="tab" onClick={() => navigate('/propbet')}>Prop Bet</button>
+          <button type="button" role="tab" aria-selected="true" className="on" onClick={() => setSection('level')}>Ocean Rewards</button>
+          <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
+          <button type="button" role="tab" onClick={() => navigate('/settings')}>Game Settings</button>
+          <button type="button" className="mp-close" aria-label="Close Ocean Rewards" onClick={() => navigate('/')}>✕</button>
+        </div>
+        <div className="mp-body">
+          <aside className="mp-menu" aria-label="Ocean Rewards menu">
+            {([['level', 'My Ocean Level'], ['store', 'GEM Store'], ['about', 'About Ocean Rewards']] as const).map(([key, label]) => (
+              <button key={key} type="button" className={'mp-menu-item' + (section === key ? ' on' : '')} aria-current={section === key ? 'page' : undefined} onClick={() => setSection(key)}>{label}</button>
+            ))}
+          </aside>
+          <div className="mp-pane ocean-pane">
+            {section === 'level' && <OceanLevel xp={user?.xp ?? 0} gems={user?.gems ?? 0} onAbout={() => setSection('about')} />}
+
+            {section === 'about' && (
+              <div className="ocean-about">
+                <h2>About Ocean Rewards</h2>
+                <p>Ocean Rewards turns every hand into progress. Earn TP by playing, climb from Fish to Shark and unlock a higher GEM multiplier and cashback along the way.</p>
+                <div className="ocean-about-grid">
+                  <div><b>TP</b><span>Tournament points earned from raked hands and tournaments. The yearly reset keeps the reef competitive.</span></div>
+                  <div><b>GEM multiplier</b><span>Multiplies the gems you collect in the GEM Store and from daily play.</span></div>
+                  <div><b>Cashback</b><span>A share of your rake returned automatically — ~16% at Fish, up to ~80% at Shark.</span></div>
+                </div>
+                <button type="button" className="ocean-back" onClick={() => setSection('level')}>← Back to my ocean level</button>
+              </div>
+            )}
+
+            {section === 'store' && (
+              <>
+                <h2 className="ocean-store-title">GEM Store</h2>
+                <SubNav items={[{ key: 'ggpass', label: 'DanGG Pass' }, { key: 'missions', label: 'Daily missions' }, { key: 'wheel', label: 'Prize Wheel' }, { key: 'ranks', label: 'Fish ranks' }, { key: 'fishhistory', label: 'Fish history' }, { key: 'leaders', label: 'Leaderboard' }]} active={tab} onChange={setTab} />
 
         {tab === 'ggpass' && (
           <>
@@ -269,6 +303,10 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
             </table>
           </div>
         )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </PageShell>
   );
