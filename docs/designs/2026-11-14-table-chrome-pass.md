@@ -39,3 +39,14 @@ visual/materal pass plus two small UX additions.
 - Board cards and the tournament info bar at the top-left can be richer.
 - Deal/chip/payout motion already exists in the engine but needs the same material
   review next.
+
+## Follow-up: celebration + hero clearance
+
+- **Hand-end celebration**: winner avatar pulses twice, two expanding gold rings, the
+  WIN banner pops in with a warm drop-shadow, the amount is a gold gradient with glow
+  and six gold sparks rise above the cards. All disabled under reduced motion.
+- **Chip flights** get a warm trail; wager pills a stronger edge.
+- **Hero pod lifted 18 px** on desktop so the nickname and stack are never clipped by
+  the action bar (phone layout unchanged).
+- Evidence: `docs/screenshots/table-shots/1200-win.png` (real winning hand, SharkBait
+  +$38), refreshed `1200-final.png`.

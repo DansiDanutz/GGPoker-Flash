@@ -139,3 +139,65 @@
   @keyframes rotateHint { 0%, 40% { transform: rotate(0); } 60%, 100% { transform: rotate(90deg); } }
 }
 @media (prefers-reduced-motion: reduce) { .table-rotate-icon { animation: none !important; } }
+
+/* ---------- Hand-end celebration ---------- */
+.table-screen .seat.winner .avatar-wrap {
+  animation: winnerRing 1.5s var(--spring) 2;
+  box-shadow: 0 0 0 3px rgba(255, 228, 160, .35), 0 0 40px rgba(255, 213, 120, .55);
+}
+@keyframes winnerRing {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.table-screen .seat.winner::after {
+  content: ''; position: absolute; left: 50%; top: 44%; width: 74px; height: 74px; margin: -37px 0 0 -37px;
+  border-radius: 50%; border: 2px solid rgba(255, 228, 160, .85);
+  animation: winRing 1.2s ease-out 2; pointer-events: none; z-index: 2;
+}
+@keyframes winRing {
+  0% { transform: scale(.7); opacity: .95; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+.table-screen .native-win {
+  animation: winBanner 1.6s var(--spring) both;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, .6)) drop-shadow(0 0 18px rgba(255, 213, 120, .45));
+}
+@keyframes winBanner {
+  0% { opacity: 0; transform: translateX(-50%) translateY(14px) scale(.7); }
+  45% { opacity: 1; transform: translateX(-50%) translateY(-6px) scale(1.06); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+.table-screen .seat .win-amount {
+  font-size: 19px; font-weight: 900; letter-spacing: .4px;
+  background: linear-gradient(180deg, #fff8df, #ffe09a 55%, #d8a53f);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .8)) drop-shadow(0 0 10px rgba(255, 213, 120, .55));
+}
+/* Gold sparks above the winner. */
+.table-screen .seat.winner .cards::before {
+  content: ''; position: absolute; left: 50%; top: -18px; width: 6px; height: 6px; border-radius: 50%;
+  background: #ffe9b0;
+  box-shadow:
+    -26px 6px 0 -1px #ffd98a, 22px -4px 0 -1px #ffe9b0, -12px -14px 0 -2px #ffcf6b,
+    14px 12px 0 -2px #ffe9b0, -34px -8px 0 -2px #ffcf6b, 32px 10px 0 -2px #ffd98a;
+  animation: winSparks 1.3s ease-out 2; pointer-events: none; z-index: 9;
+}
+@keyframes winSparks {
+  0% { opacity: 0; transform: translateY(10px) scale(.6); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-22px) scale(1.1); }
+}
+
+/* Chip flights get a warm trail. */
+.table-screen .collect-chip { filter: drop-shadow(0 0 6px rgba(255, 213, 120, .55)); }
+.table-screen .wager-amount { border-color: rgba(255, 213, 120, .4); box-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+
+@media (prefers-reduced-motion: reduce) {
+  .table-screen .seat.winner .avatar-wrap, .table-screen .seat.winner::after,
+  .table-screen .native-win, .table-screen .seat.winner .cards::before { animation: none !important; }
+}
+
+/* Keep the hero pod clear of the action bar on desktop. */
+.table-screen .seat.me { margin-top: -18px; }
+@media (max-width: 760px) { .table-screen .seat.me { margin-top: 0; } }
