@@ -1,3 +1,9 @@
+## 2026-11-14 — PokerCraft Timeline ported
+
+- /hand-history is a PokerCraft timeline: left rail with game filters, range pills,
+  search, day-grouped expandable hand cards with board/pot/result/winner.
+- Wins and losses are derived from the hand record; folded hands read “Folded”.
+
 ## 2026-11-14 — Game Settings 050 ported from the reference
 
 - Settings is the reference account window: window tabs with Game Settings active red,
