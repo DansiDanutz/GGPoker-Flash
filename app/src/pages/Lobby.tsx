@@ -22,6 +22,7 @@ import { useIsPhone } from '../lib/useIsPhone';
 import { MOBILE_GAMES } from '../lib/mobileLobby';
 import { MobileHome } from '../components/mobile/MobileHome';
 import { MobileBackBar, MobileGameList } from '../components/mobile/MobileGameList';
+import { MobileShell } from '../components/mobile/MobileShell';
 
 const PREVIEW_SEATS = [
   { x: 50, y: 8 }, { x: 10, y: 30 }, { x: 90, y: 30 },
@@ -300,6 +301,14 @@ export function Lobby() {
   };
 
   if (loading) {
+    // A phone must never flash the desktop chrome while the lobby loads.
+    if (isPhone) {
+      return (
+        <MobileShell showBrand>
+          <div className="p-loading" aria-live="polite">Loading your lobby…</div>
+        </MobileShell>
+      );
+    }
     return (
       <>
         <TitleBar online={192203} />
@@ -333,7 +342,7 @@ export function Lobby() {
           onTarget={(target) => ('tab' in target ? pickGame(target.tab) : openHomeTarget(target))}
         />
       )}
-      {phoneView === 'games' && <MobileGameList tables={data?.tables || []} onPick={pickGame} />}
+      {phoneView === 'games' && <MobileShell title="Poker"><MobileGameList tables={data?.tables || []} onPick={pickGame} /></MobileShell>}
       {phoneView === 'tables' && <MobileBackBar title={phoneGameTitle} onBack={() => navigate('/?play=1')} />}
       {(!user) && (!phoneView || phoneView === 'tables') && (
         <div style={{ background: '#141414', borderBottom: '1px solid #2a2a2a', padding: '6px 14px', fontSize: 12.5, color: '#e6e6e6', display: 'flex', alignItems: 'center', gap: 12 }}>

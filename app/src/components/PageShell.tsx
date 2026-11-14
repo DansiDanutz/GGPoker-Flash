@@ -2,13 +2,27 @@ import React from 'react';
 import { useApp } from '../lib/store';
 import { TitleBar } from './TitleBar';
 import { AppHeader } from './AppHeader';
+import { MobileShell } from './mobile/MobileShell';
+import { useIsPhone } from '../lib/useIsPhone';
 
 export function PageShell({ activeTop, children, subnav }: {
   activeTop: string;
   children: React.ReactNode;
   subnav?: React.ReactNode;
 }) {
-  const { user, meta, dmUnread } = useApp();
+  const { user, meta, dmUnread, route } = useApp();
+  const isPhone = useIsPhone();
+  if (isPhone) {
+    const [path] = route.split('?');
+    const titles: Record<string, string> = {
+      '/cashier': 'Cashier', '/missions': 'Missions', '/leaderboard': 'Leaderboard',
+      '/tournaments': 'Tournaments', '/slots': 'Slots', '/settings': 'Settings', '/promotions': 'Promotions',
+      '/elo': 'ELO', '/support': 'Support', '/profile': 'Profile', '/hand-history': 'Hand history',
+      '/propbet': 'Prop bet', '/ocean': 'Ocean Rewards', '/ggcare': 'GG Care', '/honeymoon': 'Honeymoon', '/admin': 'Admin',
+    };
+    const title = path.startsWith('/slots/') ? 'Slots' : titles[path];
+    return <MobileShell title={title} showBrand={!title}>{subnav}{children}</MobileShell>;
+  }
   return (
     <>
       <TitleBar online={meta.online} unread={user ? dmUnread : 0} />

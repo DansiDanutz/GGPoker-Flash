@@ -1,3 +1,13 @@
+## 2026-11-14 — phone rebuild (round 4)
+
+- Phone chrome: 56px top bar (avatar, wordmark, wallet), no desktop title bar, tabs or
+  account rail at ≤760px; the lobby loading state no longer flashes desktop chrome.
+- Home: 186px one-message hero, four quick actions, single-column feed, 44px targets.
+- Bottom navigation: five labelled tabs — Home, Casino, Tables, Rewards, My Page.
+- Casino phone hub: shorter hero with scrim, winners strip, slots entry card.
+- Tools: `touch-probe.mjs` (target sizes), comparison capture; a11y probe now checks
+  keyboard and 200% zoom per route.
+
 ## 2026-11-14 — Casino / Slots catalogue, round 3
 
 - Slots becomes a catalogue: category chips, top-win / your-best / freebie cards, a

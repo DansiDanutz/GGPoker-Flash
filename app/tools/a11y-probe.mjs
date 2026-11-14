@@ -37,7 +37,7 @@ try {
         localStorage.setItem('ggpoker.animations', '0');
       }, login.token);
       await page.goto(`${BASE}/#${route}`, { waitUntil: 'networkidle2', timeout: 45000 });
-      await page.waitForFunction(() => !document.querySelector('.splash'), { timeout: 20000 }).catch(() => {});
+      await page.waitForFunction(() => !document.querySelector('.splash') && (document.querySelector('.pshell') || document.querySelector('.app-header')), { timeout: 25000 }).catch(() => {});
       const stops = [];
       for (let i = 0; i < STOPS; i++) {
         await page.keyboard.press('Tab');

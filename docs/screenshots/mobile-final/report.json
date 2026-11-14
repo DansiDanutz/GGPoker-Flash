@@ -1,0 +1,282 @@
+[
+  {
+    "width": 320,
+    "route": "/",
+    "file": "0320-lobby.png",
+    "text": "D $9,996.37 EVERY DAY · PLAY CHIPS Daily Chip Flipout Join now → BAD BEAT JACKPO",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/casino",
+    "file": "0320-casino.png",
+    "text": "D $9,996.37 PLAY-MONEY CASINO Pick a game. Take a seat. 18+ · chips have no cash",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/slots",
+    "file": "0320-slots.png",
+    "text": "Slots $9,996.37 6 DanGG Originals · play-money only 18+ For adults only. Play ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/rewards",
+    "file": "0320-rewards.png",
+    "text": "D $9,996.37 DanGG Pass Daily missions Prize Wheel Fish ranks Fish history Leader",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/my-page",
+    "file": "0320-my-page.png",
+    "text": "D $9,996.37 Overview My Promo Weekly Mission Transactions Tickets Messages Playe",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/cashier",
+    "file": "0320-cashier.png",
+    "text": "Cashier $9,996.37 Cashier Transactions Bonuses Play-money wallet · no real depo",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/tournaments",
+    "file": "0320-tournaments.png",
+    "text": "D $9,996.37 TOURNAMENT SERIES SUNDAY MAJOR $250K $250K GTD Nov 14, 21:43 · Buy-i",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/",
+    "file": "0390-lobby.png",
+    "text": "D $9,996.37 EVERY DAY · PLAY CHIPS Daily Chip Flipout Join now → BAD BEAT JACKPO",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/casino",
+    "file": "0390-casino.png",
+    "text": "D $9,996.37 PLAY-MONEY CASINO Pick a game. Take a seat. 18+ · chips have no cash",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/slots",
+    "file": "0390-slots.png",
+    "text": "Slots $9,996.37 6 DanGG Originals · play-money only 18+ For adults only. Play ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/rewards",
+    "file": "0390-rewards.png",
+    "text": "D $9,996.37 DanGG Pass Daily missions Prize Wheel Fish ranks Fish history Leader",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/my-page",
+    "file": "0390-my-page.png",
+    "text": "D $9,996.37 Overview My Promo Weekly Mission Transactions Tickets Messages Playe",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/cashier",
+    "file": "0390-cashier.png",
+    "text": "Cashier $9,996.37 Cashier Transactions Bonuses Play-money wallet · no real depo",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/tournaments",
+    "file": "0390-tournaments.png",
+    "text": "D $9,996.37 TOURNAMENT SERIES SUNDAY MAJOR $250K $250K GTD Nov 14, 21:43 · Buy-i",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 768,
+    "route": "/",
+    "file": "0768-lobby.png",
+    "text": "192,255 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 EVERY DAY · PLAY CHIPS",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/casino",
+    "file": "0768-casino.png",
+    "text": "192,286 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 ONLY ON DANGG Six slot",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/slots",
+    "file": "0768-slots.png",
+    "text": "192,286 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Slots 6 DanGG Origina",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/rewards",
+    "file": "0768-rewards.png",
+    "text": "192,286 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 DanGG Pass Daily missi",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/my-page",
+    "file": "0768-my-page.png",
+    "text": "192,286 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Overview My Promo Week",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/cashier",
+    "file": "0768-cashier.png",
+    "text": "192,286 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Cashier Transactions B",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/tournaments",
+    "file": "0768-tournaments.png",
+    "text": "192,286 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 TOURNAMENT SERIES Sund",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/",
+    "file": "1024-lobby.png",
+    "text": "192,127 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/casino",
+    "file": "1024-casino.png",
+    "text": "192,159 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/slots",
+    "file": "1024-slots.png",
+    "text": "192,159 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/rewards",
+    "file": "1024-rewards.png",
+    "text": "192,159 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/my-page",
+    "file": "1024-my-page.png",
+    "text": "192,159 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/cashier",
+    "file": "1024-cashier.png",
+    "text": "192,159 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/tournaments",
+    "file": "1024-tournaments.png",
+    "text": "192,159 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1440,
+    "route": "/",
+    "file": "1440-lobby.png",
+    "text": "192,000 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/casino",
+    "file": "1440-casino.png",
+    "text": "192,031 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/slots",
+    "file": "1440-slots.png",
+    "text": "192,031 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/rewards",
+    "file": "1440-rewards.png",
+    "text": "192,031 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/my-page",
+    "file": "1440-my-page.png",
+    "text": "192,031 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/cashier",
+    "file": "1440-cashier.png",
+    "text": "192,031 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/tournaments",
+    "file": "1440-tournaments.png",
+    "text": "192,031 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  }
+]
