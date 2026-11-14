@@ -1,0 +1,14 @@
+import puppeteer from 'puppeteer-core';
+const BASE='http://127.0.0.1:5198';
+const {token}=await fetch(`${BASE}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'DansiDanutz',password:'ggpoker'})}).then(r=>r.json());
+const b=await puppeteer.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:'new',args:['--no-sandbox']});
+const W=Number(process.argv[2]||1200); const H=Number(process.argv[3]||(W<=430?844:W<=1024?1024:900));
+const p=await b.newPage(); await p.setViewport({width:W,height:H});
+await p.evaluateOnNewDocument(t=>{localStorage.setItem('ggpoker.token',t);localStorage.setItem('ggpoker.welcomeSeen','1');sessionStorage.setItem('ggpoker.entered','1')},token);
+await p.goto(BASE+'/#/',{waitUntil:'networkidle2'});
+await p.waitForFunction(()=>document.querySelectorAll('.game-tab').length>3,{timeout:20000});
+await p.evaluate(()=>{const tabs=[...document.querySelectorAll('.game-tab')]; const t=tabs.find(x=>/HOLD/i.test(x.getAttribute('title')||x.textContent)); t?.click();});
+await new Promise(r=>setTimeout(r,900));
+await p.screenshot({path:`/Users/davidai/Desktop/DavidAi/GGPoker-flash/.r4/docs/screenshots/cash-lobby/${W}-holdem.png`});
+console.log(W, await p.evaluate(()=>({ox:document.documentElement.scrollWidth-document.documentElement.clientWidth, hero:!!document.querySelector('.cash-hero')})));
+await b.close();

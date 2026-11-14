@@ -24,6 +24,7 @@ import { MobileHome } from '../components/mobile/MobileHome';
 import { MobileBackBar, MobileGameList } from '../components/mobile/MobileGameList';
 import { MobileShell } from '../components/mobile/MobileShell';
 import { HomeFeed } from '../components/home/HomeFeed';
+import { CashHero } from '../components/CashHero';
 import { AccountRail } from '../components/AccountRail';
 
 const PREVIEW_SEATS = [
@@ -377,6 +378,7 @@ export function Lobby() {
           {gameTab === 'home' && (
             <HomeFeed tables={tables} online={online} onTarget={openHomeTarget} onJoin={openJoin} />
           )}
+          {gameTab !== 'home' && gameTab !== 'rush' && <CashHero />}
           <div className="filter-bar" hidden={gameTab === 'home'}>
             {!pillsFor(gameTab).length && <span className="filter-label">Tables</span>}
             <LobbyPills tab={gameTab} value={filters.pill} onChange={(pill) => setFilter({ pill })} />

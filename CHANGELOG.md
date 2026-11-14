@@ -1,3 +1,9 @@
+## 2026-11-14 — cash lobby promo carousel
+
+- Every cash game tab opens with the reference-style campaign hero: three creatives,
+  6s crossfade, expanding gold dot pagination, hover pause and reduced-motion fallback.
+- Rush keeps its Rush hero; Home keeps the feed.
+
 ## 2026-11-14 — PokerCraft Timeline ported
 
 - /hand-history is a PokerCraft timeline: left rail with game filters, range pills,
