@@ -444,3 +444,10 @@ body::before {
 @media (max-width: 760px) {
   .settings-pane [data-settings-anchor] { scroll-margin-top: 16px; }
 }
+
+/* ---------- Cash lobby table preview on the 3D felt (art 6d) ---------- */
+.mini-table {
+  border: 0; border-radius: 0; box-shadow: none;
+  background: url('/assets/ui/creatives/cash-felt.webp') center / 100% 100% no-repeat;
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .55));
+}
