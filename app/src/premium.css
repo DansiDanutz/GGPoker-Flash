@@ -288,3 +288,61 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .hf-bokeh, .hf-chip i { display: none; }
 }
+
+/* ---------- App-wide motion + material language (non-table screens) ---------- */
+::view-transition-old(root) { animation: vtOut .2s ease both; }
+::view-transition-new(root) { animation: vtIn .38s var(--spring) both; }
+@keyframes vtOut { to { opacity: 0; transform: translateY(-6px) scale(.996); filter: blur(2px); } }
+@keyframes vtIn { from { opacity: 0; transform: translateY(12px) scale(.994); filter: blur(4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
+
+/* Cards on ordinary pages: same gold-hairline material as Home. */
+.page .card {
+  border: 1px solid rgba(231, 194, 115, .13);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, 0) 40%),
+    linear-gradient(180deg, #17181b, #0d0e10);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .38), 0 1px 0 rgba(255, 255, 255, .05) inset;
+  transition: border-color .25s ease, box-shadow .3s var(--spring), transform .3s var(--spring);
+}
+.page .card:hover { border-color: rgba(231, 194, 115, .28); box-shadow: 0 16px 36px rgba(0, 0, 0, .46), 0 1px 0 rgba(255, 255, 255, .07) inset; }
+
+.page-title {
+  background: linear-gradient(180deg, #fff 10%, #ffe9b0 60%, #d8b15f 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  letter-spacing: -.4px;
+}
+
+/* Buttons get a foil sweep and a real press. */
+.btn { position: relative; overflow: hidden; transition: transform .18s var(--spring), box-shadow .25s ease, filter .2s ease; }
+.btn::after {
+  content: ''; position: absolute; top: -40%; bottom: -40%; width: 30%; left: -45%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .28), transparent);
+  transform: skewX(-18deg); transition: left .55s ease; pointer-events: none;
+}
+.btn:hover::after { left: 115%; }
+.btn-red { box-shadow: 0 6px 18px rgba(160, 26, 40, .35), inset 0 1px rgba(255, 255, 255, .18); }
+.btn-gold { box-shadow: 0 6px 18px rgba(190, 150, 70, .28), inset 0 1px rgba(255, 255, 255, .25); }
+.btn:active { transform: translateY(1px) scale(.99); }
+
+/* Account window surfaces. */
+.mp-wintabs { background: linear-gradient(180deg, #1a1a1e, #131316); box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+.mp-menu { background: linear-gradient(180deg, #151519, #0f0f12); }
+.mp-pane { background: radial-gradient(800px 400px at 70% -10%, rgba(52, 138, 104, .08), transparent 60%), #1a1a1d; }
+.mp-menu-item { transition: background .18s ease, color .18s ease, padding-left .2s var(--spring); }
+.mp-menu-item:hover { padding-left: 16px; }
+
+/* Tournaments rows: hover spotlight and a gold selected edge. */
+.tref-row { transition: background .18s ease, box-shadow .2s ease; }
+.tref-row:hover { box-shadow: inset 2px 0 0 rgba(231, 194, 115, .55); }
+.tref-row.on { box-shadow: inset 3px 0 0 #e7c273, 0 0 24px rgba(231, 194, 115, .08); }
+.tref-series-tab { transition: opacity .2s ease, transform .2s var(--spring); }
+.tref-series-tab:hover { transform: translateY(-1px); }
+
+/* Tables and lists share the material. */
+.admin-table thead th { background: linear-gradient(180deg, #24242a, #1a1a1f); }
+.admin-table tbody tr { transition: background .16s ease; }
+.admin-table tbody tr:hover { background: rgba(231, 194, 115, .06); }
