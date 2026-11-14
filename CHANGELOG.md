@@ -7,6 +7,11 @@
   `app/public/assets/gg-creatives/`; section chrome is live HTML.
 - Table browser removed from Home (it belongs to the game tabs); account rail fixed
   at 112px.
+## 2026-11-14 — My Wallet 040 ported from the reference
+
+- Wallet pane inside the My Page window: Refresh, four balance cards, Ticket row,
+  receive-chips/get-more links and the play-money note.
+- Responsive two-column cards on tablet/phone, stacked actions, 44px controls.
 
 ## 2026-11-14 — My Page 038 ported from the reference
 
