@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { useI18n } from '../lib/i18n';
+import { DesktopUpdateButton } from './DesktopUpdateButton';
 
 export function Icon({ name, size = 17 }: { name: string; size?: number }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'currentColor' } as const;
@@ -61,6 +62,7 @@ export function TitleBar({ online, onOpenChat, onOpenSettings, onOpenNotificatio
         <button className="g" title="Zoom" aria-label="Zoom window" onClick={() => (window as any).ggDesktop?.maximize()} />
       </div>
       <div className="online-pill"><span className="dot" />{online.toLocaleString('en-US')} Online</div>
+      <DesktopUpdateButton />
       <div className="spacer" />
       <div className="title-icons">
         <button className="title-icon" title="Live chat" aria-label="Live chat" onClick={() => { sound.play('click'); onOpenChat?.(); }}>
