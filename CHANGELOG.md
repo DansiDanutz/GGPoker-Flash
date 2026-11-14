@@ -1,3 +1,9 @@
+## 2026-11-14 — tournament selected-event details
+
+- Selecting a tournament opens a Details dock: hashtags, start phase, buy-in, guarantee,
+  prize pool, overlay, players, starting chips, blind interval and late-reg end.
+- Register/Play, Full lobby and Back to filters wired; Filters tab restores the old panel.
+
 ## 2026-11-14 — slots catalogue layout
 
 - The six originals now sit in an even 4-up landscape grid (3-up on tablet, 2-up on
