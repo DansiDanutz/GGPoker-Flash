@@ -22,6 +22,7 @@ import './game-tabs.css';
 import './cashier.css';
 import './premium.css';
 import './table-premium.css';
+import './pokercraft.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>
