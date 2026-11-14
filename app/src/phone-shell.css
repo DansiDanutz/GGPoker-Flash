@@ -217,7 +217,7 @@
   .mc-tags i { padding: 3px 9px; border-radius: 6px; background: linear-gradient(180deg, #3a2c10, #221a09); border: 1px solid var(--ph-gold-dim); color: var(--ph-gold); font-size: 12px; font-style: normal; font-weight: 700; }
 
   /* ---- Login splash ------------------------------------------------------------------- */
-  .titlebar:has(+ .login2-splash), .titlebar:has(+ .install-screen) { display: none; }
+  .titlebar:has(+ .login2-splash), .titlebar:has(+ .install-screen), .titlebar:has(+ .ls) { display: none; }
   .login2-splash { background: #12061a; }
   .login2-splash .login2-top { position: relative; z-index: 2; border-bottom: 0; background: transparent; padding: calc(18px + env(safe-area-inset-top, 0px)) 22px 0; }
   .login2-splash .login2-logo { display: none; }

@@ -698,20 +698,8 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
 .traffic button:hover { filter: brightness(1.15); }
 .traffic button { width: 12px; height: 12px; border: 0; }
 
-/* splash */
-.splash { flex: 1; display: grid; place-items: center; background: radial-gradient(800px 500px at 50% 40%, #1c1712 0%, #0c0b0a 65%, #060606 100%); }
-.splash-inner { text-align: center; width: 560px; }
-.splash-logo { width: 390px; height: auto; object-fit: contain; filter: drop-shadow(0 10px 40px rgba(0,0,0,.8)); }
-.splash-tagline { color: #c9a86a; font-size: 11px; letter-spacing: 6px; margin-top: 14px; }
-.splash-bar { height: 4px; background: #2a2a2a; border-radius: 2px; margin: 34px auto 12px; width: 320px; overflow: hidden; }
-.splash-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #8a5d16, #f3d27a, #8a5d16); animation: splashLoad 1.9s ease-in-out forwards; box-shadow: 0 0 12px rgba(240,200,110,.6); }
-@keyframes splashLoad { 0% { width: 0; } 45% { width: 62%; } 100% { width: 100%; } }
-.splash-status { color: #9a9a9a; font-size: 12px; }
-.splash-legal { color: #565656; font-size: 10.5px; margin-top: 60px; letter-spacing: .5px; }
-
-.splash { flex: 1 1 auto; min-height: 0; }
 .login-screen { flex: 1 1 auto; min-height: 0; }
-.brand-logo, .splash-logo { mix-blend-mode: normal; }
+.brand-logo { mix-blend-mode: normal; }
 
 .table-screen.theme-black .felt { background: radial-gradient(ellipse at 50% 36%, rgba(255,255,255,.08), transparent 55%), radial-gradient(ellipse at 50% 50%, #3b3b3f 0%, #2b2b2f 40%, #1c1c20 70%, #101013 100%); }
 .table-screen.theme-red .felt { background: radial-gradient(ellipse at 50% 36%, rgba(255,255,255,.1), transparent 55%), radial-gradient(ellipse at 50% 50%, #8a2f38 0%, #6c232c 40%, #4a161d 70%, #2a0d11 100%); }
