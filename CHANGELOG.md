@@ -1,3 +1,9 @@
+## 2026-11-14 — CI stability + table seat flags
+
+- Quick-fold socket test polls for up to 60s (was 20s) with a 150s timeout, removing the
+  recurring required-check flake; assertions unchanged.
+- Table seats show a deterministic country flag beside the nickname.
+
 ## 2026-11-14 — Mystery Battle Royale lobby
 
 - Dedicated MBR lobby: stage-note hero, 3x2 buy-in tiles (up to prize, entrants),
