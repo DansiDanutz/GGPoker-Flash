@@ -1,6 +1,7 @@
 {
   "name": "ggpoker-desktop-clone",
   "private": true,
+  "main": "electron/main.cjs",
   "version": "1.1.0",
   "type": "module",
   "scripts": {
