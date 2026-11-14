@@ -1,3 +1,9 @@
+## 2026-11-14 — tournament table HUD
+
+- Tournament tables show a HUD card: mode/event, level, blinds, next-level countdown,
+  players left, prize pool and bounty, all from the live table state.
+- Hidden under 600px; 0px overflow at 1200/1440.
+
 ## 2026-11-14 — live mystery bounty feed
 
 - GET /api/mystery/feed returns recent mystery-bounty payouts + all-time total from the

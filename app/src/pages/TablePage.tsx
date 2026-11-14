@@ -34,6 +34,7 @@ import { SeatReaction } from '../components/table/SeatReaction';
 import { ReportPlayerModal } from '../components/table/ReportPlayerModal';
 import { CashDropBanner } from '../components/table/CashDropBanner';
 import { DailyLeaderboardRibbon } from '../components/table/DailyLeaderboardRibbon';
+import { TournamentHud } from '../components/table/TournamentHud';
 import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
@@ -1153,6 +1154,8 @@ export function TablePage({ tableId }: { tableId: string }) {
       {tableId && state && !state.tournament && !state.spin && (
         <DailyLeaderboardRibbon tableId={tableId} stake={`${money(state.sb)}/${money(state.bb)}`} refreshKey={vpipHand} />
       )}
+
+      {state?.tournament && <TournamentHud tournament={state.tournament} sb={state.sb} bb={state.bb} ante={state.ante} />}
 
       {cashDrop && <CashDropBanner drop={cashDrop} />}
 
