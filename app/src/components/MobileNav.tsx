@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../lib/store';
 import { Avatar } from './Avatar';
-import { NavGlyph } from './mobile/PhoneIcons';
+import { PHONE_MENU_EMBLEM } from '../lib/menuArt';
 import { activeNavKey, PHONE_NAV } from '../lib/phoneNav';
 
 /**
@@ -26,7 +26,7 @@ export function MobileNav() {
             className={'mobile-nav-item' + (on ? ' on' : '') + (item.kind === 'brand' ? ' center' : '')}
             onClick={() => navigate(item.to)}
           >
-            {item.kind === 'glyph' && <NavGlyph name={item.glyph} size={25} />}
+            {item.kind === 'glyph' && <img className="mobile-nav-emblem" src={PHONE_MENU_EMBLEM[item.glyph]} alt="" />}
             {item.kind === 'brand' && <img className="mobile-nav-brand" src={brand.logo} alt="" />}
             {item.kind === 'avatar' && (
               <span className="mobile-nav-avatar">

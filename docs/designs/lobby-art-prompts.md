@@ -306,3 +306,22 @@ style text from Step 7.
 
 Paste each image into the chat (4a first). I crop each one to its slot, convert it to WebP, and wire
 in the live layer.
+
+---
+
+## Step 10: Menu emblems (one image, eight emblems) → `menu-emblems.png`
+
+**Size: square 1024×1024.** The desktop game-mode row and the phone menus show a small emblem
+next to a live text label. Four existing emblems are reused: All-in or Fold (target), Fast Fold (bolt),
+PLO (four cards), Jackpot SNG (prize wheel); Tournaments keeps the trophy. This sheet fills the rest,
+in the same style as Step 5 so the set matches.
+
+A sprite sheet of eight glossy 3D game emblems arranged in a neat 4 × 2 grid with even spacing, each
+emblem centred in its own cell on a plain flat near-black background, all lit the same way, all the
+same size. Row 1: a small glossy golden house with a ruby-red roof (home); two playing cards, an ace
+and a king of spades, crossed at an angle (Hold'em); a short half-height stack of playing cards with a
+glowing gold edge (Short Deck); two crossed golden swords over a red shield (Battle Royale). Row 2: a
+red and gold casino chip with a spade in the centre (poker); a small golden slot machine with three
+cherry reels; a glossy roulette wheel seen from above at an angle; a red gift box with a gold ribbon
+(rewards). Saturated, vibrant, octane-style 3D render, rim light, glossy materials, ultra detailed. No
+text, no letters, no numbers, no logos, no watermark.
