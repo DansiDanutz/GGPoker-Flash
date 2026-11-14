@@ -1,0 +1,15 @@
+import puppeteer from 'puppeteer-core';
+const BASE='http://127.0.0.1:5198';
+const out=process.argv[2]||'/tmp/header.png';
+const {token}=await fetch(`${BASE}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'DansiDanutz',password:'ggpoker'})}).then(r=>r.json());
+const b=await puppeteer.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:'new',args:['--no-sandbox']});
+const W=Number(process.argv[3]||1200);
+const p=await b.newPage(); await p.setViewport({width:W,height:400});
+await p.evaluateOnNewDocument(t=>{localStorage.setItem('ggpoker.token',t);localStorage.setItem('ggpoker.welcomeSeen','1');sessionStorage.setItem('ggpoker.entered','1')},token);
+await p.goto(BASE+'/#/',{waitUntil:'networkidle2'});
+await p.waitForFunction(()=>document.querySelector('.jackpot-banner'),{timeout:20000});
+await new Promise(r=>setTimeout(r,400));
+await p.screenshot({path:out,clip:{x:0,y:0,width:W,height:155}});
+const m=await p.evaluate(()=>{const j=document.querySelector('.jackpot-banner').getBoundingClientRect();const a=document.querySelector('.account-block').getBoundingClientRect();return {jacket:[j.x,j.width,j.right],account:[a.x,a.width,a.right],gap:a.x-j.right};});
+console.log(JSON.stringify(m));
+await b.close();
