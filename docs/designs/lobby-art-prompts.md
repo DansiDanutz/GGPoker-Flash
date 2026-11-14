@@ -136,6 +136,9 @@ Shown about 1.6:1 with the label drawn along the bottom, so keep the subject cen
   table showing a row of playing cards and a rising light chart, a few chips in the foreground.
   Teal and purple palette.
 
+Delivered 2026-11-14: 4b–4i shipped as `foryou-recent`, `tourn-*` and `feature-*` `.webp` in
+`app/public/assets/ui/creatives/`; the Home cards draw their titles, lines and buttons as live text.
+
 ---
 
 ## Step 5: Tournaments

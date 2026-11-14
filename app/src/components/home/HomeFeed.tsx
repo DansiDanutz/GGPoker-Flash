@@ -6,6 +6,13 @@ import type { HomeTarget } from '../../lib/homeContent';
 const CREATIVE = '/assets/ui/creatives';
 const TABLE_ART = ['tv-0.png', 'tv-1.png', 'tv-2.png', 'tv-3.png'];
 
+/** Featured tournament cards: wordless 3D art (subject on the left), title drawn on the right. */
+const FEATURED_TOURNAMENTS = [
+  { art: 'tourn-masters.webp', title: 'Masters', sub: 'The biggest field of the week' },
+  { art: 'tourn-weekender.webp', title: 'Weekender', sub: 'Saturday and Sunday specials' },
+  { art: 'tourn-daily.webp', title: 'Daily Guarantees', sub: 'Guaranteed prize pools, every day' },
+] as const;
+
 type Props = {
   tables: readonly LobbyTable[];
   online: number;
@@ -68,7 +75,7 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
         <div className="hf-head"><h2 id="hf-foryou">For You</h2></div>
         <div className="hf-row">
           {[
-            { art: 'foryou-recent.png', label: 'Recent game', target: null },
+            { art: 'foryou-recent.webp', label: 'Recent game', sub: 'Jump back to a live table', cta: 'Join', target: null },
             { art: 'foryou-freebie.png', label: 'Daily Freebie', target: { route: '/rewards' } as HomeTarget },
             { art: 'foryou-ocean.png', label: 'DanGG Rewards', target: { route: '/ocean' } as HomeTarget },
             { art: 'foryou-live-series.png', label: 'Live Series', target: { route: '/tournaments' } as HomeTarget },
@@ -81,6 +88,11 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
               onClick={() => (i === 0 && busiest[0] ? onJoin(busiest[0]) : c.target && onTarget(c.target))}
             >
               <img src={`${CREATIVE}/${c.art}`} alt="" />
+              {'sub' in c && (
+                <span className="hf-live-label hf-foryou-label">
+                  <b>{c.label}</b><small>{c.sub}</small><em>{c.cta}</em>
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -105,9 +117,10 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
       <section className="hf-section" aria-labelledby="hf-tourn">
         <div className="hf-head"><h2 id="hf-tourn">Tournaments For You</h2><button type="button" onClick={() => navigate('/tournaments')}>View all</button></div>
         <div className="hf-row">
-          {['tourn-masters.png', 'tourn-weekender.png', 'tourn-daily.png'].map((art) => (
-            <button key={art} type="button" className="hf-card hf-tourn tilt" onClick={() => navigate('/tournaments')} aria-label="Open tournaments">
-              <img src={`${CREATIVE}/${art}`} alt="" />
+          {FEATURED_TOURNAMENTS.map((t) => (
+            <button key={t.art} type="button" className="hf-card hf-tourn tilt" onClick={() => navigate('/tournaments')} aria-label={`${t.title}: open tournaments`}>
+              <img src={`${CREATIVE}/${t.art}`} alt="" />
+              <span className="hf-live-label hf-tourn-label"><b>{t.title}</b><small>{t.sub}</small></span>
             </button>
           ))}
         </div>
@@ -117,13 +130,14 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
         <div className="hf-head"><h2 id="hf-features">Special Features</h2></div>
         <div className="hf-row">
           {[
-            { art: 'feature-time-bank.png', label: 'Time Bank Card', to: '/settings' },
-            { art: 'feature-run-it-twice.png', label: 'Run It Twice', to: '/settings' },
-            { art: 'feature-social.png', label: 'Social Features', to: '/support' },
-            { art: 'feature-hand-history.png', label: 'Hand History', to: '/hand-history' },
+            { art: 'feature-time-bank.webp', label: 'Time Bank Card', to: '/settings' },
+            { art: 'feature-run-it-twice.webp', label: 'Run It Twice', to: '/settings' },
+            { art: 'feature-social.webp', label: 'Social Features', to: '/support' },
+            { art: 'feature-hand-history.webp', label: 'Hand History', to: '/hand-history' },
           ].map((f) => (
             <button key={f.art} type="button" className="hf-card hf-feature tilt" onClick={() => navigate(f.to)} aria-label={f.label}>
               <img src={`${CREATIVE}/${f.art}`} alt="" />
+              <span className="hf-live-label hf-feature-label"><b>{f.label}</b></span>
             </button>
           ))}
         </div>
