@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { api, getToken, setToken, User } from './api';
 import { sound } from './sound';
 import { subscribePrefs } from './prefsSync';
@@ -119,9 +120,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const toastId = useRef(1);
 
   const navigate = useCallback((to: string) => {
-    if (window.location.hash !== '#' + to) window.location.hash = to;
-    else setRoute(to);
-    window.scrollTo(0, 0);
+    const commit = () => {
+      if (window.location.hash !== '#' + to) window.history.pushState(null, '', '#' + to);
+      flushSync(() => setRoute(to));
+      window.scrollTo(0, 0);
+    };
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // The live table owns its own motion; never wrap it in a page transition.
+    if (!reduce && !to.startsWith('/table') && typeof doc.startViewTransition === 'function') {
+      doc.startViewTransition(commit);
+    } else {
+      commit();
+    }
   }, []);
 
   useEffect(() => {

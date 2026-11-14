@@ -1,3 +1,10 @@
+## 2026-11-14 — motion + material across the app
+
+- View Transitions on every non-table route: outgoing page lifts/blurs out, incoming
+  page rises from blur on the house spring; skipped for the live table and reduced motion.
+- Cards, page titles, buttons, account windows, tournament rows and data tables now
+  share Home's gold-hairline material, hover depth and foil sweep.
+
 ## 2026-11-14 — premium motion + depth pass
 
 - Jackpot count-up, hero ken-burns with motes/foil, staggered blur-to-focus section
