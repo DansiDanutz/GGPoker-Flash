@@ -23,10 +23,10 @@ export const QUICK_TILES: readonly QuickTile[] = Object.freeze([
 ]);
 
 export const PROMO_ROWS: readonly PromoRow[] = Object.freeze([
-  { key: 'missions', label: 'Weekly Missions', sub: 'Claim chips for hands you play', art: '/assets/ui/creatives/foryou-freebie.png', target: { tab: 'missions' } },
-  { key: 'rewards', label: 'Daily Rewards', sub: 'Streaks, chests and the prize wheel', art: '/assets/ui/creatives/foryou-recent.png', target: { route: '/rewards' } },
-  { key: 'ocean', label: 'Ocean Rewards', sub: 'Level up for bigger hauls', art: '/assets/ui/creatives/foryou-ocean.png', target: { route: '/ocean' } },
-  { key: 'promotions', label: 'All promotions', sub: 'Coupons and running offers', art: '/assets/ui/creatives/foryou-live-series.png', target: { route: '/promotions' } },
+  { key: 'missions', label: 'Weekly Missions', sub: 'Claim chips for hands you play', art: '/assets/ui/creatives/foryou-freebie.webp', target: { tab: 'missions' } },
+  { key: 'rewards', label: 'Daily Rewards', sub: 'Streaks, chests and the prize wheel', art: '/assets/ui/creatives/foryou-recent.webp', target: { route: '/rewards' } },
+  { key: 'ocean', label: 'Ocean Rewards', sub: 'Level up for bigger hauls', art: '/assets/ui/creatives/foryou-ocean.webp', target: { route: '/ocean' } },
+  { key: 'promotions', label: 'All promotions', sub: 'Coupons and running offers', art: '/assets/ui/creatives/foryou-live-series.webp', target: { route: '/promotions' } },
 ]);
 
 export const ACCOUNT_ROWS: readonly AccountRow[] = Object.freeze([
