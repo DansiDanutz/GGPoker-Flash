@@ -25,6 +25,7 @@ import { MobileBackBar, MobileGameList } from '../components/mobile/MobileGameLi
 import { MobileShell } from '../components/mobile/MobileShell';
 import { HomeFeed } from '../components/home/HomeFeed';
 import { CashHero } from '../components/CashHero';
+import { SpinLobby } from '../components/SpinLobby';
 import { AccountRail } from '../components/AccountRail';
 
 const PREVIEW_SEATS = [
@@ -378,67 +379,73 @@ export function Lobby() {
           {gameTab === 'home' && (
             <HomeFeed tables={tables} online={online} onTarget={openHomeTarget} onJoin={openJoin} />
           )}
-          {gameTab !== 'home' && gameTab !== 'rush' && <CashHero />}
-          <div className="filter-bar" hidden={gameTab === 'home'}>
-            {!pillsFor(gameTab).length && <span className="filter-label">Tables</span>}
-            <LobbyPills tab={gameTab} value={filters.pill} onChange={(pill) => setFilter({ pill })} />
-            <span className="filter-spacer" />
-            <button className="host-table-btn" onClick={openHost}>+ Host</button>
-            <LobbyFiltersPopover filters={filters} tableCount={tables.length} onChange={setFilter} onReset={() => setFilter(resetExtraFilters(filters))} />
-          </div>
-          <div className="table-list" key={gameTab}>
-            {viewMode === 'table' && !isRushTab && !unavailable && <div className="list-head">
-              <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
-              <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
-              <div>Buy-in</div>
-              <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Seated players now, bots included">Players</span></div>
-              <div>Wait</div>
-              <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Average pot over the last 20 hands">AvgPot</span></div>
-              <div title="Voluntarily put chips in preflop, last 20 hands">VPIP%</div><div title="Hands dealt in the last hour">H/hr</div>
-            </div>}
-            <div className="list-scroll">
-              {unavailable ? (
-                <div className="list-empty" role="status">
-                  <strong>{unavailable.title}</strong>
-                  <div>{unavailable.detail}</div>
-                </div>
-              ) : isRushTab ? (
-                <RushPoolRows pools={rushPools} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
-              ) : viewMode === 'group' ? (
-                <LobbyGroupRows tab={gameTab} tables={tables} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
-              ) : tables.map((t) => (
-                <div
-                  key={t.id}
-                  className={'table-row game-' + t.game + (selected === t.id ? ' selected' : '')}
-                  onClick={() => { setSelected(t.id); if (coarsePointer()) openJoin(t); }}
-                  onDoubleClick={() => openJoin(t)}
-                >
-                  <div className="name">
-                    <button className={'fav-star' + (favs.includes(t.id) ? ' on' : '')} onClick={(e) => { e.stopPropagation(); toggleFav(t.id); }} title="Favourite">★</button>
-                    <span className={'chip-dot ' + t.category.toLowerCase()} />
-                    <span>{t.name}</span>
-                    {t.pro && <span className="tag pro">PRO</span>}
-                  </div>
-                  <div className="c-stakes">{fmtStakes(t)}</div>
-                  <div className="c-buyin">{money(t.min_buyin, true)}</div>
-                  <div className="player-bars">
-                    {Array.from({ length: t.seats }).map((_, i) => (
-                      <i key={i} className={i < t.players ? 'on' : ''} />
-                    ))}
-                  </div>
-                  <div className={'wait-cell' + (waitCount(t) ? ' has-wait' : '')}>{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
-                  <div className={t.avgPot ? 'c-pot' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
-                  <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
-                  <div className={t.handsPerHour ? '' : 'zero'}>{t.handsPerHour || '-'}</div>
-                </div>
-              ))}
-              {!tables.length && !unavailable && (
-                <div className="list-empty">No tables match these filters.{' '}
-                  <button type="button" className="lob-link" onClick={() => setFilter(DEFAULT_TAB_FILTERS)}>Reset filters</button>
-                </div>
-              )}
+          {gameTab !== 'home' && gameTab !== 'rush' && gameTab !== 'spin' && <CashHero />}
+          {gameTab === 'spin' ? (
+            <SpinLobby tables={tables} onJoin={openJoin} />
+          ) : (
+            <>
+            <div className="filter-bar" hidden={gameTab === 'home'}>
+              {!pillsFor(gameTab).length && <span className="filter-label">Tables</span>}
+              <LobbyPills tab={gameTab} value={filters.pill} onChange={(pill) => setFilter({ pill })} />
+              <span className="filter-spacer" />
+              <button className="host-table-btn" onClick={openHost}>+ Host</button>
+              <LobbyFiltersPopover filters={filters} tableCount={tables.length} onChange={setFilter} onReset={() => setFilter(resetExtraFilters(filters))} />
             </div>
-          </div>
+            <div className="table-list" key={gameTab}>
+              {viewMode === 'table' && !isRushTab && !unavailable && <div className="list-head">
+                <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
+                <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
+                <div>Buy-in</div>
+                <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Seated players now, bots included">Players</span></div>
+                <div>Wait</div>
+                <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Average pot over the last 20 hands">AvgPot</span></div>
+                <div title="Voluntarily put chips in preflop, last 20 hands">VPIP%</div><div title="Hands dealt in the last hour">H/hr</div>
+              </div>}
+              <div className="list-scroll">
+                {unavailable ? (
+                  <div className="list-empty" role="status">
+                    <strong>{unavailable.title}</strong>
+                    <div>{unavailable.detail}</div>
+                  </div>
+                ) : isRushTab ? (
+                  <RushPoolRows pools={rushPools} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
+                ) : viewMode === 'group' ? (
+                  <LobbyGroupRows tab={gameTab} tables={tables} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
+                ) : tables.map((t) => (
+                  <div
+                    key={t.id}
+                    className={'table-row game-' + t.game + (selected === t.id ? ' selected' : '')}
+                    onClick={() => { setSelected(t.id); if (coarsePointer()) openJoin(t); }}
+                    onDoubleClick={() => openJoin(t)}
+                  >
+                    <div className="name">
+                      <button className={'fav-star' + (favs.includes(t.id) ? ' on' : '')} onClick={(e) => { e.stopPropagation(); toggleFav(t.id); }} title="Favourite">★</button>
+                      <span className={'chip-dot ' + t.category.toLowerCase()} />
+                      <span>{t.name}</span>
+                      {t.pro && <span className="tag pro">PRO</span>}
+                    </div>
+                    <div className="c-stakes">{fmtStakes(t)}</div>
+                    <div className="c-buyin">{money(t.min_buyin, true)}</div>
+                    <div className="player-bars">
+                      {Array.from({ length: t.seats }).map((_, i) => (
+                        <i key={i} className={i < t.players ? 'on' : ''} />
+                      ))}
+                    </div>
+                    <div className={'wait-cell' + (waitCount(t) ? ' has-wait' : '')}>{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
+                    <div className={t.avgPot ? 'c-pot' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
+                    <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
+                    <div className={t.handsPerHour ? '' : 'zero'}>{t.handsPerHour || '-'}</div>
+                  </div>
+                ))}
+                {!tables.length && !unavailable && (
+                  <div className="list-empty">No tables match these filters.{' '}
+                    <button type="button" className="lob-link" onClick={() => setFilter(DEFAULT_TAB_FILTERS)}>Reset filters</button>
+                  </div>
+                )}
+              </div>
+            </div>
+            </>
+          )}
         </div>
 
         <div className="lobby-side">

@@ -1,3 +1,10 @@
+## 2026-11-14 — Spin & Gold stone-tile lobby
+
+- Spin & Gold tab gets a dedicated stake lobby: octagonal stone tiles (seats, buy-in,
+  win-up-to, players), prize-wheel ladder from the real payouts, and a Play Now bar.
+- Generic table filters/list are skipped on this tab; the side panel keeps info/blinds/
+  payout tabs.
+
 ## 2026-11-14 — tournament selected-event details
 
 - Selecting a tournament opens a Details dock: hashtags, start phase, buy-in, guarantee,
