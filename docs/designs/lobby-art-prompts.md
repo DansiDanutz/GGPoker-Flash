@@ -74,6 +74,9 @@ and the phone Home's Casino rows draw them; the casino trophy waits for a casino
 
 ### 4a. Home hero: November Chip Rush → `home-hero.png`
 
+Delivered 2026-11-14: shipped as `app/public/assets/ui/creatives/hero-november.webp` (3.2:1 crop);
+the Home hero draws the headline as live text on its left side.
+
 Shown very wide (about 3.2:1) at the top of the lobby, with the headline drawn on the left.
 
 A towering golden poker trophy with a ruby spade emblem on a glossy black pedestal, surrounded by

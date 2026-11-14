@@ -54,7 +54,12 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
     <div className="home-feed" ref={feedRef}>
       <div className="hf-bokeh" aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
       <button type="button" className="hf-hero tilt" onClick={() => onTarget({ route: '/tournaments' })} aria-label="November Chip Rush — open tournaments">
-        <img src={`${CREATIVE}/hero-november.png`} alt="November Chip Rush · freerolls and guarantees all month" />
+        <img src={`${CREATIVE}/hero-november.webp`} alt="" />
+        <span className="hf-hero-copy">
+          <small>DanGG · Play money</small>
+          <strong>November<br />Chip Rush</strong>
+          <em>Freerolls &amp; guarantees all month</em>
+        </span>
         <span className="hf-sheen" aria-hidden="true" />
         <span className="hf-chip"><i aria-hidden="true" />Ends in {Math.max(0, Math.ceil((new Date(new Date().getFullYear(), 10, 30).getTime() - Date.now()) / 86400000))} days</span>
       </button>
