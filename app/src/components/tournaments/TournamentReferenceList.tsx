@@ -3,17 +3,18 @@ import { money } from '../../lib/api';
 import { Countdown } from '../PageShell';
 import { phaseOf, PHASE_LABEL, type TournamentFilters } from '../../lib/tournamentFilters';
 
-const CREATIVE = '/assets/ui/creatives';
+const EMBLEM = '/assets/ui/emblems';
 
+/** Series tabs: a 3D emblem (art 5) with a live label. */
 const SERIES_TABS = [
-  { key: 'all', label: 'Tournaments', art: 'series-tournaments.png' },
-  { key: 'all', label: 'Millions Festival', art: 'series-millions.png' },
-  { key: 'all', label: 'PLO Series', art: 'series-plo.png' },
-  { key: 'ggmasters', label: 'Masters', art: 'series-masters.png' },
-  { key: 'wsop', label: 'Live Series', art: 'series-live.png' },
-  { key: 'spin', label: 'Jackpot SNG', art: 'series-jackpot.png' },
-  { key: 'mystery', label: 'Battle Royale', art: 'series-battle.png' },
-  { key: 'quickflip', label: 'Quick Flip', art: 'series-flip.png' },
+  { key: 'all', label: 'Tournaments', emblem: 'trophy' },
+  { key: 'all', label: 'Millions Festival', emblem: 'crown-coin' },
+  { key: 'all', label: 'PLO Series', emblem: 'cards' },
+  { key: 'ggmasters', label: 'Masters', emblem: 'crown' },
+  { key: 'wsop', label: 'Live Series', emblem: 'target' },
+  { key: 'spin', label: 'Jackpot SNG', emblem: 'wheel' },
+  { key: 'mystery', label: 'Battle Royale', emblem: 'mystery' },
+  { key: 'quickflip', label: 'Quick Flip', emblem: 'bolt' },
 ];
 
 const CHIPS = [
@@ -70,14 +71,13 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
       <nav className="tref-series" aria-label="Tournament series">
         {SERIES_TABS.map((tab, i) => (
           <button
-            key={tab.art}
+            key={tab.emblem}
             type="button"
             className={'tref-series-tab' + (i === 0 ? ' on' : '')}
-            title={tab.label}
-            aria-label={tab.label}
             onClick={() => onChange({ category: tab.key })}
           >
-            <img src={`${CREATIVE}/${tab.art}`} alt="" />
+            <img src={`${EMBLEM}/emblem-${tab.emblem}.webp`} alt="" />
+            <span className="tref-series-label">{tab.label}</span>
           </button>
         ))}
       </nav>

@@ -388,7 +388,7 @@ export function Lobby() {
           {gameTab === 'home' && (
             <HomeFeed tables={tables} online={online} onTarget={openHomeTarget} onJoin={openJoin} />
           )}
-          {gameTab !== 'home' && gameTab !== 'rush' && gameTab !== 'spin' && gameTab !== 'battle' && <CashHero />}
+          {gameTab !== 'home' && gameTab !== 'rush' && gameTab !== 'spin' && gameTab !== 'battle' && <CashHero jackpot={data?.jackpot || 199026635} onGame={setGameTab} />}
           {gameTab === 'battle' ? (
             <BattleLobby />
           ) : gameTab === 'spin' ? (

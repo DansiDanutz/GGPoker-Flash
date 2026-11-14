@@ -155,6 +155,10 @@ fanned sapphire playing cards; a royal gold crown. Row 2: a red and white target
 event); a golden prize wheel; a purple gem-studded mystery box; a golden lightning bolt striking a
 coin.
 
+**Delivered:** cut into eight transparent 256 px WebP files in `public/assets/ui/emblems/`
+(`emblem-trophy`, `-crown-coin`, `-cards`, `-crown`, `-target`, `-wheel`, `-mystery`, `-bolt`). They replace
+the baked-text series tabs and the flat badges on the phone Events format tiles.
+
 ---
 
 ## Step 6: Hold'em and PLO cash games
@@ -181,13 +185,20 @@ A massive golden vault door bursting open with gold coins and glossy chips pouri
 camera, a cracked playing card (a losing full house) in the foreground, red alarm-style light beams
 and sparks. Gold, crimson and black palette.
 
-### 6d. Table preview felt → `cash-felt.png`
+**Delivered 6a–6c:** cropped to 1600×450 WebP (`cash-holdem`, `cash-plo`, `cash-badbeat`); the carousel
+draws the titles and the live jackpot, and a tap opens that game's tab.
 
-**Size: square 1024×1024.** Behind the table preview on the right of the cash lobby.
+### 6d. Table preview felt → `cash-felt.png` (second take)
 
-A top-down view of an empty oval poker table: rich emerald felt with a subtle woven texture and a
-soft spotlight in the centre, a padded black leather rail with gold stitching, dark wood edge, the
-table filling the frame edge to edge. No cards, no chips, no seats.
+The first take (a flat, wide stadium table) was rejected. **Size: portrait 1024×1536.** Behind the
+vertical table preview on the right of the cash lobby.
+
+A vertical oval poker table seen from directly above, floating on a near-black background with a soft
+emerald glow underneath. Deep emerald felt that fades to teal at the edges, a faint embossed pattern of
+tiny spade suits across the cloth, a thin glowing gold line inset from the rail. The rail is polished
+black lacquer with a warm gold trim and a soft rim light along the top edge. Empty table: no cards, no
+chips, no seats. Saturated, vibrant, premium game-promo look, octane-style 3D render, glossy
+materials, ultra detailed. No text, no letters, no numbers, no logos, no watermark, no people.
 
 ---
 
