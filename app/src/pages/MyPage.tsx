@@ -7,6 +7,7 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell } from '../components/PageShell';
 import { ProfilePane } from '../components/mypage/ProfilePane';
+import { WalletPane } from '../components/mypage/WalletPane';
 import { Avatar } from '../components/Avatar';
 
 const TABS = [
@@ -143,7 +144,7 @@ export function MyPage() {
               { key: 'rewards', label: 'GGPass Account', go: () => navigate('/rewards'), ext: true },
               { key: 'voice', label: 'My Action Voice', go: () => navigate('/settings'), ext: true },
               { key: 'overview', label: 'My Game Profile', go: () => setTab('overview') },
-              { key: 'wallet', label: 'My Wallet', go: () => navigate('/cashier'), ext: true },
+              { key: 'wallet', label: 'My Wallet', go: () => setTab('wallet') },
               { key: 'verify', label: 'Verify ID', go: () => setTab('verify') },
               { key: 'transactions', label: 'Transaction History', go: () => setTab('transactions') },
               { key: 'messages', label: 'Message', go: () => setTab('messages') },
@@ -172,6 +173,7 @@ export function MyPage() {
           </aside>
           <div className="mp-pane">
         {tab === 'overview' && <ProfilePane />}
+        {tab === 'wallet' && <WalletPane />}
 
         {(tab === 'stakers' || tab === 'sellers') && (
           <div className="mpp-empty-pane">

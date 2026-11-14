@@ -4,6 +4,12 @@
   Start/Event/Buy-in/Players/Prize table with search, mode-coloured rows and the
   right-hand buy-in filter + summary + Lobby/Register panel.
 - Desktop only; the phone keeps MobileEvents. 112px account column reserved.
+## 2026-11-14 — My Wallet 040 ported from the reference
+
+- Wallet pane inside the My Page window: Refresh, four balance cards, Ticket row,
+  receive-chips/get-more links and the play-money note.
+- Responsive two-column cards on tablet/phone, stacked actions, 44px controls.
+
 ## 2026-11-14 — My Page 038 ported from the reference
 
 - Account window: top tabs, 240px left menu, My Game Profile pane with nickname and a
