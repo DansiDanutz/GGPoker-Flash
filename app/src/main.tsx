@@ -19,6 +19,7 @@ import './home-feed.css';
 import './mypage.css';
 import './ocean.css';
 import './game-tabs.css';
+import './cashier.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
-import { PageShell, SubNav } from '../components/PageShell';
+import { PageShell } from '../components/PageShell';
 
 const METHODS = ['Instant bank transfer', 'Visa •••• 4242', 'Mastercard •••• 8811', 'Skrill', 'Crypto (USDT)'];
 const DEPOSIT_PRESETS = [1000, 5000, 10000, 50000];
@@ -11,7 +11,7 @@ type DepositLimits = { max: number; dailyMax: number; today: number };
 export function Cashier() {
   const { user, refreshUser, toast, navigate } = useApp();
   const [data, setData] = useState<any>(null);
-  const [tab, setTab] = useState('cashier');
+  const [tab, setTab] = useState('deposit');
   const [amount, setAmount] = useState(5000);
   const [method, setMethod] = useState(METHODS[0]);
   const [busy, setBusy] = useState(false);
@@ -67,143 +67,121 @@ export function Cashier() {
     const a = document.createElement('a'); a.href = url; a.download = 'dangro-transactions.csv'; a.click(); URL.revokeObjectURL(url);
   };
 
+  const depositStep = tab === 'deposit';
   return (
-    <PageShell activeTop="poker" subnav={<SubNav items={[{ key: 'cashier', label: 'Cashier' }, { key: 'transactions', label: 'Transactions' }, { key: 'bonus', label: 'Bonuses' }]} active={tab} onChange={setTab} />}>
-      <div className="page">
-        <h1 className="page-title">Cashier</h1>
-        <p className="page-sub">Play-money wallet · no real deposits, no cash value</p>
-
-        <div className="grid g4" style={{ marginBottom: 16 }}>
-          {[
-            ['USD balance', money(user?.balance ?? 0), 'Play money'],
-            ['Play chips', `P$ ${(user?.play_chips ?? 0).toLocaleString()}`, 'P$'],
-            ['Tickets', `T$ ${(user?.tickets ?? 0).toLocaleString()}`, 'T$'],
-            ['Gems', (user?.gems ?? 0).toLocaleString(), 'DanGG rewards'],
-          ].map(([label, value, note]) => (
-            <div key={label} className="card">
-              <div className="muted small" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
-              <div style={{ fontFamily: 'var(--head-font)', fontSize: 24, fontWeight: 800, color: '#fff', marginTop: 4 }}>{value}</div>
-              <div className="muted small">{note}</div>
-            </div>
-          ))}
-        </div>
-
-        {tab === 'cashier' && (
-          <div className="grid g2">
-            <div className="card">
-              <div className="tabs-line" style={{ marginBottom: 12 }}>
-                <button className={mode === 'deposit' ? 'on' : ''} onClick={() => setMode('deposit')}>Deposit</button>
-                <button className={mode === 'withdraw' ? 'on' : ''} onClick={() => setMode('withdraw')}>Withdraw</button>
-              </div>
-              <label className="admin-label">Amount (USD)</label>
-              <div className="row" style={{ marginBottom: 8 }}>
-                <input className="admin-input" style={{ flex: 1, height: 40, fontSize: 18 }} type="number" min={0} max={mode === 'deposit' && limits ? limits.max / 100 : undefined} value={amount / 100}
-                  onChange={(e) => {
-                    const cents = Math.max(0, Math.round(Number(e.target.value) * 100));
-                    setAmount(mode === 'deposit' && limits ? Math.min(cents, limits.max) : cents);
-                  }} />
-                <span className="muted">.00</span>
-              </div>
-              {mode === 'deposit' && limits && (
-                <p className="muted small" style={{ margin: '0 0 8px' }}>
-                  Play-money limits: {money(limits.max)} per deposit, {money(limits.dailyMax)} per UTC day · {money(Math.max(0, limits.dailyMax - limits.today))} left today
-                </p>
-              )}
-              <div className="row" style={{ marginBottom: 12 }}>
-                {DEPOSIT_PRESETS.filter((v) => mode !== 'deposit' || !limits || v <= limits.max).map((v) => (
-                  <button key={v} className="btn btn-ghost btn-sm" onClick={() => setAmount(v)}>{money(v)}</button>
-                ))}
-              </div>
-              <label className="admin-label">Payment method</label>
-              <select className="admin-select" style={{ width: '100%' }} value={method} onChange={(e) => setMethod(e.target.value)}>
-                {METHODS.map((m) => <option key={m}>{m}</option>)}
-              </select>
-              <button className="btn btn-red btn-block" style={{ marginTop: 14, height: 42 }} disabled={busy} onClick={submit}>
-                {busy ? 'Processing…' : mode === 'deposit' ? `Deposit ${money(amount)}` : `Withdraw ${money(amount)}`}
-              </button>
-              <p className="muted small" style={{ marginTop: 10 }}>
-                Instant, local demo processing. Funds are credited immediately and stored in your local account.
-              </p>
-            </div>
-            <div className="card">
-              <div className="panel-title">Recent activity</div>
-              <div className="list">
-                {tx.slice(0, 8).map((t: any) => (
-                  <div key={t.id} className="list-row">
-                    <div style={{ flex: 1 }}>
-                      <b style={{ fontSize: 12.5 }}>{t.kind.replace(/_/g, ' ')}</b>
-                      <div className="muted small">{new Date(t.created_at).toLocaleString('en-GB')} · {t.memo}</div>
-                    </div>
-                    <div style={{ color: t.amount >= 0 ? '#7fe0a0' : '#ff9a9a', fontWeight: 700 }}>
-                      {t.amount >= 0 ? '+' : ''}{money(t.amount)}
-                    </div>
-                  </div>
-                ))}
-                {!tx.length && <div className="empty-state">No transactions yet.</div>}
-              </div>
+    <PageShell activeTop="poker">
+      <div className="cashier-page">
+        <div className="cashier-win">
+          <div className="cashier-top">
+            <div className="cashier-brand"><b>DanGG</b><span>Cashier</span></div>
+            <div className="cashier-balances">
+              {[
+                ['Balance', money(user?.balance ?? 0)],
+                ['P$', `P$${(user?.play_chips ?? 0).toLocaleString()}`],
+                ['T$', `T$${(user?.tickets ?? 0).toLocaleString()}`],
+                ['Ticket', String(user?.tickets ?? 0)],
+              ].map(([l, v]) => (
+                <div key={l}><span>{l}</span><b>{v}</b></div>
+              ))}
             </div>
           </div>
-        )}
 
-        {tab === 'transactions' && (
-          <>
-            <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
-              <input className="admin-input" style={{ flex: '1 1 220px' }} placeholder="Search type, memo or currency…" value={txQuery} onChange={(e) => setTxQuery(e.target.value)} />
-              <select className="admin-select" value={txType} onChange={(e) => setTxType(e.target.value)}>
-                <option value="all">All transactions</option>
-                <option value="deposits">Deposits</option>
-                <option value="withdrawals">Withdrawals</option>
-                <option value="bonuses">Bonuses</option>
-                <option value="poker">Poker & tournaments</option>
-                <option value="rewards">Rewards</option>
-              </select>
-              <button className="btn btn-ghost btn-sm" onClick={exportCsv} disabled={!txFiltered.length}>Export CSV</button>
-              <span className="muted small">{txFiltered.length} / {tx.length}</span>
-            </div>
-            <div className="card" style={{ padding: 0 }}>
-              <table className="admin-table">
-                <thead><tr><th>#</th><th>Type</th><th>Currency</th><th>Amount</th><th>Balance after</th><th>Memo</th><th>Date</th></tr></thead>
-                <tbody>
-                  {txFiltered.map((t: any) => (
-                    <tr key={t.id}>
-                      <td>{t.id}</td><td style={{ textTransform: 'capitalize' }}>{t.kind.replace(/_/g, ' ')}</td><td>{t.currency}</td>
-                      <td style={{ color: t.amount >= 0 ? '#7fe0a0' : '#ff9a9a' }}>{t.amount >= 0 ? '+' : ''}{money(t.amount)}</td>
-                      <td>{money(t.balance_after)}</td><td className="muted">{t.memo}</td>
-                      <td className="muted">{new Date(t.created_at).toLocaleString('en-GB')}</td>
-                    </tr>
-                  ))}
-                  {!txFiltered.length && <tr><td colSpan={7} className="empty-state">No matching transactions.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-
-        {tab === 'bonus' && (
-          <div className="grid g3">
-            {(data?.bonuses || [
-              { id: 'welcome', title: 'Welcome bonus', subtitle: 'One-time welcome credit', amount: 100000, claimed: false },
-              { id: 'reload', title: 'Weekly reload', subtitle: 'Once per week', amount: 50000, claimed: false },
-              { id: 'daily', title: 'Daily freebie', subtitle: 'Once per day', amount: 1000, claimed: false },
-            ]).map((b: any) => (
-              <div key={b.id} className="card" style={{ textAlign: 'center', padding: 22 }}>
-                <div style={{ fontSize: 34 }}>🎁</div>
-                <div style={{ fontWeight: 700, color: '#fff', marginTop: 8 }}>{b.title}</div>
-                <div className="gold" style={{ fontSize: 18, fontWeight: 800, margin: '6px 0' }}>{money(b.amount)}</div>
-                <div className="muted small">{b.subtitle}</div>
-                <button className={'btn btn-sm ' + (b.claimed ? 'btn-ghost' : 'btn-gold')} style={{ marginTop: 12 }} disabled={b.claimed || busy} onClick={async () => {
-                  try {
-                    const r = await api.claimBonus(b.id);
-                    sound.play('coin');
-                    toast({ kind: 'reward', title: b.title, body: `+${money(r.amount)} added to your play balance.` });
-                    await load(); await refreshUser();
-                  } catch (e: any) { toast({ kind: 'error', title: 'Bonus not applied', body: e.message }); }
-                }}>{b.claimed ? 'Claimed' : 'Claim'}</button>
-              </div>
+          <div className="cashier-tabs" role="tablist" aria-label="Cashier">
+            {([['deposit', 'Deposit'], ['withdraw', 'Withdraw'], ['history', 'Transaction History']] as const).map(([key, label]) => (
+              <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'on' : ''} onClick={() => { setTab(key); if (key === 'deposit') setMode('deposit'); }}>{label}</button>
             ))}
-            <p className="muted small" style={{ gridColumn: '1 / -1' }}>Bonuses are local practice credits. Welcome is once per account, reload once per ISO week, daily once per UTC day.</p>
           </div>
-        )}
+
+          <div className="cashier-body">
+            {depositStep && (
+              <>
+                <section className="cashier-card">
+                  <header><b>Card</b><span aria-hidden="true">⌃</span></header>
+                  <div className="cashier-methods">
+                    {[
+                      { id: 'Bank Card', label: 'Bank Card', marks: 'VISA  ●●  Mastercard' },
+                      { id: 'Apple Pay', label: 'Apple Pay', marks: 'Pay' },
+                      { id: 'Google Pay', label: 'Google Pay', marks: 'G Pay' },
+                    ].map((m) => (
+                      <label key={m.id} className="cashier-radio">
+                        <input type="radio" name="pm" checked={method === m.id} onChange={() => setMethod(m.id)} />
+                        <span className="cashier-dot" />
+                        <span className="cashier-pm-label">{m.label}</span>
+                        <span className="cashier-marks">{m.marks}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <button type="button" className="cashier-next" onClick={() => { setMode('deposit'); setTab('amount'); }}>Next</button>
+                </section>
+
+                <section className="cashier-card collapsed">
+                  <header><b>E-Wallet</b><span aria-hidden="true">⌄</span></header>
+                  <div className="cashier-ewallet">aircash</div>
+                </section>
+
+                <p className="cashier-note">DanGG is play money only — “deposit” credits practice chips to this account and has no cash value.</p>
+              </>
+            )}
+
+            {tab === 'amount' && (
+              <section className="cashier-card">
+                <header><b>Amount</b><span aria-hidden="true">⌃</span></header>
+                <div className="cashier-amounts">
+                  {DEPOSIT_PRESETS.map((v) => (
+                    <button key={v} type="button" className={amount === v ? 'on' : ''} onClick={() => setAmount(v)}>{money(v)}</button>
+                  ))}
+                </div>
+                <label className="cashier-field">
+                  <span>Custom amount (USD)</span>
+                  <input type="number" min={100} max={limits?.max ?? 1000000} step={100} value={amount / 100} onChange={(e) => setAmount(Math.round(Number(e.target.value) * 100))} />
+                </label>
+                {limits && <p className="cashier-limit">Limit {money(limits.max)} per deposit · {money(Math.max(0, limits.dailyMax - limits.today))} left today</p>}
+                <div className="cashier-row">
+                  <button type="button" className="cashier-back" onClick={() => setTab('deposit')}>Back</button>
+                  <button type="button" className="cashier-next" disabled={busy || amount < 100} onClick={submit}>{busy ? 'Processing…' : `Add ${money(amount)}`}</button>
+                </div>
+              </section>
+            )}
+
+            {tab === 'withdraw' && (
+              <section className="cashier-card">
+                <header><b>Withdraw</b><span aria-hidden="true">⌃</span></header>
+                <p className="cashier-withdraw-note">Withdrawals are unavailable while DanGG is a play-money room. Your balance has no cash value and cannot be cashed out.</p>
+                <div className="cashier-row">
+                  <button type="button" className="cashier-next" disabled>Withdraw</button>
+                </div>
+              </section>
+            )}
+
+            {tab === 'history' && (
+              <section className="cashier-card">
+                <header><b>Transaction History</b><button type="button" className="cashier-export" onClick={exportCsv}>Export CSV</button></header>
+                <div className="cashier-history">
+                  {[...(data?.transactions || [])]
+                    .sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)))
+                    .slice(0, 20)
+                    .map((t: any) => {
+                      const cur = String(t.currency || 'USD').toUpperCase();
+                      const abs = Math.abs(t.amount);
+                      const fmt = cur === 'USD' ? money(abs) : cur === 'PLAY' ? `P$${(abs / 100).toFixed(2)}` : cur === 'TICKET' ? `T$${abs}` : `${abs} GEM`;
+                      return (
+                        <div key={t.id} className="cashier-hist-row">
+                          <span className="cashier-hist-date">{String(t.created_at).slice(0, 16).replace('T', ' ')}</span>
+                          <span className="cashier-hist-desc">{t.memo || String(t.kind).replace(/_/g, ' ')}</span>
+                          <span className={'cashier-hist-amt ' + (t.amount >= 0 ? 'up' : 'down')}>{t.amount >= 0 ? '+' : '-'}{fmt}</span>
+                        </div>
+                      );
+                    })}
+                  {!(data?.transactions || []).length && <p className="cashier-empty">No transactions yet.</p>}
+                </div>
+              </section>
+            )}
+          </div>
+
+          <div className="cashier-foot">
+            DanGG is a play-money practice room. No real-money deposits, withdrawals or cash value. © 2026 DanGG.
+          </div>
+        </div>
       </div>
     </PageShell>
   );
