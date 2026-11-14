@@ -76,3 +76,28 @@ composition squeezed into 390 px:
 4. **Avatar menu**: the avatar goes straight to My Page; there is no bottom sheet with
    Cashier/Settings/Support/Log out yet.
 5. **Table/poker pages were not touched** (owner is live-testing them).
+
+## Owner checklist (7 defects) — how each is closed
+
+Measured with `app/tools/mobile-audit.mjs` at 320×780, 390×844 and 430×844.
+
+| # | Defect | Fix | Measured |
+|---|---|---|---|
+| 1 | Hero too tall / desktop-ratio crop / baked-in CTA and 7sp text | Dedicated **780×420 phone banner set** (`tools/hero-art.mjs` → `phone-*.svg`), live DOM headline + CTA, `height: min(186px, 30dvh)` | 186 px = **23.8 % / 22.0 % / 22.0 %** of the viewport; CTA fully inside the viewport at 44 px |
+| 2 | Floating logo/orb overlaps nav and cards | Orb removed; wordmark lives in the 56 px top bar; tab bar is a flat 5-column grid | No centre orb element; nav and cards never overlap |
+| 3 | Join now 28–30 dp, dots 6–8 dp | Hero CTA and Join are 44 px; indicators are **passive** (6 px), manual control is swipe | Touch probe: **0 controls under 44 h / 24 w** on `/`, `/casino`, `/slots` at 320/390/430 |
+| 4 | No safe areas / viewport units | `env(safe-area-inset-top/bottom)` on bar, nav and feed padding; app height `100vh` then `100dvh` | Audit `nav-safe-area` passes; 200 % zoom reflow +0 px |
+| 5 | Ambiguous carousel clipping | For You is one full-width jump card plus a rail that is **78 % wide with 14 px peek, `scroll-snap-type: x mandatory`, and a right-edge mask fade** | Audit `rail-snap`, `rail-peek`, `rail-fade` pass at all three widths |
+| 6 | Micro-copy 9–10 sp | Eyebrow 12 px, meta/seat counts 13 px, legal 12 px, slot badges 10 px, body 14 px+ | Touch/typography probe: smallest body copy 14 px |
+| 7 | Balance scrolls away inside hero | Balance is a persistent chip in the sticky top bar | Audit scrolls the feed 500 px and re-checks the chip: same position, bar at top |
+
+`app/tools/mobile-audit.mjs 320,390,430` → **PASS** on all ten checks per width.
+
+## Final verification for this round
+
+- 42 screenshots at **320/390/430/768/1024/1440** × 7 routes, 0 px horizontal overflow
+  (`docs/screenshots/mobile-final2`); before/after in
+  `docs/screenshots/mobile-final/comparison.png`.
+- 862 node tests, `tsc --noEmit`, Vite build: all clean.
+- Keyboard/reflow: 16 Tab stops per route at 390 and 1440 on `/`, `/casino`, `/slots`,
+  `/rewards` — 0 off-screen, 0 unlabelled, 0 without outline, +0 px at 200 % zoom.

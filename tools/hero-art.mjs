@@ -157,3 +157,38 @@ for (const [key, svg] of Object.entries(files)) {
   fs.writeFileSync(path.join(OUT, `${key}.svg`), svg);
   console.log('wrote', key, svg.length, 'bytes');
 }
+
+/* ---------- phone banner set: 780x420 (13:7), no baked copy ---------- */
+const PW = 780, PH = 420;
+
+const phoneShell = (accent, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}" fill="none" style="--accent:${accent}">
+${DEFS}
+  <rect width="${PW}" height="${PH}" fill="url(#base)"/>
+  <g>${body}</g>
+  <rect width="${PW}" height="${PH}" fill="url(#bottom)"/>
+  <rect width="${PW}" height="${PH}" filter="url(#grain)" opacity=".5"/>
+  <rect x=".5" y=".5" width="${PW - 1}" height="${PH - 1}" rx="16" stroke="#d8b15f" stroke-opacity=".25"/>
+</svg>`;
+
+const phoneArt = (key, accent, motif) => phoneShell(accent, `
+  <ellipse cx="560" cy="210" rx="310" ry="270" fill="url(#glow)" opacity=".9"/>
+  <ellipse cx="700" cy="60" rx="180" ry="130" fill="url(#glow)" opacity=".4"/>
+  ${streaks()}
+  ${dots(20, key.length * 811)}
+  ${motif}
+  <rect x="360" y="0" width="420" height="420" fill="url(#sheen)" opacity=".22"/>
+`);
+
+const phoneFiles = {
+  flipout: phoneArt('flipout', '#f2a13c', `<g transform="translate(560 208)">${trophy(0, 0, 1.32)}</g>`),
+  aof: phoneArt('aof', '#d33746', `<g transform="translate(560 214) scale(1.28)">${cards(0, 0)}</g>`),
+  rush: phoneArt('rush', '#2fd0c5', `<g transform="translate(560 210) scale(1.4)"><ellipse cx="0" cy="86" rx="110" ry="14" fill="#000" opacity=".5" filter="url(#soft)"/><circle r="76" fill="#0e1116" stroke="url(#gold)" stroke-width="5"/><circle r="58" fill="none" stroke="#2fd0c5" stroke-opacity=".5" stroke-width="2" stroke-dasharray="6 10"/><path d="M-26 -18l52 20-52 20z" fill="#f2c45c"/></g>`),
+  plo: phoneArt('plo', '#4a8fe0', `<g transform="translate(560 214) scale(1.3)">${fan(0, 0)}</g>`),
+  spin: phoneArt('spin', '#f2c45c', wheel(560, 208, 150)),
+  battle: phoneArt('battle', '#a95cf0', `<g transform="translate(560 220) scale(1.4)">${crown(0, 0)}</g>`),
+};
+
+for (const [key, svg] of Object.entries(phoneFiles)) {
+  fs.writeFileSync(path.join(OUT, `phone-${key}.svg`), svg);
+  console.log('wrote phone', key, svg.length, 'bytes');
+}

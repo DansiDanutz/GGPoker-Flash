@@ -1,3 +1,14 @@
+## 2026-11-14 — phone checklist pass (round 4b)
+
+- Dedicated 780x420 phone banner art; hero capped at min(186px, 30dvh) with live text
+  and a 44px CTA (measured 22-24% of the viewport).
+- Carousel dots are passive indicators; slide control is swipe.
+- For You rail: 78% cards with a 14px peek, scroll-snap and a right-edge fade.
+- Persistent balance chip in the sticky top bar; no floating orb overlaps nav/cards.
+- Micro-copy floor raised (eyebrow 12px, meta 13px, legal 12px).
+- Safe-area insets and 100dvh handling on the phone shell.
+- New `tools/mobile-audit.mjs` checks all ten acceptance criteria at 320/390/430.
+
 ## 2026-11-14 — phone rebuild (round 4)
 
 - Phone chrome: 56px top bar (avatar, wordmark, wallet), no desktop title bar, tabs or

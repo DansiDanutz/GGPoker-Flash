@@ -471,3 +471,73 @@
 @media (max-width: 760px) {
   .p-loading { flex: 1 1 auto; display: grid; place-items: center; color: #8d8981; font-size: 14px; background: #0b0b0c; }
 }
+
+/* ============================================================================
+   Owner checklist pass: dvh hero, 44dp dots, rail with peek + snap + fade,
+   readable micro-copy, viewport units.
+   ========================================================================== */
+@media (max-width: 760px) {
+  /* Survive the URL bar collapsing. */
+  .app-window, .desktop { height: 100vh; height: 100dvh; }
+  .pshell { min-height: 0; }
+
+  /* Hero: capped at 30dvh, live DOM copy and a CTA inside the safe margins. */
+  .p-hero { height: 186px; height: min(186px, 30dvh); min-height: 156px; }
+  .p-hero-copy small { font-size: 12px; letter-spacing: .12em; }
+  .p-hero-copy h2 { font-size: 23px; }
+  .p-hero-cta { min-height: 44px; min-width: 44px; }
+
+  /* Dots: 44x44 hit areas with a 6px indicator inside. */
+  .p-hero-dots { right: 0; bottom: 0; gap: 0; }
+  .p-hero-dots button, .p-hero-dots button.on { width: 44px; height: 44px; }
+
+  /* For You: one full-width card, then a peeking, snapping rail with edge fade. */
+  .p-rail {
+    display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
+    padding: 2px 14px 6px; scroll-padding-inline: 14px;
+    scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 0, #000 86%, transparent 100%);
+    mask-image: linear-gradient(90deg, #000 0, #000 86%, transparent 100%);
+  }
+  .p-rail::-webkit-scrollbar { display: none; }
+  .p-rail-card {
+    flex: 0 0 78%; scroll-snap-align: start; overflow: hidden; text-align: left;
+    border-radius: 14px; background: #151517; border: 1px solid #232327; color: #eee;
+    min-height: 168px;
+  }
+  .p-rail-art { display: block; height: 104px; background-size: cover; background-position: center; }
+  .p-rail-copy { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 12px; min-width: 0; }
+  .p-rail-copy b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-rail-copy small { color: #a8a49b; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Micro-copy floor: nothing below 12px except the legal line. */
+  .p-jump-copy small { font-size: 12px; }
+  .p-jump-copy em, .p-table-copy small, .p-casino-row small, .p-rowcard small { font-size: 13px; }
+  .p-seats { font-size: 13px; }
+  .p-legal { font-size: 12px; }
+  .p-head button { font-size: 14px; }
+}
+
+@media (max-width: 760px) {
+  /* Indicators sit above the copy so they can never collide with the hero CTA. */
+  .p-hero-dots { top: 2px; right: 2px; bottom: auto; height: 44px; }
+  .p-hero-copy { bottom: 14px; }
+}
+
+@media (max-width: 760px) {
+  /* Last micro-copy spots: keep every readable label at >=10px, body at >=13px. */
+  .slot-tile-badge { font-size: 10px; }
+  .slots-ticker-label, .slots-ticker-item { font-size: 11px; }
+  .age-notice, .age-notice-badge { font-size: 12px; }
+}
+
+@media (max-width: 760px) {
+  /* Indicators only (owner checklist): no tiny tap targets, manual control is swipe. */
+  .p-hero-dots {
+    top: auto; right: 0; bottom: 8px; height: auto;
+    left: 0; display: flex; justify-content: center; align-items: center; gap: 6px; pointer-events: none;
+  }
+  .p-hero-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .48); display: block; }
+  .p-hero-dots span.on { width: 18px; border-radius: 3px; background: #f2c45c; }
+  .p-hero-dots button { display: none; }
+}
