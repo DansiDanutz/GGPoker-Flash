@@ -280,6 +280,7 @@ export const api = {
     request<{ token: string; user: User }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, password }) }),
   register: (data: { login: string; nick: string; password: string; email?: string }) =>
     request<{ token: string; user: User }>('/api/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  guest: () => request<{ token: string; user: User }>('/api/auth/guest', { method: 'POST', body: '{}' }),
   logout: () => request('/api/auth/logout', { method: 'POST' }),
   me: () => request<{ user: User; settings: any }>('/api/me'),
   saveSettings: (settings: any) => request('/api/me/settings', { method: 'POST', body: JSON.stringify(settings) }),

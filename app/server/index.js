@@ -1330,19 +1330,24 @@ const server = http.createServer(async (req, res) => {
       if (!nick) return json(res, 400, { error: 'Nickname must be 2-20 letters, digits, spaces, dots, dashes or underscores' });
       if (String(body.password || '').length < 6) return json(res, 400, { error: 'Password must be at least 6 characters' });
       if (identityTaken(login) || identityTaken(nick)) return json(res, 400, { error: 'That account ID or nickname is already taken' });
-      const welcome = getSetting('welcome_bonus', 100000);
-      const start = getSetting('default_balance', 5000) + welcome;
-      db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
-        .run(login, nick, hashPassword(String(body.password)), String(body.email || '').slice(0, 120), 0, 5);
-      const created = db.prepare('SELECT id FROM users WHERE login = ?').get(login);
-      // The account starts at zero and the ledger entry carries the whole opening balance,
-      // so the balance and the ledger agree (it used to be credited twice).
-      addTransaction(created.id, 'welcome', start, 'Welcome bonus');
-      // The opening credit is the welcome bonus: record the claim so the Cashier cannot pay it again.
-      db.prepare("INSERT OR IGNORE INTO bonus_claims (user_id,claim_key,amount) VALUES (?,'welcome',?)").run(created.id, welcome);
+      const user = createAccount(login, nick, String(body.password), String(body.email || '').slice(0, 120));
       // Count only accounts actually created, so typos in the form do not use up the allowance.
       if (clientKey) registerLimiter.record(clientKey);
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
+      const token = newSession(user.id, req.headers['user-agent'] || '');
+      return json(res, 200, { token, user: publicUser(user) });
+    }
+
+    // Play as guest: a throwaway play-money account so a guest can sit, spin and register
+    // like everyone else. It shares the per-network account allowance with registration.
+    if (p === '/api/auth/guest' && req.method === 'POST') {
+      const clientKey = abuseClientKey(req);
+      if (clientKey && registerLimiter.isBlocked(clientKey)) {
+        return json(res, 429, { error: 'Too many new accounts from your network. Try again in an hour.' });
+      }
+      const nick = freeGuestNick();
+      if (!nick) return json(res, 503, { error: 'Guest seats are busy right now. Try again in a moment.' });
+      if (clientKey) registerLimiter.record(clientKey);
+      const user = createAccount(`guest_${randomUUID().slice(0, 12)}`, nick, randomUUID(), '');
       const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
     }
@@ -3366,6 +3371,33 @@ setInterval(() => {
 setInterval(() => {
   try { ROOM_OWNER.scheduleAll(); } catch (err) { console.error('tournament snapshot schedule', err); }
 }, 15000).unref();
+
+const GUEST_NICK_ATTEMPTS = 20;
+
+/** A free "Guest1234" nickname, or null when every attempt collided. */
+function freeGuestNick() {
+  for (let i = 0; i < GUEST_NICK_ATTEMPTS; i++) {
+    const nick = `Guest${randomInt(1000, 1000000)}`;
+    if (!identityTaken(nick)) return nick;
+  }
+  return null;
+}
+
+/**
+ * Create an account with the opening play balance. The row starts at zero and the
+ * ledger entry carries the whole opening balance, so balance and ledger agree; the
+ * welcome claim is recorded so the Cashier cannot pay it again.
+ */
+function createAccount(login, nick, password, email) {
+  const welcome = getSetting('welcome_bonus', 100000);
+  const start = getSetting('default_balance', 5000) + welcome;
+  db.prepare('INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)')
+    .run(login, nick, hashPassword(password), email, 0, 5);
+  const created = db.prepare('SELECT id FROM users WHERE login = ?').get(login);
+  addTransaction(created.id, 'welcome', start, 'Welcome bonus');
+  db.prepare("INSERT OR IGNORE INTO bonus_claims (user_id,claim_key,amount) VALUES (?,'welcome',?)").run(created.id, welcome);
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
+}
 
 function identityTaken(name, exceptUserId = 0) {
   return !!db.prepare('SELECT 1 FROM users WHERE (lower(login) = lower(?) OR lower(nick) = lower(?)) AND id != ?').get(name, name, exceptUserId);
