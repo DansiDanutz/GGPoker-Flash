@@ -59,6 +59,7 @@ type Props = {
 
 export function TournamentReferenceList({ list, registered, busy, filters, onChange, onReset, onLobby, onRegister, onPlay, balance }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [panel, setPanel] = useState<'filters' | 'details'>('filters');
   const now = Date.now();
   const selected = useMemo(() => list.find((t) => t.id === selectedId) || list[0] || null, [list, selectedId]);
   const isReg = selected ? registered.includes(selected.id) : false;
@@ -125,7 +126,7 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
                 <div
                   key={t.id}
                   className={'tref-row phase-' + phase + (rowSelected ? ' on' : '') + ' mode-' + String(t.mode || 'standard').toLowerCase()}
-                  onClick={() => setSelectedId(t.id)}
+                  onClick={() => { setSelectedId(t.id); setPanel('details'); }}
                   onDoubleClick={() => onLobby(t)}
                 >
                   <div className="tref-start">
@@ -148,6 +149,12 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
         </div>
 
         <aside className="tref-side">
+          <div className="tref-side-tabs" role="tablist" aria-label="Tournament panel">
+            <button type="button" role="tab" aria-selected={panel === 'filters'} className={panel === 'filters' ? 'on' : ''} onClick={() => setPanel('filters')}>Filters</button>
+            <button type="button" role="tab" aria-selected={panel === 'details'} className={panel === 'details' ? 'on' : ''} onClick={() => { if (!selected && list[0]) setSelectedId(list[0].id); setPanel('details'); }}>Details</button>
+          </div>
+
+          {panel === 'filters' && (<>
           <div className="tref-side-card">
             <div className="tref-side-title">Filter</div>
             <div className="tref-side-sub"><span>Buy-in</span><button type="button" onClick={onReset}>Reset</button></div>
@@ -173,6 +180,44 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
               <button type="button" className="tref-btn primary" disabled={!selected || busy === selected?.id} onClick={() => selected && onRegister(selected)}>Register</button>
             )}
           </div>
+          </>)}
+
+          {panel === 'details' && (
+            selected ? (
+              <div className="tref-detail">
+                <div className="tref-detail-kicker">{String(selected.mode || 'STANDARD').replace(/_/g, ' ')} · {selected.format}</div>
+                <h3>{selected.name}</h3>
+                <div className="tref-detail-tags">
+                  <span>#{String(selected.mode || 'standard').toLowerCase()}</span>
+                  <span>#{String(selected.format || 'nlh').toLowerCase()}</span>
+                  {selected.buyin === 0 && <span>#freeroll</span>}
+                  {(selected.late_reg || 0) > 45 && <span>#late-reg</span>}
+                </div>
+                <div className="tref-detail-status">{statusText(selected, now)} · starts {new Date(selected.start_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                <div className="tref-side-card">
+                  <div className="tref-kv"><span>Buy-in</span><b>{selected.buyin === 0 ? 'Freeroll' : money(selected.buyin + selected.fee)}</b></div>
+                  <div className="tref-kv"><span>Guarantee</span><b className="gold">{money(selected.gtd || 0, true)}</b></div>
+                  <div className="tref-kv"><span>Prize pool</span><b>{money((selected.entrants || 0) * (selected.buyin || 0), true)}</b></div>
+                  <div className="tref-kv"><span>Overlay</span><b>{money(Math.max(0, (selected.gtd || 0) - (selected.entrants || 0) * (selected.buyin || 0)), true)}</b></div>
+                  <div className="tref-kv"><span>Players</span><b>{(selected.entrants || 0).toLocaleString()}</b></div>
+                  <div className="tref-kv"><span>Starting chips</span><b>{(selected.starting_stack || 0).toLocaleString()}</b></div>
+                  <div className="tref-kv"><span>Blind interval</span><b>{selected.blind_speed || 0} min</b></div>
+                  <div className="tref-kv"><span>Late reg ends</span><b>{new Date(new Date(selected.start_at).getTime() + (selected.late_reg || 0) * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b></div>
+                </div>
+                <div className="tref-side-actions">
+                  {isReg ? (
+                    <button type="button" className="tref-btn primary" disabled={busy === selected.id} onClick={() => onPlay(selected)}>Play</button>
+                  ) : (
+                    <button type="button" className="tref-btn primary" disabled={busy === selected.id} onClick={() => onRegister(selected)}>Register</button>
+                  )}
+                  <button type="button" className="tref-btn" onClick={() => onLobby(selected)}>Full lobby</button>
+                  <button type="button" className="tref-detail-back" onClick={() => setPanel('filters')}>← Back to filters</button>
+                </div>
+              </div>
+            ) : (
+              <div className="tref-side-card"><div className="tref-side-sub"><span>Pick an event to see its details.</span></div></div>
+            )
+          )}
         </aside>
       </div>
     </div>
