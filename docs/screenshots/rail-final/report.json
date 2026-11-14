@@ -1,0 +1,146 @@
+[
+  {
+    "width": 320,
+    "route": "/my-page",
+    "file": "0320-my-page.png",
+    "text": "D $10,000.00 Overview My Promo Weekly Mission Transactions Tickets Messages Play",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/tournaments",
+    "file": "0320-tournaments.png",
+    "text": "D $10,000.00 TOURNAMENT SERIES SUNDAY MAJOR $250K $250K GTD Nov 15, 01:12 · Buy-",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/cashier",
+    "file": "0320-cashier.png",
+    "text": "Cashier $10,000.00 Cashier Transactions Bonuses Play-money wallet · no real dep",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/my-page",
+    "file": "0390-my-page.png",
+    "text": "D $10,000.00 Overview My Promo Weekly Mission Transactions Tickets Messages Play",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/tournaments",
+    "file": "0390-tournaments.png",
+    "text": "D $10,000.00 TOURNAMENT SERIES SUNDAY MAJOR $250K $250K GTD Nov 15, 01:12 · Buy-",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/cashier",
+    "file": "0390-cashier.png",
+    "text": "Cashier $10,000.00 Cashier Transactions Bonuses Play-money wallet · no real dep",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 768,
+    "route": "/my-page",
+    "file": "0768-my-page.png",
+    "text": "192,721 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Overview My Promo Week",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/tournaments",
+    "file": "0768-tournaments.png",
+    "text": "192,721 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 TOURNAMENT SERIES Sund",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/cashier",
+    "file": "0768-cashier.png",
+    "text": "192,721 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Cashier Transactions B",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/my-page",
+    "file": "1024-my-page.png",
+    "text": "192,660 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/tournaments",
+    "file": "1024-tournaments.png",
+    "text": "192,660 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/cashier",
+    "file": "1024-cashier.png",
+    "text": "192,660 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1440,
+    "route": "/my-page",
+    "file": "1440-my-page.png",
+    "text": "192,591 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/tournaments",
+    "file": "1440-tournaments.png",
+    "text": "192,591 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/cashier",
+    "file": "1440-cashier.png",
+    "text": "192,591 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/my-page",
+    "file": "1920-my-page.png",
+    "text": "192,523 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/tournaments",
+    "file": "1920-tournaments.png",
+    "text": "192,523 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1920,
+    "route": "/cashier",
+    "file": "1920-cashier.png",
+    "text": "192,523 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  }
+]
