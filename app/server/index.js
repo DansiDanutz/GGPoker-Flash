@@ -36,6 +36,7 @@ import { createTableStats } from './table-stats.js';
 import { createDailyLeaderboard, leaderboardStake, pointEarners } from './dailyLeaderboard.js';
 import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
 import { createPlayerNotes } from './player-notes.js';
+import { createPropBets, PropBetError, PROP_BET_RULES } from './prop-bets.js';
 import { lobbyOccupancy } from './lobby-occupancy.js';
 import { checkDeposit, depositedToday, depositLimits, rebuyReference } from './play-money.js';
 import { loadTimeBank, saveTimeBank } from './time-bank-store.js';
@@ -584,6 +585,14 @@ function findSeatedByNick(nick, tableId = null) {
   return null;
 }
 const PLAYER_NOTES = createPlayerNotes(db, { findSeated: findSeatedByNick });
+
+const PROP_BETS = createPropBets({
+  db,
+  ledger: (userId, kind, amount, memo, reference) => addTransactionEx(userId, kind, amount, memo, 'USD', { reference, onDuplicate: 'skip' }),
+});
+PROP_BETS.ensureSchema();
+const PROP_BET_SWEEP_MS = 15_000;
+setInterval(() => PROP_BETS.sweep(), PROP_BET_SWEEP_MS).unref();
 // HUD subject: an explicit id, else the player seated at this table under that nick, else
 // the account currently holding it; a nick with no account (an old bot) stays a nick.
 function hudIdentity(tableId, { id, nick }) {
@@ -705,6 +714,7 @@ function getLiveTable(id) {
     onTournamentBust: (table, p) => {
       try {
         consumeTournamentEntry(table, p.id);
+        if (table.cfg.tournamentId) PROP_BETS.recordBust(table.cfg.tournamentId, p.id);
         // Multi-table events rank the whole field, not the seat's own table.
         if (table.tournament?.managed) {
           TOURNAMENT_ROOMS.get(table.cfg.tournamentId)?.onBust(table.cfg.id, p);
@@ -2110,6 +2120,43 @@ const server = http.createServer(async (req, res) => {
       payout = Math.round(payout);
       const after = addTransaction(u.id, game, payout - bet, `${game} ${pick} ${payout ? 'won' : 'lost'}`, 'USD');
       return json(res, 200, { result, payout, bet, balance: after });
+    }
+
+    // ---------- player prop bets (Last Longer, Bankroll, ELO) ----------
+    if (p === '/api/propbets' && req.method === 'GET') {
+      const viewer = userByToken(tokenFrom(req) || '');
+      return json(res, 200, {
+        bets: PROP_BETS.list({ type: url.searchParams.get('type') || '', includeClosed: url.searchParams.get('closed') === '1' }),
+        rules: PROP_BET_RULES,
+        eligibleTournaments: viewer ? PROP_BETS.eligibleTournaments(viewer.id) : [],
+        elo: viewer ? Number(viewer.elo ?? 1000) : null,
+      });
+    }
+    if (p === '/api/propbets' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const body = await readBody(req);
+      try {
+        return json(res, 200, { bet: PROP_BETS.create(u.id, body), balance: db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id).balance });
+      } catch (e) {
+        if (e instanceof PropBetError) return json(res, 400, { error: e.message });
+        throw e;
+      }
+    }
+    {
+      const m = p.match(/^\/api\/propbets\/(\d+)(\/join)?$/);
+      if (m && req.method === 'GET' && !m[2]) {
+        const bet = PROP_BETS.detail(m[1]);
+        return bet ? json(res, 200, { bet }) : json(res, 404, { error: 'Prop bet not found' });
+      }
+      if (m && req.method === 'POST' && m[2]) {
+        const u = requireUser(req, res); if (!u) return;
+        try {
+          return json(res, 200, { bet: PROP_BETS.join(u.id, m[1]), balance: db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id).balance });
+        } catch (e) {
+          if (e instanceof PropBetError) return json(res, 400, { error: e.message });
+          throw e;
+        }
+      }
     }
 
     if (p === '/api/games/propbet' && req.method === 'POST') {

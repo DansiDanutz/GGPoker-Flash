@@ -13,7 +13,8 @@ import { Elo } from './pages/Elo';
 import { Promotions, Settings } from './pages/Promotions';
 import { Slots } from './pages/Slots';
 import { Casino } from './pages/Casino';
-import { Profile, PropBet, Support } from './pages/Extras';
+import { Profile, Support } from './pages/Extras';
+import { PropBetPage } from './pages/PropBet';
 import { PokerCraft } from './pages/PokerCraft';
 import { Admin } from './pages/Admin';
 import { MyPage } from './pages/MyPage';
@@ -94,7 +95,7 @@ export default function App() {
       case 'honeymoon': return <Honeymoon />;
       case 'support': return <Support />;
       case 'hand-history': return <PokerCraft />;
-      case 'propbet': return <PropBet />;
+      case 'propbet': return <PropBetPage />;
       case 'admin': return <Admin />;
       default: return <ComingSoon title="Not found" />;
     }
