@@ -4,7 +4,8 @@ import { useApp } from '../../lib/store';
 import { HERO_INTERVAL_MS, HERO_SLIDES, PROMO_CARDS, stepSlide, type HomeTarget } from '../../lib/homeContent';
 import { MobileShell } from './MobileShell';
 import { HeroSparks } from './HeroSparks';
-import { GameBadge, NavGlyph, type BadgeName } from './PhoneIcons';
+import { menuIconSrc } from '../../lib/menuIcons';
+import { NavGlyph } from './PhoneIcons';
 import { CASINO_GAMES } from './casinoGames';
 
 const LIVE_ROW_SIZE = 5;
@@ -125,7 +126,7 @@ export function MobileHome({ tables, online, jackpot, jumpBackIn, gameLabel, onJ
           <div className="p-list">
             {CASINO_GAMES.slice(0, 3).map((g) => (
               <button key={g.key} type="button" className="p-casino-row" onClick={() => navigate(g.route)}>
-                <GameBadge name={g.badge as BadgeName} size={40} />
+                <img className="p-casino-icon" src={menuIconSrc(g.badge)} alt="" width={44} height={44} />
                 <span><b>{g.name}</b><small>{g.desc}</small></span>
                 <i aria-hidden="true">›</i>
               </button>

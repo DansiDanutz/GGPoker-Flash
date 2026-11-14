@@ -3,7 +3,7 @@ import { useApp } from '../../lib/store';
 import { loadWinners, type WinnerRow } from '../../lib/slotGames';
 import { WinnersTicker } from '../WinnersTicker';
 import { CASINO_GAMES } from './casinoGames';
-import { GameBadge, type BadgeName } from './PhoneIcons';
+import { menuIconSrc } from '../../lib/menuIcons';
 
 const KIND_LABEL: Record<string, string> = { slots: 'Slots', roulette: 'Roulette', crash_win: 'Crash', blackjack: 'Blackjack' };
 
@@ -26,7 +26,7 @@ export function MobileCasino() {
       {CASINO_GAMES.map((g) => (
         <button key={g.key} type="button" className="mc-row" onClick={() => navigate(g.route)}>
           <span className="mc-art">
-            <GameBadge name={g.badge as BadgeName} size={72} />
+            <img className="mc-icon" src={menuIconSrc(g.badge)} alt="" width={72} height={72} />
             <i className="mc-pill">Play now</i>
           </span>
           <span className="mc-copy">

@@ -68,6 +68,10 @@ sparks (crash). Row 2: two face-up playing cards on a small red velvet pad with 
 (dragon tiger); three red dice tumbling out of a gold and glass dice shaker (sic bo); a golden
 trophy cup with violet chips flying around it (casino tournaments).
 
+Delivered 2026-11-14: 4.0 and 4.0b shipped as `app/public/assets/menu/<name>.webp` (216 px, black
+keyed out by a flood fill from each cell edge, so card spades stay). The Poker menu, the Casino tab
+and the phone Home's Casino rows draw them; the casino trophy waits for a casino tournaments row.
+
 ### 4a. Home hero: November Chip Rush → `home-hero.png`
 
 Shown very wide (about 3.2:1) at the top of the lobby, with the headline drawn on the left.

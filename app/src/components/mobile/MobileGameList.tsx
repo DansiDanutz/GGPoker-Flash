@@ -1,7 +1,8 @@
 import React from 'react';
 import type { LobbyTable } from '../../lib/api';
 import { gameSummaries, MOBILE_GAMES } from '../../lib/mobileLobby';
-import { GameBadge, NavGlyph } from './PhoneIcons';
+import { menuIconSrc } from '../../lib/menuIcons';
+import { NavGlyph } from './PhoneIcons';
 
 /** Phone Poker tab: one row per game type with live player counts; a tap opens that game's tables. */
 export function MobileGameList({ tables, onPick }: { tables: readonly LobbyTable[]; onPick: (tab: string) => void }) {
@@ -12,7 +13,7 @@ export function MobileGameList({ tables, onPick }: { tables: readonly LobbyTable
       {MOBILE_GAMES.map((g) => (
         <button key={g.key} type="button" className="mg-row" onClick={() => onPick(g.key)}>
           <span className="mg-top">
-            <GameBadge name={g.icon} size={66} />
+            <img className="mg-icon" src={menuIconSrc(g.icon)} alt="" width={66} height={66} />
             <b>{g.label}</b>
           </span>
           <span className="mg-pills">
