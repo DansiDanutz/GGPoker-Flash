@@ -11,8 +11,10 @@ export type HeroSlide = {
   sub: string;
   cta: string;
   art: string;
-  artWide: string;
+  /** Phone hero banner: photo-real key art, focal motif on the right (see docs/designs/home-hero-art-prompts.md). */
   artPhone: string;
+  /** Spark hues for the banner's live layer. */
+  sparkHues: readonly number[];
   bg: string;
   target: HomeTarget;
 };
@@ -30,32 +32,32 @@ const DISCOVER = '/assets/ui/discover/';
 export const HERO_SLIDES: readonly HeroSlide[] = Object.freeze([
   {
     key: 'flipout', kicker: 'Every day · Play chips', title: 'Daily Chip Flipout', sub: '100,000 play chips up for grabs, every single day.',
-    cta: 'Join now', art: `${DISCOVER}Bg_Discover_Leaderboard_FlipNGo.png`, artWide: '/assets/hero/flipout.svg', artPhone: '/assets/hero/phone-flipout.svg', bg: 'linear-gradient(110deg, #3a1d05 0%, #1a0d03 55%, #090502 100%)',
+    cta: 'Join now', art: `${DISCOVER}Bg_Discover_Leaderboard_FlipNGo.png`, artPhone: '/assets/hero/flipout.webp', sparkHues: [30, 42], bg: 'linear-gradient(110deg, #3a1d05 0%, #1a0d03 55%, #090502 100%)',
     target: { route: '/tournaments' },
   },
   {
     key: 'aof', kicker: 'All-in or Fold', title: 'One decision. Fast action.', sub: 'Shove or fold, nothing in between. Hands fly by.',
-    cta: 'Play now', art: `${DISCOVER}Bg_Discover_AoF.png`, artWide: '/assets/hero/aof.svg', artPhone: '/assets/hero/phone-aof.svg', bg: 'linear-gradient(110deg, #4a0f14 0%, #1f070a 55%, #0b0304 100%)',
+    cta: 'Play now', art: `${DISCOVER}Bg_Discover_AoF.png`, artPhone: '/assets/hero/aof.webp', sparkHues: [355, 8], bg: 'linear-gradient(110deg, #4a0f14 0%, #1f070a 55%, #0b0304 100%)',
     target: { tab: 'aof' },
   },
   {
     key: 'rush', kicker: 'Fast Fold', title: 'Fold. Move. Play again.', sub: 'Quick-fold to a fresh table and watch for Cash Drops.',
-    cta: 'Play now', art: `${DISCOVER}Bg_Discover_RushNCash_Holdem.png`, artWide: '/assets/hero/rush.svg', artPhone: '/assets/hero/phone-rush.svg', bg: 'linear-gradient(110deg, #06343a 0%, #04191c 55%, #020a0b 100%)',
+    cta: 'Play now', art: `${DISCOVER}Bg_Discover_RushNCash_Holdem.png`, artPhone: '/assets/hero/rush.webp', sparkHues: [180, 190], bg: 'linear-gradient(110deg, #06343a 0%, #04191c 55%, #020a0b 100%)',
     target: { tab: 'rush' },
   },
   {
     key: 'plo', kicker: 'PLO Series', title: 'PLO6 is live', sub: 'Six cards. Six-max. More outs than ever.',
-    cta: 'Play now', art: `${DISCOVER}Bg_Discover_Leaderboard_PLO6.png`, artWide: '/assets/hero/plo.svg', artPhone: '/assets/hero/phone-plo.svg', bg: 'linear-gradient(110deg, #0c2550 0%, #071429 55%, #03080f 100%)',
+    cta: 'Play now', art: `${DISCOVER}Bg_Discover_Leaderboard_PLO6.png`, artPhone: '/assets/hero/plo.webp', sparkHues: [215, 228], bg: 'linear-gradient(110deg, #0c2550 0%, #071429 55%, #03080f 100%)',
     target: { tab: 'plo' },
   },
   {
     key: 'spin', kicker: 'Jackpot SNG', title: 'Spin for the jackpot', sub: 'Three players, one wheel, prizes up to 12,000x.',
-    cta: 'Spin now', art: `${DISCOVER}Bg_Discover_SpinNGold.png`, artWide: '/assets/hero/spin.svg', artPhone: '/assets/hero/phone-spin.svg', bg: 'linear-gradient(110deg, #47330a 0%, #1f1604 55%, #0b0802 100%)',
+    cta: 'Spin now', art: `${DISCOVER}Bg_Discover_SpinNGold.png`, artPhone: '/assets/hero/spin.webp', sparkHues: [42, 48, 330], bg: 'linear-gradient(110deg, #47330a 0%, #1f1604 55%, #0b0802 100%)',
     target: { tab: 'spin' },
   },
   {
     key: 'battle', kicker: 'Battle Royale', title: 'Last one standing', sub: 'Bounty tournaments with hidden prizes on every head.',
-    cta: 'Register', art: `${DISCOVER}Bg_Discover_MysteryBattleRoyal.png`, artWide: '/assets/hero/battle.svg', artPhone: '/assets/hero/phone-battle.svg', bg: 'linear-gradient(110deg, #2c0f4a 0%, #150725 55%, #07030c 100%)',
+    cta: 'Register', art: `${DISCOVER}Bg_Discover_MysteryBattleRoyal.png`, artPhone: '/assets/hero/battle.webp', sparkHues: [275, 290], bg: 'linear-gradient(110deg, #2c0f4a 0%, #150725 55%, #07030c 100%)',
     target: { tab: 'battle' },
   },
 ]);

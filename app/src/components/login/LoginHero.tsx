@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { startSparks } from './sparks';
+import { startSparks } from '../../lib/sparks';
 import { coverEmitter, DESKTOP_ART, PHONE_ART, SPLASH_ART, SPLASH_ART_HEIGHT } from './heroArt';
-import type { Emitter } from './sparks';
+import type { Emitter } from '../../lib/sparks';
 import '../../login-hero.css';
 
 /** Floating chips in front of the backdrop. `depth` scales pointer parallax. */

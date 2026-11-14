@@ -1,4 +1,4 @@
-import type { Emitter } from './sparks';
+import type { Emitter } from '../../lib/sparks';
 
 /** One login backdrop: its pixel size, CSS background-position and where the trophy rim sits. */
 export interface HeroArt {

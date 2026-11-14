@@ -27,3 +27,12 @@ test('every hero slide and promo card points at art that ships', () => {
   }
   assert.ok(HERO_SLIDES.length >= 3, 'the carousel needs neighbours on both sides');
 });
+
+test('every phone hero banner ships as WebP and carries spark hues for its live layer', () => {
+  for (const slide of HERO_SLIDES) {
+    assert.match(slide.artPhone, /^\/assets\/hero\/[a-z]+\.webp$/, `${slide.key}: banner should be a WebP`);
+    assert.ok(fs.existsSync(path.join(PUBLIC, slide.artPhone)), `${slide.key}: ${slide.artPhone} is missing`);
+    assert.ok(slide.sparkHues.length > 0, `${slide.key}: needs at least one spark hue`);
+    assert.ok(slide.sparkHues.every((h) => h >= 0 && h < 360), `${slide.key}: hues are degrees 0-359`);
+  }
+});

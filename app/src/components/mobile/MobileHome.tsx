@@ -3,6 +3,7 @@ import { money, type LobbyTable } from '../../lib/api';
 import { useApp } from '../../lib/store';
 import { HERO_INTERVAL_MS, HERO_SLIDES, PROMO_CARDS, stepSlide, type HomeTarget } from '../../lib/homeContent';
 import { MobileShell } from './MobileShell';
+import { HeroSparks } from './HeroSparks';
 import { GameBadge, NavGlyph, type BadgeName } from './PhoneIcons';
 import { CASINO_GAMES } from './casinoGames';
 
@@ -22,7 +23,7 @@ function liveTables(tables: readonly LobbyTable[]): LobbyTable[] {
   return [...tables].filter((t) => t.players > 0 && !t.private).sort((a, b) => b.players - a.players).slice(0, LIVE_ROW_SIZE);
 }
 
-/** One message, one CTA: a short tile banner, not the desktop key art. */
+/** One message, one CTA: photo-real banner art with a live spark layer in the slide's colours. */
 function PhoneHero({ onTarget }: { onTarget: (target: HomeTarget) => void }) {
   const { navigate } = useApp();
   const [idx, setIdx] = useState(0);
@@ -42,8 +43,9 @@ function PhoneHero({ onTarget }: { onTarget: (target: HomeTarget) => void }) {
   return (
     <section className="p-hero" aria-roledescription="carousel" aria-label="Featured" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {HERO_SLIDES.map((s, i) => (
-        <div key={s.key} className={'p-hero-bg' + (i === idx ? ' on' : '')} style={{ backgroundImage: `url(${s.artPhone || s.artWide || s.art})` }} aria-hidden={i !== idx} />
+        <div key={s.key} className={'p-hero-bg' + (i === idx ? ' on' : '')} style={{ backgroundImage: `url(${s.artPhone})` }} aria-hidden={i !== idx} />
       ))}
+      <HeroSparks hues={slide.sparkHues} />
       <span className="p-hero-scrim" aria-hidden="true" />
       <div className="p-hero-copy">
         <small>{slide.kicker}</small>
