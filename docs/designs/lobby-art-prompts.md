@@ -259,5 +259,33 @@ the new For You art too.
 
 ---
 
+## Step 8: Promotions
+
+The Promotions page still uses tiny 226 px reference images stretched across wide cards, and the same
+images are reused on My Page, Ocean, Welcome Bonus, the Battle Royale and Fast Fold heroes and the
+tournament banners. **Size: landscape 1536×1024.** The title is drawn bottom-left, so keep every object
+in the right 55% of the frame and inside the middle band; the left and bottom stay dark. Each prompt
+ends with the shared style text from Step 7. Daily Freebie reuses 7a.
+
+- **8a. Daily Chip Flipout** (`promo-flipout`): a giant gold coin spinning in mid-air above a tall stack of red and gold chips, a burst of sparks where it catches the light. Crimson and gold palette.
+- **8b. Prize Wheel** (`promo-wheel`): a glossy golden prize wheel with jewel-coloured segments and gem studs, tilted toward the camera, sparks and gold coins flying off its rim. Gold, ruby and sapphire palette.
+- **8c. Prize Wheel Platinum** (`promo-wheel-platinum`): the same kind of prize wheel in polished platinum and ice-blue diamonds, frosty light rays, crystal shards in the air. Silver, white and ice-blue palette.
+- **8d. Player Care** (`promo-care`): a glossy emerald shield with a gold heart emblem standing in front of a stack of chips, a soft dome of protective light around them. Emerald, teal and gold palette.
+- **8e. DanGG Rewards** (`promo-ocean`): a friendly glossy 3D whale leaping out of turquoise water, a spray of gems and pearls arcing around it, sunbeams through the waves. Turquoise, ocean blue and gold palette.
+- **8f. Leaderboards** (`promo-leaderboard`): a three-step podium in gold, silver and bronze with a gold trophy on the top step, glowing rising bars behind it like a chart. Gold and deep blue palette.
+- **8g. Battle Royale** (`promo-battle`): a glowing purple mystery box on a round arena platform, two crossed golden swords behind it, bounty coins scattered on the floor, dramatic purple spotlights. Violet, magenta and gold palette.
+- **8h. Welcome Bonus** (`promo-welcome`): a red velvet box opening to reveal neat stacks of glossy chips and a golden key, a short red carpet leading up to it, gold confetti. Red, gold and warm white palette.
+- **8i. Weekly Freeroll** (`promo-freeroll`): a single golden ticket with ornate blank edges floating above a pile of chips under a bright spotlight, small sparkles around it. Gold and midnight blue palette.
+- **8j. After The Fold** (`promo-allin`): two face-down cards and every chip shoved forward into the middle of a dark felt table, a crackle of red lightning over the pile. Crimson, black and gold palette.
+- **8k. Casino Bonus** (`promo-casino`): a glossy golden slot machine with three spinning reels showing cherries, gems and bells, coins pouring from its tray, neon glow. Gold, magenta and purple palette.
+- **8l. Fast Fold** (`promo-fastfold`): a fan of glossy playing cards speeding forward with long neon motion trails, chips whipping past, a sense of speed. Electric green and gold palette.
+
+**Delivered 8a–8l:** cropped to 1200×502 WebP in `public/assets/ui/promos/` and mapped in
+`src/lib/promoArt.ts`. They are used on Promotions, My Page, Player Care, Welcome Bonus, the Battle Royale
+and Fast Fold heroes, the Mystery tournament banner, the phone Casino header and the Casino Slots tile.
+All four leaderboard cards share 8f (Fast Fold's uses 8l); Daily Freebie reuses 7a.
+
+---
+
 Paste each image into the chat (4a first). I crop each one to its slot, convert it to WebP, and wire
 in the live layer.

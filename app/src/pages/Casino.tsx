@@ -10,6 +10,7 @@ import { useIsPhone } from '../lib/useIsPhone';
 import { AgeNotice } from '../components/AgeNotice';
 import { WinnersTicker } from '../components/WinnersTicker';
 import { loadWinners, type WinnerRow } from '../lib/slotGames';
+import { PROMO_ART } from '../lib/promoArt';
 
 const CASINO_NAV = [
   { key: 'lobby', label: 'Lobby' }, { key: 'roulette', label: 'Roulette' }, { key: 'blackjack', label: 'Blackjack' },
@@ -356,7 +357,7 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
 }
 
 const HUB_GAMES = [
-  { key: 'slots', name: 'Slots', art: '/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png', desc: 'Six DanGG Originals', tags: ['slots'] },
+  { key: 'slots', name: 'Slots', art: PROMO_ART.casino, desc: 'Six DanGG Originals', tags: ['slots'] },
   { key: 'roulette', name: 'Roulette', art: '/assets/ui/discover/Bg_Discover_AoF.png', desc: 'European wheel', tags: ['table'] },
   { key: 'blackjack', name: 'Blackjack', art: '/assets/ui/discover/Bg_Discover_WSOPExpress_Promo1_EN.png', desc: 'Classic 21', tags: ['table'] },
   { key: 'crash', name: 'Crash', art: '/assets/ui/discover/Bg_Discover_RushNCash_Holdem.png', desc: 'Cash out before it crashes', tags: ['arcade'] },

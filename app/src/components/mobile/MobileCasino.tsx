@@ -4,6 +4,7 @@ import { loadWinners, type WinnerRow } from '../../lib/slotGames';
 import { WinnersTicker } from '../WinnersTicker';
 import { CASINO_GAMES } from './casinoGames';
 import { menuIconSrc } from '../../lib/menuIcons';
+import { PROMO_ART } from '../../lib/promoArt';
 
 const KIND_LABEL: Record<string, string> = { slots: 'Slots', roulette: 'Roulette', crash_win: 'Crash', blackjack: 'Blackjack' };
 
@@ -19,7 +20,7 @@ export function MobileCasino() {
   return (
     <div className="mc">
       <div className="mc-hero">
-        <img src="/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png" alt="" />
+        <img src={PROMO_ART.casino} alt="" />
         <span><small>Play-money casino</small><b>Pick a game.<br />Take a seat.</b><em>18+ · chips have no cash value</em></span>
       </div>
       <h1 className="sr-only">Casino</h1>

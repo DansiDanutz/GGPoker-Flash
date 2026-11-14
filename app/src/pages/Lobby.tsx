@@ -33,6 +33,7 @@ import { AccountRail } from '../components/AccountRail';
 import { GameInfoDrawer } from '../components/GameInfoDrawer';
 import { SeatedPlayersList } from '../components/SeatedPlayersList';
 import { gameRules } from '../lib/gameRules';
+import { PROMO_ART } from '../lib/promoArt';
 
 const PREVIEW_SEATS = [
   { x: 50, y: 8 }, { x: 10, y: 30 }, { x: 90, y: 30 },
@@ -372,7 +373,7 @@ export function Lobby() {
           {gameInfoOpen && hasRules && <GameInfoDrawer game={gameTab} table={table} onClose={() => setGameInfoOpen(false)} />}
           {gameTab === 'rush' && (
             <div className="rush-hero">
-              <div className="rush-hero-bg" style={{ backgroundImage: "url('/assets/ui/discover/Bg_Discover_RushNCash_Holdem.png')" }} />
+              <div className="rush-hero-bg" style={{ backgroundImage: `url('${PROMO_ART.fastfold}')` }} />
               <div className="rush-hero-copy">
                 <small>FAST FOLD</small>
                 <b>Fold. Move. Play again.</b>

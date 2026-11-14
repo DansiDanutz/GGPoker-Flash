@@ -14,6 +14,7 @@ import { Avatar } from '../components/Avatar';
 import { useIsPhone } from '../lib/useIsPhone';
 import { MobileAccountHub } from '../components/mobile/MobileAccountHub';
 import { MobileBackBar } from '../components/mobile/MobileGameList';
+import { PROMO_ART } from '../lib/promoArt';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -30,10 +31,10 @@ const TABS = [
 ];
 
 const PROMOS = [
-  ['Daily Chip Flipout', '#ThanksDanGG', '/assets/chrome/promo.png'],
-  ['Prize Wheel', 'Spin the wheel', '/assets/ui/discover/Bg_Discover_Fishbuffet.png'],
-  ['Player Care', 'Bad beat protection', '/assets/ui/discover/Bg_Discover_GGcare.png'],
-  ['Welcome Bonus', 'New player package', '/assets/ui/discover/Bg_Discover_Honeymoon.png'],
+  ['Daily Chip Flipout', '#ThanksDanGG', PROMO_ART.flipout],
+  ['Prize Wheel', 'Spin the wheel', PROMO_ART.wheel],
+  ['Player Care', 'Bad beat protection', PROMO_ART.care],
+  ['Welcome Bonus', 'New player package', PROMO_ART.welcome],
 ];
 
 const PANE_TITLES: Record<string, string> = {
