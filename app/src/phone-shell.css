@@ -155,6 +155,7 @@
   .me-tile.tone-violet { background: linear-gradient(90deg, #1d1a26, #3b2155); }
   .me-tile.tone-amber { background: linear-gradient(90deg, #2a1d14, #5a3412); }
   .me-tile.on { box-shadow: inset 0 0 0 2px var(--ph-gold); }
+  .me-tile-emblem { flex: 0 0 auto; width: 60px; height: 60px; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .55)); }
 
   .me-head { display: flex; align-items: center; gap: 12px; padding: 26px var(--ph-pad) 12px; }
   .me-head h1 { flex: 1; margin: 0; font-size: 26px; font-weight: 700; color: #fff; }
