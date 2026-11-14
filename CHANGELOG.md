@@ -8,6 +8,21 @@
 - Table browser removed from Home (it belongs to the game tabs); account rail fixed
   at 112px.
 
+## 2026-11-14 — My Page 038 ported from the reference
+
+- Account window: top tabs, 240px left menu, My Game Profile pane with nickname and a
+  seven-column avatar picker (20 reference portraits), Apply.
+- Preset avatar paths are stored as paths; the endpoint whitelists them and still
+  rejects arbitrary paths. New HTTP test covers both.
+- Responsive: 240/200px menu, 7/5/4-column grid, horizontal menu on phones.
+
+## 2026-11-14 — global account rail
+
+- The 112px account rail is now a shared component rendered by PageShell on every
+  desktop screen (wallet, Cashier, guest login, product shortcuts), not just the lobby.
+- Hidden below 1100px so tablet widths keep the full content area.
+- Verified at 320/390/768/1024/1440/1920 with 0px overflow.
+
 ## 2026-11-14 — phone checklist pass (round 4b)
 
 - Dedicated 780x420 phone banner art; hero capped at min(186px, 30dvh) with live text

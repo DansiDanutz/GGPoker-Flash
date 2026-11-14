@@ -15,6 +15,7 @@ import './table-chat.css';
 import './phone-shell.css';
 import './slots.css';
 import './home-feed.css';
+import './mypage.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>
