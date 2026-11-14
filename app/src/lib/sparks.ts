@@ -1,6 +1,6 @@
-// Gold sparks rising from the trophy on the login hero: a small 2D-canvas particle loop.
+// Rising sparks (login trophy, phone home banners): a small 2D-canvas particle loop.
 // The caller supplies the emitter in canvas pixels, so the sparks line up with the trophy in
-// whichever backdrop (portrait desktop or wide phone) is showing.
+// whatever art is showing.
 
 interface Spark {
   x: number;
@@ -23,7 +23,12 @@ export interface Emitter {
 interface SparkOptions {
   readonly still: boolean;
   readonly emitterFor: (width: number, height: number) => Emitter;
+  /** Base hues to pick from; defaults to mostly gold with a few pink sparks. */
+  readonly hues?: readonly number[];
 }
+
+const DEFAULT_HUES: readonly number[] = Object.freeze([42, 45, 48, 50, 44, 46, 340]);
+const HUE_JITTER = 8;
 
 const MAX_DPR = 1.5;
 const DENSITY = 0.00009; // sparks per CSS pixel of area
@@ -31,7 +36,7 @@ const MIN_SPARKS = 24;
 const MAX_SPARKS = 90;
 const STILL_FRAMES = 140; // frames simulated before drawing a single still frame
 
-function spawn(emitter: Emitter): Spark {
+function spawn(emitter: Emitter, hues: readonly number[]): Spark {
   const ttl = 2.6 + Math.random() * 3.4;
   return {
     x: emitter.x + (Math.random() - 0.5) * emitter.spread,
@@ -41,7 +46,7 @@ function spawn(emitter: Emitter): Spark {
     life: 0,
     ttl,
     size: 0.7 + Math.random() * 2.1,
-    hue: Math.random() < 0.82 ? 42 + Math.random() * 10 : 330 + Math.random() * 20,
+    hue: hues[Math.floor(Math.random() * hues.length)] + (Math.random() - 0.5) * HUE_JITTER,
   };
 }
 
@@ -60,7 +65,7 @@ function drawSpark(ctx: CanvasRenderingContext2D, s: Spark): void {
 }
 
 /** Starts the spark loop on `canvas`; returns a cleanup function. */
-export function startSparks(canvas: HTMLCanvasElement, { still, emitterFor }: SparkOptions): () => void {
+export function startSparks(canvas: HTMLCanvasElement, { still, emitterFor, hues = DEFAULT_HUES }: SparkOptions): () => void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return () => {};
   let w = 0;
@@ -80,7 +85,7 @@ export function startSparks(canvas: HTMLCanvasElement, { still, emitterFor }: Sp
     emitter = emitterFor(w, h);
     const target = Math.max(MIN_SPARKS, Math.min(MAX_SPARKS, Math.round(w * h * DENSITY)));
     sparks = Array.from({ length: target }, () => {
-      const s = spawn(emitter);
+      const s = spawn(emitter, hues);
       return { ...s, life: Math.random() * s.ttl };
     });
   };
@@ -88,7 +93,7 @@ export function startSparks(canvas: HTMLCanvasElement, { still, emitterFor }: Sp
   const step = (dt: number) => {
     sparks = sparks.map((s) => {
       const life = s.life + dt;
-      if (life >= s.ttl) return spawn(emitter);
+      if (life >= s.ttl) return spawn(emitter, hues);
       return { ...s, life, x: s.x + (s.vx + Math.sin(life * 2 + s.size) * 6) * dt, y: s.y + s.vy * dt };
     });
   };
