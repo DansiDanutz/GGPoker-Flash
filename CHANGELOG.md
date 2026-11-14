@@ -1,3 +1,10 @@
+## 2026-11-14 — global account rail
+
+- The 112px account rail is now a shared component rendered by PageShell on every
+  desktop screen (wallet, Cashier, guest login, product shortcuts), not just the lobby.
+- Hidden below 1100px so tablet widths keep the full content area.
+- Verified at 320/390/768/1024/1440/1920 with 0px overflow.
+
 ## 2026-11-14 — phone checklist pass (round 4b)
 
 - Dedicated 780x420 phone banner art; hero capped at min(186px, 30dvh) with live text

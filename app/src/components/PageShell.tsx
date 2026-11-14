@@ -4,6 +4,7 @@ import { TitleBar } from './TitleBar';
 import { AppHeader } from './AppHeader';
 import { MobileShell } from './mobile/MobileShell';
 import { useIsPhone } from '../lib/useIsPhone';
+import { AccountRail } from './AccountRail';
 
 export function PageShell({ activeTop, children, subnav }: {
   activeTop: string;
@@ -28,7 +29,10 @@ export function PageShell({ activeTop, children, subnav }: {
       <TitleBar online={meta.online} unread={user ? dmUnread : 0} />
       <AppHeader online={meta.online} jackpot={meta.jackpot} user={user} activeTop={activeTop} />
       {subnav}
-      <div className="app-content">{children}</div>
+      <div className="app-content has-rail">
+        <div className="app-page">{children}</div>
+        <AccountRail />
+      </div>
     </>
   );
 }
