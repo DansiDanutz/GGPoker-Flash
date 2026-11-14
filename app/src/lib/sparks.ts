@@ -1,6 +1,7 @@
 // Rising sparks (login trophy, phone home banners): a small 2D-canvas particle loop.
 // The caller supplies the emitter in canvas pixels, so the sparks line up with the trophy in
 // whatever art is showing.
+import { isMotionOff } from './motion';
 
 interface Spark {
   x: number;
@@ -65,7 +66,8 @@ function drawSpark(ctx: CanvasRenderingContext2D, s: Spark): void {
 }
 
 /** Starts the spark loop on `canvas`; returns a cleanup function. */
-export function startSparks(canvas: HTMLCanvasElement, { still, emitterFor, hues = DEFAULT_HUES }: SparkOptions): () => void {
+export function startSparks(canvas: HTMLCanvasElement, { still: stillOption, emitterFor, hues = DEFAULT_HUES }: SparkOptions): () => void {
+  const still = stillOption || isMotionOff();
   const ctx = canvas.getContext('2d');
   if (!ctx) return () => {};
   let w = 0;

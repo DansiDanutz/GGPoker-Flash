@@ -1,0 +1,10 @@
+/* Settings → "Enable table & lobby animations" off: every looping or entrance animation stops at
+   its end state (lib/motion.ts sets the class). Spinners keep turning so loading never looks frozen.
+   Hover/press feedback and the settings switches still slide. */
+.motion-off *:not([class*="spinner"]),
+.motion-off *:not([class*="spinner"])::before,
+.motion-off *:not([class*="spinner"])::after {
+  animation-duration: 1ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+}

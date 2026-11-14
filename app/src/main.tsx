@@ -29,6 +29,7 @@ import './table-premium.css';
 import './pokercraft.css';
 import './spin.css';
 import './battle.css';
+import './motion.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>

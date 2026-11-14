@@ -1,8 +1,9 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { api, getToken, setToken, User } from './api';
 import { sound } from './sound';
 import { subscribePrefs } from './prefsSync';
+import { applyMotionPref } from './motion';
 import { restoreAccountSettings } from './settingsStore';
 import { landingRoute } from './phoneNav';
 import { isPhoneLayout } from './useIsPhone';
@@ -367,6 +368,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAuthOffline(false);
     navigate('/');
   }, [navigate]);
+
+  // The animations setting covers the whole app, not just the table.
+  useLayoutEffect(() => { applyMotionPref(animations); }, [animations]);
 
   // Settings applied in another window, or restored from the account, update this one live.
   useEffect(() => subscribePrefs(['ggpoker.sound', 'ggpoker.animations'], () => {
