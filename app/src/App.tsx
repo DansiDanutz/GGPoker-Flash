@@ -22,6 +22,7 @@ import { Ocean, GGCare } from './pages/Ocean';
 import { Honeymoon } from './pages/Honeymoon';
 import { MobileNav } from './components/MobileNav';
 import { InstallApp } from './pages/InstallApp';
+import { LoadingScreen } from './components/splash/LoadingScreen';
 import { Reconnect } from './pages/Reconnect';
 import { FirstLaunch } from './components/FirstLaunch';
 import { QuickMenu } from './components/QuickMenu';
@@ -40,17 +41,7 @@ function ScaleStage({ children }: { children: React.ReactNode }) {
 
 function Splash() {
   const { brand } = useApp();
-  return (
-    <div className="splash">
-      <div className="splash-inner">
-        <img className="splash-logo" src={brand.logo} alt="DanGG" />
-        <div className="splash-tagline">PLAY-MONEY POKER ROOM</div>
-        <div className="splash-bar"><i /></div>
-        <div className="splash-status">Connecting to DanGG…</div>
-        <div className="splash-legal">Play money · 18+ · no real-money gambling</div>
-      </div>
-    </div>
-  );
+  return <LoadingScreen logo={brand.logo} />;
 }
 
 function ComingSoon({ title }: { title: string }) {
