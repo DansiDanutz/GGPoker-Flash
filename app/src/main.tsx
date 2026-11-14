@@ -19,6 +19,7 @@ import './home-feed.css';
 import './mypage.css';
 import './propbet.css';
 import './game-info.css';
+import './tournament-lobby.css';
 import './ocean.css';
 import './game-tabs.css';
 import './cashier.css';

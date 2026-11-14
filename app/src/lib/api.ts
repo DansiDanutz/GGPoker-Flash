@@ -479,7 +479,16 @@ export interface TournamentDetail {
   placesPaid: number;
   bubble: number;
   playersLeft: number | null;
+  structure: BlindLevel[];
+  lateReg: { minutes: number; endsAt: number | null; closesAtLevel: number; open: boolean };
+  clock: (Blinds & { level: number; next: (Blinds & { level: number }) | null; levelEndsAt: number | null; minutes: number }) | null;
+  players: TournamentPlayer[];
+  stacks: { starting: number; largest: number; average: number; smallest: number } | null;
+  tables: { index: number; id: string; players: number; seats: number; largest: number; smallest: number }[];
 }
+export interface Blinds { sb: number; bb: number; ante: number }
+export interface BlindLevel extends Blinds { level: number; minutes: number }
+export interface TournamentPlayer { rank: number; id: number; nick: string; stack: number; table: number | null; isBot: boolean; country: string }
 
 export type PropBetType = 'last_longer' | 'bankroll' | 'elo';
 export interface PropBetEntry { userId: number; nick: string; side: 'creator' | 'bettor'; stake: number; out: boolean }

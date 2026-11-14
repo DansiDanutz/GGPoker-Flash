@@ -35,12 +35,13 @@ function Steps({ step, total }: { step: number; total: number }) {
   );
 }
 
-export function PropBetWizard({ board, onClose, onCreate }: {
-  board: PropBetBoard; onClose: () => void; onCreate: (draft: PropBetDraft) => Promise<void>;
+export function PropBetWizard({ board, onClose, onCreate, tournamentId: preset }: {
+  board: PropBetBoard; onClose: () => void; onCreate: (draft: PropBetDraft) => Promise<void>; tournamentId?: string;
 }) {
-  const [step, setStep] = useState(1);
+  const presetOk = !!preset && board.eligibleTournaments.some((t) => t.id === preset);
+  const [step, setStep] = useState(presetOk ? 2 : 1);
   const [type, setType] = useState<PropBetType>('last_longer');
-  const [tournamentId, setTournamentId] = useState(board.eligibleTournaments[0]?.id ?? '');
+  const [tournamentId, setTournamentId] = useState(presetOk ? preset! : board.eligibleTournaments[0]?.id ?? '');
   const [amount, setAmount] = useState(500);
   const [players, setPlayers] = useState(4);
   const [bettors, setBettors] = useState(0);

@@ -59,7 +59,12 @@ export function PropBetPage() {
   const [board, setBoard] = useState<PropBetBoard | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
-  const [creating, setCreating] = useState(false);
+  // The tournament lobby links here with ?create=last_longer&tournament=<id>.
+  const [preset] = useState(() => {
+    const q = new URLSearchParams(location.hash.split('?')[1] || '');
+    return q.get('create') === 'last_longer' ? q.get('tournament') || '' : '';
+  });
+  const [creating, setCreating] = useState(!!preset);
   const [joining, setJoining] = useState<number | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -140,7 +145,7 @@ export function PropBetPage() {
           </div>
         </div>
       </div>
-      {creating && board && <PropBetWizard board={board} onClose={() => setCreating(false)} onCreate={create} />}
+      {creating && board && user && <PropBetWizard board={board} tournamentId={preset} onClose={() => setCreating(false)} onCreate={create} />}
       {openId != null && <InfoWindow id={openId} onClose={() => setOpenId(null)} />}
     </PageShell>
   );
