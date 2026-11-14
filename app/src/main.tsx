@@ -13,6 +13,7 @@ import './lobby-filters.css';
 import './tournament-filters.css';
 import './table-chat.css';
 import './phone-shell.css';
+import './phone-account.css';
 import './slots.css';
 import './tournaments-ref.css';
 import './home-feed.css';

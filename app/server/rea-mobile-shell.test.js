@@ -5,13 +5,15 @@ import path from 'node:path';
 
 const read = (file) => fs.readFileSync(path.resolve(import.meta.dirname, '..', file), 'utf8');
 
-test('phone navigation is the five labelled destinations the owner asked for', () => {
+test('phone navigation is the Paper icon bar: Poker, Tournaments, centre DanGG Home, Casino, My Page', () => {
+  const nav = read('src/lib/phoneNav.ts');
+  const labels = [...nav.matchAll(/label: '([^']+)'/g)].map((match) => match[1]);
+  assert.deepEqual(labels, ['Poker', 'Tournaments', 'Home', 'Casino', 'My Page']);
   const source = read('src/components/MobileNav.tsx');
-  const labels = [...source.matchAll(/label: '([^']+)'/g)].map((match) => match[1]);
-  assert.deepEqual(labels, ['Home', 'Casino', 'Tables', 'Rewards', 'My Page']);
-  // Every destination renders a visible label as well as its icon.
+  // Home is the raised round brand button; every item keeps an accessible label.
+  assert.match(source, /center/);
+  assert.match(source, /aria-label=\{item\.label\}/);
   assert.match(source, /mobile-nav-label/);
-  assert.doesNotMatch(source, /center/);
 });
 
 test('casino hub uses product art instead of emoji placeholders', () => {

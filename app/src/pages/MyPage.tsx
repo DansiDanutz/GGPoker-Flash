@@ -11,6 +11,9 @@ import { WalletPane } from '../components/mypage/WalletPane';
 import { TransactionsPane } from '../components/mypage/TransactionsPane';
 import { MessagesPane } from '../components/mypage/MessagesPane';
 import { Avatar } from '../components/Avatar';
+import { useIsPhone } from '../lib/useIsPhone';
+import { MobileAccountHub } from '../components/mobile/MobileAccountHub';
+import { MobileBackBar } from '../components/mobile/MobileGameList';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -33,9 +36,19 @@ const PROMOS = [
   ['Welcome Bonus', 'New player package', '/assets/ui/discover/Bg_Discover_Honeymoon.png'],
 ];
 
+const PANE_TITLES: Record<string, string> = {
+  overview: 'My Game Profile', wallet: 'My Wallet', transactions: 'Transaction History', missions: 'Weekly Mission',
+  messages: 'Messages', notes: 'Player Notes', friends: 'Friends', verify: 'Verify ID', security: 'Security',
+  promo: 'My Promo', tickets: 'Tickets', leaders: 'Leaderboard', stakers: 'Current Stakers', sellers: 'Sellers you follow',
+};
+
 export function MyPage() {
   const { user, refreshUser, toast, navigate, logout } = useApp();
   const [tab, setTab] = useState('overview');
+  const isPhone = useIsPhone();
+  // Phones open on the account hub; a deep link with ?tab= goes straight to that pane.
+  const [hub, setHub] = useState(() => !new URLSearchParams(location.hash.split('?')[1] || '').get('tab'));
+  const openPane = (key: string) => { setTab(key); setHub(false); };
   const [missions, setMissions] = useState<any[]>([]);
   const [tx, setTx] = useState<any[]>([]);
   const [leaders, setLeaders] = useState<any[]>([]);
@@ -129,8 +142,13 @@ export function MyPage() {
   const levelXp = level * level * 1200;
   const pct = Math.min(100, Math.round(((xp % levelXp) / levelXp) * 100));
 
+  if (isPhone && hub) {
+    return <PageShell activeTop="poker"><MobileAccountHub onOpen={openPane} /></PageShell>;
+  }
+
   return (
     <PageShell activeTop="poker">
+      {isPhone && <MobileBackBar title={PANE_TITLES[tab] || 'My Page'} onBack={() => setHub(true)} />}
       <div className="mp">
         <div className="mp-wintabs" role="tablist" aria-label="Account windows">
           <button type="button" role="tab" aria-selected="true" className="on">My Page</button>
