@@ -9,6 +9,7 @@ import { LoginHero } from '../components/login/LoginHero';
 import { landingRoute } from '../lib/phoneNav';
 import { appOfferCaption, detectPlatform, isStandalone } from '../lib/install';
 import { InstallApp } from './InstallApp';
+import { CreatorCredit } from '../components/brand/CreatorCredit';
 
 const PhoneIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
@@ -222,6 +223,7 @@ export function Login() {
               <span><b>Get the app</b><small>{appCaption}</small></span>
             </button>
           )}
+          <CreatorCredit className="login2-splash-credit" />
           <p className="login2-splash-legal">18+ · Play money only · No real-money gambling</p>
         </div>
       </>) : <>
@@ -314,6 +316,7 @@ export function Login() {
             <button type="button" className="login2-demo" onClick={seed}>Use demo account (DansiDanutz)</button>
           )}
 
+          <CreatorCredit className="login2-card-credit" />
           <p className="login2-foot-note">18+ only. Play money only. No real money, deposits or cash value.</p>
           <p className="login2-version">v{APP_VERSION} · build {buildLabel(APP_BUILD)}</p>
         </div>

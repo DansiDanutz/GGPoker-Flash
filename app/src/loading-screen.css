@@ -61,7 +61,7 @@
   animation: ls-fill 1.9s cubic-bezier(.4, 0, .2, 1) both, ls-shimmer 1.2s linear infinite;
 }
 .ls-status { position: relative; min-height: 18px; margin: 0; color: #d8cfc0; font-size: 13px; }
-.ls-legal { position: relative; margin: 36px 0 0; color: #6d6560; font-size: 11px; letter-spacing: .4px; }
+.ls-legal { position: relative; margin: 16px 0 0; color: #6d6560; font-size: 11px; letter-spacing: .4px; }
 
 @keyframes ls-spin { to { rotate: 360deg; } }
 @keyframes ls-breathe { 0%, 100% { opacity: .75; scale: .96; } 50% { opacity: 1; scale: 1.04; } }

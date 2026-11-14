@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { startSparks } from '../../lib/sparks';
 import { LOADING_STEP_MS, loadingStep } from './loadingSteps';
+import { CreatorCredit } from '../brand/CreatorCredit';
 import '../../loading-screen.css';
 
 /** The four 3D chips from the login art, orbiting the logo (order sets their place on the orbit). */
@@ -58,6 +59,7 @@ export function LoadingScreen({ logo }: LoadingScreenProps) {
       <p className="ls-tag">Play-money poker room</p>
       <div className="ls-bar" aria-hidden="true"><i /></div>
       <p className="ls-status">{loadingStep(elapsed)}</p>
+      <CreatorCredit className="ls-credit" />
       <p className="ls-legal">Play money · 18+ · no real-money gambling</p>
     </div>
   );
