@@ -3,6 +3,7 @@ import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell } from '../components/PageShell';
+import { PROMO_ART } from '../lib/promoArt';
 
 const RANKS = ['Clownfish', 'Shrimp', 'Crab', 'Octopus', 'Turtle', 'Dolphin', 'Shark', 'Whale'];
 
@@ -134,7 +135,7 @@ export function GGCare() {
     <PageShell activeTop="poker">
       <div className="page" style={{ paddingTop: 12 }}>
         <div className="care-hero">
-          <img src="/assets/ui/discover/Bg_Discover_GGcare.png" alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <img src={PROMO_ART.care} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           <div className="care-overlay" />
           <div className="care-content">
             <div className="th-kicker">#THANKSDANGG</div>

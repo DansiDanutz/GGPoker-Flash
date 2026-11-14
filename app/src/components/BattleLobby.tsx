@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
+import { PROMO_ART } from '../lib/promoArt';
 
 const NOTES = [
   ['9 of 18 survive', 'Rush stage: play fast, finish in the top half.'],
@@ -40,7 +41,7 @@ export function BattleLobby() {
   return (
     <div className="battle">
       <div className="battle-hero">
-        <div className="battle-hero-bg" style={{ backgroundImage: "url('/assets/ui/discover/Bg_Discover_MysteryBattleRoyal.png')" }} />
+        <div className="battle-hero-bg" style={{ backgroundImage: `url('${PROMO_ART.battle}')` }} />
         <div className="battle-hero-copy">
           <div className="battle-kicker">BATTLE ROYALE</div>
           <h2>Survive the rush. Reveal the bounty.</h2>

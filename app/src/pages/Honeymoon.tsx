@@ -3,6 +3,7 @@ import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell } from '../components/PageShell';
+import { PROMO_ART } from '../lib/promoArt';
 
 export function Honeymoon() {
   const { user, refreshUser, toast, navigate } = useApp();
@@ -27,7 +28,7 @@ export function Honeymoon() {
     <PageShell activeTop="poker">
       <div className="page" style={{ paddingTop: 12 }}>
         <div className="honey-hero">
-          <img src="/assets/ui/discover/Bg_Discover_Honeymoon.png" alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <img src={PROMO_ART.welcome} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           <div className="honey-overlay" />
           <div className="honey-content">
             <div className="th-kicker">NEW PLAYER PACKAGE</div>

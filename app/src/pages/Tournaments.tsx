@@ -12,10 +12,11 @@ import {
   emptyTournamentMessage, filterTournaments, phaseOf, PHASE_LABEL, readTournamentFilters, resetTournamentFilters,
   TournamentFilters, tournamentFilterCount, withTournamentFilters, writeTournamentFilters,
 } from '../lib/tournamentFilters';
+import { PROMO_ART } from '../lib/promoArt';
 
 const SERIES_ART: Record<string, string> = {
   wsop: '/assets/ui/discover/Bg_Discover_WSOPExpress_Promo1_EN.png',
-  mystery: '/assets/ui/discover/Bg_Discover_MysteryBattleRoyal.png',
+  mystery: PROMO_ART.battle,
   spin: '/assets/ui/discover/Bg_Discover_SpinNGold.png',
 };
 
