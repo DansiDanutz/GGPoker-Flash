@@ -17,3 +17,16 @@ export const PROMO_ART = Object.freeze({
   fastfold: `${PROMOS}/promo-fastfold.webp`,
   freebie: '/assets/ui/creatives/foryou-freebie.webp',
 });
+
+const CASINO_GAMES = '/assets/ui/casino-games';
+
+/** Wordless 3D art (9a–9g) for the Casino table-game tiles; names stay live text. */
+export const CASINO_ART = Object.freeze({
+  roulette: `${CASINO_GAMES}/casino-roulette.webp`,
+  blackjack: `${CASINO_GAMES}/casino-blackjack.webp`,
+  crash: `${CASINO_GAMES}/casino-crash.webp`,
+  baccarat: `${CASINO_GAMES}/casino-baccarat.webp`,
+  dragontiger: `${CASINO_GAMES}/casino-dragontiger.webp`,
+  sicbo: `${CASINO_GAMES}/casino-sicbo.webp`,
+  holdem: `${CASINO_GAMES}/casino-holdem.webp`,
+});

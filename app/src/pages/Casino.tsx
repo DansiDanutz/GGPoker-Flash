@@ -10,7 +10,7 @@ import { useIsPhone } from '../lib/useIsPhone';
 import { AgeNotice } from '../components/AgeNotice';
 import { WinnersTicker } from '../components/WinnersTicker';
 import { loadWinners, type WinnerRow } from '../lib/slotGames';
-import { PROMO_ART } from '../lib/promoArt';
+import { CASINO_ART, PROMO_ART } from '../lib/promoArt';
 
 const CASINO_NAV = [
   { key: 'lobby', label: 'Lobby' }, { key: 'roulette', label: 'Roulette' }, { key: 'blackjack', label: 'Blackjack' },
@@ -358,13 +358,13 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
 
 const HUB_GAMES = [
   { key: 'slots', name: 'Slots', art: PROMO_ART.casino, desc: 'Six DanGG Originals', tags: ['slots'] },
-  { key: 'roulette', name: 'Roulette', art: '/assets/ui/discover/Bg_Discover_AoF.png', desc: 'European wheel', tags: ['table'] },
-  { key: 'blackjack', name: 'Blackjack', art: '/assets/ui/discover/Bg_Discover_WSOPExpress_Promo1_EN.png', desc: 'Classic 21', tags: ['table'] },
-  { key: 'crash', name: 'Crash', art: '/assets/ui/discover/Bg_Discover_RushNCash_Holdem.png', desc: 'Cash out before it crashes', tags: ['arcade'] },
-  { key: 'baccarat', name: 'Baccarat', art: '/assets/ui/discover/Bg_Discover_Leaderboard_Holdem.png', desc: 'Player vs Banker', tags: ['table'] },
-  { key: 'dragontiger', name: 'Dragon Tiger', art: '/assets/ui/discover/Bg_Discover_MysteryBattleRoyal.png', desc: 'Fast card duel', tags: ['table'] },
-  { key: 'sicbo', name: 'Sic Bo', art: '/assets/ui/discover/Bg_Discover_SpinNGold.png', desc: 'Three dice', tags: ['table'] },
-  { key: 'holdem', name: "Casino Hold'em", art: '/assets/ui/discover/Bg_Discover_Leaderboard_PLO6.png', desc: 'Poker vs dealer', tags: ['table', 'poker'] },
+  { key: 'roulette', name: 'Roulette', art: CASINO_ART.roulette, desc: 'European wheel', tags: ['table'] },
+  { key: 'blackjack', name: 'Blackjack', art: CASINO_ART.blackjack, desc: 'Classic 21', tags: ['table'] },
+  { key: 'crash', name: 'Crash', art: CASINO_ART.crash, desc: 'Cash out before it crashes', tags: ['arcade'] },
+  { key: 'baccarat', name: 'Baccarat', art: CASINO_ART.baccarat, desc: 'Player vs Banker', tags: ['table'] },
+  { key: 'dragontiger', name: 'Dragon Tiger', art: CASINO_ART.dragontiger, desc: 'Fast card duel', tags: ['table'] },
+  { key: 'sicbo', name: 'Sic Bo', art: CASINO_ART.sicbo, desc: 'Three dice', tags: ['table'] },
+  { key: 'holdem', name: "Casino Hold'em", art: CASINO_ART.holdem, desc: 'Poker vs dealer', tags: ['table', 'poker'] },
 ];
 const HUB_CATEGORIES = [
   { key: 'all', label: 'All' }, { key: 'slots', label: 'Slots' }, { key: 'table', label: 'Table' },
