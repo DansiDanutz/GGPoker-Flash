@@ -205,5 +205,59 @@ table preview, whose own border and shadow are dropped in favour of the art's ra
 
 ---
 
+## Step 7: Remaining Home cards
+
+Each prompt ends with the shared style text: *Saturated, vibrant, premium game-promo look, octane-style
+3D render, rim light, volumetric light, glossy materials, shallow depth of field, ultra detailed. No
+text, no letters, no numbers, no logos, no watermark, no people.* **Size: square 1024×1024**, subject in
+the centre filling the middle 65% of the frame; the page draws the label on top.
+
+### 7a. "For You": Daily Freebie → `foryou-freebie`
+
+A glossy gift box wrapped in deep red with a big shiny gold ribbon bow, its lid popping open with a
+burst of golden light, gold coins and a few red and gold poker chips spilling out, small sparkles in
+the air. Crimson and gold palette on a near-black background with soft bokeh.
+
+### 7b. "For You": DanGG Rewards → `foryou-ocean`
+
+A gold-trimmed treasure chest half-open on a sandy sea floor, overflowing with pearls, gold coins and
+glossy chips, shafts of light falling from the water surface above, small bubbles rising, coral
+glowing at the edges. Turquoise, deep ocean blue and gold palette.
+
+### 7c. "For You": Live Series → `foryou-live-series`
+
+An empty grand tournament poker table on a stage under bright crossing spotlights, gold confetti
+falling, large glowing blank screens and a lit arena in soft focus behind it. Royal purple, magenta
+and gold palette.
+
+### 7d. Casino: Olympus Gold → `casino-olympus-gold`
+
+A golden Greek temple on a cloud-top summit, a bolt of lightning striking a giant gold coin in front
+of it, marble columns with gold trim, glowing storm clouds. Gold, white marble and electric blue
+palette.
+
+### 7e. Casino: Disco Cat → `casino-disco-cat`
+
+A cute glossy cartoon 3D cat wearing star-shaped sunglasses, sitting on a giant mirrored disco ball,
+coloured light beams and sparkles all around, a glossy dance floor below. Hot pink, violet and cyan
+neon palette.
+
+### 7f. Casino: Robo Rush → `casino-robo-rush`
+
+A cute rounded glossy robot with big glowing cyan eyes, jetting forward on a small rocket flame, gold
+coins flying past it, a futuristic neon city in soft focus behind. Electric blue, chrome and orange
+palette.
+
+### 7g. Casino: Clover Cash → `casino-clover-cash`
+
+A large glossy emerald four-leaf clover with gold edges standing on a pile of gold coins, a small
+pot of gold beside it, a soft rainbow glow and sparkles behind. Emerald green and gold palette.
+
+**Delivered 7a–7g:** For You cards cropped to 444×468 WebP and Casino tiles to 450×410 WebP. Each card
+draws its name (and, for For You, a line and a button) as live text. The phone My Page promo rows use
+the new For You art too.
+
+---
+
 Paste each image into the chat (4a first). I crop each one to its slot, convert it to WebP, and wire
 in the live layer.

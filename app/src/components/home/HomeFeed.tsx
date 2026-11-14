@@ -20,6 +20,14 @@ type Props = {
   onJoin: (t: LobbyTable) => void;
 };
 
+/** Casino tiles (art 7d–7g): wordless, so the name is live text. */
+const CASINO_GAMES = [
+  { art: 'casino-olympus-gold.webp', label: 'Olympus Gold' },
+  { art: 'casino-disco-cat.webp', label: 'Disco Cat' },
+  { art: 'casino-robo-rush.webp', label: 'Robo Rush' },
+  { art: 'casino-clover-cash.webp', label: 'Clover Cash' },
+] as const;
+
 /** The reference Poker Home: hero, For You, TV, Tournaments For You, Special Features, Casino. */
 export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
   const { navigate } = useApp();
@@ -76,9 +84,9 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
         <div className="hf-row">
           {[
             { art: 'foryou-recent.webp', label: 'Recent game', sub: 'Jump back to a live table', cta: 'Join', target: null },
-            { art: 'foryou-freebie.png', label: 'Daily Freebie', target: { route: '/rewards' } as HomeTarget },
-            { art: 'foryou-ocean.png', label: 'DanGG Rewards', target: { route: '/ocean' } as HomeTarget },
-            { art: 'foryou-live-series.png', label: 'Live Series', target: { route: '/tournaments' } as HomeTarget },
+            { art: 'foryou-freebie.webp', label: 'Daily Freebie', sub: 'A free gift every day', cta: 'Claim', target: { route: '/rewards' } as HomeTarget },
+            { art: 'foryou-ocean.webp', label: 'DanGG Rewards', sub: 'Level up for bigger hauls', cta: 'Open', target: { route: '/ocean' } as HomeTarget },
+            { art: 'foryou-live-series.webp', label: 'Live Series', sub: 'Big stages, big guarantees', cta: 'View', target: { route: '/tournaments' } as HomeTarget },
           ].map((c, i) => (
             <button
               key={c.art}
@@ -88,11 +96,9 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
               onClick={() => (i === 0 && busiest[0] ? onJoin(busiest[0]) : c.target && onTarget(c.target))}
             >
               <img src={`${CREATIVE}/${c.art}`} alt="" />
-              {'sub' in c && (
-                <span className="hf-live-label hf-foryou-label">
-                  <b>{c.label}</b><small>{c.sub}</small><em>{c.cta}</em>
-                </span>
-              )}
+              <span className="hf-live-label hf-foryou-label">
+                <b>{c.label}</b><small>{c.sub}</small><em>{c.cta}</em>
+              </span>
             </button>
           ))}
         </div>
@@ -146,9 +152,10 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
       <section className="hf-section" aria-labelledby="hf-casino">
         <div className="hf-head"><h2 id="hf-casino">Casino</h2><button type="button" onClick={() => navigate('/casino')}>View all</button></div>
         <div className="hf-row">
-          {['casino-olympus-gold.png', 'casino-disco-cat.png', 'casino-robo-rush.png', 'casino-clover-cash.png'].map((art) => (
-            <button key={art} type="button" className="hf-card hf-casino tilt" onClick={() => navigate('/casino')} aria-label="Open casino">
-              <img src={`${CREATIVE}/${art}`} alt="" />
+          {CASINO_GAMES.map((g) => (
+            <button key={g.art} type="button" className="hf-card hf-casino tilt" onClick={() => navigate('/casino')} aria-label={`Open ${g.label}`}>
+              <img src={`${CREATIVE}/${g.art}`} alt="" />
+              <span className="hf-live-label hf-casino-label"><b>{g.label}</b></span>
             </button>
           ))}
         </div>

@@ -98,4 +98,6 @@
 .hf-tourn-label b { font-size: 20px; line-height: 1.05; text-transform: uppercase; background: linear-gradient(180deg, #fff6d6, #f3d27a 55%, #c08d34); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .8)); }
 .hf-feature-label { left: 0; right: 0; bottom: 0; padding: 22px 12px 10px; background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .72)); }
 .hf-feature-label b { font-size: 16px; }
+.hf-casino-label { left: 0; right: 0; bottom: 0; padding: 26px 12px 10px; background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .75)); }
+.hf-casino-label b { font-size: 17px; }
 @media (max-width: 1100px) { .hf-tourn-label b { font-size: 17px; } }
