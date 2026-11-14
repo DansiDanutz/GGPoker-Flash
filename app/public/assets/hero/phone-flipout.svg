@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="420" viewBox="0 0 780 420" fill="none" style="--accent:#f2a13c">
+
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="0.35">
+      <stop offset="0" stop-color="#05070a"/><stop offset=".52" stop-color="#0a0d12"/><stop offset="1" stop-color="#07080c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="var(--accent)" stop-opacity=".55"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset=".5" stop-color="#ffffff" stop-opacity=".10"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe9ab"/><stop offset=".45" stop-color="#e0b25c"/><stop offset="1" stop-color="#8a6220"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#05070a" stop-opacity=".96"/><stop offset=".42" stop-color="#05070a" stop-opacity=".55"/><stop offset=".62" stop-color="#05070a" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="bottom" x1="0" y1="0" x2="0" y2="1">
+      <stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/>
+    </linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope=".045"/></feComponentTransfer>
+    </filter>
+  </defs>
+  <rect width="780" height="420" fill="url(#base)"/>
+  <g>
+  <ellipse cx="560" cy="210" rx="310" ry="270" fill="url(#glow)" opacity=".9"/>
+  <ellipse cx="700" cy="60" rx="180" ry="130" fill="url(#glow)" opacity=".4"/>
+  <g opacity=".5">
+  <path d="M520 170h220" stroke="url(#gold)" stroke-opacity="0.28" stroke-width="3" stroke-linecap="round"/><path d="M560 144h250" stroke="url(#gold)" stroke-opacity="0.24000000000000002" stroke-width="2.6" stroke-linecap="round"/><path d="M600 118h280" stroke="url(#gold)" stroke-opacity="0.2" stroke-width="2.2" stroke-linecap="round"/><path d="M640 92h310" stroke="url(#gold)" stroke-opacity="0.16000000000000003" stroke-width="1.7999999999999998" stroke-linecap="round"/><path d="M680 66h340" stroke="url(#gold)" stroke-opacity="0.12000000000000002" stroke-width="1.4" stroke-linecap="round"/>
+</g>
+  <circle cx="931.6" cy="50.0" r="2.5" fill="#f2c45c" opacity="0.12"/><circle cx="863.6" cy="146.4" r="1.4" fill="#f2c45c" opacity="0.19"/><circle cx="1120.9" cy="62.9" r="3.0" fill="#f2c45c" opacity="0.26"/><circle cx="817.0" cy="68.7" r="1.5" fill="#f2c45c" opacity="0.33"/><circle cx="745.1" cy="53.0" r="2.2" fill="#f2c45c" opacity="0.40"/><circle cx="1138.6" cy="94.9" r="1.8" fill="#f2c45c" opacity="0.12"/><circle cx="1110.8" cy="83.5" r="1.0" fill="#f2c45c" opacity="0.19"/><circle cx="895.0" cy="98.1" r="3.0" fill="#f2c45c" opacity="0.26"/><circle cx="724.6" cy="27.9" r="2.1" fill="#f2c45c" opacity="0.33"/><circle cx="832.9" cy="141.9" r="1.5" fill="#f2c45c" opacity="0.40"/><circle cx="893.2" cy="139.3" r="2.1" fill="#f2c45c" opacity="0.12"/><circle cx="1138.9" cy="99.4" r="2.5" fill="#f2c45c" opacity="0.19"/><circle cx="683.3" cy="101.2" r="1.5" fill="#f2c45c" opacity="0.26"/><circle cx="879.7" cy="34.0" r="2.2" fill="#f2c45c" opacity="0.33"/><circle cx="841.5" cy="166.9" r="1.1" fill="#f2c45c" opacity="0.40"/><circle cx="802.1" cy="199.1" r="1.4" fill="#f2c45c" opacity="0.12"/><circle cx="994.6" cy="19.8" r="1.7" fill="#f2c45c" opacity="0.19"/><circle cx="1092.5" cy="88.0" r="3.0" fill="#f2c45c" opacity="0.26"/><circle cx="769.2" cy="103.1" r="1.8" fill="#f2c45c" opacity="0.33"/><circle cx="817.8" cy="144.1" r="1.2" fill="#f2c45c" opacity="0.40"/>
+  <g transform="translate(560 208)"><g transform="translate(0 0) scale(1.32)">
+  <ellipse cx="0" cy="86" rx="104" ry="16" fill="#000" opacity=".55" filter="url(#soft)"/>
+  <path d="M-70 -96h140v34c0 46-31 78-70 78s-70-32-70-78z" fill="url(#gold)" opacity=".92"/>
+  <path d="M-70 -96h140v12H-70z" fill="#fff3cf" opacity=".55"/>
+  <path d="M-96 -92c-24 0-38 16-38 38 0 30 24 50 52 52" stroke="url(#gold)" stroke-width="9" fill="none"/>
+  <path d="M96 -92c24 0 38 16 38 38 0 30-24 50-52 52" stroke="url(#gold)" stroke-width="9" fill="none"/>
+  <path d="M-18 14h36v40h-36z" fill="url(#gold)" opacity=".85"/>
+  <path d="M-62 54h124l16 26H-78z" fill="url(#gold)" opacity=".95"/>
+  <path d="M-30 -70h60v26l-30 22-30-22z" fill="#3a2405" opacity=".55"/>
+  <circle cx="0" cy="-46" r="15" fill="#fff6d8" opacity=".85"/>
+</g></g>
+  <rect x="360" y="0" width="420" height="420" fill="url(#sheen)" opacity=".22"/>
+</g>
+  <rect width="780" height="420" fill="url(#bottom)"/>
+  <rect width="780" height="420" filter="url(#grain)" opacity=".5"/>
+  <rect x=".5" y=".5" width="779" height="419" rx="16" stroke="#d8b15f" stroke-opacity=".25"/>
+</svg>

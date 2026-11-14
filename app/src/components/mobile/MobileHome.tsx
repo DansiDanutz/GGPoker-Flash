@@ -26,15 +26,23 @@ function liveTables(tables: readonly LobbyTable[]): LobbyTable[] {
 function PhoneHero({ onTarget }: { onTarget: (target: HomeTarget) => void }) {
   const { navigate } = useApp();
   const [idx, setIdx] = useState(0);
+  const touchX = useRef<number | null>(null);
   useEffect(() => {
     const id = window.setInterval(() => setIdx((i) => stepSlide(i, 1, HERO_SLIDES.length)), HERO_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, []);
   const slide = HERO_SLIDES[idx];
+  const onTouchStart = (e: React.TouchEvent) => { touchX.current = e.touches[0].clientX; };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchX.current == null) return;
+    const dx = e.changedTouches[0].clientX - touchX.current;
+    touchX.current = null;
+    if (Math.abs(dx) > 40) setIdx((i) => stepSlide(i, dx < 0 ? 1 : -1, HERO_SLIDES.length));
+  };
   return (
-    <section className="p-hero" aria-roledescription="carousel" aria-label="Featured">
+    <section className="p-hero" aria-roledescription="carousel" aria-label="Featured" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {HERO_SLIDES.map((s, i) => (
-        <div key={s.key} className={'p-hero-bg' + (i === idx ? ' on' : '')} style={{ backgroundImage: `url(${s.artWide || s.art})` }} aria-hidden={i !== idx} />
+        <div key={s.key} className={'p-hero-bg' + (i === idx ? ' on' : '')} style={{ backgroundImage: `url(${s.artPhone || s.artWide || s.art})` }} aria-hidden={i !== idx} />
       ))}
       <span className="p-hero-scrim" aria-hidden="true" />
       <div className="p-hero-copy">
@@ -42,10 +50,8 @@ function PhoneHero({ onTarget }: { onTarget: (target: HomeTarget) => void }) {
         <h2>{slide.title}</h2>
         <button type="button" className="p-hero-cta" onClick={() => onTarget(slide.target)}>{slide.cta} →</button>
       </div>
-      <div className="p-hero-dots" role="tablist" aria-label="Choose banner">
-        {HERO_SLIDES.map((s, i) => (
-          <button key={s.key} type="button" role="tab" aria-selected={i === idx} aria-label={s.title} className={i === idx ? 'on' : ''} onClick={() => setIdx(i)} />
-        ))}
+      <div className="p-hero-dots" aria-hidden="true">
+        {HERO_SLIDES.map((s, i) => <span key={s.key} className={i === idx ? 'on' : ''} />)}
       </div>
       {!slide && <button type="button" onClick={() => navigate('/')}>Home</button>}
     </section>
@@ -85,13 +91,14 @@ export function MobileHome({ tables, online, jackpot, jumpBackIn, gameLabel, onJ
                 <span className="p-jump-go">Join</span>
               </button>
             )}
-            {PROMO_CARDS.slice(0, 3).map((c) => (
-              <button key={c.key} type="button" className="p-rowcard" onClick={() => onTarget(c.target)}>
-                <img src={c.art} alt="" />
-                <span><b>{c.title}</b><small>{c.sub}</small></span>
-                <i aria-hidden="true">›</i>
-              </button>
-            ))}
+            <div className="p-rail" role="list" aria-label="Promotions">
+              {PROMO_CARDS.slice(0, 4).map((c) => (
+                <button key={c.key} type="button" role="listitem" className="p-rail-card" onClick={() => onTarget(c.target)}>
+                  <span className="p-rail-art" style={{ backgroundImage: `url(${c.art})` }} aria-hidden="true" />
+                  <span className="p-rail-copy"><b>{c.title}</b><small>{c.sub}</small></span>
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
