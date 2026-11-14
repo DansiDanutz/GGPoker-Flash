@@ -359,7 +359,8 @@
     min-height: 78px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
     border-radius: 14px; background: #16161a; border: 1px solid #25252a; color: #e9e5db; font-size: 12.5px; font-weight: 700;
   }
-  .p-action-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: #232328; color: #f2c45c; }
+  .p-action-ico { width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .55)); }
+  .p-actions button { background: radial-gradient(110% 90% at 50% 0%, #2a2228, #141417 70%); border-color: rgba(216, 177, 95, .18); }
 
   .p-section { margin-top: 22px; }
   .p-head { display: flex; align-items: center; gap: 10px; padding: 0 14px; margin-bottom: 10px; }
@@ -420,7 +421,12 @@
     content: ''; position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%);
     border-radius: 50%; background: radial-gradient(circle, rgba(201, 51, 63, .32), transparent 70%); box-shadow: none;
   }
-  .mobile-nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .mobile-nav-item:not(.center) { align-content: center; gap: 2px; }
+  .mobile-nav-label { font-size: 10px; font-weight: 700; line-height: 1; white-space: nowrap; }
+  .mobile-nav .center .mobile-nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .mobile-nav-emblem { position: relative; width: 30px; height: 30px; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .6)) saturate(.8) brightness(.85); transition: filter .15s, transform .15s; }
+  .mobile-nav-item.on .mobile-nav-emblem { filter: drop-shadow(0 3px 6px rgba(242, 196, 92, .35)); transform: scale(1.08); }
+  .mobile-nav-item.on .mobile-nav-label { color: #f2c45c; }
   .mobile-nav-item svg { position: relative; width: 26px; height: 26px; }
   .mobile-nav .center { transform: none; }
   .mobile-nav .center::after { display: none; }
@@ -444,7 +450,7 @@
   .p-hero-copy h2 { font-size: 22px; }
   .p-actions { gap: 6px; margin: 10px 10px 0; }
   .p-actions button { min-height: 72px; font-size: 11.5px; }
-  .p-action-ico { width: 38px; height: 38px; }
+  .p-action-ico { width: 40px; height: 40px; }
   .p-feed, .p-list { padding: 0 10px; }
   .p-hero, .p-jackpot { margin-left: 10px; margin-right: 10px; }
 }

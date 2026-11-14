@@ -5,7 +5,7 @@ import { HERO_INTERVAL_MS, HERO_SLIDES, PROMO_CARDS, stepSlide, type HomeTarget 
 import { MobileShell } from './MobileShell';
 import { HeroSparks } from './HeroSparks';
 import { menuIconSrc } from '../../lib/menuIcons';
-import { NavGlyph } from './PhoneIcons';
+import { PHONE_MENU_EMBLEM } from '../../lib/menuArt';
 import { CASINO_GAMES } from './casinoGames';
 
 const LIVE_ROW_SIZE = 5;
@@ -75,10 +75,10 @@ export function MobileHome({ tables, online, jackpot, jumpBackIn, gameLabel, onJ
         </button>
 
         <nav className="p-actions" aria-label="Quick actions">
-          <button type="button" onClick={() => navigate('/?play=1')}><span className="p-action-ico"><NavGlyph name="tables" size={24} /></span>Play</button>
-          <button type="button" onClick={() => navigate('/tournaments')}><span className="p-action-ico"><NavGlyph name="events" size={24} /></span>Tournaments</button>
-          <button type="button" onClick={() => navigate('/casino')}><span className="p-action-ico"><NavGlyph name="casino" size={24} /></span>Casino</button>
-          <button type="button" onClick={() => navigate('/rewards')}><span className="p-action-ico"><NavGlyph name="rewards" size={24} /></span>Rewards</button>
+          <button type="button" onClick={() => navigate('/?play=1')}><img className="p-action-ico" src={PHONE_MENU_EMBLEM.poker} alt="" />Play</button>
+          <button type="button" onClick={() => navigate('/tournaments')}><img className="p-action-ico" src={PHONE_MENU_EMBLEM.events} alt="" />Tournaments</button>
+          <button type="button" onClick={() => navigate('/casino')}><img className="p-action-ico" src={PHONE_MENU_EMBLEM.casino} alt="" />Casino</button>
+          <button type="button" onClick={() => navigate('/rewards')}><img className="p-action-ico" src={PHONE_MENU_EMBLEM.rewards} alt="" />Rewards</button>
         </nav>
 
         <section className="p-section" aria-labelledby="p-foryou">

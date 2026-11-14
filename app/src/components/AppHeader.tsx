@@ -4,6 +4,7 @@ import { money, User } from '../lib/api';
 import { sound } from '../lib/sound';
 import { Avatar } from './Avatar';
 import { WaitlistChip } from './WaitlistChip';
+import { GAME_TAB_EMBLEM } from '../lib/menuArt';
 
 
 /** Counts a jackpot up on first paint and eases to new values; static under reduced motion. */
@@ -67,22 +68,18 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
   );
 }
 
-type GameTab = { key: string; label: string; img: string };
+type GameTab = { key: string; label: string };
 
-/** Tab plate width in px; Dan's plates are 330x100 (2x), fitted inside the tab. */
-const TAB_WIDTH = 156;
-
-// Every game tab is Dan's own plate: dark when idle, `${img}_active` (red) when selected.
-// The red plate crossfades in on click and back out when another tab is chosen (vivid.css).
+// Each game mode is a 3D emblem beside a live text label; the selected one glows red (game-tabs.css).
 const TABS: readonly GameTab[] = [
-  { key: 'home', label: 'Home', img: 'tab_home' },
-  { key: 'aof', label: 'All-in or Fold', img: 'tab_aof' },
-  { key: 'rush', label: 'Fast Fold', img: 'tab_rush' },
-  { key: 'holdem', label: "Hold'em", img: 'tab_holdem' },
-  { key: 'plo', label: 'PLO', img: 'tab_plo' },
-  { key: 'short', label: 'Short Deck', img: 'tab_short' },
-  { key: 'spin', label: 'Jackpot SNG', img: 'tab_spin' },
-  { key: 'battle', label: 'Battle Royale', img: 'tab_battle' },
+  { key: 'home', label: 'Home' },
+  { key: 'aof', label: 'All-in or Fold' },
+  { key: 'rush', label: 'Fast Fold' },
+  { key: 'holdem', label: "Hold'em" },
+  { key: 'plo', label: 'PLO' },
+  { key: 'short', label: 'Short Deck' },
+  { key: 'spin', label: 'Jackpot SNG' },
+  { key: 'battle', label: 'Battle Royale' },
 ];
 
 export function GameTabs({ active, onChange }: { active: string; onChange: (key: string) => void }) {
@@ -91,15 +88,15 @@ export function GameTabs({ active, onChange }: { active: string; onChange: (key:
       {TABS.map((t) => (
         <button
           key={t.key}
-          className={'game-tab plate-tab' + (active === t.key ? ' active' : '')}
+          type="button"
+          className={'mode-tab' + (active === t.key ? ' active' : '')}
+          aria-pressed={active === t.key}
           onClick={() => { sound.play('click', { volume: .5 }); onChange(t.key); }}
-          title={t.label}
         >
-          <img src={`/assets/chrome/${t.img}.png?v=9`} alt={t.label} />
-          <img className="plate-on" src={`/assets/chrome/${t.img}_active.png?v=9`} alt="" aria-hidden="true" />
+          <img className="mode-tab-emblem" src={GAME_TAB_EMBLEM[t.key]} alt="" />
+          <span className="mode-tab-label">{t.label}</span>
         </button>
       ))}
-      <div className="spacer" />
     </div>
   );
 }
