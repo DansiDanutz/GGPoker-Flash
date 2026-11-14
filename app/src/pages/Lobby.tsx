@@ -354,7 +354,7 @@ export function Lobby() {
           onTarget={(target) => ('tab' in target ? pickGame(target.tab) : openHomeTarget(target))}
         />
       )}
-      {phoneView === 'games' && <MobileShell title="Poker"><MobileGameList tables={data?.tables || []} onPick={pickGame} /></MobileShell>}
+      {phoneView === 'games' && <MobileShell showBrand><MobileGameList tables={data?.tables || []} onPick={pickGame} /></MobileShell>}
       {phoneView === 'tables' && <MobileBackBar title={phoneGameTitle} onBack={() => navigate('/?play=1')} />}
       {(!phoneView || phoneView === 'tables') && <div className={'lobby-content' + (gameTab === 'home' ? ' is-home' : '')}>
         <aside className="lobby-left" aria-label="Poker navigation">

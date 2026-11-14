@@ -6,6 +6,7 @@ import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { ensureCurrentVersion } from '../lib/versionCheck';
 import { useIsPhone } from '../lib/useIsPhone';
 import { LoginHero } from '../components/login/LoginHero';
+import { landingRoute } from '../lib/phoneNav';
 
 const UserIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
@@ -200,7 +201,7 @@ export function Login() {
           <div className="login2-splash-actions">
             <button type="button" className="login2-splash-join" onClick={() => openPhoneForm('register')}>Join</button>
             <button type="button" className="login2-splash-login" onClick={() => openPhoneForm('login')}>Log in</button>
-            <button type="button" className="login2-splash-guest" onClick={async () => { await enterGuest(); navigate('/'); }}>Play as guest</button>
+            <button type="button" className="login2-splash-guest" onClick={async () => { await enterGuest(); navigate(landingRoute(isPhone)); }}>Play as guest</button>
           </div>
           <p className="login2-splash-legal">18+ · Play money only · No real-money gambling</p>
         </div>
@@ -288,7 +289,7 @@ export function Login() {
 
           <div className="login2-sep"><span>or</span></div>
 
-          <button type="button" className="login2-guest" onClick={async () => { await enterGuest(); navigate('/'); }}>Play as guest</button>
+          <button type="button" className="login2-guest" onClick={async () => { await enterGuest(); navigate(landingRoute(isPhone)); }}>Play as guest</button>
 
           {demoAccount && (
             <button type="button" className="login2-demo" onClick={seed}>Use demo account (DansiDanutz)</button>
