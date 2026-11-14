@@ -201,3 +201,6 @@
 /* Keep the hero pod clear of the action bar on desktop. */
 .table-screen .seat.me { margin-top: -18px; }
 @media (max-width: 760px) { .table-screen .seat.me { margin-top: 0; } }
+
+.table-screen .seat .plate .nm { display: inline-flex; align-items: center; gap: 4px; }
+.table-screen .seat-flag { font-size: 10px; line-height: 1; filter: saturate(.9); }

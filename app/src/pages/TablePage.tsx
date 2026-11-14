@@ -131,6 +131,12 @@ function useNarrowScreen(maxWidth = 760) {
   return narrow;
 }
 
+const SEAT_FLAGS = ['🇷🇴', '🇬🇧', '🇩🇪', '🇫🇷', '🇪🇸', '🇧🇷', '🇨🇦', '🇯🇵', '🇰🇷', '🇦🇺', '🇸🇪', '🇵🇱', '🇮🇹', '🇳🇱', '🇦🇷', '🇺🇦'];
+const seatFlag = (nick?: string | null) => {
+  const sum = [...(nick || 'p')].reduce((a, c) => a + c.charCodeAt(0), 0);
+  return SEAT_FLAGS[sum % SEAT_FLAGS.length];
+};
+
 const BOT_FACES = 20;
 const botFace = (nick?: string | null) => {
   const sum = [...(nick || 'bot')].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -1376,7 +1382,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="plate">
               <div className="nm" title={p.nick || undefined}>
                 {p.isBot && <span className="bot-badge" title="Computer player" aria-label="Bot">BOT</span>}
-                {seatNick(p.nick)}
+                {seatNick(p.nick)}{p.nick ? <span className="seat-flag" aria-hidden="true">{seatFlag(p.nick)}</span> : null}
               </div>
               <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
                 {isAllInStatus(p) ? 'All-In' : stackLabel(p.stack)}

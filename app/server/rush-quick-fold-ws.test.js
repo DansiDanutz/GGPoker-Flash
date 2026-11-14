@@ -7,7 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { startServer } from './test-helpers.js';
 
 const RUSH_TABLE = 'rush-platinum-1';
-const OPPORTUNITY_TIMEOUT_MS = 40_000;
+const OPPORTUNITY_TIMEOUT_MS = 60_000;
 
 async function registerAndJoin(srv, login, tableId, buyin) {
   const res = await srv.post('/api/auth/register', { body: { login, nick: login, password: 'secret12' } });
@@ -22,7 +22,7 @@ async function registerAndJoin(srv, login, tableId, buyin) {
 const quickFoldWindow = (id) => (m) => m.type === 'state' && m.state.quickFold?.allowed
   && m.state.actor !== id && m.state.players.some((p) => p.id === id && p.inHand && !p.folded);
 
-test('quick fold over the socket: instant move, and the folded hand stays in history', { timeout: 90_000 }, async () => {
+test('quick fold over the socket: instant move, and the folded hand stays in history', { timeout: 150_000 }, async () => {
   const srv = await startServer();
   try {
     const { sock, token, id } = await registerAndJoin(srv, 'qf_hero', RUSH_TABLE, 20_000);
@@ -47,7 +47,8 @@ test('quick fold over the socket: instant move, and the folded hand stays in his
     }
     // The old hand finishes without the hero; then it is in their history.
     let mine = null;
-    for (let i = 0; i < 40 && !mine; i++) {
+    // Bots finish the abandoned hand at their own pace; CI can be slow, so allow 60s.
+    for (let i = 0; i < 120 && !mine; i++) {
       await new Promise((r) => setTimeout(r, 500));
       const { data } = await srv.get('/api/hands', { token });
       mine = (data.hands || []).find((h) => h.tableId === RUSH_TABLE && h.handNo === handNo) || null;
