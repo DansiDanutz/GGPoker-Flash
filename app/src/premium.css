@@ -404,3 +404,9 @@ body::before {
 @media (max-width: 760px) {
   .casino-row { grid-auto-columns: 78%; }
 }
+
+/* Slots catalogue: equal landscape tiles in a 4-up grid (reference 03). */
+.slots-grid-even .slot-tile { aspect-ratio: 16 / 10; min-height: 0; }
+.slots-grid-even .slot-tile.featured { grid-column: auto; grid-row: auto; }
+@media (max-width: 1100px) { .slots-grid-even { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .slots-grid-even { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
