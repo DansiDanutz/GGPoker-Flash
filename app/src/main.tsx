@@ -20,6 +20,7 @@ import './mypage.css';
 import './ocean.css';
 import './game-tabs.css';
 import './cashier.css';
+import './premium.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>
