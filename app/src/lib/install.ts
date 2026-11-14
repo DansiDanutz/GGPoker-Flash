@@ -62,6 +62,17 @@ export function detectPlatform(): Platform {
   return 'other';
 }
 
+const OFFER_CAPTION: Readonly<Record<Platform, string>> = {
+  ios: 'Add DanGG to your iPhone Home Screen',
+  android: 'Install DanGG on your Android phone',
+  other: 'For iPhone and Android',
+};
+
+/** Caption under the login page's "Get the app" button, or null when already running as the app. */
+export function appOfferCaption(platform: Platform, standalone: boolean): string | null {
+  return standalone ? null : OFFER_CAPTION[platform];
+}
+
 export function isPhone(): boolean {
   if (typeof window === 'undefined') return false;
   if (detectPlatform() !== 'other') return true;

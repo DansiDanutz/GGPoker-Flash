@@ -7,6 +7,14 @@ import { ensureCurrentVersion } from '../lib/versionCheck';
 import { useIsPhone } from '../lib/useIsPhone';
 import { LoginHero } from '../components/login/LoginHero';
 import { landingRoute } from '../lib/phoneNav';
+import { appOfferCaption, detectPlatform, isStandalone } from '../lib/install';
+import { InstallApp } from './InstallApp';
+
+const PhoneIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+    <rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 5.3h3" /><path d="M12 12.2v4.6m0 0-2-2m2 2 2-2" />
+  </svg>
+);
 
 const UserIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
@@ -48,6 +56,9 @@ export function Login() {
   // Phones open on a splash (logo, Join, Log in); the form shows after a choice.
   const isPhone = useIsPhone();
   const [phoneForm, setPhoneForm] = useState(false);
+  // "Get the app" opens the install screen over the splash; hidden when already running as the app.
+  const [showInstall, setShowInstall] = useState(false);
+  const appCaption = appOfferCaption(detectPlatform(), isStandalone());
   const [loginId, setLoginId] = useState(() => {
     try { return localStorage.getItem('ggpoker.rememberLogin') || ''; } catch { return ''; }
   });
@@ -167,6 +178,8 @@ export function Login() {
   const splash = isPhone && !phoneForm;
   const openPhoneForm = (next: 'login' | 'register') => { switchMode(next); setPhoneForm(true); sound.play('click', { volume: .4 }); };
 
+  if (showInstall) return <InstallApp onClose={() => setShowInstall(false)} />;
+
   return (
     <div className={'login2' + (splash ? ' login2-splash' : '')}>
       <h1 className="login2-sr">The table is waiting. Play money poker.</h1>
@@ -203,6 +216,12 @@ export function Login() {
             <button type="button" className="login2-splash-login" onClick={() => openPhoneForm('login')}>Log in</button>
             <button type="button" className="login2-splash-guest" onClick={async () => { await enterGuest(); navigate(landingRoute(isPhone)); }}>Play as guest</button>
           </div>
+          {appCaption && (
+            <button type="button" className="login2-splash-app" onClick={() => setShowInstall(true)}>
+              <PhoneIcon />
+              <span><b>Get the app</b><small>{appCaption}</small></span>
+            </button>
+          )}
           <p className="login2-splash-legal">18+ · Play money only · No real-money gambling</p>
         </div>
       </>) : <>

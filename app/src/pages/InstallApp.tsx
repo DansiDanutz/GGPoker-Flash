@@ -45,8 +45,16 @@ function ShareGlyph() {
   );
 }
 
-export function InstallApp() {
-  const { brand, user, finishInstall, dismissInstall } = useApp();
+type InstallAppProps = {
+  /** Set when opened from the login page: closing returns there instead of entering the lobby. */
+  readonly onClose?: () => void;
+};
+
+export function InstallApp({ onClose }: InstallAppProps = {}) {
+  const app = useApp();
+  const { brand, user } = app;
+  const finishInstall = onClose ?? app.finishInstall;
+  const dismissInstall = onClose ?? app.dismissInstall;
   const [platform] = useState(detectPlatform);
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const [manual, setManual] = useState(false);
@@ -86,7 +94,7 @@ export function InstallApp() {
       <div className="install-glow" aria-hidden="true" />
       <div className="install-card">
         <img className="install-logo" src={brand.logo} alt="DanGG" />
-        <p className="install-kicker">ONE LAST STEP</p>
+        <p className="install-kicker">{onClose ? 'PLAY ON YOUR PHONE' : 'ONE LAST STEP'}</p>
         <h1 className="install-title">Get the DanGG app</h1>
         <p className="install-sub">
           {user ? `${user.nick}, install` : 'Install'} the app on your phone to play full-screen:
@@ -148,7 +156,7 @@ export function InstallApp() {
         )}
 
         <button className="install-skip" onClick={dismissInstall}>
-          Continue in browser
+          {onClose ? 'Back to login' : 'Continue in browser'}
         </button>
 
         <p className="install-note">
