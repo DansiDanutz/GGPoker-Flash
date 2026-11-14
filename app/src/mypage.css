@@ -207,3 +207,19 @@
   .msgs-range button { width: 40px; height: 40px; }
   .msgs-note { font-size: 10.5px; }
 }
+
+/* Granular settings pages: anchor flash when a page jumps to its section. */
+.settings-pane .settings-flash { animation: settingsFlash 1.3s ease; border-radius: 10px; }
+@keyframes settingsFlash {
+  0% { box-shadow: 0 0 0 2px rgba(231, 194, 115, .85), 0 0 26px rgba(231, 194, 115, .25); }
+  100% { box-shadow: 0 0 0 2px rgba(231, 194, 115, 0), 0 0 0 rgba(231, 194, 115, 0); }
+}
+
+/* Phone: keep the swatch grids compact and contained (no paint bleed, 44px rows). */
+@media (max-width: 760px) {
+  .settings-pane .theme-grid, .settings-pane .cardback-grid, .settings-pane .room-bg-grid,
+  .settings-pane .card-front-grid { contain: paint; overflow: hidden; }
+  .settings-pane .card-front-choice, .settings-pane .cardback-swatch, .settings-pane .room-bg-choice { min-height: 44px; }
+  .settings-pane .mini-card, .settings-pane .back-preview { display: none; }
+}
+.settings-pane [data-settings-anchor] { scroll-margin-top: 16px; }
