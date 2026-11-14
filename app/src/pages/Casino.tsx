@@ -4,6 +4,7 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { MobileCasino } from '../components/mobile/MobileCasino';
+import { MobileShell } from '../components/mobile/MobileShell';
 import { casinoTabFromRoute } from '../components/mobile/casinoGames';
 import { useIsPhone } from '../lib/useIsPhone';
 import { AgeNotice } from '../components/AgeNotice';
@@ -399,7 +400,7 @@ export function Casino() {
   if (tab === 'baccarat') return <Baccarat onTab={setTab} />;
   if (tab === 'dragontiger') return <DragonTiger onTab={setTab} />;
   if (tab === 'sicbo') return <SicBo onTab={setTab} />;
-  if (isPhone) return <MobileCasino />;
+  if (isPhone) return <MobileShell showBrand><MobileCasino /></MobileShell>;
 
   const shown = category === 'all' ? HUB_GAMES : HUB_GAMES.filter((g) => g.tags.includes(category));
   const go = (target?: string, nextTab?: string) => {

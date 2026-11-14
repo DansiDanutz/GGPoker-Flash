@@ -13,9 +13,15 @@ const GOLD = (
 type GlyphProps = { size?: number };
 
 /** Small stroke icons for the nav bar and toolbars. */
-export function NavGlyph({ name, size = 26 }: GlyphProps & { name: 'poker' | 'events' | 'casino' | 'search' | 'filter' | 'wallet' | 'gift' | 'people' | 'back' }) {
+export function NavGlyph({ name, size = 26 }: GlyphProps & { name: 'poker' | 'events' | 'casino' | 'search' | 'filter' | 'wallet' | 'gift' | 'people' | 'back' | 'home' | 'tables' | 'rewards' }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
   switch (name) {
+    case 'home':
+      return <svg {...common}><path d="M4 11.4 12 4.8l8 6.6V19a1.6 1.6 0 0 1-1.6 1.6h-4V15H9.6v5.6H5.6A1.6 1.6 0 0 1 4 19z" fill="currentColor" stroke="none" /></svg>;
+    case 'tables':
+      return <svg {...common}><ellipse cx="12" cy="10" rx="8.4" ry="4.4" /><path d="M7 19.4h10" /><path d="M9.4 14.2v3.4M14.6 14.2v3.4" /></svg>;
+    case 'rewards':
+      return <svg {...common}><path d="M4 10h16v3.4H4z" fill="currentColor" stroke="none" /><path d="M5.4 13.4h13.2V19a1.4 1.4 0 0 1-1.4 1.4H6.8A1.4 1.4 0 0 1 5.4 19z" fill="currentColor" stroke="none" opacity=".85" /><path d="M10.4 10h3.2v10.4" /><path d="M12 10c-2.4-.6-4-2-3.4-3.6.6-1.6 3.4-1 3.4 2 0-3 2.8-3.6 3.4-2 .6 1.6-1 3-3.4 3.6z" /></svg>;
     case 'poker':
       return (
         <svg {...common}>

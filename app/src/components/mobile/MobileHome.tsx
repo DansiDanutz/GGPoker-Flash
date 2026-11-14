@@ -2,11 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { money, type LobbyTable } from '../../lib/api';
 import { useApp } from '../../lib/store';
 import { HERO_INTERVAL_MS, HERO_SLIDES, PROMO_CARDS, stepSlide, type HomeTarget } from '../../lib/homeContent';
+import { MobileShell } from './MobileShell';
 import { GameBadge, NavGlyph, type BadgeName } from './PhoneIcons';
 import { CASINO_GAMES } from './casinoGames';
 
-const LIVE_ROW_SIZE = 6;
-const TABLE_ART = ['table_5ring.png', 'table_supercircuit.png', 'featured_6ring.png', 'table_plo6_supercircuit.png'];
+const LIVE_ROW_SIZE = 5;
 
 type Props = {
   tables: readonly LobbyTable[];
@@ -18,60 +18,36 @@ type Props = {
   onTarget: (target: HomeTarget) => void;
 };
 
-/** The busiest tables right now, for the "Live tables" row. */
 function liveTables(tables: readonly LobbyTable[]): LobbyTable[] {
   return [...tables].filter((t) => t.players > 0 && !t.private).sort((a, b) => b.players - a.players).slice(0, LIVE_ROW_SIZE);
 }
 
-function HeroCarousel({ onTarget }: { onTarget: (target: HomeTarget) => void }) {
-  const { user, navigate } = useApp();
+/** One message, one CTA: a short tile banner, not the desktop key art. */
+function PhoneHero({ onTarget }: { onTarget: (target: HomeTarget) => void }) {
+  const { navigate } = useApp();
   const [idx, setIdx] = useState(0);
-  const track = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const id = window.setInterval(() => setIdx((i) => stepSlide(i, 1, HERO_SLIDES.length)), HERO_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, []);
-  useEffect(() => {
-    const el = track.current;
-    if (el) el.scrollTo({ left: idx * el.clientWidth, behavior: 'smooth' });
-  }, [idx]);
-
-  const onScroll = () => {
-    const el = track.current;
-    if (!el || !el.clientWidth) return;
-    const next = Math.round(el.scrollLeft / el.clientWidth);
-    if (next !== idx) setIdx(next);
-  };
-
+  const slide = HERO_SLIDES[idx];
   return (
-    <section className="mh-hero" aria-roledescription="carousel" aria-label="Featured">
-      <div className="mh-hero-track" ref={track} onScroll={onScroll}>
-        {HERO_SLIDES.map((s) => (
-          <button key={s.key} type="button" className="mh-slide" style={{ background: s.bg }} onClick={() => onTarget(s.target)} aria-label={`${s.title}: ${s.cta}`}>
-            <img src={s.art} alt="" />
-            <span className="mh-slide-copy">
-              <small>{s.kicker}</small>
-              <b>{s.title}</b>
-              <em>{s.cta} →</em>
-            </span>
-          </button>
-        ))}
+    <section className="p-hero" aria-roledescription="carousel" aria-label="Featured">
+      {HERO_SLIDES.map((s, i) => (
+        <div key={s.key} className={'p-hero-bg' + (i === idx ? ' on' : '')} style={{ backgroundImage: `url(${s.artWide || s.art})` }} aria-hidden={i !== idx} />
+      ))}
+      <span className="p-hero-scrim" aria-hidden="true" />
+      <div className="p-hero-copy">
+        <small>{slide.kicker}</small>
+        <h2>{slide.title}</h2>
+        <button type="button" className="p-hero-cta" onClick={() => onTarget(slide.target)}>{slide.cta} →</button>
       </div>
-      <div className="mh-wallet">
-        {user ? (
-          <button type="button" onClick={() => navigate('/cashier')} aria-label="Open cashier">
-            <b>{money(user.balance)}</b><NavGlyph name="wallet" size={30} />
-          </button>
-        ) : (
-          <button type="button" className="mh-login" onClick={() => navigate('/login')}>Log in</button>
-        )}
-      </div>
-      <div className="mh-dots" role="tablist" aria-label="Choose slide">
+      <div className="p-hero-dots" role="tablist" aria-label="Choose banner">
         {HERO_SLIDES.map((s, i) => (
           <button key={s.key} type="button" role="tab" aria-selected={i === idx} aria-label={s.title} className={i === idx ? 'on' : ''} onClick={() => setIdx(i)} />
         ))}
       </div>
+      {!slide && <button type="button" onClick={() => navigate('/')}>Home</button>}
     </section>
   );
 }
@@ -80,69 +56,76 @@ export function MobileHome({ tables, online, jackpot, jumpBackIn, gameLabel, onJ
   const { navigate } = useApp();
   const live = liveTables(tables);
   return (
-    <div className="mh">
-      <HeroCarousel onTarget={onTarget} />
+    <MobileShell showBrand>
+      <div className="phome">
+        <PhoneHero onTarget={onTarget} />
 
-      <button type="button" className="mh-jackpot" onClick={() => navigate('/tournaments')}>
-        <span>BAD BEAT JACKPOT</span>
-        <b>{money(jackpot)}</b>
-      </button>
+        <button type="button" className="p-jackpot" onClick={() => navigate('/tournaments')}>
+          <span>BAD BEAT JACKPOT</span>
+          <b>{money(jackpot)}</b>
+        </button>
 
-      <section className="mh-section" aria-labelledby="mh-foryou">
-        <header className="mh-head">
-          <h2 id="mh-foryou">For You</h2>
-          <span className="mh-online">{online.toLocaleString()} online</span>
-        </header>
-        <div className="mh-rail">
-          {jumpBackIn && (
-            <button type="button" className="mh-card mh-card-jump" onClick={() => onJoin(jumpBackIn)}>
-              <small>Jump back in</small>
-              <b>{jumpBackIn.name}</b>
-              <span>{gameLabel(jumpBackIn)} · {jumpBackIn.players}/{jumpBackIn.seats} seated</span>
-              <img src={`/assets/tables/${TABLE_ART[0]}`} alt="" />
-            </button>
-          )}
-          {PROMO_CARDS.map((c) => (
-            <button key={c.key} type="button" className="mh-card" onClick={() => onTarget(c.target)}>
-              <b>{c.title}</b>
-              <span>{c.sub}</span>
-              <img src={c.art} alt="" />
-            </button>
-          ))}
-        </div>
-      </section>
+        <nav className="p-actions" aria-label="Quick actions">
+          <button type="button" onClick={() => navigate('/?play=1')}><span className="p-action-ico"><NavGlyph name="tables" size={24} /></span>Play</button>
+          <button type="button" onClick={() => navigate('/tournaments')}><span className="p-action-ico"><NavGlyph name="events" size={24} /></span>Tournaments</button>
+          <button type="button" onClick={() => navigate('/casino')}><span className="p-action-ico"><NavGlyph name="casino" size={24} /></span>Casino</button>
+          <button type="button" onClick={() => navigate('/rewards')}><span className="p-action-ico"><NavGlyph name="rewards" size={24} /></span>Rewards</button>
+        </nav>
 
-      {live.length > 0 && (
-        <section className="mh-section" aria-labelledby="mh-live">
-          <header className="mh-head"><h2 id="mh-live">Live Tables</h2></header>
-          <div className="mh-rail">
-            {live.map((t, i) => (
-              <button key={t.id} type="button" className="mh-live" onClick={() => navigate(`/table/${t.id}?observe=1`)}>
-                <span className="mh-live-thumb" style={{ backgroundImage: `url(/assets/tables/${TABLE_ART[i % TABLE_ART.length]})` }}>
-                  <i className="mh-live-tag">LIVE</i>
-                  <i className="mh-live-count"><NavGlyph name="people" size={13} />{t.players}/{t.seats}</i>
+        <section className="p-section" aria-labelledby="p-foryou">
+          <div className="p-head"><h2 id="p-foryou">For You</h2><span className="p-online">{online.toLocaleString()} online</span></div>
+          <div className="p-feed">
+            {jumpBackIn && (
+              <button type="button" className="p-jump" onClick={() => onJoin(jumpBackIn)}>
+                <span className="p-jump-copy">
+                  <small>Jump back in</small>
+                  <b>{jumpBackIn.name}</b>
+                  <em>{gameLabel(jumpBackIn)} · {jumpBackIn.players}/{jumpBackIn.seats} seated</em>
                 </span>
-                <b>{t.name}</b>
-                <small>{gameLabel(t)} · {money(t.sb)}/{money(t.bb)}</small>
+                <span className="p-jump-go">Join</span>
+              </button>
+            )}
+            {PROMO_CARDS.slice(0, 3).map((c) => (
+              <button key={c.key} type="button" className="p-rowcard" onClick={() => onTarget(c.target)}>
+                <img src={c.art} alt="" />
+                <span><b>{c.title}</b><small>{c.sub}</small></span>
+                <i aria-hidden="true">›</i>
               </button>
             ))}
           </div>
         </section>
-      )}
 
-      <section className="mh-section" aria-labelledby="mh-casino">
-        <header className="mh-head"><h2 id="mh-casino">Casino</h2><button type="button" onClick={() => navigate('/casino')}>View all</button></header>
-        <div className="mh-rail">
-          {CASINO_GAMES.map((g) => (
-            <button key={g.key} type="button" className="mh-casino" onClick={() => navigate(g.route)}>
-              <GameBadge name={g.badge as BadgeName} size={58} />
-              <b>{g.name}</b>
-            </button>
-          ))}
-        </div>
-      </section>
+        {live.length > 0 && (
+          <section className="p-section" aria-labelledby="p-live">
+            <div className="p-head"><h2 id="p-live">Live tables</h2><button type="button" onClick={() => navigate('/?play=1')}>See all</button></div>
+            <div className="p-list">
+              {live.map((t) => (
+                <button key={t.id} type="button" className="p-table" onClick={() => navigate(`/table/${t.id}?observe=1`)}>
+                  <span className="p-live-dot" aria-hidden="true" />
+                  <span className="p-table-copy"><b>{t.name}</b><small>{gameLabel(t)} · {money(t.sb)}/{money(t.bb)}</small></span>
+                  <span className="p-seats">{t.players}/{t.seats}</span>
+                  <i aria-hidden="true">›</i>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
-      <footer className="mh-foot">18+ · Play money only · No real-money gambling</footer>
-    </div>
+        <section className="p-section" aria-labelledby="p-casino">
+          <div className="p-head"><h2 id="p-casino">Casino</h2><button type="button" onClick={() => navigate('/casino')}>View all</button></div>
+          <div className="p-list">
+            {CASINO_GAMES.slice(0, 3).map((g) => (
+              <button key={g.key} type="button" className="p-casino-row" onClick={() => navigate(g.route)}>
+                <GameBadge name={g.badge as BadgeName} size={40} />
+                <span><b>{g.name}</b><small>{g.desc}</small></span>
+                <i aria-hidden="true">›</i>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <p className="p-legal">18+ · Play money only · No real-money gambling</p>
+      </div>
+    </MobileShell>
   );
 }

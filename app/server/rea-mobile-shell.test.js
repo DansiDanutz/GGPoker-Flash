@@ -5,11 +5,13 @@ import path from 'node:path';
 
 const read = (file) => fs.readFileSync(path.resolve(import.meta.dirname, '..', file), 'utf8');
 
-test('mobile shell mirrors the measured five-destination navigation', () => {
+test('phone navigation is the five labelled destinations the owner asked for', () => {
   const source = read('src/components/MobileNav.tsx');
   const labels = [...source.matchAll(/label: '([^']+)'/g)].map((match) => match[1]);
-  assert.deepEqual(labels, ['Poker', 'Events', 'Home', 'Casino', 'My Page']);
-  assert.match(source, /className=\{'mobile-nav-item' \+ \(item\.center \? ' center' : ''\)/);
+  assert.deepEqual(labels, ['Home', 'Casino', 'Tables', 'Rewards', 'My Page']);
+  // Every destination renders a visible label as well as its icon.
+  assert.match(source, /mobile-nav-label/);
+  assert.doesNotMatch(source, /center/);
 });
 
 test('casino hub uses product art instead of emoji placeholders', () => {

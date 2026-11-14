@@ -5,6 +5,7 @@ import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 import { Countdown, PageShell } from '../components/PageShell';
 import { MobileEvents } from '../components/mobile/MobileEvents';
+import { MobileShell } from '../components/mobile/MobileShell';
 import { useIsPhone } from '../lib/useIsPhone';
 import { TournamentCategoryRail, TournamentFilterBar } from '../components/TournamentFilterBar';
 import {
@@ -130,7 +131,7 @@ export function Tournaments() {
   return (
     <>
     {isPhone ? (
-      <MobileEvents
+      <MobileShell showBrand><MobileEvents
         list={list}
         featured={featured || null}
         heroArt={SERIES_ART[filters.category]}
@@ -139,7 +140,7 @@ export function Tournaments() {
         onReset={resetFilters}
         onOpen={openDetail}
         emptyText={data ? emptyTournamentMessage(filters) : 'Loading events…'}
-      />
+      /></MobileShell>
     ) : (
     <PageShell activeTop="tournaments">
       <div className="page">
