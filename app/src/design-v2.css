@@ -730,3 +730,12 @@ body { background: #050706; }
 @media (max-width: 1024px) {
   .home-tv-row { grid-auto-columns: minmax(200px, 46%); }
 }
+
+/* ---------- global account rail (reference: present on every screen) ---------- */
+.app-content.has-rail { flex-direction: row; min-height: 0; }
+.app-page { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.app-content.has-rail > .lobby-rail { align-self: stretch; }
+
+@media (max-width: 1100px) {
+  .app-content.has-rail > .lobby-rail { display: none; }
+}

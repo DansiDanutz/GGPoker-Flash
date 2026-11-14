@@ -5,7 +5,8 @@ import { NoteLabelEditor } from '../components/NoteLabelEditor';
 import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
-import { PageShell, SubNav } from '../components/PageShell';
+import { PageShell } from '../components/PageShell';
+import { ProfilePane } from '../components/mypage/ProfilePane';
 import { Avatar } from '../components/Avatar';
 
 const TABS = [
@@ -30,7 +31,7 @@ const PROMOS = [
 ];
 
 export function MyPage() {
-  const { user, refreshUser, toast, navigate } = useApp();
+  const { user, refreshUser, toast, navigate, logout } = useApp();
   const [tab, setTab] = useState('overview');
   const [missions, setMissions] = useState<any[]>([]);
   const [tx, setTx] = useState<any[]>([]);
@@ -126,55 +127,58 @@ export function MyPage() {
   const pct = Math.min(100, Math.round(((xp % levelXp) / levelXp) * 100));
 
   return (
-    <PageShell activeTop="poker" subnav={<SubNav items={TABS} active={tab} onChange={setTab} />}>
-      <div className="page">
-        {tab === 'overview' && (
-          <>
-            <div className="profile-head">
-              <div className="avatar-ring" style={{ width: 80, height: 80 }}>
-                <div className="inner"><Avatar name={user?.nick || '?'} src={user?.avatar} size={74} /></div>
-                <span className="vip-badge" style={{ width: 24, height: 24, fontSize: 11 }}>{level}</span>
-              </div>
-              <div style={{ flex: 1 }}>
-                <h1 className="page-title" style={{ marginBottom: 2 }}>My Page</h1>
-                <div className="muted small">{user?.nick} · ID {user?.login} · {user?.country}</div>
-                <div className="progress" style={{ marginTop: 10, maxWidth: 380 }}><i style={{ width: `${pct}%` }} /></div>
-                <div className="muted small" style={{ marginTop: 4 }}>VIP {level} · {(xp % levelXp).toLocaleString()} / {levelXp.toLocaleString()} XP</div>
-              </div>
-              <div className="row">
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/settings')}>Settings</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/profile')}>Public profile</button>
-              </div>
+    <PageShell activeTop="poker">
+      <div className="mp">
+        <div className="mp-wintabs" role="tablist" aria-label="Account windows">
+          <button type="button" role="tab" aria-selected="true" className="on">My Page</button>
+          <button type="button" role="tab" onClick={() => navigate('/propbet')}>Prop Bet</button>
+          <button type="button" role="tab" onClick={() => navigate('/ocean')}>Ocean Rewards</button>
+          <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
+          <button type="button" role="tab" onClick={() => navigate('/settings')}>Game Settings</button>
+          <button type="button" className="mp-close" aria-label="Close My Page" onClick={() => navigate('/')}>✕</button>
+        </div>
+        <div className="mp-body">
+          <aside className="mp-menu" aria-label="Account menu">
+            {[
+              { key: 'rewards', label: 'GGPass Account', go: () => navigate('/rewards'), ext: true },
+              { key: 'voice', label: 'My Action Voice', go: () => navigate('/settings'), ext: true },
+              { key: 'overview', label: 'My Game Profile', go: () => setTab('overview') },
+              { key: 'wallet', label: 'My Wallet', go: () => navigate('/cashier'), ext: true },
+              { key: 'verify', label: 'Verify ID', go: () => setTab('verify') },
+              { key: 'transactions', label: 'Transaction History', go: () => setTab('transactions') },
+              { key: 'messages', label: 'Message', go: () => setTab('messages') },
+              { key: 'coupons', label: 'Redeem Coupons', go: () => navigate('/promotions'), ext: true },
+              { key: 'stakers', label: 'Current Stakers', go: () => setTab('stakers') },
+              { key: 'sellers', label: 'Sellers you follow', go: () => setTab('sellers') },
+              { key: 'pokercraft', label: 'PokerCraft', go: () => navigate('/hand-history'), ext: true },
+              { key: 'security', label: 'Responsible Gaming', go: () => setTab('security') },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={'mp-menu-item' + (tab === item.key ? ' on' : '')}
+                aria-current={tab === item.key ? 'page' : undefined}
+                onClick={item.go}
+              >
+                {item.label}
+                {item.ext && <span className="mp-ext" aria-hidden="true">↗</span>}
+              </button>
+            ))}
+            <button type="button" className="mp-menu-signout" onClick={async () => { await logout(); navigate('/login'); }}>Sign out</button>
+            <div className="mp-menu-tiles">
+              <button type="button" onClick={() => navigate('/hand-history')}><i aria-hidden="true">📊</i>PokerCraft</button>
+              <button type="button" onClick={() => setTab('messages')}><i aria-hidden="true">✉️</i>Message</button>
             </div>
-            <div className="grid g4" style={{ marginTop: 16 }}>
-              {[
-                ['USD balance', money(user?.balance ?? 0)], ['Play chips', `P$ ${(user?.play_chips ?? 0).toLocaleString()}`],
-                ['Tickets', `T$ ${user?.tickets ?? 0}`], ['Gems', (user?.gems ?? 0).toLocaleString()],
-              ].map(([l, v]) => (
-                <div key={l} className="card"><div className="muted small">{l}</div><div className="stat-big">{v}</div></div>
-              ))}
-            </div>
-            <div className="grid g3" style={{ marginTop: 16 }}>
-              <div className="card" onClick={() => setTab('missions')} style={{ cursor: 'pointer' }}>
-                <div className="panel-title">Weekly missions</div>
-                {missions.slice(0, 3).map((m) => (
-                  <div key={m.id} className="kv"><span>{m.title}</span><b>{m.progress}/{m.goal}</b></div>
-                ))}
-              </div>
-              <div className="card" onClick={() => navigate('/rewards')} style={{ cursor: 'pointer' }}>
-                <div className="panel-title">DanGG Pass</div>
-                <div className="kv"><span>Level</span><b>{level}</b></div>
-                <div className="kv"><span>VIP points</span><b>{(user?.vip_points ?? 0).toLocaleString()}</b></div>
-                <div className="kv"><span>Next reward</span><b className="gold">T$5 ticket</b></div>
-              </div>
-              <div className="card" onClick={() => navigate('/hand-history')} style={{ cursor: 'pointer' }}>
-                <div className="panel-title">Hand history</div>
-                <div className="kv"><span>Stored hands</span><b>local</b></div>
-                <div className="kv"><span>Replay</span><b>available</b></div>
-                <div className="kv"><span>Export</span><b>copy board</b></div>
-              </div>
-            </div>
-          </>
+          </aside>
+          <div className="mp-pane">
+        {tab === 'overview' && <ProfilePane />}
+
+        {(tab === 'stakers' || tab === 'sellers') && (
+          <div className="mpp-empty-pane">
+            <h3>{tab === 'stakers' ? 'Current Stakers' : 'Sellers you follow'}</h3>
+            <p className="muted">Nothing here yet. Staking and seller lists appear once you join a staking offer.</p>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/leaderboard')}>Browse the leaderboard</button>
+          </div>
         )}
 
         {tab === 'promo' && (
@@ -505,6 +509,8 @@ export function MyPage() {
             </div>
           </div>
         )}
+          </div>
+        </div>
       </div>
     </PageShell>
   );

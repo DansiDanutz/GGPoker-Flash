@@ -1373,6 +1373,12 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
       try {
+        // Preset portraits shipped with the client are stored as paths, not blobs.
+        const preset = /^\/assets\/avatars\/gg-\d{2}\.jpg$/.test(String(body.avatar || ''));
+        if (preset) {
+          db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(String(body.avatar), u.id);
+          return json(res, 200, { ok: true, preset: true });
+        }
         const avatar = normalizeAvatar(body.avatar);
         db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar ? avatar.dataUrl : '', u.id);
         return json(res, 200, { ok: true, hash: avatar ? avatar.hash : null });
