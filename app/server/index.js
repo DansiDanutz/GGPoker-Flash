@@ -740,7 +740,8 @@ function getLiveTable(id) {
       const winner = db.prepare('SELECT * FROM users WHERE id = ?').get(info.winnerId);
       if (winner) {
         addTransaction(winner.id, info.mystery ? 'mystery_bounty' : 'bounty', info.amount,
-          `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`);
+          `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`, 'USD',
+          { tournamentId: table.cfg.tournamentId || null });
       }
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bounty',
         `${table.cfg.name} ${info.winnerNick} ${info.amount} (${info.bustedNick})`);
@@ -1937,8 +1938,10 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/mystery/feed' && req.method === 'GET') {
       const limit = Math.min(30, Math.max(1, Number(url.searchParams.get('limit')) || 20));
       const items = db.prepare(`
-        SELECT t.amount, t.memo, t.created_at, u.nick
+        SELECT t.amount, t.memo, t.created_at, t.tournament_id, u.nick,
+               tr.name AS tournament, tr.buyin, tr.fee
         FROM transactions t JOIN users u ON u.id = t.user_id
+        LEFT JOIN tournaments tr ON tr.id = t.tournament_id
         WHERE t.kind = 'mystery_bounty'
         ORDER BY t.id DESC LIMIT ?`).all(limit);
       const total = db.prepare("SELECT COALESCE(SUM(amount), 0) AS n FROM transactions WHERE kind = 'mystery_bounty'").get().n;
