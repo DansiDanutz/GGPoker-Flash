@@ -22,6 +22,8 @@ import { useIsPhone } from '../lib/useIsPhone';
 import { MOBILE_GAMES } from '../lib/mobileLobby';
 import { MobileHome } from '../components/mobile/MobileHome';
 import { MobileBackBar, MobileGameList } from '../components/mobile/MobileGameList';
+import { MobileTableRows } from '../components/mobile/MobileTableRows';
+import { buyinStep, stepBuyin } from '../lib/phoneTables';
 import { MobileShell } from '../components/mobile/MobileShell';
 import { HomeFeed } from '../components/home/HomeFeed';
 import { CashHero } from '../components/CashHero';
@@ -401,7 +403,7 @@ export function Lobby() {
               <LobbyFiltersPopover filters={filters} tableCount={tables.length} onChange={setFilter} onReset={() => setFilter(resetExtraFilters(filters))} />
             </div>
             <div className="table-list" key={gameTab}>
-              {viewMode === 'table' && !isRushTab && !unavailable && <div className="list-head">
+              {viewMode === 'table' && !isRushTab && !unavailable && phoneView !== 'tables' && <div className="list-head">
                 <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
                 <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
                 <div>Buy-in</div>
@@ -418,6 +420,8 @@ export function Lobby() {
                   </div>
                 ) : isRushTab ? (
                   <RushPoolRows pools={rushPools} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
+                ) : phoneView === 'tables' ? (
+                  <MobileTableRows tables={tables} onJoin={openJoin} />
                 ) : viewMode === 'group' ? (
                   <LobbyGroupRows tab={gameTab} tables={tables} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
                 ) : tables.map((t) => (
@@ -538,8 +542,9 @@ export function Lobby() {
       )}
 
       {buyinTable && (
-        <div className="modal-backdrop" onClick={() => setBuyinTable(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop buyin-backdrop" onClick={() => setBuyinTable(null)}>
+          <div className="modal buyin-sheet" role="dialog" aria-modal="true" aria-label={`Buy-in, ${buyinTable.name}`} onClick={(e) => e.stopPropagation()}>
+            <span className="sheet-grip" aria-hidden="true" />
             <div className="modal-head">
               <h3>Buy-in · {buyinTable.name}</h3>
               <button className="title-icon" onClick={() => setBuyinTable(null)}>✕</button>
@@ -568,15 +573,19 @@ export function Lobby() {
                   type="range"
                   min={buyinTable.min_buyin}
                   max={Math.min(buyinTable.max_buyin, Math.max(user?.balance ?? buyinTable.min_buyin, buyinTable.min_buyin))}
-                  step={Math.max(100, Math.round(buyinTable.bb / 2))}
+                  step={buyinStep(buyinTable)}
                   value={buyin}
                   onChange={(e) => setBuyin(Number(e.target.value))}
                   style={{ width: '100%' }}
                 />
               </div>
-              <div className="between" style={{ margin: '10px 0 4px' }}>
+              <div className="between buyin-amount" style={{ margin: '10px 0 4px' }}>
                 <span className="muted">Min {money(buyinTable.min_buyin)}</span>
-                <b style={{ color: '#ffd98a', fontSize: 18 }}>{money(buyin)}</b>
+                <span className="buyin-stepper">
+                  <button type="button" aria-label="Lower buy-in" onClick={() => setBuyin(stepBuyin(buyinTable, buyin, -1, user?.balance))}>−</button>
+                  <b style={{ color: '#ffd98a', fontSize: 18 }}>{money(buyin)}</b>
+                  <button type="button" aria-label="Raise buy-in" onClick={() => setBuyin(stepBuyin(buyinTable, buyin, 1, user?.balance))}>+</button>
+                </span>
                 <span className="muted">Max {money(buyinTable.max_buyin)}</span>
               </div>
               <div className="row" style={{ marginTop: 10 }}>
@@ -589,7 +598,7 @@ export function Lobby() {
             </div>
             <div className="modal-foot">
               <button className="btn btn-dark" onClick={() => setBuyinTable(null)}>Cancel</button>
-              <button className="btn btn-dark" onClick={() => {
+              <button className="btn btn-dark buyin-newwin" onClick={() => {
                 if (!buyinTable) return;
                 const url = `${location.origin}/#/table/${buyinTable.id}?buyin=${buyin}${seat != null ? `&seat=${seat}` : ''}`;
                 window.open(url, '_blank', 'width=1200,height=961');

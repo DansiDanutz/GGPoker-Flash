@@ -385,30 +385,37 @@
   .p-table i, .p-casino-row i { flex: 0 0 auto; color: #6f6b64; font-size: 21px; font-style: normal; }
   .p-legal { margin: 22px 14px 0; color: #6f6b64; font-size: 11.5px; text-align: center; }
 
-  /* ---- five labelled tabs, replacing the icon-only bar ---- */
+  /* ---- tab bar: Poker, Tournaments, raised round Home button, Casino, avatar ---- */
   .mobile-nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-    display: grid; grid-template-columns: repeat(5, 1fr);
-    height: calc(60px + env(safe-area-inset-bottom, 0px));
-    padding: 0 4px env(safe-area-inset-bottom, 0px);
-    background: #101012; border-top: 1px solid #26262b; border-radius: 0;
-    box-shadow: 0 -10px 28px rgba(0, 0, 0, .6);
+    display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
+    height: calc(58px + env(safe-area-inset-bottom, 0px));
+    padding: 0 6px env(safe-area-inset-bottom, 0px);
+    background: linear-gradient(180deg, #232327, #18181b); border-top: 1px solid #2c2c31; border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 28px rgba(0, 0, 0, .65);
   }
   .mobile-nav-item {
-    position: relative; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 3px; color: #83838a; background: transparent; border: 0;
+    position: relative; min-height: 54px; display: grid; place-items: center;
+    color: #8a8a91; background: transparent; border: 0; transition: color .15s;
   }
-  .mobile-nav-item.on { color: #f2c45c; }
-  .mobile-nav-item.on::before {
-    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-    width: 26px; height: 3px; border-radius: 0 0 3px 3px; background: #c23340; box-shadow: none;
+  .mobile-nav-item.on { color: #f4f4f4; }
+  .mobile-nav-item.on:not(.center)::before {
+    content: ''; position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%);
+    border-radius: 50%; background: radial-gradient(circle, rgba(201, 51, 63, .32), transparent 70%); box-shadow: none;
   }
-  .mobile-nav-label { font-size: 10.5px; font-weight: 700; letter-spacing: .01em; }
-  .mobile-nav-item svg { width: 25px; height: 25px; }
-  .mobile-nav .center, .mobile-nav .center::after, .mobile-nav-brand { display: none; }
-  .mobile-nav-avatar { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; box-shadow: 0 0 0 2px #2f2f35; }
+  .mobile-nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .mobile-nav-item svg { position: relative; width: 26px; height: 26px; }
+  .mobile-nav .center { transform: none; }
+  .mobile-nav .center::after { display: none; }
+  .mobile-nav .center .mobile-nav-brand {
+    display: block; width: 62px; height: 62px; margin: 0 0 22px; padding: 14px 6px; object-fit: contain; box-sizing: border-box;
+    border-radius: 50%; background: radial-gradient(circle at 50% 35%, #34343a, #141416 70%);
+    box-shadow: 0 0 0 2px #1a1a1d, 0 0 0 4px #9c6a2a, 0 8px 18px rgba(0, 0, 0, .8);
+  }
+  .mobile-nav .center.on .mobile-nav-brand { box-shadow: 0 0 0 2px #1a1a1d, 0 0 0 4px #f2c45c, 0 0 18px rgba(242, 196, 92, .35), 0 8px 18px rgba(0, 0, 0, .8); }
+  .mobile-nav-avatar { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 0 0 2px #3a3a40; }
   .mobile-nav-item.on .mobile-nav-avatar { box-shadow: 0 0 0 2px #f2c45c; }
-  .mobile-nav-badge { position: absolute; top: 1px; right: 8px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: #e0303c; color: #fff; font: 700 9px/15px system-ui, sans-serif; font-style: normal; text-align: center; }
+  .mobile-nav-badge { position: absolute; top: -6px; right: -9px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #e0303c; color: #fff; font: 700 10px/17px system-ui, sans-serif; font-style: normal; text-align: center; box-shadow: 0 0 0 2px #1d1d20; }
 
   /* Pages that still render desktop chrome at phone width must not double up. */
   .pshell .page, .pshell .slots-page { padding: 14px 14px 28px; }
@@ -427,7 +434,6 @@
 
 @media (max-width: 760px) {
   .p-hero-bg { background-position: right center; background-size: cover; }
-  .mobile-nav-label { white-space: nowrap; font-size: 10px; }
   .mc-hero { height: 176px; }
   .mc-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.05) 25%, rgba(0,0,0,.82) 100%); }
   .mc-hero > span { z-index: 2; }
