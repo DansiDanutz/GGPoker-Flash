@@ -426,3 +426,8 @@ body::before {
 }
 .tref-detail-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 8px; }
 .tref-detail-tags span { font-size: 10px; color: #9fd8ff; background: rgba(47, 111, 208, .12); border: 1px solid rgba(80, 150, 230, .3); border-radius: 3px; padding: 1px 5px; }
+
+/* Phone settings: anchor jumps land below the tab strip. */
+@media (max-width: 760px) {
+  .settings-pane [data-settings-anchor] { scroll-margin-top: 16px; }
+}

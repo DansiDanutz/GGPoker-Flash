@@ -1,3 +1,11 @@
+## 2026-11-14 — granular settings pages
+
+- Settings menu now lists the twelve reference pages and jumps each to its section with
+  a gold flash; page title follows the granular page.
+- Adds Smart Focus; anchors Switch Chip Display, Table Theme, Time Bank, Device access,
+  Language, Buy-in, Card Squeeze, Chip Shuffle, Hotkey, Sound and Betting.
+- Phone swatch grids are paint-contained with 44px rows.
+
 ## 2026-11-14 — tournament table HUD
 
 - Tournament tables show a HUD card: mode/event, level, blinds, next-level countdown,
