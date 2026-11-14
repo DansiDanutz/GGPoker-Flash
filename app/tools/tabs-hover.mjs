@@ -1,0 +1,13 @@
+import puppeteer from 'puppeteer-core';
+const BASE='http://127.0.0.1:5198';
+const {token}=await fetch(`${BASE}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'DansiDanutz',password:'ggpoker'})}).then(r=>r.json());
+const b=await puppeteer.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:'new',args:['--no-sandbox']});
+const p=await b.newPage(); await p.setViewport({width:1200,height:400});
+await p.evaluateOnNewDocument(t=>{localStorage.setItem('ggpoker.token',t);localStorage.setItem('ggpoker.welcomeSeen','1');sessionStorage.setItem('ggpoker.entered','1')},token);
+await p.goto(BASE+'/#/',{waitUntil:'networkidle2'});
+await p.waitForFunction(()=>document.querySelectorAll('.game-tab').length>4,{timeout:20000});
+const tabs=await p.$$('.game-tab');
+await tabs[3].hover();
+await new Promise(r=>setTimeout(r,650));
+await p.screenshot({path:'/Users/davidai/Desktop/DavidAi/GGPoker-flash/.r4/docs/screenshots/game-tabs-hover.png',clip:{x:0,y:110,width:1200,height:52}});
+await b.close();

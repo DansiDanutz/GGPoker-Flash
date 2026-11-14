@@ -66,7 +66,6 @@ export function GameTabs({ active, onChange }: { active: string; onChange: (key:
         <button
           key={t.key}
           className={'game-tab plate-tab' + (active === t.key ? ' active' : '')}
-          style={{ width: TAB_WIDTH }}
           onClick={() => { sound.play('click', { volume: .5 }); onChange(t.key); }}
           title={t.label}
         >
