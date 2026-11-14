@@ -204,3 +204,22 @@
 
 .table-screen .seat .plate .nm { display: inline-flex; align-items: center; gap: 4px; }
 .table-screen .seat-flag { font-size: 10px; line-height: 1; filter: saturate(.9); }
+
+/* Tournament HUD (reference 04): level, blinds, next level, field, prize pool. */
+.tt-hud {
+  position: absolute; left: 14px; top: 54px; z-index: 26; width: 300px;
+  border-radius: 9px; border: 1px solid rgba(231, 194, 115, .3);
+  background: linear-gradient(180deg, rgba(20, 18, 12, .92), rgba(7, 7, 6, .95));
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .5), inset 0 1px rgba(255, 255, 255, .05);
+  backdrop-filter: blur(8px); overflow: hidden;
+}
+.tt-hud-top { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid rgba(231, 194, 115, .18); }
+.tt-hud-mode { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: #1a1a1a; background: #e7c273; border-radius: 3px; padding: 2px 5px; font-weight: 800; }
+.tt-hud-top b { color: #f6f0e2; font-size: 12.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-hud-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: rgba(255, 255, 255, .04); }
+.tt-hud-grid > div { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 7px 10px; background: rgba(8, 8, 7, .55); }
+.tt-hud-grid span { color: #8d8a83; font-size: 9.5px; text-transform: uppercase; letter-spacing: .6px; }
+.tt-hud-grid b { color: #e8e4da; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.tt-hud-grid b.gold { color: #f2c45c; }
+@media (max-width: 900px) { .tt-hud { width: 240px; left: 8px; top: 46px; } .tt-hud-grid b { font-size: 10.5px; } }
+@media (max-width: 600px) { .tt-hud { display: none; } }
