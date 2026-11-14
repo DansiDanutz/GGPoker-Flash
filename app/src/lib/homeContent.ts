@@ -39,7 +39,7 @@ export const HERO_SLIDES: readonly HeroSlide[] = Object.freeze([
     target: { tab: 'aof' },
   },
   {
-    key: 'rush', kicker: 'Rush & Cash', title: 'Fold. Move. Play again.', sub: 'Quick-fold to a fresh table and watch for Cash Drops.',
+    key: 'rush', kicker: 'Fast Fold', title: 'Fold. Move. Play again.', sub: 'Quick-fold to a fresh table and watch for Cash Drops.',
     cta: 'Play now', art: `${DISCOVER}Bg_Discover_RushNCash_Holdem.png`, artWide: '/assets/hero/rush.svg', artPhone: '/assets/hero/phone-rush.svg', bg: 'linear-gradient(110deg, #06343a 0%, #04191c 55%, #020a0b 100%)',
     target: { tab: 'rush' },
   },

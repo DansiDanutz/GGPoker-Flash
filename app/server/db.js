@@ -432,7 +432,7 @@ export function ensureSpinTables() {
   return { inserted, disabled: Number(disabled) };
 }
 
-// Rush & Cash stake ladder (P0 slice R2, plan § 4). One pool = game + sb/bb; table ids are
+// Fast Fold stake ladder (P0 slice R2, plan § 4). One pool = game + sb/bb; table ids are
 // deterministic, so each boot inserts only the rows that are missing. The Hold'em 500/1000
 // pool keeps the original `rush-platinum-N` tables created by seed().
 export const RUSH_LADDER = Object.freeze([

@@ -166,7 +166,7 @@ export function Settings() {
         <div className="mp-wintabs" role="tablist" aria-label="Account windows">
           <button type="button" role="tab" onClick={() => navigate('/my-page')}>My Page</button>
           <button type="button" role="tab" onClick={() => navigate('/propbet')}>Prop Bet</button>
-          <button type="button" role="tab" onClick={() => navigate('/rewards')}>Ocean Rewards</button>
+          <button type="button" role="tab" onClick={() => navigate('/rewards')}>DanGG Rewards</button>
           <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
           <button type="button" role="tab" aria-selected="true" className="on">Game Settings</button>
           <button type="button" className="mp-close" aria-label="Close settings" onClick={() => navigate('/')}>✕</button>

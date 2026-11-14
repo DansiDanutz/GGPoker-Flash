@@ -1,4 +1,4 @@
-// Rush & Cash pool rules (P0 slice R4): the Cash Drop.
+// Fast Fold pool rules (P0 slice R4): the Cash Drop.
 //
 // DanGG rule, not native evidence: neither the native client capture nor the Codex replica
 // shows Cash Drop mechanics (see docs/designs/p0-design-plan.md § 4). Until slice R0

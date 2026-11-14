@@ -123,7 +123,7 @@ export class PokerTable {
     this.rake = 0;
     this.finished = [];
     this.omahaHole = cfg.game === 'omaha5' ? 5 : cfg.game === 'omaha6' ? 6 : 4;
-    // `rushplo` is Rush & Cash PLO: four-card pot-limit Omaha with the Rush quick fold.
+    // `rushplo` is Fast Fold PLO: four-card pot-limit Omaha with the Rush quick fold.
     this.omaha = ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(cfg.game);
     this.potLimit = this.omaha;
     this.holeCount = this.omaha ? this.omahaHole : 2;

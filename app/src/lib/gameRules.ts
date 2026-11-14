@@ -30,7 +30,7 @@ export function rulesFamily(game: string): RulesFamily {
 }
 
 const FAMILY_TITLE: Record<RulesFamily, string> = {
-  holdem: "Hold'em", plo: 'PLO', shortdeck: 'Short Deck', aof: 'All-in or Fold', rush: 'Rush & Cash',
+  holdem: "Hold'em", plo: 'PLO', shortdeck: 'Short Deck', aof: 'All-in or Fold', rush: 'Fast Fold',
 };
 
 function blindsRow(table: LobbyTable | null): RuleRow {
@@ -96,7 +96,7 @@ const RULES_TEXT: Record<RulesFamily, string[]> = {
     'Stacks are short, so every hand is a single decision and hands are dealt quickly.',
   ],
   rush: [
-    "Rush & Cash is fast-fold Hold'em: as soon as you fold you join a new hand with new opponents from the player pool.",
+    "Fast Fold is fast-fold Hold'em: as soon as you fold you join a new hand with new opponents from the player pool.",
     'Blinds, hand rankings and betting are the same as regular No-Limit Hold\'em.',
   ],
 };

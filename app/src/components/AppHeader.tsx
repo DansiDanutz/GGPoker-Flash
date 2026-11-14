@@ -77,7 +77,7 @@ const TAB_WIDTH = 156;
 const TABS: readonly GameTab[] = [
   { key: 'home', label: 'Home', img: 'tab_home' },
   { key: 'aof', label: 'All-in or Fold', img: 'tab_aof' },
-  { key: 'rush', label: 'Rush & Cash', img: 'tab_rush' },
+  { key: 'rush', label: 'Fast Fold', img: 'tab_rush' },
   { key: 'holdem', label: "Hold'em", img: 'tab_holdem' },
   { key: 'plo', label: 'PLO', img: 'tab_plo' },
   { key: 'short', label: 'Short Deck', img: 'tab_short' },

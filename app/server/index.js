@@ -2335,7 +2335,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
-    // ---------- ocean rewards ----------
+    // ---------- DanGG rewards ----------
     const OCEAN_LEVELS = [
       { name: 'Clownfish', min: 0, rank: 0 }, { name: 'Shrimp', min: 500, rank: 1 },
       { name: 'Crab', min: 1500, rank: 2 }, { name: 'Octopus', min: 3000, rank: 3 },
@@ -2398,7 +2398,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, amount, balance: award.balance });
     }
 
-    // ---------- gg care ----------
+    // ---------- player care ----------
     if (p === '/api/ggcare' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
       const day = new Date().toISOString().slice(0, 10);

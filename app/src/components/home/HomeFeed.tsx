@@ -65,7 +65,7 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
           {[
             { art: 'foryou-recent.png', label: 'Recent game', target: null },
             { art: 'foryou-freebie.png', label: 'Daily Freebie', target: { route: '/rewards' } as HomeTarget },
-            { art: 'foryou-ocean.png', label: 'Ocean Rewards', target: { route: '/ocean' } as HomeTarget },
+            { art: 'foryou-ocean.png', label: 'DanGG Rewards', target: { route: '/ocean' } as HomeTarget },
             { art: 'foryou-live-series.png', label: 'Live Series', target: { route: '/tournaments' } as HomeTarget },
           ].map((c, i) => (
             <button

@@ -8,7 +8,7 @@ const GAMES = [
   { key: 'all', label: 'All games' },
   { key: 'spin', label: 'Jackpot SNG' },
   { key: 'aof', label: 'All-in or Fold' },
-  { key: 'rush', label: 'Rush & Cash' },
+  { key: 'rush', label: 'Fast Fold' },
   { key: 'mystery', label: 'Battle Royale' },
   { key: 'holdem', label: "Hold'em" },
   { key: 'omaha', label: 'PLO' },
