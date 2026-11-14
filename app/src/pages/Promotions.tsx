@@ -130,17 +130,40 @@ export function Settings() {
   useEffect(() => () => sound.stopPreview(), []);
 
   return (
-    <PageShell activeTop="poker" subnav={<SubNav items={SETTINGS_TABS} active={tab} onChange={setTab} />}>
-      <div className="page">
-        <h1 className="page-title">Settings</h1>
-        <p className="page-sub">Changes take effect when you press Apply or OK. Cancel or Escape discards them.</p>
-        <SettingsForm key={formKey} tab={tab} draft={draftState.draft} stage={stage} />
-        <div className="settings-actions" role="group" aria-label="Save settings">
-          <span className="muted small">{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
-          <div className="grow" />
-          <button className="btn btn-ghost btn-sm" disabled={!dirty} onClick={cancel}>Cancel</button>
-          <button className="btn btn-ghost btn-sm" disabled={!dirty} onClick={() => { void apply(false); }}>Apply</button>
-          <button className="btn btn-gold btn-sm" onClick={() => { void apply(true); }}>OK</button>
+    <PageShell activeTop="poker">
+      <div className="mp settings-window">
+        <div className="mp-wintabs" role="tablist" aria-label="Account windows">
+          <button type="button" role="tab" onClick={() => navigate('/my-page')}>My Page</button>
+          <button type="button" role="tab" onClick={() => navigate('/propbet')}>Prop Bet</button>
+          <button type="button" role="tab" onClick={() => navigate('/rewards')}>Ocean Rewards</button>
+          <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
+          <button type="button" role="tab" aria-selected="true" className="on">Game Settings</button>
+          <button type="button" className="mp-close" aria-label="Close settings" onClick={() => navigate('/')}>✕</button>
+        </div>
+        <div className="mp-body">
+          <aside className="mp-menu" aria-label="Settings sections">
+            {SETTINGS_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                className={'mp-menu-item' + (tab === t.key ? ' on' : '')}
+                aria-current={tab === t.key ? 'page' : undefined}
+                onClick={() => setTab(t.key)}
+              >{t.label}</button>
+            ))}
+          </aside>
+          <div className="mp-pane settings-pane">
+            <h1 className="settings-title">{SETTINGS_TABS.find((t) => t.key === tab)?.label}</h1>
+            <p className="settings-hint">Changes take effect when you press Apply or OK. Cancel or Escape discards them.</p>
+            <SettingsForm key={formKey} tab={tab} draft={draftState.draft} stage={stage} />
+            <div className="settings-actions" role="group" aria-label="Save settings">
+              <span className="muted small">{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
+              <div className="grow" />
+              <button className="btn btn-ghost btn-sm" disabled={!dirty} onClick={cancel}>Cancel</button>
+              <button className="btn btn-ghost btn-sm" disabled={!dirty} onClick={() => { void apply(false); }}>Apply</button>
+              <button className="btn btn-gold btn-sm" onClick={() => { void apply(true); }}>OK</button>
+            </div>
+          </div>
         </div>
       </div>
     </PageShell>
