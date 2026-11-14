@@ -1,3 +1,12 @@
+## 2026-11-14 — Poker Home ported from reference 001–003
+
+- Home is now the reference feed: 800x250 campaign hero, four 226x234 For You
+  creatives, DanGG.TV cards with real table captions, Tournaments For You, Special
+  Features and Casino rows, in reference order and metrics.
+- Creatives cropped from the captured client screens and served from
+  `app/public/assets/gg-creatives/`; section chrome is live HTML.
+- Table browser removed from Home (it belongs to the game tabs); account rail fixed
+  at 112px.
 ## 2026-11-14 — Transaction History 042 ported from the reference
 
 - Ledger with currency tabs, Date & Time / Description / Amount / Available / Category,
