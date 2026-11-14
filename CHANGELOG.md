@@ -1,3 +1,10 @@
+## 2026-11-14 — Transaction History 042 ported from the reference
+
+- Ledger with currency tabs, Date & Time / Description / Amount / Available / Category,
+  signed amounts and a 10-row pager.
+- Phones get a stacked ledger instead of a horizontally scrolling table; 44px pager.
+- Rows sorted by timestamp, category labels derived from ledger kinds.
+
 ## 2026-11-14 — My Wallet 040 ported from the reference
 
 - Wallet pane inside the My Page window: Refresh, four balance cards, Ticket row,
