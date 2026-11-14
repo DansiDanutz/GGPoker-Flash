@@ -1203,7 +1203,7 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
    approved DanGG Poker Lounge concept. */
 .login2 { flex: 1 1 auto; min-height: 0; position: relative; display: flex; overflow: hidden; background: radial-gradient(1200px 800px at 72% 18%, #1b1416 0%, #0f0b0c 55%, #070606 100%); }
 .login2-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.login2-hero { position: relative; flex: 1 1 56%; min-width: 0; background: url('/assets/login/hero.png') left center / cover no-repeat; }
+.login2-hero { position: relative; flex: 1 1 56%; min-width: 0; }
 .login2-hero::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent 52%, rgba(9, 8, 8, .55) 80%, #080707 100%), linear-gradient(180deg, rgba(8, 7, 7, .45), transparent 16%, transparent 82%, rgba(8, 7, 7, .7)); }
 .login2-top { position: absolute; inset: 0 0 auto; z-index: 6; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 30px; }
 .login2-logo { height: 30px; width: auto; object-fit: contain; filter: drop-shadow(0 3px 10px rgba(0, 0, 0, .65)); }
@@ -1277,7 +1277,7 @@ body.electron .app-window { transform: none !important; border-radius: 11px; }
   .login2-top { position: static; flex: 0 0 auto; padding: 10px 14px 11px; background: #0b0a0b; border-bottom: 1px solid rgba(216, 177, 95, .38); }
   .login2-logo { height: 26px; }
   .login2-top-actions { gap: 14px; }
-  .login2-hero { display: block; flex: none; width: 100%; aspect-ratio: 860 / 720; min-height: 0; background: url('/assets/login/hero-mobile.png') center top / cover no-repeat; }
+  .login2-hero { display: block; flex: none; width: 100%; aspect-ratio: 860 / 720; min-height: 0; }
   .login2-hero::after { display: block; background: linear-gradient(180deg, transparent 82%, #0b0a0b 100%); }
   .login2-side { position: relative; z-index: 2; display: block; flex: none; width: 100%; padding: 14px 16px 8px; overflow: visible; }
   .login2-card { max-width: none; margin: 0 auto; padding: 16px 16px 14px; border-radius: 18px; background: rgba(16, 14, 15, .9); }

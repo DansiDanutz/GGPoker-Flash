@@ -5,6 +5,7 @@ import { useI18n } from '../lib/i18n';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { ensureCurrentVersion } from '../lib/versionCheck';
 import { useIsPhone } from '../lib/useIsPhone';
+import { LoginHero } from '../components/login/LoginHero';
 
 const UserIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
@@ -191,7 +192,8 @@ export function Login() {
         </div>
       </header>
 
-      {splash ? (
+      {splash ? (<>
+        <LoginHero variant="splash" />
         <div className="login2-splash-body">
           <img className="login2-splash-logo" src={brand.logo} alt="DanGG" />
           <p className="login2-splash-tag">Play-money poker room</p>
@@ -202,8 +204,8 @@ export function Login() {
           </div>
           <p className="login2-splash-legal">18+ · Play money only · No real-money gambling</p>
         </div>
-      ) : <>
-      <div className="login2-hero" aria-hidden="true" />
+      </>) : <>
+      <LoginHero />
 
 
       <div className="login2-side">

@@ -1,0 +1,119 @@
+/* Login hero: photo-real backdrop + live layers (glow pulse, gold sparks, floating chips, headline). */
+.login2-hero {
+  --lh-px: 0px;
+  --lh-py: 0px;
+  overflow: hidden;
+  isolation: isolate;
+  background: #1a0624;
+}
+.lh-backdrop {
+  position: absolute;
+  inset: -14px;
+  background: url('/assets/login/backdrop.webp') 50% 72% / cover no-repeat;
+  transform: translate3d(calc(var(--lh-px) * -0.35), calc(var(--lh-py) * -0.35), 0) scale(1.02);
+  transition: transform .5s cubic-bezier(.16, 1, .3, 1);
+  animation: lh-breathe 14s ease-in-out infinite alternate;
+}
+.lh-glow {
+  position: absolute;
+  left: 50%;
+  top: 64%;
+  width: 90%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 196, 92, .34), rgba(255, 92, 140, .12) 45%, transparent 72%);
+  mix-blend-mode: screen;
+  animation: lh-pulse 4.2s ease-in-out infinite;
+}
+.lh-sparks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+.lh-chip {
+  position: absolute;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, .55));
+  translate: calc(var(--lh-px) * var(--lh-depth)) calc(var(--lh-py) * var(--lh-depth));
+  transition: translate .45s cubic-bezier(.16, 1, .3, 1);
+  animation: lh-float 7s ease-in-out infinite;
+}
+.lh-chip-red { left: 2%; top: 56%; width: 14%; --lh-spin: -14deg; animation-duration: 6.4s; }
+.lh-chip-purple { right: 7%; top: 30%; width: 11%; --lh-spin: 18deg; animation-duration: 8.2s; animation-delay: -2s; filter: blur(1.5px) drop-shadow(0 14px 20px rgba(0, 0, 0, .5)); }
+.lh-chip-gold { right: -3%; bottom: 8%; width: 22%; --lh-spin: 10deg; animation-duration: 9s; animation-delay: -4s; filter: blur(4px) drop-shadow(0 24px 30px rgba(0, 0, 0, .55)); }
+.lh-chip-black { left: 62%; top: 9%; width: 7%; --lh-spin: -22deg; animation-duration: 10s; animation-delay: -6s; filter: blur(2.5px); opacity: .85; }
+
+.lh-copy { position: absolute; left: 9%; right: 12%; top: 9%; z-index: 2; }
+.lh-kicker {
+  margin: 0 0 14px;
+  font: 800 13px/1 var(--head-font);
+  letter-spacing: .32em;
+  text-transform: uppercase;
+  color: #ffd98a;
+  text-shadow: 0 0 18px rgba(255, 190, 80, .55);
+}
+.lh-title {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font: 900 italic clamp(40px, 5vw, 76px)/.92 var(--head-font);
+  letter-spacing: -.02em;
+  text-transform: uppercase;
+  background: linear-gradient(100deg, #fff6d6 0%, #ffd36b 30%, #f2a93b 48%, #fff3c4 52%, #ffc94f 58%, #c9862a 100%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 4px 0 #6b2a0c) drop-shadow(0 10px 22px rgba(0, 0, 0, .6)) drop-shadow(0 0 26px rgba(255, 170, 60, .35));
+  animation: lh-shine 5.5s ease-in-out infinite;
+}
+.lh-sub {
+  display: inline-block;
+  margin: 22px 0 0;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font: 700 14px/1.2 var(--head-font);
+  color: #fff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .05));
+  border: 1px solid rgba(255, 214, 140, .45);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, .45), inset 0 1px rgba(255, 255, 255, .25), 0 0 22px rgba(196, 62, 255, .25);
+  backdrop-filter: blur(10px);
+}
+
+@keyframes lh-float {
+  0%, 100% { transform: translateY(0) rotate(var(--lh-spin, 0deg)); }
+  50% { transform: translateY(-16px) rotate(calc(var(--lh-spin, 0deg) * -0.6)); }
+}
+@keyframes lh-pulse { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+@keyframes lh-breathe { from { scale: 1; } to { scale: 1.04; } }
+@keyframes lh-shine { 0%, 30% { background-position: 100% 0; } 70%, 100% { background-position: 0 0; } }
+
+@media (max-width: 760px) {
+  .lh-backdrop { inset: 0; background-image: url('/assets/login/backdrop-wide.webp'); background-position: 92% 50%; transform: none; }
+  .lh-glow { left: 68%; top: 46%; width: 70%; }
+  .lh-copy { left: 5%; right: 44%; top: 13%; }
+  .lh-kicker { margin-bottom: 8px; font-size: 9px; letter-spacing: .16em; white-space: nowrap; }
+  .lh-title { font-size: clamp(26px, 8.4vw, 40px); }
+  .lh-sub { margin-top: 12px; padding: 6px 11px; font-size: 10.5px; }
+  .lh-chip-red { left: auto; right: 2%; top: 4%; width: 13%; }
+  .lh-chip-purple { right: auto; left: 3%; top: auto; bottom: 10%; width: 10%; }
+  .lh-chip-gold { right: -4%; bottom: -6%; width: 18%; }
+  .lh-chip-black { left: 44%; top: 4%; width: 7%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lh-backdrop, .lh-glow, .lh-chip, .lh-title { animation: none; transition: none; }
+  .lh-title { background-position: 40% 0; }
+}
+
+/* Phone splash: the portrait art fills the top 72% (SPLASH_ART_HEIGHT in heroArt.ts) and fades into the buttons. */
+.login2-hero.lh-splash { position: absolute; inset: 0; z-index: 0; aspect-ratio: auto; background: #12061a; }
+.lh-splash .lh-backdrop { inset: 0 0 28% 0; background-image: url('/assets/login/backdrop.webp'); background-position: 50% 70%; transform: none; }
+.login2-hero.lh-splash::after { display: block; content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(18, 6, 26, .55) 0%, transparent 18%, transparent 52%, rgba(18, 6, 26, .78) 66%, #12061a 74%); }
+.lh-splash .lh-glow { left: 50%; top: 44%; width: 120%; }
+.lh-splash .lh-chip-red { left: -4%; right: auto; top: 52%; bottom: auto; width: 19%; }
+.lh-splash .lh-chip-purple { left: auto; right: 4%; top: 13%; bottom: auto; width: 13%; }
+.lh-splash .lh-chip-gold { left: auto; right: -9%; top: 58%; bottom: auto; width: 26%; }
+.lh-splash .lh-chip-black { left: 8%; top: 9%; width: 9%; }
+@keyframes lh-sweep { 0%, 55% { left: -40%; } 100% { left: 120%; } }
+@media (prefers-reduced-motion: reduce) { .login2-splash-join::after { animation: none; display: none; } }
