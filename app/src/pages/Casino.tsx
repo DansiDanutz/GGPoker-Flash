@@ -369,6 +369,12 @@ const HUB_CATEGORIES = [
   { key: 'all', label: 'All' }, { key: 'slots', label: 'Slots' }, { key: 'table', label: 'Table' },
   { key: 'arcade', label: 'Arcade' }, { key: 'poker', label: 'Poker' },
 ];
+const HUB_SECTIONS = [
+  { key: 'table', label: 'Table games', keys: ['blackjack', 'roulette', 'baccarat', 'dragontiger', 'sicbo'] },
+  { key: 'slots', label: 'Slots', keys: ['slots'] },
+  { key: 'arcade', label: 'Arcade', keys: ['crash'] },
+  { key: 'poker', label: 'Poker', keys: ['holdem'] },
+];
 const HUB_SLIDES = [
   { key: 'slots', accent: '#f2c45c', art: '/assets/slots/wild-jungle.svg', kicker: 'Only on DanGG', title: 'Six slots. One floor.', sub: 'Wilds, wheels and clover cash — every one a real playable game.', cta: 'Browse slots', to: '/slots' },
   { key: 'crash', accent: '#48c8e0', art: '/assets/slots/robo-rush.svg', kicker: 'Crash', title: 'Cash out before it pops.', sub: 'The multiplier climbs until it does not. You decide when to leave.', cta: 'Play Crash', tab: 'crash' },
@@ -438,18 +444,41 @@ export function Casino() {
 
         <WinnersTicker winners={winners} labelFor={(w) => KIND_LABEL[w.kind] || w.memo} empty="No casino wins yet today — take a seat." />
 
-        <div className="casino-hub-head"><h2>Only on DanGG</h2><span className="muted small">{shown.length} games</span></div>
-        <div className="grid g3">
-          {shown.map((g) => (
-            <div key={g.key} className="casino-card" onClick={() => go(g.key === 'slots' ? '/slots' : undefined, g.key)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(g.key === 'slots' ? '/slots' : undefined, g.key); } }}>
-              <img className="casino-card-art" src={g.art} alt="" />
-              <div className="casino-card-shade" />
-              <div className="cc-name">{g.name}</div>
-              <div className="cc-desc">{g.desc}</div>
-              <div className="cc-play">Play →</div>
+        {category === 'all' ? HUB_SECTIONS.map((sec) => {
+          const items = HUB_GAMES.filter((g) => sec.keys.includes(g.key));
+          if (!items.length) return null;
+          return (
+            <section key={sec.key} className="casino-section" aria-labelledby={'cs-' + sec.key}>
+              <div className="casino-hub-head"><h2 id={'cs-' + sec.key}>{sec.label}</h2><span className="muted small">{items.length} {items.length === 1 ? 'game' : 'games'}</span></div>
+              <div className="casino-row">
+                {items.map((g) => (
+                  <div key={g.key} className="casino-card" onClick={() => go(g.key === 'slots' ? '/slots' : undefined, g.key)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(g.key === 'slots' ? '/slots' : undefined, g.key); } }}>
+                    <img className="casino-card-art" src={g.art} alt="" />
+                    <div className="casino-card-shade" />
+                    <div className="cc-name">{g.name}</div>
+                    <div className="cc-desc">{g.desc}</div>
+                    <div className="cc-play">Play →</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        }) : (
+          <>
+            <div className="casino-hub-head"><h2>Only on DanGG</h2><span className="muted small">{shown.length} games</span></div>
+            <div className="grid g3">
+              {shown.map((g) => (
+                <div key={g.key} className="casino-card" onClick={() => go(g.key === 'slots' ? '/slots' : undefined, g.key)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(g.key === 'slots' ? '/slots' : undefined, g.key); } }}>
+                  <img className="casino-card-art" src={g.art} alt="" />
+                  <div className="casino-card-shade" />
+                  <div className="cc-name">{g.name}</div>
+                  <div className="cc-desc">{g.desc}</div>
+                  <div className="cc-play">Play →</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
     </PageShell>
   );

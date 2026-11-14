@@ -1,3 +1,9 @@
+## 2026-11-14 — casino sections
+
+- Casino “All” is now sectioned like the reference: Table games, Slots, Arcade, Poker,
+  each with its own heading and horizontal filmstrip; category chips still filter.
+- Eight originals remain real playable games; live-dealer catalogue is out of scope.
+
 ## 2026-11-14 — cash lobby promo carousel
 
 - Every cash game tab opens with the reference-style campaign hero: three creatives,
