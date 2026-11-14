@@ -518,10 +518,11 @@
     min-height: 168px; box-shadow: 0 10px 24px rgba(0, 0, 0, .45), inset 0 1px rgba(255, 255, 255, .06);
   }
   .p-rail-art { position: relative; display: block; height: 104px; overflow: hidden; background-size: cover; background-position: center; transition: transform .25s var(--ease, ease); }
-  .p-rail-art::after { content: ''; position: absolute; inset: 0 auto 0 -45%; width: 45%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .32), transparent); transform: skewX(-18deg); animation: p-rail-shine 5.5s ease-in-out infinite; }
+  .p-rail-art::after { content: ''; position: absolute; inset: 0 auto 0 -45%; width: 45%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .32), transparent); transform: translateX(0) skewX(-18deg); will-change: transform; animation: p-rail-shine 5.5s ease-in-out infinite; }
   .p-rail-card:nth-child(2n) .p-rail-art::after { animation-delay: -2.7s; }
   .p-rail-card:active .p-rail-art { transform: scale(1.04); }
-  @keyframes p-rail-shine { 0%, 70% { left: -45%; } 100% { left: 130%; } }
+  /* Moves 175% of the strip (≈389% of the 45%-wide shine) on the compositor, not through layout. */
+  @keyframes p-rail-shine { 0%, 70% { transform: translateX(0) skewX(-18deg); } 100% { transform: translateX(389%) skewX(-18deg); } }
   @media (prefers-reduced-motion: reduce) { .p-rail-art::after { animation: none; display: none; } .p-rail-art { transition: none; } }
   .p-rail-copy { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 12px; min-width: 0; }
   .p-rail-copy b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
