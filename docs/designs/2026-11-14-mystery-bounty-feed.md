@@ -27,3 +27,12 @@ Closes the gap noted in `2026-11-14-mystery-battle-royale.md`.
 The reference also shows the buy-in on each reveal row; the ledger row carries the
 bounty amount and the busted player, not the tournament buy-in. Adding `tournament_id`
 to the bounty transaction would allow that column later.
+
+## Follow-up: buy-in on each reveal
+
+- The ledger gains a nullable `tournament_id` column (idempotent `ALTER TABLE`).
+- `addTransactionEx` accepts `opts.tournamentId`; the bounty payout passes
+  `table.cfg.tournamentId`, so every future `mystery_bounty` row is linked to its event.
+- `/api/mystery/feed` joins `tournaments` and returns `tournament`, `buyin` and `fee`;
+  the rail row now reads **“Buy-in $X · date”** exactly like the reference.
+- Existing rows without a tournament id keep working (buy-in segment omitted).

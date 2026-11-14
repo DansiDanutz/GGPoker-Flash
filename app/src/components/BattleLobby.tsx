@@ -82,7 +82,7 @@ export function BattleLobby() {
               <div key={i} className="battle-feed-row">
                 <b>{money(it.amount, true)}</b>
                 <span>{it.nick}</span>
-                <small>Bounty from {String(it.memo || '').replace(/^Mystery bounty:\s*/i, '')} · {String(it.created_at).slice(5, 16).replace('T', ' ')}</small>
+                <small>{it.buyin != null ? `Buy-in ${money((it.buyin || 0) + (it.fee || 0))} · ` : ''}{String(it.created_at).slice(5, 16).replace('T', ' ')}</small>
               </div>
             ))}
           </div>

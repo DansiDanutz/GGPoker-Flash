@@ -315,6 +315,7 @@ function init() {
   db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND (mode IS NULL OR mode='STANDARD')");
   try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE transactions ADD COLUMN reference TEXT'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE transactions ADD COLUMN tournament_id TEXT'); } catch { /* already exists */ }
   const refIndex = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_transactions_reference'").get();
   if (refIndex && /WHERE/i.test(refIndex.sql || '')) db.exec('DROP INDEX idx_transactions_reference');
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_reference ON transactions(user_id, reference)");
@@ -634,7 +635,7 @@ export function setSetting(key, value) {
 }
 
 export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', opts = {}) {
-  const { sessionId = null, reference = null, onDuplicate = 'throw' } = opts;
+  const { sessionId = null, reference = null, onDuplicate = 'throw', tournamentId = null } = opts;
   const col = currency === 'PLAY' ? 'play_chips' : currency === 'TICKET' ? 'tickets' : currency === 'GEM' ? 'gems' : 'balance';
   db.exec('BEGIN IMMEDIATE');
   try {
@@ -643,9 +644,9 @@ export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', o
     if (reference) {
       const predicted = row.v + amount;
       const sql = onDuplicate === 'skip'
-        ? `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(user_id,reference) DO NOTHING`
-        : `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference) VALUES (?,?,?,?,?,?,?,?)`;
-      const info = db.prepare(sql).run(userId, kind, currency, amount, predicted, memo || '', sessionId, reference);
+        ? `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,reference) DO NOTHING`
+         : `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id) VALUES (?,?,?,?,?,?,?,?,?)`;
+      const info = db.prepare(sql).run(userId, kind, currency, amount, predicted, memo || '', sessionId, reference, tournamentId);
       if (info.changes === 0) {
         db.exec('COMMIT');
         return { applied: false, balance: row.v };
@@ -656,8 +657,8 @@ export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', o
     }
     db.prepare(`UPDATE users SET ${col} = ${col} + ? WHERE id = ?`).run(amount, userId);
     const after = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId).v;
-    db.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id) VALUES (?,?,?,?,?,?,?)')
-      .run(userId, kind, currency, amount, after, memo || '', sessionId);
+    db.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,tournament_id) VALUES (?,?,?,?,?,?,?,?)')
+      .run(userId, kind, currency, amount, after, memo || '', sessionId, tournamentId);
     db.exec('COMMIT');
     return { applied: true, balance: after };
   } catch (err) {
@@ -666,8 +667,8 @@ export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', o
   }
 }
 
-export function addTransaction(userId, kind, amount, memo, currency = 'USD') {
-  return addTransactionEx(userId, kind, amount, memo, currency).balance;
+export function addTransaction(userId, kind, amount, memo, currency = 'USD', opts = {}) {
+  return addTransactionEx(userId, kind, amount, memo, currency, opts).balance;
 }
 
 export function openSessions() {
