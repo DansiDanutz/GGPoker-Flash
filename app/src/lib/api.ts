@@ -291,7 +291,7 @@ export const api = {
   registerTourney: (id: string) => request(`/api/tournaments/${id}/register`, { method: 'POST' }),
   unregisterTourney: (id: string) => request(`/api/tournaments/${id}/unregister`, { method: 'POST' }),
   cashier: () => request<any>('/api/cashier'),
-  notifications: () => request<{ items: any[]; unread: number }>('/api/notifications'),
+  notifications: (all = false) => request<{ items: any[]; unread: number }>(`/api/notifications${all ? '?all=1' : ''}`),
   elo: (game: string = 'all') => request<{ leaders: any[]; me: any; game: string }>(`/api/elo${game === 'all' ? '' : '?game=' + encodeURIComponent(game)}`),
   reportPlayer: (targetId: number, reason: string, detail: string, handId?: string) => request<any>('/api/reports', { method: 'POST', body: JSON.stringify({ targetId, reason, detail, handId }) }),
   markNotificationsRead: (keys: string[]) => request<any>('/api/notifications/read', { method: 'POST', body: JSON.stringify({ keys }) }),

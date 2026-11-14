@@ -1,3 +1,10 @@
+## 2026-11-14 — Message 043 ported from the reference
+
+- Message centre: Mark All as Read, range counter and pager, dated notice rows,
+  retention note; read history survives via /api/notifications?all=1.
+- Notices carry timestamps; DM/lobby remain under a collapsed Direct messages section.
+- Phones wrap the toolbar and use 40px pager targets.
+
 ## 2026-11-14 — Poker Home ported from reference 001–003
 
 - Home is now the reference feed: 800x250 campaign hero, four 226x234 For You
