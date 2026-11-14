@@ -1934,6 +1934,17 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { winners: rows, mine });
     }
 
+    if (p === '/api/mystery/feed' && req.method === 'GET') {
+      const limit = Math.min(30, Math.max(1, Number(url.searchParams.get('limit')) || 20));
+      const items = db.prepare(`
+        SELECT t.amount, t.memo, t.created_at, u.nick
+        FROM transactions t JOIN users u ON u.id = t.user_id
+        WHERE t.kind = 'mystery_bounty'
+        ORDER BY t.id DESC LIMIT ?`).all(limit);
+      const total = db.prepare("SELECT COALESCE(SUM(amount), 0) AS n FROM transactions WHERE kind = 'mystery_bounty'").get().n;
+      return json(res, 200, { total, items });
+    }
+
     if (p === '/api/games/slot' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
