@@ -14,7 +14,7 @@ const TIERS = [
 
 const fmt = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(0)}K` : String(n);
 
-/** Ocean Rewards level (reference 048): fish hero, TP progress and the tier parchment. */
+/** DanGG Rewards level (reference 048): fish hero, TP progress and the tier parchment. */
 export function OceanLevel({ xp, gems, onAbout }: { xp: number; gems: number; onAbout: () => void }) {
   const idx = Math.max(0, TIERS.reduce((acc, t, i) => (xp >= t.tp ? i : acc), 0));
   const tier = TIERS[idx];
@@ -77,7 +77,7 @@ export function OceanLevel({ xp, gems, onAbout }: { xp: number; gems: number; on
       </div>
 
       <div className="ocean-more">
-        <button type="button" onClick={onAbout}>More about Ocean Rewards ↗</button>
+        <button type="button" onClick={onAbout}>More about DanGG Rewards ↗</button>
       </div>
     </div>
   );

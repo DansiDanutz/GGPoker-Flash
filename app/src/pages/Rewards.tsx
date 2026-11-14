@@ -94,14 +94,14 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
         <div className="mp-wintabs ocean-wintabs" role="tablist" aria-label="Account windows">
           <button type="button" role="tab" onClick={() => navigate('/my-page')}>My Page</button>
           <button type="button" role="tab" onClick={() => navigate('/propbet')}>Prop Bet</button>
-          <button type="button" role="tab" aria-selected="true" className="on" onClick={() => setSection('level')}>Ocean Rewards</button>
+          <button type="button" role="tab" aria-selected="true" className="on" onClick={() => setSection('level')}>DanGG Rewards</button>
           <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
           <button type="button" role="tab" onClick={() => navigate('/settings')}>Game Settings</button>
-          <button type="button" className="mp-close" aria-label="Close Ocean Rewards" onClick={() => navigate('/')}>✕</button>
+          <button type="button" className="mp-close" aria-label="Close DanGG Rewards" onClick={() => navigate('/')}>✕</button>
         </div>
         <div className="mp-body">
-          <aside className="mp-menu" aria-label="Ocean Rewards menu">
-            {([['level', 'My Ocean Level'], ['store', 'GEM Store'], ['about', 'About Ocean Rewards']] as const).map(([key, label]) => (
+          <aside className="mp-menu" aria-label="DanGG Rewards menu">
+            {([['level', 'My Ocean Level'], ['store', 'GEM Store'], ['about', 'About DanGG Rewards']] as const).map(([key, label]) => (
               <button key={key} type="button" className={'mp-menu-item' + (section === key ? ' on' : '')} aria-current={section === key ? 'page' : undefined} onClick={() => setSection(key)}>{label}</button>
             ))}
           </aside>
@@ -110,8 +110,8 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
 
             {section === 'about' && (
               <div className="ocean-about">
-                <h2>About Ocean Rewards</h2>
-                <p>Ocean Rewards turns every hand into progress. Earn TP by playing, climb from Fish to Shark and unlock a higher GEM multiplier and cashback along the way.</p>
+                <h2>About DanGG Rewards</h2>
+                <p>DanGG Rewards turns every hand into progress. Earn TP by playing, climb from Fish to Shark and unlock a higher GEM multiplier and cashback along the way.</p>
                 <div className="ocean-about-grid">
                   <div><b>TP</b><span>Tournament points earned from raked hands and tournaments. The yearly reset keeps the reef competitive.</span></div>
                   <div><b>GEM multiplier</b><span>Multiplies the gems you collect in the GEM Store and from daily play.</span></div>

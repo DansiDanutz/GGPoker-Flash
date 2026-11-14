@@ -1,4 +1,4 @@
-// Rush & Cash Drop rule (P0 slice R4): configured rate, flat BB amount, one ledger row per
+// Fast Fold Drop rule (P0 slice R4): configured rate, flat BB amount, one ledger row per
 // drop, idempotent hand-save retry, and admin settings validation.
 import test from 'node:test';
 import assert from 'node:assert/strict';

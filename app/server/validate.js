@@ -2,7 +2,7 @@
 import { BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
 
 export const GAMES = Object.freeze(['holdem', 'omaha', 'omaha5', 'shortdeck', 'rush', 'rushplo', 'aof', 'spingold', 'battleroyale', 'flipandgo']);
-/** Rush & Cash game ids: Hold'em pools (`rush`) and pot-limit Omaha pools (`rushplo`). */
+/** Fast Fold game ids: Hold'em pools (`rush`) and pot-limit Omaha pools (`rushplo`). */
 export const RUSH_GAMES = Object.freeze(['rush', 'rushplo']);
 /** @param {string} game @returns {boolean} */
 export function isRushGame(game) {
