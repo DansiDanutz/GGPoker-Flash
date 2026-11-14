@@ -36,3 +36,9 @@ test('every phone hero banner ships as WebP and carries spark hues for its live 
     assert.ok(slide.sparkHues.every((h) => h >= 0 && h < 360), `${slide.key}: hues are degrees 0-359`);
   }
 });
+
+test('every promotion card uses its wide WebP strip', () => {
+  for (const card of PROMO_CARDS) {
+    assert.match(card.art, /^\/assets\/promo\/[a-z]+\.webp$/, `${card.key}: card art should be a promo WebP`);
+  }
+});
