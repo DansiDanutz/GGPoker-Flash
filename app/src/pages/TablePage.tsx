@@ -131,6 +131,12 @@ function useNarrowScreen(maxWidth = 760) {
   return narrow;
 }
 
+const BOT_FACES = 20;
+const botFace = (nick?: string | null) => {
+  const sum = [...(nick || 'bot')].reduce((a, c) => a + c.charCodeAt(0), 0);
+  return `/assets/avatars/gg-${String((sum % BOT_FACES) + 1).padStart(2, '0')}.jpg`;
+};
+
 export function TablePage({ tableId }: { tableId: string }) {
   const { user, navigate, toast, setOpeningTable, refreshUser } = useApp();
   const [state, setState] = useState<TableState | null>(null);
@@ -1216,6 +1222,11 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       </div>
       <div className="room-floor" />
+      <div className="table-rotate" role="note">
+        <div className="table-rotate-icon" aria-hidden="true">⟳</div>
+        <b>Rotate your device</b>
+        <span>The table plays in landscape on tablets.</span>
+      </div>
       <div className="felt" />
       <div className="table-watermark" style={{ top: '34%', fontSize: 20, letterSpacing: 5 }}>{state?.name || ''}</div>
       <div className="table-center">
@@ -1358,7 +1369,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="avatar-wrap">
               <img className="seat-ring" src={(p.winAmount || 0) > 0 ? '/assets/table/ring_gold.png' : isActor ? '/assets/table/ring_gold.png' : '/assets/table/ring_silver.png'} alt="" />
               <div className="face">
-                <Avatar name={p.nick || '?'} src={p.avatar} size={54} />
+                <Avatar name={p.nick || '?'} src={p.avatar || (p.isBot ? botFace(p.nick) : undefined)} size={54} />
               </div>
               {p.nick && <span className="vpip-badge" title="VPIP at this table">{vpipOf(seatVpip, p.nick)}</span>}
             </div>

@@ -1,0 +1,141 @@
+/* Table chrome pass: richer felt, seat plates, cards and action bar.
+   Scoped to .table-screen so hand history/replay surfaces keep their own look. */
+
+.table-screen .felt {
+  background:
+    radial-gradient(ellipse at 50% 34%, rgba(255, 246, 214, .14), transparent 46%),
+    radial-gradient(ellipse at 50% 52%, #2f8a60 0%, #1e6a49 40%, #11422d 72%, #061a10 100%);
+  box-shadow:
+    inset 0 0 170px rgba(0, 0, 0, .72),
+    inset 0 1px 0 rgba(255, 255, 255, .18),
+    0 44px 110px rgba(0, 0, 0, .82),
+    0 0 0 3px #2c2416,
+    0 0 0 12px #4b3a20,
+    0 0 0 14px #090603,
+    0 0 0 84px rgba(0, 0, 0, .24);
+}
+/* Slow light sweep inside the felt. */
+.table-screen .felt::before {
+  content: '';
+  position: absolute; inset: 12px; border-radius: 50% / 46%;
+  background:
+    radial-gradient(ellipse at 48% 30%, rgba(255, 255, 255, .06), transparent 52%),
+    repeating-linear-gradient(126deg, rgba(255, 255, 255, .016) 0 1px, transparent 1px 11px),
+    linear-gradient(115deg, transparent 38%, rgba(255, 236, 186, .05) 48%, transparent 58%);
+  background-size: 100% 100%, 100% 100%, 240% 100%;
+  background-position: 0 0, 0 0, 120% 0;
+  animation: feltSheen 14s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes feltSheen {
+  0%, 55% { background-position: 0 0, 0 0, 130% 0; opacity: 0; }
+  65% { opacity: 1; }
+  100% { background-position: 0 0, 0 0, -40% 0; opacity: 0; }
+}
+.table-screen .table-watermark {
+  color: rgba(245, 221, 162, .10);
+  letter-spacing: 9px;
+  text-shadow: 0 0 24px rgba(245, 221, 162, .22);
+}
+
+/* Seat pods: bigger ring, gold hairline plate, stronger hierarchy. */
+.table-screen .seat .avatar-wrap { width: 74px; height: 74px; }
+.table-screen .seat .plate {
+  min-width: 122px; padding: 5px 11px 6px;
+  background: linear-gradient(180deg, rgba(22, 30, 26, .96), rgba(6, 10, 8, .98));
+  border: 1px solid rgba(231, 194, 115, .26);
+  border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.table-screen .seat .plate .nm { font-size: 12.5px; font-weight: 600; color: #f4f1e8; }
+.table-screen .seat .plate .st { font-size: 12.5px; color: #8ee0ad; letter-spacing: .2px; }
+.table-screen .seat.me .plate {
+  border-color: rgba(245, 221, 162, .65);
+  box-shadow: 0 0 0 1px rgba(245, 221, 162, .22), 0 10px 26px rgba(0, 0, 0, .55), 0 0 24px rgba(231, 194, 115, .12);
+}
+.table-screen .seat.active .avatar-wrap { animation: activePulse 1.1s ease-in-out infinite, seatLift .3s var(--spring); }
+@keyframes seatLift { from { transform: translateY(2px) scale(.96); } to { transform: translateY(0) scale(1); } }
+.table-screen .seat.winner .plate { border-color: #ffe4a0; box-shadow: 0 0 0 1px rgba(255, 228, 160, .5), 0 0 30px rgba(255, 213, 120, .35); }
+
+/* Bot/player cards sit a touch smaller than the hero's. */
+.table-screen .seat:not(.me) .cards .pcard.mini { width: 40px; height: 56px; }
+.table-screen .seat.me .cards .pcard.mini { width: 48px; height: 67px; }
+.table-screen .pcard.back {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(245, 221, 162, .22), transparent 58%),
+    repeating-linear-gradient(45deg, #5c1018 0 6px, #7d1b26 6px 12px);
+  border-color: #efe4ca;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .6), inset 0 0 0 2px #400a10;
+}
+.table-screen .pcard { box-shadow: 0 6px 16px rgba(0, 0, 0, .55), 0 1px 0 rgba(255, 255, 255, .5) inset; }
+
+/* Pot and bets. */
+.table-screen .pot-label {
+  background: linear-gradient(180deg, rgba(34, 28, 14, .96), rgba(9, 9, 5, .98));
+  border: 1px solid rgba(231, 194, 115, .45);
+  color: #ffe4ac;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .6), 0 8px 24px rgba(0, 0, 0, .45), 0 0 26px rgba(231, 194, 115, .12);
+}
+.table-screen .seat-bet, .table-screen .bet-chip { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .55)); }
+
+/* Action bar: green call/check, red raise, dark fold; 48px targets. */
+.table-screen .action-bar { padding: 10px 16px 14px; border-top: 1px solid rgba(231, 194, 115, .12); }
+.table-screen .act-btn {
+  height: 48px; border-radius: 10px; font-weight: 800; letter-spacing: .3px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .14);
+}
+.table-screen .act-fold { background: linear-gradient(180deg, #3a403c, #171d19); }
+.table-screen .act-check,
+.table-screen .act-call { background: linear-gradient(180deg, #39b878, #14653f); border-color: rgba(120, 240, 170, .25); }
+.table-screen .act-raise { background: linear-gradient(180deg, #d43a48, #8a1220); border-color: rgba(255, 150, 160, .22); }
+.table-screen .act-allin { background: linear-gradient(180deg, #f0cd76, #a9771a); color: #241a05; }
+.table-screen .act-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
+.table-screen .act-btn:active:not(:disabled) { transform: translateY(1px) scale(.995); }
+.table-screen .bet-slider { height: 8px; border-radius: 4px; }
+
+/* Top bar + win glow. */
+.table-screen .table-topbar { backdrop-filter: blur(12px); }
+.table-screen .win-amount {
+  color: #ffe9b0; text-shadow: 0 0 14px rgba(255, 213, 120, .7), 0 2px 4px rgba(0, 0, 0, .6);
+  animation: winPop .5s var(--spring) both;
+}
+@keyframes winPop { from { transform: translateY(6px) scale(.9); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .table-screen .felt::before, .table-screen .seat.active .avatar-wrap, .table-screen .win-amount { animation: none !important; }
+}
+
+/* Hero hole cards: bigger, gold-warm edge. */
+.table-screen .seat.me .cards .pcard.mini { width: 56px; height: 78px; border-radius: 5px; }
+.table-screen .seat.me .cards .pcard.mini .rank { font-size: 20px; }
+.table-screen .seat.me .cards .pcard.mini .suit { font-size: 24px; }
+.table-screen .seat.me .cards .pcard { box-shadow: 0 10px 24px rgba(0, 0, 0, .6), 0 0 0 1px rgba(245, 221, 162, .25), 0 1px 0 rgba(255, 255, 255, .6) inset; }
+
+/* Room atmosphere: top light + deeper vignette so the felt reads as a lit stage. */
+.table-screen::before {
+  background:
+    radial-gradient(900px 460px at 50% -6%, rgba(70, 150, 112, .16), transparent 64%),
+    radial-gradient(1200px 700px at 50% 42%, transparent 42%, rgba(0, 0, 0, .55) 100%);
+}
+.table-screen::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(600px 300px at 50% 100%, rgba(231, 194, 115, .05), transparent 70%);
+}
+
+/* Tablets in portrait get a clear landscape prompt instead of a squeezed table. */
+.table-rotate { display: none; }
+@media (orientation: portrait) and (min-width: 600px) and (max-width: 1100px) {
+  .table-rotate {
+    display: flex; position: absolute; inset: 0; z-index: 90;
+    flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    background: radial-gradient(ellipse at 50% 40%, #0d2018, #040706 72%);
+    color: #e8e4da; text-align: center; padding: 24px;
+  }
+  .table-rotate-icon { font-size: 46px; color: #e7c273; animation: rotateHint 2.6s ease-in-out infinite; }
+  .table-rotate b { font-size: 20px; }
+  .table-rotate span { color: #9d9a93; font-size: 13px; max-width: 280px; }
+  @keyframes rotateHint { 0%, 40% { transform: rotate(0); } 60%, 100% { transform: rotate(90deg); } }
+}
+@media (prefers-reduced-motion: reduce) { .table-rotate-icon { animation: none !important; } }
