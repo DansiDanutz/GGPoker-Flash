@@ -1,3 +1,11 @@
+## 2026-11-14 — table chrome pass
+
+- Deterministic bot faces, richer felt (sheen, vignette, rim), larger seat pods with
+  gold-hairline plates, refined card backs and hero cards, gold pot pill and 48px
+  green/red action buttons.
+- Tablet portrait shows a rotate prompt instead of a squeezed table.
+- Gameplay and payout motion untouched.
+
 ## 2026-11-14 — motion + material across the app
 
 - View Transitions on every non-table route: outgoing page lifts/blurs out, incoming
