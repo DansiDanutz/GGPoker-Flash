@@ -54,6 +54,8 @@ import { buildHealthSummary, buildPlatformReport } from './admin-platform.js';
 import { advanceRoomLevel } from './tournament-controls.js';
 import { TournamentRoomOwner } from './tournament-room-owner.js';
 import { deleteRoomSnapshot, loadRoomSnapshot, saveRoomSnapshot } from './tournament-state.js';
+import { tournamentGame, tournamentLobby } from './tournament-lobby.js';
+
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
@@ -1091,6 +1093,9 @@ function clearTable(id) {
   CUSTOM_CFG.delete(id);
 }
 
+/** The tournament lobby lists at most this many players (the field can be thousands). */
+const LOBBY_PLAYER_LIMIT = 500;
+
 /** The shared descriptor every flight of one tournament hands to its table. */
 function tournamentDescriptor(t) {
   const bb = Math.max(20, Math.round(Number(t.starting_stack || 10000) / 100));
@@ -1116,7 +1121,7 @@ function tournamentTableConfig(t, tournament, index, seats) {
   return {
     id: flightTableId(t.id, index),
     name: t.name,
-    game: 'holdem',
+    game: tournamentGame(t),
     category: 'Tournament',
     sb: bb,
     bb: bb * 2,
@@ -1592,6 +1597,12 @@ const server = http.createServer(async (req, res) => {
       if (!t) return json(res, 404, { error: 'not found' });
       const room = t.status === 'running' ? TOURNAMENT_ROOMS.get(id) : null;
       const payouts = room ? room.payouts() : payoutTable(t.entrants, prizePoolOf(t), { mode: t.mode, ticket: t.ticket });
+      const registrants = t.status === 'registering'
+        ? db.prepare(`SELECT u.id, u.nick, u.country FROM tourney_regs r JOIN users u ON u.id = r.user_id
+            WHERE r.tournament_id = ? ORDER BY r.created_at, r.rowid LIMIT ?`).all(id, LOBBY_PLAYER_LIMIT)
+        : [];
+      const countryOf = db.prepare('SELECT country FROM users WHERE id = ?');
+      const lobby = tournamentLobby({ t, room, registrants, countryOf: (uid) => countryOf.get(uid)?.country || '' });
       return json(res, 200, {
         tournament: t,
         prizePool: prizePoolOf(t),
@@ -1599,6 +1610,8 @@ const server = http.createServer(async (req, res) => {
         placesPaid: payouts.length,
         bubble: bubblePlace(payouts),
         playersLeft: room ? room.stats().playersLeft : null,
+        ...lobby,
+        players: lobby.players.slice(0, LOBBY_PLAYER_LIMIT),
       });
     }
 
