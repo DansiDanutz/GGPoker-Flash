@@ -223,7 +223,7 @@ export function Login() {
               <span><b>Get the app</b><small>{appCaption}</small></span>
             </button>
           )}
-          <CreatorCredit className="login2-splash-credit" />
+          <CreatorCredit className="login2-splash-credit" withNews />
           <p className="login2-splash-legal">18+ · Play money only · No real-money gambling</p>
         </div>
       </>) : <>
@@ -316,7 +316,7 @@ export function Login() {
             <button type="button" className="login2-demo" onClick={seed}>Use demo account (DansiDanutz)</button>
           )}
 
-          <CreatorCredit className="login2-card-credit" />
+          <CreatorCredit className="login2-card-credit" withNews />
           <p className="login2-foot-note">18+ only. Play money only. No real money, deposits or cash value.</p>
           <p className="login2-version">v{APP_VERSION} · build {buildLabel(APP_BUILD)}</p>
         </div>
