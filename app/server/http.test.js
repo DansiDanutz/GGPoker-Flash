@@ -680,3 +680,16 @@ test('notification history keeps read items when ?all=1 and clears the unread fe
     fs.rmSync(data, { recursive: true, force: true });
   }
 });
+
+test('mystery bounty feed reports a total and an empty list on a fresh room', async () => {
+  const { child, port, data } = await startServer();
+  try {
+    const feed = await fetch(`http://127.0.0.1:${port}/api/mystery/feed`).then((r) => r.json());
+    assert.equal(feed.total, 0);
+    assert.ok(Array.isArray(feed.items));
+    assert.equal(feed.items.length, 0);
+  } finally {
+    child.kill();
+    fs.rmSync(data, { recursive: true, force: true });
+  }
+});

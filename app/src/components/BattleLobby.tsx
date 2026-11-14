@@ -12,11 +12,16 @@ const NOTES = [
 export function BattleLobby() {
   const { navigate } = useApp();
   const [events, setEvents] = useState<any[] | null>(null);
+  const [feed, setFeed] = useState<{ total: number; items: any[] }>({ total: 0, items: [] });
 
   useEffect(() => {
     api.tournaments()
       .then((r) => setEvents((r.tournaments || []).filter((t: any) => String(t.mode).toUpperCase() === 'MYSTERY' || /mystery/i.test(t.name))))
       .catch(() => setEvents([]));
+  }, []);
+
+  useEffect(() => {
+    api.mysteryFeed().then(setFeed).catch(() => {});
   }, []);
 
   const groups = useMemo(() => {
@@ -69,7 +74,20 @@ export function BattleLobby() {
       </div>
 
       <aside className="battle-side">
-        <div className="battle-side-head">Mystery prize pools</div>
+        <div className="battle-side-head">Epic Mystery Jackpot Bounties</div>
+        <div className="battle-total">{money(feed.total || 0, true)}</div>
+        {!!feed.items.length && (
+          <div className="battle-feed">
+            {feed.items.map((it, i) => (
+              <div key={i} className="battle-feed-row">
+                <b>{money(it.amount, true)}</b>
+                <span>{it.nick}</span>
+                <small>Bounty from {String(it.memo || '').replace(/^Mystery bounty:\s*/i, '')} · {String(it.created_at).slice(5, 16).replace('T', ' ')}</small>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="battle-side-sub">Mystery prize pools</div>
         {top.map((t) => (
           <button key={t.id} type="button" className="battle-pool" onClick={() => navigate(`/tournaments?id=${encodeURIComponent(t.id)}`)}>
             <b>{money(t.gtd || 0, true)}</b>

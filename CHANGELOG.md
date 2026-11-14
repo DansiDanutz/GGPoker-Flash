@@ -1,3 +1,10 @@
+## 2026-11-14 — live mystery bounty feed
+
+- GET /api/mystery/feed returns recent mystery-bounty payouts + all-time total from the
+  real ledger; Battle Royale right rail shows “Epic Mystery Jackpot Bounties”.
+- Prize-pool schedule stays below the feed; empty state never invents winners.
+- New HTTP test covers the endpoint.
+
 ## 2026-11-14 — CI stability + table seat flags
 
 - Quick-fold socket test polls for up to 60s (was 20s) with a 150s timeout, removing the
