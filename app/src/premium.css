@@ -346,3 +346,27 @@ body::before {
 .admin-table thead th { background: linear-gradient(180deg, #24242a, #1a1a1f); }
 .admin-table tbody tr { transition: background .16s ease; }
 .admin-table tbody tr:hover { background: rgba(231, 194, 115, .06); }
+
+/* ---------- Game Settings window (reference 050) ---------- */
+.settings-window .mp-pane { padding: 18px 22px 0; }
+.settings-title { margin: 0 0 4px; font-size: 22px; font-weight: 800; letter-spacing: -.3px; color: #f6f0e2; }
+.settings-hint { margin: 0 0 14px; color: #8f8b84; font-size: 11.5px; }
+.settings-pane { display: flex; flex-direction: column; }
+.settings-pane > .settings-form, .settings-pane > div { min-height: 0; }
+.settings-actions {
+  position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 8px;
+  margin: 18px -22px 0; padding: 12px 22px; border-top: 1px solid rgba(231, 194, 115, .14);
+  background: linear-gradient(180deg, rgba(20, 20, 23, .86), rgba(12, 12, 14, .98));
+  backdrop-filter: blur(10px);
+}
+@media (max-width: 760px) {
+  .settings-window .mp-pane { padding: 12px 12px 0; }
+  .settings-actions { margin: 14px -12px 0; padding: 10px 12px; }
+  .settings-title { font-size: 18px; }
+}
+
+/* Game Settings is the active red plate in the reference window. */
+.settings-window .mp-wintabs button.on {
+  background: linear-gradient(180deg, #c52b38, #8d1420);
+  color: #fff; box-shadow: inset 0 1px rgba(255, 255, 255, .18), 0 0 0 1px rgba(245, 221, 162, .25);
+}

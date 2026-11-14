@@ -1,3 +1,9 @@
+## 2026-11-14 — Game Settings 050 ported from the reference
+
+- Settings is the reference account window: window tabs with Game Settings active red,
+  six-group left menu, titled pane and sticky Cancel/Apply/OK bar.
+- All draft/apply/cancel, sound preview and hotkey-capture behaviour preserved.
+
 ## 2026-11-14 — table chrome pass
 
 - Deterministic bot faces, richer felt (sheen, vignette, rim), larger seat pods with
