@@ -1,3 +1,11 @@
+## 2026-11-14 — My Page 038 ported from the reference
+
+- Account window: top tabs, 240px left menu, My Game Profile pane with nickname and a
+  seven-column avatar picker (20 reference portraits), Apply.
+- Preset avatar paths are stored as paths; the endpoint whitelists them and still
+  rejects arbitrary paths. New HTTP test covers both.
+- Responsive: 240/200px menu, 7/5/4-column grid, horizontal menu on phones.
+
 ## 2026-11-14 — global account rail
 
 - The 112px account rail is now a shared component rendered by PageShell on every

@@ -1,0 +1,21 @@
+import puppeteer from 'puppeteer-core';
+const BASE='http://127.0.0.1:5198';
+const login=await fetch(`${BASE}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'DansiDanutz',password:'ggpoker'})}).then(r=>r.json());
+const b=await puppeteer.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:'new',args:['--no-sandbox']});
+const p=await b.newPage(); await p.setViewport({width:1200,height:958});
+await p.evaluateOnNewDocument(t=>{localStorage.setItem('ggpoker.token',t);localStorage.setItem('ggpoker.welcomeSeen','1');sessionStorage.setItem('ggpoker.entered','1')},login.token);
+await p.goto(BASE+'/#/my-page',{waitUntil:'networkidle2'});
+await p.waitForFunction(()=>document.querySelector('.mpp-grid'),{timeout:20000});
+const before=await p.evaluate(()=>document.querySelector('.mpp-portrait img')?.getAttribute('src'));
+await p.click('[aria-label="Billy"]');
+await new Promise(r=>setTimeout(r,150));
+const applyEnabled=await p.evaluate(()=>!document.querySelector('.mpp-apply').disabled);
+await p.click('.mpp-apply');
+await new Promise(r=>setTimeout(r,1200));
+const me=await fetch(`${BASE}/api/me`,{headers:{authorization:`Bearer ${login.token}`}}).then(r=>r.json());
+console.log(JSON.stringify({before, applyEnabled, savedAvatar: me.user?.avatar, savedNick: me.user?.nick}));
+// Category filter
+await p.click('.mpp-chip:nth-child(5)');
+const chips=await p.evaluate(()=>({active:document.querySelector('.mpp-chip.on')?.textContent, cells:document.querySelectorAll('.mpp-cell').length}));
+console.log(JSON.stringify({filter:chips}));
+await b.close();
