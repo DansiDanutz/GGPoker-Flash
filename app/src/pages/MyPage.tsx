@@ -8,6 +8,7 @@ import { sound } from '../lib/sound';
 import { PageShell } from '../components/PageShell';
 import { ProfilePane } from '../components/mypage/ProfilePane';
 import { WalletPane } from '../components/mypage/WalletPane';
+import { TransactionsPane } from '../components/mypage/TransactionsPane';
 import { Avatar } from '../components/Avatar';
 
 const TABS = [
@@ -212,23 +213,7 @@ export function MyPage() {
           </div>
         )}
 
-        {tab === 'transactions' && (
-          <div className="card" style={{ padding: 0 }}>
-            <table className="admin-table">
-              <thead><tr><th>#</th><th>Type</th><th>Amount</th><th>Balance after</th><th>Memo</th><th>Date</th></tr></thead>
-              <tbody>
-                {tx.map((t) => (
-                  <tr key={t.id}>
-                    <td>{t.id}</td><td style={{ textTransform: 'capitalize' }}>{t.kind.replace(/_/g, ' ')}</td>
-                    <td style={{ color: t.amount >= 0 ? '#7fe0a0' : '#ff9a9a' }}>{t.amount >= 0 ? '+' : ''}{money(t.amount)}</td>
-                    <td>{money(t.balance_after)}</td><td className="muted">{t.memo}</td><td className="muted">{t.created_at}</td>
-                  </tr>
-                ))}
-                {!tx.length && <tr><td colSpan={6} className="empty-state">No transactions yet.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {tab === 'transactions' && <TransactionsPane />}
 
         {tab === 'tickets' && (
           <div className="grid g3">

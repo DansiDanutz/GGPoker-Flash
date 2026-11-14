@@ -1,9 +1,10 @@
-## 2026-11-14 — Tournaments 020 ported from the reference
+## 2026-11-14 — Transaction History 042 ported from the reference
 
-- Reference series tab strip (eight cropped tabs), filter chips, dense
-  Start/Event/Buy-in/Players/Prize table with search, mode-coloured rows and the
-  right-hand buy-in filter + summary + Lobby/Register panel.
-- Desktop only; the phone keeps MobileEvents. 112px account column reserved.
+- Ledger with currency tabs, Date & Time / Description / Amount / Available / Category,
+  signed amounts and a 10-row pager.
+- Phones get a stacked ledger instead of a horizontally scrolling table; 44px pager.
+- Rows sorted by timestamp, category labels derived from ledger kinds.
+
 ## 2026-11-14 — My Wallet 040 ported from the reference
 
 - Wallet pane inside the My Page window: Refresh, four balance cards, Ticket row,
