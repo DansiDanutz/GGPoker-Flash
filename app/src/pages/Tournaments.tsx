@@ -7,7 +7,7 @@ import { Countdown, PageShell } from '../components/PageShell';
 import { MobileEvents } from '../components/mobile/MobileEvents';
 import { MobileShell } from '../components/mobile/MobileShell';
 import { useIsPhone } from '../lib/useIsPhone';
-import { TournamentCategoryRail, TournamentFilterBar } from '../components/TournamentFilterBar';
+import { TournamentReferenceList } from '../components/tournaments/TournamentReferenceList';
 import {
   emptyTournamentMessage, filterTournaments, phaseOf, PHASE_LABEL, readTournamentFilters, resetTournamentFilters,
   TournamentFilters, tournamentFilterCount, withTournamentFilters, writeTournamentFilters,
@@ -143,86 +143,18 @@ export function Tournaments() {
       /></MobileShell>
     ) : (
     <PageShell activeTop="tournaments">
-      <div className="page">
-        <div className="tourney-hero">
-          <div className="th-bg" style={SERIES_ART[filters.category] ? { backgroundImage: `url(${SERIES_ART[filters.category]})` } : undefined} />
-          <div className="th-content">
-            <div className="th-kicker">TOURNAMENT SERIES</div>
-            <h1>{featured?.name || 'Daily Chip Flipout'}</h1>
-            <div className="th-meta">
-              <div><span>Guaranteed</span><b>{money(featured?.gtd || 10000000, true)}</b></div>
-              <div><span>Buy-in</span><b>{featured ? money(featured.buyin + featured.fee) : '$27.50'}</b></div>
-              <div><span>Entrants</span><b>{(featured?.entrants || 0).toLocaleString()}</b></div>
-              <div><span>Starts in</span><b>{featured ? <Countdown to={featured.start_at} /> : '—'}</b></div>
-            </div>
-            {featured && (
-              <button className="btn btn-gold" onClick={() => setDetail(featured)} style={{ marginTop: 12 }}>
-                View tournament
-              </button>
-            )}
-          </div>
-        </div>
-
-        <TournamentCategoryRail active={filters.category} onChange={(category) => updateFilters({ category })} />
-
-        <div className="tourney-toolbar">
-          <div className="panel-title" style={{ margin: 0 }}>Upcoming tournaments <small>{list.length} events</small></div>
-          <div className="row">
-            <span className="muted small">Balance</span>
-            <b className="gold">{money(user?.balance ?? 0)}</b>
-          </div>
-        </div>
-
-        <TournamentFilterBar filters={filters} onChange={updateFilters} onReset={resetFilters} />
-
-        <div className="tourney-list">
-          <div className="tourney-row head">
-            <div>Start</div><div>Tournament</div><div>Buy-in</div><div>GTD</div><div>Entrants</div><div>Status</div><div />
-          </div>
-          {list.map((t: any) => {
-            const isReg = registered.includes(t.id);
-            return (
-              <div key={t.id} className="tourney-row" onClick={() => { setDetail(t); setDetailTab('overview'); }}>
-                <div className={'t-time phase-' + phaseOf(t, Date.now())}>
-                  {new Date(t.start_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                  <small>{new Date(t.start_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</small>
-                </div>
-                <div className={'t-name fmt-' + String(t.format || 'nlh').toLowerCase() + ' mode-' + String(t.mode || 'standard').toLowerCase().replace(/[^a-z]+/g, '-')}>
-                  <span className={'chip-dot ' + (t.buyin >= 10000 ? 'diamond' : t.buyin >= 3000 ? 'platinum' : 'gold')} />
-                  <div>
-                    <b>{t.name}</b>
-                    <small>{t.mode && t.mode !== 'STANDARD' ? `${t.mode} · ` : ''}{t.format} · {t.starting_stack.toLocaleString()} chips · {t.blind_speed} min blinds</small>
-                  </div>
-                </div>
-                <div className="t-buyin">{t.buyin === 0 ? 'Freeroll' : money(t.buyin + t.fee)}</div>
-                <div className="t-gtd">{money(t.gtd, true)}</div>
-                <div className="t-entrants">{(t.entrants || 0).toLocaleString()}</div>
-                <div><span className={'tag ' + (t.status === 'running' ? 'live' : 'reg')}>{PHASE_LABEL[phaseOf(t, Date.now())]}</span></div>
-                <div style={{ textAlign: 'right' }}>
-                  {isReg ? (
-                    <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
-                      <button className="btn btn-gold btn-sm" disabled={busy === t.id} onClick={(e) => { e.stopPropagation(); play(t); }}>Play</button>
-                      <button className="btn btn-ghost btn-sm" disabled={busy === t.id} onClick={(e) => { e.stopPropagation(); unregister(t); }}>Unreg</button>
-                    </div>
-                  ) : (
-                    <button className="btn btn-red btn-sm" disabled={busy === t.id} onClick={(e) => { e.stopPropagation(); register(t); }}>Register</button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          {data && !list.length && (
-            <div className="empty-state">
-              <div>
-                <p>{emptyTournamentMessage(filters)}</p>
-                {tournamentFilterCount(filters) > 0 && (
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={resetFilters}>Reset filters</button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      <TournamentReferenceList
+        list={list}
+        registered={registered}
+        busy={busy}
+        filters={filters}
+        onChange={updateFilters}
+        onReset={resetFilters}
+        onLobby={(t) => { setDetail(t); setDetailTab('overview'); }}
+        onRegister={register}
+        onPlay={play}
+        balance={user?.balance ?? 0}
+      />
     </PageShell>
     )}
 

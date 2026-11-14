@@ -1,3 +1,10 @@
+## 2026-11-14 — Tournaments 020 ported from the reference
+
+- Reference series tab strip (eight cropped tabs), filter chips, dense
+  Start/Event/Buy-in/Players/Prize table with search, mode-coloured rows and the
+  right-hand buy-in filter + summary + Lobby/Register panel.
+- Desktop only; the phone keeps MobileEvents. 112px account column reserved.
+
 ## 2026-11-14 — phone checklist pass (round 4b)
 
 - Dedicated 780x420 phone banner art; hero capped at min(186px, 30dvh) with live text
