@@ -119,6 +119,7 @@
   .mg { padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
   .mg-row { display: grid; gap: 10px; width: 100%; padding: 16px var(--ph-pad) 18px; border-bottom: 1px solid var(--ph-line); }
   .mg-top { display: flex; align-items: center; gap: 18px; }
+  .mg-icon { flex: 0 0 auto; width: 66px; height: 66px; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .55)); }
   .mg-top b { font-size: 26px; font-weight: 600; color: #fff; }
   .mg-pills { display: flex; flex-wrap: nowrap; gap: 8px; min-width: 0; }
   .mg-pills i {
@@ -207,6 +208,7 @@
   .mc-hero em { color: #c9c9ce; font-size: 12px; font-style: normal; }
   .mc-row { display: grid; grid-template-columns: 118px 1fr; gap: 16px; align-items: center; width: calc(100% - 2 * var(--ph-pad)); margin: 0 var(--ph-pad); padding: 18px 0; border-bottom: 1px solid var(--ph-line); }
   .mc-art { display: grid; justify-items: center; gap: 8px; }
+  .mc-icon { width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .55)); }
   .mc-pill { display: inline-flex; align-items: center; height: 30px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--ph-gold-dim); color: var(--ph-gold); font-size: 14px; font-style: normal; font-weight: 600; }
   .mc-copy { display: grid; gap: 6px; min-width: 0; }
   .mc-copy b { font-size: 27px; font-weight: 600; color: #fff; }
@@ -379,6 +381,7 @@
 
   .p-list { display: flex; flex-direction: column; gap: 6px; padding: 0 12px; }
   .p-table, .p-casino-row {
+  .p-casino-icon { flex: 0 0 auto; width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .5)); }
     display: flex; align-items: center; gap: 10px; min-height: 62px; padding: 8px 10px; border-radius: 10px;
     background: #131315; border: 1px solid #202024; color: #eee; text-align: left;
   }
