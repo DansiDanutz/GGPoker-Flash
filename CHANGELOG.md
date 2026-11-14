@@ -1,3 +1,11 @@
+## 2026-11-14 — premium motion + depth pass
+
+- Jackpot count-up, hero ken-burns with motes/foil, staggered blur-to-focus section
+  reveals, 3D tilt + specular glare on cards, hover lift, ambient bokeh and a cursor
+  spotlight on Home.
+- Layered gold-hairline surfaces, gradient section titles, breathing jackpot edge,
+  global focus ring and press feedback; everything disabled under reduced motion.
+
 ## 2026-11-14 — Cashier 070 ported from the reference
 
 - Light payment window with balance strip, Deposit/Withdraw/History tabs, Card and

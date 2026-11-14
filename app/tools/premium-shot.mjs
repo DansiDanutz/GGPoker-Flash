@@ -1,0 +1,31 @@
+import puppeteer from 'puppeteer-core';
+import fs from 'node:fs';
+const BASE='http://127.0.0.1:5198';
+const OUT='/Users/davidai/Desktop/DavidAi/GGPoker-flash/.r4/docs/screenshots/premium';
+fs.mkdirSync(OUT,{recursive:true});
+const {token}=await fetch(`${BASE}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'DansiDanutz',password:'ggpoker'})}).then(r=>r.json());
+const b=await puppeteer.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:'new',args:['--no-sandbox']});
+const p=await b.newPage(); await p.setViewport({width:1200,height:958});
+await p.evaluateOnNewDocument(t=>{localStorage.setItem('ggpoker.token',t);localStorage.setItem('ggpoker.welcomeSeen','1');sessionStorage.setItem('ggpoker.entered','1')},token);
+await p.goto(BASE+'/#/',{waitUntil:'networkidle2'});
+await p.waitForFunction(()=>document.querySelector('.hf-foryou'),{timeout:20000});
+await new Promise(r=>setTimeout(r,2200));
+await p.screenshot({path:`${OUT}/1200-home.png`});
+// hover a For You card and tilt it
+const card=await p.$('.hf-foryou:nth-child(3)');
+const box=await card.boundingBox();
+await p.mouse.move(box.x+box.width*0.72, box.y+box.height*0.3);
+await new Promise(r=>setTimeout(r,550));
+await p.screenshot({path:`${OUT}/1200-tilt.png`});
+const vars=await p.evaluate(()=>{const el=document.querySelector('.hf-foryou:nth-child(3)');return {rx:el.style.getPropertyValue('--rx'),ry:el.style.getPropertyValue('--ry'),mx:el.style.getPropertyValue('--mx')}});
+console.log('tilt', JSON.stringify(vars));
+// reduced motion
+const p2=await b.newPage(); await p2.setViewport({width:1200,height:958});
+await p2.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);
+await p2.evaluateOnNewDocument(t=>{localStorage.setItem('ggpoker.token',t);localStorage.setItem('ggpoker.welcomeSeen','1');sessionStorage.setItem('ggpoker.entered','1')},token);
+await p2.goto(BASE+'/#/',{waitUntil:'networkidle2'});
+await p2.waitForFunction(()=>document.querySelector('.hf-foryou'),{timeout:20000});
+const anim=await p2.evaluate(()=>getComputedStyle(document.querySelector('.hf-hero')).animationName);
+console.log('reduced hero animation', anim);
+await p2.screenshot({path:`${OUT}/1200-reduced.png`});
+await b.close();

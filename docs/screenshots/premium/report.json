@@ -1,0 +1,26 @@
+[
+  {
+    "width": 390,
+    "route": "/",
+    "file": "0390-lobby.png",
+    "text": "$10,020.00 EVERY DAY · PLAY CHIPS Daily Chip Flipout Join now → BAD BEAT JACKPOT",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 768,
+    "route": "/",
+    "file": "0768-lobby.png",
+    "text": "191,444 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO 5 Ends in 16 days For You ",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1440,
+    "route": "/",
+    "file": "1440-lobby.png",
+    "text": "191,483 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  }
+]
