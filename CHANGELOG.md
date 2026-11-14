@@ -1,3 +1,10 @@
+## 2026-11-14 — Cashier 070 ported from the reference
+
+- Light payment window with balance strip, Deposit/Withdraw/History tabs, Card and
+  E-Wallet methods, green Next and amount step; deposits post to the real ledger.
+- Transaction history is newest-first, currency-aware and exportable.
+- Withdraw is disabled with a play-money explanation (real cash-out is out of scope).
+
 ## 2026-11-14 — Ocean Rewards 048 ported from the reference
 
 - /rewards is the Ocean Rewards account window: window tabs, left menu, underwater
