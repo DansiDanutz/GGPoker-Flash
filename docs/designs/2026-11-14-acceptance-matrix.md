@@ -61,3 +61,38 @@ hero, quick actions, bottom tab bar), **0 px overflow**. Evidence:
 
 `app/tools/audit.mjs` runs the 63-combination overflow check, the keyboard walk and the
 200 % zoom capture. `app/tools/shots.mjs` produces the per-width captures.
+
+---
+
+## Round-19 refresh
+
+Re-ran `app/tools/audit.mjs` against `origin/main` @ `2ab0d85`:
+
+- **63 combinations, 0 failures** — `documentElement` and `body` overflow delta 0 at
+  320/390/430/768/1024/1440/1920 on all nine routes.
+- **14 keyboard stops**, all visible, all with the 2 px focus outline.
+- **200 % zoom** (720 CSS px): 0 px overflow, reflows to the phone shell
+  (`audit-r14/zoom-200-home.png`; same layout at this revision).
+
+### Sections closed since the first matrix
+
+| Section | State | Evidence |
+|---|---|---|
+| Slots catalogue | **4-up shelf** | `desk-pass/compare-slots.png` |
+| Casino | **sectioned hub** | `desk-pass/compare-casino.png` |
+| Tournament details | **docked Filters/Details panel** | `desk-pass/compare-tourn-details.png` |
+| Spin & Gold | **stone-tile lobby + real prize ladder** | `desk-pass/compare-spin.png` |
+| Mystery Battle Royale | **dedicated lobby + 5 seeded tiers** | `desk-pass/compare-battle.png` |
+| Mystery bounties | **live feed from ledger, buy-in per reveal** | `desk-pass/compare-battle.png` |
+| Tournament table | **HUD: level, blinds, next level, field, pool, bounty** | `desk-pass/compare-tourn-hud.png` |
+| Table seats | **country flags** | `table-shots/1200-final.png` |
+| CI | **quick-fold flake fixed (60 s poll)** | 3 consecutive local runs + green CI |
+
+### Still open
+
+1. Cash-lobby promotion column + live seated-player panel (no promotional or seat-name
+   payload for idle tables).
+2. Settings split into the reference's twelve granular pages (currently six groups).
+3. Table pod LIVE badge (no stream/live flag in seat state).
+4. Prop Bet, cash-rules and tournament-variant screens (not yet implemented).
+5. Live-dealer casino and real-money withdrawal remain out of scope by design.
