@@ -32,6 +32,7 @@ import './battle.css';
 import './motion.css';
 import './table-stage.css';
 import './table-options.css';
+import './table-art.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>

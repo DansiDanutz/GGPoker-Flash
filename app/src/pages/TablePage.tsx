@@ -43,6 +43,8 @@ import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddleP
 import { runChoice, runsLabel, type RunAsk } from '../game/runChoice';
 import { inward, seatLayout, type Spot } from '../game/tableStage';
 import { TableOptionsSheet } from '../components/table/TableOptionsSheet';
+import { SeatDock } from '../components/table/SeatDock';
+import { dockItems, seatStatusArt, type DockKey } from '../game/tableArt';
 import { useTableStage } from '../components/table/useTableStage';
 import { BAD_BEAT_BANNER_MS, badBeatRows, type BadBeatHit } from '../game/badBeat';
 import { TB_CARD_SECONDS } from '../game/timeBankRules';
@@ -1234,6 +1236,22 @@ export function TablePage({ tableId }: { tableId: string }) {
         onBetPrefs={saveBetPrefs}
       />
 
+      <SeatDock
+        items={dockItems({ seated: !!me && !observing, cash: !state?.tournament && !state?.spin, straddleAllowed: !!state?.straddle })}
+        active={{ straddle: !!me?.autoStraddle, sitoutHand: sittingOut || sitOutNext, sitoutBB: !!me?.sitOutNextBigBlind }}
+        disabled={{ addChips: !canAddChips }}
+        onPick={(key: DockKey) => {
+          if (key === 'straddle') send({ type: 'option', tableId, autoStraddle: !me?.autoStraddle });
+          else if (key === 'sitoutHand') {
+            const value = !(sittingOut || sitOutNext);
+            send({ type: 'sit_out', value });
+            toast({ kind: 'info', title: value ? 'Sitting out next hand' : sittingOut ? 'Sitting back in' : 'Sit out cancelled' });
+          } else if (key === 'sitoutBB') send({ type: 'option', tableId, sitOutNextBigBlind: !me?.sitOutNextBigBlind });
+          else if (key === 'addChips') openAddChips();
+          else if (key === 'history') navigate('/hand-history');
+        }}
+      />
+
       <div className="room-mark" />
       <div className="room-ambient" aria-hidden="true">
         <span className="room-light l1" />
@@ -1399,6 +1417,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 <Avatar name={p.nick || '?'} src={p.avatar || (p.isBot ? botFace(p.nick) : undefined)} size={54} />
               </div>
               {p.nick && <span className="vpip-badge" title="VPIP at this table">{vpipOf(seatVpip, p.nick)}</span>}
+              {(() => { const art = seatStatusArt(p); return art ? <img className="seat-status" src={art} alt="" aria-hidden="true" /> : null; })()}
             </div>
             <div className="plate">
               <div className="nm" title={p.nick || undefined}>
