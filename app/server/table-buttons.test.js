@@ -31,19 +31,22 @@ test('when it is not your turn the buttons keep their colours but are clearly gr
   assert.match(rule(css(), '.table-screen .action-bar .act-btn:disabled'), /filter: saturate\(\.25\) brightness\(\.62\);/);
 });
 
-test('bet presets are cream chips with dark text, and Chat/React are light pills', () => {
+test('bet presets are cream chips with dark text, and the side icons sit on ringed discs', () => {
   const s = css();
   assert.match(rule(s, '.table-screen .action-bar .quick-bets button'), /background: linear-gradient\(#fbefcc, #e2c47a\); color: #1d1405;/);
-  assert.match(rule(s, '.table-screen .tchat-toggle'), /background: #f4ead2;[^}]*color: #1a1408;/);
   assert.match(rule(s, '.table-screen .dock-btn'), /box-shadow: 0 0 0 2px #e8b84a/);
 });
 
-test('Chat and React are round icon buttons (speech bubble, smiley) that keep their names for screen readers', () => {
+test('Chat and React are round chip icon buttons like the time bank (speech bubble, smiley) that keep their names for screen readers', () => {
   const chat = read('src/components/table/TableChat.tsx');
   const toggles = chat.slice(chat.indexOf('<div className="tchat-buttons">'));
   assert.match(toggles, /aria-label=\{unread \? `Chat, \$\{unread\} unread` : 'Chat'\}/);
   assert.match(toggles, /aria-label="React"/);
   assert.equal((toggles.match(/<svg className="tchat-icon"/g) || []).length, 2, 'both buttons draw an icon');
   assert.doesNotMatch(toggles, />\s*Chat\s*\{|>React<\/button>/, 'no text label is drawn');
-  assert.match(rule(css(), '.table-screen .tchat-toggle'), /width: 40px; height: 40px; padding: 0; border-radius: 50%;/);
+  // Drawn like the time-bank chip: same 46px, gold and black striped edge, dark centre, gold icon.
+  const chip = rule(css(), '.table-screen .tchat-toggle');
+  assert.match(chip, /width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%;/);
+  assert.match(chip, /repeating-conic-gradient\(#e8b84a 0 20deg, #231c12 20deg 30deg\)/);
+  assert.match(chip, /color: #f3c75a;/);
 });

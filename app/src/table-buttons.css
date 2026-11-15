@@ -40,17 +40,24 @@
 }
 .table-screen .action-bar .quick-bets button:disabled { filter: saturate(.3) brightness(.6); box-shadow: none; }
 
-/* Chat / React: round light icon buttons (speech bubble, smiley) that stand off the felt. */
+/* Chat / React: round poker-chip icon buttons in the same style as the time-bank chip: a gold and
+   black striped edge, a dark centre and a gold icon (speech bubble, smiley), at the same 46px. */
 .table-screen .tchat-toggle {
-  width: 40px; height: 40px; padding: 0; border-radius: 50%;
+  width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
-  background: #f4ead2; border: 2px solid #fff; color: #1a1408; font-weight: 800;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, .55);
+  background:
+    radial-gradient(circle, #1b1712 0 57%, #8a6420 58% 61%, transparent 62%),
+    repeating-conic-gradient(#e8b84a 0 20deg, #231c12 20deg 30deg);
+  color: #f3c75a;
+  box-shadow: 0 0 0 1.5px #8a6420, 0 4px 10px rgba(0, 0, 0, .6);
 }
-.table-screen .tchat-toggle .tchat-icon { width: 24px; height: 24px; display: block; }
+.table-screen .tchat-toggle .tchat-icon { width: 22px; height: 22px; display: block; }
 .table-screen .tchat-toggle .tchat-badge { position: absolute; top: -4px; right: -4px; }
 .table-screen .tchat-toggle:hover:not(:disabled),
-.table-screen .tchat-toggle[aria-expanded="true"] { background: #ffe07a; border-color: #fff4c4; color: #231400; }
+.table-screen .tchat-toggle[aria-expanded="true"] {
+  color: #ffe9a8; box-shadow: 0 0 0 2px #ffd36a, 0 0 14px rgba(255, 196, 70, .7);
+}
+.table-screen .tchat-toggle:disabled { opacity: .45; }
 
 /* Side icons (sit out, add chips, history): a dark disc with a gold ring behind each icon. */
 .table-screen .dock-btn {
