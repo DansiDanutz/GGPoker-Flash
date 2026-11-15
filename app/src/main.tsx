@@ -45,6 +45,7 @@ import './table-tips.css';
 import './table-reactions.css';
 import './table-phone-pots.css';
 import './table-phone-clock.css';
+import './table-phone-win.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>
