@@ -4,6 +4,7 @@
 // dialog.
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { sound } from './sound';
+import { reactionFx } from '../game/reactionFx';
 import {
   chatLineFrom, chatReducer, INITIAL_CHAT, isDealerLine, reactionLineFrom, SEAT_BUBBLE_MS, SEAT_REACTION_MS,
   type ChatAction, type ChatLine, type ChatState, type ReactionId,
@@ -61,8 +62,12 @@ export function createTableChatStore() {
     if (muted.has(line.userId)) return;
     dispatch({ type: 'append', line, own: line.userId === selfId });
     showOnSeat(line);
-    if (line.kind === 'reaction') sound.play('bubble', { volume: .55 });
-    else sound.play('click', { volume: .35 });
+    if (line.kind === 'reaction') {
+      const { sound: key, volume } = reactionFx(line.reactionId ?? 0);
+      sound.play(key, { volume });
+    } else {
+      sound.play('click', { volume: .35 });
+    }
   };
 
   return {

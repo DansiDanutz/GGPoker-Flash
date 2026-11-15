@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { useSeatFx, type TableChatStore } from '../../lib/useTableChat';
 import { ReactionArt } from './ReactionPicker';
+import { reactionFx } from '../../game/reactionFx';
 
 type Props = {
   store: TableChatStore;
@@ -19,7 +20,9 @@ export const SeatReaction = memo(function SeatReaction({ store, userId, showBubb
     <>
       {showReactions && reaction && (
         <div key={reaction.key} className="seat-reaction" role="img" aria-label={`Reaction: ${reaction.label}`}>
-          <ReactionArt id={reaction.id} label={reaction.label} size="seat" />
+          <span className={`reaction-fx reaction-fx-${reactionFx(reaction.id).anim}`}>
+            <ReactionArt id={reaction.id} label={reaction.label} size="seat" />
+          </span>
         </div>
       )}
       {showBubbles && bubble && (
