@@ -127,3 +127,9 @@ test('chat and reactions stack one on top of the other in the corner', () => {
 test('the chat corner always clears the bottom bar, even the taller sitting-out panel', () => {
   assert.match(css(), /\.tchat-dock \{[^}]*bottom: calc\(max\(var\(--phone-bar-h\), var\(--action-bar-h, 0px\)\) \+ 8px\)/);
 });
+
+test('the chat and reaction toggles match the charcoal buttons instead of gold chips', () => {
+  assert.match(css(), /\.table-screen \.tchat-buttons \.tchat-toggle \{[^}]*background: linear-gradient\(#343434, #262626\)/);
+  assert.match(css(), /\.tchat-toggle \.tchat-icon \[fill="#fbefcc"\] \{ fill: #262626; \}/);
+  assert.match(css(), /\.tchat-toggle\[aria-expanded="true"\] \{[^}]*#fde056/);
+});
