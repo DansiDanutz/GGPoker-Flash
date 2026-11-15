@@ -127,6 +127,8 @@ function useNarrowScreen(maxWidth = 760) {
   return narrow;
 }
 
+/** Blind posts already show as the seat's SB/BB marker and its bet, so they get no action label. */
+const BLIND_POSTS = new Set(['SB', 'BB']);
 const BOT_FACES = 20;
 const botFace = (nick?: string | null) => {
   const sum = [...(nick || 'bot')].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -947,10 +949,12 @@ export function TablePage({ tableId }: { tableId: string }) {
   stageModeRef.current = stage.mode;
   /** Px from a seat toward the felt centre for its bet, dealer disc and blind marker. */
   const reach = stage.mode === 'portrait'
-    ? { bet: 74, dealer: 48, dealerSide: 40, blind: 50, blindSide: -34 }
+    ? { bet: 74, dealer: 48, dealerSide: 40, blind: 50, blindSide: -34, heroDealerSide: -72, heroBlindSide: 72 }
     : stage.short
-      ? { bet: 54, dealer: 40, dealerSide: 34, blind: 34, blindSide: -30 }
-      : { bet: 120, dealer: 92, dealerSide: 46, blind: 72, blindSide: -42 };
+      ? { bet: 54, dealer: 40, dealerSide: 34, blind: 34, blindSide: -30, heroDealerSide: 34, heroBlindSide: -30 }
+      : { bet: 120, dealer: 92, dealerSide: 46, blind: 72, blindSide: -42, heroDealerSide: 46, heroBlindSide: -42 };
+  /** Your cards are large on a phone, so markers at your seat step out to either side of them. */
+  const markerSide = (seat: number, side: number, heroSide: number) => (me?.seat === seat ? heroSide : side);
   const seatPos = (seat: number) => {
     const n = state?.seats || 6;
     const base = mySeatRef.current ?? 0;
@@ -1189,7 +1193,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
         <div className="spacer" />
-        <button type="button" className="table-sound-btn" aria-label="Sound" data-tip="Sound" onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
+        <button type="button" className="table-sound-btn" aria-label="Sound" aria-pressed={sound.enabled} data-tip="Sound" onClick={() => sound.setEnabled(!sound.enabled)}>{sound.enabled ? '🔊' : '🔇'}</button>
         <button type="button" className="table-history-btn" aria-label="Hand history" data-tip="Hand history" onClick={() => navigate('/hand-history')}><img src="/assets/table/ui/ic-history.webp" alt="" /></button>
         <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
         <button type="button" className="table-gear" aria-label="Table options" data-tip="Table options" onClick={() => { setOptionsOpen(true); setMenuOpen(false); }}>⚙</button>
@@ -1493,7 +1497,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <div className="face">
                 <Avatar name={p.nick || '?'} src={p.avatar || (p.isBot ? botFace(p.nick) : undefined)} size={54} />
               </div>
-              {p.nick && <span className="vpip-badge" data-tip="VPIP: how often they put money in">{vpipOf(seatVpip, p.nick)}</span>}
+              {p.nick && !p.isMe && <span className="vpip-badge" data-tip="VPIP: how often they put money in">{vpipOf(seatVpip, p.nick)}</span>}
               {(() => { const art = seatStatusArt(p); return art ? <img className="seat-status" src={art} alt="" aria-hidden="true" /> : null; })()}
             </div>
             <div className="plate">
@@ -1508,7 +1512,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               </div>
             </div>
             {p.nick && notes[p.nick] && <span className="note-dot" title={`${noteColorTitle(notes[p.nick].color, noteLabels)}: ${notes[p.nick].note}`} style={{ '--note-color': noteColorHex(notes[p.nick].color) } as React.CSSProperties}>📝</span>}
-            {p.lastAction && !p.folded && (
+            {p.lastAction && !p.folded && !BLIND_POSTS.has(p.lastAction.action) && (
               <div className={'action-badge ' + (p.lastAction.action || '').toLowerCase()}>
                 {p.lastAction.action}{p.lastAction.amount ? ` ${money(p.lastAction.amount)}` : ''}
               </div>
@@ -1523,14 +1527,14 @@ export function TablePage({ tableId }: { tableId: string }) {
       })}
 
       {state && state.button >= 0 && (() => {
-        const [dx, dy] = inward(seatPos(state.button), stage, reach.dealer, reach.dealerSide);
+        const [dx, dy] = inward(seatPos(state.button), stage, reach.dealer, markerSide(state.button, reach.dealerSide, reach.heroDealerSide));
         return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }} data-tip="Dealer button" />;
       })()}
 
       {state && state.street !== 'idle' && ([['SB', state.sbSeat], ['BB', state.bbSeat]] as const).map(([label, seat]) => {
         if (seat == null || seat < 0) return null;
         // Toward the felt centre from the seat, on the other side from the dealer disc.
-        const [dx, dy] = inward(seatPos(seat), stage, reach.blind, reach.blindSide);
+        const [dx, dy] = inward(seatPos(seat), stage, reach.blind, markerSide(seat, reach.blindSide, reach.heroBlindSide));
         return <div key={label} className={`blind-marker ${label.toLowerCase()}`} style={{ left: `${dx}%`, top: `${dy}%` }} aria-label={label === 'SB' ? 'Small blind' : 'Big blind'}>{label}</div>;
       })}
 

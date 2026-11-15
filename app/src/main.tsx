@@ -46,6 +46,7 @@ import './table-reactions.css';
 import './table-phone-pots.css';
 import './table-phone-clock.css';
 import './table-phone-win.css';
+import './table-phone-seat.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>
