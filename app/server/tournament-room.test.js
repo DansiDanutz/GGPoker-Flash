@@ -650,3 +650,15 @@ test('balancing keeps the moved player\'s Time Bank Cards and refill progress', 
     || flight1.occupiedSeats().map((s) => s.player).find((p) => p.timeBankHands === 7);
   assert.deepEqual([moved.timeBankCards, moved.timeBankHands], [1, 7]);
 });
+
+test('a move that fails puts the player back with their sit-out flags (EGM final review)', () => {
+  const { room, tables } = harness();
+  for (let i = 1; i <= 8; i += 1) room.seat(player(i), { stack: 1000 });
+  const source = tables.get('tourney-t1');
+  Object.assign(source.seatOf('p6').player, { sittingOut: true, sitOutNextHand: true, away: true, awayChoice: 'out' });
+  tables.get('tourney-t1-1').sit = () => ({ ok: false });
+  assert.equal(room.movePlayer({ playerId: 'p6', from: 'tourney-t1', to: 'tourney-t1-1' }, 'balance'), null);
+  const back = source.seatOf('p6').player;
+  assert.equal(back.stack, 1000);
+  assert.deepEqual([back.sittingOut, back.sitOutNextHand, back.away, back.awayChoice], [true, true, true, 'out']);
+});

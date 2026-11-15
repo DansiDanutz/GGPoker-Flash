@@ -862,7 +862,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         // Enter is the native bet key, including while the amount field has focus.
         const request = pendingBet
           ? { action: pendingBet.action, amount: pendingBet.amount, confirm: false }
-          : enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm: confirmBets });
+          : enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm: confirmBets, allInOrFold: !!state?.allInOrFold });
         if (!request) return;
         e.preventDefault();
         if (request.confirm) setPendingBet({ action: request.action, amount: request.amount });

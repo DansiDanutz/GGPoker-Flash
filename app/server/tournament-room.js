@@ -577,6 +577,8 @@ export class TournamentRoom {
     if (!result.ok) {
       // Put the player back where they came from; nothing changed.
       source.sit(profile, seat.index, stack);
+      const back = source.seatOf(player.id)?.player;
+      if (back) Object.assign(back, flags);
       return null;
     }
     const moved = target.seatOf(player.id)?.player;

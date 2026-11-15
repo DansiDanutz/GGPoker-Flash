@@ -257,3 +257,15 @@ test('the snapshot says whether Run it can ever apply at this table (EGM LOW)', 
   const mtt = make({}); mtt.tournament = { prizePool: 0 };
   assert.equal(mtt.snapshotFor(null).runItOffered, false, 'tournaments run once');
 });
+
+test('an absent player who leaves no longer caps the runs with a saved choice (EGM final review)', () => {
+  const t = allInOnTurn([['Ah', 'Kd'], ['2c', '3d'], ['7h', '7d']]);
+  Object.assign(t.seats[2].player, { disconnected: true, runPref: 2 });
+  t.runout();
+  assert.deepEqual([...t.runRound.asked].sort(), ['p0', 'p1']);
+  t.stand('p2');
+  t.decideRuns('p0', 3);
+  t.decideRuns('p1', 3);
+  assert.equal(t.result.boards.length, 3, 'the departed player has no say');
+  assert.equal(chipsOnTable(t), 300);
+});

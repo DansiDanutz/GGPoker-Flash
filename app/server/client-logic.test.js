@@ -81,6 +81,14 @@ test('client hand label follows short-deck rankings', () => {
   assert.equal(bestHand(['As', '6d'], ['7c', '8h', '9s', 'Qd', 'Jc'], false, false).name, 'High Card');
 });
 
+test('Enter in All-in or Fold shoves, never a raise the server refuses (EGM final review)', () => {
+  assert.deepEqual(enterBetRequest({ myTurn: true, canRaise: true, raiseTo: 450, allInTo: 5000, allInOrFold: true }),
+    { action: 'allin', amount: 5000, confirm: false });
+  assert.deepEqual(enterBetRequest({ myTurn: true, canRaise: false, raiseTo: 0, allInTo: 800, allInOrFold: true, confirm: true }),
+    { action: 'allin', amount: 800, confirm: true }, 'a short stack can still shove, through Confirm bets');
+  assert.equal(enterBetRequest({ myTurn: false, canRaise: true, raiseTo: 450, allInTo: 5000, allInOrFold: true }), null);
+});
+
 test('Enter bets the amount on screen, optionally asking first', () => {
   assert.deepEqual(enterBetRequest({ myTurn: true, canRaise: true, raiseTo: 450, allInTo: 5000 }),
     { action: 'raise', amount: 450, confirm: false });

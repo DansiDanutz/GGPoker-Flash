@@ -1321,12 +1321,12 @@ export class PokerTable {
     // "All must agree": an absent player with no saved choice counts as once, so the board runs once.
     const absent = humans.filter((s) => !asked.includes(s));
     if (!asked.length || absent.some((s) => !s.player.runPref)) return false;
-    const absentChoices = absent.map((s) => s.player.runPref);
+    const absentChoices = new Map(absent.map((s) => [s.player.id, s.player.runPref]));
     // All-in hands are tabled before the players decide.
     for (const s of alive) s.player.reveal = true;
     const remembered = new Map(asked.filter((s) => s.player.runPref).map((s) => [s.player.id, s.player.runPref]));
     if (remembered.size === asked.length) {
-      this.runBoards(agreedRuns([...remembered.values(), ...absentChoices]));
+      this.runBoards(agreedRuns([...remembered.values(), ...absentChoices.values()]));
       return true;
     }
     this.runRound = { asked: new Set(asked.map((s) => s.player.id)), choices: remembered, absentChoices, endsAt: Date.now() + RUN_ASK_MS };
@@ -1372,6 +1372,7 @@ export class PokerTable {
     const round = this.runRound;
     round.asked.delete(playerId);
     round.choices.delete(playerId);
+    round.absentChoices.delete(playerId);
     if (round.choices.size === round.asked.size) this.closeRunRound();
     return true;
   }
@@ -1383,7 +1384,7 @@ export class PokerTable {
     if (this.street !== 'showdown') return; // the hand already ended (a leaver folded): never pay twice
     // A player who did not answer in time counts as "once".
     const choices = [...round.asked].map((id) => round.choices.get(id) ?? 1);
-    this.runBoards(agreedRuns([...choices, ...(round.absentChoices || [])]));
+    this.runBoards(agreedRuns([...choices, ...round.absentChoices.values()]));
   }
 
   /** Deal the rest of the board once, or several boards that all keep the cards already dealt. */

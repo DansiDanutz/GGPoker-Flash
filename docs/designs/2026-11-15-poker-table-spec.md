@@ -350,3 +350,12 @@ A re-review of that fix found one MEDIUM, fixed: after the redirect the tab
 joined the new table as a fresh buy-in, so a second move in that moment could
 charge again. The tab now carries its seat memory to the new table and joins
 as a rejoin; a join that asks to watch is never redirected.
+
+## Appendix K: the final LOW items
+
+Three of the four LOW items in Appendix J are fixed, with tests: an absent
+player's saved run-it choice stops counting when they leave; Enter in All-in
+or Fold shoves (through *Confirm bets*) instead of sending a raise; a
+tournament move that fails puts the player back with their sit-out flags.
+Kept as is: an action is stamped with the turn number current when it is sent.
+Pre-actions rely on that, and the window is a single screen frame.
