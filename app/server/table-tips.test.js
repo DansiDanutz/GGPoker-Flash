@@ -19,11 +19,21 @@ test('table icon buttons carry a data-tip name', () => {
   assert.match(page, /className="dealer-btn"[^>]*data-tip="Dealer button"/);
 });
 
-test('tooltips wait one second before appearing, and no native title doubles them', () => {
+test('tooltips appear quickly on hover, and no native title doubles them', () => {
   const css = read('src/table-tips.css');
   assert.match(css, /\[data-tip\]::after/);
-  assert.match(css, /transition-delay:\s*1s/);
+  assert.match(css, /transition-delay:\s*\.3s/);
   assert.match(css, /\[data-tip\]\.tip-hold::after/, 'press-and-hold shows it on phones');
   assert.match(read('src/main.tsx'), /table-tips\.css/);
   assert.doesNotMatch(read('src/components/table/SeatDock.tsx'), /title=\{item\.label\}/);
+});
+
+test('Chat and React say what they are on hover, beside the chip so the screen edge never cuts it', () => {
+  const chat = read('src/components/table/TableChat.tsx');
+  assert.match(chat, /data-tip="Table chat"/);
+  assert.match(chat, /data-tip=\{readOnly \? 'Spectators cannot react' : 'Send a reaction'\}/);
+  assert.doesNotMatch(chat, /title=\{readOnly/, 'no native title doubles the label');
+  const css = read('src/table-tips.css');
+  assert.match(css, /\.table-screen \.tchat-toggle\[data-tip\]::after \{[^}]*left: calc\(100% \+ 8px\);/);
+  assert.match(css, /\.table-screen \.dock-btn\[data-tip\]::after \{[^}]*right: 0;/);
 });

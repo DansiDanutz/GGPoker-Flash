@@ -126,7 +126,7 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
         </section>
       )}
       <div className="tchat-buttons">
-        <button type="button" className="tchat-toggle" aria-expanded={open}
+        <button type="button" className="tchat-toggle" aria-expanded={open} data-tip="Table chat"
           aria-label={unread ? `Chat, ${unread} unread` : 'Chat'}
           onClick={open ? store.close : store.open}>
           <svg className="tchat-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -137,7 +137,7 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
         </button>
         <span className="tchat-react-wrap">
           <button type="button" className="tchat-toggle" disabled={readOnly} aria-haspopup="menu" aria-expanded={pickerOpen}
-            aria-label="React" title={readOnly ? 'Spectators cannot react' : 'Send a reaction'}
+            aria-label="React" data-tip={readOnly ? 'Spectators cannot react' : 'Send a reaction'}
             onClick={() => setPickerOpen((v) => !v)}>
             <svg className="tchat-icon" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="9.5" fill="currentColor" />
