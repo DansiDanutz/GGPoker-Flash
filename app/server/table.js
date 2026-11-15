@@ -23,7 +23,9 @@ const BOT_NAMES = [
   'SpinKing', 'OmahaOwl', 'SharkBait', 'LuckyLuke', 'MrsRiver', 'PumpFake', 'ColdDeckCarl',
 ];
 
-const MAX_MISSED_TURNS = 2;
+// One timeout folds the hand and sits the player out, so an absent player is not dealt in again
+// until they press "I'm back".
+const MAX_MISSED_TURNS = 1;
 // A cash-table player who busts gets this long to reload before the next deal.
 const REBUY_WINDOW_MS = 10_000;
 const BETTING_STREETS = Object.freeze(['preflop', 'flop', 'turn', 'river']);
@@ -1924,9 +1926,9 @@ export class PokerTable {
     }
     if (now >= this.actionEndsAt) {
       // Facing a bet, the clock spends one Time Bank Card before folding (GGPoker auto time bank),
-      // once per turn. An absent player is still bounded: two timeouts in a row sit them out.
+      // once per turn.
       if (this.toCall(p) > 0 && !this.timeBankAction && this.useTimeBank(p.id).ok) return;
-      // Two timeouts in a row sit the player out so an absent player cannot stall the table.
+      // A timeout sits the player out so an absent player cannot stall the table.
       p.missedTurns = (p.missedTurns || 0) + 1;
       if (p.missedTurns >= MAX_MISSED_TURNS && !p.sittingOut) {
         p.sittingOut = true;

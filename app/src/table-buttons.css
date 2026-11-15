@@ -27,6 +27,12 @@
 .table-screen .action-bar .quick-bets button:active:not(:disabled) {
   transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 1px 0 rgba(0, 0, 0, .45);
 }
+/* I'm back (sitting out): the Call green inside the same gold edge. */
+.table-screen .action-bar .sitout-row .btn-back {
+  border: 2px solid #e8b84a; border-radius: 14px; font-weight: 800; padding: 0 18px; min-height: 36px;
+  background: linear-gradient(#3ee07a, #139447); color: #fff; text-shadow: 0 1px 2px rgba(0, 60, 20, .7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 3px 0 rgba(0, 0, 0, .45), 0 6px 14px rgba(0, 0, 0, .5);
+}
 .table-screen .action-bar .quick-bets button[aria-pressed="true"] { background: linear-gradient(#ffe07a, #f2a812); color: #231400; }
 /* Not your turn: same colours, clearly greyed, so it is obvious they cannot be pressed yet. */
 .table-screen .action-bar .act-btn:disabled,
