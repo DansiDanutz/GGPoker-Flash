@@ -67,6 +67,11 @@ export function inLiveHand(table, player) {
   return table.handInProgress() && !!player.inHand && !player.folded;
 }
 
+/** Chips added by anyone dealt into the running hand (folded or not) join at the next deal (spec 1.5). */
+export function topUpWaitsForDeal(table, player) {
+  return table.handInProgress() && !!player.inHand;
+}
+
 /**
  * Sets the seat's pending top-up to `total` chips. `balance` is the wallet before this move.
  * The wallet pays (or gets back) only the difference from the current pending amount.

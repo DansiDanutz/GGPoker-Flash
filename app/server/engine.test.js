@@ -247,6 +247,29 @@ test('All-in or Fold asks each player and only accepts all-in or fold', () => {
 });
 
 
+test('All-in or Fold: a stack shorter than the big blind can still go all-in (EGM round 2)', () => {
+  const p1 = player(1, 'A', 80, 0, []);
+  const p2 = player(2, 'B', 80, 0, []);
+  const t = tableWith([p1, p2], { seats: 2, game: 'aof' });
+  t.street = 'idle';
+  t.handNo = 0;
+  t.startHand();
+  const first = t.actor;
+  assert.ok(first, 'the small blind is asked');
+  const res = t.act(first, 'allin');
+  assert.equal(res.ok, true, res.error);
+  assert.equal(t.act(first, 'call').ok, false, 'not the actor any more');
+  assert.ok(['showdown', 'ended'].includes(t.street), 'both all-in: the board runs out');
+});
+
+test('All-in or Fold: a plain call is still refused before anyone shoves', () => {
+  const t = tableWith([player(1, 'A', 1000, 0, []), player(2, 'B', 1000, 0, [])], { seats: 2, game: 'aof' });
+  t.street = 'idle';
+  t.handNo = 0;
+  t.startHand();
+  assert.equal(t.act(t.actor, 'call').ok, false);
+});
+
 test('an auto-straddle posts a third blind and opens action after it', () => {
   const p1 = player(1, 'A', 10000, 0, []);
   const p2 = player(2, 'B', 10000, 0, []);
@@ -437,6 +460,42 @@ test('winners show at showdown and losers muck unless auto-muck is off', () => {
   assert.equal(shower.reveal, true, 'auto-muck off shows the losing hand');
 });
 
+test('the last aggressor shows first and cannot muck a called bet', () => {
+  const winner = player(1, 'Winner', 1000, 100, [C('As'), C('Ah')]);
+  const bettor = player(2, 'Bettor', 1000, 100, [C('Kd'), C('Qc')]);
+  bettor.autoMuck = true;
+  const t = tableWith([winner, bettor]);
+  t.board = ['2c', '7d', '9s', 'Jh', '3c'].map(C);
+  t.pot = 200;
+  t.lastAggressor = 2;
+  t.doShowdown();
+  assert.equal(bettor.reveal, true, 'the called aggressor tables the hand even with auto-muck on');
+  assert.equal(t.result.showFirst, 1, 'the aggressor seat turns first');
+
+  const a = player(1, 'A', 1000, 100, [C('As'), C('Ah')]);
+  const b = player(2, 'B', 1000, 100, [C('Kd'), C('Qc')]);
+  const t2 = tableWith([a, b]);
+  t2.board = ['2c', '7d', '9s', 'Jh', '3c'].map(C);
+  t2.pot = 200;
+  t2.button = 0;
+  t2.doShowdown();
+  assert.equal(t2.result.showFirst, 1, 'checked down: the first live seat left of the button shows first');
+});
+
+test('checked down, the first seat to show tables its hand even with auto-muck on (EGM LOW)', () => {
+  const loser = player(1, 'Loser', 1000, 100, [C('Kd'), C('Qc')]);
+  const winner = player(2, 'Winner', 1000, 100, [C('As'), C('Ah')]);
+  loser.autoMuck = true;
+  const t = tableWith([loser, winner]);
+  t.board = ['2c', '7d', '9s', 'Jh', '3c'].map(C);
+  t.pot = 200;
+  t.button = 1;
+  t.doShowdown();
+  assert.equal(t.result.showFirst, 0, 'the loser sits first left of the button');
+  assert.equal(loser.reveal, true, 'the first to show cannot muck before anyone has shown');
+  assert.ok(t.result.hands.find((h) => h.seat === 0).cards, 'its cards are in the public result');
+});
+
 test('a player can show one card or both after the hand ends', () => {
   const t = new PokerTable({
     id: 'show', name: 'Show', game: 'holdem', sb: 50, bb: 100, seats: 2,
@@ -456,7 +515,10 @@ test('a player can show one card or both after the hand ends', () => {
   // Native ShowMuck / Codex rooms.mjs: a player dealt into the hand may show after folding.
   other.folded = true;
   assert.equal(t.showCards(2, [0]).ok, true, 'a folded player may show');
+  const foldedSeat = t.snapshotFor(1).players.find((p) => p.id === 2);
+  assert.deepEqual(foldedSeat.cards, ['Qd', '??'], 'the folded seat keeps the shown card face up (EGM round 3)');
   other.folded = false;
+  other.shown = [];
 
   assert.equal(t.showCards(1, [0]).ok, true);
   const half = t.snapshotFor(2).players.find((p) => p.id === 1);
@@ -552,4 +614,36 @@ test('omaha: show one card, then the rest', () => {
   assert.deepEqual(t.snapshotFor(2).players.find((p) => p.id === 1).cards, ['??', '??', 'Qd', '??']);
   assert.deepEqual(t.showCards(1, [0, 1, 2, 3]).shown, [0, 1, 2, 3]);
   assert.deepEqual(t.snapshotFor(2).players.find((p) => p.id === 1).cards, ['As', 'Kh', 'Qd', 'Jc']);
+});
+
+test('when the clock runs out facing a bet, a Time Bank card is spent before folding', () => {
+  const t = tableWith([player(1, 'A', 1000, 0, [C('As'), C('Kd')]), player(2, 'B', 800, 200, [C('2c'), C('3d')])]);
+  t.street = 'river';
+  t.currentBet = 200;
+  t.actor = 1;
+  t.seats[0].player.timeBankCards = 2;
+  t.actionEndsAt = Date.now() - 1;
+  t.tick();
+  assert.equal(t.actor, 1, 'still their turn');
+  assert.equal(t.seats[0].player.folded, false);
+  assert.equal(t.seats[0].player.timeBankCards, 1);
+  assert.ok(t.actionEndsAt > Date.now());
+});
+
+test('a second timeout in a row still spends one card, then folds and sits out (EGM round 3)', () => {
+  const t = tableWith([player(1, 'A', 1000, 0, [C('As'), C('Kd')]), player(2, 'B', 800, 200, [C('2c'), C('3d')])]);
+  t.street = 'river';
+  t.currentBet = 200;
+  t.actor = 1;
+  t.seats[0].player.timeBankCards = 2;
+  t.seats[0].player.missedTurns = 1;
+  t.actionEndsAt = Date.now() - 1;
+  t.tick();
+  assert.equal(t.seats[0].player.folded, false, 'the time bank runs first');
+  assert.equal(t.seats[0].player.timeBankCards, 1);
+  t.actionEndsAt = Date.now() - 1;
+  t.tick();
+  assert.equal(t.seats[0].player.folded, true, 'one card per turn, then the fold');
+  assert.equal(t.seats[0].player.sittingOut, true, 'two timeouts in a row sit the player out');
+  assert.equal(t.seats[0].player.timeBankCards, 1);
 });

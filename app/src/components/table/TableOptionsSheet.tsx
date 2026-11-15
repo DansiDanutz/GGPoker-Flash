@@ -10,11 +10,16 @@ type Props = {
   onClose: () => void;
   me: MyOptions | undefined;
   tableStraddle: boolean;
+  /** Hides the Run it choice where it never applies. */
+  runItOffered: boolean;
   onOption: (msg: OptionMessage) => void;
   betPrefs: BetPrefs;
   onBetPrefs: (next: BetPrefs) => void;
   confirmBets: boolean;
   onConfirmBets: (on: boolean) => void;
+  /** Remembered Auto-post choice, used for the next join while not seated. */
+  joinWaitForBlinds: boolean;
+  onJoinWaitForBlinds: (wait: boolean) => void;
 };
 
 const PRESET_ROWS: readonly { row: PresetRow; label: string; opening: boolean }[] = [
@@ -32,7 +37,7 @@ function Switch({ on, disabled, label, onChange }: { on: boolean; disabled?: boo
 }
 
 /** Phone-first bottom sheet for the options players change mid-session (reference: mobile mockup). */
-export function TableOptionsSheet({ open, onClose, me, tableStraddle, onOption, betPrefs, onBetPrefs, confirmBets, onConfirmBets }: Props) {
+export function TableOptionsSheet({ open, onClose, me, tableStraddle, runItOffered, onOption, betPrefs, onBetPrefs, confirmBets, onConfirmBets, joinWaitForBlinds, onJoinWaitForBlinds }: Props) {
   if (!open) return null;
   const seated = !!me;
   const straddle = straddleSetting({ straddle: tableStraddle }, me);
@@ -51,7 +56,7 @@ export function TableOptionsSheet({ open, onClose, me, tableStraddle, onOption, 
           <b>Table options</b>
           <button type="button" className="topt-close" aria-label="Close table options" onClick={onClose}>✕</button>
         </header>
-        {!seated && <p className="topt-note">Take a seat to change your table options.</p>}
+        {!seated && <p className="topt-note">Take a seat to change your table options. Auto-post blinds applies when you sit.</p>}
 
         <div className="topt-row">
           <span><b>Straddle</b><small>{tableStraddle ? 'Post a straddle whenever you are under the gun' : 'Straddles are off at this table'}</small></span>
@@ -59,7 +64,11 @@ export function TableOptionsSheet({ open, onClose, me, tableStraddle, onOption, 
         </div>
         <div className="topt-row">
           <span><b>Auto-post blinds</b><small>Off waits for the big blind to reach you</small></span>
-          <Switch label="Auto-post blinds" on={autoPostBlinds(me)} disabled={!seated} onChange={(v) => onOption({ waitForBlinds: !v })} />
+          <Switch
+            label="Auto-post blinds"
+            on={seated ? autoPostBlinds(me) : !joinWaitForBlinds}
+            onChange={(v) => { onJoinWaitForBlinds(!v); if (seated) onOption({ waitForBlinds: !v }); }}
+          />
         </div>
 
         <div className="topt-row">
@@ -67,14 +76,14 @@ export function TableOptionsSheet({ open, onClose, me, tableStraddle, onOption, 
           <Switch label="Confirm bets" on={confirmBets} onChange={onConfirmBets} />
         </div>
 
-        <div className="topt-block">
+        {runItOffered && <div className="topt-block">
           <span className="topt-label"><b>Run it</b><small>When you are all-in with cards to come</small></span>
           <div className="topt-seg" role="radiogroup" aria-label="Run it">
             {RUN_SETTINGS.map((r) => (
               <button key={String(r.value)} type="button" role="radio" aria-checked={run === r.value} disabled={!seated} className={run === r.value ? 'on' : ''} onClick={() => onOption(runSettingMessage(r.value))}>{r.label}</button>
             ))}
           </div>
-        </div>
+        </div>}
 
         <div className="topt-block">
           <span className="topt-label"><b>Bet presets</b><small>Tap a chip to change it</small></span>

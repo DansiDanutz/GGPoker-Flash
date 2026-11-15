@@ -1,9 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  canSpendCard, refillAfterHand, TB_CARD_SECONDS, TB_CARDS_PER_ACTION, TB_MAX_CARDS, TB_REFILL_HANDS, TB_START_CARDS,
+  canSpendCard, clockLowEnough, refillAfterHand, TB_OFFER_SECONDS, TB_CARD_SECONDS, TB_CARDS_PER_ACTION, TB_MAX_CARDS, TB_REFILL_HANDS, TB_START_CARDS,
 } from './timeBankCards.js';
 import { PokerTable } from './table.js';
+import { TIME_BANK_SECONDS } from '../src/game/turnClock.ts';
+
+test('a player may ask for a card only once the clock is low (client offer = server rule)', () => {
+  assert.equal(TB_OFFER_SECONDS, TIME_BANK_SECONDS);
+  const now = 1_000_000;
+  assert.equal(clockLowEnough({ endsAt: now + 25_000, now }), false, 'a full clock is refused');
+  assert.equal(clockLowEnough({ endsAt: now + TB_OFFER_SECONDS * 1000, now }), true);
+  assert.equal(clockLowEnough({ endsAt: now + TB_OFFER_SECONDS * 1000 + 900, now }), true, 'one second of network slack');
+  assert.equal(clockLowEnough({ endsAt: null, now }), false, 'no clock running');
+});
 
 test('a card is added every TB_REFILL_HANDS hands, capped at TB_MAX_CARDS', () => {
   let s = { cards: 1, hands: 0 };

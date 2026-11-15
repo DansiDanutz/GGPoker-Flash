@@ -89,6 +89,50 @@ test('waiting players on alternating seats come back within an orbit (Codex revi
   assert.ok(back, 'a waiting player is dealt back in instead of waiting forever');
 });
 
+test('a table never stalls on a player waiting for the big blind (EGM round 3)', () => {
+  const t = new PokerTable({ id: 'wb3', name: 'Wb3', game: 'holdem', sb: 1, bb: 2, seats: 2, min_buyin: 10, max_buyin: 1000 });
+  for (let i = 0; i < 2; i++) {
+    t.seats[i].player = { id: 'w' + i, nick: 'W' + i, stack: 100, isBot: false, sittingOut: false, inHand: false, cards: [], bet: 0, totalBet: 0 };
+  }
+  t.street = 'idle';
+  Object.assign(t.seats[1].player, { missedBlinds: true, waitForBlinds: true });
+  t.maybeStart();
+  assert.equal(t.street, 'preflop', 'with nobody else to play, the waiter is dealt in');
+  assert.equal(t.seats[1].player.inHand, true);
+  assert.equal(t.seats[1].player.missedBlinds, false, 'the blind is paid in this hand');
+});
+
+test('Wait for BB chosen before sitting applies from the first hand (EGM round 3)', () => {
+  const t = new PokerTable({ id: 'wb4', name: 'Wb4', game: 'holdem', sb: 1, bb: 2, seats: 5, min_buyin: 10, max_buyin: 1000, rakePercent: 0 });
+  t.nextHandAt = Date.now() + 1e9;
+  t.saveHand = () => {};
+  t.sit({ id: 'a', nick: 'A' }, 0, 100);
+  t.sit({ id: 'b', nick: 'B' }, 1, 100);
+  t.sit({ id: 'c', nick: 'C' }, 2, 100);
+  t.button = 2; t.nextHandAt = 0; t.startHand();
+  t.street = 'ended'; for (const s of t.seats) if (s.player) s.player.inHand = false;
+  t.nextHandAt = Date.now() + 1e9;
+  t.sit({ id: 'n', nick: 'New', waitForBlinds: true }, 3, 100);
+  assert.equal(t.seats[3].player.waitForBlinds, true);
+  assert.equal(t.waitsForBigBlind(t.seats[3].player), true, 'waits instead of posting at once');
+  t.sit({ id: 'm', nick: 'Other', waitForBlinds: 'yes' }, null, 100);
+  assert.notEqual(t.seatOf('m').player.waitForBlinds, true, 'only a real true opts in');
+});
+
+test('a waiter is released even when a sit-out lands at the deal (EGM round 3)', () => {
+  const t = new PokerTable({ id: 'wb5', name: 'Wb5', game: 'holdem', sb: 1, bb: 2, seats: 3, min_buyin: 10, max_buyin: 1000 });
+  for (let i = 0; i < 3; i++) {
+    t.seats[i].player = { id: 'v' + i, nick: 'V' + i, stack: 100, isBot: false, sittingOut: false, inHand: false, cards: [], bet: 0, totalBet: 0 };
+  }
+  t.street = 'ended';
+  t.handNo = 5;
+  Object.assign(t.seats[1].player, { sitOutNextHand: true });
+  Object.assign(t.seats[2].player, { missedBlinds: true, waitForBlinds: true });
+  t.startHand();
+  assert.equal(t.seats[1].player.sittingOut, true);
+  assert.equal(t.street, 'preflop', 'X and the released waiter play; the table does not go idle');
+});
+
 test('Post now restarts an idle table (Codex review #59)', () => {
   const t = new PokerTable({ id: 'wb2', name: 'Wb2', game: 'holdem', sb: 1, bb: 2, seats: 2, min_buyin: 10, max_buyin: 1000 });
   for (let i = 0; i < 2; i++) {
@@ -100,4 +144,42 @@ test('Post now restarts an idle table (Codex review #59)', () => {
   assert.equal(t.readySeats().length, 1, 'the waiting player is not ready');
   t.setWaitForBlinds('q1', false);
   assert.equal(t.street, 'preflop', 'Post now deals the next hand');
+});
+
+test('a new player at a running cash table posts a big blind (or waits for it), never a free hand', () => {
+  const t = new PokerTable({ id: 'nb', name: 'Nb', game: 'holdem', sb: 1, bb: 2, seats: 4, min_buyin: 10, max_buyin: 1000, rakePercent: 0 });
+  t.nextHandAt = Date.now() + 1e9;
+  t.saveHand = () => {};
+  t.sit({ id: 'a', nick: 'A' }, 0, 100);
+  t.sit({ id: 'b', nick: 'B' }, 1, 100);
+  t.sit({ id: 'c', nick: 'C' }, 2, 100);
+  t.button = 2; t.nextHandAt = 0; t.startHand();
+  t.street = 'ended'; for (const s of t.seats) if (s.player) s.player.inHand = false;
+  t.nextHandAt = Date.now() + 1e9; // hold the next deal so the debt can be seen
+  t.sit({ id: 'n', nick: 'New' }, 3, 100);
+  assert.equal(t.seats[3].player.missedBlinds, true, 'joining mid-session owes a big blind');
+  t.button = 3; t.nextHandAt = 0; t.startHand(); // button 0 -> SB 1, BB 2: the newcomer is not a blind
+  assert.equal(t.seats[3].player.inHand, true);
+  assert.equal(t.seats[3].player.totalBet, 2, 'posted a live big blind to play');
+});
+
+test('a returning account with a saved time bank still owes the big blind (EGM round 2)', () => {
+  const t = new PokerTable({ id: 'nb2', name: 'Nb2', game: 'holdem', sb: 1, bb: 2, seats: 4, min_buyin: 10, max_buyin: 1000, rakePercent: 0 });
+  t.nextHandAt = Date.now() + 1e9;
+  t.saveHand = () => {};
+  t.sit({ id: 'a', nick: 'A' }, 0, 100);
+  t.sit({ id: 'b', nick: 'B' }, 1, 100);
+  t.button = 1; t.nextHandAt = 0; t.startHand();
+  t.street = 'ended'; for (const s of t.seats) if (s.player) s.player.inHand = false;
+  t.nextHandAt = Date.now() + 1e9;
+  // Leaving any cash table saves time_bank_cards, so a returning account always carries them.
+  t.sit({ id: 'r', nick: 'Returning', timeBankCards: 2, timeBankHands: 5 }, 2, 100);
+  assert.equal(t.seats[2].player.missedBlinds, true, 'a saved bank is not an automatic move');
+});
+
+test('the first hand at a fresh table owes nothing', () => {
+  const t = new PokerTable({ id: 'fb', name: 'Fb', game: 'holdem', sb: 1, bb: 2, seats: 3, min_buyin: 10, max_buyin: 1000 });
+  t.nextHandAt = Date.now() + 1e9;
+  t.sit({ id: 'a', nick: 'A' }, 0, 100);
+  assert.ok(!t.seats[0].player.missedBlinds);
 });

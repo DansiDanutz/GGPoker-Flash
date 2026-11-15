@@ -164,10 +164,10 @@ test('the snapshot tells each Rush viewer whether they may quick fold, and only 
   assert.equal(fourHanded('holdem').snapshotFor('A').quickFold, null);
 });
 
-test('an ordinary leaver still takes back an unmatched bet (no forfeit)', () => {
+test('an ordinary leaver forfeits the blind already posted', () => {
   const t = fourHanded();
   t.act('D', 'fold'); t.act('A', 'fold');
-  // B to act; C's 10 is matched by no one yet; a plain stand returns the unmatched 5.
+  // B to act; C leaves: C's posted 10 stays in the pot, as a fold would leave it.
   const { stack } = t.stand('C');
-  assert.equal(stack, 995);
+  assert.equal(stack, 990);
 });

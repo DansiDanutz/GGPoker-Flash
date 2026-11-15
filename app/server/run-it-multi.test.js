@@ -221,3 +221,51 @@ test('the remembered choice accepts only ask, 1, 2 or 3 and is only for seated p
   const theirs = t.snapshotFor('p1').players.find((s) => s && s.id === 'p0');
   assert.equal(theirs.runPref, undefined, 'nobody else sees it');
 });
+
+test('a player leaving while the others choose keeps their answers and the clock (EGM LOW)', () => {
+  const t = allInOnTurn([['Ah', 'Kd'], ['2c', '3d'], ['7h', '7d']]);
+  t.runout();
+  const { endsAt } = t.runRound;
+  t.decideRuns('p0', 2);
+  t.stand('p2');
+  assert.ok(t.runRound, 'the round stays open for the player still deciding');
+  assert.equal(t.runRound.endsAt, endsAt, 'the clock does not restart');
+  assert.deepEqual(t.runAskFor('p0').chosen, 2, 'the answer already given is kept');
+  assert.equal(t.runAskFor('p2'), null);
+  t.decideRuns('p1', 2);
+  assert.equal(t.result.boards.length, 2);
+  assert.equal(chipsOnTable(t), 300, 'the leaver\'s chips stay in the pot');
+});
+
+test('when the last undecided player leaves, the board runs with the answers given', () => {
+  const t = allInOnTurn([['Ah', 'Kd'], ['2c', '3d'], ['7h', '7d']]);
+  t.runout();
+  t.decideRuns('p0', 3);
+  t.decideRuns('p1', 2);
+  t.stand('p2');
+  assert.equal(t.runRound, null);
+  assert.equal(t.result.boards.length, 2);
+});
+
+test('the snapshot says whether Run it can ever apply at this table (EGM LOW)', () => {
+  const make = (extra) => new PokerTable({ id: 'x', name: 'x', game: 'holdem', seats: 6, sb: 1, bb: 2, min_buyin: 40, max_buyin: 400, ...extra });
+  assert.equal(make({}).snapshotFor(null).runItOffered, true, 'cash tables offer it');
+  assert.equal(make({ game: 'rush' }).snapshotFor(null).runItOffered, false, 'Rush runs once');
+  assert.equal(make({ game: 'spingold' }).snapshotFor(null).runItOffered, false, 'Spin runs once');
+  const aof = make({}); aof.aof = true;
+  assert.equal(aof.snapshotFor(null).runItOffered, false, 'All-in or Fold runs once');
+  const mtt = make({}); mtt.tournament = { prizePool: 0 };
+  assert.equal(mtt.snapshotFor(null).runItOffered, false, 'tournaments run once');
+});
+
+test('an absent player who leaves no longer caps the runs with a saved choice (EGM final review)', () => {
+  const t = allInOnTurn([['Ah', 'Kd'], ['2c', '3d'], ['7h', '7d']]);
+  Object.assign(t.seats[2].player, { disconnected: true, runPref: 2 });
+  t.runout();
+  assert.deepEqual([...t.runRound.asked].sort(), ['p0', 'p1']);
+  t.stand('p2');
+  t.decideRuns('p0', 3);
+  t.decideRuns('p1', 3);
+  assert.equal(t.result.boards.length, 3, 'the departed player has no say');
+  assert.equal(chipsOnTable(t), 300);
+});

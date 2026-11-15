@@ -21,6 +21,17 @@ export function runSettingMessage(value: RunSetting): { runPref: number | null; 
   return value === 'ask' ? { runPref: null, runItAsk: true } : { runPref: value, runItAsk: value !== 1 };
 }
 
+const JOIN_WAIT_KEY = 'ggpoker.waitForBlinds';
+
+/** The remembered Auto-post choice, sent with every join so it applies before the first deal. */
+export function readJoinWaitForBlinds(): boolean {
+  try { return localStorage.getItem(JOIN_WAIT_KEY) === '1'; } catch { return false; }
+}
+
+export function saveJoinWaitForBlinds(wait: boolean): void {
+  try { localStorage.setItem(JOIN_WAIT_KEY, wait ? '1' : '0'); } catch { /* private mode: the choice lasts this visit */ }
+}
+
 export function autoPostBlinds(me: { waitForBlinds?: boolean } | undefined): boolean {
   return !me?.waitForBlinds;
 }

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { PokerTable } from './table.js';
 import {
   addChipsLimits, removeChipsLimits, autoReduceOptions, setPendingTopUp, settlePendingTopUp,
-  refundPendingTopUp, cancelPendingTopUp, removeChips, setAutoReduce, applyAutoReduce, inLiveHand,
+  refundPendingTopUp, cancelPendingTopUp, removeChips, setAutoReduce, applyAutoReduce, inLiveHand, topUpWaitsForDeal,
   settleBeforeDeal, noteTopUpApplied, topUpRequestError,
 } from './chip-moves.js';
 import * as client from '../src/game/chipMoves.ts';
@@ -352,4 +352,14 @@ test('pending-chip controls: cancel stays reachable at the table maximum', () =>
   assert.deepEqual(client.chipControls({ ...at, pending: 0 }), { addChips: true, cancelPending: false });
   assert.deepEqual(client.chipControls({ ...at, stack: 1000, pending: 0 }), { addChips: false, cancelPending: false });
   assert.deepEqual(client.chipControls({ ...at, editable: false }), { addChips: false, cancelPending: false });
+});
+
+test('chips added during a hand join at the next deal, folded or not (EGM round 3)', () => {
+  const table = new PokerTable(CFG);
+  table.street = 'flop';
+  assert.equal(topUpWaitsForDeal(table, seated(1500, { inHand: true, folded: false })), true);
+  assert.equal(topUpWaitsForDeal(table, seated(1500, { inHand: true, folded: true })), true, 'folding does not end the hand');
+  assert.equal(topUpWaitsForDeal(table, seated(1500, { inHand: false })), false, 'not dealt in: between hands for this seat');
+  table.street = 'ended';
+  assert.equal(topUpWaitsForDeal(table, seated(1500, { inHand: true, folded: false })), false);
 });

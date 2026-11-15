@@ -69,7 +69,7 @@ test('leave-after-hand reservation refunds the pending top-up when the seat is c
     sock.ws.on('message', (raw) => {
       const m = JSON.parse(String(raw));
       const mine = m.type === 'state' && m.state.players.find((p) => p.isMe);
-      if (mine && m.state.actor === mine.id) sock.send({ type: 'action', tableId: TABLE, action: 'fold', amount: 0 });
+      if (mine && m.state.actor === mine.id) sock.send({ type: 'action', tableId: TABLE, action: 'fold', amount: 0, handNo: m.state.handNo, turnNo: m.state.turnNo });
     });
     await sock.next((m) => m.type === 'state' && !m.state.players.some((p) => p.isMe), 45000);
     await sock.close();
@@ -106,7 +106,7 @@ test('a top-up replayed after the next deal settled it is refused, not charged t
     sock.ws.on('message', (raw) => {
       const m = JSON.parse(String(raw));
       const mine = m.type === 'state' && m.state.players.find((p) => p.isMe);
-      if (mine && m.state.actor === mine.id) sock.send({ type: 'action', tableId: TABLE, action: 'fold', amount: 0 });
+      if (mine && m.state.actor === mine.id) sock.send({ type: 'action', tableId: TABLE, action: 'fold', amount: 0, handNo: m.state.handNo, turnNo: m.state.turnNo });
     });
     // The next deal settles the pending chips, so pending is back to 0 and basePending matches again.
     await sock.next((m) => m.type === 'state' && m.state.handNo > live.state.handNo

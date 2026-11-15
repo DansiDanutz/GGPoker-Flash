@@ -23,12 +23,18 @@ function playToShowdown() {
 }
 
 test('a mucked loser\'s cards are hidden from the win event and snapshots; winners stay visible', () => {
-  for (let attempt = 0; attempt < 20; attempt++) {
+  for (let attempt = 0; attempt < 60; attempt++) {
     const { t, events } = playToShowdown();
     const win = events.find((e) => e.type === 'win');
     const winnerSeats = new Set(win.winners.map((w) => w.seat));
     const loser = win.hands.find((h) => !winnerSeats.has(h.seat));
     if (!loser) continue; // split pot: everybody won, try another deal
+    // On a check-down the first seat to show must table its hand (spec 7.1): only a loser who
+    // could muck is a test of privacy.
+    if (loser.seat === win.showFirst) {
+      assert.ok(loser.cards, 'the first seat to show tables its hand');
+      continue;
+    }
     assert.equal(loser.cards, null, 'event hides the mucked hand');
     const winner = win.hands.find((h) => winnerSeats.has(h.seat));
     assert.equal(winner.cards.length, 2);
@@ -38,5 +44,5 @@ test('a mucked loser\'s cards are hidden from the win event and snapshots; winne
     assert.equal(snap.result.hands.find((h) => h.seat === loser.seat).cards, null, 'snapshot hides it too');
     return;
   }
-  assert.fail('no non-split showdown in 20 deals');
+  assert.fail('no showdown with a mucking loser in 60 deals');
 });

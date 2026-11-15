@@ -47,12 +47,14 @@ export class PokerTable {
     this.sbSeat = -1;
     this.bbSeat = -1;
     this.handNo = 0;
+    this.turnNo = 0;
     this.street = 'idle'; // idle | preflop | flop | turn | river | showdown | ended
     this.board = [];
     this.deck = [];
     this.pot = 0;
     this.currentBet = 0;
     this.minRaise = cfg.bb;
+    this.betLevels = []; // this street's bet levels: { to, minRaise, by, full }
     this.actor = null;
     this.actionEndsAt = 0;
     this.timeBankUsed = new Set();
@@ -237,6 +239,8 @@ export class PokerTable {
       handsPlayed: 0,
       won: 0,
       autoMuck: true,
+      // Chosen before sitting (Table options), so a newcomer can wait for the big blind from hand one.
+      waitForBlinds: player.waitForBlinds === true,
       runItAsk: true,
       runPref: null,
       sitOutNextHand: false,
@@ -245,6 +249,9 @@ export class PokerTable {
       sitOutAll: false,
       insurance: false,
       sessionId,
+      // Joining a running cash table owes a big blind (posted on the next deal, or waited for with
+      // Wait for BB): no free hand. Automatic moves (Rush, balancing) and the first hand owe nothing.
+      missedBlinds: this.handNo > 0 && this.owesSitInBlind() && !this.rush && !player.isBot,
     };
     this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
     this.maybeStart();
@@ -271,17 +278,20 @@ export class PokerTable {
         p.folded = true;
         this.log.push({ nick: p.nick, action: 'fold', street: this.street });
       }
-      // The part of the leaver's bet that nobody matched goes back with their stack (native
-      // splitPots: only matched chips can be won), so nobody has to answer a departed bet.
-      if (!isForfeit) this.returnLeaverExcess(p);
+      // Leaving folds: every chip the leaver bet stays in the pot as dead money (settlement keeps
+      // a departed seat's unmatched layer in the top pot), but nobody has to answer that bet.
+      if (!isForfeit) this.retireLeaverBet(p);
       // Keep the departed player's matched chips in the pot instead of losing them with the seat.
       this.ghosts.push({
         id: p.id, nick: p.nick, bet: p.bet, totalBet: p.totalBet, isBot: !!p.isBot,
+        // The part of the bet still to be answered: a retired bet stands only up to the new price.
+        standing: Math.min(p.bet, this.currentBet),
         ...(isForfeit ? { history: { seat: seat.index, stack: p.stack, cards: p.cards } } : {}),
       });
     }
     seat.player = null;
     this.emit({ type: 'stand', seat: seat.index });
+    if (wasLive && this.runRound && this.leaveRunRound(p.id)) return { ok: true, stack: p.stack };
     if (this.straddleRound) {
       this.straddleRound.asked.delete(p.id);
       if (!this.straddleRound.asked.size) this.closeStraddleRound();
@@ -326,7 +336,19 @@ export class PokerTable {
     if (this.street !== 'idle' && this.street !== 'ended') return;
     if (this.nextHandAt && Date.now() < this.nextHandAt) return;
     this.prepareDeal();
+    this.releaseWaitersIfShort();
     if (this.readySeats().length >= 2) this.startHand();
+  }
+
+  /**
+   * Waiting for the big blind needs a game to wait in. When the waiters are all that keeps the
+   * table from dealing, they stop waiting and post like any returning player.
+   */
+  releaseWaitersIfShort() {
+    const waiters = this.occupiedSeats().filter((s) => this.waitsForBigBlind(s.player));
+    if (!waiters.length || this.readySeats().length >= 2) return;
+    if (this.readySeats().length + waiters.length < 2) return;
+    for (const s of waiters) s.player.waitForBlinds = false;
   }
 
   /** Between hands, before who is dealt in is decided: pending top-ups and stack trims land. */
@@ -545,6 +567,8 @@ export class PokerTable {
       if (p?.leaveAfterHand) p.sittingOut = true;
     }
     applyBigBlindSitOuts(this);
+    // Sit-outs land just above: re-check that a waiter is not all that stops this deal.
+    this.releaseWaitersIfShort();
     const ready = this.readySeats();
     if (this.spin && this.handNo > 0 && ready.length === 1) { this.awardSpinWinner(); return; }
     if (this.tournament && this.handNo > 0 && ready.length === 1) { this.awardTournamentWinner(); return; }
@@ -563,6 +587,7 @@ export class PokerTable {
     this.pot = 0;
     this.currentBet = 0;
     this.minRaise = this.bb;
+    this.betLevels = [];
     this.lastAggressor = null;
     this.result = null;
     this.showdown = false;
@@ -588,6 +613,7 @@ export class PokerTable {
       p.bet = 0;
       p.totalBet = 0;
       p.acted = false;
+      p.actedAtBet = null;
       p.reveal = false;
       p.shown = [];
       p.cards = [];
@@ -683,6 +709,7 @@ export class PokerTable {
     if (p.bet > this.currentBet) {
       this.currentBet = p.bet;
       this.minRaise = p.bet;
+      this.betLevels = [...this.betLevels, { to: p.bet, minRaise: p.bet, by: p.id, full: true }];
       this.pendingDeal.straddleSeat = seat;
     }
   }
@@ -970,6 +997,8 @@ export class PokerTable {
   setActor(playerId) {
     this.actor = playerId;
     if (!playerId) return;
+    // Every turn gets its own number; an action stamped with an older one is refused.
+    this.turnNo += 1;
     const seat = this.seatOf(playerId);
     this.actionEndsAt = Date.now() + this.actionTimeMs;
     if (seat && seat.player && seat.player.isBot) {
@@ -1037,7 +1066,8 @@ export class PokerTable {
 
     if (!opts.auto) p.missedTurns = 0;
     const call = this.toCall(p);
-    if (this.aof && action === 'call' && !this.lastAggressor) return { ok: false, error: 'all-in or fold only' };
+    // A short stack's all-in that cannot beat the bet arrives here as a call (opts.allInCall): it stays legal.
+    if (this.aof && action === 'call' && !this.lastAggressor && !opts.allInCall) return { ok: false, error: 'all-in or fold only' };
     if (action === 'fold') {
       this.markFolded(seat);
     } else if (action === 'check') {
@@ -1063,15 +1093,14 @@ export class PokerTable {
       if (this.potLimit) target = Math.min(target, this.potLimitMax(p));
       if (target <= this.currentBet) {
         // An all-in that does not exceed the current bet is a call, never a "raise" that lowers the bet.
-        if (action === 'allin' || target >= maxTarget) return this.act(playerId, 'call', 0, opts);
+        if (action === 'allin' || target >= maxTarget) return this.act(playerId, 'call', 0, { ...opts, allInCall: true });
         return { ok: false, error: 'raise too small' };
       }
       const isAllIn = target === maxTarget;
       const raiseSize = target - this.currentBet;
       // A player who already acted may only raise again once the bet has grown by a full raise
       // since their last action; several short all-ins can add up to that.
-      const isRaiseLocked = p.acted && this.currentBet - (p.actedAtBet ?? 0) < this.minRaise;
-      if (isRaiseLocked) {
+      if (this.isRaiseLocked(p)) {
         if (action === 'allin') return this.act(playerId, 'call', 0, opts);
         return { ok: false, error: 'raise not allowed after a short all-in' };
       }
@@ -1082,6 +1111,7 @@ export class PokerTable {
       const previousBet = this.currentBet;
       this.currentBet = p.bet;
       if (isFullRaise) this.minRaise = raiseSize;
+      this.betLevels = [...this.betLevels, { to: this.currentBet, minRaise: this.minRaise, by: p.id, full: isFullRaise }];
       if (p.stack === 0) p.allIn = true;
       for (const s of this.seats) {
         const other = s.player;
@@ -1196,21 +1226,31 @@ export class PokerTable {
     }
   }
 
-  /** Return a departing player's bet above everyone else's, and lower the bet to match. */
-  returnLeaverExcess(p) {
+  /**
+   * A leaver's bet stays in the pot, but nobody has to answer it: the bet to call falls to the
+   * highest bet anyone else made (folded and departed raises still stand), the minimum raise and
+   * the levels go back to that point, and a player owes a new decision only if a full raise was
+   * made after their last action (so a short all-in still does not reopen the betting).
+   */
+  retireLeaverBet(p) {
     const others = [
       ...this.seats.filter((s) => s.player && s.player !== p && s.player.inHand).map((s) => s.player.bet),
-      ...this.ghosts.map((g) => g.bet),
+      ...this.ghosts.filter((g) => g.id !== p.id).map((g) => g.standing ?? g.bet),
     ];
-    const highest = others.length ? Math.max(...others) : 0;
-    const excess = Math.max(0, p.bet - highest);
-    if (excess > 0) {
-      p.bet -= excess;
-      p.totalBet -= excess;
-      p.stack += excess;
-      this.emit({ type: 'uncalled', seat: p.seat, playerId: p.id, amount: excess });
+    // Preflop the big blind is owed even when the blind itself has gone.
+    const floor = this.street === 'preflop' ? this.bb : 0;
+    const highest = Math.max(floor, ...others);
+    if (this.currentBet <= highest) return;
+    this.currentBet = highest;
+    this.betLevels = this.betLevels.filter((l) => l.by !== p.id && l.to <= highest);
+    const last = this.betLevels.at(-1);
+    this.minRaise = last ? last.minRaise : this.bb;
+    for (const s of this.seats) {
+      const o = s.player;
+      if (!o || o === p || !o.inHand || o.folded || o.allIn) continue;
+      const reopened = this.betLevels.some((l) => l.full && l.by !== o.id && l.to > (o.actedAtBet ?? -1));
+      o.acted = o.actedAtBet != null && !reopened;
     }
-    this.currentBet = Math.min(this.currentBet, Math.max(highest, p.bet));
   }
 
   /**
@@ -1264,24 +1304,32 @@ export class PokerTable {
     this.runBoards(1);
   }
 
+  /** Whether a run-it choice can ever be offered here: cash tables, not Rush, AoF, Spin or tournaments. */
+  offersRunIt() {
+    return !this.tournament && !this.spin && !this.aof && !this.rush;
+  }
+
   /** Cash all-ins with cards to come: the all-in players choose to run it 1-3 times. */
   openRunRound() {
     // Cash tables only: not tournaments, Spin, All-in or Fold, fast-fold Rush or the first-hand flip.
-    if (this.tournament || this.spin || this.aof || this.flip || this.rush || this.board.length >= 5) return false;
+    if (!this.offersRunIt() || this.flip || this.board.length >= 5) return false;
     const alive = this.activePlayers().filter((s) => !s.player.folded);
     if (alive.length < 2) return false;
     const humans = alive.filter((s) => !s.player.isBot);
     if (!humans.length || humans.some((s) => s.player.runItAsk === false || s.player.runPref === 1)) return false;
     const asked = humans.filter((s) => !s.player.disconnected && !s.player.sittingOut);
-    if (!asked.length) return false;
+    // "All must agree": an absent player with no saved choice counts as once, so the board runs once.
+    const absent = humans.filter((s) => !asked.includes(s));
+    if (!asked.length || absent.some((s) => !s.player.runPref)) return false;
+    const absentChoices = new Map(absent.map((s) => [s.player.id, s.player.runPref]));
     // All-in hands are tabled before the players decide.
     for (const s of alive) s.player.reveal = true;
     const remembered = new Map(asked.filter((s) => s.player.runPref).map((s) => [s.player.id, s.player.runPref]));
     if (remembered.size === asked.length) {
-      this.runBoards(agreedRuns([...remembered.values()]));
+      this.runBoards(agreedRuns([...remembered.values(), ...absentChoices.values()]));
       return true;
     }
-    this.runRound = { asked: new Set(asked.map((s) => s.player.id)), choices: remembered, endsAt: Date.now() + RUN_ASK_MS };
+    this.runRound = { asked: new Set(asked.map((s) => s.player.id)), choices: remembered, absentChoices, endsAt: Date.now() + RUN_ASK_MS };
     this.emit({ type: 'run_ask', endsAt: this.runRound.endsAt, maxRuns: MAX_RUNS });
     return true;
   }
@@ -1305,7 +1353,7 @@ export class PokerTable {
 
   decideRuns(playerId, runs) {
     const round = this.runRound;
-    if (!round || !round.asked.has(playerId)) return { ok: false, error: 'Nothing to decide' };
+    if (!round || this.street !== 'showdown' || !round.asked.has(playerId)) return { ok: false, error: 'Nothing to decide' };
     if (round.choices.has(playerId)) return { ok: false, error: 'Already chosen' };
     if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) return { ok: false, error: 'Choose 1 to 3 runs' };
     round.choices.set(playerId, runs);
@@ -1314,13 +1362,29 @@ export class PokerTable {
     return { ok: true };
   }
 
+  /**
+   * A player leaves while the run-it choice is open: the others keep their answers and the clock,
+   * and the board runs at once if nobody still has to answer. False when the leaver was the last
+   * opponent, so the hand ends by fold instead.
+   */
+  leaveRunRound(playerId) {
+    if (this.activePlayers().length < 2) return false;
+    const round = this.runRound;
+    round.asked.delete(playerId);
+    round.choices.delete(playerId);
+    round.absentChoices.delete(playerId);
+    if (round.choices.size === round.asked.size) this.closeRunRound();
+    return true;
+  }
+
   closeRunRound() {
     const round = this.runRound;
     if (!round) return;
     this.runRound = null;
+    if (this.street !== 'showdown') return; // the hand already ended (a leaver folded): never pay twice
     // A player who did not answer in time counts as "once".
     const choices = [...round.asked].map((id) => round.choices.get(id) ?? 1);
-    this.runBoards(agreedRuns(choices));
+    this.runBoards(agreedRuns([...choices, ...round.absentChoices.values()]));
   }
 
   /** Deal the rest of the board once, or several boards that all keep the cards already dealt. */
@@ -1407,6 +1471,7 @@ export class PokerTable {
     const summary = {
       pot: this.pot, rake, board: boards[0].map(cardStr), boards: boards.map((b) => b.map(cardStr)), runs,
       winners: results, runItTwice: true, reason: 'showdown',
+      showFirst: this.showdownFirstSeat(alive.map((sc) => sc.index)),
       hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
     };
     this.result = this.publicShowdown(summary);
@@ -1427,6 +1492,7 @@ export class PokerTable {
     for (const g of this.ghosts) {
       this.pot += g.bet;
       g.bet = 0;
+      g.standing = 0;
     }
     this.currentBet = 0;
   }
@@ -1440,10 +1506,11 @@ export class PokerTable {
     else if (this.street === 'turn') this.street = 'river';
     this.board.push(...this.dealStreet(this.street));
     for (const s of this.seats) {
-      if (s.player) { s.player.acted = false; s.player.lastAction = null; }
+      if (s.player) { s.player.acted = false; s.player.actedAtBet = null; s.player.lastAction = null; }
     }
     this.currentBet = 0;
     this.minRaise = this.bb;
+    this.betLevels = [];
     this.lastAggressor = null;
     this.emit({ type: 'street', street: this.street, board: this.board.map(cardStr), pot: this.pot });
     this.progress(this.button);
@@ -1468,6 +1535,7 @@ export class PokerTable {
   }
 
   finishByFold(winnerSeat) {
+    this.runRound = null; // a pending run-it choice dies with the hand: it must never settle again
     if (!this.handInProgress()) return;
     this.collectBets();
     const winner = winnerSeat ? winnerSeat.player : null;
@@ -1546,9 +1614,12 @@ export class PokerTable {
     // Winners show at showdown; losing hands muck unless the player turned
     // auto-muck off.
     const winnerIds = new Set(results.map((r) => r.id));
+    const showFirst = this.showdownFirstSeat(scored.map((sc) => sc.seat));
     for (const sc of scored) {
       const p = sc.player;
-      if (winnerIds.has(p.id) || !p.autoMuck) p.reveal = true;
+      // The first seat to show (a called last aggressor, or on a check-down the first live seat
+      // left of the button) must table the hand: nobody has shown yet, so it cannot muck.
+      if (winnerIds.has(p.id) || !p.autoMuck || p.id === this.lastAggressor || sc.seat === showFirst) p.reveal = true;
     }
     const summary = {
       pot: this.pot,
@@ -1559,6 +1630,7 @@ export class PokerTable {
         seat: s.seat, nick: s.player.nick, cards: s.player.cards.map(cardStr), hand: s.name,
       })),
       reason: 'showdown',
+      showFirst,
     };
     const badBeat = this.payBadBeatJackpot(scored, pots, results);
     if (badBeat) summary.badBeat = badBeat;
@@ -1631,6 +1703,18 @@ export class PokerTable {
    * seat (for the reveal order) but lose their cards. The full summary is only saved
    * to hand history, which filters per viewer on read.
    */
+  /** Seat that turns its cards first: the last aggressor, else the first live seat left of the button. */
+  showdownFirstSeat(seats) {
+    const aggressor = this.lastAggressor != null ? this.seatOf(this.lastAggressor) : null;
+    if (aggressor && seats.includes(aggressor.index)) return aggressor.index;
+    const n = this.seats.length;
+    for (let i = 1; i <= n; i++) {
+      const seat = (this.button + i) % n;
+      if (seats.includes(seat)) return seat;
+    }
+    return null;
+  }
+
   publicShowdown(summary) {
     const revealed = (seat) => !!this.seats[seat]?.player?.reveal;
     return {
@@ -1812,6 +1896,7 @@ export class PokerTable {
         }
         this.prepareDeal();
         const alive = this.occupiedSeats().filter((s) => s.player && s.player.stack > 0);
+        this.releaseWaitersIfShort();
         if (this.readySeats().length >= 2) this.startHand();
         else if (this.tournament && alive.length === 1 && this.handNo > 0) this.awardTournamentWinner();
         else if (this.spin && alive.length === 1 && this.handNo > 0) this.awardSpinWinner();
@@ -1836,6 +1921,9 @@ export class PokerTable {
       return;
     }
     if (now >= this.actionEndsAt) {
+      // Facing a bet, the clock spends one Time Bank Card before folding (GGPoker auto time bank),
+      // once per turn. An absent player is still bounded: two timeouts in a row sit them out.
+      if (this.toCall(p) > 0 && !this.timeBankAction && this.useTimeBank(p.id).ok) return;
       // Two timeouts in a row sit the player out so an absent player cannot stall the table.
       p.missedTurns = (p.missedTurns || 0) + 1;
       if (p.missedTurns >= MAX_MISSED_TURNS && !p.sittingOut) {
@@ -1928,6 +2016,7 @@ export class PokerTable {
       sbSeat: this.sbSeat,
       bbSeat: this.bbSeat,
       handNo: this.handNo,
+      turnNo: this.turnNo,
       street: this.street,
       board: this.board.map(cardStr),
       pot: this.pot + this.totalBets(),
@@ -1937,6 +2026,7 @@ export class PokerTable {
       potLimit: this.potLimit,
       allInOrFold: this.aof,
       maxRaiseTo: this.maxRaiseToFor(viewerId),
+      raiseLocked: this.raiseLockedFor(viewerId),
       rake: this.rake,
       actionTimeMs: this.actionTimeMs,
       actor: this.actor,
@@ -1972,7 +2062,8 @@ export class PokerTable {
           shown: p.reveal ? p.cards.map((_, i) => i) : (p.shown || []),
           cards: (p.reveal || mine)
             ? p.cards.map(cardStr)
-            : (p.inHand && !p.folded
+            // A live hand, or a folded one with a card shown after the hand: only shown cards go out.
+            : ((p.inHand && !p.folded) || (p.shown || []).length
               ? p.cards.map((c, i) => ((p.shown || []).includes(i) ? cardStr(c) : '??'))
               : []),
           lastAction: p.lastAction,
@@ -2002,6 +2093,7 @@ export class PokerTable {
       quickFold: this.rush && viewerId != null ? this.quickFoldState(viewerId) : null,
       runAsk: this.runAskFor(viewerId),
       runRoundEndsAt: this.runRound?.endsAt ?? null,
+      runItOffered: this.offersRunIt(),
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
       tournament: this.tournament ? {
         id: this.cfg.tournamentId || null,
@@ -2020,6 +2112,17 @@ export class PokerTable {
         payouts: this.tournamentPayouts(),
       } : null,
     };
+  }
+
+  /** True once the bet has not grown by a full raise since this player last acted (short all-in rule). */
+  isRaiseLocked(p) {
+    return !!p.acted && this.currentBet - (p.actedAtBet ?? 0) < this.minRaise;
+  }
+
+  raiseLockedFor(viewerId) {
+    const seat = viewerId != null ? this.seatOf(viewerId) : null;
+    if (!seat || !seat.player.inHand || seat.player.folded || seat.player.allIn) return false;
+    return this.isRaiseLocked(seat.player);
   }
 
   maxRaiseToFor(viewerId) {

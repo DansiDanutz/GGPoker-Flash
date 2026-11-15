@@ -65,7 +65,7 @@ test('a live hand hides hole cards from a watcher and refuses their action', asy
   }
   assert.equal(state.state.players.some((p) => p.isMe), false, 'the watcher holds no seat');
 
-  ws.send({ type: 'action', tableId: PUBLIC_TABLE, action: 'fold', amount: 0 });
+  ws.send({ type: 'action', tableId: PUBLIC_TABLE, action: 'fold', amount: 0, handNo: state.state.handNo, turnNo: state.state.turnNo });
   const error = await ws.nextType('error', 3000);
   assert.match(error.error, /seat|turn|not/i);
   await ws.close();

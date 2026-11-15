@@ -164,14 +164,18 @@ export type BetRequest = { action: 'raise' | 'allin'; amount: number; confirm: b
  * Enter-to-bet plus an "Always confirm" option, so this returns the action and
  * whether the caller must ask first. Null when there is nothing to bet.
  */
-export function enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm = false }: {
+export function enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm = false, allInOrFold = false }: {
   myTurn: boolean;
   canRaise: boolean;
   raiseTo: number;
   allInTo: number;
   confirm?: boolean;
+  /** All-in or Fold tables: the only bet is the shove. */
+  allInOrFold?: boolean;
 }): BetRequest | null {
-  if (!myTurn || !canRaise) return null;
+  if (!myTurn) return null;
+  if (allInOrFold) return allInTo > 0 ? { action: 'allin', amount: allInTo, confirm: !!confirm } : null;
+  if (!canRaise) return null;
   if (!Number.isFinite(raiseTo) || raiseTo <= 0) return null;
   const amount = Math.round(raiseTo);
   return { action: amount >= allInTo ? 'allin' : 'raise', amount, confirm: !!confirm };

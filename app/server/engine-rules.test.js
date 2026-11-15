@@ -72,6 +72,17 @@ test('a short all-in does not reopen the betting for players who already acted',
   assert.equal(p(0).totalBet, 250);
 });
 
+test('the snapshot tells a player when a short all-in has locked their raise', () => {
+  const { t } = deal([START, START, 250]);
+  ok(t.act(1, 'raise', 200));
+  ok(t.act(2, 'call'));
+  assert.equal(t.snapshotFor(3).raiseLocked, false, 'a player who has not acted may raise');
+  ok(t.act(3, 'allin'));
+  assert.equal(t.snapshotFor(1).raiseLocked, true, 'the raiser may only call or fold');
+  assert.equal(t.snapshotFor(3).raiseLocked, false, 'the all-in player has no decision to lock');
+  assert.equal(t.snapshotFor(null).raiseLocked, false, 'spectators are never locked');
+});
+
 test('short all-ins that add up to a full raise reopen the betting', () => {
   // Button first: seat 3 is UTG, seats 1 and 2 are the blinds.
   const { t } = deal([START, 250, 300, START]);
@@ -140,9 +151,77 @@ test('heads-up: when the opponent leaves, the remaining player wins the pot', ()
   t.stand(2);
   assert.equal(t.street, 'ended');
   assert.equal(events.filter((e) => e.type === 'win').length, 1);
-  // Native splitPots: the 50 of the big blind that the small blind never matched goes back
-  // to the leaver; the remaining player wins only the matched chips.
-  assert.equal(p(0).stack, START + 50, 'wins the matched part of the big blind');
+  // Leaving folds the hand: the big blind the leaver posted is won in full (EGM round 3).
+  assert.equal(p(0).stack, START + 100, 'wins the whole big blind');
+  assert.equal(t.seats[1].player, null);
+});
+
+test('a departed re-raise restores the earlier raise: its size and who already matched it (EGM round 3)', () => {
+  const { t, p } = deal([START, START, START, START]); // button seat 0; seat 3 is UTG
+  ok(t.act(4, 'call')); ok(t.act(1, 'call')); ok(t.act(2, 'call')); ok(t.act(3, 'check'));
+  assert.equal(t.street, 'flop');
+  ok(t.act(2, 'raise', 100)); // B bets 100
+  ok(t.act(3, 'raise', 400)); // C raises by 300
+  ok(t.act(4, 'raise', 1000)); // D re-raises
+  ok(t.act(1, 'fold'));
+  t.stand(4); // D leaves: the 1000 stays in the pot as dead money
+  assert.equal(t.currentBet, 400);
+  assert.equal(t.minRaise, 300, 'the last full raise that still stands');
+  assert.equal(t.actor, 2, 'B still owes the 400');
+  ok(t.act(2, 'call'));
+  assert.equal(t.street, 'turn', 'C already matched 400 and is not asked again');
+});
+
+test("a departed raise leaves the folded raiser's level standing for everyone left (EGM round 4)", () => {
+  const { t, p } = deal([START, START, START, START, START]); // seats 0..4, button 0, SB 1, BB 2, UTG 3
+  ok(t.act(4, 'raise', 300)); // UTG (A) opens to 300
+  ok(t.act(5, 'raise', 900)); // B 3-bets
+  ok(t.act(1, 'raise', 2700)); // button (C) 4-bets
+  ok(t.act(2, 'fold')); // SB
+  t.stand(5); // B leaves: the 3-bet stays in the pot and still stands
+  t.stand(1); // then C leaves while D is to act
+  assert.equal(t.currentBet, 900, "B's 3-bet still has to be answered");
+  assert.equal(t.minRaise, 600);
+  assert.equal(t.actor, 3);
+  ok(t.act(3, 'call')); // the big blind calls the 3-bet
+  assert.equal(t.actor, 4, 'A, who only opened, still owes the 3-bet');
+  assert.equal(p(3).bet, 300);
+  ok(t.act(4, 'call'));
+  assert.equal(t.street, 'flop', 'both answered the standing 3-bet');
+});
+
+test('a short all-in lock comes back when the full raise after it is withdrawn (EGM round 4)', () => {
+  const { t } = deal([START, START, 250, START, START]); // seat 2 is the short big blind
+  ok(t.act(4, 'call')); ok(t.act(5, 'call')); ok(t.act(1, 'call')); ok(t.act(2, 'call')); ok(t.act(3, 'check'));
+  assert.equal(t.street, 'flop');
+  ok(t.act(2, 'raise', 100)); // SB (A) bets 100
+  ok(t.act(3, 'allin')); // BB (B) all-in short for 150
+  ok(t.act(4, 'call')); // C calls 150
+  ok(t.act(5, 'raise', 400)); // D raises to 400 (a full raise)
+  t.stand(5); // D leaves before anyone answers
+  assert.equal(t.currentBet, 150);
+  assert.equal(t.actor, 1, 'the button, who has not acted on this street, is next');
+  ok(t.act(1, 'fold'));
+  assert.equal(t.actor, 2, 'A owes the 50 from the short all-in');
+  assert.equal(t.act(2, 'raise', 600).ok, false, 'the short all-in did not reopen betting for A');
+  ok(t.act(2, 'call'));
+});
+
+test("a second leaver on the same street is retired too; the first leaver's bet no longer stands (EGM round 5)", () => {
+  const { t } = deal([START, START, START, START]); // button seat 0
+  ok(t.act(4, 'call')); ok(t.act(1, 'call')); ok(t.act(2, 'call')); ok(t.act(3, 'check'));
+  assert.equal(t.street, 'flop');
+  ok(t.act(2, 'check')); // D checks
+  ok(t.act(3, 'raise', 100)); // A bets 100
+  ok(t.act(4, 'raise', 300)); // B raises to 300
+  t.stand(4); // B leaves: the bet to call falls to 100
+  assert.equal(t.currentBet, 100);
+  ok(t.act(1, 'raise', 200)); // C raises to 200 (a full raise)
+  t.stand(1); // C leaves before anyone answers
+  assert.equal(t.currentBet, 100, "B's retired 300 is not a live bet");
+  assert.equal(t.actor, 2, 'D still owes 100');
+  ok(t.act(2, 'call'));
+  assert.equal(t.street, 'turn', 'A already matched 100');
 });
 
 test('when the actor leaves, the action moves to the next player', () => {
@@ -264,6 +343,7 @@ test('All-in or Fold: folding around gives the big blind the pot', () => {
 
 test('two timeouts in a row sit a player out', () => {
   const { t, p } = deal([START, START, START]);
+  p(0).timeBankCards = 0; // no card to spend: the clock folds at once
   const far = Date.now() + 1e7;
   t.tick(far);
   assert.equal(p(0).folded, true);
