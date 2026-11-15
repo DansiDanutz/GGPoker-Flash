@@ -809,25 +809,25 @@ export class PokerTable {
 
   /**
    * Show one, several or all hole cards to the table after the hand ended.
-   * Only a player who was dealt in and did not fold can reveal this way.
+   * Anyone dealt in, folded or not, can reveal this way; later calls add more cards.
    */
   showCards(playerId, indices) {
     if (this.street !== 'ended') return { ok: false, error: 'Show cards at the end of the hand' };
     const seat = this.seatOf(playerId);
     const p = seat?.player;
     if (!p) return { ok: false, error: 'not seated' };
-    // Native ShowMuck: anyone dealt into the hand may show, folded or not, once per hand.
+    // Native ShowMuck: anyone dealt into the hand may show, folded or not. Showing more later
+    // adds to what is already shown; a shown card never goes back face down.
     if (!p.inHand || !p.cards.length) return { ok: false, error: 'Only a player dealt into the hand can show cards' };
     if (!Array.isArray(indices) || !indices.length) return { ok: false, error: 'Pick a card first' };
     const picked = [...new Set(indices.map(Number))]
       .filter((i) => Number.isInteger(i) && i >= 0 && i < p.cards.length)
       .sort((a, b) => a - b);
     if (!picked.length) return { ok: false, error: 'Pick a card first' };
-    if (p.shown?.length) {
-      const same = p.shown.length === picked.length && p.shown.every((i, k) => i === picked[k]);
-      return same ? { ok: true, shown: p.shown } : { ok: false, error: 'Cards already selected' };
-    }
-    p.shown = picked;
+    const before = p.shown || [];
+    const added = picked.filter((i) => !before.includes(i));
+    if (!added.length) return { ok: true, shown: before };
+    p.shown = [...before, ...added].sort((a, b) => a - b);
     if (p.shown.length >= p.cards.length) p.reveal = true;
     this.emit({
       type: 'cards_shown',
@@ -835,7 +835,7 @@ export class PokerTable {
       playerId: p.id,
       nick: p.nick,
       indices: p.shown,
-      cards: p.shown.map((i) => cardStr(p.cards[i])),
+      cards: added.map((i) => cardStr(p.cards[i])),
     });
     return { ok: true, shown: p.shown };
   }

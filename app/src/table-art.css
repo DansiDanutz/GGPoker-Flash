@@ -111,3 +111,9 @@
 .topt-seg button.on { background: url('/assets/table/ui/seg-on.webp') center / 100% 100% no-repeat; box-shadow: none; }
 .topt-chip { background: none; border-radius: 0; border: 0 solid transparent; border-image: url('/assets/table/ui/chip-preset.webp') 60 70 fill / 14px 18px stretch; }
 .topt-chip i { display: inline-block; width: 16px; height: 16px; font-size: 0; background: url('/assets/table/ui/ic-edit.webp') center / contain no-repeat; }
+
+/* Folded players are out of the hand: dimmed and greyed, no turn ring or gold highlight. */
+.table-screen .seat.folded { opacity: .5; filter: grayscale(.85) brightness(.85); transition: opacity .25s, filter .25s; }
+.table-screen .seat.folded .seat-ring,
+.table-screen .seat.folded .timer { display: none; }
+.table-screen .seat.folded .plate { box-shadow: none; }

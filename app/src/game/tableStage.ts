@@ -16,6 +16,9 @@ const MIN_STAGE_SIDE = 60;
 const PORTRAIT_BLEED = 10;
 const PORTRAIT_TOP_GAP = 6;
 const PORTRAIT_UNDER_BAR = 0.45;
+/** Phones: the action panel's fixed height (table-phone.css --phone-bar-h). The rail is sized
+ *  from this, not the live panel, so the table never jumps when your turn adds or removes a row. */
+export const PORTRAIT_ACTION_BAR = 184;
 
 /** Room the seats need around the rail: seats are centred on it and hang over its edge. */
 const PADS = {
@@ -48,7 +51,8 @@ function wideBox({ width, height, topBar, actionBar }: { width: number; height: 
  * Phones held upright (GGPoker mobile): the rail fills the screen edge to edge and runs from just
  * under the top bar down behind the action bar; seats sit on the felt, not around it.
  */
-function portraitBox({ width, height, topBar, actionBar }: { width: number; height: number; topBar: number; actionBar: number }): StageBox {
+function portraitBox({ width, height, topBar }: { width: number; height: number; topBar: number; actionBar: number }): StageBox {
+  const actionBar = PORTRAIT_ACTION_BAR;
   const availW = width + 2 * PORTRAIT_BLEED;
   const availH = Math.max(MIN_STAGE_SIDE, height - topBar - PORTRAIT_TOP_GAP - actionBar * (1 - PORTRAIT_UNDER_BAR));
   const w = Math.max(MIN_STAGE_SIDE, Math.min(availW, availH / RAIL_RATIO));
@@ -70,14 +74,14 @@ const WIDE: Record<number, Spot[]> = {
 
 // Portrait seats sit on the felt like GGPoker mobile: hugging the side rails, hero just above the action bar.
 const PORTRAIT: Record<number, Spot[]> = {
-  2: [[50, 82], [50, 9]],
-  3: [[50, 82], [13, 26], [87, 26]],
-  4: [[50, 82], [12, 50], [50, 9], [88, 50]],
-  5: [[50, 82], [12, 60], [17, 17], [83, 17], [88, 60]],
-  6: [[50, 82], [12, 62], [12, 27], [50, 9], [88, 27], [88, 62]],
-  7: [[50, 82], [12, 68], [12, 42], [22, 13], [78, 13], [88, 42], [88, 68]],
-  8: [[50, 82], [16, 78], [11, 53], [13, 28], [50, 9], [87, 28], [89, 53], [84, 78]],
-  9: [[50, 82], [16, 78], [11, 55], [12, 32], [27, 11], [73, 11], [88, 32], [89, 55], [84, 78]],
+  2: [[50, 79], [50, 9]],
+  3: [[50, 79], [13, 26], [87, 26]],
+  4: [[50, 79], [12, 50], [50, 9], [88, 50]],
+  5: [[50, 79], [12, 60], [17, 17], [83, 17], [88, 60]],
+  6: [[50, 79], [12, 62], [12, 27], [50, 9], [88, 27], [88, 62]],
+  7: [[50, 79], [12, 68], [12, 42], [22, 13], [78, 13], [88, 42], [88, 68]],
+  8: [[50, 79], [16, 78], [11, 53], [13, 28], [50, 9], [87, 28], [89, 53], [84, 78]],
+  9: [[50, 79], [16, 78], [11, 55], [12, 32], [27, 11], [73, 11], [88, 32], [89, 55], [84, 78]],
 };
 
 export function seatLayout(seats: number, mode: StageMode): Spot[] {

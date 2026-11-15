@@ -466,12 +466,13 @@ test('a player can show one card or both after the hand ends', () => {
   const own = t.snapshotFor(1).players.find((p) => p.id === 1);
   assert.deepEqual(own.cards, ['As', 'Kh'], 'the owner always sees both');
 
-  // One selection per hand: repeating it is fine, a different selection is refused.
+  // Showing more later adds to what is shown; a shown card never goes back face down.
   assert.equal(t.showCards(1, [0]).ok, true, 'the same selection again is idempotent');
-  assert.equal(t.showCards(1, [0, 1]).ok, false, 'cards already selected for this hand');
-  assert.deepEqual(t.snapshotFor(2).players.find((p) => p.id === 1).cards, ['As', '??']);
-  assert.deepEqual(events.find((e) => e.type === 'cards_shown' && e.playerId === 1).cards, ['As']);
-  assert.equal(events.filter((e) => e.type === 'cards_shown' && e.playerId === 1).length, 1);
+  assert.equal(events.filter((e) => e.type === 'cards_shown' && e.playerId === 1).length, 1, 'no repeat announcement');
+  assert.deepEqual(t.showCards(1, [1]).shown, [0, 1], 'the second card joins the first');
+  assert.deepEqual(t.snapshotFor(2).players.find((p) => p.id === 1).cards, ['As', 'Kh']);
+  const shows = events.filter((e) => e.type === 'cards_shown' && e.playerId === 1);
+  assert.deepEqual(shows.map((e) => e.cards), [['As'], ['Kh']], 'each announcement names only the new cards');
 });
 
 test('a busted cash player gets a reload window before the next deal', () => {
@@ -536,4 +537,19 @@ test('a wait-list seat hold keeps bots and other players out of that seat', () =
   assert.deepEqual(t.sit({ id: 7, nick: 'Other' }, 0), { ok: false, error: 'seat held' });
   assert.equal(t.freeSeatFor(42).index, 0);
   assert.equal(t.sit({ id: 42, nick: 'Holder' }, null, 1000).seat, 0, 'the holder takes it');
+});
+
+test('omaha: show one card, then the rest', () => {
+  const t = new PokerTable({
+    id: 'show-plo', name: 'Show PLO', game: 'omaha', sb: 50, bb: 100, seats: 2,
+    min_buyin: 1000, max_buyin: 5000,
+  });
+  const hero = player(1, 'Hero', 900, 100, [C('As'), C('Kh'), C('Qd'), C('Jc')]);
+  t.seats[0].player = hero;
+  t.seats[1].player = player(2, 'Other', 900, 100, [C('2d'), C('3c'), C('4h'), C('5s')]);
+  t.street = 'ended';
+  assert.deepEqual(t.showCards(1, [2]).shown, [2]);
+  assert.deepEqual(t.snapshotFor(2).players.find((p) => p.id === 1).cards, ['??', '??', 'Qd', '??']);
+  assert.deepEqual(t.showCards(1, [0, 1, 2, 3]).shown, [0, 1, 2, 3]);
+  assert.deepEqual(t.snapshotFor(2).players.find((p) => p.id === 1).cards, ['As', 'Kh', 'Qd', 'Jc']);
 });

@@ -2,6 +2,8 @@
 // "Sit out next big blind" and "Sit out at all tables" (server-authoritative seat flags).
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { PokerTable } from './table.js';
 import { nextBigBlindSeat, pendingLeaves, sitOutEverywhere } from './reservations.js';
 import { resolvePreAction, keepPreAction } from '../src/game/preAction.ts';
@@ -177,4 +179,18 @@ test('sitting back in at one table clears that table\'s all-tables mark', () => 
   sitOutEverywhere([a], 'P0', true);
   a.requestSitOut('P0', false);
   assert.equal(player(a, 'P0').sitOutAll, false);
+});
+
+test('call any calls whatever the bet is, or checks when nobody bet, then clears', async () => {
+  const { resolvePreAction, keepPreAction } = await import('../src/game/preAction.ts');
+  const callAny = { kind: 'callany' };
+  assert.deepEqual(resolvePreAction(callAny, 400), { action: 'call', next: null });
+  assert.deepEqual(resolvePreAction(callAny, 0), { action: 'check', next: null });
+  assert.equal(keepPreAction(callAny, 900), callAny, 'a bigger bet does not cancel call any');
+});
+
+test('the pre-action row offers Call Any', () => {
+  const page = fs.readFileSync(path.join(path.resolve(import.meta.dirname, '..'), 'src/pages/TablePage.tsx'), 'utf8');
+  assert.match(page, /kind: 'callany'/);
+  assert.match(page, />Call Any</);
 });
