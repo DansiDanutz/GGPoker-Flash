@@ -3213,8 +3213,8 @@ wss.on('connection', (ws, req) => {
         const res = entry.table.setInsurance(ws.userId, !!msg.insurance);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
-      if (msg.runItTwice != null) {
-        const res = entry.table.setRunItTwice(!!msg.runItTwice);
+      if (msg.runItAsk != null) {
+        const res = entry.table.setRunItAsk(ws.userId, !!msg.runItAsk);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
       broadcastState(entry.table);
@@ -3364,16 +3364,20 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'rabbit') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
-      const t = entry.table;
-      // Revealing the undealt board is a player action, not a spectator one.
-      if (!t.seatOf(ws.userId)) return;
-      if (t.street === 'ended' && t.board.length < 5) {
-        const deck = [...t.deck];
-        const cards = [];
-        while (cards.length < 5 - t.board.length && deck.length) cards.push(cardStr(deck.pop()));
-        const evt = { type: 'rabbit', cards, at: Date.now() };
-        for (const client of entry.clients) if (client.readyState === 1) client.send(JSON.stringify({ type: 'event', event: evt }));
+      // Only players dealt into the hand may hunt, and only they see the cards.
+      if (!entry.table.rabbitCardsFor(ws.userId)) return;
+      for (const client of entry.clients) {
+        const cards = client.readyState === 1 ? entry.table.rabbitCardsFor(client.userId) : null;
+        if (cards) client.send(JSON.stringify({ type: 'event', event: { type: 'rabbit', cards, at: Date.now() } }));
       }
+      return;
+    }
+    if (msg.type === 'run_decide') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const res = entry.table.decideRuns(ws.userId, Number(msg.runs));
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      broadcastState(entry.table);
       return;
     }
     if (msg.type === 'chat' || msg.type === 'reaction' || msg.type === 'emote') {

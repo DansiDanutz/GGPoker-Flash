@@ -78,14 +78,13 @@ test('a watcher cannot change table-wide options', async () => {
   const { ws, joined } = await watch(tableId);
   assert.equal(joined.observe, true);
 
-  ws.send({ type: 'option', tableId, straddle: true, runItTwice: true });
+  ws.send({ type: 'option', tableId, straddle: true, runItAsk: false });
   await sleep(700);
 
   // Ask a fresh socket so the answer cannot be a snapshot queued before the send.
   const probe = await watch(tableId);
   const state = await probe.ws.nextType('state');
   assert.equal(state.state.straddle, false, 'a watcher cannot turn the straddle on');
-  assert.equal(state.state.runItTwice, false, 'a watcher cannot turn run-it-twice on');
   await probe.ws.close();
   await ws.close();
 });

@@ -15,6 +15,8 @@ function deal(stacks, cfg = {}) {
   }, { onEvent: (_t, e) => events.push(e) });
   t.nextHandAt = Date.now() + 1e9; // hold the auto-start until everyone is seated
   stacks.forEach((stack, i) => t.sit({ id: i + 1, nick: `P${i + 1}` }, i, stack));
+  // These rule tests run all-ins out at once; the run-it choice has its own tests (run-it-multi.test.js).
+  stacks.forEach((_, i) => t.setRunItAsk(i + 1, false));
   t.nextHandAt = 0;
   t.startHand();
   return { t, events, p: (i) => t.seats[i].player };
