@@ -947,12 +947,14 @@ export function TablePage({ tableId }: { tableId: string }) {
   const layout = seatLayout(state?.seats || 6, stage.mode);
   layoutRef.current = layout;
   stageModeRef.current = stage.mode;
-  /** Px from a seat toward the felt centre for its bet, dealer disc and blind marker. */
+  /** Px from a seat toward the felt centre for its bet, dealer disc and blind marker. On a phone
+   *  your bet and dealer disc go further out, past the cards held over your portrait in the corner,
+   *  and your blind marker steps right of the cards. */
   const reach = stage.mode === 'portrait'
-    ? { bet: 74, dealer: 48, dealerSide: 40, blind: 50, blindSide: -34, heroDealerSide: -72, heroBlindSide: 72 }
+    ? { bet: 74, heroBet: 128, dealer: 48, dealerSide: 40, blind: 50, blindSide: -34, heroDealer: 100, heroDealerSide: -40, heroBlindSide: 86 }
     : stage.short
-      ? { bet: 54, dealer: 40, dealerSide: 34, blind: 34, blindSide: -30, heroDealerSide: 34, heroBlindSide: -30 }
-      : { bet: 120, dealer: 92, dealerSide: 46, blind: 72, blindSide: -42, heroDealerSide: 46, heroBlindSide: -42 };
+      ? { bet: 54, heroBet: 54, dealer: 40, heroDealer: 40, dealerSide: 34, blind: 34, blindSide: -30, heroDealerSide: 34, heroBlindSide: -30 }
+      : { bet: 120, heroBet: 120, dealer: 92, heroDealer: 92, dealerSide: 46, blind: 72, blindSide: -42, heroDealerSide: 46, heroBlindSide: -42 };
   /** Your cards are large on a phone, so markers at your seat step out to either side of them. */
   const markerSide = (seat: number, side: number, heroSide: number) => (me?.seat === seat ? heroSide : side);
   const seatPos = (seat: number) => {
@@ -1327,7 +1329,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <b>Rotate your device</b>
         <span>The table plays in landscape on tablets.</span>
       </div>
-      <div ref={stageRef} className={`table-stage stage-${stage.mode}${stage.short ? ' stage-short' : ''}`} style={{ left: stage.left, top: stage.top, width: stage.width, height: stage.height }}>
+      <div ref={stageRef} className={`table-stage stage-${stage.mode}${stage.short ? ' stage-short' : ''}`} style={{ left: stage.left, top: stage.top, width: stage.width, height: stage.height, '--stage-w': `${stage.width}px`, '--stage-h': `${stage.height}px` } as React.CSSProperties}>
       <div className="felt" />
       <div className="table-watermark stage-mark" aria-hidden="true"><b>DanGG</b><span>{state?.name || ''}</span></div>
       <div className="table-center">
@@ -1527,7 +1529,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       })}
 
       {state && state.button >= 0 && (() => {
-        const [dx, dy] = inward(seatPos(state.button), stage, reach.dealer, markerSide(state.button, reach.dealerSide, reach.heroDealerSide));
+        const [dx, dy] = inward(seatPos(state.button), stage, me?.seat === state.button ? reach.heroDealer : reach.dealer, markerSide(state.button, reach.dealerSide, reach.heroDealerSide));
         return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }} data-tip="Dealer button" />;
       })()}
 
@@ -1539,7 +1541,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       })}
 
       {(state?.players || []).filter((p) => p && !p.empty && (p.bet || 0) > 0).map((p) => {
-        const [bx, by] = inward(seatPos(p.seat!), stage, reach.bet);
+        const [bx, by] = inward(seatPos(p.seat!), stage, p.seat === me?.seat ? reach.heroBet : reach.bet);
         const betCols = potChipLayout(p.bet || 0, state?.bb || 1, 4);
         return (
           <div key={'bet' + p.seat} className="table-bet" style={{ left: `${bx}%`, top: `${by}%` }}>
@@ -1687,7 +1689,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               type="button"
               aria-pressed={preAction?.kind === 'checkfold'}
               onClick={() => setPreAction(preAction?.kind === 'checkfold' ? null : { kind: 'checkfold' })}
-            ><span className="reserve-text">{toCall > 0 ? 'Fold' : 'Check/Fold'}</span></button>
+            ><span className="reserve-text">{toCall > 0 ? 'Fold' : 'Check / Fold'}</span></button>
             <button
               type="button"
               aria-pressed={preAction?.kind === 'foldany'}

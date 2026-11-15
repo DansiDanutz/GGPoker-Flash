@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { RAIL_RATIO, stageMode, stageBox, seatLayout, SKIN_RAIL, inward } from '../src/game/tableStage.ts';
+import { RAIL_RATIO, stageMode, stageBox, seatLayout, SKIN_RAIL, inward, PORTRAIT_ACTION_BAR } from '../src/game/tableStage.ts';
 
 const root = path.resolve(import.meta.dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
@@ -38,14 +38,13 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [1280, 720], [2560, 1440]]) {
   });
 }
 
-test('portrait phone 390x844: the rail fills the width and runs from the top bar to behind the action bar', () => {
+test('portrait phone 390x844: the oval fills the width and runs from the top bar into the bottom button row', () => {
   const box = stageBox({ width: 390, height: 844, topBar: 44, actionBar: 170 });
-  assert.ok(Math.abs(box.height / box.width - RAIL_RATIO) < 0.01);
-  assert.ok(box.width >= 370, 'edge to edge');
+  assert.ok(box.width >= 400, 'edge to edge, a little past each side');
   assert.ok(box.left >= -12 && box.left + box.width <= 402, 'bleeds at most a few px');
   assert.ok(box.top >= 44 && box.top <= 60, 'starts right under the top bar');
   const bottom = box.top + box.height;
-  assert.ok(bottom > 844 - 170 && bottom <= 844 - 170 * 0.5, 'runs a little behind the action bar');
+  assert.ok(bottom > 844 - PORTRAIT_ACTION_BAR && bottom <= 844, 'runs into the bottom button row');
 });
 
 test('landscape phone 844x390: still a wide rail inside the bars', () => {
@@ -58,7 +57,7 @@ test('stageBox never returns a negative size on tiny screens', () => {
   assert.ok(box.width > 0 && box.height > 0);
 });
 
-for (const mode of ['wide', 'portrait']) {
+for (const mode of ['wide']) {
   test(`${mode} seat layouts: one spot per seat, hero bottom centre, mirrored left and right`, () => {
     for (let n = 2; n <= 9; n++) {
       const lay = seatLayout(n, mode);
@@ -84,6 +83,24 @@ test('portrait seats stay on the felt, clear of the screen edge', () => {
 test('heads-up puts the opponent straight across the table', () => {
   assert.deepEqual(seatLayout(2, 'wide')[1], [50, 0]);
   assert.equal(seatLayout(2, 'portrait')[1][0], 50);
+});
+
+test('portrait seat layouts (GGPoker mobile): hero in the bottom-left corner, the others mirrored, bottom-right left free', () => {
+  for (let n = 2; n <= 9; n++) {
+    const lay = seatLayout(n, 'portrait');
+    assert.equal(lay.length, n, `${n} seats`);
+    const [hx, hy] = lay[0];
+    assert.ok(hx <= 25 && hy >= 84, `${n}-max hero at ${hx},${hy} sits bottom-left`);
+    const others = lay.slice(1);
+    for (const [, y] of others) assert.ok(y < hy, `${n}-max: hero is the lowest seat`);
+    const key = (p) => `${p[0]},${p[1]}`;
+    const spots = new Set(others.map(key));
+    assert.equal(spots.size, n - 1, 'no two seats share a spot');
+    for (const [x, y] of others) {
+      assert.ok(spots.has(key([100 - x, y])), `${n}-max: ${x},${y} has a mirror`);
+      assert.ok(!(x > 60 && y > 70), `${n}-max: ${x},${y} leaves the bottom-right free for the raise presets`);
+    }
+  }
 });
 
 test('the table page draws every table piece inside the stage', () => {
@@ -118,11 +135,19 @@ test('landscape phone 844x390: the rail takes most of the height between the bar
   assert.ok(box.height >= 220, `rail height ${box.height}`);
 });
 
-test('on phones the hero sits high enough that the action panel never covers the name plate', () => {
+test('on phones the hero plate stays above the bottom button row', () => {
+  const box = stageBox({ width: 390, height: 844, topBar: 46, actionBar: 110 });
   for (let n = 2; n <= 9; n++) {
     const [hero] = seatLayout(n, 'portrait');
-    assert.ok(hero[1] <= 79, `${n}-max hero at ${hero[1]}%`);
+    const centre = box.top + (hero[1] / 100) * box.height;
+    assert.ok(centre + 46 <= 844 - PORTRAIT_ACTION_BAR, `${n}-max hero centre at ${Math.round(centre)}px`);
   }
+});
+
+test('Chrome on a 384x692 phone still gets an edge-to-edge oval, not a narrow one', () => {
+  const box = stageBox({ width: 384, height: 692, topBar: 46, actionBar: 110 });
+  assert.ok(box.width >= 390, `rail width ${box.width}`);
+  assert.ok(box.top + box.height <= 692, 'ends on screen');
 });
 
 test('on phones the table stays still when the action panel grows or shrinks on your turn', () => {

@@ -12,13 +12,16 @@ const PORTRAIT_MAX_WIDTH = 760;
 const SHORT_SCREEN = 520;
 const MAX_STAGE_WIDTH = 1400;
 const MIN_STAGE_SIDE = 60;
-/** Portrait: px the rail may run past each screen edge, gap under the top bar, share of the action bar it may run behind. */
+/** Portrait: px the rail may run past each screen edge, gap under the top bar, share of the bottom
+ *  button row the rail runs behind, and the height range (x width) the upright skin may stretch to. */
 const PORTRAIT_BLEED = 10;
 const PORTRAIT_TOP_GAP = 6;
-const PORTRAIT_UNDER_BAR = 0.45;
-/** Phones: the action panel's fixed height (table-phone.css --phone-bar-h). The rail is sized
- *  from this, not the live panel, so the table never jumps when your turn adds or removes a row. */
-export const PORTRAIT_ACTION_BAR = 184;
+const PORTRAIT_UNDER_BAR = 0.5;
+const PORTRAIT_MIN_RATIO = 1.3;
+const PORTRAIT_MAX_RATIO = 2.1;
+/** Phones: the bottom button row's fixed height (table-phone-gg.css --phone-bar-h). The rail is
+ *  sized from this, not the live panel, so the table never jumps when your turn adds a row. */
+export const PORTRAIT_ACTION_BAR = 64;
 
 /** Room the seats need around the rail: seats are centred on it and hang over its edge. */
 const PADS = {
@@ -48,16 +51,16 @@ function wideBox({ width, height, topBar, actionBar }: { width: number; height: 
 }
 
 /**
- * Phones held upright (GGPoker mobile): the rail fills the screen edge to edge and runs from just
- * under the top bar down behind the action bar; seats sit on the felt, not around it.
+ * Phones held upright (GGPoker mobile): the oval always fills the screen edge to edge and runs from
+ * just under the top bar into the bottom button row. Its height follows the screen, so the skin
+ * stretches (TablePage passes the size to CSS) instead of the table shrinking on short screens.
  */
 function portraitBox({ width, height, topBar }: { width: number; height: number; topBar: number; actionBar: number }): StageBox {
-  const actionBar = PORTRAIT_ACTION_BAR;
-  const availW = width + 2 * PORTRAIT_BLEED;
-  const availH = Math.max(MIN_STAGE_SIDE, height - topBar - PORTRAIT_TOP_GAP - actionBar * (1 - PORTRAIT_UNDER_BAR));
-  const w = Math.max(MIN_STAGE_SIDE, Math.min(availW, availH / RAIL_RATIO));
-  const h = w * RAIL_RATIO;
-  return { left: Math.round((width - w) / 2), top: Math.round(topBar + PORTRAIT_TOP_GAP), width: Math.round(w), height: Math.round(h) };
+  const w = Math.max(MIN_STAGE_SIDE, width + 2 * PORTRAIT_BLEED);
+  const top = topBar + PORTRAIT_TOP_GAP;
+  const reach = height - top - PORTRAIT_ACTION_BAR * (1 - PORTRAIT_UNDER_BAR);
+  const h = Math.max(MIN_STAGE_SIDE, Math.min(w * PORTRAIT_MAX_RATIO, Math.max(w * PORTRAIT_MIN_RATIO, reach)));
+  return { left: Math.round((width - w) / 2), top: Math.round(top), width: Math.round(w), height: Math.round(h) };
 }
 
 // Spots per seat count, hero first, then clockwise. x/y are % of the stage (the rail box).
@@ -72,17 +75,19 @@ const WIDE: Record<number, Spot[]> = {
   9: [[50, 100], [19, 97], [1, 64], [8, 26], [31, 1], [69, 1], [92, 26], [99, 64], [81, 97]],
 };
 
-// Portrait seats sit on the felt like GGPoker mobile: hugging the side rails, hero just above the action bar.
+// Portrait seats follow GGPoker mobile: the hero in the bottom-left corner, the others up the side
+// rails and across the top (clockwise from the hero), and the bottom-right corner left free for the
+// stacked raise presets.
 const PORTRAIT: Record<number, Spot[]> = {
-  2: [[50, 79], [50, 9]],
-  3: [[50, 79], [13, 26], [87, 26]],
-  4: [[50, 79], [12, 50], [50, 9], [88, 50]],
-  5: [[50, 79], [12, 60], [17, 17], [83, 17], [88, 60]],
-  6: [[50, 79], [12, 62], [12, 27], [50, 9], [88, 27], [88, 62]],
-  7: [[50, 79], [12, 68], [12, 42], [22, 13], [78, 13], [88, 42], [88, 68]],
-  8: [[50, 79], [16, 78], [11, 53], [13, 28], [50, 9], [87, 28], [89, 53], [84, 78]],
-  9: [[50, 79], [16, 78], [11, 55], [12, 32], [27, 11], [73, 11], [88, 32], [89, 55], [84, 78]],
-};
+  2: [[18, 84], [50, 8]],
+  3: [[18, 84], [17, 26], [83, 26]],
+  4: [[18, 84], [16, 46], [50, 8], [84, 46]],
+  5: [[18, 84], [16, 56], [24, 13], [76, 13], [84, 56]],
+  6: [[18, 84], [16, 62], [16, 30], [50, 8], [84, 30], [84, 62]],
+  7: [[18, 84], [16, 64], [16, 38], [30, 11], [70, 11], [84, 38], [84, 64]],
+  8: [[18, 84], [16, 66], [16, 43], [20, 19], [50, 8], [80, 19], [84, 43], [84, 66]],
+  9: [[18, 84], [16, 68], [16, 49], [16, 30], [31, 10], [69, 10], [84, 30], [84, 49], [84, 68]],
+}
 
 export function seatLayout(seats: number, mode: StageMode): Spot[] {
   const n = Math.max(2, Math.min(9, Math.round(seats) || 6));
