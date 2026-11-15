@@ -67,7 +67,7 @@ test('run it twice pays out a departed player\'s chips too (no chip vanishes)', 
   t.saveHand = () => {};
   t.sit({ id: 'p0', nick: 'p0' }, 0, 100);
   t.sit({ id: 'p1', nick: 'p1' }, 1, 100);
-  t.button = 0; t.street = 'turn'; t.runItTwice = true;
+  t.button = 0; t.street = 'turn';
   t.board = ['Qs', 'Jd', '5c', '4s'].map(card);
   t.ghosts = [{ id: 'gone', nick: 'gone', bet: 0, totalBet: 2 }];
   t.seats.filter((s) => s.player).forEach((s, i) => Object.assign(s.player, {
@@ -75,7 +75,7 @@ test('run it twice pays out a departed player\'s chips too (no chip vanishes)', 
     cards: [['Ah', 'Kd'], ['2c', '3d']][i].map(card), winAmount: 0,
   }));
   t.pot = 202;
-  t.runoutTwice();
+  t.runoutMulti(2);
   const paid = t.seats.reduce((a, s) => a + (s.player?.stack || 0), 0);
   assert.equal(paid, 202);
 });

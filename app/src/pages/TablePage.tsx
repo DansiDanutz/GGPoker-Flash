@@ -40,6 +40,7 @@ import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
+import { runChoice, runsLabel, type RunAsk } from '../game/runChoice';
 import { BAD_BEAT_BANNER_MS, badBeatRows, type BadBeatHit } from '../game/badBeat';
 import { TB_CARD_SECONDS } from '../game/timeBankRules';
 import { canShowHand, showOptions } from '../game/showOptions';
@@ -57,6 +58,8 @@ type PlayerState = {
   reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
   winAmount?: number; empty?: boolean; reserved?: boolean; mine?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
   leaveAfterHand?: boolean; sitOutNextBigBlind?: boolean; sitOutAll?: boolean;
+  /** Own seat only: whether to be asked to run it more than once when all-in. */
+  runItAsk?: boolean;
   /** Own seat only: chips paid for the next deal, and the auto-reduce target in BB (0 = off). */
   pendingTopUp?: number; topUpVersion?: number; autoReduceBB?: number;
 };
@@ -80,7 +83,9 @@ type TableState = {
   tournament?: { id?: string | null; name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null; payouts?: PayoutRow[] } | null;
   straddle?: boolean;
   straddleAsk?: StraddleAsk | null;
-  runItTwice?: boolean;
+  /** Set only for an all-in player being asked how many times to run it. */
+  runAsk?: RunAsk | null;
+  runRoundEndsAt?: number | null;
   boards?: string[][] | null;
   potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; actionTimeMs?: number; rake?: number;
   /** Rush only: whether this viewer may Fast Fold now (server PokerTable.quickFoldState). */
@@ -728,7 +733,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const odds = myTurn ? potOdds(state?.pot || 0, toCall) : null;
   const sittingOut = !!me?.sittingOut;
   const sitOutNext = !!me?.sitOutNext;
-  const canRabbit = !!me && state?.street === 'ended' && (state?.board?.length || 0) < 5;
+  const canRabbit = !!me?.inHand && state?.street === 'ended' && (state?.board?.length || 0) < 5;
   const facingShove = !!state?.players.some((p) => !p.empty && !p.isMe && p.allIn && !p.folded);
   const canPreAct = !!(state && me && !myTurn && me.inHand && !me.folded && !me.allIn
     && ['preflop', 'flop', 'turn', 'river'].includes(state.street) && !state.allInOrFold);
@@ -860,6 +865,16 @@ export function TablePage({ tableId }: { tableId: string }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [hotkeyPrefs, hotkeyMap, myTurn, toCall, raiseTo, maxTo, canRaise, allInTo, pendingBet, confirmBets, squeezing, state?.allInOrFold, act, requestBet]);
+
+  // Keep the chat dock above the action bar however tall it grows (sit-out row, run-it choice, straddle).
+  useEffect(() => {
+    const el = actionBarRef.current;
+    const host = el?.parentElement;
+    if (!el || !host || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => host.style.setProperty('--action-bar-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => { ro.disconnect(); host.style.removeProperty('--action-bar-h'); };
+  }, [observing]);
 
   // Mouse wheel changes the bet by the chosen unit, in the chosen direction.
   useEffect(() => {
@@ -1055,6 +1070,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   // Compare against the server's clock so a skewed local clock cannot distort the timer.
   const serverNow = now + clockOffset.current;
   const straddleModel = straddlePrompt(state?.straddleAsk, serverNow);
+  const runModel = runChoice(state?.runAsk, serverNow);
+  const othersChoosingRuns = !runModel && !!state?.runRoundEndsAt;
   const sitOutText = me?.sittingOut ? sitOutClock(me.sitOutEndsAt, serverNow) : null;
   const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - serverNow) / (state.actionTimeMs || DEFAULT_ACTION_TIME_MS))) : 0;
   const clockSeconds = state?.actor ? Math.max(0, Math.ceil((state.actionEndsAt - serverNow) / 1000)) : null;
@@ -1205,7 +1222,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Allow straddles at this table</button>
           {state?.straddle && <button disabled={!me} title="Post a straddle automatically whenever you are asked" onClick={() => send({ type: 'option', tableId, autoStraddle: !me?.autoStraddle })}>{me?.autoStraddle ? '✓ ' : ''}Auto-straddle</button>}
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
-          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItTwice: !state?.runItTwice })}>{state?.runItTwice ? '✓ ' : ''}Run it twice</button>
+          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItAsk: !(me?.runItAsk ?? true) })}>{(me?.runItAsk ?? true) ? '✓ ' : ''}Offer to run it more than once</button>
           {state?.spin && <button disabled title="Insurance is not available in DanGG yet">Insurance — not available</button>}
           <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
           <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
@@ -1274,7 +1291,6 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="bbj-row" key={row.label}><span>{row.label}</span><b>{row.names}</b><em>{money(row.amount)}</em></div>
           ))}
         </div>}
-        {sitOutText && <div className="sit-out-clock" role="timer" aria-label="Sit-out time left">{sitOutText}</div>}
         <div className="board">
           {(state?.board || []).map((c, i) => {
             const [dxp, dyp] = state && state.button >= 0 ? seatPos(state.button) : [50, 12];
@@ -1282,9 +1298,14 @@ export function TablePage({ tableId }: { tableId: string }) {
             const fromY = Math.round((45 - dyp) * 3);
             return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt className={focusClass(winnerFocus?.board, i)} style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: `${(i < 3 ? i : 0) * 0.07}s` } as React.CSSProperties} />;
           })}
-          {state?.boards && state.boards.length > 1 && (
-            <div className="board second-board">
-              {state.boards[1].map((c, i) => <PlayingCard key={`second-${state?.handNo}-${i}-${c}`} card={c} size="mini" />)}
+          {((state?.boards?.length ?? 0) > 1 || othersChoosingRuns) && (
+            <div className="extra-boards">
+              {(state?.boards ?? []).slice(1).map((run, r) => (
+                <div className="board second-board" key={`run-${r + 2}`} aria-label={`Board ${r + 2}`}>
+                  {run.map((c, i) => <PlayingCard key={`run${r + 2}-${state?.handNo}-${i}-${c}`} card={c} size="mini" />)}
+                </div>
+              ))}
+              {othersChoosingRuns && <div className="run-wait-note">Players are choosing how many times to run it</div>}
             </div>
           )}
           {state && state.board.length === 0 && state.street !== 'idle' && (
@@ -1483,6 +1504,22 @@ export function TablePage({ tableId }: { tableId: string }) {
             </div>
           </div>
         )}
+        {runModel && (
+          <div className="straddle-ask run-ask" role="dialog" aria-label="Run it">
+            <div className="straddle-ask-head">
+              <b>All in. How many times to run it?</b>
+              <span className="straddle-time">TIME {runModel.secondsLeft}</span>
+            </div>
+            <div className="straddle-ask-note">{runModel.chosen ? `You chose: ${runsLabel(runModel.chosen)}. Waiting for the other player.` : 'Every all-in player must agree. The lowest choice is used.'}</div>
+            {!runModel.chosen && (
+              <div className="action-row">
+                {runModel.options.map((runs) => (
+                  <button key={runs} className={'btn ' + (runs === 1 ? 'btn-dark' : 'btn-green')} onClick={() => send({ type: 'run_decide', tableId, runs })}>{runsLabel(runs)}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {myTurn && (
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}
@@ -1515,7 +1552,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {sittingOut && (
           <div className="action-row sitout-row">
-            <span>You are sitting out and will not be dealt in.</span>
+            <span>You are sitting out and will not be dealt in.{sitOutText && <> <b className="sit-out-clock-inline" role="timer" aria-label="Sit-out time left">{sitOutText}</b></>}</span>
             <div className="grow" />
             {!state?.tournament && (
               <label className="wait-blinds" title="Come back on your big blind instead of posting now">

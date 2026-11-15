@@ -270,8 +270,7 @@ test('run it twice deals two boards and splits the pot', () => {
   const t = tableWith([p1, p2], { seats: 2 });
   t.pot = 1000;
   t.deck = makeDeck(false);
-  t.runItTwice = true;
-  t.runoutTwice();
+  t.runoutMulti(2);
   assert.equal(t.result.boards.length, 2);
   assert.equal(t.result.boards[0].length, 5);
   assert.equal(t.result.boards[1].length, 5);
@@ -313,8 +312,7 @@ test('run it twice handles a multiway side pot and conserves chips', () => {
   const t = tableWith([p1, p2, p3], { seats: 3 });
   t.pot = 700;
   t.deck = makeDeck(false);
-  t.runItTwice = true;
-  t.runoutTwice();
+  t.runoutMulti(2);
   assert.equal(t.result.boards.length, 2);
   const paid = t.result.winners.reduce((a, w) => a + w.amount, 0);
   assert.equal(paid, 665);

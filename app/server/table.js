@@ -1,5 +1,6 @@
 import { buildPots, collectedPots, oddChipOrder } from './pots.js';
 import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
+import { MAX_RUNS, RUN_ASK_MS, agreedRuns, boardsFor, splitAmount } from './runItMulti.js';
 import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
 import { badBeatPayout } from './badBeat.js';
 import { activeReservations, reserve, withoutPlayer } from './seatReserve.js';
@@ -69,7 +70,7 @@ export class PokerTable {
     this.listeners = new Set();
     this.lastAction = null;
     this.paused = false;
-    this.runItTwice = false;
+    this.runRound = null;
     this.tableName = cfg.name;
     this.game = cfg.game;
     this.sb = cfg.sb;
@@ -236,6 +237,7 @@ export class PokerTable {
       handsPlayed: 0,
       won: 0,
       autoMuck: true,
+      runItAsk: true,
       sitOutNextHand: false,
       leaveAfterHand: false,
       sitOutNextBigBlind: false,
@@ -564,6 +566,7 @@ export class PokerTable {
     this.result = null;
     this.showdown = false;
     this.boards = [];
+    this.runRound = null;
     this.street = 'preflop';
     this.streetStartedAt = Date.now();
     this.history = [];
@@ -940,9 +943,11 @@ export class PokerTable {
     return { ok: true };
   }
 
-  setRunItTwice(value) {
-    if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };
-    this.runItTwice = !!value;
+  /** Per-player: whether to be offered running it more than once when all-in. Off means "once". */
+  setRunItAsk(userId, value) {
+    const seat = this.seatOf(userId);
+    if (!seat?.player) return { ok: false, error: 'Take a seat first' };
+    seat.player.runItAsk = !!value;
     return { ok: true };
   }
 
@@ -1243,39 +1248,97 @@ export class PokerTable {
 
   runout() {
     this.collectBets();
-    if (this.runItTwice && this.activePlayers().filter((s) => !s.player.folded).length >= 2) {
-      this.runoutTwice();
-      return;
-    }
     this.street = 'showdown';
     this.actor = null;
-    while (this.board.length < 5) {
-      if (this.board.length === 0) this.board.push(this.deck.pop(), this.deck.pop(), this.deck.pop());
-      else this.board.push(this.deck.pop());
-    }
-    this.emit({ type: 'runout', board: this.board.map(cardStr) });
-    this.showdownDelay = 4200;
-    this.nextHandAt = Date.now() + this.showdownDelay;
-    this.doShowdown();
+    if (this.openRunRound()) return;
+    this.runBoards(1);
   }
 
-  runoutTwice() {
+  /** Cash all-ins with cards to come: the all-in players choose to run it 1-3 times. */
+  openRunRound() {
+    // Cash tables only: not tournaments, Spin, All-in or Fold, fast-fold Rush or the first-hand flip.
+    if (this.tournament || this.spin || this.aof || this.flip || this.rush || this.board.length >= 5) return false;
+    const alive = this.activePlayers().filter((s) => !s.player.folded);
+    if (alive.length < 2) return false;
+    const humans = alive.filter((s) => !s.player.isBot);
+    if (!humans.length || humans.some((s) => s.player.runItAsk === false)) return false;
+    const asked = humans.filter((s) => !s.player.disconnected && !s.player.sittingOut);
+    if (!asked.length) return false;
+    // All-in hands are tabled before the players decide.
+    for (const s of alive) s.player.reveal = true;
+    this.runRound = { asked: new Set(asked.map((s) => s.player.id)), choices: new Map(), endsAt: Date.now() + RUN_ASK_MS };
+    this.emit({ type: 'run_ask', endsAt: this.runRound.endsAt, maxRuns: MAX_RUNS });
+    return true;
+  }
+
+  /** Rabbit hunt: the undealt cards, only for players who were dealt into the hand that just ended. */
+  rabbitCardsFor(viewerId) {
+    if (this.street !== 'ended' || this.board.length >= 5) return null;
+    const p = viewerId ? this.seatOf(viewerId)?.player : null;
+    if (!p || !p.inHand) return null;
+    const deck = [...this.deck];
+    const cards = [];
+    while (cards.length < 5 - this.board.length && deck.length) cards.push(cardStr(deck.pop()));
+    return cards;
+  }
+
+  runAskFor(viewerId) {
+    const round = this.runRound;
+    if (!round || !viewerId || !round.asked.has(viewerId)) return null;
+    return { endsAt: round.endsAt, maxRuns: MAX_RUNS, chosen: round.choices.get(viewerId) ?? null };
+  }
+
+  decideRuns(playerId, runs) {
+    const round = this.runRound;
+    if (!round || !round.asked.has(playerId)) return { ok: false, error: 'Nothing to decide' };
+    if (round.choices.has(playerId)) return { ok: false, error: 'Already chosen' };
+    if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) return { ok: false, error: 'Choose 1 to 3 runs' };
+    round.choices.set(playerId, runs);
+    // Once anyone picks a single run, nothing anyone else says can change it.
+    if (runs === 1 || round.choices.size === round.asked.size) this.closeRunRound();
+    return { ok: true };
+  }
+
+  closeRunRound() {
+    const round = this.runRound;
+    if (!round) return;
+    this.runRound = null;
+    // A player who did not answer in time counts as "once".
+    const choices = [...round.asked].map((id) => round.choices.get(id) ?? 1);
+    this.runBoards(agreedRuns(choices));
+  }
+
+  /** Deal the rest of the board once, or several boards that all keep the cards already dealt. */
+  runBoards(runs) {
+    if (runs <= 1) {
+      while (this.board.length < 5) {
+        if (this.board.length === 0) this.board.push(this.deck.pop(), this.deck.pop(), this.deck.pop());
+        else this.board.push(this.deck.pop());
+      }
+      this.emit({ type: 'runout', board: this.board.map(cardStr) });
+      this.showdownDelay = 4200;
+      this.nextHandAt = Date.now() + this.showdownDelay;
+      this.doShowdown();
+      return;
+    }
+    this.runoutMulti(runs);
+  }
+
+  runoutMulti(runs) {
     this.street = 'showdown';
     this.actor = null;
     this.collectBets();
     const alive = this.activePlayers().filter((s) => !s.player.folded);
     if (alive.length < 2) { this.doShowdown(); return; }
-    const board1 = [];
-    const board2 = [];
-    while (board1.length < 5) board1.push(this.deck.pop());
-    while (board2.length < 5) board2.push(this.deck.pop());
+    const dealt = boardsFor(this.board, this.deck, runs);
+    this.deck = dealt.deck;
+    const boards = dealt.boards;
     const evaluate = (board) => alive.map((s) => {
       const p = s.player;
-      const best = this.omaha ? bestOmaha(p.cards, board) : bestHoldem(p.cards, board);
+      const best = this.omaha ? bestOmaha(p.cards, board) : bestHoldem(p.cards, board, this.shortDeck);
       return { seat: s.index, player: p, score: best.score, name: best.name, cards: best.cards };
     });
-    const scored = [evaluate(board1), evaluate(board2)];
-
+    const scored = boards.map(evaluate);
     // Same native settlement as a single board, including chips left by departed seats.
     const pots = this.settlementPots().map((pot) => ({ amount: pot.amount, ids: pot.eligible }));
     const rake = this.computeRake(this.pot);
@@ -1319,20 +1382,15 @@ export class PokerTable {
     };
 
     for (const pot of pots) {
-      const half = Math.floor(pot.amount / 2);
-      award(scored[0], half, 0, pot.ids);
-      award(scored[1], pot.amount - half, 1, pot.ids);
+      splitAmount(pot.amount, runs).forEach((amount, run) => award(scored[run], amount, run, pot.ids));
     }
 
-    const doubleWinnerIds = new Set(results.map((r) => r.id));
-    for (const sc of alive) {
-      const p = sc.player;
-      if (doubleWinnerIds.has(p.id) || !p.autoMuck) p.reveal = true;
-    }
-    this.board = board1;
-    this.boards = [board1, board2];
+    // Every hand was tabled when the players chose how many times to run it.
+    for (const sc of alive) sc.player.reveal = true;
+    this.board = boards[0];
+    this.boards = boards;
     const summary = {
-      pot: this.pot, rake, board: board1.map(cardStr), boards: [board1.map(cardStr), board2.map(cardStr)],
+      pot: this.pot, rake, board: boards[0].map(cardStr), boards: boards.map((b) => b.map(cardStr)), runs,
       winners: results, runItTwice: true, reason: 'showdown',
       hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
     };
@@ -1660,6 +1718,7 @@ export class PokerTable {
 
   tick(now = Date.now()) {
     this.expireReservations(now);
+    if (this.runRound && now >= this.runRound.endsAt) this.closeRunRound();
     if (this.tournament) {
       // Flights share one level clock; the first table to tick advances it and
       // every other flight picks the new level up on its own next tick.
@@ -1906,6 +1965,7 @@ export class PokerTable {
           disconnected: p.disconnected,
           country: p.country || '',
           sitOutNext: !!p.sitOutNextHand,
+          runItAsk: mine ? p.runItAsk !== false : undefined,
           timeBank: p.timeBank,
           timeBankCards: p.timeBankCards ?? 0,
           ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p), leaveAfterHand: !!p.leaveAfterHand, sitOutNextBigBlind: !!p.sitOutNextBigBlind, sitOutAll: !!p.sitOutAll, pendingTopUp: p.pendingTopUp || 0, topUpVersion: p.topUpVersion || 0, autoReduceBB: p.autoReduceBB || 0 } : {}),
@@ -1924,7 +1984,8 @@ export class PokerTable {
       straddle: this.straddle,
       straddleAsk: this.straddleAskFor(viewerId),
       quickFold: this.rush && viewerId != null ? this.quickFoldState(viewerId) : null,
-      runItTwice: this.runItTwice,
+      runAsk: this.runAskFor(viewerId),
+      runRoundEndsAt: this.runRound?.endsAt ?? null,
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
       tournament: this.tournament ? {
         id: this.cfg.tournamentId || null,

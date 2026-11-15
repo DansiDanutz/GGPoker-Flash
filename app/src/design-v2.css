@@ -341,7 +341,9 @@ body { background: #050706; }
   transition: transform .18s var(--ease), filter .18s var(--ease);
 }
 .promo-wrap:hover .promo-cta { transform: translateY(-1px); filter: brightness(1.06); }
-.second-board { margin-top: 4px; opacity: .9; border-top: 1px solid rgba(216, 177, 95, .18); padding-top: 4px; }
+.board { position: relative; }
+.extra-boards { position: absolute; left: 50%; top: calc(100% + 4px); transform: translateX(-50%); z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.second-board { min-height: 0; margin: 0; opacity: .95; border-top: 1px solid rgba(216, 177, 95, .18); padding-top: 4px; }
 
 /* ---------- final atmosphere pass ---------- */
 .lobby-content { position: relative; isolation: isolate; }
@@ -619,7 +621,9 @@ body { background: #050706; }
 .btn.btn-green { background: #2f8f3a; color: #fff; }
 
 /* Native SitOutView: a large mm:ss countdown over the board while you sit out. */
-.sit-out-clock { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); z-index: 5; background: rgba(0, 0, 0, .78); color: #fff; font-size: 30px; font-weight: 700; padding: 4px 16px; border-radius: 8px; letter-spacing: 1px; pointer-events: none; }
+.sit-out-clock-inline { margin-left: 8px; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.run-wait-note { width: 100%; text-align: center; margin-top: 4px; color: #ffd98a; font-size: 12px; letter-spacing: .3px; }
+.run-ask .action-row { flex-wrap: wrap; }
 .wait-blinds { display: inline-flex; align-items: center; gap: 6px; color: #ddd; font-size: 13px; margin-right: 10px; cursor: pointer; }
 
 /* Native PlayerCell VPIP badge: small dark square at the avatar's lower left. */
