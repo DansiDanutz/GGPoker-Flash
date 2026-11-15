@@ -28,7 +28,8 @@ import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tourname
 import * as waitlist from './waitlist.js';
 import { ensureWaitlistTable, loadWaitlist, saveWaitlist } from './waitlist-store.js';
 import { botFillCount, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, waitingFor } from './bot-seats.js';
-import { staleHandError } from './action-version.js';
+import { staleHandError, staleTurnError } from './action-version.js';
+import { clockLowEnough } from './timeBankCards.js';
 import { waitingForTable } from './sitOut.js';
 import { RESERVATION_KINDS, pendingLeaves, sitOutEverywhere } from './reservations.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
@@ -1068,6 +1069,12 @@ function sweepDisconnected(entry) {
       // A tournament or running Spin seat is never forfeited by a dropped connection: the
       // player is blinded out (auto-fold / auto-check) until they come back.
       Object.assign(p, { away: true, sittingOut: true, disconnectedAt: 0 });
+      continue;
+    }
+    if (table.handInProgress() && p.inHand && !p.folded) {
+      // Never forfeit a live hand to a dropped connection: an all-in player keeps their equity.
+      // Sat out, their turns resolve at once (check, else fold); the seat cashes out after the hand.
+      Object.assign(p, { away: true, sittingOut: true });
       continue;
     }
     cashOutSeat(table, p.id, `Disconnected from ${table.cfg.name}`);
@@ -3194,6 +3201,11 @@ wss.on('connection', (ws, req) => {
         return ws.send(JSON.stringify({ type: 'error', error: 'Take a seat to change table options' }));
       }
       if (msg.straddle != null) {
+        // A table-wide rule: only the table's host may change it, never any seated player.
+        const ownerId = entry.table.cfg.owner_id;
+        if (!ownerId || Number(ownerId) !== Number(ws.userId)) {
+          return ws.send(JSON.stringify({ type: 'error', error: 'Only the table host can change straddles' }));
+        }
         const res = entry.table.setStraddle(!!msg.straddle);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
@@ -3245,7 +3257,10 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'timebank') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
-      const res = entry.table.useTimeBank(ws.userId);
+      const table = entry.table;
+      const res = table.actor === ws.userId && !clockLowEnough({ endsAt: table.actionEndsAt, now: Date.now() })
+        ? { ok: false, error: 'The time bank opens when your clock is low' }
+        : table.useTimeBank(ws.userId);
       if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       else broadcastState(entry.table);
       return;
@@ -3254,7 +3269,7 @@ wss.on('connection', (ws, req) => {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
       const table = entry.table;
-      const stale = staleHandError(table, msg);
+      const stale = staleHandError(table, msg) || staleTurnError(table, msg);
       if (stale) return ws.send(JSON.stringify({ type: 'error', error: stale, stale: true, handNo: table.handNo }));
       // `quickfold` (Rush Fast Fold) is the one action valid before the player's turn.
       const isQuickFold = msg.action === 'quickfold';

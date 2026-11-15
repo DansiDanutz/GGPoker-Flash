@@ -9,11 +9,11 @@ import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, rea
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval';
-import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/betting';
+import { betLimits, potOdds, sizingPresets, sliderTarget, type BetContext } from '../game/betting';
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
-import { showdownComplete, showdownPlan } from '../game/showdown';
+import { heroHoldsHand, showdownComplete, showdownPlan } from '../game/showdown';
 import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
 import { seatNick, isAllInStatus } from '../game/seatLabel';
 import { autoTopUpAmount } from '../lib/autoTopUp';
@@ -74,7 +74,7 @@ type PlayerState = {
 
 type TableState = {
   id: string; tableEpoch?: string; tableVersion?: number; name: string; game: string; sb: number; bb: number; ante: number; seats: number;
-  button: number; sbSeat?: number; bbSeat?: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
+  button: number; sbSeat?: number; bbSeat?: number; handNo: number; turnNo?: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
   pots?: number[];
@@ -95,7 +95,7 @@ type TableState = {
   runAsk?: RunAsk | null;
   runRoundEndsAt?: number | null;
   boards?: string[][] | null;
-  potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; actionTimeMs?: number; rake?: number;
+  potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; raiseLocked?: boolean; actionTimeMs?: number; rake?: number;
   /** Rush only: whether this viewer may Fast Fold now (server PokerTable.quickFoldState). */
   quickFold?: QuickFoldState | null;
 };
@@ -297,8 +297,11 @@ export function TablePage({ tableId }: { tableId: string }) {
     if (!user) { navigate('/login'); }
   }, [user]);
 
+  // The socket belongs to the account, not to one copy of its profile: refreshing the balance
+  // (Add Chips, the cashier) hands back a new user object and must not leave and rejoin the table.
+  const userKey = user ? String(user.id) : '';
   const connect = useCallback(() => {
-    if (!user) return;
+    if (!userKey) return;
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(getToken() || '')}`);
     wsRef.current = ws;
@@ -400,7 +403,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       retry.current = window.setTimeout(() => { if (wsRef.current === ws) connect(); }, 1600);
     };
     ws.onerror = () => { /* handled by close */ };
-  }, [tableId, user]);
+  }, [tableId, userKey]);
 
   const pushStack = (to: [number, number]) => {
     const el = stageRef.current;
@@ -521,7 +524,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       // Showdowns turn the cards in seat order before the badge and pot move.
       const isShowdown = evt.reason === 'showdown';
       const revealSeats = isShowdown ? (evt.hands || []).filter((h: any) => h.cards).map((h: any) => h.seat) : [];
-      const plan = isShowdown ? showdownPlan(revealSeats) : [];
+      const plan = isShowdown ? showdownPlan(revealSeats, evt.showFirst) : [];
       const fxAt = isShowdown ? showdownComplete(revealSeats) : 0;
       setFocusReady(false);
       if (isShowdown) window.setTimeout(() => setFocusReady(true), fxAt);
@@ -628,7 +631,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!userKey) return;
     connect();
     return () => {
       if (retry.current) window.clearTimeout(retry.current);
@@ -639,7 +642,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       } else if (ws) ws.close();
       wsRef.current = null;
     };
-  }, [connect, tableId, user]);
+  }, [connect, tableId, userKey]);
 
   useEffect(() => {
     // Guests have no account, so there are no notes to load (the request would only return 401).
@@ -672,7 +675,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const tbOfferedRef = useRef(false);
   const betCtx: BetContext = {
     pot: state?.pot || 0, currentBet: state?.currentBet || 0, minRaise: state?.minRaise || 0, bb: state?.bb || 0,
-    myBet: me?.bet || 0, myStack: me?.stack || 0, maxRaiseTo: state?.maxRaiseTo || 0, street: state?.street || 'idle',
+    myBet: me?.bet || 0, myStack: me?.stack || 0, maxRaiseTo: state?.maxRaiseTo || 0, raiseLocked: !!state?.raiseLocked, street: state?.street || 'idle',
   };
   const { toCall, minTo, maxTo, allInTo, canRaise } = betLimits(betCtx);
   // Cash tables are stored in cents and shown in dollars; tournaments use whole chips.
@@ -790,7 +793,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     const voice = voices[action];
     if (voice) setTimeout(() => sound.play(voice as any, { volume: .6 }), 120);
     // The hand number lets the server refuse a click that arrives after this hand ended.
-    send({ type: 'action', action, amount, handNo: stateRef.current?.handNo });
+    send({ type: 'action', action, amount, handNo: stateRef.current?.handNo, turnNo: stateRef.current?.turnNo });
   };
 
   // "Always confirm" turns every bet into a two-step action; off, it fires at once.
@@ -945,9 +948,10 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
   const myCards = me?.cards?.filter((c) => c !== '??') || [];
   const winnerFocus = state && state.street === 'ended' && focusReady ? showdownFocus(state.result, state.board, state.game) : null;
-  const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(state.game), state.game === 'shortdeck') : null;
+  const handInfo = state && heroHoldsHand(me) && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(state.game), state.game === 'shortdeck') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
   // After the hand (native ShowMuck) anyone dealt in, folded or not, picks cards to show once.
+  const isHost = !!user && state?.ownerId != null && state.ownerId === user.id;
   const canShowCards = canShowHand(me, state?.street, observing);
   const showCards = (indices: number[]) => {
     if (!indices.length) return;
@@ -1219,7 +1223,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <button key={key} className={buttonLayout === key ? 'on' : ''} aria-pressed={buttonLayout === key} onClick={() => chooseLayout(key)}>{label}</button>
             ))}
           </div>
-          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Allow straddles at this table</button>
+          {isHost && <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Allow straddles at this table</button>}
           {state?.straddle && <button disabled={!me} title="Post a straddle automatically whenever you are asked" onClick={() => send({ type: 'option', tableId, autoStraddle: !me?.autoStraddle })}>{me?.autoStraddle ? '✓ ' : ''}Auto-straddle</button>}
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItAsk: !(me?.runItAsk ?? true) })}>{(me?.runItAsk ?? true) ? '✓ ' : ''}Offer to run it more than once</button>
@@ -1678,19 +1682,20 @@ export function TablePage({ tableId }: { tableId: string }) {
             type="range"
             min={minTo}
             max={Math.max(minTo, maxTo)}
-            step={Math.max(100, state?.bb || 100)}
+            step={betStep}
             value={raiseTo}
             aria-label="Bet amount"
             aria-valuetext={amt(raiseTo)}
             title={`${amt(minTo)} – ${amt(Math.max(minTo, maxTo))}`}
             disabled={!myTurn || !canRaise}
-            onChange={(e) => setRaiseTo(Number(e.target.value))}
+            onChange={(e) => setRaiseTo(sliderTarget(Number(e.target.value), betStep, maxTo))}
           />
           <div className="bet-stepper">
             <button
               type="button"
               className="bet-step"
               aria-label="Bet less"
+              data-tip="Bet less"
               disabled={!myTurn || !canRaise || raiseTo <= minTo}
               onClick={() => nudgeBet(-1)}
             >−</button>
@@ -1714,13 +1719,14 @@ export function TablePage({ tableId }: { tableId: string }) {
               type="button"
               className="bet-step"
               aria-label="Bet more"
+              data-tip="Bet more"
               disabled={!myTurn || !canRaise || raiseTo >= maxTo}
               onClick={() => nudgeBet(1)}
             >+</button>
           </div>
           <button
             className={'act-btn ' + (raiseTo >= allInTo ? 'act-allin' : 'act-raise')}
-            disabled={!myTurn || maxTo <= (state?.currentBet || 0)}
+            disabled={!myTurn || !canRaise}
             onClick={() => requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo)}
           >
             {raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')} {amt(raiseTo)}

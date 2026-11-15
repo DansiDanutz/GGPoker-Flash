@@ -12,3 +12,15 @@ export function staleHandError(table, msg) {
   if (msg?.handNo == null) return null;
   return Number(msg.handNo) === table.handNo ? null : STALE_ACTION_ERROR;
 }
+
+export const STALE_TURN_ERROR = 'That turn is over: your action was not applied.';
+
+/**
+ * The error for an action aimed at an earlier turn of this hand (a double tap, a late packet),
+ * or null when it may be applied. Each turn has its own number (`table.turnNo`); Fast Fold is
+ * valid before the player's turn and is exempt. No number keeps older clients working.
+ */
+export function staleTurnError(table, msg) {
+  if (msg?.turnNo == null || msg.action === 'quickfold') return null;
+  return Number(msg.turnNo) === table.turnNo ? null : STALE_TURN_ERROR;
+}

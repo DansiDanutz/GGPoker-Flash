@@ -72,6 +72,17 @@ test('a short all-in does not reopen the betting for players who already acted',
   assert.equal(p(0).totalBet, 250);
 });
 
+test('the snapshot tells a player when a short all-in has locked their raise', () => {
+  const { t } = deal([START, START, 250]);
+  ok(t.act(1, 'raise', 200));
+  ok(t.act(2, 'call'));
+  assert.equal(t.snapshotFor(3).raiseLocked, false, 'a player who has not acted may raise');
+  ok(t.act(3, 'allin'));
+  assert.equal(t.snapshotFor(1).raiseLocked, true, 'the raiser may only call or fold');
+  assert.equal(t.snapshotFor(3).raiseLocked, false, 'the all-in player has no decision to lock');
+  assert.equal(t.snapshotFor(null).raiseLocked, false, 'spectators are never locked');
+});
+
 test('short all-ins that add up to a full raise reopen the betting', () => {
   // Button first: seat 3 is UTG, seats 1 and 2 are the blinds.
   const { t } = deal([START, 250, 300, START]);
@@ -264,6 +275,7 @@ test('All-in or Fold: folding around gives the big blind the pot', () => {
 
 test('two timeouts in a row sit a player out', () => {
   const { t, p } = deal([START, START, START]);
+  p(0).timeBankCards = 0; // no card to spend: the clock folds at once
   const far = Date.now() + 1e7;
   t.tick(far);
   assert.equal(p(0).folded, true);

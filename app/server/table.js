@@ -47,6 +47,7 @@ export class PokerTable {
     this.sbSeat = -1;
     this.bbSeat = -1;
     this.handNo = 0;
+    this.turnNo = 0;
     this.street = 'idle'; // idle | preflop | flop | turn | river | showdown | ended
     this.board = [];
     this.deck = [];
@@ -245,6 +246,9 @@ export class PokerTable {
       sitOutAll: false,
       insurance: false,
       sessionId,
+      // Joining a running cash table owes a big blind (posted on the next deal, or waited for with
+      // Wait for BB): no free hand. Automatic moves (Rush, balancing) and the first hand owe nothing.
+      missedBlinds: this.handNo > 0 && this.owesSitInBlind() && !this.rush && !Number.isInteger(player.timeBankCards),
     };
     this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
     this.maybeStart();
@@ -970,6 +974,8 @@ export class PokerTable {
   setActor(playerId) {
     this.actor = playerId;
     if (!playerId) return;
+    // Every turn gets its own number; an action stamped with an older one is refused.
+    this.turnNo += 1;
     const seat = this.seatOf(playerId);
     this.actionEndsAt = Date.now() + this.actionTimeMs;
     if (seat && seat.player && seat.player.isBot) {
@@ -1070,8 +1076,7 @@ export class PokerTable {
       const raiseSize = target - this.currentBet;
       // A player who already acted may only raise again once the bet has grown by a full raise
       // since their last action; several short all-ins can add up to that.
-      const isRaiseLocked = p.acted && this.currentBet - (p.actedAtBet ?? 0) < this.minRaise;
-      if (isRaiseLocked) {
+      if (this.isRaiseLocked(p)) {
         if (action === 'allin') return this.act(playerId, 'call', 0, opts);
         return { ok: false, error: 'raise not allowed after a short all-in' };
       }
@@ -1273,15 +1278,18 @@ export class PokerTable {
     const humans = alive.filter((s) => !s.player.isBot);
     if (!humans.length || humans.some((s) => s.player.runItAsk === false || s.player.runPref === 1)) return false;
     const asked = humans.filter((s) => !s.player.disconnected && !s.player.sittingOut);
-    if (!asked.length) return false;
+    // "All must agree": an absent player with no saved choice counts as once, so the board runs once.
+    const absent = humans.filter((s) => !asked.includes(s));
+    if (!asked.length || absent.some((s) => !s.player.runPref)) return false;
+    const absentChoices = absent.map((s) => s.player.runPref);
     // All-in hands are tabled before the players decide.
     for (const s of alive) s.player.reveal = true;
     const remembered = new Map(asked.filter((s) => s.player.runPref).map((s) => [s.player.id, s.player.runPref]));
     if (remembered.size === asked.length) {
-      this.runBoards(agreedRuns([...remembered.values()]));
+      this.runBoards(agreedRuns([...remembered.values(), ...absentChoices]));
       return true;
     }
-    this.runRound = { asked: new Set(asked.map((s) => s.player.id)), choices: remembered, endsAt: Date.now() + RUN_ASK_MS };
+    this.runRound = { asked: new Set(asked.map((s) => s.player.id)), choices: remembered, absentChoices, endsAt: Date.now() + RUN_ASK_MS };
     this.emit({ type: 'run_ask', endsAt: this.runRound.endsAt, maxRuns: MAX_RUNS });
     return true;
   }
@@ -1305,7 +1313,7 @@ export class PokerTable {
 
   decideRuns(playerId, runs) {
     const round = this.runRound;
-    if (!round || !round.asked.has(playerId)) return { ok: false, error: 'Nothing to decide' };
+    if (!round || this.street !== 'showdown' || !round.asked.has(playerId)) return { ok: false, error: 'Nothing to decide' };
     if (round.choices.has(playerId)) return { ok: false, error: 'Already chosen' };
     if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) return { ok: false, error: 'Choose 1 to 3 runs' };
     round.choices.set(playerId, runs);
@@ -1318,9 +1326,10 @@ export class PokerTable {
     const round = this.runRound;
     if (!round) return;
     this.runRound = null;
+    if (this.street !== 'showdown') return; // the hand already ended (a leaver folded): never pay twice
     // A player who did not answer in time counts as "once".
     const choices = [...round.asked].map((id) => round.choices.get(id) ?? 1);
-    this.runBoards(agreedRuns(choices));
+    this.runBoards(agreedRuns([...choices, ...(round.absentChoices || [])]));
   }
 
   /** Deal the rest of the board once, or several boards that all keep the cards already dealt. */
@@ -1407,6 +1416,7 @@ export class PokerTable {
     const summary = {
       pot: this.pot, rake, board: boards[0].map(cardStr), boards: boards.map((b) => b.map(cardStr)), runs,
       winners: results, runItTwice: true, reason: 'showdown',
+      showFirst: this.showdownFirstSeat(alive.map((sc) => sc.index)),
       hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
     };
     this.result = this.publicShowdown(summary);
@@ -1468,6 +1478,7 @@ export class PokerTable {
   }
 
   finishByFold(winnerSeat) {
+    this.runRound = null; // a pending run-it choice dies with the hand: it must never settle again
     if (!this.handInProgress()) return;
     this.collectBets();
     const winner = winnerSeat ? winnerSeat.player : null;
@@ -1548,7 +1559,8 @@ export class PokerTable {
     const winnerIds = new Set(results.map((r) => r.id));
     for (const sc of scored) {
       const p = sc.player;
-      if (winnerIds.has(p.id) || !p.autoMuck) p.reveal = true;
+      // A called last aggressor must table the hand.
+      if (winnerIds.has(p.id) || !p.autoMuck || p.id === this.lastAggressor) p.reveal = true;
     }
     const summary = {
       pot: this.pot,
@@ -1559,6 +1571,7 @@ export class PokerTable {
         seat: s.seat, nick: s.player.nick, cards: s.player.cards.map(cardStr), hand: s.name,
       })),
       reason: 'showdown',
+      showFirst: this.showdownFirstSeat(scored.map((sc) => sc.seat)),
     };
     const badBeat = this.payBadBeatJackpot(scored, pots, results);
     if (badBeat) summary.badBeat = badBeat;
@@ -1631,6 +1644,18 @@ export class PokerTable {
    * seat (for the reveal order) but lose their cards. The full summary is only saved
    * to hand history, which filters per viewer on read.
    */
+  /** Seat that turns its cards first: the last aggressor, else the first live seat left of the button. */
+  showdownFirstSeat(seats) {
+    const aggressor = this.lastAggressor != null ? this.seatOf(this.lastAggressor) : null;
+    if (aggressor && seats.includes(aggressor.index)) return aggressor.index;
+    const n = this.seats.length;
+    for (let i = 1; i <= n; i++) {
+      const seat = (this.button + i) % n;
+      if (seats.includes(seat)) return seat;
+    }
+    return null;
+  }
+
   publicShowdown(summary) {
     const revealed = (seat) => !!this.seats[seat]?.player?.reveal;
     return {
@@ -1836,6 +1861,9 @@ export class PokerTable {
       return;
     }
     if (now >= this.actionEndsAt) {
+      // Facing a bet, the clock spends one Time Bank Card before folding (GGPoker auto time bank),
+      // but not for a player already timed out last turn: an absent player must not stall the table.
+      if (this.toCall(p) > 0 && !p.missedTurns && !this.timeBankAction && this.useTimeBank(p.id).ok) return;
       // Two timeouts in a row sit the player out so an absent player cannot stall the table.
       p.missedTurns = (p.missedTurns || 0) + 1;
       if (p.missedTurns >= MAX_MISSED_TURNS && !p.sittingOut) {
@@ -1928,6 +1956,7 @@ export class PokerTable {
       sbSeat: this.sbSeat,
       bbSeat: this.bbSeat,
       handNo: this.handNo,
+      turnNo: this.turnNo,
       street: this.street,
       board: this.board.map(cardStr),
       pot: this.pot + this.totalBets(),
@@ -1937,6 +1966,7 @@ export class PokerTable {
       potLimit: this.potLimit,
       allInOrFold: this.aof,
       maxRaiseTo: this.maxRaiseToFor(viewerId),
+      raiseLocked: this.raiseLockedFor(viewerId),
       rake: this.rake,
       actionTimeMs: this.actionTimeMs,
       actor: this.actor,
@@ -2020,6 +2050,17 @@ export class PokerTable {
         payouts: this.tournamentPayouts(),
       } : null,
     };
+  }
+
+  /** True once the bet has not grown by a full raise since this player last acted (short all-in rule). */
+  isRaiseLocked(p) {
+    return !!p.acted && this.currentBet - (p.actedAtBet ?? 0) < this.minRaise;
+  }
+
+  raiseLockedFor(viewerId) {
+    const seat = viewerId != null ? this.seatOf(viewerId) : null;
+    if (!seat || !seat.player.inHand || seat.player.folded || seat.player.allIn) return false;
+    return this.isRaiseLocked(seat.player);
   }
 
   maxRaiseToFor(viewerId) {

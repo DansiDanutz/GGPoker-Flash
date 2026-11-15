@@ -36,3 +36,42 @@ test('the short all-in only wins the pot it covered; chips are conserved', () =>
   // C wins nothing, the whole 150 main pot, or half of it on a tie with B.
   assert.ok(c === 0 || c === 75 || c === 150, `C covers 50 x 3 = 150 at most, got ${c}`);
 });
+
+function headsUpAllIn() {
+  const t = new PokerTable({ id: 'h', name: 'h', game: 'holdem', seats: 2, sb: 5, bb: 10, min_buyin: 10, max_buyin: 5000, rakePercent: 0 });
+  t.nextHandAt = Date.now() + 1e9;
+  t.saveHand = () => {};
+  t.sit({ id: 'A', nick: 'A' }, 0, 1000);
+  t.sit({ id: 'B', nick: 'B' }, 1, 1000);
+  t.button = 1; t.nextHandAt = 0; t.startHand();
+  t.act(t.actor, 'allin');
+  t.act(t.actor, 'call');
+  return t;
+}
+
+test('leaving during the run-it choice settles the pot once, and a late choice changes nothing', () => {
+  const t = headsUpAllIn();
+  assert.ok(t.runRound, 'both all-in: the run-it choice is open');
+  const { stack: aStack } = t.stand('A');
+  assert.equal(t.street, 'ended');
+  assert.equal(t.runRound, null, 'the choice closes with the hand');
+  const bAfterFold = t.seats[1].player.stack;
+  assert.equal(aStack + bAfterFold, 2000);
+  assert.equal(t.decideRuns('B', 1).ok, false, 'nothing left to decide');
+  t.closeRunRound();
+  assert.equal(t.seats[1].player.stack, bAfterFold, 'the pot is never paid twice');
+});
+
+test('a disconnected all-in player with no saved choice means the board runs once', () => {
+  const t = new PokerTable({ id: 'd', name: 'd', game: 'holdem', seats: 2, sb: 5, bb: 10, min_buyin: 10, max_buyin: 5000, rakePercent: 0 });
+  t.nextHandAt = Date.now() + 1e9;
+  t.saveHand = () => {};
+  t.sit({ id: 'A', nick: 'A' }, 0, 1000);
+  t.sit({ id: 'B', nick: 'B' }, 1, 1000);
+  t.button = 1; t.nextHandAt = 0; t.startHand();
+  t.seats[1].player.disconnected = true;
+  t.act(t.actor, 'allin');
+  t.act(t.actor, 'call');
+  assert.equal(t.runRound, null, 'nobody asks the present player alone');
+  assert.equal(t.street, 'ended');
+});

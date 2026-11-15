@@ -101,3 +101,27 @@ test('Post now restarts an idle table (Codex review #59)', () => {
   t.setWaitForBlinds('q1', false);
   assert.equal(t.street, 'preflop', 'Post now deals the next hand');
 });
+
+test('a new player at a running cash table posts a big blind (or waits for it), never a free hand', () => {
+  const t = new PokerTable({ id: 'nb', name: 'Nb', game: 'holdem', sb: 1, bb: 2, seats: 4, min_buyin: 10, max_buyin: 1000, rakePercent: 0 });
+  t.nextHandAt = Date.now() + 1e9;
+  t.saveHand = () => {};
+  t.sit({ id: 'a', nick: 'A' }, 0, 100);
+  t.sit({ id: 'b', nick: 'B' }, 1, 100);
+  t.sit({ id: 'c', nick: 'C' }, 2, 100);
+  t.button = 2; t.nextHandAt = 0; t.startHand();
+  t.street = 'ended'; for (const s of t.seats) if (s.player) s.player.inHand = false;
+  t.nextHandAt = Date.now() + 1e9; // hold the next deal so the debt can be seen
+  t.sit({ id: 'n', nick: 'New' }, 3, 100);
+  assert.equal(t.seats[3].player.missedBlinds, true, 'joining mid-session owes a big blind');
+  t.button = 3; t.nextHandAt = 0; t.startHand(); // button 0 -> SB 1, BB 2: the newcomer is not a blind
+  assert.equal(t.seats[3].player.inHand, true);
+  assert.equal(t.seats[3].player.totalBet, 2, 'posted a live big blind to play');
+});
+
+test('the first hand at a fresh table owes nothing', () => {
+  const t = new PokerTable({ id: 'fb', name: 'Fb', game: 'holdem', sb: 1, bb: 2, seats: 3, min_buyin: 10, max_buyin: 1000 });
+  t.nextHandAt = Date.now() + 1e9;
+  t.sit({ id: 'a', nick: 'A' }, 0, 100);
+  assert.ok(!t.seats[0].player.missedBlinds);
+});

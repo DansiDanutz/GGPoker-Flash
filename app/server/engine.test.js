@@ -437,6 +437,28 @@ test('winners show at showdown and losers muck unless auto-muck is off', () => {
   assert.equal(shower.reveal, true, 'auto-muck off shows the losing hand');
 });
 
+test('the last aggressor shows first and cannot muck a called bet', () => {
+  const winner = player(1, 'Winner', 1000, 100, [C('As'), C('Ah')]);
+  const bettor = player(2, 'Bettor', 1000, 100, [C('Kd'), C('Qc')]);
+  bettor.autoMuck = true;
+  const t = tableWith([winner, bettor]);
+  t.board = ['2c', '7d', '9s', 'Jh', '3c'].map(C);
+  t.pot = 200;
+  t.lastAggressor = 2;
+  t.doShowdown();
+  assert.equal(bettor.reveal, true, 'the called aggressor tables the hand even with auto-muck on');
+  assert.equal(t.result.showFirst, 1, 'the aggressor seat turns first');
+
+  const a = player(1, 'A', 1000, 100, [C('As'), C('Ah')]);
+  const b = player(2, 'B', 1000, 100, [C('Kd'), C('Qc')]);
+  const t2 = tableWith([a, b]);
+  t2.board = ['2c', '7d', '9s', 'Jh', '3c'].map(C);
+  t2.pot = 200;
+  t2.button = 0;
+  t2.doShowdown();
+  assert.equal(t2.result.showFirst, 1, 'checked down: the first live seat left of the button shows first');
+});
+
 test('a player can show one card or both after the hand ends', () => {
   const t = new PokerTable({
     id: 'show', name: 'Show', game: 'holdem', sb: 50, bb: 100, seats: 2,
@@ -552,4 +574,31 @@ test('omaha: show one card, then the rest', () => {
   assert.deepEqual(t.snapshotFor(2).players.find((p) => p.id === 1).cards, ['??', '??', 'Qd', '??']);
   assert.deepEqual(t.showCards(1, [0, 1, 2, 3]).shown, [0, 1, 2, 3]);
   assert.deepEqual(t.snapshotFor(2).players.find((p) => p.id === 1).cards, ['As', 'Kh', 'Qd', 'Jc']);
+});
+
+test('when the clock runs out facing a bet, a Time Bank card is spent before folding', () => {
+  const t = tableWith([player(1, 'A', 1000, 0, [C('As'), C('Kd')]), player(2, 'B', 800, 200, [C('2c'), C('3d')])]);
+  t.street = 'river';
+  t.currentBet = 200;
+  t.actor = 1;
+  t.seats[0].player.timeBankCards = 2;
+  t.actionEndsAt = Date.now() - 1;
+  t.tick();
+  assert.equal(t.actor, 1, 'still their turn');
+  assert.equal(t.seats[0].player.folded, false);
+  assert.equal(t.seats[0].player.timeBankCards, 1);
+  assert.ok(t.actionEndsAt > Date.now());
+});
+
+test('an absent player (already timed out) is not kept alive by the time bank', () => {
+  const t = tableWith([player(1, 'A', 1000, 0, [C('As'), C('Kd')]), player(2, 'B', 800, 200, [C('2c'), C('3d')])]);
+  t.street = 'river';
+  t.currentBet = 200;
+  t.actor = 1;
+  t.seats[0].player.timeBankCards = 2;
+  t.seats[0].player.missedTurns = 1;
+  t.actionEndsAt = Date.now() - 1;
+  t.tick();
+  assert.equal(t.seats[0].player.folded, true);
+  assert.equal(t.seats[0].player.timeBankCards, 2);
 });

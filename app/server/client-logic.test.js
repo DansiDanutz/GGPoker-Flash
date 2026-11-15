@@ -1,11 +1,11 @@
 // The table UI's pure logic lives in TypeScript; Node strips the types so it can be tested here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { betLimits, potFractionTarget, sizingPresets, potOdds } from '../src/game/betting.ts';
+import { betLimits, potFractionTarget, sizingPresets, potOdds, sliderTarget } from '../src/game/betting.ts';
 import { betUnitOf, enterBetRequest, normalizeBettingOptions } from '../src/lib/tablePrefs.ts';
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame } from '../src/game/potChips.ts';
 import { cardOrdinal, squeezeDragFrame, squeezeWheelFrame } from '../src/game/squeeze.ts';
-import { showdownComplete, showdownPlan } from '../src/game/showdown.ts';
+import { heroHoldsHand, showdownComplete, showdownPlan } from '../src/game/showdown.ts';
 import { buildLabel } from '../src/lib/version.ts';
 import { bestHand } from '../src/game/eval.ts';
 import {
@@ -36,6 +36,12 @@ test('bet limits: minimum raise, all-in ceiling and the price to call', () => {
   const short = betLimits(ctx({ currentBet: 400, minRaise: 300, myStack: 250 }));
   assert.equal(short.toCall, 250, 'a call is capped by the stack');
   assert.equal(short.canRaise, false);
+});
+
+test('bet limits: no raise is offered while a short all-in locks the player', () => {
+  const locked = betLimits(ctx({ currentBet: 250, minRaise: 100, myBet: 200, raiseLocked: true }));
+  assert.equal(locked.canRaise, false);
+  assert.equal(locked.toCall, 50);
 });
 
 test('a pot-sized raise calls first and then raises by the pot', () => {
@@ -811,4 +817,24 @@ test('the chip shuffle scrubs with the wheel inside its frame range', () => {
   assert.equal(shuffleScrubFrame(245, 1), 245);
   assert.equal(shuffleScrubFrame(143, 1), 149);
   assert.equal(shuffleScrubFrame(60, 0), 60);
+});
+
+test('the hand strength label shows only while the hero still holds a live hand', () => {
+  assert.equal(heroHoldsHand({ inHand: true, folded: false }), true);
+  assert.equal(heroHoldsHand({ inHand: true, folded: true }), false, 'hidden once the hero folds');
+  assert.equal(heroHoldsHand({ inHand: false }), false, 'sitting out or waiting');
+  assert.equal(heroHoldsHand(undefined), false, 'spectators');
+});
+
+test('the bet slider moves in the bet unit and snaps to all-in on its last step', () => {
+  assert.equal(sliderTarget(700, 100, 5100), 700);
+  assert.equal(sliderTarget(5000, 100, 5050), 5050, 'a step that cannot fit snaps to all-in');
+  assert.equal(sliderTarget(5050, 100, 5050), 5050);
+  assert.equal(sliderTarget(900, 0, 5050), 900, 'no unit: the value is kept');
+});
+
+test('showdown reveals start at the first seat to show and go clockwise', () => {
+  assert.deepEqual(showdownPlan([0, 2, 5], 5).map((r) => r.seat), [5, 0, 2]);
+  assert.deepEqual(showdownPlan([0, 2, 5], 1).map((r) => r.seat), [2, 5, 0], 'a seat not in the list starts at the next one');
+  assert.deepEqual(showdownPlan([0, 2, 5]).map((r) => r.seat), [0, 2, 5], 'no first seat: seat order');
 });
