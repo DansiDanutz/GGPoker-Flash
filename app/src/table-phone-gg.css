@@ -31,12 +31,13 @@
   }
   .table-stage.stage-portrait .stage-mark { top: 62%; }
 
-  /* ---- Hero in the bottom-left corner: cards over the portrait, the plate right under it ---- */
+  /* ---- Hero in the bottom-left corner: cards over the portrait (66x92, up 13% from
+     58x81 at David's ask), the plate right under it ---- */
   .table-screen .table-stage.stage-portrait .seat.me { width: 124px; margin-top: 0; }
-  .table-screen .table-stage.stage-portrait .seat.me .cards { margin-bottom: -30px; }
-  .table-screen .table-stage.stage-portrait .seat.me .cards .pcard.mini { width: 58px; height: 81px; }
+  .table-screen .table-stage.stage-portrait .seat.me .cards { margin-bottom: -34px; }
+  .table-screen .table-stage.stage-portrait .seat.me .cards .pcard.mini { width: 66px; height: 92px; }
   .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:first-child { transform: rotate(-6deg); }
-  .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:last-child { margin-left: -26px; transform: rotate(6deg); }
+  .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:last-child { margin-left: -30px; transform: rotate(6deg); }
   .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:first-child:last-child { margin-left: 0; transform: none; }
   .table-screen .table-stage.stage-portrait .seat.me .avatar-wrap { width: 58px; height: 58px; }
   .table-screen .table-stage.stage-portrait .seat.me .plate {
@@ -147,10 +148,14 @@
   /* ---- No standing controls on the table: sit out, add chips and straddle live in the Menu. Chat
      and reactions are two small icons in the bottom-right corner, hidden on your turn. ---- */
   .table-screen .seat-dock { display: none; }
-  .table-screen .tchat-dock { right: 8px; left: auto; bottom: calc(var(--phone-bar-h) + 8px); align-items: flex-end; transform: none; }
-  .table-screen .tchat-buttons { flex-direction: row; gap: 6px; opacity: .8; }
+  .table-screen .tchat-dock { right: 8px; left: auto; bottom: calc(max(var(--phone-bar-h), var(--action-bar-h, 0px)) + 8px); align-items: flex-end; transform: none; }
+  .table-screen .tchat-buttons { flex-direction: column; gap: 6px; opacity: .8; }
   .table-screen .tchat-buttons .tchat-toggle { width: 34px; height: 34px; }
-  .table-screen:has(.action-bar :is(.main-actions, .aof-row)) .tchat-dock:not(.open) .tchat-buttons { visibility: hidden; }
+  /* Open, the chat spans the screen above the bar; the stickers open leftwards from the corner. */
+  .table-screen .tchat-dock.open { left: 8px; }
+  .table-screen .reaction-picker { left: auto; right: 0; }
+  /* Your decision comes first: on your turn the chat steps aside (open or not) and comes back after. */
+  .table-screen:has(.action-bar :is(.main-actions, .aof-row)) .tchat-dock { visibility: hidden; }
 }
 
 @media (max-width: 760px) and (orientation: portrait) and (prefers-reduced-motion: reduce) {
