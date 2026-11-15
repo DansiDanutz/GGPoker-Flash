@@ -25,8 +25,8 @@ export function reactionById(id: unknown): Reaction | null {
 
 /** `dealer` lines are the C4 dealer log — a DanGG extra, not native parity. */
 export type ChatKind = 'chat' | 'reaction' | 'dealer';
-/** Panel filter: Chat (default) hides dealer lines; Dealer shows only them. */
-export type ChatView = 'chat' | 'dealer';
+/** Panel filter: Players shows only what players wrote; All adds the dealer log (bets and wins). */
+export type ChatView = 'players' | 'all';
 export const DEALER_NICK = 'Dealer';
 
 export type ChatLine = {
@@ -131,7 +131,7 @@ export function isDealerLine(line: Pick<ChatLine, 'kind'>): boolean {
 
 /** Lines visible in a panel view: Chat shows players' chat and reactions, Dealer shows the log. */
 export function linesForView(lines: readonly ChatLine[], view: ChatView): readonly ChatLine[] {
-  return lines.filter((l) => isDealerLine(l) === (view === 'dealer'));
+  return view === 'all' ? lines : lines.filter((l) => !isDealerLine(l));
 }
 
 /** Class names for a log line; dealer lines use the muted system style. */
