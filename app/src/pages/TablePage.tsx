@@ -5,7 +5,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { FxEffect, type FxName } from '../components/FxEffect';
-import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, type BetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, type BetPrefs, BETTING_OPTIONS_KEY, withConfirmBets, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval';
@@ -43,6 +43,7 @@ import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddleP
 import { runChoice, runsLabel, type RunAsk } from '../game/runChoice';
 import { inward, seatLayout, type Spot } from '../game/tableStage';
 import { TableOptionsSheet } from '../components/table/TableOptionsSheet';
+import { useHoldTips } from '../lib/holdTips';
 import { SeatDock } from '../components/table/SeatDock';
 import { dockItems, seatStatusArt, type DockKey } from '../game/tableArt';
 import { useTableStage } from '../components/table/useTableStage';
@@ -128,6 +129,7 @@ const botFace = (nick?: string | null) => {
 };
 
 export function TablePage({ tableId }: { tableId: string }) {
+  useHoldTips();
   const { user, navigate, toast, setOpeningTable, refreshUser } = useApp();
   const [state, setState] = useState<TableState | null>(null);
   const [connected, setConnected] = useState(false);
@@ -209,7 +211,12 @@ export function TablePage({ tableId }: { tableId: string }) {
   const hotkeyAnyTimeRef = useRef<Partial<Record<HotkeyAction, () => void>>>({});
   const hotkeyPresetRef = useRef<(index: number) => void>(() => {});
   const [dealSpeed] = useState(readDealSpeed);
-  const [bettingOptions] = useState(readBettingOptions);
+  const [bettingOptions, setBettingOptions] = useState(readBettingOptions);
+  const setConfirmBets = (on: boolean) => {
+    const next = withConfirmBets(bettingOptions, on);
+    setBettingOptions(next);
+    try { localStorage.setItem(BETTING_OPTIONS_KEY, JSON.stringify(next)); } catch { /* private mode: keep for this session */ }
+  };
   const confirmBets = bettingOptions.confirm === 'always';
   const [pendingBet, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number } | null>(null);
   const actionBarRef = useRef<HTMLDivElement | null>(null);
@@ -1149,11 +1156,11 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
         <div className="spacer" />
-        <button onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
+        <button type="button" className="table-sound-btn" aria-label="Sound" data-tip="Sound on / off" onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
         <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
-        <button type="button" className="table-gear" aria-label="Table options" title="Table options" onClick={() => { setOptionsOpen(true); setMenuOpen(false); }}>⚙</button>
-        <button onClick={() => setMenuOpen((v) => !v)}>Menu</button>
-        <button onClick={() => setConfirmLeave(true)}>Leave table</button>
+        <button type="button" className="table-gear" aria-label="Table options" data-tip="Table options" onClick={() => { setOptionsOpen(true); setMenuOpen(false); }}>⚙</button>
+        <button type="button" className="table-menu-btn" aria-label="Table menu" data-tip="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}><span className="menu-text">Menu</span></button>
+        <button className="table-leave-btn" onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
 
       {tableId && state && !state.tournament && !state.spin && (
@@ -1234,6 +1241,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         onOption={(msg) => send({ type: 'option', tableId, ...msg })}
         betPrefs={betPrefs}
         onBetPrefs={saveBetPrefs}
+        confirmBets={confirmBets}
+        onConfirmBets={setConfirmBets}
       />
 
       <SeatDock
@@ -1396,14 +1405,14 @@ export function TablePage({ tableId }: { tableId: string }) {
             >
               {(p.cards || []).map((c, i) => {
                 const [px, py] = seatPosOf(p.seat!);
-                const pickable = p.isMe && canShowCards && c !== '??';
                 const shown = (p.shown || []).includes(i);
+                const pickable = p.isMe && canShowCards && c !== '??' && !shown;
                 return (
                   <span
                     key={`${state?.handNo}-${p.seat}-${i}`}
                     className={'card-slot' + (pickable ? ' pickable' : '') + (shown ? ' shown' : '')}
                     onClick={pickable ? (ev) => { ev.stopPropagation(); showCards([i]); } : undefined}
-                    title={pickable ? 'Show this card' : undefined}
+                    data-tip={pickable ? 'Show this card' : undefined}
                   >
                     <PlayingCard card={c} size="mini" dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
                       style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
@@ -1416,7 +1425,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               <div className="face">
                 <Avatar name={p.nick || '?'} src={p.avatar || (p.isBot ? botFace(p.nick) : undefined)} size={54} />
               </div>
-              {p.nick && <span className="vpip-badge" title="VPIP at this table">{vpipOf(seatVpip, p.nick)}</span>}
+              {p.nick && <span className="vpip-badge" data-tip="VPIP: how often they put money in">{vpipOf(seatVpip, p.nick)}</span>}
               {(() => { const art = seatStatusArt(p); return art ? <img className="seat-status" src={art} alt="" aria-hidden="true" /> : null; })()}
             </div>
             <div className="plate">
@@ -1447,7 +1456,7 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {state && state.button >= 0 && (() => {
         const [dx, dy] = inward(seatPos(state.button), stage, reach.dealer, reach.dealerSide);
-        return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }} />;
+        return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }} data-tip="Dealer button" />;
       })()}
 
       {state && state.street !== 'idle' && ([['SB', state.sbSeat], ['BB', state.bbSeat]] as const).map(([label, seat]) => {
@@ -1546,13 +1555,14 @@ export function TablePage({ tableId }: { tableId: string }) {
             </span>
             <button className="btn btn-gold btn-sm" onClick={() => { const b = pendingBet; setPendingBet(null); act(b.action, b.amount); }}>Confirm</button>
             <button className="btn btn-ghost btn-sm" onClick={() => setPendingBet(null)}>Cancel</button>
+            <button className="btn btn-ghost btn-sm" title="Bet now and stop asking; turn it back on in Table options" onClick={() => { const b = pendingBet; setPendingBet(null); setConfirmBets(false); act(b.action, b.amount); toast({ kind: 'info', title: 'Bet confirmation off', body: 'Turn it back on in Table options (gear).' }); }}>Don't ask again</button>
           </div>
         )}
         {canShowCards && (
           <div className="action-row show-row">
             <span style={{ color: '#ffd98a', fontSize: 12.5 }}>Show your cards?</span>
             <div className="grow" />
-            {showOptions(me?.cards || []).map((o) => (
+            {showOptions(me?.cards || [], me?.shown || []).map((o) => (
               <button key={o.indices.join('-')} className={'btn btn-sm show-opt' + (o.indices.length > 1 ? ' btn-gold' : ' btn-ghost')} onClick={() => showCards(o.indices)}>
                 Show <b>{o.label}</b>
               </button>
@@ -1623,11 +1633,17 @@ export function TablePage({ tableId }: { tableId: string }) {
                 onClick={() => setPreAction(preAction?.kind === 'call' && preAction.amount === toCall ? null : { kind: 'call', amount: toCall })}
               ><span className="reserve-text">Call {amt(toCall)}</span></button>
             )}
+            <button
+              type="button"
+              aria-pressed={preAction?.kind === 'callany'}
+              title="Call any bet on your next turn; check when nobody bets"
+              onClick={() => setPreAction(preAction?.kind === 'callany' ? null : { kind: 'callany' })}
+            ><span className="reserve-text">Call Any</span></button>
           </div>
         )}
         {state?.allInOrFold ? (
           <div className="action-row aof-row">
-            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} title={`Spend a Time Bank Card: +${TB_CARD_SECONDS} seconds`}>⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'} <b className="tb-cards">×{tbCards}</b></button>
+            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank: +${TB_CARD_SECONDS} seconds`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
             <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
             <button className="act-btn act-allin" disabled={!myTurn} onClick={() => act('allin')}>All-in{me?.stack ? ` ${amt(me.stack)}` : ''}</button>
             <div className="grow" />
@@ -1635,7 +1651,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         ) : (
         <div className="action-row main-actions">
-          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} title={`Spend a Time Bank Card: +${TB_CARD_SECONDS} seconds`}>⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'} <b className="tb-cards">×{tbCards}</b></button>
+          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank: +${TB_CARD_SECONDS} seconds`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (
             <button className="act-btn act-check" disabled={!myTurn || !!state?.allInOrFold} onClick={() => act('check')}>Check</button>

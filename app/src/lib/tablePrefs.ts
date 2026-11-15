@@ -121,9 +121,16 @@ export function normalizeBettingOptions(raw: unknown): BettingOptions {
   };
 }
 
+export const BETTING_OPTIONS_KEY = 'ggpoker.bettingOptions';
+
+/** A copy of the betting options with bet confirmation switched on or off. */
+export function withConfirmBets(opts: BettingOptions, on: boolean): BettingOptions {
+  return { ...opts, confirm: on ? 'always' : 'never' };
+}
+
 export function readBettingOptions(): BettingOptions {
   try {
-    const raw = localStorage.getItem('ggpoker.bettingOptions');
+    const raw = localStorage.getItem(BETTING_OPTIONS_KEY);
     if (raw != null) return normalizeBettingOptions(JSON.parse(raw));
     // Migration from the earlier single switch; only an explicit '0' turns
     // confirmation off, otherwise follow the native Always-confirm default.

@@ -41,3 +41,29 @@ test('hero cards are big and fanned on phones', () => {
   assert.match(s, /\.seat\.me \.cards \.card-slot:first-child[^{]*\{[^}]*rotate\(-/);
   assert.match(s, /\.seat\.me \.cards \.card-slot:last-child[^{]*\{[^}]*rotate\(/);
 });
+
+test('the phone top bar has a round menu button on the left and keeps Leave table in the menu', () => {
+  const page = read('src/pages/TablePage.tsx');
+  assert.match(page, /className="table-menu-btn" aria-label="Table menu"/);
+  assert.match(page, /className="table-leave-btn"/);
+  assert.match(page, /<button onClick=\{\(\) => setConfirmLeave\(true\)\}>Leave table<\/button>/, 'the menu still offers Leave table');
+  const s = css();
+  assert.match(s, /\.table-topbar \.table-menu-btn \{[^}]*order: -1/);
+  assert.match(s, /\.table-topbar \.table-leave-btn \{ display: none; \}/);
+});
+
+test('the four pre-actions fit one row on phones', () => {
+  assert.match(css(), /\.reserved-actions button \{[^}]*width: calc\(25% - 4px\)/);
+});
+
+test('phone: time bank is a small round button clear of the bet rows, the leaderboard reads as the title subtitle', () => {
+  const css = fs.readFileSync(path.join(root, 'src/table-phone.css'), 'utf8');
+  const tb = css.match(/\.main-actions \.tb-btn \{([^}]*)\}/)[1];
+  assert.match(tb, /border-radius:\s*50%/);
+  assert.match(tb, /bottom:\s*calc\(100% \+ 10px\)/, 'sits in the empty pre-action slot, not on the presets');
+  assert.match(css, /\.main-actions \.tb-btn \.tb-label \{[^}]*display:\s*none/);
+  assert.match(css, /\.daily-lb:not\(\.open\) \.daily-lb-ribbon \{[^}]*background:\s*none/);
+  assert.match(css, /\.table-topbar \.name \{[^}]*align-self:\s*flex-start/);
+  const page = fs.readFileSync(path.join(root, 'src/pages/TablePage.tsx'), 'utf8');
+  assert.match(page, /<span className="tb-label">⏱ \{tbUsed && !tbCards \? 'No cards' : tbUsed \? 'Used' : 'Time bank'\}<\/span>/);
+});

@@ -52,3 +52,16 @@ test('the table has a gear that opens the options sheet', () => {
   assert.match(sheet, /runSettingMessage/);
   assert.match(sheet, /role="dialog"/);
 });
+
+test('the bet confirmation can be switched on and off and is saved', async () => {
+  const { withConfirmBets, DEFAULT_BETTING_OPTIONS } = await import('../src/lib/tablePrefs.ts');
+  const off = withConfirmBets(DEFAULT_BETTING_OPTIONS, false);
+  assert.equal(off.confirm, 'never');
+  assert.equal(DEFAULT_BETTING_OPTIONS.confirm, 'always', 'the default is not changed');
+  assert.equal(withConfirmBets(off, true).confirm, 'always');
+  const sheet = read('src/components/table/TableOptionsSheet.tsx');
+  assert.match(sheet, /label="Confirm bets"/);
+  const page = read('src/pages/TablePage.tsx');
+  assert.match(page, />Don't ask again</);
+  assert.match(page, /localStorage\.setItem\(BETTING_OPTIONS_KEY/);
+});

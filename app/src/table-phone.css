@@ -2,6 +2,10 @@
    an upright bet slider with +/- on the right edge, and big fanned hero cards.
    Same breakpoint as the portrait table stage (tableStage.ts: width <= 760 and taller than wide). */
 @media (max-width: 760px) and (orientation: portrait) {
+  /* One fixed panel height (tableStage.ts PORTRAIT_ACTION_BAR) with rows packed at the bottom,
+     so your turn starting or ending never moves the table, the chat or the seat dock. */
+  .table-screen { --phone-bar-h: 184px; }
+  .table-screen .action-bar { min-height: var(--phone-bar-h); justify-content: flex-end; box-sizing: border-box; }
   .table-screen .action-bar .action-row.main-actions {
     position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-template-areas: "presets presets presets" "fold call raise";
@@ -21,7 +25,16 @@
   .table-screen .action-bar .main-actions .act-allin { grid-area: raise; }
 
   /* Time bank floats just above the panel on the left when it is on offer. */
-  .table-screen .action-bar .main-actions .tb-btn { position: absolute; left: 8px; bottom: calc(100% + 8px); height: 38px; min-width: 0; z-index: 4; }
+  .table-screen .action-bar .main-actions .tb-btn {
+    position: absolute; left: max(10px, env(safe-area-inset-left, 0px)); bottom: calc(100% + 10px); z-index: 4;
+    width: 46px; height: 46px; min-width: 0; padding: 0; border-radius: 50%;
+    background-position: center; background-size: 40px;
+  }
+  .table-screen .action-bar .main-actions .tb-btn .tb-label { display: none; }
+  .table-screen .action-bar .main-actions .tb-btn .tb-cards {
+    position: absolute; right: -4px; bottom: -4px; min-width: 20px; height: 18px; padding: 0 4px;
+    border-radius: 9px; background: #c9a24a; color: #1a1408; font-size: 10px; line-height: 18px; text-align: center;
+  }
 
   /* Upright slider and stepper on the right edge, only while it is your turn to bet. */
   .table-screen .action-bar .main-actions .bet-slider {
@@ -50,4 +63,33 @@
   .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:first-child { transform: rotate(-9deg) translate(8px, 4px); }
   .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:last-child { transform: rotate(9deg) translate(-8px, 4px); }
   .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:first-child:last-child { transform: none; }
+
+  /* Top bar: round menu button first, gear last; Leave table lives in the menu. */
+  .table-screen .table-topbar { gap: 6px; min-height: 46px; }
+  .table-screen .table-topbar .name { align-self: flex-start; margin-top: 6px; }
+  /* Leaderboard reads as the table name's subtitle instead of a loose red pill. */
+  .table-screen .daily-lb:not(.open) { top: 25px; left: 54px; max-width: calc(100% - 160px); }
+  .table-screen .daily-lb:not(.open) .daily-lb-ribbon { background: none; border: 0; box-shadow: none; padding: 0; }
+  .table-screen .daily-lb:not(.open) .daily-lb-title { font-size: 10.5px; font-weight: 600; color: #e8c877; }
+  .table-screen .daily-lb:not(.open) .daily-lb-title::before { content: '🏆 '; }
+  .table-screen .daily-lb:not(.open) .daily-lb-title::after { content: ' ›'; color: #9a8350; }
+  .table-screen .daily-lb.open { top: 50px; }
+  .table-screen .table-topbar .table-menu-btn {
+    order: -1; position: relative; width: 36px; height: 36px; padding: 0; flex: none; border-radius: 50%;
+    border: 2px solid #c9952f; background: radial-gradient(circle at 50% 35%, #2b2a26, #0d0c0a 70%);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 230, 160, .25);
+  }
+  .table-screen .table-topbar .table-menu-btn .menu-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .table-screen .table-topbar .table-menu-btn::before {
+    content: ''; position: absolute; left: 9px; right: 9px; top: 10px; height: 12px;
+    background: linear-gradient(#f0c35a 0 2px, transparent 2px 5px, #f0c35a 5px 7px, transparent 7px 10px, #f0c35a 10px 12px);
+    border-radius: 1px;
+  }
+  .table-screen .table-topbar .table-leave-btn { display: none; }
+  .table-screen .table-topbar .table-gear { order: 10; width: 36px; height: 36px; }
+
+  /* Pre-actions: four checkbox chips in one row. */
+  .table-screen .action-bar .reserved-actions { display: flex; justify-content: center; gap: 4px; padding: 0 6px; }
+  .table-screen .action-bar .reserved-actions button { width: calc(25% - 4px); max-width: none; height: 40px; font-size: 11px; line-height: 1.1; }
+  .table-screen .action-bar .reserved-actions .reserve-text { white-space: normal; overflow: visible; text-overflow: clip; display: flex; align-items: center; height: 100%; top: 0; line-height: 1.05; padding-left: 4px; text-align: left; }
 }

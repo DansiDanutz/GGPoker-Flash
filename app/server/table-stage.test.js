@@ -64,7 +64,8 @@ for (const mode of ['wide', 'portrait']) {
       const lay = seatLayout(n, mode);
       assert.equal(lay.length, n, `${n} seats`);
       assert.equal(lay[0][0], 50, 'hero is centred');
-      assert.ok(lay[0][1] >= (mode === 'portrait' ? 80 : 95), 'hero sits at the bottom');
+      assert.ok(lay[0][1] >= (mode === 'portrait' ? 76 : 95), 'hero sits at the bottom');
+      for (const [, y] of lay.slice(1)) assert.ok(y < lay[0][1], `${n}-max ${mode}: hero is the lowest seat`);
       const key = (p) => `${p[0]},${p[1]}`;
       const spots = new Set(lay.map(key));
       assert.equal(spots.size, n, 'no two seats share a spot');
@@ -115,4 +116,29 @@ test('the phone Events page rule does not paint the hero seat (class "me") or "m
 test('landscape phone 844x390: the rail takes most of the height between the bars', () => {
   const box = stageBox({ width: 844, height: 390, topBar: 36, actionBar: 76 });
   assert.ok(box.height >= 220, `rail height ${box.height}`);
+});
+
+test('on phones the hero sits high enough that the action panel never covers the name plate', () => {
+  for (let n = 2; n <= 9; n++) {
+    const [hero] = seatLayout(n, 'portrait');
+    assert.ok(hero[1] <= 79, `${n}-max hero at ${hero[1]}%`);
+  }
+});
+
+test('on phones the table stays still when the action panel grows or shrinks on your turn', () => {
+  const base = { width: 390, height: 844, topBar: 46 };
+  const quiet = stageBox({ ...base, actionBar: 110 });
+  const busy = stageBox({ ...base, actionBar: 190 });
+  assert.deepEqual(busy, quiet);
+  const css = fs.readFileSync(path.join(import.meta.dirname, '..', 'src/table-phone.css'), 'utf8');
+  assert.match(css, /\.table-screen \.action-bar \{[^}]*min-height:\s*var\(--phone-bar-h\)/, 'the panel keeps one height');
+});
+
+test('folded seats look out of the hand: dimmed and greyed, never highlighted', () => {
+  const css = fs.readFileSync(path.join(import.meta.dirname, '..', 'src/table-art.css'), 'utf8');
+  const rule = css.match(/\.table-screen \.seat\.folded \{([^}]*)\}/);
+  assert.ok(rule, 'folded rule exists');
+  assert.match(rule[1], /opacity:\s*\.5/);
+  assert.match(rule[1], /grayscale/);
+  assert.match(css, /\.table-screen \.seat\.folded \.seat-ring[^{]*\{[^}]*display:\s*none/);
 });
