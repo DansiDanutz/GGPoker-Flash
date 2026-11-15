@@ -33,7 +33,7 @@ test('pre-actions are one row of dark buttons in the same place as the action bu
 });
 
 test('hero: smaller cards over the portrait, and the hand strength as a pill under the board', () => {
-  assert.match(css(), /\.seat\.me \.cards \.pcard\.mini \{ width: 58px; height: 81px; \}/);
+  assert.match(css(), /\.seat\.me \.cards \.pcard\.mini \{ width: 66px; height: 92px; \}/);
   assert.match(css(), /\.hand-strength \{[^}]*border-radius: 999px/);
 });
 
@@ -84,7 +84,6 @@ test('action and pre-action buttons pop up when needed and stay still with reduc
 test('nothing sits on the table between decisions: no seat dock, no bar shade, chat only as a small corner icon', () => {
   assert.match(css(), /\.table-screen \.seat-dock \{ display: none; \}/);
   assert.match(css(), /\.action-bar:not\(:has\(\.main-actions, \.reserved-actions, \.aof-row, \.straddle-ask\)\) \{[^}]*background: none/);
-  assert.match(css(), /\.table-screen:has\(\.action-bar :is\(\.main-actions, \.aof-row\)\) \.tchat-dock:not\(\.open\) \.tchat-buttons \{ visibility: hidden; \}/);
 });
 
 test('phone buttons are drawn like GGPoker mobile: flat charcoal, no gold edge, light grey text', () => {
@@ -110,4 +109,21 @@ test('the raise button reads like a GG preset: the word small on top, the amount
 test('Call reads like GG too: the word on top, the amount in yellow under it', () => {
   assert.match(read('src/pages/TablePage.tsx'), /<span className="act-word">Call<\/span> <b className="act-amt">\{amt\(toCall\)\}<\/b>/);
   assert.match(css(), /:is\(\.act-raise, \.act-allin, \.act-call\)/);
+});
+
+test('an open chat spans the screen width and the reaction picker opens leftwards, inside the screen', () => {
+  assert.match(css(), /\.table-screen \.tchat-dock\.open \{ left: 8px; \}/);
+  assert.match(css(), /\.table-screen \.reaction-picker \{ left: auto; right: 0; \}/);
+});
+
+test('on your turn the whole chat (open or not) steps aside so it never covers the bet controls', () => {
+  assert.match(css(), /\.table-screen:has\(\.action-bar :is\(\.main-actions, \.aof-row\)\) \.tchat-dock \{ visibility: hidden; \}/);
+});
+
+test('chat and reactions stack one on top of the other in the corner', () => {
+  assert.match(css(), /\.table-screen \.tchat-buttons \{ flex-direction: column;/);
+});
+
+test('the chat corner always clears the bottom bar, even the taller sitting-out panel', () => {
+  assert.match(css(), /\.tchat-dock \{[^}]*bottom: calc\(max\(var\(--phone-bar-h\), var\(--action-bar-h, 0px\)\) \+ 8px\)/);
 });
