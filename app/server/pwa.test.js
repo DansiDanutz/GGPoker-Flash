@@ -10,7 +10,7 @@ test('the installable app shell is wired up for phones', () => {
   const manifest = JSON.parse(read('public/manifest.webmanifest'));
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.start_url, '/#/');
-  assert.equal(manifest.theme_color, '#0a0f0c');
+  assert.equal(manifest.theme_color, '#070507');
   assert.ok(manifest.name && manifest.short_name);
 
   const sizes = manifest.icons.map((icon) => icon.sizes);

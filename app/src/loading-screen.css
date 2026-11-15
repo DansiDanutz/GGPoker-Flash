@@ -41,7 +41,8 @@
   animation-delay: calc(var(--ls-i) * var(--ls-orbit-s) / -4);
 }
 
-.ls-logo { position: relative; z-index: 2; width: min(72vw, 320px); animation: ls-pop 1s cubic-bezier(.2, .9, .25, 1.2) both; }
+/* No intro pop: the boot page already shows this logo in this spot, so it simply stays. */
+.ls-logo { position: relative; z-index: 2; width: min(72vw, 320px); }
 .ls-logo img { display: block; width: 100%; height: auto; filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .8)) drop-shadow(0 0 30px rgba(255, 186, 84, .45)); }
 .ls-logo::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
@@ -66,7 +67,6 @@
 @keyframes ls-spin { to { rotate: 360deg; } }
 @keyframes ls-breathe { 0%, 100% { opacity: .75; scale: .96; } 50% { opacity: 1; scale: 1.04; } }
 @keyframes ls-in { from { opacity: 0; } }
-@keyframes ls-pop { from { opacity: 0; scale: .7; filter: blur(8px); } }
 @keyframes ls-x { from { translate: calc(var(--ls-rx) * -1) 0; } to { translate: var(--ls-rx) 0; } }
 @keyframes ls-y {
   from { translate: 0 calc(var(--ls-ry) * -1); scale: .62; z-index: 1; filter: brightness(.7); }
