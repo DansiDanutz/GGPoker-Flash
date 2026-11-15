@@ -59,7 +59,7 @@
 
 /* Reactions: artwork when extracted (C2), otherwise a labelled chip. */
 .tchat-react-wrap { position: relative; }
-.reaction-picker { position: absolute; left: 0; bottom: calc(100% + 6px); display: grid; grid-template-columns: repeat(3, 72px); gap: 6px; padding: 8px; border-radius: 10px; background: var(--tchat-bg); border: 1px solid rgba(216, 177, 95, .3); box-shadow: 0 12px 30px rgba(0, 0, 0, .55); }
+.reaction-picker { position: absolute; left: 0; bottom: calc(100% + 6px); display: grid; grid-template-columns: repeat(4, 72px); gap: 6px; padding: 8px; border-radius: 10px; background: var(--tchat-bg); border: 1px solid rgba(216, 177, 95, .3); box-shadow: 0 12px 30px rgba(0, 0, 0, .55); }
 .reaction-picker button { height: 64px; border-radius: 8px; display: grid; place-items: center; background: rgba(255, 255, 255, .04); }
 .reaction-picker button:hover, .reaction-picker button:focus-visible { background: rgba(216, 177, 95, .16); outline: 2px solid var(--tchat-accent); outline-offset: -2px; }
 .reaction-art { display: block; object-fit: contain; }
@@ -74,6 +74,21 @@
 .reaction-chip-1 { background: #ffb3a7; }
 .reaction-chip-2 { background: #b9dcff; }
 .reaction-chip-3 { background: #ffe08a; }
+.reaction-chip-4 { background: #b8f0c4; }
+.reaction-chip-5 { background: #ffd3a1; }
+.reaction-chip-6 { background: #c9d4ff; }
+.reaction-chip-7 { background: #f5c2ff; }
+.reaction-chip-8 { background: #a8ecf0; }
+.reaction-chip-9 { background: #9fd8ff; }
+.reaction-chip-10 { background: #c4ccd6; }
+.reaction-chip-11 { background: #ffb37a; }
+.reaction-chip-12 { background: #ffe69a; }
+/* Phones: twelve stickers four across still fit beside the React button. */
+@media (max-width: 420px) {
+  .reaction-picker { grid-template-columns: repeat(4, 62px); gap: 5px; padding: 6px; }
+  .reaction-picker button { height: 58px; }
+  .reaction-chip.reaction-art-grid { padding: 5px 6px; font-size: 10px; }
+}
 
 .seat-reaction { position: absolute; left: calc(100% + 4px); top: 50%; z-index: 30; pointer-events: none; transform: translateY(-50%); animation: seatReactionPop 4s ease-out forwards; }
 @keyframes seatReactionPop {

@@ -7,15 +7,17 @@ export const CHAT_COUNTER_FROM = 40;
 export const SEAT_REACTION_MS = 4000;
 export const SEAT_BUBBLE_MS = 4500;
 
-export type ReactionId = 1 | 2 | 3;
+export type ReactionId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 export type Reaction = { id: ReactionId; label: string };
 
-// Mirrors the server allowlist in server/chat.js (IDs 1–3, Codex-evidenced labels).
-export const REACTIONS: readonly Reaction[] = Object.freeze([
-  Object.freeze({ id: 1 as const, label: 'Angry' }),
-  Object.freeze({ id: 2 as const, label: 'Listening' }),
-  Object.freeze({ id: 3 as const, label: 'Laughing' }),
-]);
+// Mirrors the server allowlist in server/chat.js (IDs 1-12, sticker-sheet order).
+const REACTION_LABELS = [
+  'Angry', 'Thinking', 'Laughing', 'Nice hand', 'Clap', 'Crying',
+  'Shocked', 'Cool', 'Fish', 'Shark', 'On fire', 'Ship it',
+] as const;
+export const REACTIONS: readonly Reaction[] = Object.freeze(
+  REACTION_LABELS.map((label, i) => Object.freeze({ id: (i + 1) as ReactionId, label })),
+);
 
 export function reactionById(id: unknown): Reaction | null {
   return REACTIONS.find((r) => r.id === id) || null;
