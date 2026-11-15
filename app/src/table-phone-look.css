@@ -34,16 +34,20 @@
     position: relative; z-index: 1; margin-bottom: -30px;
   }
   .table-screen .table-stage.stage-portrait .seat:not(.me) .cards .pcard.mini { width: 36px; height: 50px; }
-  .table-screen .table-stage.stage-portrait .seat:not(.me) .cards .card-slot { display: inline-block; transform-origin: 50% 100%; }
-  .table-screen .table-stage.stage-portrait .seat:not(.me) .cards .card-slot:first-child { transform: rotate(-8deg) translateX(3px); }
-  .table-screen .table-stage.stage-portrait .seat:not(.me) .cards .card-slot:last-child { transform: rotate(8deg) translateX(-3px); }
-  .table-screen .table-stage.stage-portrait .seat:not(.me) .cards .card-slot:first-child:last-child { transform: none; }
+  /* Both hands are held like real cards: the second card lies over the first, and both fan from
+     one point below the hand, so the cards touch all the way down with no gap between them. */
+  .table-screen .table-stage.stage-portrait .seat .cards { display: flex; justify-content: center; gap: 0; }
+  .table-screen .table-stage.stage-portrait .seat .cards .card-slot { display: block; transform-origin: 50% 150%; }
+  .table-screen .table-stage.stage-portrait .seat:not(.me) .cards .card-slot:first-child { transform: rotate(-7deg); }
+  .table-screen .table-stage.stage-portrait .seat:not(.me) .cards .card-slot:last-child { margin-left: -22px; transform: rotate(7deg); }
+  .table-screen .table-stage.stage-portrait .seat .cards .card-slot:first-child:last-child { margin-left: 0; transform: none; }
 
-  /* Hero: big fanned cards, as if held up close, over a bigger portrait. */
+  /* Hero: big cards, as if held up close, over a bigger portrait; the first card's corner index
+     stays readable beside the second. */
   .table-screen .table-stage.stage-portrait .seat.me .cards { margin-bottom: -26px; }
   .table-screen .table-stage.stage-portrait .seat.me .cards .pcard.mini { width: 92px; height: 128px; }
-  .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:first-child { transform: rotate(-11deg) translate(16px, 6px); }
-  .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:last-child { transform: rotate(9deg) translate(-16px, 0); }
+  .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:first-child { transform: rotate(-7deg); }
+  .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:last-child { margin-left: -56px; transform: rotate(7deg); }
   .table-screen .table-stage.stage-portrait .seat.me { width: 124px; }
   .table-screen .table-stage.stage-portrait .seat.me .avatar-wrap { width: 70px; height: 70px; }
   /* Your plate sits beside your portrait (the mockup's "You / stack"), clear of the action panel. */

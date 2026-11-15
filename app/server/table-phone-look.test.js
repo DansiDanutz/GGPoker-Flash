@@ -75,3 +75,14 @@ test('the turn timer is a thin ring hugging the portrait that drains with the cl
   // The seat carries the countdown so the ring can read it.
   assert.match(read('src/pages/TablePage.tsx'), /\.\.\.\(isActor \? \{ '--turn': timerPct \} : \{\}\)/);
 });
+
+test('hole cards are held like a real hand: the second card overlaps the first, no gap between them', () => {
+  const s = look();
+  assert.match(rule(s, '.table-screen .table-stage.stage-portrait .seat .cards'), /display: flex; justify-content: center; gap: 0;/);
+  // One shared pivot below the hand, so the fan never opens a wedge between the cards.
+  assert.match(rule(s, '.table-screen .table-stage.stage-portrait .seat .cards .card-slot'), /transform-origin: 50% 150%;/);
+  const overlap = (sel) => Number(rule(s, sel).match(/margin-left: -(\d+)px/)[1]);
+  assert.ok(overlap('.table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:last-child') >= 50, 'your second card covers over half of the first');
+  assert.ok(overlap('.table-screen .table-stage.stage-portrait .seat:not(.me) .cards .card-slot:last-child') >= 18, "opponents' backs overlap too");
+  assert.doesNotMatch(s, /\.seat\.me \.cards \.card-slot:(first|last)-child \{ transform: rotate\([^)]*\) translate/);
+});
