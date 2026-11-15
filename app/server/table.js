@@ -616,6 +616,7 @@ export class PokerTable {
       p.actedAtBet = null;
       p.reveal = false;
       p.shown = [];
+      p.showAtEnd = [];
       p.cards = [];
       p.lastAction = null;
       p.winAmount = 0;
@@ -865,6 +866,32 @@ export class PokerTable {
       cards: added.map((i) => cardStr(p.cards[i])),
     });
     return { ok: true, shown: p.shown };
+  }
+
+  /**
+   * Mark hole cards during a live hand to show them when it ends (DanGG: the eye on the card).
+   * The list replaces the last one, so an empty list takes every mark back.
+   */
+  markShowAtEnd(playerId, indices) {
+    if (this.street === 'ended' || this.street === 'idle') return { ok: false, error: 'Show cards directly after the hand' };
+    const p = this.seatOf(playerId)?.player;
+    if (!p || !p.inHand || !p.cards.length) return { ok: false, error: 'Only a player dealt into the hand can mark cards' };
+    if (!Array.isArray(indices)) return { ok: false, error: 'Pick a card first' };
+    p.showAtEnd = [...new Set(indices.map(Number))]
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < p.cards.length)
+      .sort((a, b) => a - b);
+    return { ok: true, showAtEnd: p.showAtEnd };
+  }
+
+  /** The hand just ended: turn up every card a player marked during it. */
+  revealMarkedCards() {
+    for (const s of this.seats) {
+      const p = s.player;
+      if (!p?.showAtEnd?.length) continue;
+      const marked = p.showAtEnd;
+      p.showAtEnd = [];
+      this.showCards(p.id, marked);
+    }
   }
 
   /**
@@ -1478,6 +1505,7 @@ export class PokerTable {
     this.street = 'ended';
     this.nextHandAt = Date.now() + this.showdownDelay;
     this.emit({ type: 'win', ...this.result });
+    this.revealMarkedCards();
     this.saveHand(summary);
     this.updateMissionProgress(results[0] || null);
   }
@@ -1559,6 +1587,7 @@ export class PokerTable {
     this.actor = null;
     this.nextHandAt = Date.now() + (winner && winner.isBot ? 1800 : 3000);
     this.emit({ type: 'win', ...summary });
+    this.revealMarkedCards();
     this.saveHand(summary);
     this.updateMissionProgress(winner);
   }
@@ -1639,6 +1668,7 @@ export class PokerTable {
     this.actor = null;
     this.nextHandAt = Date.now() + this.showdownDelay;
     this.emit({ type: 'win', ...this.result });
+    this.revealMarkedCards();
     this.saveHand(summary);
     this.updateMissionProgress(results[0]);
   }
@@ -2071,6 +2101,7 @@ export class PokerTable {
           disconnected: p.disconnected,
           country: p.country || '',
           sitOutNext: !!p.sitOutNextHand,
+          showAtEnd: mine ? (p.showAtEnd || []) : undefined,
           runItAsk: mine ? p.runItAsk !== false : undefined,
           runPref: mine ? (p.runPref ?? null) : undefined,
           timeBank: p.timeBank,

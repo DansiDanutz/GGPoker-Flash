@@ -3404,6 +3404,13 @@ wss.on('connection', (ws, req) => {
       if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
       return;
     }
+    if (msg.type === 'show_at_end') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const res = entry.table.markShowAtEnd(ws.userId, msg.cards);
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      return broadcastState(entry.table);
+    }
     if (msg.type === 'rabbit') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
