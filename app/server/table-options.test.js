@@ -38,10 +38,26 @@ test('the straddle switch is the player auto-straddle, usable only where the tab
 test('editing a bet preset returns new presets and ignores values outside the allowed choices', () => {
   const before = { opening: [...DEFAULT_BETS.opening], normal: [...DEFAULT_BETS.normal] };
   const after = withPreset(before, 'normal', 1, 66);
-  assert.deepEqual(after.normal, [33, 66, 75, 100]);
-  assert.deepEqual(before.normal, [33, 50, 75, 100], 'the original is not changed');
+  assert.deepEqual(after.normal, [50, 66, 100]);
+  assert.deepEqual(before.normal, [50, 75, 100], 'the original is not changed');
   assert.equal(withPreset(before, 'normal', 1, 42), before, 'a value not on the list is refused');
-  assert.equal(withPreset(before, 'opening', 7, 3), before, 'an index past the four chips is refused');
+  assert.equal(withPreset(before, 'opening', 3, 3), before, 'an index past the three chips is refused');
+});
+
+test('the table shows three bet presets: 2BB, 3BB and Pot pre-flop, then 50%, 75% and 100% of the pot', async () => {
+  const { PRESET_COUNT, readBetPrefs } = await import('../src/lib/tablePrefs.ts');
+  assert.equal(PRESET_COUNT, 3);
+  assert.deepEqual(DEFAULT_BETS, { opening: [2, 3, 'pot'], normal: [50, 75, 100] });
+  const saved = new Map();
+  globalThis.localStorage = { getItem: (k) => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, String(v)) };
+  try {
+    saved.set('ggpoker.betPrefs', JSON.stringify({ opening: [2, 2.5, 'pot'], normal: [33, 66, 'max'] }));
+    assert.deepEqual(readBetPrefs(), { opening: [2, 2.5, 'pot'], normal: [33, 66, 'max'] }, 'three saved chips are kept');
+    saved.set('ggpoker.betPrefs', JSON.stringify({ opening: [2, 3, 4, 'pot'], normal: [33, 50, 75, 100] }));
+    assert.deepEqual(readBetPrefs(), DEFAULT_BETS, 'an old four-chip choice falls back to the three defaults');
+  } finally { delete globalThis.localStorage; }
+  assert.match(read('src/table-phone.css'), /\.quick-bets \{ grid-area: presets; display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+  assert.match(read('src/table-options.css'), /\.topt-chips \{ display: grid; grid-template-columns: repeat\(3, 1fr\);/);
 });
 
 test('the table has a gear that opens the options sheet', () => {
