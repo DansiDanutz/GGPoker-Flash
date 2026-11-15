@@ -284,6 +284,8 @@ export class PokerTable {
       // Keep the departed player's matched chips in the pot instead of losing them with the seat.
       this.ghosts.push({
         id: p.id, nick: p.nick, bet: p.bet, totalBet: p.totalBet, isBot: !!p.isBot,
+        // The part of the bet still to be answered: a retired bet stands only up to the new price.
+        standing: Math.min(p.bet, this.currentBet),
         ...(isForfeit ? { history: { seat: seat.index, stack: p.stack, cards: p.cards } } : {}),
       });
     }
@@ -1232,7 +1234,7 @@ export class PokerTable {
   retireLeaverBet(p) {
     const others = [
       ...this.seats.filter((s) => s.player && s.player !== p && s.player.inHand).map((s) => s.player.bet),
-      ...this.ghosts.filter((g) => g.id !== p.id).map((g) => g.bet),
+      ...this.ghosts.filter((g) => g.id !== p.id).map((g) => g.standing ?? g.bet),
     ];
     // Preflop the big blind is owed even when the blind itself has gone.
     const floor = this.street === 'preflop' ? this.bb : 0;
@@ -1469,6 +1471,7 @@ export class PokerTable {
     for (const g of this.ghosts) {
       this.pot += g.bet;
       g.bet = 0;
+      g.standing = 0;
     }
     this.currentBet = 0;
   }

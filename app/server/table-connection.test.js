@@ -27,3 +27,15 @@ test('the Wait for BB choice travels with every join, before the seat can be dea
   assert.ok(joins.length >= 3);
   for (const j of joins) assert.match(j, /waitForBlinds: joinWaitRef\.current/, j);
 });
+
+test('while seated, the saved Auto-post choice follows the seat (switch, Post now or a server release)', () => {
+  assert.match(page, /if \(!seatWait\.known\) return;\n\s*if \(seatWait\.wait !== joinWaitRef\.current\) changeJoinWait\(seatWait\.wait\);/);
+  assert.match(page, /\}, \[seatWait\.known, seatWait\.wait\]\);/);
+});
+
+test('a reconnect never buys in again after the seat was cashed out (EGM round 3)', () => {
+  const index = fs.readFileSync(path.join(import.meta.dirname, 'index.js'), 'utf8');
+  assert.match(page, /type: 'join_table', tableId, buyin, observe, rejoin: everJoined\.current,/);
+  assert.match(index, /const watchOnly = msg\.observe \|\| \(msg\.rejoin === true && !table\.seatOf\(ws\.userId\)\);/);
+  assert.match(index, /if \(watchOnly\) \{/);
+});

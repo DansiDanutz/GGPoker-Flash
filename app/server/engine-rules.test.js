@@ -207,6 +207,23 @@ test('a short all-in lock comes back when the full raise after it is withdrawn (
   ok(t.act(2, 'call'));
 });
 
+test("a second leaver on the same street is retired too; the first leaver's bet no longer stands (EGM round 5)", () => {
+  const { t } = deal([START, START, START, START]); // button seat 0
+  ok(t.act(4, 'call')); ok(t.act(1, 'call')); ok(t.act(2, 'call')); ok(t.act(3, 'check'));
+  assert.equal(t.street, 'flop');
+  ok(t.act(2, 'check')); // D checks
+  ok(t.act(3, 'raise', 100)); // A bets 100
+  ok(t.act(4, 'raise', 300)); // B raises to 300
+  t.stand(4); // B leaves: the bet to call falls to 100
+  assert.equal(t.currentBet, 100);
+  ok(t.act(1, 'raise', 200)); // C raises to 200 (a full raise)
+  t.stand(1); // C leaves before anyone answers
+  assert.equal(t.currentBet, 100, "B's retired 300 is not a live bet");
+  assert.equal(t.actor, 2, 'D still owes 100');
+  ok(t.act(2, 'call'));
+  assert.equal(t.street, 'turn', 'A already matched 100');
+});
+
 test('when the actor leaves, the action moves to the next player', () => {
   const { t } = deal([START, START, START]);
   assert.equal(t.actor, 1);

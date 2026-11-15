@@ -312,7 +312,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     wsRef.current = ws;
     ws.onopen = () => {
       setConnected(true);
-      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe, seat: seatParam != null ? Number(seatParam) : null, waitForBlinds: joinWaitRef.current }));
+      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe, rejoin: everJoined.current, seat: seatParam != null ? Number(seatParam) : null, waitForBlinds: joinWaitRef.current }));
     };
     ws.onmessage = (ev) => {
       let msg: any;
@@ -670,6 +670,13 @@ export function TablePage({ tableId }: { tableId: string }) {
 
 
   const me = state?.players.find((p) => p.isMe) || null;
+  // While seated the seat's Wait for BB is the truth (the switch, Post now, or a server release):
+  // the saved join choice follows it, so the next join sends what the switch shows.
+  const seatWait = { known: !!me && !observing, wait: !!me?.waitForBlinds };
+  useEffect(() => {
+    if (!seatWait.known) return;
+    if (seatWait.wait !== joinWaitRef.current) changeJoinWait(seatWait.wait);
+  }, [seatWait.known, seatWait.wait]);
   // Native Take Seat: only an unseated viewer at a cash table can reserve an empty seat.
   const canTakeSeat = !me && !!state && !state.tournament && !state.spin;
   // A successful reload makes the bust offer stale.

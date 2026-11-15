@@ -1,7 +1,7 @@
 # Poker table: behaviour spec for review
 
 *   **Author:** Dan Semenescu
-*   **Status:** EGM rounds 1-3 fixed (decisions in Appendices A-C)
+*   **Status:** EGM rounds 1-5 fixed (decisions in Appendices A-F)
 *   **Date:** 2026-11-15
 *   **Code:** `app/server/table.js` (engine), `app/server/index.js` (socket handlers),
     `app/src/pages/TablePage.tsx` (table screen), `app/src/components/table/*`,
@@ -40,11 +40,15 @@ Fold) and the table screen of a tournament or Spin.
     everyone in. Only automatic moves (Rush seats, tournament balancing) and
     bots skip the new-player blind; a returning account always owes it.
 4.  Leaving mid-hand folds the hand: every chip already bet stays in the pot,
-    and the players left face no bet from the departed seat (preflop they
-    still owe the big blind). Chips not committed go back to the balance.
+    and the players left face no bet from the departed seat. The price to call
+    becomes the highest bet that still stands: live and folded bets, and a
+    departed seat's bet only up to the price at which it was retired
+    (preflop never below the big blind). A player owes a new decision only if
+    a full raise by someone else still stands after their last action. Chips not committed go back to the balance.
     Leaving between hands returns the whole stack.
 5.  Add chips: up to `max_buyin` total; during a hand the chips are paid now and
-    join the stack at the next deal. Remove chips down to `min_buyin` only while
+    join the stack at the next deal (also for a player who has folded).
+    Remove chips down to `min_buyin` only while
     not in a live hand: between hands, or after folding (the folded stack is no
     longer at risk). Bot seats refill from the house when they run low; that is
     the one allowed chip source outside the balance ledger.
@@ -265,3 +269,28 @@ Three HIGH findings, fixed with tests:
 *   Withdrawing a full raise reopened betting for a player locked by an
     earlier short all-in. A player now owes a new decision only if a full
     raise still stands after their last action.
+
+## Appendix F: EGM round 5 and the open MEDIUM/LOW items
+
+Round 5 (review of the round-4 fix) found one HIGH, fixed with a test: a
+second player leaving on the same street was not retired, because the first
+leaver's bet still counted as standing. A departed seat's bet now stands only
+up to the price at which it was retired.
+
+The MEDIUM/LOW items left open in Appendix D are also fixed, with tests:
+
+*   Option messages accept only real booleans; `"false"` is refused.
+*   A reconnect sits the player back in only if they had not chosen to sit
+    out before dropping.
+*   A tournament or Spin player who drops in a live hand keeps that hand on
+    the clock and time bank, then is blinded out from the next hand.
+*   Chips added by a folded player during a hand join at the next deal.
+*   While seated, the saved Auto-post choice follows the seat's setting, so
+    the switch and the next join always agree.
+*   A reconnect whose seat was cashed out watches the table instead of
+    buying in again unasked.
+
+Still open (LOW, Appendix B): run-it round reopens when a player leaves;
+bots never vote on run-it; actions without hand/turn numbers are accepted;
+Run it option shown where it does nothing; AoF all-in skips Confirm bets;
+a checked-down first-to-show seat may stay mucked.

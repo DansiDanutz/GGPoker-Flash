@@ -20,7 +20,7 @@ import { createHandHistoryStore } from './hand-history-store.js';
 import { spinSlots, slotGame, slotCatalog } from './slots.js';
 import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
 import {
-  addChipsLimits, cancelPendingTopUp, inLiveHand, refundPendingTopUp, removeChips, setAutoReduce,
+  addChipsLimits, cancelPendingTopUp, refundPendingTopUp, topUpWaitsForDeal, removeChips, setAutoReduce,
   setPendingTopUp, settleBeforeDeal, noteTopUpApplied, topUpRequestError,
 } from './chip-moves.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
@@ -31,6 +31,8 @@ import { botFillCount, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, 
 import { staleHandError, staleTurnError } from './action-version.js';
 import { clockLowEnough } from './timeBankCards.js';
 import { canCloseIdleTable } from './idle-close.js';
+import { invalidOptionFlag } from './option-flags.js';
+import { awayChanges, shouldSitBackIn } from './away.js';
 import { waitingForTable } from './sitOut.js';
 import { RESERVATION_KINDS, pendingLeaves, sitOutEverywhere } from './reservations.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
@@ -1069,17 +1071,18 @@ function sweepDisconnected(entry) {
     if (!p.disconnectedAt) continue;
     if (hasLiveSocket(entry, p.id)) { p.disconnectedAt = 0; p.disconnected = false; continue; }
     if (now - p.disconnectedAt < DISCONNECT_GRACE_MS) continue;
+    const live = table.handInProgress();
     if (table.tournament || table.spinStarted()) {
-      // A tournament or running Spin seat is never forfeited by a dropped connection: the
-      // player is blinded out (auto-fold / auto-check) until they come back.
-      Object.assign(p, { away: true, sittingOut: true, disconnectedAt: 0 });
+      // A tournament or running Spin seat is never forfeited by a dropped connection: a live hand
+      // runs on the clock and time bank, then the player is blinded out until they come back.
+      if (!p.away) Object.assign(p, awayChanges(p, { live }), { disconnectedAt: 0 });
       continue;
     }
-    if (table.handInProgress() && p.inHand && !p.folded) {
+    if (live && p.inHand && !p.folded) {
       // Never forfeit a live hand to a dropped connection: an all-in player keeps their equity, and
       // their turns run on the normal clock with the time bank. Not dealt the next hand; the seat
       // cashes out once this hand is over.
-      Object.assign(p, { away: true, sitOutNextHand: true });
+      if (!p.away) Object.assign(p, awayChanges(p, { live }));
       continue;
     }
     cashOutSeat(table, p.id, `Disconnected from ${table.cfg.name}`);
@@ -3119,7 +3122,9 @@ wss.on('connection', (ws, req) => {
       // ensure there is a seat for the human
       const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
       if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
-      if (msg.observe) {
+      // A reconnect whose seat is gone (cashed out while away) watches; it never buys in again unasked.
+      const watchOnly = msg.observe || (msg.rejoin === true && !table.seatOf(ws.userId));
+      if (watchOnly) {
         // Watching is read-only: never seed bots, start a hand or take a seat.
         entry.clients.add(ws);
         ws.tables.add(msg.tableId);
@@ -3134,10 +3139,13 @@ wss.on('connection', (ws, req) => {
         seated.player.disconnected = false;
         seated.player.disconnectedAt = 0;
         if (seated.player.away) {
-          // Seated in absence at the tournament start: opening the table sits them back in.
+          // Back from a dropped connection (or seated in absence at a tournament start): sit back
+          // in, unless the player had chosen to sit out before dropping.
+          const choice = seated.player.awayChoice;
           seated.player.away = false;
+          seated.player.awayChoice = undefined;
           seated.player.missedTurns = 0;
-          table.requestSitOut(u.id, false);
+          if (shouldSitBackIn(choice)) table.requestSitOut(u.id, false);
         }
       } else {
         if (table.tournament) {
@@ -3205,6 +3213,8 @@ wss.on('connection', (ws, req) => {
       if (!entry.table.seatOf(ws.userId)) {
         return ws.send(JSON.stringify({ type: 'error', error: 'Take a seat to change table options' }));
       }
+      const badFlag = invalidOptionFlag(msg);
+      if (badFlag) return ws.send(JSON.stringify({ type: 'error', error: `Invalid value for ${badFlag}` }));
       if (msg.straddle != null) {
         // A table-wide rule: only the table's host may change it, never any seated player.
         const ownerId = entry.table.cfg.owner_id;
@@ -3298,8 +3308,8 @@ wss.on('connection', (ws, req) => {
       // saw. The version never resets, so a request replayed after its top-up settled is refused.
       const stale = topUpRequestError(seat.player, { basePending: msg.basePending, topUpVersion: msg.topUpVersion });
       if (stale) return ws.send(JSON.stringify({ type: 'error', error: stale }));
-      // In a live hand (or with chips already pending) the request becomes the pending top-up.
-      if (inLiveHand(table, seat.player) || seat.player.pendingTopUp > 0) return queueTopUp(ws, table, seat.player, msg.amount, msg.idempotencyKey);
+      // During a hand the seat was dealt into (or with chips already pending) it becomes the pending top-up.
+      if (topUpWaitsForDeal(table, seat.player) || seat.player.pendingTopUp > 0) return queueTopUp(ws, table, seat.player, msg.amount, msg.idempotencyKey);
       if (toInt(msg.amount) === 0) return;
       const amount = toInt(msg.amount, { min: 1 });
       const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
