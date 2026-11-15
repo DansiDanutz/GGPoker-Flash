@@ -42,7 +42,7 @@
    around the presets' cream face, with a dark icon (speech bubble, smiley). React sits on top. */
 .table-screen .tchat-buttons { flex-direction: column-reverse; align-items: flex-start; }
 .table-screen .tchat-toggle {
-  width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%;
+  width: 41px; height: 41px; padding: 0; border: 0; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   background:
     radial-gradient(circle, #fbefcc 0 40%, #e2c47a 56%, #8a6420 57% 60%, transparent 61%),
@@ -50,7 +50,7 @@
   color: #1d1405;
   box-shadow: 0 0 0 1.5px #8a6420, 0 3px 0 rgba(0, 0, 0, .45), 0 6px 14px rgba(0, 0, 0, .5);
 }
-.table-screen .tchat-toggle .tchat-icon { width: 22px; height: 22px; display: block; }
+.table-screen .tchat-toggle .tchat-icon { width: 20px; height: 20px; display: block; }
 .table-screen .tchat-toggle .tchat-badge { position: absolute; top: -4px; right: -4px; }
 .table-screen .tchat-toggle:hover:not(:disabled),
 .table-screen .tchat-toggle[aria-expanded="true"] { box-shadow: 0 0 0 2px #ffd36a, 0 0 14px rgba(255, 196, 70, .7); }

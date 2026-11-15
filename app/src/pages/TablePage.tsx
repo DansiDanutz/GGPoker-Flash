@@ -1190,6 +1190,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
         <div className="spacer" />
         <button type="button" className="table-sound-btn" aria-label="Sound" data-tip="Sound" onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
+        <button type="button" className="table-history-btn" aria-label="Hand history" data-tip="Hand history" onClick={() => navigate('/hand-history')}><img src="/assets/table/ui/ic-history.webp" alt="" /></button>
         <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
         <button type="button" className="table-gear" aria-label="Table options" data-tip="Table options" onClick={() => { setOptionsOpen(true); setMenuOpen(false); }}>⚙</button>
         <button type="button" className="table-menu-btn" aria-label="Table menu" data-tip="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}><span className="menu-text">Menu</span></button>
@@ -1304,7 +1305,6 @@ export function TablePage({ tableId }: { tableId: string }) {
             toast({ kind: 'info', title: value ? 'Sitting out next hand' : sittingOut ? 'Sitting back in' : 'Sit out cancelled' });
           } else if (key === 'sitoutBB') send({ type: 'option', tableId, sitOutNextBigBlind: !me?.sitOutNextBigBlind });
           else if (key === 'addChips') openAddChips();
-          else if (key === 'history') navigate('/hand-history');
         }}
       />
 
