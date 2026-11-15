@@ -13,6 +13,8 @@ import { AdminTransactions } from '../components/AdminTransactions';
 import { AdminRestore } from '../components/AdminRestore';
 import { AdminSnapshots } from '../components/AdminSnapshots';
 import { AdminGrantDialog } from '../components/AdminGrantDialog';
+import { AdminMarketplace } from '../components/AdminMarketplace';
+import '../admin-overview.css';
 import {
   CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
   CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
@@ -20,6 +22,7 @@ import {
 
 const SECTIONS = [
   { key: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { key: 'marketplace', label: 'Marketplace', icon: '◈' },
   { key: 'platform', label: 'Platform', icon: '🖥️' },
   { key: 'users', label: 'Users', icon: '👥' },
   { key: 'tables', label: 'Cash tables', icon: '🃏' },
@@ -38,6 +41,31 @@ const SECTIONS = [
   { key: 'chat', label: 'Announcements', icon: '📣' },
 ];
 
+const AREA_DESCRIPTIONS: Record<string, string> = {
+  marketplace: 'Catalog, prețuri, solicitări, acces și conținut public.',
+  platform: 'Starea serverului, conexiuni, mese active și capacitate.',
+  users: 'Conturi, roluri, solduri virtuale și restricții.',
+  tables: 'Configurarea meselor, mizelor virtuale și variantelor de joc.',
+  tournaments: 'Evenimente, structuri de blinduri și desfășurare.',
+  waitlists: 'Cozi de așteptare, locuri rezervate și jucători în așteptare.',
+  banners: 'Bannerele și promoțiile afișate în aplicație.',
+  branding: 'Logo, imagini și identitatea vizuală DanGG.',
+  verifications: 'Revizuirea solicitărilor din conturile utilizatorilor.',
+  reports: 'Sesizările jucătorilor și soluționarea lor.',
+  chatmod: 'Moderarea conversațiilor de la mese.',
+  missions: 'Misiuni și recompense în jetoane virtuale.',
+  settings: 'Opțiunile jocului și configurarea platformei.',
+  snapshots: 'Copii de siguranță și restaurare controlată.',
+  transactions: 'Istoricul operațiunilor cu solduri virtuale.',
+  audit: 'Cine a făcut modificări și când.',
+  chat: 'Anunțuri către comunitatea DanGG.',
+};
+
+function sectionFromRoute(route: string): string {
+  const value = new URLSearchParams(route.split('?')[1] || '').get('section');
+  return SECTIONS.some((item) => item.key === value) ? value! : 'dashboard';
+}
+
 const USER_STATUSES: { value: AdminUserStatus; label: string }[] = [
   { value: 'all', label: 'All users' },
   { value: 'active', label: 'Active' },
@@ -53,8 +81,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function Admin() {
-  const { user, toast, meta, brand, refreshBrand, refreshUser } = useApp();
-  const [section, setSection] = useState('dashboard');
+  const { user, toast, meta, brand, refreshBrand, refreshUser, route, navigate } = useApp();
+  const [section, setSection] = useState(() => sectionFromRoute(route));
+  const [marketplaceDirty, setMarketplaceDirty] = useState(false);
+  const [areaQuery, setAreaQuery] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [stats, setStats] = useState<any>(null);
   const [platform, setPlatform] = useState<any>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -81,6 +112,26 @@ export function Admin() {
   const [notice, setNotice] = useState('');
 
   const isAdmin = !!user?.is_admin;
+
+  useEffect(() => {
+    setSection(sectionFromRoute(route));
+    setEditing(null);
+    setLocal({});
+  }, [route]);
+
+  useEffect(() => {
+    const beforeNavigate = (event: Event) => {
+      const target = (event as CustomEvent<{ to: string }>).detail?.to;
+      if (!marketplaceDirty || section !== 'marketplace' || target === '/admin?section=marketplace') return;
+      if (!window.confirm('Ai modificări nesalvate în Marketplace. Părăsești această secțiune?')) event.preventDefault();
+    };
+    window.addEventListener('dangg:before-navigate', beforeNavigate);
+    return () => window.removeEventListener('dangg:before-navigate', beforeNavigate);
+  }, [marketplaceDirty, section]);
+
+  const openSection = (key: string) => {
+    navigate(`/admin?section=${encodeURIComponent(key)}`);
+  };
 
   const fmtUptime = (seconds?: number) => {
     if (seconds == null) return '—';
@@ -148,7 +199,8 @@ export function Admin() {
       setStats(s); setPlatform(p); setTables(t.tables); setTourneys(tt.tournaments);
       setBanners(b.banners); setMissions(m.missions); setSettings(st.settings);
       setTransactions(tx.transactions); setVerifications(v.verifications || []); setReports(rp.reports || []);
-    } catch (e: any) { toast({ kind: 'error', title: 'Admin', body: e.message }); }
+      setLoadError('');
+    } catch (e: any) { setLoadError(e.message); toast({ kind: 'error', title: 'Admin', body: e.message }); }
   };
 
   const loadAll = async () => { await Promise.all([loadCore(), loadUsers()]); };
@@ -255,13 +307,12 @@ export function Admin() {
     return (
       <PageShell activeTop="poker">
         <div className="page">
-          <h1 className="page-title">Admin Console</h1>
-          <p className="page-sub">Restricted area — administrator account required.</p>
+          <h1 className="page-title">Administrare DanGG</h1>
+          <p className="page-sub">Această zonă este rezervată administratorilor.</p>
           <div className="card" style={{ maxWidth: 560 }}>
-            <p style={{ color: '#ddd' }}>Log in with the local administrator account to manage the entire clone:</p>
-            <div className="kv"><span>Account</span><b>admin</b></div>
-            <div className="kv"><span>Password</span><b>admin123</b></div>
-            <button className="btn btn-red" style={{ marginTop: 12 }} onClick={() => { localStorage.removeItem('ggpoker.token'); location.hash = '/login'; location.reload(); }}>Go to login</button>
+            <p style={{ color: '#ddd' }}>Folosește contul tău de administrator prin conexiunea privată configurată pentru DanGG.</p>
+            <button className="btn btn-red" style={{ marginTop: 12 }} onClick={() => navigate('/login')}>Autentificare</button>
+            <button className="btn btn-ghost" style={{ marginTop: 12 }} onClick={() => navigate('/marketplace')}>Deschide Marketplace</button>
           </div>
         </div>
       </PageShell>
@@ -272,9 +323,9 @@ export function Admin() {
     <PageShell activeTop="poker">
       <div className="admin-shell">
         <nav className="admin-nav">
-          <div className="brand">DANGG.RO<small>LOCAL ADMIN</small></div>
+          <div className="brand">DanGG<small>ADMINISTRATION</small></div>
           {SECTIONS.map((s) => (
-            <button key={s.key} className={section === s.key ? 'on' : ''} onClick={() => { setSection(s.key); setEditing(null); setLocal({}); }}>
+            <button key={s.key} aria-current={section === s.key ? 'page' : undefined} className={section === s.key ? 'on' : ''} onClick={() => openSection(s.key)}>
               <span style={{ marginRight: 8 }}>{s.icon}</span>{s.label}
             </button>
           ))}
@@ -282,8 +333,17 @@ export function Admin() {
           <div style={{ padding: '10px 12px', fontSize: 11, color: '#6f7484' }}>v{APP_VERSION} · {buildLabel(APP_BUILD)}<br />{meta.online.toLocaleString()} online</div>
         </nav>
         <div className="admin-main">
+          {loadError && <div className="admin-access-error" role="alert"><strong>Conexiunea de administrare nu este disponibilă.</strong><p>{loadError}</p><p>Folosește accesul privat existent și un cont de administrator.</p><button className="btn btn-ghost btn-sm" onClick={loadCore}>Reîncearcă</button></div>}
+          {section === 'marketplace' && <AdminMarketplace onDirtyChange={setMarketplaceDirty} />}
           {section === 'dashboard' && (
             <>
+              <section className="admin-owner-overview" aria-labelledby="admin-owner-title">
+                <div className="admin-owner-heading"><div><span className="admin-owner-eyebrow">DANGG CONTROL CENTER</span><h1 id="admin-owner-title">Platforma ta, într-un singur loc.</h1><p>Administrează jocurile, comunitatea, conținutul și serviciile Marketplace.</p></div><a className="admin-public-link" href="/marketplace" target="_blank" rel="noopener noreferrer">Vezi Marketplace ↗</a></div>
+                <label className="admin-area-search"><span>Caută o zonă de administrare</span><input value={areaQuery} onChange={(event) => setAreaQuery(event.target.value)} placeholder="Mese, utilizatori, branding…" type="search" /></label>
+                <div className="admin-area-grid">
+                  {SECTIONS.filter((item) => item.key !== 'dashboard' && `${item.label} ${AREA_DESCRIPTIONS[item.key] || ''}`.toLocaleLowerCase('ro-RO').includes(areaQuery.toLocaleLowerCase('ro-RO').trim())).map((item) => <button type="button" key={item.key} className={'admin-area-card' + (item.key === 'marketplace' ? ' is-featured' : '')} onClick={() => openSection(item.key)}><span className="admin-area-icon" aria-hidden="true">{item.icon}</span><strong>{item.label}</strong><span>{AREA_DESCRIPTIONS[item.key]}</span><small>Deschide →</small></button>)}
+                </div>
+              </section>
               <div className="between">
                 <h2 className="admin-title" style={{ margin: 0 }}>Dashboard</h2>
                 <div className="row">
@@ -324,7 +384,7 @@ export function Admin() {
                   <div className="kv"><span>Bad beat jackpot</span><b className="gold">{money(stats?.jackpot || 0)}</b></div>
                   <div className="kv"><span>Total turnover</span><b>{money(stats?.turnover || 0)}</b></div>
                   <div className="kv"><span>Online players</span><b>{stats?.online?.toLocaleString()}</b></div>
-                  <div className="kv"><span>Server</span><b>local · healthy</b></div>
+                  <div className="kv"><span>Server</span><b>{loadError ? 'Connection unavailable' : platform ? 'Connected' : 'Loading…'}</b></div>
                   <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={loadAll}>Refresh</button>
                 </div>
               </div>

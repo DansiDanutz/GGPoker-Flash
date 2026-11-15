@@ -324,6 +324,7 @@ export function Login() {
       </>}
 
       <footer className="login2-foot">
+        <a href="/marketplace">Marketplace</a>
         <a href={__APP_SOURCE_URL__} target="_blank" rel="noopener noreferrer">Source code</a>
         <a href="/legal/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 license</a>
         <button type="button" onClick={() => setLegal('terms')}>Terms</button>
