@@ -10,10 +10,10 @@ const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const page = read('src/pages/TablePage.tsx');
 const css = read('src/table-phone-seat.css');
 
-test('in portrait the dealer disc and blind marker step around your cards', () => {
-  assert.match(page, /heroDealerSide: -72/);
-  assert.match(page, /heroBlindSide: 72/);
-  assert.match(page, /inward\(seatPos\(state\.button\), stage, reach\.dealer, markerSide\(state\.button, reach\.dealerSide, reach\.heroDealerSide\)\)/);
+test('in portrait the dealer disc goes above your cards and the blind marker to their right', () => {
+  assert.match(page, /heroDealer: 100, heroDealerSide: -40/);
+  assert.match(page, /heroBlindSide: 86/);
+  assert.match(page, /inward\(seatPos\(state\.button\), stage, me\?\.seat === state\.button \? reach\.heroDealer : reach\.dealer, markerSide\(state\.button, reach\.dealerSide, reach\.heroDealerSide\)\)/);
   assert.match(page, /inward\(seatPos\(seat\), stage, reach\.blind, markerSide\(seat, reach\.blindSide, reach\.heroBlindSide\)\)/);
 });
 
