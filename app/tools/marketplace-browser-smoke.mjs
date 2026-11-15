@@ -91,15 +91,36 @@ async function clickText(page, selector, text) {
   const handle = await page.evaluateHandle((selector, text) => Array.from(document.querySelectorAll(selector)).find((node) => node.textContent.trim() === text), selector, text);
   const element = handle.asElement();
   assert.ok(element, `Missing control: ${selector} / ${text}`);
-  await element.click();
+  await centerClick(element);
   await handle.dispose();
+}
+
+async function centerClick(element) {
+  await element.evaluate((node) => node.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
+  await element.click();
+}
+
+async function clickSelector(page, selector) {
+  const element = await page.waitForSelector(selector, { visible: true });
+  await centerClick(element);
+  await element.dispose();
+}
+
+async function replaceInputValue(page, input, value, label) {
+  await input.evaluate((node) => node.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
+  await input.focus();
+  await page.keyboard.down('Control');
+  await page.keyboard.press('A');
+  await page.keyboard.up('Control');
+  await page.keyboard.press('Backspace');
+  if (value) await input.type(value);
+  assert.equal(await input.evaluate((node) => node.value), value, `Field was not filled correctly: ${label}`);
 }
 
 async function fill(page, selector, value) {
   const input = await page.waitForSelector(selector, { visible: true });
-  await input.click({ clickCount: 3 });
-  await input.press('Backspace');
-  if (value) await input.type(value);
+  await replaceInputValue(page, input, value, selector);
+  await input.dispose();
 }
 
 async function labeledField(page, label, selector = 'input,textarea,select') {
@@ -111,9 +132,7 @@ async function labeledField(page, label, selector = 'input,textarea,select') {
 
 async function fillField(page, label, value) {
   const input = await labeledField(page, label);
-  await input.click({ clickCount: 3 });
-  await input.press('Backspace');
-  if (value) await input.type(value);
+  await replaceInputValue(page, input, value, label);
   await input.dispose();
 }
 
@@ -135,7 +154,7 @@ async function clickInside(page, container, heading, text) {
   }, container, heading, text);
   const element = handle.asElement();
   assert.ok(element, `Missing ${text} in ${heading}`);
-  await element.click(); await handle.dispose();
+  await centerClick(element); await handle.dispose();
 }
 
 async function waitText(page, selector, text) {
@@ -203,19 +222,20 @@ async function run() {
   assert.equal(await owner.evaluate(() => document.activeElement.textContent.trim()), sample.name, 'Dialog did not restore trigger focus.');
   await fill(owner, '.mp-search input', '');
   await clickText(owner, '.mp-filters button', 'Extensii');
+  await owner.waitForFunction(() => Array.from(document.querySelectorAll('.mp-filters button')).some((button) => button.textContent.trim() === 'Extensii' && button.getAttribute('aria-pressed') === 'true'));
   await owner.waitForFunction((expected) => document.querySelectorAll('.mp-product').length === expected, {}, initial.products.filter((p) => p.category === 'extensions').length);
-  await owner.click('.mp-filters button:first-child');
+  await clickSelector(owner, '.mp-filters button:first-child');
   completed.push('Search, category filter, product dialog and focus restoration');
 
   await clickText(owner, '.mp-header-actions button', 'Intră în cont');
   await fill(owner, '#login-id', 'admin');
   await fill(owner, '#login-password', 'admin123');
-  await owner.click('.login2-cta');
+  await clickSelector(owner, '.login2-cta');
   await owner.waitForSelector('.mp-header-admin', { visible: true });
   assert.match(owner.url(), /marketplace/);
   const adminToken = await owner.evaluate(() => localStorage.getItem('ggpoker.token'));
   assert.ok(adminToken);
-  await owner.click('.mp-header-admin');
+  await clickSelector(owner, '.mp-header-admin');
   await owner.waitForSelector('.market-admin .ma-product', { visible: true });
   await screenshot(owner, 'admin');
   await owner.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
@@ -231,7 +251,7 @@ async function run() {
   await fillField(owner, 'Descriere scurtă', 'Isolated browser fixture for the DanGG organizer catalog.');
   await fillField(owner, 'Descriere completă', 'This fixture exists only in a temporary local database during CI.');
   await selectField(owner, 'Categorie', 'tools');
-  await owner.click('.ma-editor button[type="submit"]');
+  await clickSelector(owner, '.ma-editor button[type="submit"]');
   await owner.waitForSelector('.ma-editor', { hidden: true });
   await waitText(owner, '.ma-product h3', productName);
   let adminData = await api('/api/admin/marketplace', { token: adminToken });
@@ -240,19 +260,19 @@ async function run() {
   assert.ok(!(await api('/api/marketplace')).products.some((entry) => entry.id === product.id));
   await clickInside(owner, '.ma-product', productName, 'Editează');
   await selectField(owner, 'Vizibilitate', 'available');
-  await owner.click('.ma-editor button[type="submit"]');
+  await clickSelector(owner, '.ma-editor button[type="submit"]');
   await owner.waitForSelector('.ma-editor', { hidden: true });
   await waitUntil(async () => (await api('/api/marketplace')).products.some((entry) => entry.id === product.id), 'Published product is missing from the public catalog.');
   completed.push('UI product creation, draft isolation and publication persistence');
 
-  await owner.click('#ma-tab-content');
+  await clickSelector(owner, '#ma-tab-content');
   await fillField(owner, 'Titlul paginii', 'CI verified marketplace');
-  await owner.click('.ma-content-form button[type="submit"]');
+  await clickSelector(owner, '.ma-content-form button[type="submit"]');
   await waitText(owner, '.ma-notice-success', 'Conținutul public a fost salvat.');
   assert.equal((await api('/api/marketplace')).settings.title, 'CI verified marketplace');
   await owner.reload({ waitUntil: 'domcontentloaded' });
   await owner.waitForSelector('#ma-tab-content', { visible: true });
-  await owner.click('#ma-tab-content');
+  await clickSelector(owner, '#ma-tab-content');
   const title = await labeledField(owner, 'Titlul paginii');
   assert.equal(await title.evaluate((element) => element.value), 'CI verified marketplace');
   await title.dispose();
@@ -261,7 +281,7 @@ async function run() {
   // The preview intentionally uses noreferrer/noopener; match its local URL,
   // rather than requiring an opener relationship the browser may suppress.
   const newTarget = browser.waitForTarget((target) => target !== owner.target() && target.type() === 'page' && target.url() === `${base}/marketplace`, { timeout: 15000 });
-  await owner.click('.ma-header-actions a[target="_blank"]');
+  await clickSelector(owner, '.ma-header-actions a[target="_blank"]');
   const preview = await (await newTarget).page();
   await preview.waitForSelector('.marketplace', { visible: true });
   assert.equal(await owner.evaluate(() => localStorage.getItem('ggpoker.token')), adminToken, 'Public preview deleted the owner session token.');
@@ -284,6 +304,7 @@ async function run() {
   }, memberAuth.token);
   await member.goto(`${base}/marketplace`, { waitUntil: 'domcontentloaded' });
   await member.waitForSelector('#marketplace-account', { visible: true });
+  await waitText(member, '.mp-product h3 button', productName);
   await clickText(member, '.mp-product h3 button', productName);
   await fill(member, '.mp-request-form textarea', 'Browser request, held briefly to test dialog ownership.');
   let intercepted;
@@ -292,7 +313,7 @@ async function run() {
     if (request.url() === `${base}/api/marketplace/requests` && request.method() === 'POST') intercepted = request;
     else void request.continue().catch(() => {});
   });
-  await member.click('.mp-request-form button[type="submit"]');
+  await clickSelector(member, '.mp-request-form button[type="submit"]');
   await waitUntil(() => Boolean(intercepted), 'Request was not intercepted.');
   await member.keyboard.press('Escape');
   await clickText(member, '.mp-product h3 button', sample.name);
@@ -311,7 +332,7 @@ async function run() {
   currentPage = owner;
   await owner.goto(`${base}/marketplace/admin`, { waitUntil: 'domcontentloaded' });
   await owner.waitForSelector('#ma-tab-requests', { visible: true });
-  await owner.click('#ma-tab-requests');
+  await clickSelector(owner, '#ma-tab-requests');
   await owner.waitForSelector('.ma-request textarea', { visible: true });
   await fill(owner, '.ma-request textarea', 'Fixture approved for browser verification.');
   await clickInside(owner, '.ma-request', productName, 'Aprobă cererea');
@@ -319,7 +340,7 @@ async function run() {
   await waitText(owner, '.ma-request h3', productName);
   await clickInside(owner, '.ma-request', productName, 'Pregătește accesul ↗');
   await owner.waitForSelector('.ma-grant', { visible: true });
-  await owner.click('.ma-grant button[type="submit"]');
+  await clickSelector(owner, '.ma-grant button[type="submit"]');
   await waitText(owner, '.ma-access-entry', productName);
   await waitUntil(async () => (await api('/api/marketplace/me', { token: memberAuth.token })).entitlements.some((entry) => entry.product_id === product.id && entry.status === 'active'), 'Granted access was not persisted.');
   await member.reload({ waitUntil: 'domcontentloaded' });
@@ -342,6 +363,20 @@ try {
 } catch (error) {
   process.exitCode = 1;
   console.error(error.stack || error.message);
+  if (currentPage && !currentPage.isClosed()) {
+    const diagnostic = await Promise.race([
+      currentPage.evaluate(() => ({
+        url: location.href,
+        query: document.querySelector('.mp-search input')?.value,
+        activeFilter: Array.from(document.querySelectorAll('.mp-filters button')).filter((button) => button.getAttribute('aria-pressed') === 'true').map((button) => button.textContent.trim()),
+        cards: Array.from(document.querySelectorAll('.mp-product h3')).map((heading) => heading.textContent.trim()),
+        body: document.body.innerText.slice(0, 5000),
+      })).catch((failure) => ({ error: failure.message })),
+      pause(3000).then(() => ({ error: 'Diagnostic DOM read timed out.' })),
+    ]);
+    console.error('FIXTURE_DIAGNOSTIC', JSON.stringify({ completed, pageErrors, ...diagnostic }));
+    await writeFile(path.join(artifacts, 'failure-diagnostic.json'), JSON.stringify({ completed, pageErrors, ...diagnostic }, null, 2));
+  }
   if (currentPage && !currentPage.isClosed()) await screenshot(currentPage, 'failure').catch(() => {});
 } finally {
   clearTimeout(timeout);
