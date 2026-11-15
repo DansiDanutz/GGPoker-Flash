@@ -1189,7 +1189,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
         <div className="spacer" />
-        <button type="button" className="table-sound-btn" aria-label="Sound" data-tip="Sound on / off" onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
+        <button type="button" className="table-sound-btn" aria-label="Sound" data-tip="Sound" onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
         <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
         <button type="button" className="table-gear" aria-label="Table options" data-tip="Table options" onClick={() => { setOptionsOpen(true); setMenuOpen(false); }}>⚙</button>
         <button type="button" className="table-menu-btn" aria-label="Table menu" data-tip="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}><span className="menu-text">Menu</span></button>
@@ -1437,12 +1437,12 @@ export function TablePage({ tableId }: { tableId: string }) {
             title={p.nick ? 'Player note' : ''}
           >
             {isActor && p.isMe && !p.folded && clockSeconds != null && (
-              <div className={'turn-badge' + (clockSeconds <= 5 ? ' hot' : '')} role="timer" aria-label={`${clockSeconds} seconds left`}>
+              <div className={'turn-badge' + (clockSeconds <= 5 ? ' hot' : '')} role="timer" data-tip="Timer" aria-label={`${clockSeconds} seconds left`}>
                 <span>{clockSeconds}</span>
               </div>
             )}
             {isActor && clockSeconds != null && (
-              <div className={`native-clock${clockSeconds <= 5 ? ' hot' : ''}${x < 30 ? ' clock-right' : ''}`} aria-hidden="true">
+              <div className={`native-clock${clockSeconds <= 5 ? ' hot' : ''}${x < 30 ? ' clock-right' : ''}`} data-tip="Timer" aria-hidden="true">
                 {String(Math.min(99, clockSeconds)).split('').map((d, i) => (
                   <img key={i} className="clock-digit" src={`/assets/table/clock/${d}${clockSeconds <= 5 ? '-hot' : ''}.png`} alt="" />
                 ))}
@@ -1711,7 +1711,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {state?.allInOrFold ? (
           <div className="action-row aof-row">
-            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank: +${TB_CARD_SECONDS} seconds`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
+            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank +${TB_CARD_SECONDS}s`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
             <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
             <button className="act-btn act-allin" disabled={!myTurn} onClick={() => requestBet('allin', allInTo)}>All-in{me?.stack ? ` ${amt(me.stack)}` : ''}</button>
             <div className="grow" />
@@ -1719,7 +1719,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         ) : (
         <div className="action-row main-actions">
-          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank: +${TB_CARD_SECONDS} seconds`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
+          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank +${TB_CARD_SECONDS}s`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (
             <button className="act-btn act-check" disabled={!myTurn || !!state?.allInOrFold} onClick={() => act('check')}>Check</button>
