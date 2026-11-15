@@ -39,6 +39,7 @@ import './table-buttons.css';
 import './table-allin.css';
 import './table-show-card.css';
 import './table-hero-peel.css';
+import './table-confirm.css';
 import './table-topbar-history.css';
 import './table-tips.css';
 

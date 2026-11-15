@@ -27,3 +27,20 @@ export function showdownComplete(seats: number[]): number {
 export function heroHoldsHand(me: { inHand?: boolean; folded?: boolean } | null | undefined): boolean {
   return !!me?.inHand && !me.folded;
 }
+
+/** One payout to the hero as the server reports it. */
+export type HeroPayout = Readonly<{ amount?: number; contested?: boolean; invested?: number }>;
+
+/**
+ * Whether the hero really won: a pot someone else could also have won (a side pot counts),
+ * or more back than they put in. Their own unmatched all-in layer coming back is not a win.
+ * Payouts from a server without these fields count as wins, as before.
+ */
+export function heroWon(mine: readonly HeroPayout[]): boolean {
+  if (!mine.length) return false;
+  if (mine.some((m) => m.contested !== false)) return true;
+  const total = mine.reduce((a, m) => a + (m.amount || 0), 0);
+  const invested = Math.max(0, ...mine.map((m) => m.invested ?? 0));
+  return total > invested;
+}
+

@@ -39,7 +39,7 @@ test('each card lands face down in turn, then is lifted and turned over after th
 
 test('on your turn a round badge counts the seconds down inside a gold ring that fills green', () => {
   const page = read('src/pages/TablePage.tsx');
-  assert.match(page, /isActor && p\.isMe && !p\.folded && clockSeconds != null && \(\s*<div className=\{'turn-badge' \+ \(clockSeconds <= 5 \? ' hot' : ''\)\} role="timer" aria-label=\{`\$\{clockSeconds\} seconds left`\}>/);
+  assert.match(page, /isActor && p\.isMe && !p\.folded && clockSeconds != null && \(\s*<div className=\{'turn-badge' \+ \(clockSeconds <= 5 \? ' hot' : ''\)\} role="timer" data-tip="Timer" aria-label=\{`\$\{clockSeconds\} seconds left`\}>/);
   const css = read('src/table-hero-peel.css');
   const badge = rule(css, '  .table-screen .table-stage.stage-portrait .seat.me .turn-badge');
   assert.match(badge, /conic-gradient\(var\(--used, #3ee07a\) 0 calc\(\(1 - var\(--turn, 1\)\) \* 360deg\), #e8b84a 0\)/);

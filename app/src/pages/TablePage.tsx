@@ -13,7 +13,8 @@ import { betLimits, potOdds, sizingPresets, sliderTarget, type BetContext } from
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
-import { WIN_BANNER_MS, heroHoldsHand, showdownComplete, showdownPlan } from '../game/showdown';
+import { WIN_BANNER_MS, heroHoldsHand, heroWon, showdownComplete, showdownPlan } from '../game/showdown';
+import { ALLIN_SPARKS } from '../game/allinFx';
 import { readJoinWaitForBlinds, saveJoinWaitForBlinds } from '../game/tableOptions';
 import { clearSeatedHere, markSeatedHere, wasSeatedHere } from '../lib/seatSession';
 import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
@@ -556,7 +557,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       window.setTimeout(() => sound.play('gather', { volume: .6 }), fxAt + 450);
       const heroId = stateRef.current?.players.find((p) => p.isMe)?.id;
       const mine = (evt.winners || []).filter((x: any) => x.id === heroId);
-      if (mine.length) {
+      if (heroWon(mine)) {
         const total = mine.reduce((a: number, x: any) => a + (x.amount || 0), 0);
         window.setTimeout(() => {
           setWinFx({ id: fxId.current++, amount: total, nick: mine[0].nick });
@@ -1188,7 +1189,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
         <div className="spacer" />
-        <button type="button" className="table-sound-btn" aria-label="Sound" data-tip="Sound on / off" onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
+        <button type="button" className="table-sound-btn" aria-label="Sound" data-tip="Sound" onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
         <button type="button" className="table-history-btn" aria-label="Hand history" data-tip="Hand history" onClick={() => navigate('/hand-history')}><img src="/assets/table/ui/ic-history.webp" alt="" /></button>
         <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
         <button type="button" className="table-gear" aria-label="Table options" data-tip="Table options" onClick={() => { setOptionsOpen(true); setMenuOpen(false); }}>⚙</button>
@@ -1204,7 +1205,18 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {cashDrop && <CashDropBanner drop={cashDrop} />}
 
-      {allInFx && <div className="allin-flash"><span>ALL IN</span></div>}
+      {allInFx && (
+        <div className="allin-flash" role="status" aria-label="All in">
+          <div className="allin-plaque">
+            <img className="allin-flare allin-flare-l" src="/assets/table/ui/fx-flare-left.webp" alt="" />
+            <img className="allin-line" src="/assets/table/ui/fx-divider.webp" alt="" />
+            <span className="allin-word">All in</span>
+            <img className="allin-line" src="/assets/table/ui/fx-divider.webp" alt="" />
+            <img className="allin-flare allin-flare-r" src="/assets/table/ui/fx-flare-right.webp" alt="" />
+          </div>
+          {ALLIN_SPARKS.map((s, i) => <i key={i} className="allin-spark" style={{ '--a': `${s.a}deg`, '--r': `${s.r}px`, '--d': `${s.d}s` } as React.CSSProperties} />)}
+        </div>
+      )}
 
       {menuOpen && (
         <div className="table-menu" onClick={() => setMenuOpen(false)}>
@@ -1425,12 +1437,12 @@ export function TablePage({ tableId }: { tableId: string }) {
             title={p.nick ? 'Player note' : ''}
           >
             {isActor && p.isMe && !p.folded && clockSeconds != null && (
-              <div className={'turn-badge' + (clockSeconds <= 5 ? ' hot' : '')} role="timer" aria-label={`${clockSeconds} seconds left`}>
+              <div className={'turn-badge' + (clockSeconds <= 5 ? ' hot' : '')} role="timer" data-tip="Timer" aria-label={`${clockSeconds} seconds left`}>
                 <span>{clockSeconds}</span>
               </div>
             )}
             {isActor && clockSeconds != null && (
-              <div className={`native-clock${clockSeconds <= 5 ? ' hot' : ''}${x < 30 ? ' clock-right' : ''}`} aria-hidden="true">
+              <div className={`native-clock${clockSeconds <= 5 ? ' hot' : ''}${x < 30 ? ' clock-right' : ''}`} data-tip="Timer" aria-hidden="true">
                 {String(Math.min(99, clockSeconds)).split('').map((d, i) => (
                   <img key={i} className="clock-digit" src={`/assets/table/clock/${d}${clockSeconds <= 5 ? '-hot' : ''}.png`} alt="" />
                 ))}
@@ -1604,14 +1616,14 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}
         {pendingBet && (
-          <div className="action-row" style={{ background: 'rgba(217,168,60,.12)', borderTop: '1px solid #d9a83c', padding: '8px 10px' }}>
-            <span style={{ flex: 1, color: '#ffd98a', fontSize: 13 }}>
+          <div className="action-row confirm-row" role="alertdialog" aria-label="Confirm bet">
+            <span className="confirm-text">
               Confirm {pendingBet.action === 'allin' ? 'all in for' : (state?.currentBet || 0) > 0 ? 'raise to' : 'bet'}{' '}
               {amt(pendingBet.amount)}?
             </span>
-            <button className="btn btn-gold btn-sm" onClick={() => { const b = pendingBet; setPendingBet(null); act(b.action, b.amount); }}>Confirm</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setPendingBet(null)}>Cancel</button>
-            <button className="btn btn-ghost btn-sm" title="Bet now and stop asking; turn it back on in Table options" onClick={() => { const b = pendingBet; setPendingBet(null); setConfirmBets(false); act(b.action, b.amount); toast({ kind: 'info', title: 'Bet confirmation off', body: 'Turn it back on in Table options (gear).' }); }}>Don't ask again</button>
+            <button className="btn confirm-ok" onClick={() => { const b = pendingBet; setPendingBet(null); act(b.action, b.amount); }}>Confirm</button>
+            <button className="btn confirm-cancel" onClick={() => setPendingBet(null)}>Cancel</button>
+            <button className="btn confirm-skip" title="Bet now and stop asking; turn it back on in Table options" onClick={() => { const b = pendingBet; setPendingBet(null); setConfirmBets(false); act(b.action, b.amount); toast({ kind: 'info', title: 'Bet confirmation off', body: 'Turn it back on in Table options (gear).' }); }}>Don't ask again</button>
           </div>
         )}
         {canShowCards && (
@@ -1699,7 +1711,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {state?.allInOrFold ? (
           <div className="action-row aof-row">
-            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank: +${TB_CARD_SECONDS} seconds`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
+            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank +${TB_CARD_SECONDS}s`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
             <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
             <button className="act-btn act-allin" disabled={!myTurn} onClick={() => requestBet('allin', allInTo)}>All-in{me?.stack ? ` ${amt(me.stack)}` : ''}</button>
             <div className="grow" />
@@ -1707,7 +1719,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         ) : (
         <div className="action-row main-actions">
-          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank: +${TB_CARD_SECONDS} seconds`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
+          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank +${TB_CARD_SECONDS}s`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (
             <button className="act-btn act-check" disabled={!myTurn || !!state?.allInOrFold} onClick={() => act('check')}>Check</button>
