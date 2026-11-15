@@ -4,13 +4,17 @@
    layout follows GG; the art, colours and marks stay DanGG's own. Loaded last, so it wins over the
    older phone rules (table-phone.css, table-phone-look.css and the short-phone variants). */
 @media (max-width: 760px) and (orientation: portrait) {
-  /* ---- Oval: the upright skin stretches to the stage TablePage sizes (tableStage.ts portraitBox).
-     Before the quarter turn, the box's width runs down the screen and its height across it. ---- */
-  .table-stage.stage-portrait::before {
-    width: calc(var(--stage-h) * 1.2249); height: calc(var(--stage-w) * 2.2555); aspect-ratio: auto;
+  /* ---- Oval: David's upright table art (15 Nov), stretched to the stage TablePage sizes
+     (tableStage.ts portraitBox) on every room, so phones get one clean full-screen oval. ---- */
+  .table-screen[class] .table-stage.stage-portrait::before {
+    left: 0; top: 0; width: 100%; height: 100%; aspect-ratio: auto; transform: none;
+    background: url('/assets/tables/skins/portrait/phone-oval.webp') center / 100% 100% no-repeat;
+    -webkit-mask-image: none; mask-image: none;
   }
+  /* The theme tint covers the felt inside the gold line: a stadium as wide as the oval's felt. */
   .table-screen .table-stage.stage-portrait .felt {
-    width: calc(var(--stage-h) * .89713); height: calc(var(--stage-w) * .81057);
+    width: 93%; height: 98%; transform: translate(-50%, -50%);
+    -webkit-mask: none; mask: none; border-radius: calc(var(--stage-w) * .465);
   }
 
   /* ---- Board and pot in the middle of the oval, the pot pill right above the cards ---- */
@@ -52,11 +56,17 @@
     grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "fold call raise";
     gap: 6px; padding: 0 6px;
   }
+  /* David's dark button art (15 Nov) for every bottom-row control, the presets and pre-actions. */
+  .table-screen .action-bar .main-actions .act-btn,
+  .table-screen .action-bar .aof-row .act-btn,
+  .table-screen .action-bar .main-actions .quick-bets button,
+  .table-screen .action-bar .reserved-actions button {
+    border: 8px solid transparent; border-image: url('/assets/table/ui/btn-dark.webp') 34 fill / 10px stretch;
+    background: none; box-shadow: 0 4px 10px rgba(0, 0, 0, .45);
+  }
   .table-screen .action-bar .main-actions .act-btn,
   .table-screen .action-bar .aof-row .act-btn {
-    height: 52px; border-radius: 10px; border: 1px solid rgba(214, 170, 82, .55); font-size: 16px; font-weight: 800;
-    background: linear-gradient(#2c2a26, #141311); text-shadow: none;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 4px 10px rgba(0, 0, 0, .55);
+    height: 52px; padding: 0 2px; border-radius: 10px; font-size: 15px; font-weight: 800; text-shadow: none;
   }
   .table-screen .action-bar .act-btn.act-fold { color: #ff8a8a; }
   .table-screen .action-bar .act-btn.act-check,
@@ -70,11 +80,9 @@
     display: flex; flex-direction: column-reverse; gap: 6px;
   }
   .table-screen .action-bar .main-actions .quick-bets button {
-    width: 100%; height: 42px; border-radius: 10px; border: 1px solid rgba(214, 170, 82, .55);
-    background: linear-gradient(rgba(44, 42, 38, .95), rgba(20, 19, 17, .95)); color: #ffd36a; font-size: 14px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, .55);
+    width: 100%; height: 42px; padding: 0 4px; border-radius: 10px; color: #ffd36a; font-size: 14px;
   }
-  .table-screen .action-bar .main-actions .quick-bets button[aria-pressed="true"] { border-color: #ffd36a; background: linear-gradient(#4a3c18, #241c0a); }
+  .table-screen .action-bar .main-actions .quick-bets button[aria-pressed="true"] { filter: brightness(1.35); color: #ffe6a6; }
 
   /* The upright slider panel stands just left of the presets, so the right column stays clear. */
   .table-screen .action-bar .main-actions:has(.bet-slider:not(:disabled))::after {
@@ -97,12 +105,11 @@
     display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; height: 52px; padding: 0 6px;
   }
   .table-screen .action-bar .reserved-actions button {
-    width: 100%; max-width: none; height: 52px; padding: 0 4px 0 24px; border: 1px solid rgba(214, 170, 82, .4); border-image: none;
-    border-radius: 10px; background: linear-gradient(#262420, #121110); color: #e9e2cf;
+    width: 100%; max-width: none; height: 52px; padding: 0 0 0 14px; border-radius: 10px; color: #e9e2cf;
     font: 700 12.5px/1.1 system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
-  .table-screen .action-bar .reserved-actions button[aria-pressed="true"] { border-color: #ffd36a; color: #ffd36a; }
-  .table-screen .action-bar .reserved-actions button::before { left: 7px; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); }
+  .table-screen .action-bar .reserved-actions button[aria-pressed="true"] { filter: brightness(1.3); color: #ffd36a; }
+  .table-screen .action-bar .reserved-actions button::before { left: -3px; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); }
   .table-screen .action-bar .reserved-actions .reserve-text {
     position: static; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; padding: 0;
     white-space: normal; overflow: hidden; text-align: center; line-height: 1.1;

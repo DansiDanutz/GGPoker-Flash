@@ -40,8 +40,7 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [1280, 720], [2560, 1440]]) {
 
 test('portrait phone 390x844: the oval fills the width and runs from the top bar into the bottom button row', () => {
   const box = stageBox({ width: 390, height: 844, topBar: 44, actionBar: 170 });
-  assert.ok(box.width >= 400, 'edge to edge, a little past each side');
-  assert.ok(box.left >= -12 && box.left + box.width <= 402, 'bleeds at most a few px');
+  assert.deepEqual([box.left, box.width], [0, 390], 'edge to edge: the oval art carries its own rail at its sides');
   assert.ok(box.top >= 44 && box.top <= 60, 'starts right under the top bar');
   const bottom = box.top + box.height;
   assert.ok(bottom > 844 - PORTRAIT_ACTION_BAR && bottom <= 844, 'runs into the bottom button row');
@@ -146,7 +145,7 @@ test('on phones the hero plate stays above the bottom button row', () => {
 
 test('Chrome on a 384x692 phone still gets an edge-to-edge oval, not a narrow one', () => {
   const box = stageBox({ width: 384, height: 692, topBar: 46, actionBar: 110 });
-  assert.ok(box.width >= 390, `rail width ${box.width}`);
+  assert.equal(box.width, 384, `rail width ${box.width}`);
   assert.ok(box.top + box.height <= 692, 'ends on screen');
 });
 

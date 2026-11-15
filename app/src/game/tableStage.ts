@@ -12,9 +12,9 @@ const PORTRAIT_MAX_WIDTH = 760;
 const SHORT_SCREEN = 520;
 const MAX_STAGE_WIDTH = 1400;
 const MIN_STAGE_SIDE = 60;
-/** Portrait: px the rail may run past each screen edge, gap under the top bar, share of the bottom
+/** Portrait: px the rail may run past each screen edge (none: the oval art has its own rail), gap under the top bar, share of the bottom
  *  button row the rail runs behind, and the height range (x width) the upright skin may stretch to. */
-const PORTRAIT_BLEED = 10;
+const PORTRAIT_BLEED = 0;
 const PORTRAIT_TOP_GAP = 6;
 const PORTRAIT_UNDER_BAR = 0.5;
 const PORTRAIT_MIN_RATIO = 1.3;

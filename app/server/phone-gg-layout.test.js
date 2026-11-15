@@ -19,12 +19,11 @@ test('the GG phone layout loads after every other phone rule', () => {
   }
 });
 
-test('the stage tells CSS its size so the upright skin can stretch to any phone', () => {
+test('the stage tells CSS its size so the oval art and felt tint fit any phone', () => {
   const src = read('src/pages/TablePage.tsx');
   assert.match(src, /'--stage-w': `\$\{stage\.width\}px`/);
   assert.match(src, /'--stage-h': `\$\{stage\.height\}px`/);
-  assert.match(css(), /\.table-stage\.stage-portrait::before \{[^}]*width: calc\(var\(--stage-h\)[^}]*height: calc\(var\(--stage-w\)/);
-  assert.match(css(), /\.table-stage\.stage-portrait \.felt \{[^}]*width: calc\(var\(--stage-h\)[^}]*height: calc\(var\(--stage-w\)/);
+  assert.match(css(), /var\(--stage-w\)/);
 });
 
 test('one slim row of buttons along the bottom', () => {
@@ -61,4 +60,20 @@ test('your countdown badge sits to the right of your portrait, away from the scr
 
 test('the check-fold pre-action can wrap onto two lines in its narrow button', () => {
   assert.match(read('src/pages/TablePage.tsx'), /'Check \/ Fold'/);
+});
+
+test("David's phone oval art is the upright table on every phone room, stretched to the stage", () => {
+  assert.ok(fs.existsSync(path.join(root, 'public/assets/tables/skins/portrait/phone-oval.webp')));
+  assert.match(css(), /\.table-screen\[class\] \.table-stage\.stage-portrait::before \{[^}]*transform: none;[^}]*url\('\/assets\/tables\/skins\/portrait\/phone-oval\.webp'\) center \/ 100% 100% no-repeat/);
+});
+
+test('the felt tint follows the oval: a stadium inside the gold line', () => {
+  assert.match(css(), /\.table-stage\.stage-portrait \.felt \{[^}]*border-radius: calc\(var\(--stage-w\) \* \.465\)/);
+});
+
+test("the action, preset and pre-action buttons wear David's dark button art", () => {
+  assert.ok(fs.existsSync(path.join(root, 'public/assets/table/ui/btn-dark.webp')));
+  const rule = css().match(/([^{}]+)\{[^}]*border-image: url\('\/assets\/table\/ui\/btn-dark\.webp'\) 34 fill \/ 10px stretch/);
+  assert.ok(rule, 'one shared rule');
+  for (const sel of ['.main-actions .act-btn', '.quick-bets button', '.reserved-actions button']) assert.ok(rule[1].includes(sel), sel);
 });
