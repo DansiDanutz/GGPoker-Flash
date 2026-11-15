@@ -142,6 +142,20 @@ export function poolOf(table) {
   return Object.freeze({ game, sb, bb, key: poolKeyOf({ game, sb, bb }) });
 }
 
+/**
+ * Where a Rush player is seated now, when it is not the table they rejoined: a move closes the
+ * old seat before the client hears of it, so a reload can land on the old table (spec 9.1).
+ * Null when the table is not Rush or the player holds no other seat in the same pool.
+ */
+export function rushSeatElsewhere(tables, table, userId) {
+  if (!table.rush) return null;
+  const key = poolOf(table).key;
+  for (const t of tables) {
+    if (t !== table && t.rush && poolOf(t).key === key && t.seatOf(userId)) return t;
+  }
+  return null;
+}
+
 function notifyClient(entry, userId, payload) {
   if (!entry) return;
   for (const client of entry.clients) {

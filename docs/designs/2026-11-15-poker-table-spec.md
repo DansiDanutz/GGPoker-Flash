@@ -333,3 +333,15 @@ The six LOW items left open since Appendix B are closed, with tests:
 *   The All-in or Fold shove (button and hotkey) goes through *Confirm bets*.
 *   On a checked-down river the first seat to show tables its hand even with
     *Auto-muck* on.
+
+## Appendix J: final review
+
+No CRITICAL or HIGH. One MEDIUM, fixed with tests: a Rush move seats the
+player at a new table before the client hears of it, so a reload in that
+moment rejoined the old table and only watched while the clock ran at the new
+seat. A Rush rejoin with no seat now follows the player to their seat in the
+same pool. Rare or long-standing LOW items left for later: an absent player's
+saved run-it choice still counts after they leave; Enter in All-in or Fold
+sends a raise the server refuses; a rolled-back tournament move drops the
+saved sit-out flags; an action is stamped with the turn number current when it
+is sent, not the one drawn on screen.

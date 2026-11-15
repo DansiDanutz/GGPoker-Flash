@@ -36,13 +36,15 @@ test('while seated, the saved Auto-post choice follows the seat (switch, Post no
 test('a reconnect never buys in again after the seat was cashed out (EGM round 3)', () => {
   const index = fs.readFileSync(path.join(import.meta.dirname, 'index.js'), 'utf8');
   assert.match(page, /type: 'join_table', tableId, buyin, observe, rejoin: everJoined\.current/);
-  assert.match(index, /const watchOnly = msg\.observe \|\| \(msg\.rejoin === true && !table\.tournament && !table\.seatOf\(ws\.userId\)\);/);
+  assert.match(index, /const rejoinedEmpty = msg\.rejoin === true && !table\.tournament && !table\.seatOf\(ws\.userId\);/);
+  assert.match(index, /const watchOnly = msg\.observe \|\| rejoinedEmpty;/);
   assert.match(index, /if \(watchOnly\) \{/);
 });
 
 test('a tournament reconnect is never turned into watching: the redirect to the new table runs (EGM round 6)', () => {
   const index = fs.readFileSync(path.join(import.meta.dirname, 'index.js'), 'utf8');
-  assert.match(index, /const watchOnly = msg\.observe \|\| \(msg\.rejoin === true && !table\.tournament && !table\.seatOf\(ws\.userId\)\);/);
+  assert.match(index, /const rejoinedEmpty = msg\.rejoin === true && !table\.tournament && !table\.seatOf\(ws\.userId\);/);
+  assert.match(index, /const watchOnly = msg\.observe \|\| rejoinedEmpty;/);
   const room = fs.readFileSync(path.join(import.meta.dirname, 'tournament-room.js'), 'utf8');
   assert.match(room, /away: player\.away,\s*awayChoice: player\.awayChoice,/, 'a moved seat keeps the sit-out choice it had');
 });

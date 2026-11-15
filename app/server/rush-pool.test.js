@@ -455,3 +455,19 @@ test('a Rush move carries the player\'s Time Bank Cards and refill progress', ()
   pool.moveQueued(from);
   assert.deepEqual([seatedUsers[0].timeBankCards, seatedUsers[0].timeBankHands], [1, 7]);
 });
+
+test('a Rush rejoin finds the table of the same pool the player was moved to (EGM final review)', async () => {
+  const { rushSeatElsewhere } = await import('./rush-pool.js');
+  const fake = (id, game, bb, seated) => ({
+    rush: true, cfg: { id, game, sb: bb / 2, bb },
+    seatOf: (uid) => (seated.includes(uid) ? { player: { id: uid, stack: 500 } } : null),
+  });
+  const from = fake('r1', 'rush', 2, []);
+  const other = fake('r2', 'rush', 2, ['u1']);
+  const otherStakes = fake('r3', 'rush', 4, ['u2']);
+  const tables = [from, other, otherStakes];
+  assert.equal(rushSeatElsewhere(tables, from, 'u1'), other);
+  assert.equal(rushSeatElsewhere(tables, from, 'u2'), null, 'another pool is not a move');
+  assert.equal(rushSeatElsewhere(tables, from, 'u3'), null, 'not seated anywhere: no move');
+  assert.equal(rushSeatElsewhere(tables, { ...from, rush: false }, 'u1'), null, 'cash tables never redirect');
+});

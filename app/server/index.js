@@ -65,7 +65,7 @@ import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
-import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
+import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, rushSeatElsewhere, validateCashDropSettings } from './rush-pool.js';
 import { JACKPOT_SEED, jackpotAccrual } from './badBeat.js';
 import { countOnline, createPresence } from './online-count.js';
 import { parseByteRange } from './byte-range.js';
@@ -3124,7 +3124,15 @@ wss.on('connection', (ws, req) => {
       if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
       // A cash reconnect whose seat is gone (cashed out while away) watches; it never buys in again
       // unasked. A tournament seat may have moved: that reconnect goes on to the redirect below.
-      const watchOnly = msg.observe || (msg.rejoin === true && !table.tournament && !table.seatOf(ws.userId));
+      const rejoinedEmpty = msg.rejoin === true && !table.tournament && !table.seatOf(ws.userId);
+      // A Rush move may have seated the player at another table of the pool before this tab
+      // heard of it: follow them there instead of watching the old table.
+      const movedTo = rejoinedEmpty ? rushSeatElsewhere([...LIVE_TABLES.values()].map((e) => e.table), table, ws.userId) : null;
+      if (movedTo) {
+        const stack = movedTo.seatOf(ws.userId).player.stack;
+        return ws.send(JSON.stringify({ type: 'rush_move', tableId: movedTo.cfg.id, stack }));
+      }
+      const watchOnly = msg.observe || rejoinedEmpty;
       if (watchOnly) {
         // Watching is read-only: never seed bots, start a hand or take a seat.
         entry.clients.add(ws);
