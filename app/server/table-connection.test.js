@@ -36,14 +36,14 @@ test('while seated, the saved Auto-post choice follows the seat (switch, Post no
 test('a reconnect never buys in again after the seat was cashed out (EGM round 3)', () => {
   const index = fs.readFileSync(path.join(import.meta.dirname, 'index.js'), 'utf8');
   assert.match(page, /type: 'join_table', tableId, buyin, observe, rejoin: everJoined\.current/);
-  assert.match(index, /const rejoinedEmpty = msg\.rejoin === true && !table\.tournament && !table\.seatOf\(ws\.userId\);/);
+  assert.match(index, /const rejoinedEmpty = !msg\.observe && msg\.rejoin === true && !table\.tournament && !table\.seatOf\(ws\.userId\);/);
   assert.match(index, /const watchOnly = msg\.observe \|\| rejoinedEmpty;/);
   assert.match(index, /if \(watchOnly\) \{/);
 });
 
 test('a tournament reconnect is never turned into watching: the redirect to the new table runs (EGM round 6)', () => {
   const index = fs.readFileSync(path.join(import.meta.dirname, 'index.js'), 'utf8');
-  assert.match(index, /const rejoinedEmpty = msg\.rejoin === true && !table\.tournament && !table\.seatOf\(ws\.userId\);/);
+  assert.match(index, /const rejoinedEmpty = !msg\.observe && msg\.rejoin === true && !table\.tournament && !table\.seatOf\(ws\.userId\);/);
   assert.match(index, /const watchOnly = msg\.observe \|\| rejoinedEmpty;/);
   const room = fs.readFileSync(path.join(import.meta.dirname, 'tournament-room.js'), 'utf8');
   assert.match(room, /away: player\.away,\s*awayChoice: player\.awayChoice,/, 'a moved seat keeps the sit-out choice it had');
@@ -58,3 +58,10 @@ test('a page reload after a cash-out does not buy in again (EGM round 7)', () =>
   const room = fs.readFileSync(path.join(import.meta.dirname, 'tournament-room.js'), 'utf8');
   assert.match(room, /sitOutNextHand: player\.sitOutNextHand,/, 'a move mid-drop still sits the player out');
 });
+
+test('a Rush move hands the seat memory to the new table, so its join is a rejoin (EGM final review)', () => {
+  assert.match(page, /clearSeatedHere\(tableId\);\s*markSeatedHere\(msg\.tableId\);\s*navigate\(`\/table\/\$\{msg\.tableId\}\?buyin=/);
+  const index = fs.readFileSync(path.join(import.meta.dirname, 'index.js'), 'utf8');
+  assert.match(index, /const rejoinedEmpty = !msg\.observe && msg\.rejoin === true/, 'asking to watch is never redirected');
+});
+

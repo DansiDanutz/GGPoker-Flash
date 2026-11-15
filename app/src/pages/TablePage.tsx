@@ -368,6 +368,9 @@ export function TablePage({ tableId }: { tableId: string }) {
         toast({ kind: 'info', title: 'Rush queue', body: 'Waiting for the next open Rush seat — you are sitting out meanwhile.' });
       } else if (msg.type === 'rush_move') {
         toast({ kind: 'info', title: 'Fast Fold', body: 'New table, same stack.' });
+        // The seat moved: the next join is a rejoin there (never a fresh buy-in), not here.
+        clearSeatedHere(tableId);
+        markSeatedHere(msg.tableId);
         navigate(`/table/${msg.tableId}?buyin=${msg.stack || 0}`);
       } else if (msg.type === 'table_move') {
         // A tournament flight balanced or broke: the stack travels, the view follows.
