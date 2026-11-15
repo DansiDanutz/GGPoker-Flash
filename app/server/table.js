@@ -248,7 +248,7 @@ export class PokerTable {
       sessionId,
       // Joining a running cash table owes a big blind (posted on the next deal, or waited for with
       // Wait for BB): no free hand. Automatic moves (Rush, balancing) and the first hand owe nothing.
-      missedBlinds: this.handNo > 0 && this.owesSitInBlind() && !this.rush && !Number.isInteger(player.timeBankCards),
+      missedBlinds: this.handNo > 0 && this.owesSitInBlind() && !this.rush && !player.isBot,
     };
     this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
     this.maybeStart();
@@ -1043,7 +1043,8 @@ export class PokerTable {
 
     if (!opts.auto) p.missedTurns = 0;
     const call = this.toCall(p);
-    if (this.aof && action === 'call' && !this.lastAggressor) return { ok: false, error: 'all-in or fold only' };
+    // A short stack's all-in that cannot beat the bet arrives here as a call (opts.allInCall): it stays legal.
+    if (this.aof && action === 'call' && !this.lastAggressor && !opts.allInCall) return { ok: false, error: 'all-in or fold only' };
     if (action === 'fold') {
       this.markFolded(seat);
     } else if (action === 'check') {
@@ -1069,7 +1070,7 @@ export class PokerTable {
       if (this.potLimit) target = Math.min(target, this.potLimitMax(p));
       if (target <= this.currentBet) {
         // An all-in that does not exceed the current bet is a call, never a "raise" that lowers the bet.
-        if (action === 'allin' || target >= maxTarget) return this.act(playerId, 'call', 0, opts);
+        if (action === 'allin' || target >= maxTarget) return this.act(playerId, 'call', 0, { ...opts, allInCall: true });
         return { ok: false, error: 'raise too small' };
       }
       const isAllIn = target === maxTarget;

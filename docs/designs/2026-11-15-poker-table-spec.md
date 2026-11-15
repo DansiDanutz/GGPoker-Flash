@@ -1,7 +1,7 @@
 # Poker table: behaviour spec for review
 
 *   **Author:** Dan Semenescu
-*   **Status:** EGM round 1 fixed; round 2 review (decisions in Appendix A)
+*   **Status:** EGM rounds 1 and 2 fixed (decisions in Appendix A)
 *   **Date:** 2026-11-15
 *   **Code:** `app/server/table.js` (engine), `app/server/index.js` (socket handlers),
     `app/src/pages/TablePage.tsx` (table screen), `app/src/components/table/*`,
@@ -35,8 +35,8 @@ Fold) and the table screen of a tournament or Spin.
     the big blind at once or waits for the big blind ("Wait for BB", the
     *Auto-post blinds* option off). Missed blinds are owed on return. This
     applies from the second hand of a table's life; the first hand deals
-    everyone in. Rush (fast-fold) seats and players returning with a saved
-    time-bank record do not owe a new-player blind.
+    everyone in. Only automatic moves (Rush seats, tournament balancing) and
+    bots skip the new-player blind; a returning account always owes it.
 4.  Leaving mid-hand folds the hand; chips not committed go back to the balance.
     Leaving between hands returns the whole stack.
 5.  Add chips: up to `max_buyin` total; during a hand the chips are paid now and
@@ -59,7 +59,8 @@ Fold) and the table screen of a tournament or Spin.
     each player (`raiseLocked`) so the table never offers a raise it would
     refuse.
 4.  Pot-Limit games cap a raise at the pot after the call. Short Deck: flush beats
-    full house, A-6-7-8-9 is a straight. All-in-or-Fold offers only fold or all-in.
+    full house, A-6-7-8-9 is a straight. All-in-or-Fold offers only fold or all-in;
+    an all-in smaller than the bet to call is still accepted.
 5.  Side pots are built for every all-in level; each pot is awarded to the best
     eligible hand; ties split, odd chip to the first seat left of the button.
 6.  An uncalled bet is returned before showdown.
@@ -179,3 +180,30 @@ Known gaps, not in this round (LOW, tracked):
 *   Moving-button and dead-button rules when a blind leaves are not specified.
 *   Landscape phone layout, accessibility (screen reader names beyond tooltips),
     hand history and rabbit hunt are out of this spec's scope.
+
+## Appendix B: EGM round 2
+
+Two goldfish (codebase details, implementation readiness) re-reviewed the
+round-1 branch. Both HIGH findings are fixed with tests:
+
+*   The new-player blind was waived for any account with a saved time bank,
+    which is every account that ever left a cash table. Only automatic moves
+    and bots skip it now.
+*   All-in-or-Fold: a stack shorter than the big blind could not go all-in
+    (the all-in became a call, which AoF refused). It is accepted now.
+
+Open MEDIUM items for round 3:
+
+*   Leaving mid-hand returns the leaver's unmatched bet instead of forfeiting
+    it, and leaves `minRaise` at the old bet.
+*   A table can stall when the only other seat is waiting for the big blind.
+*   The Wait-for-BB choice cannot be made before sitting at an idle table.
+*   A folded player's shown card is not kept on the seat in the snapshot.
+*   The 60-second disconnect sweep sits out a player before their turn, so
+    the turn folds with no clock or time bank; the automatic card is skipped
+    on a second timeout in a row.
+
+LOW: run-it round reopens when a player leaves; bots never vote on run-it;
+actions without hand/turn numbers are accepted; Run it option shown where it
+does nothing; AoF all-in skips Confirm bets; checked-down first-to-show seat
+may stay mucked.

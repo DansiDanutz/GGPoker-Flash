@@ -247,6 +247,29 @@ test('All-in or Fold asks each player and only accepts all-in or fold', () => {
 });
 
 
+test('All-in or Fold: a stack shorter than the big blind can still go all-in (EGM round 2)', () => {
+  const p1 = player(1, 'A', 80, 0, []);
+  const p2 = player(2, 'B', 80, 0, []);
+  const t = tableWith([p1, p2], { seats: 2, game: 'aof' });
+  t.street = 'idle';
+  t.handNo = 0;
+  t.startHand();
+  const first = t.actor;
+  assert.ok(first, 'the small blind is asked');
+  const res = t.act(first, 'allin');
+  assert.equal(res.ok, true, res.error);
+  assert.equal(t.act(first, 'call').ok, false, 'not the actor any more');
+  assert.ok(['showdown', 'ended'].includes(t.street), 'both all-in: the board runs out');
+});
+
+test('All-in or Fold: a plain call is still refused before anyone shoves', () => {
+  const t = tableWith([player(1, 'A', 1000, 0, []), player(2, 'B', 1000, 0, [])], { seats: 2, game: 'aof' });
+  t.street = 'idle';
+  t.handNo = 0;
+  t.startHand();
+  assert.equal(t.act(t.actor, 'call').ok, false);
+});
+
 test('an auto-straddle posts a third blind and opens action after it', () => {
   const p1 = player(1, 'A', 10000, 0, []);
   const p2 = player(2, 'B', 10000, 0, []);
