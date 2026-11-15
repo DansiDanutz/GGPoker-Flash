@@ -42,6 +42,7 @@ import './table-hero-peel.css';
 import './table-confirm.css';
 import './table-topbar-history.css';
 import './table-tips.css';
+import './table-reactions.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>
