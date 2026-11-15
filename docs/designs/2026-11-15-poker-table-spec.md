@@ -110,16 +110,20 @@ Fold) and the table screen of a tournament or Spin.
     run it once, twice or three times (or the remembered *Run it* choice is
     used). All must agree to run more than once; otherwise it runs once. A
     disconnected or sat-out player with no remembered choice counts as "once".
-    A player who leaves during the choice forfeits; if only one hand is left,
-    it wins without a run-out.
+    A player who leaves during the choice forfeits; the others keep their
+    answers and the clock, and the board runs at once if nobody else still
+    has to answer. If only one hand is left, it wins without a run-out.
 2.  Each run is dealt and paid as its own share of the pot.
+3.  Bots are not asked: they accept whatever the human players choose.
+4.  *Run it* is offered on cash tables only. Rush, All-in or Fold, Spin and
+    tournament tables always run once and do not show the option.
 
 ## 7. Showdown, show and muck
 
 1.  At showdown the last aggressor on the final street shows first (and must
     show); if that street was checked through, the first live seat left of the
-    button shows first. Winners show; other losers muck unless *Auto-muck* is
-    off.
+    button shows first. That first seat always shows, even with *Auto-muck*
+    on. Winners show; other losers muck unless *Auto-muck* is off.
 2.  After the hand anyone dealt in (folded or not) may show one card, then more,
     or all; a shown card stays shown on the seat, folded or not. Opponents see
     only the shown cards.
@@ -141,8 +145,9 @@ Fold) and the table screen of a tournament or Spin.
     the player is not dealt the next one. On reconnect they resume with the current state, including
     their own hole cards. Refreshing the balance (e.g. after Add chips) never
     reconnects the table socket.
-2.  Every action carries the hand number and the turn number; an action meant
-    for an earlier turn is refused.
+2.  Every action carries the hand number and the turn number (Fast Fold needs
+    only the hand number); an action meant for an earlier turn is refused, and
+    an action without them is refused with a message to reload the page.
 
 ## 10. Table screen (phone first)
 
@@ -311,3 +316,20 @@ The tab now remembers it held a seat (per-tab session storage, cleared on
 leaving the table), so a reload watches instead. A MEDIUM, also fixed: a
 tournament move now carries "sit out next hand", so a player dropped
 mid-hand is not dealt in at the new table.
+
+## Appendix I: the open LOW items
+
+The six LOW items left open since Appendix B are closed, with tests:
+
+*   An action without a hand number, or a turn action without a turn number,
+    is refused and asks the player to reload (a cached old app can no longer
+    act blind).
+*   A player leaving during the run-it choice no longer reopens it: the
+    others keep their answers and the clock.
+*   Bots' run-it vote, decided: bots are not asked and accept the humans'
+    choice (rule 6.3).
+*   The *Run it* option is hidden on Rush, All-in or Fold, Spin and tournament
+    tables (the snapshot sends `runItOffered`).
+*   The All-in or Fold shove (button and hotkey) goes through *Confirm bets*.
+*   On a checked-down river the first seat to show tables its hand even with
+    *Auto-muck* on.

@@ -96,6 +96,8 @@ type TableState = {
   /** Set only for an all-in player being asked how many times to run it. */
   runAsk?: RunAsk | null;
   runRoundEndsAt?: number | null;
+  /** False where a run-it choice never applies (Rush, AoF, Spin, tournaments). */
+  runItOffered?: boolean;
   boards?: string[][] | null;
   potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; raiseLocked?: boolean; actionTimeMs?: number; rake?: number;
   /** Rush only: whether this viewer may Fast Fold now (server PokerTable.quickFoldState). */
@@ -874,7 +876,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       if (action === 'fold') act('fold');
       else if (action === 'check') { if (!state?.allInOrFold) act(toCall > 0 ? 'call' : 'check'); }
       else if (action === 'raise') { if (!state?.allInOrFold && canRaise) requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo); }
-      else if (action === 'allin') { if (state?.allInOrFold) act('allin'); else requestBet('allin', allInTo); }
+      else if (action === 'allin') requestBet('allin', allInTo);
       else if (action.startsWith('preset')) hotkeyPresetRef.current(Number(action.slice(6)) - 1);
     };
     window.addEventListener('keydown', onKey);
@@ -1243,7 +1245,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           {isHost && <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Allow straddles at this table</button>}
           {state?.straddle && <button disabled={!me} title="Post a straddle automatically whenever you are asked" onClick={() => send({ type: 'option', tableId, autoStraddle: !me?.autoStraddle })}>{me?.autoStraddle ? '✓ ' : ''}Auto-straddle</button>}
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
-          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItAsk: !(me?.runItAsk ?? true) })}>{(me?.runItAsk ?? true) ? '✓ ' : ''}Offer to run it more than once</button>
+          {!!state?.runItOffered && <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItAsk: !(me?.runItAsk ?? true) })}>{(me?.runItAsk ?? true) ? '✓ ' : ''}Offer to run it more than once</button>}
           {state?.spin && <button disabled title="Insurance is not available in DanGG yet">Insurance — not available</button>}
           <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
           <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
@@ -1259,6 +1261,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         onClose={() => setOptionsOpen(false)}
         me={me ?? undefined}
         tableStraddle={!!state?.straddle}
+        runItOffered={!!state?.runItOffered}
         onOption={(msg) => send({ type: 'option', tableId, ...msg })}
         betPrefs={betPrefs}
         onBetPrefs={saveBetPrefs}
@@ -1668,7 +1671,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="action-row aof-row">
             <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank: +${TB_CARD_SECONDS} seconds`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
             <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
-            <button className="act-btn act-allin" disabled={!myTurn} onClick={() => act('allin')}>All-in{me?.stack ? ` ${amt(me.stack)}` : ''}</button>
+            <button className="act-btn act-allin" disabled={!myTurn} onClick={() => requestBet('allin', allInTo)}>All-in{me?.stack ? ` ${amt(me.stack)}` : ''}</button>
             <div className="grow" />
             <span className="aof-note">All-in or fold only</span>
           </div>

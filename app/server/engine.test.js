@@ -482,6 +482,20 @@ test('the last aggressor shows first and cannot muck a called bet', () => {
   assert.equal(t2.result.showFirst, 1, 'checked down: the first live seat left of the button shows first');
 });
 
+test('checked down, the first seat to show tables its hand even with auto-muck on (EGM LOW)', () => {
+  const loser = player(1, 'Loser', 1000, 100, [C('Kd'), C('Qc')]);
+  const winner = player(2, 'Winner', 1000, 100, [C('As'), C('Ah')]);
+  loser.autoMuck = true;
+  const t = tableWith([loser, winner]);
+  t.board = ['2c', '7d', '9s', 'Jh', '3c'].map(C);
+  t.pot = 200;
+  t.button = 1;
+  t.doShowdown();
+  assert.equal(t.result.showFirst, 0, 'the loser sits first left of the button');
+  assert.equal(loser.reveal, true, 'the first to show cannot muck before anyone has shown');
+  assert.ok(t.result.hands.find((h) => h.seat === 0).cards, 'its cards are in the public result');
+});
+
 test('a player can show one card or both after the hand ends', () => {
   const t = new PokerTable({
     id: 'show', name: 'Show', game: 'holdem', sb: 50, bb: 100, seats: 2,

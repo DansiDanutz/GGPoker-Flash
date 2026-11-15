@@ -291,6 +291,7 @@ export class PokerTable {
     }
     seat.player = null;
     this.emit({ type: 'stand', seat: seat.index });
+    if (wasLive && this.runRound && this.leaveRunRound(p.id)) return { ok: true, stack: p.stack };
     if (this.straddleRound) {
       this.straddleRound.asked.delete(p.id);
       if (!this.straddleRound.asked.size) this.closeStraddleRound();
@@ -1303,10 +1304,15 @@ export class PokerTable {
     this.runBoards(1);
   }
 
+  /** Whether a run-it choice can ever be offered here: cash tables, not Rush, AoF, Spin or tournaments. */
+  offersRunIt() {
+    return !this.tournament && !this.spin && !this.aof && !this.rush;
+  }
+
   /** Cash all-ins with cards to come: the all-in players choose to run it 1-3 times. */
   openRunRound() {
     // Cash tables only: not tournaments, Spin, All-in or Fold, fast-fold Rush or the first-hand flip.
-    if (this.tournament || this.spin || this.aof || this.flip || this.rush || this.board.length >= 5) return false;
+    if (!this.offersRunIt() || this.flip || this.board.length >= 5) return false;
     const alive = this.activePlayers().filter((s) => !s.player.folded);
     if (alive.length < 2) return false;
     const humans = alive.filter((s) => !s.player.isBot);
@@ -1354,6 +1360,20 @@ export class PokerTable {
     // Once anyone picks a single run, nothing anyone else says can change it.
     if (runs === 1 || round.choices.size === round.asked.size) this.closeRunRound();
     return { ok: true };
+  }
+
+  /**
+   * A player leaves while the run-it choice is open: the others keep their answers and the clock,
+   * and the board runs at once if nobody still has to answer. False when the leaver was the last
+   * opponent, so the hand ends by fold instead.
+   */
+  leaveRunRound(playerId) {
+    if (this.activePlayers().length < 2) return false;
+    const round = this.runRound;
+    round.asked.delete(playerId);
+    round.choices.delete(playerId);
+    if (round.choices.size === round.asked.size) this.closeRunRound();
+    return true;
   }
 
   closeRunRound() {
@@ -1593,10 +1613,12 @@ export class PokerTable {
     // Winners show at showdown; losing hands muck unless the player turned
     // auto-muck off.
     const winnerIds = new Set(results.map((r) => r.id));
+    const showFirst = this.showdownFirstSeat(scored.map((sc) => sc.seat));
     for (const sc of scored) {
       const p = sc.player;
-      // A called last aggressor must table the hand.
-      if (winnerIds.has(p.id) || !p.autoMuck || p.id === this.lastAggressor) p.reveal = true;
+      // The first seat to show (a called last aggressor, or on a check-down the first live seat
+      // left of the button) must table the hand: nobody has shown yet, so it cannot muck.
+      if (winnerIds.has(p.id) || !p.autoMuck || p.id === this.lastAggressor || sc.seat === showFirst) p.reveal = true;
     }
     const summary = {
       pot: this.pot,
@@ -1607,7 +1629,7 @@ export class PokerTable {
         seat: s.seat, nick: s.player.nick, cards: s.player.cards.map(cardStr), hand: s.name,
       })),
       reason: 'showdown',
-      showFirst: this.showdownFirstSeat(scored.map((sc) => sc.seat)),
+      showFirst,
     };
     const badBeat = this.payBadBeatJackpot(scored, pots, results);
     if (badBeat) summary.badBeat = badBeat;
@@ -2070,6 +2092,7 @@ export class PokerTable {
       quickFold: this.rush && viewerId != null ? this.quickFoldState(viewerId) : null,
       runAsk: this.runAskFor(viewerId),
       runRoundEndsAt: this.runRound?.endsAt ?? null,
+      runItOffered: this.offersRunIt(),
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
       tournament: this.tournament ? {
         id: this.cfg.tournamentId || null,

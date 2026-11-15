@@ -31,7 +31,7 @@ test('the asked player straddles over the socket', { timeout: 60000 }, async () 
       const m = JSON.parse(String(raw));
       if (m.type !== 'state' || m.state.straddle) return;
       const me = m.state.players.find((p) => p.isMe);
-      if (me && m.state.actor === me.id) ws.send({ type: 'action', tableId, action: 'fold', amount: 0 });
+      if (me && m.state.actor === me.id) ws.send({ type: 'action', tableId, action: 'fold', amount: 0, handNo: m.state.handNo, turnNo: m.state.turnNo });
       if (m.state.street === 'ended' || m.state.street === 'idle') ws.send({ type: 'option', tableId, straddle: true });
     });
   }

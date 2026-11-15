@@ -68,7 +68,8 @@ test('regression: a non-Rush table refuses quickfold', { timeout: 30_000 }, asyn
   try {
     const { sock } = await registerAndJoin(srv, 'qf_cash', 'nlh-diamond-01', 50_000);
     await sock.nextType('joined', 5000);
-    sock.send({ type: 'action', tableId: 'nlh-diamond-01', action: 'quickfold' });
+    const { state } = await sock.nextType('state', 5000);
+    sock.send({ type: 'action', tableId: 'nlh-diamond-01', action: 'quickfold', handNo: state.handNo });
     const err = await sock.nextType('error', 5000);
     assert.equal(err.error, 'cannot quick fold');
     await sock.close();

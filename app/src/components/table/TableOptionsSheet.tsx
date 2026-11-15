@@ -10,6 +10,8 @@ type Props = {
   onClose: () => void;
   me: MyOptions | undefined;
   tableStraddle: boolean;
+  /** Hides the Run it choice where it never applies. */
+  runItOffered: boolean;
   onOption: (msg: OptionMessage) => void;
   betPrefs: BetPrefs;
   onBetPrefs: (next: BetPrefs) => void;
@@ -35,7 +37,7 @@ function Switch({ on, disabled, label, onChange }: { on: boolean; disabled?: boo
 }
 
 /** Phone-first bottom sheet for the options players change mid-session (reference: mobile mockup). */
-export function TableOptionsSheet({ open, onClose, me, tableStraddle, onOption, betPrefs, onBetPrefs, confirmBets, onConfirmBets, joinWaitForBlinds, onJoinWaitForBlinds }: Props) {
+export function TableOptionsSheet({ open, onClose, me, tableStraddle, runItOffered, onOption, betPrefs, onBetPrefs, confirmBets, onConfirmBets, joinWaitForBlinds, onJoinWaitForBlinds }: Props) {
   if (!open) return null;
   const seated = !!me;
   const straddle = straddleSetting({ straddle: tableStraddle }, me);
@@ -74,14 +76,14 @@ export function TableOptionsSheet({ open, onClose, me, tableStraddle, onOption, 
           <Switch label="Confirm bets" on={confirmBets} onChange={onConfirmBets} />
         </div>
 
-        <div className="topt-block">
+        {runItOffered && <div className="topt-block">
           <span className="topt-label"><b>Run it</b><small>When you are all-in with cards to come</small></span>
           <div className="topt-seg" role="radiogroup" aria-label="Run it">
             {RUN_SETTINGS.map((r) => (
               <button key={String(r.value)} type="button" role="radio" aria-checked={run === r.value} disabled={!seated} className={run === r.value ? 'on' : ''} onClick={() => onOption(runSettingMessage(r.value))}>{r.label}</button>
             ))}
           </div>
-        </div>
+        </div>}
 
         <div className="topt-block">
           <span className="topt-label"><b>Bet presets</b><small>Tap a chip to change it</small></span>

@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { staleHandError, STALE_ACTION_ERROR } from './action-version.js';
+import { staleHandError, STALE_ACTION_ERROR, UNSTAMPED_ACTION_ERROR } from './action-version.js';
 
 const table = { handNo: 12 };
 
-test('an action without a hand number is accepted (older clients)', () => {
-  assert.equal(staleHandError(table, { type: 'action', action: 'fold' }), null);
-  assert.equal(staleHandError(table, { type: 'action', action: 'fold', handNo: null }), null);
+test('an action without a hand number is refused (spec 9.2, EGM round 7)', () => {
+  assert.equal(staleHandError(table, { type: 'action', action: 'fold' }), UNSTAMPED_ACTION_ERROR);
+  assert.equal(staleHandError(table, { type: 'action', action: 'fold', handNo: null }), UNSTAMPED_ACTION_ERROR);
+  assert.match(UNSTAMPED_ACTION_ERROR, /reload/i);
 });
 
 test('an action for the current hand is accepted', () => {
@@ -29,7 +30,7 @@ test('an action stamped with an earlier turn of the same hand is rejected', () =
   assert.equal(staleTurnError(t, { action: 'check', turnNo: 40 }), null);
   assert.equal(staleTurnError(t, { action: 'check', turnNo: '40' }), null);
   assert.equal(staleTurnError(t, { action: 'check', turnNo: 38 }), STALE_TURN_ERROR, 'a double tap from the flop must not act on the turn');
-  assert.equal(staleTurnError(t, { action: 'check' }), null, 'older clients without a turn number still work');
+  assert.equal(staleTurnError(t, { action: 'check' }), UNSTAMPED_ACTION_ERROR, 'every turn action carries its turn number');
   assert.equal(staleTurnError(t, { action: 'quickfold', turnNo: 1 }), null, 'Fast Fold is valid before your turn');
 });
 

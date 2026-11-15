@@ -23,7 +23,7 @@ async function hostAndJoin(name) {
   ws.ws.on('message', (raw) => {
     const m = JSON.parse(String(raw));
     const me = m.type === 'state' && m.state.players.find((p) => p.isMe);
-    if (me && m.state.actor === me.id) ws.send({ type: 'action', tableId, action: 'fold', amount: 0 });
+    if (me && m.state.actor === me.id) ws.send({ type: 'action', tableId, action: 'fold', amount: 0, handNo: m.state.handNo, turnNo: m.state.turnNo });
   });
   return { tableId, ws };
 }
