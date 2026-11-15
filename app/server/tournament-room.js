@@ -569,6 +569,7 @@ export class TournamentRoom {
       disconnectedAt: player.disconnectedAt,
       sittingOut: player.sittingOut,
       away: player.away,
+      awayChoice: player.awayChoice,
     };
     source.stand(player.id);
     const result = target.sit(profile, null, stack);

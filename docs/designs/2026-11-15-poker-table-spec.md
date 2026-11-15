@@ -294,3 +294,11 @@ Still open (LOW, Appendix B): run-it round reopens when a player leaves;
 bots never vote on run-it; actions without hand/turn numbers are accepted;
 Run it option shown where it does nothing; AoF all-in skips Confirm bets;
 a checked-down first-to-show seat may stay mucked.
+
+## Appendix G: EGM round 6
+
+One HIGH, fixed with a test: the round-5 "watch instead of re-buying" rule
+also caught a tournament player moved to another table while disconnected,
+so the reconnect watched the old table and never reached the redirect; the
+player was blinded out. The rule now applies to cash tables only, and a
+tournament move keeps the player's remembered sit-out choice.

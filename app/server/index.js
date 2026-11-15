@@ -3122,8 +3122,9 @@ wss.on('connection', (ws, req) => {
       // ensure there is a seat for the human
       const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
       if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
-      // A reconnect whose seat is gone (cashed out while away) watches; it never buys in again unasked.
-      const watchOnly = msg.observe || (msg.rejoin === true && !table.seatOf(ws.userId));
+      // A cash reconnect whose seat is gone (cashed out while away) watches; it never buys in again
+      // unasked. A tournament seat may have moved: that reconnect goes on to the redirect below.
+      const watchOnly = msg.observe || (msg.rejoin === true && !table.tournament && !table.seatOf(ws.userId));
       if (watchOnly) {
         // Watching is read-only: never seed bots, start a hand or take a seat.
         entry.clients.add(ws);
