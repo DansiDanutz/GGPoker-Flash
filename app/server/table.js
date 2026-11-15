@@ -10,7 +10,7 @@ import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
 import { randomInt } from 'node:crypto';
-import { FOLD_WIN_BOT_MS, FOLD_WIN_MS, SHOWDOWN_CLEAR_MS } from './handPacing.js';
+import { FOLD_WIN_BOT_MS, FOLD_WIN_MS, SHOWDOWN_CLEAR_MS, runPresentationMs } from './handPacing.js';
 import { payoutFor, payoutTable } from './tournament.js';
 import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
 import { ACTION_SECONDS, isRushGame, parseActionSeconds } from './validate.js';
@@ -1449,6 +1449,7 @@ export class PokerTable {
     this.collectBets();
     const alive = this.activePlayers().filter((s) => !s.player.folded);
     if (alive.length < 2) { this.doShowdown(); return; }
+    const shared = this.board.length;
     const dealt = boardsFor(this.board, this.deck, runs);
     this.deck = dealt.deck;
     const boards = dealt.boards;
@@ -1471,6 +1472,8 @@ export class PokerTable {
     }
 
     const results = [];
+    // Each board's own winners, so the table can name them board by board.
+    const byBoard = boards.map(() => []);
     const award = (scoredBoard, amount, boardIndex, eligible) => {
       if (amount <= 0 || !eligible.length) return;
       const candidates = scoredBoard.filter((sc) => eligible.includes(sc.player.id));
@@ -1487,6 +1490,9 @@ export class PokerTable {
         if (remainder > 0) { amt++; remainder--; }
         w.player.stack += amt;
         w.player.winAmount += amt;
+        const onBoard = byBoard[boardIndex].find((r) => r.id === w.player.id);
+        if (onBoard) onBoard.amount += amt;
+        else byBoard[boardIndex].push({ id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt, hand: w.name });
         const prior = results.find((r) => r.id === w.player.id);
         if (prior) {
           prior.amount += amt;
@@ -1512,13 +1518,14 @@ export class PokerTable {
     this.boards = boards;
     const summary = {
       pot: this.pot, rake, board: boards[0].map(cardStr), boards: boards.map((b) => b.map(cardStr)), runs,
-      winners: results, runItTwice: true, reason: 'showdown',
+      winners: results, byBoard, shared, runItTwice: true, reason: 'showdown',
       showFirst: this.showdownFirstSeat(alive.map((sc) => sc.index)),
       hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
     };
     this.result = this.publicShowdown(summary);
     this.street = 'ended';
-    this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay;
+    // The boards come out one by one and each winner is named in turn before the usual clear.
+    this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay + runPresentationMs(runs, shared);
     this.emit({ type: 'win', ...this.result });
     this.revealMarkedCards();
     this.saveHand(summary);

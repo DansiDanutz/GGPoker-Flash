@@ -792,10 +792,10 @@ test('dealer frames parse as dealer lines with the Dealer nick', () => {
   assert.equal(chatLineFrom({ id: 1, nick: 'Bo', userId: 7, message: 'hi' }).kind, 'chat', 'no kind stays chat');
 });
 
-test('chat view hides dealer lines; dealer view shows only them', () => {
+test('Players shows only what players wrote; All adds the dealer lines (bets and winnings)', () => {
   const lines = [chatLine(1), chatLine(2, { kind: 'dealer', userId: 0, nick: 'Dealer' }), chatLine(3, { kind: 'reaction' })];
-  assert.deepEqual(linesForView(lines, 'chat').map((l) => l.id), ['c:1', 'c:3']);
-  assert.deepEqual(linesForView(lines, 'dealer').map((l) => l.id), ['c:2']);
+  assert.deepEqual(linesForView(lines, 'players').map((l) => l.id), ['c:1', 'c:3']);
+  assert.deepEqual(linesForView(lines, 'all').map((l) => l.id), ['c:1', 'c:2', 'c:3']);
   assert.equal(lines.length, 3, 'filtering does not mutate');
 });
 

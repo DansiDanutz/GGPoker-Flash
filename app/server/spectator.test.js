@@ -156,8 +156,8 @@ test('chat history reaches a late joiner and markup is stored verbatim', async (
   const { ws } = await watch(tableId);
   const history = await ws.nextType('chat_history');
   assert.equal(history.tableId, tableId);
-  assert.deepEqual(history.lines.map((l) => l.message), ['first line', markup]);
-  assert.equal(history.lines[1].nick, 'Spect Host');
+  assert.deepEqual(history.lines.filter((l) => l.kind !== 'dealer').map((l) => l.message), ['first line', markup]);
+  assert.equal(history.lines.filter((l) => l.kind !== 'dealer')[1].nick, 'Spect Host');
   await ws.close();
   await player.close();
 });
@@ -197,7 +197,7 @@ test('a muted player\'s chat is dropped', async () => {
 
   const { ws } = await watch(tableId);
   const history = await ws.nextType('chat_history');
-  assert.deepEqual(history.lines.map((l) => l.message), ['still here']);
+  assert.deepEqual(history.lines.filter((l) => l.kind !== 'dealer').map((l) => l.message), ['still here'], 'dealer lines (bets) aside');
   await ws.close();
   await loud.close();
   await player.close();

@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   CHAT_MAX_CHARS, CHAT_HISTORY_LIMIT, validateChat, validateReaction, reactionIdForEmote,
   appendLine, createSenderLimiter, createChatStore, createChatService, tableChannel,
-  DEALER_NICK, dealerStartText, dealerResultText,
+  DEALER_NICK, dealerStartText, dealerResultText, dealerActionText, dealerBoardTexts,
 } from './chat.js';
 
 function memoryDb() {
@@ -148,15 +148,15 @@ test('service maps reactions and legacy emotes, rejecting non-integer IDs', () =
 
 test('dealer text formats hand start and sums split winners per player', () => {
   assert.equal(dealerStartText(42), 'Hand #42 started');
-  assert.equal(dealerResultText({ winners: [{ id: 1, nick: 'Ana', amount: 120, hand: 'Two Pair' }] }), 'Ana wins 120 with Two Pair');
-  assert.equal(dealerResultText({ winners: [{ id: 1, nick: 'Ana', amount: 30, hand: null }] }), 'Ana wins 30', 'a fold win names no hand');
+  assert.equal(dealerResultText({ winners: [{ id: 1, nick: 'Ana', amount: 120, hand: 'Two Pair' }] }), 'Ana wins $1.20 with Two Pair');
+  assert.equal(dealerResultText({ winners: [{ id: 1, nick: 'Ana', amount: 30, hand: null }] }), 'Ana wins $0.30', 'a fold win names no hand');
   assert.equal(dealerResultText({
     winners: [
       { id: 1, nick: 'Ana', amount: 50, hand: 'Flush' },
       { id: 2, nick: 'Bo', amount: 50, hand: 'Straight' },
       { id: 1, nick: 'Ana', amount: 25, hand: 'Flush' },
     ],
-  }), 'Ana wins 75 with Flush; Bo wins 50 with Straight');
+  }), 'Ana wins $0.75 with Flush; Bo wins $0.50 with Straight');
   assert.equal(dealerResultText({ winners: [] }), null);
   assert.equal(dealerResultText(null), null);
 });
@@ -216,4 +216,25 @@ test('twelve reactions, the same list on server and client, in sticker-sheet ord
     'Angry', 'Thinking', 'Laughing', 'Nice hand', 'Clap', 'Crying',
     'Shocked', 'Cool', 'Fish', 'Shark', 'On fire', 'Ship it',
   ]);
+});
+
+test('dealer lines name every bet in dollars', () => {
+  assert.equal(dealerActionText('Ana', { action: 'raise', amount: 4000 }), 'Ana raises to $40.00');
+  assert.equal(dealerActionText('Ana', { action: 'bet', amount: 1050 }), 'Ana bets $10.50');
+  assert.equal(dealerActionText('Bo', { action: 'call', amount: 2000 }), 'Bo calls $20.00');
+  assert.equal(dealerActionText('Bo', { action: 'call', amount: 2000, allIn: true }), 'Bo calls $20.00 and is all in');
+  assert.equal(dealerActionText('Cy', { action: 'check' }), 'Cy checks');
+  assert.equal(dealerActionText('Cy', { action: 'fold' }), 'Cy folds');
+  assert.equal(dealerActionText('Cy', { action: 'raise', amount: 123456, allIn: true }), 'Cy raises to $1,234.56 and is all in');
+  assert.equal(dealerActionText('Cy', { action: 'dance' }), null);
+});
+
+test('run it 2-3 times gets one dealer line per board, in order', () => {
+  assert.deepEqual(dealerBoardTexts({
+    byBoard: [
+      [{ id: 1, nick: 'Ana', amount: 500, hand: 'Flush' }],
+      [{ id: 2, nick: 'Bo', amount: 250, hand: 'Straight' }, { id: 1, nick: 'Ana', amount: 250, hand: 'Straight' }],
+    ],
+  }), ['Board 1: Ana wins $5.00 with Flush', 'Board 2: Bo wins $2.50 with Straight; Ana wins $2.50 with Straight']);
+  assert.deepEqual(dealerBoardTexts({ winners: [{ id: 1, nick: 'Ana', amount: 1, hand: 'Pair' }] }), []);
 });

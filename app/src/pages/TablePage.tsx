@@ -12,6 +12,7 @@ import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval'
 import { betLimits, potOdds, sizingPresets, sliderTarget, type BetContext } from '../game/betting';
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
+import { runSchedule } from '../game/runItPacing';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
 import { WIN_BANNER_MS, heroHoldsHand, heroWon, showdownComplete, showdownPlan } from '../game/showdown';
 import { ALLIN_SPARKS } from '../game/allinFx';
@@ -270,6 +271,17 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [showdownReveals, setShowdownReveals] = useState<Record<number, number>>({});
   // Best-five winner focus starts when the reveal sequence completes (native WIN timing).
   const [focusReady, setFocusReady] = useState(false);
+  // Run it 2-3 times: deal the boards one by one, then name each board's winner; seats show their
+  // winnings only once that show is over (runHeld).
+  const runPlan = useMemo(() => ((state?.boards?.length ?? 0) > 1 ? runSchedule(state!.boards!) : null), [state?.handNo, state?.boards]);
+  const [runReleasedHand, setRunReleasedHand] = useState<number | null>(null);
+  const runHeld = !!runPlan && state?.street === 'ended' && runReleasedHand !== state?.handNo;
+  useEffect(() => {
+    if (!runPlan || state?.street !== 'ended') return;
+    const hand = state.handNo;
+    const id = window.setTimeout(() => setRunReleasedHand(hand), runPlan.done);
+    return () => window.clearTimeout(id);
+  }, [runPlan, state?.street, state?.handNo]);
   const chipShuffleTimer = useRef<number | null>(null);
   const chipShuffleIdle = useRef<number | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -542,7 +554,9 @@ export function TablePage({ tableId }: { tableId: string }) {
       const isShowdown = evt.reason === 'showdown';
       const revealSeats = isShowdown ? (evt.hands || []).filter((h: any) => h.cards).map((h: any) => h.seat) : [];
       const plan = isShowdown ? showdownPlan(revealSeats, evt.showFirst) : [];
-      const fxAt = isShowdown ? showdownComplete(revealSeats) : 0;
+      const revealDone = isShowdown ? showdownComplete(revealSeats) : 0;
+      // Several boards: the chips move only after every board and every board's winner is shown.
+      const fxAt = (evt.runs ?? 1) > 1 && Array.isArray(evt.boards) ? Math.max(revealDone, runSchedule(evt.boards).done) : revealDone;
       setFocusReady(false);
       if (isShowdown) window.setTimeout(() => setFocusReady(true), fxAt);
       if (plan.length) {
@@ -1378,13 +1392,18 @@ export function TablePage({ tableId }: { tableId: string }) {
             const [dxp, dyp] = state && state.button >= 0 ? seatPos(state.button) : [50, 12];
             const fromX = Math.round((50 - dxp) * 4);
             const fromY = Math.round((45 - dyp) * 3);
-            return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt className={focusClass(winnerFocus?.board, i)} style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: `${(i < 3 ? i : 0) * 0.07}s` } as React.CSSProperties} />;
+            const runDelay = runPlan?.delays[0]?.[i];
+            const delay = runDelay != null ? `${runDelay}ms` : `${(i < 3 ? i : 0) * 0.07}s`;
+            return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt className={focusClass(winnerFocus?.board, i)} style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: delay } as React.CSSProperties} />;
           })}
           {((state?.boards?.length ?? 0) > 1 || othersChoosingRuns) && (
             <div className="extra-boards">
               {(state?.boards ?? []).slice(1).map((run, r) => (
                 <div className="board second-board" key={`run-${r + 2}`} aria-label={`Board ${r + 2}`}>
-                  {run.map((c, i) => <PlayingCard key={`run${r + 2}-${state?.handNo}-${i}-${c}`} card={c} size="mini" />)}
+                  {run.map((c, i) => {
+                    const delay = runPlan?.delays[r + 1]?.[i] ?? null;
+                    return <PlayingCard key={`run${r + 2}-${state?.handNo}-${i}-${c}`} card={c} size="mini" dealt={delay !== null} style={delay !== null ? { animationDelay: `${delay}ms` } : undefined} />;
+                  })}
                 </div>
               ))}
               {othersChoosingRuns && <div className="run-wait-note">Players are choosing how many times to run it</div>}
@@ -1403,16 +1422,6 @@ export function TablePage({ tableId }: { tableId: string }) {
             {rabbit.map((c, i) => <PlayingCard key={i} card={c} size="mini" />)}
           </div>
         )}
-        {state && state.street === 'ended' && state.result?.winners?.length ? (
-          <div style={{ color: '#ffe0a0', fontSize: 12.5, background: 'rgba(0,0,0,.45)', padding: '3px 10px', borderRadius: 10 }}>
-            {Object.values(state.result.winners.reduce((acc: any, w: any) => {
-              const key = String(w.id ?? w.nick);
-              if (!acc[key]) acc[key] = { ...w, amount: 0 };
-              acc[key].amount += w.amount || 0;
-              return acc;
-            }, {})).map((w: any) => `${w.nick} wins ${chip(w.amount)}${w.hand ? ` · ${w.hand}` : ''}`).join('   ·   ')}
-          </div>
-        ) : null}
       </div>
 
       {(state?.players || []).map((p) => {
@@ -1434,10 +1443,11 @@ export function TablePage({ tableId }: { tableId: string }) {
         }
         const [x, y] = seatPos(p.seat);
         const isActor = state?.actor === p.id;
+        const winAmount = runHeld ? 0 : p.winAmount || 0;
         return (
           <div
             key={p.seat}
-            className={'seat' + (p.isMe ? ' me' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' + turnUrgencyClass(clockSeconds, !!p.isMe) : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
+            className={'seat' + (p.isMe ? ' me' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' + turnUrgencyClass(clockSeconds, !!p.isMe) : '') + (winAmount > 0 ? ' winner' : '')}
             style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default', ...(isActor ? { '--turn': timerPct } : {}) } as React.CSSProperties}
             onClick={() => { if (p.nick) openNote(p); }}
             title={p.nick ? 'Player note' : ''}
@@ -1454,8 +1464,8 @@ export function TablePage({ tableId }: { tableId: string }) {
                 ))}
               </div>
             )}
-            {p.winAmount ? <div className="win-amount">+{chip(p.winAmount)}</div> : null}
-            {p.winAmount ? <img className="native-win" src={animOff ? '/assets/table/native-win-final.png' : '/assets/table/native-win-effect.png'} alt="" /> : null}
+            {winAmount ? <div className="win-amount">+{chip(winAmount)}</div> : null}
+            {winAmount ? <img className="native-win" src={animOff ? '/assets/table/native-win-final.png' : '/assets/table/native-win-effect.png'} alt="" /> : null}
             {isActor && !p.folded ? <div className="timer" style={{ '--turn': timerPct } as React.CSSProperties} /> : null}
             {!(p.isMe && squeezing) && <div
               className={'cards' + (showdownReveals[p.seat] != null && p.reveal ? ' showdown-reveal' : '')}
@@ -1495,7 +1505,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               })}
             </div>}
             <div className="avatar-wrap">
-              <img className="seat-ring" src={(p.winAmount || 0) > 0 ? '/assets/table/ring_gold.png' : isActor ? '/assets/table/ring_gold.png' : '/assets/table/ring_silver.png'} alt="" />
+              <img className="seat-ring" src={winAmount > 0 ? '/assets/table/ring_gold.png' : isActor ? '/assets/table/ring_gold.png' : '/assets/table/ring_silver.png'} alt="" />
               <div className="face">
                 <Avatar name={p.nick || '?'} src={p.avatar || (p.isBot ? botFace(p.nick) : undefined)} size={54} />
               </div>
@@ -1508,7 +1518,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 <span className="nm-text">{seatNick(p.nick)}</span>{p.nick ? <span className="seat-flag" aria-hidden="true">{seatFlag(p.nick, p.country)}</span> : null}
               </div>
               <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
-                {isAllInStatus(p) ? 'All-In' : stackLabel(p.stack)}
+                {isAllInStatus(p) ? 'All-In' : stackLabel(runHeld ? (p.stack ?? 0) - (p.winAmount || 0) : p.stack)}
                 {p.isMe && (p.pendingTopUp || 0) > 0 ? <span className="seat-pending" style={{ color: '#ffd98a', fontSize: '0.85em' }}> +{stackLabel(p.pendingTopUp)} pending</span> : null}
                 {narrowScreen && (p.bet || 0) > 0 ? <span className="seat-bet-inline"> · {amt(p.bet).replace(/\.00$/, '')}</span> : null}
               </div>

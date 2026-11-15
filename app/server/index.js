@@ -47,7 +47,8 @@ import { loadTimeBank, saveTimeBank } from './time-bank-store.js';
 import { spinInfo } from './spin.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
-import { createChatService, createChatStore, dealerResultText, dealerStartText } from './chat.js';
+import { createChatService, createChatStore, dealerActionText, dealerBoardTexts, dealerResultText, dealerStartText } from './chat.js';
+import { runResultAt } from './handPacing.js';
 import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
@@ -665,6 +666,11 @@ function getLiveTable(id) {
       if (evt.type === 'hand_start') {
         postDealerLine(t.cfg.id, dealerStartText(evt.handNo), `start:${t.handId || evt.handNo}`);
       }
+      // Every bet, call, check and fold goes to the chat log (the "All" filter), not on the table.
+      if (evt.type === 'action') {
+        const text = dealerActionText(t.seats[evt.seat]?.player?.nick, evt);
+        if (text) postDealerLine(t.cfg.id, text);
+      }
     },
     onHandSave: (h) => {
       try {
@@ -703,8 +709,17 @@ function getLiveTable(id) {
         }
         RUSH_POOL.settleHand(h, table);
       } catch (e) { console.error('hand save', e); }
-      const resultText = dealerResultText(h.result);
-      if (resultText) postDealerLine(h.tableId, resultText, `result:${h.handId || h.handNo}`);
+      // Run it 2-3 times: one line per board, each when the table reaches that board's result.
+      const boardTexts = dealerBoardTexts(h.result);
+      if (boardTexts.length) {
+        const at = runResultAt(boardTexts.length, h.result.shared ?? 0);
+        boardTexts.forEach((text, b) => setTimeout(
+          () => postDealerLine(h.tableId, text, `result:${h.handId || h.handNo}:${b + 1}`), at[b] ?? 0,
+        ));
+      } else {
+        const resultText = dealerResultText(h.result);
+        if (resultText) postDealerLine(h.tableId, resultText, `result:${h.handId || h.handNo}`);
+      }
     },
     onTournamentPayout: (table, p) => {
       try {

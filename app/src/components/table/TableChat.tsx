@@ -56,8 +56,8 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
   const [draft, setDraft] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeLine, setActiveLine] = useState<string | null>(null);
-  // Panel-local so switching never re-renders the table. Dealer is opt-in (C4, DanGG extra).
-  const [view, setView] = useState<ChatView>('chat');
+  // Panel-local so switching never re-renders the table. All shows bets and winnings with the chat.
+  const [view, setView] = useState<ChatView>('all');
   const shown = useMemo(() => linesForView(lines, view), [lines, view]);
   const logRef = useRef<HTMLOListElement>(null);
   const pinned = useRef(true);
@@ -94,13 +94,14 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
         <section className="tchat-panel" aria-label="Table chat">
           <header className="tchat-head">
             <span className="tchat-tabs" role="tablist" aria-label="Chat view">
-              <button type="button" role="tab" aria-selected={view === 'chat'}
-                className={'tchat-tab' + (view === 'chat' ? ' active' : '')}
-                onClick={() => { setView('chat'); pinned.current = true; }}>Chat</button>
-              <button type="button" role="tab" aria-selected={view === 'dealer'}
-                className={'tchat-tab' + (view === 'dealer' ? ' active' : '')}
-                title="Dealer log (DanGG extra)"
-                onClick={() => { setView('dealer'); pinned.current = true; }}>Dealer</button>
+              <button type="button" role="tab" aria-selected={view === 'all'}
+                className={'tchat-tab' + (view === 'all' ? ' active' : '')}
+                title="Chat, bets and winnings"
+                onClick={() => { setView('all'); pinned.current = true; }}>All</button>
+              <button type="button" role="tab" aria-selected={view === 'players'}
+                className={'tchat-tab' + (view === 'players' ? ' active' : '')}
+                title="Only what players wrote"
+                onClick={() => { setView('players'); pinned.current = true; }}>Players</button>
             </span>
             <button type="button" className="tchat-close" onClick={store.close} aria-label="Close chat">✕</button>
           </header>
@@ -109,7 +110,7 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
               <ChatLogLine key={line.id} line={line} role={senderRole(line, selfId)}
                 active={activeLine === line.id} onToggle={toggleLine} onMute={onMute} onReport={onReport} />
             ))}
-            {!shown.length && <li className="tchat-empty">{view === 'dealer' ? 'No dealer lines yet.' : 'No messages yet.'}</li>}
+            {!shown.length && <li className="tchat-empty">{view === 'all' ? 'Nothing yet.' : 'No messages yet.'}</li>}
           </ol>
           <form className="tchat-form" onSubmit={submit}>
             <input value={draft} maxLength={CHAT_MAX_CHARS} disabled={readOnly}
