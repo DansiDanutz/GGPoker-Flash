@@ -54,6 +54,7 @@ export class PokerTable {
     this.pot = 0;
     this.currentBet = 0;
     this.minRaise = cfg.bb;
+    this.betLevels = []; // this street's bet levels: { to, minRaise, by }
     this.actor = null;
     this.actionEndsAt = 0;
     this.timeBankUsed = new Set();
@@ -563,6 +564,8 @@ export class PokerTable {
       if (p?.leaveAfterHand) p.sittingOut = true;
     }
     applyBigBlindSitOuts(this);
+    // Sit-outs land just above: re-check that a waiter is not all that stops this deal.
+    this.releaseWaitersIfShort();
     const ready = this.readySeats();
     if (this.spin && this.handNo > 0 && ready.length === 1) { this.awardSpinWinner(); return; }
     if (this.tournament && this.handNo > 0 && ready.length === 1) { this.awardTournamentWinner(); return; }
@@ -581,6 +584,7 @@ export class PokerTable {
     this.pot = 0;
     this.currentBet = 0;
     this.minRaise = this.bb;
+    this.betLevels = [];
     this.lastAggressor = null;
     this.result = null;
     this.showdown = false;
@@ -606,6 +610,7 @@ export class PokerTable {
       p.bet = 0;
       p.totalBet = 0;
       p.acted = false;
+      p.actedAtBet = null;
       p.reveal = false;
       p.shown = [];
       p.cards = [];
@@ -701,6 +706,7 @@ export class PokerTable {
     if (p.bet > this.currentBet) {
       this.currentBet = p.bet;
       this.minRaise = p.bet;
+      this.betLevels = [...this.betLevels, { to: p.bet, minRaise: p.bet, by: p.id }];
       this.pendingDeal.straddleSeat = seat;
     }
   }
@@ -1102,6 +1108,7 @@ export class PokerTable {
       const previousBet = this.currentBet;
       this.currentBet = p.bet;
       if (isFullRaise) this.minRaise = raiseSize;
+      this.betLevels = [...this.betLevels, { to: this.currentBet, minRaise: this.minRaise, by: p.id }];
       if (p.stack === 0) p.allIn = true;
       for (const s of this.seats) {
         const other = s.player;
@@ -1227,7 +1234,15 @@ export class PokerTable {
     const highest = Math.max(floor, ...others);
     if (this.currentBet <= highest) return;
     this.currentBet = highest;
-    this.minRaise = Math.max(this.bb, Math.min(this.minRaise, highest));
+    // The raise size and the players who had already matched the level that still stands come back.
+    const level = [...this.betLevels].reverse().find((l) => l.by !== p.id && l.to <= highest);
+    this.minRaise = level ? level.minRaise : this.bb;
+    this.betLevels = this.betLevels.filter((l) => l.by !== p.id && l.to <= highest);
+    for (const s of this.seats) {
+      const o = s.player;
+      if (!o || o === p || !o.inHand || o.folded || o.allIn) continue;
+      if (highest > 0 && o.bet === highest && o.actedAtBet === highest) o.acted = true;
+    }
   }
 
   /**
@@ -1462,10 +1477,11 @@ export class PokerTable {
     else if (this.street === 'turn') this.street = 'river';
     this.board.push(...this.dealStreet(this.street));
     for (const s of this.seats) {
-      if (s.player) { s.player.acted = false; s.player.lastAction = null; }
+      if (s.player) { s.player.acted = false; s.player.actedAtBet = null; s.player.lastAction = null; }
     }
     this.currentBet = 0;
     this.minRaise = this.bb;
+    this.betLevels = [];
     this.lastAggressor = null;
     this.emit({ type: 'street', street: this.street, board: this.board.map(cardStr), pot: this.pot });
     this.progress(this.button);

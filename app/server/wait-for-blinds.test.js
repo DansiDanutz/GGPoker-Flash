@@ -119,6 +119,20 @@ test('Wait for BB chosen before sitting applies from the first hand (EGM round 3
   assert.notEqual(t.seatOf('m').player.waitForBlinds, true, 'only a real true opts in');
 });
 
+test('a waiter is released even when a sit-out lands at the deal (EGM round 3)', () => {
+  const t = new PokerTable({ id: 'wb5', name: 'Wb5', game: 'holdem', sb: 1, bb: 2, seats: 3, min_buyin: 10, max_buyin: 1000 });
+  for (let i = 0; i < 3; i++) {
+    t.seats[i].player = { id: 'v' + i, nick: 'V' + i, stack: 100, isBot: false, sittingOut: false, inHand: false, cards: [], bet: 0, totalBet: 0 };
+  }
+  t.street = 'ended';
+  t.handNo = 5;
+  Object.assign(t.seats[1].player, { sitOutNextHand: true });
+  Object.assign(t.seats[2].player, { missedBlinds: true, waitForBlinds: true });
+  t.startHand();
+  assert.equal(t.seats[1].player.sittingOut, true);
+  assert.equal(t.street, 'preflop', 'X and the released waiter play; the table does not go idle');
+});
+
 test('Post now restarts an idle table (Codex review #59)', () => {
   const t = new PokerTable({ id: 'wb2', name: 'Wb2', game: 'holdem', sb: 1, bb: 2, seats: 2, min_buyin: 10, max_buyin: 1000 });
   for (let i = 0; i < 2; i++) {

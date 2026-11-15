@@ -30,6 +30,7 @@ import { ensureWaitlistTable, loadWaitlist, saveWaitlist } from './waitlist-stor
 import { botFillCount, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, waitingFor } from './bot-seats.js';
 import { staleHandError, staleTurnError } from './action-version.js';
 import { clockLowEnough } from './timeBankCards.js';
+import { canCloseIdleTable } from './idle-close.js';
 import { waitingForTable } from './sitOut.js';
 import { RESERVATION_KINDS, pendingLeaves, sitOutEverywhere } from './reservations.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
@@ -818,7 +819,9 @@ function getLiveTable(id) {
         else if (Date.now() - entry.emptySince > Math.max(45000, DISCONNECT_GRACE_MS)) {
           // A tournament flight outlives its viewers while players are still
           // seated (a moved player reconnects to the new table); an empty one goes.
-          if (!table.tournament) closeLiveTable(id, 'Table idle close');
+          if (!table.tournament) {
+            if (canCloseIdleTable(table)) closeLiveTable(id, 'Table idle close');
+          }
           else if (!table.humans().length) clearTable(id);
         }
       } else {

@@ -156,6 +156,22 @@ test('heads-up: when the opponent leaves, the remaining player wins the pot', ()
   assert.equal(t.seats[1].player, null);
 });
 
+test('a departed re-raise restores the earlier raise: its size and who already matched it (EGM round 3)', () => {
+  const { t, p } = deal([START, START, START, START]); // button seat 0; seat 3 is UTG
+  ok(t.act(4, 'call')); ok(t.act(1, 'call')); ok(t.act(2, 'call')); ok(t.act(3, 'check'));
+  assert.equal(t.street, 'flop');
+  ok(t.act(2, 'raise', 100)); // B bets 100
+  ok(t.act(3, 'raise', 400)); // C raises by 300
+  ok(t.act(4, 'raise', 1000)); // D re-raises
+  ok(t.act(1, 'fold'));
+  t.stand(4); // D leaves: the 1000 stays in the pot as dead money
+  assert.equal(t.currentBet, 400);
+  assert.equal(t.minRaise, 300, 'the last full raise that still stands');
+  assert.equal(t.actor, 2, 'B still owes the 400');
+  ok(t.act(2, 'call'));
+  assert.equal(t.street, 'turn', 'C already matched 400 and is not asked again');
+});
+
 test('when the actor leaves, the action moves to the next player', () => {
   const { t } = deal([START, START, START]);
   assert.equal(t.actor, 1);

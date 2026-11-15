@@ -222,3 +222,33 @@ the bet (no free bluff), a waiter is dealt in rather than stalling the table,
 Wait for BB can be chosen before sitting, a folded player's shown card stays
 on the seat, and a dropped player's live hand runs on the clock and time
 bank. The LOW items listed in Appendix B remain open.
+
+## Appendix D: EGM round 3 review
+
+Two goldfish re-reviewed the round-3 code. One HIGH, fixed with tests:
+
+*   The 60-second idle-table close (no sockets left) cashed out every seat,
+    undoing the disconnect protection: a dropped player's live hand was
+    folded, and a running Spin seat took the lowest place. The close now
+    waits for the hand to end and never closes a running Spin with a human
+    seated.
+
+Also fixed, MEDIUM regressions from round 3:
+
+*   When a re-raiser leaves, the raise level that still stands comes back
+    with its minimum raise, and players who already matched it are not asked
+    again.
+*   A waiter is released after "Sit out next hand" lands at the deal, so the
+    table cannot go idle on a waiter.
+
+Open MEDIUM/LOW for a later round:
+
+*   Tournament and Spin seats that drop are sat out at once (instant fold,
+    no clock or time bank).
+*   Reconnecting cancels a sit-out the player chose before dropping.
+*   The Auto-post switch and the saved join choice can disagree after a
+    waiter is released or after Post now.
+*   Option messages coerce booleans (`!!`) instead of type-checking them.
+*   A folded player's Add chips lands before the hand ends.
+*   After a cash-out on disconnect, the reconnecting client re-buys in
+    without asking.
