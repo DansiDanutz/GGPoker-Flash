@@ -1,4 +1,4 @@
-/* Icon names: a small gold-rimmed label above any [data-tip] control after one second of
+/* Icon names: a small gold-rimmed label above any [data-tip] control after a short moment of
    hover (desktop) or press-and-hold (phones, via lib/holdTips). Live text, never baked art. */
 .table-screen [data-tip] { position: relative; }
 .table-screen [data-tip]::after {
@@ -16,7 +16,7 @@
 .table-screen [data-tip]:hover::after,
 .table-screen [data-tip]:focus-visible::after {
   opacity: 1; visibility: visible; transform: translate(-50%, 0);
-  transition-delay: 1s;
+  transition-delay: .3s;
 }
 .table-screen [data-tip].tip-hold::after {
   opacity: 1; visibility: visible; transform: translate(-50%, 0); transition-delay: 0s;
@@ -29,3 +29,15 @@
   .table-screen [data-tip]:hover::after { opacity: 0; visibility: hidden; }
   .table-screen [data-tip].tip-hold::after { opacity: 1; visibility: visible; }
 }
+/* Chat / React sit on the left edge: their label opens to the right of the chip. */
+.table-screen .tchat-toggle[data-tip]::after {
+  left: calc(100% + 8px); bottom: 50%; transform: translate(-4px, 50%);
+}
+.table-screen .tchat-toggle[data-tip]:hover::after,
+.table-screen .tchat-toggle[data-tip]:focus-visible::after,
+.table-screen .tchat-toggle[data-tip].tip-hold::after { transform: translate(0, 50%); }
+/* The seat icons sit near the right edge: their label grows leftwards from the icon. */
+.table-screen .dock-btn[data-tip]::after { left: auto; right: 0; transform: translate(0, 4px); }
+.table-screen .dock-btn[data-tip]:hover::after,
+.table-screen .dock-btn[data-tip]:focus-visible::after,
+.table-screen .dock-btn[data-tip].tip-hold::after { transform: translate(0, 0); }

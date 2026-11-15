@@ -14,7 +14,7 @@
   .table-screen .action-bar .main-actions .grow,
   .table-screen .action-bar .main-actions .pot-odds { display: none; }
 
-  .table-screen .action-bar .main-actions .quick-bets { grid-area: presets; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .table-screen .action-bar .main-actions .quick-bets { grid-area: presets; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .table-screen .action-bar .main-actions .quick-bets button { width: 100%; height: 36px; padding: 0 4px; font-size: 13px; }
 
   .table-screen .action-bar .main-actions .act-btn { width: 100%; min-width: 0; height: 54px; padding: 0 6px; font-size: 15px; line-height: 1.15; white-space: normal; }

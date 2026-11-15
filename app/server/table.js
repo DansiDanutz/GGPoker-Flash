@@ -10,6 +10,7 @@ import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
 import { randomInt } from 'node:crypto';
+import { FOLD_WIN_BOT_MS, FOLD_WIN_MS, SHOWDOWN_CLEAR_MS } from './handPacing.js';
 import { payoutFor, payoutTable } from './tournament.js';
 import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
 import { ACTION_SECONDS, isRushGame, parseActionSeconds } from './validate.js';
@@ -62,6 +63,7 @@ export class PokerTable {
     this.timeBankUsed = new Set();
     this.botActAt = 0;
     this.nextHandAt = 0;
+    this.handClearAt = 0;
     this.rebuyHoldUntil = 0;
     this.streetStartedAt = 0;
     this.lastAggressor = null;
@@ -83,7 +85,7 @@ export class PokerTable {
     this.shortDeck = cfg.game === 'shortdeck';
     this.bomb = !!cfg.bomb_pot;
     if (this.bomb && !this.ante) this.ante = this.bb;
-    this.showdownDelay = 5000;
+    this.showdownDelay = SHOWDOWN_CLEAR_MS;
     this.botSpeed = Number(cfg.botSpeed || 900);
     this.botIterations = Number(cfg.botIterations || 0);
     this.aof = cfg.game === 'aof';
@@ -1397,8 +1399,7 @@ export class PokerTable {
         else this.board.push(this.deck.pop());
       }
       this.emit({ type: 'runout', board: this.board.map(cardStr) });
-      this.showdownDelay = 4200;
-      this.nextHandAt = Date.now() + this.showdownDelay;
+      this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay;
       this.doShowdown();
       return;
     }
@@ -1478,7 +1479,7 @@ export class PokerTable {
     };
     this.result = this.publicShowdown(summary);
     this.street = 'ended';
-    this.nextHandAt = Date.now() + this.showdownDelay;
+    this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay;
     this.emit({ type: 'win', ...this.result });
     this.saveHand(summary);
     this.updateMissionProgress(results[0] || null);
@@ -1559,7 +1560,7 @@ export class PokerTable {
     this.result = summary;
     this.street = 'ended';
     this.actor = null;
-    this.nextHandAt = Date.now() + (winner && winner.isBot ? 1800 : 3000);
+    this.nextHandAt = this.handClearAt = Date.now() + (winner && winner.isBot ? FOLD_WIN_BOT_MS : FOLD_WIN_MS);
     this.emit({ type: 'win', ...summary });
     this.saveHand(summary);
     this.updateMissionProgress(winner);
@@ -1639,7 +1640,7 @@ export class PokerTable {
     this.result = this.publicShowdown(summary);
     this.street = 'ended';
     this.actor = null;
-    this.nextHandAt = Date.now() + this.showdownDelay;
+    this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay;
     this.emit({ type: 'win', ...this.result });
     this.saveHand(summary);
     this.updateMissionProgress(results[0]);
@@ -1788,7 +1789,8 @@ export class PokerTable {
     const stillWaiting = this.humans().some((p) => p.stack <= 0 && p.rebuyPrompted);
     if (stillWaiting) return;
     if (this.nextHandAt && (this.street === 'ended' || this.street === 'idle')) {
-      this.nextHandAt = Math.min(this.nextHandAt, Date.now() + 1500);
+      // Sooner, but never before the last hand has cleared off the table.
+      this.nextHandAt = Math.min(this.nextHandAt, Math.max(Date.now() + 1500, this.handClearAt || 0));
     }
   }
 
