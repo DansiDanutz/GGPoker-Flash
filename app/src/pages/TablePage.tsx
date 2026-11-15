@@ -13,7 +13,7 @@ import { betLimits, potOdds, sizingPresets, sliderTarget, type BetContext } from
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
-import { heroHoldsHand, showdownComplete, showdownPlan } from '../game/showdown';
+import { WIN_BANNER_MS, heroHoldsHand, showdownComplete, showdownPlan } from '../game/showdown';
 import { readJoinWaitForBlinds, saveJoinWaitForBlinds } from '../game/tableOptions';
 import { clearSeatedHere, markSeatedHere, wasSeatedHere } from '../lib/seatSession';
 import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
@@ -51,7 +51,7 @@ import { dockItems, seatStatusArt, type DockKey } from '../game/tableArt';
 import { useTableStage } from '../components/table/useTableStage';
 import { BAD_BEAT_BANNER_MS, badBeatRows, type BadBeatHit } from '../game/badBeat';
 import { TB_CARD_SECONDS } from '../game/timeBankRules';
-import { canShowHand, showOptions } from '../game/showOptions';
+import { canMarkShowAtEnd, canShowHand, showOptions, toggleShowMark } from '../game/showOptions';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { vpipOf } from '../game/seatVpip';
 import type { QuickFoldState } from '../game/fastFold';
@@ -63,7 +63,7 @@ import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../li
 type PlayerState = {
   seat: number; id?: string; nick?: string; country?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
-  reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
+  reveal?: boolean; shown?: number[]; showAtEnd?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
   winAmount?: number; empty?: boolean; reserved?: boolean; mine?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
   leaveAfterHand?: boolean; sitOutNextBigBlind?: boolean; sitOutAll?: boolean;
   /** Own seat only: whether to be asked to run it more than once when all-in. */
@@ -154,6 +154,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [spinWin, setSpinWin] = useState<any>(null);
   const [tourneyWin, setTourneyWin] = useState<any>(null);
   const [allInFx, setAllInFx] = useState(false);
+  // Cards shown to the table this hand (cards_shown), drawn with the fade-up.
+  const [shownFx, setShownFx] = useState<{ hand: number; seats: Record<number, number[]> }>({ hand: -1, seats: {} });
   const [menuOpen, setMenuOpen] = useState(false);
   const [preAction, setPreAction] = useState<PreAction | null>(null);
   const lastDealtHand = useRef(-1);
@@ -558,7 +560,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         const total = mine.reduce((a: number, x: any) => a + (x.amount || 0), 0);
         window.setTimeout(() => {
           setWinFx({ id: fxId.current++, amount: total, nick: mine[0].nick });
-          window.setTimeout(() => setWinFx(null), 2600);
+          window.setTimeout(() => setWinFx(null), WIN_BANNER_MS);
         }, fxAt);
       }
       if (Array.isArray(evt.cards)) sound.play('show', { volume: .5 });
@@ -603,6 +605,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         toast({ kind: 'info', title: 'Out of chips', body: `Reload within ~${Math.round((Number(evt.until) - Date.now()) / 1000)}s to join the next hand.` });
       }
     } else if (evt.type === 'cards_shown') {
+      const hand = stateRef.current?.handNo ?? -1;
+      setShownFx((prev) => ({ hand, seats: { ...(prev.hand === hand ? prev.seats : {}), [evt.seat]: evt.indices || [] } }));
       const meNow = stateRef.current?.players.find((p) => p && !p.empty && p.isMe);
       if (!meNow || Number(evt.playerId) !== Number(meNow.id)) {
         toast({ kind: 'info', title: `${evt.nick} shows`, body: (evt.cards || []).join(' ') });
@@ -620,7 +624,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       sound.play('timebank', { volume: .6 });
       toast({ kind: 'info', title: 'Time Bank Card', body: `+${evt.seconds} seconds` });
     } else if (evt.type === 'sit_out') {
-      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: 'You ran out of time twice. Press "Deal Me In" to rejoin.' });
+      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: `You ran out of time, so you are sitting out. Press "I'm back" to play again.` });
     } else if (evt.type === 'bad_beat_jackpot') {
       sound.play('fireworks', { volume: .8 });
       setBadBeat({ total: evt.total, shares: evt.shares || [] });
@@ -975,6 +979,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   // After the hand (native ShowMuck) anyone dealt in, folded or not, picks cards to show once.
   const isHost = !!user && state?.ownerId != null && state.ownerId === user.id;
   const canShowCards = canShowHand(me, state?.street, observing);
+  const canMarkCards = canMarkShowAtEnd(me, state?.street, observing);
+  const marks = me?.showAtEnd || [];
   const showCards = (indices: number[]) => {
     if (!indices.length) return;
     send({ type: 'show_cards', cards: indices });
@@ -1441,15 +1447,22 @@ export function TablePage({ tableId }: { tableId: string }) {
                 const [px, py] = seatPosOf(p.seat!);
                 const shown = (p.shown || []).includes(i);
                 const pickable = p.isMe && canShowCards && c !== '??' && !shown;
+                const markable = p.isMe && canMarkCards && c !== '??';
+                const willShow = markable && marks.includes(i);
+                const fadeUp = shown && shownFx.hand === state?.handNo && !!shownFx.seats[p.seat!]?.includes(i);
+                const onCard = pickable ? () => showCards([i])
+                  : markable ? () => send({ type: 'show_at_end', tableId, cards: toggleShowMark(marks, i) })
+                  : null;
                 // Your own cards land face down and you turn them over (the squeeze does its own reveal).
                 const heroPeel = p.isMe && !squeezeEnabled && c !== '??';
                 return (
                   <span
                     key={`${state?.handNo}-${p.seat}-${i}`}
-                    className={'card-slot' + (pickable ? ' pickable' : '') + (shown ? ' shown' : '')}
-                    onClick={pickable ? (ev) => { ev.stopPropagation(); showCards([i]); } : undefined}
-                    data-tip={pickable ? 'Show this card' : undefined}
+                    className={'card-slot' + (pickable ? ' pickable' : '') + (markable ? ' markable' : '') + (willShow ? ' will-show' : '') + (shown ? ' shown' : '') + (fadeUp ? ' fade-up' : '')}
+                    onClick={onCard ? (ev) => { ev.stopPropagation(); onCard(); } : undefined}
+                    data-tip={pickable ? 'Show this card' : willShow ? 'Shown when the hand ends · tap to cancel' : markable ? 'Show this card when the hand ends' : undefined}
                   >
+                    {willShow && <img className="show-mark" src="/assets/table/ui/ic-show-card.webp" alt="" />}
                     {heroPeel ? (
                       <span className="hero-peel" style={{ '--i': i, '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px` } as React.CSSProperties}>
                         <PlayingCard card={c} size="mini" className={'peel-face ' + focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)} />
@@ -1556,7 +1569,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         </div>
       ) : (
-      <div className={'action-bar' + (squeezing ? ' squeeze-lock' : '')} ref={actionBarRef}>
+      <div className={'action-bar' + (squeezing ? ' squeeze-lock' : '') + (sittingOut ? ' sitting-out' : '')} ref={actionBarRef}>
         {straddleModel && (
           <div className="straddle-ask" role="dialog" aria-label="Straddle">
             <div className="straddle-ask-head">
@@ -1627,7 +1640,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 <input type="checkbox" checked={!!me?.waitForBlinds} onChange={(e) => send({ type: 'option', tableId, waitForBlinds: e.target.checked })} /> Wait for Blinds
               </label>
             )}
-            <button className="btn btn-red" onClick={() => send({ type: 'sit_out', value: false })}>Deal Me In</button>
+            <button className="btn btn-back" onClick={() => send({ type: 'sit_out', value: false })}>I'm back</button>
           </div>
         )}
         {!sittingOut && me?.waitingForBigBlind && (

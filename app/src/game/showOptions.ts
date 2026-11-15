@@ -27,3 +27,15 @@ export function canShowHand(me: ShowSeat, street: string | undefined, observing:
   const cards = me.cards || [];
   return cards.length > 0 && !cards.includes('??') && (me.shown?.length || 0) < cards.length;
 }
+
+/** During a live hand a dealt-in player may mark known hole cards to show when it ends (the eye). */
+export function canMarkShowAtEnd(me: ShowSeat, street: string | undefined, observing: boolean): boolean {
+  if (!me || observing || !street || street === 'ended' || street === 'idle' || !me.inHand) return false;
+  const cards = me.cards || [];
+  return cards.length > 0 && !cards.includes('??');
+}
+
+/** Tapping a marked card takes the mark back; tapping an unmarked one adds it. */
+export function toggleShowMark(marks: readonly number[], index: number): number[] {
+  return marks.includes(index) ? marks.filter((i) => i !== index) : [...marks, index].sort((a, b) => a - b);
+}

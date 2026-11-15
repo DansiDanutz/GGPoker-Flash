@@ -1,0 +1,42 @@
+/* All-in in the table's gold look, so it reads like the rest of the table and not like a warning:
+   the seat label, the run-it (and straddle) panel, and the ALL IN flash. Loaded after
+   table-buttons.css. */
+
+/* Seat label: a gold pill with dark ink, like the Raise / All-in button. */
+.table-screen .seat .plate .st.st-allin {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  background: linear-gradient(#ffe07a, #f2a812); color: #231400;
+  font-weight: 900; letter-spacing: .06em; text-transform: uppercase; text-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+/* Run it once / twice / three times: a dark panel inside the gold edge, gold title, cream chips. */
+.table-screen .straddle-ask {
+  margin: 0 6px 6px; padding: 10px 12px; border: 2px solid #e8b84a; border-radius: 14px;
+  background: linear-gradient(rgba(28, 22, 12, .96), rgba(10, 9, 7, .96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 6px 18px rgba(0, 0, 0, .6);
+}
+.table-screen .straddle-ask-head b { color: #ffd36a; font-weight: 900; letter-spacing: .02em; }
+.table-screen .straddle-time {
+  background: linear-gradient(#ffe07a, #f2a812); color: #231400; border-radius: 999px; padding: 2px 9px;
+}
+.table-screen .straddle-ask-note { color: #e9dcb8; }
+.table-screen .straddle-ask .action-row { gap: 8px; }
+.table-screen .straddle-ask .action-row .btn {
+  flex: 1 1 0; min-width: 0; height: 42px; border: 2px solid #e8b84a; border-radius: 14px; font-weight: 800;
+  background: linear-gradient(#fbefcc, #e2c47a); color: #1d1405; text-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 3px 0 rgba(0, 0, 0, .45), 0 6px 14px rgba(0, 0, 0, .5);
+}
+.table-screen .straddle-ask .action-row .btn:active { transform: translateY(2px); }
+
+/* ALL IN flash: gold lettering with a dark rim instead of a pale blur. */
+.table-screen .allin-flash span {
+  font-size: 86px; font-weight: 900; letter-spacing: 4px; white-space: nowrap;
+  background: linear-gradient(#fff3c4 0%, #ffd36a 45%, #e8a512 55%, #b9780a 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-stroke: 1.5px #5a3a06;
+  text-shadow: none; filter: drop-shadow(0 4px 0 #3a2504) drop-shadow(0 0 22px rgba(255, 190, 60, .65));
+}
+@media (max-width: 760px) {
+  .table-screen .allin-flash span { font-size: 54px; letter-spacing: 3px; }
+}

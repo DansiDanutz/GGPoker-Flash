@@ -10,6 +10,7 @@ import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
 import { randomInt } from 'node:crypto';
+import { FOLD_WIN_BOT_MS, FOLD_WIN_MS, SHOWDOWN_CLEAR_MS } from './handPacing.js';
 import { payoutFor, payoutTable } from './tournament.js';
 import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
 import { ACTION_SECONDS, isRushGame, parseActionSeconds } from './validate.js';
@@ -22,7 +23,9 @@ const BOT_NAMES = [
   'SpinKing', 'OmahaOwl', 'SharkBait', 'LuckyLuke', 'MrsRiver', 'PumpFake', 'ColdDeckCarl',
 ];
 
-const MAX_MISSED_TURNS = 2;
+// One timeout folds the hand and sits the player out, so an absent player is not dealt in again
+// until they press "I'm back".
+const MAX_MISSED_TURNS = 1;
 // A cash-table player who busts gets this long to reload before the next deal.
 const REBUY_WINDOW_MS = 10_000;
 const BETTING_STREETS = Object.freeze(['preflop', 'flop', 'turn', 'river']);
@@ -60,6 +63,7 @@ export class PokerTable {
     this.timeBankUsed = new Set();
     this.botActAt = 0;
     this.nextHandAt = 0;
+    this.handClearAt = 0;
     this.rebuyHoldUntil = 0;
     this.streetStartedAt = 0;
     this.lastAggressor = null;
@@ -81,7 +85,7 @@ export class PokerTable {
     this.shortDeck = cfg.game === 'shortdeck';
     this.bomb = !!cfg.bomb_pot;
     if (this.bomb && !this.ante) this.ante = this.bb;
-    this.showdownDelay = 5000;
+    this.showdownDelay = SHOWDOWN_CLEAR_MS;
     this.botSpeed = Number(cfg.botSpeed || 900);
     this.botIterations = Number(cfg.botIterations || 0);
     this.aof = cfg.game === 'aof';
@@ -616,6 +620,7 @@ export class PokerTable {
       p.actedAtBet = null;
       p.reveal = false;
       p.shown = [];
+      p.showAtEnd = [];
       p.cards = [];
       p.lastAction = null;
       p.winAmount = 0;
@@ -865,6 +870,32 @@ export class PokerTable {
       cards: added.map((i) => cardStr(p.cards[i])),
     });
     return { ok: true, shown: p.shown };
+  }
+
+  /**
+   * Mark hole cards during a live hand to show them when it ends (DanGG: the eye on the card).
+   * The list replaces the last one, so an empty list takes every mark back.
+   */
+  markShowAtEnd(playerId, indices) {
+    if (this.street === 'ended' || this.street === 'idle') return { ok: false, error: 'Show cards directly after the hand' };
+    const p = this.seatOf(playerId)?.player;
+    if (!p || !p.inHand || !p.cards.length) return { ok: false, error: 'Only a player dealt into the hand can mark cards' };
+    if (!Array.isArray(indices)) return { ok: false, error: 'Pick a card first' };
+    p.showAtEnd = [...new Set(indices.map(Number))]
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < p.cards.length)
+      .sort((a, b) => a - b);
+    return { ok: true, showAtEnd: p.showAtEnd };
+  }
+
+  /** The hand just ended: turn up every card a player marked during it. */
+  revealMarkedCards() {
+    for (const s of this.seats) {
+      const p = s.player;
+      if (!p?.showAtEnd?.length) continue;
+      const marked = p.showAtEnd;
+      p.showAtEnd = [];
+      this.showCards(p.id, marked);
+    }
   }
 
   /**
@@ -1395,8 +1426,7 @@ export class PokerTable {
         else this.board.push(this.deck.pop());
       }
       this.emit({ type: 'runout', board: this.board.map(cardStr) });
-      this.showdownDelay = 4200;
-      this.nextHandAt = Date.now() + this.showdownDelay;
+      this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay;
       this.doShowdown();
       return;
     }
@@ -1476,8 +1506,9 @@ export class PokerTable {
     };
     this.result = this.publicShowdown(summary);
     this.street = 'ended';
-    this.nextHandAt = Date.now() + this.showdownDelay;
+    this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay;
     this.emit({ type: 'win', ...this.result });
+    this.revealMarkedCards();
     this.saveHand(summary);
     this.updateMissionProgress(results[0] || null);
   }
@@ -1557,8 +1588,9 @@ export class PokerTable {
     this.result = summary;
     this.street = 'ended';
     this.actor = null;
-    this.nextHandAt = Date.now() + (winner && winner.isBot ? 1800 : 3000);
+    this.nextHandAt = this.handClearAt = Date.now() + (winner && winner.isBot ? FOLD_WIN_BOT_MS : FOLD_WIN_MS);
     this.emit({ type: 'win', ...summary });
+    this.revealMarkedCards();
     this.saveHand(summary);
     this.updateMissionProgress(winner);
   }
@@ -1637,8 +1669,9 @@ export class PokerTable {
     this.result = this.publicShowdown(summary);
     this.street = 'ended';
     this.actor = null;
-    this.nextHandAt = Date.now() + this.showdownDelay;
+    this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay;
     this.emit({ type: 'win', ...this.result });
+    this.revealMarkedCards();
     this.saveHand(summary);
     this.updateMissionProgress(results[0]);
   }
@@ -1786,7 +1819,8 @@ export class PokerTable {
     const stillWaiting = this.humans().some((p) => p.stack <= 0 && p.rebuyPrompted);
     if (stillWaiting) return;
     if (this.nextHandAt && (this.street === 'ended' || this.street === 'idle')) {
-      this.nextHandAt = Math.min(this.nextHandAt, Date.now() + 1500);
+      // Sooner, but never before the last hand has cleared off the table.
+      this.nextHandAt = Math.min(this.nextHandAt, Math.max(Date.now() + 1500, this.handClearAt || 0));
     }
   }
 
@@ -1922,9 +1956,9 @@ export class PokerTable {
     }
     if (now >= this.actionEndsAt) {
       // Facing a bet, the clock spends one Time Bank Card before folding (GGPoker auto time bank),
-      // once per turn. An absent player is still bounded: two timeouts in a row sit them out.
+      // once per turn.
       if (this.toCall(p) > 0 && !this.timeBankAction && this.useTimeBank(p.id).ok) return;
-      // Two timeouts in a row sit the player out so an absent player cannot stall the table.
+      // A timeout sits the player out so an absent player cannot stall the table.
       p.missedTurns = (p.missedTurns || 0) + 1;
       if (p.missedTurns >= MAX_MISSED_TURNS && !p.sittingOut) {
         p.sittingOut = true;
@@ -2071,6 +2105,7 @@ export class PokerTable {
           disconnected: p.disconnected,
           country: p.country || '',
           sitOutNext: !!p.sitOutNextHand,
+          showAtEnd: mine ? (p.showAtEnd || []) : undefined,
           runItAsk: mine ? p.runItAsk !== false : undefined,
           runPref: mine ? (p.runPref ?? null) : undefined,
           timeBank: p.timeBank,

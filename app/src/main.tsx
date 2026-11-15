@@ -36,6 +36,8 @@ import './table-art.css';
 import './table-phone.css';
 import './table-phone-look.css';
 import './table-buttons.css';
+import './table-allin.css';
+import './table-show-card.css';
 import './table-hero-peel.css';
 import './table-tips.css';
 
