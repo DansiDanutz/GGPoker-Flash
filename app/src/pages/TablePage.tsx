@@ -1424,6 +1424,11 @@ export function TablePage({ tableId }: { tableId: string }) {
             onClick={() => { if (p.nick) openNote(p); }}
             title={p.nick ? 'Player note' : ''}
           >
+            {isActor && p.isMe && !p.folded && clockSeconds != null && (
+              <div className={'turn-badge' + (clockSeconds <= 5 ? ' hot' : '')} role="timer" aria-label={`${clockSeconds} seconds left`}>
+                <span>{clockSeconds}</span>
+              </div>
+            )}
             {isActor && clockSeconds != null && (
               <div className={`native-clock${clockSeconds <= 5 ? ' hot' : ''}${x < 30 ? ' clock-right' : ''}`} aria-hidden="true">
                 {String(Math.min(99, clockSeconds)).split('').map((d, i) => (
@@ -1448,6 +1453,8 @@ export function TablePage({ tableId }: { tableId: string }) {
                 const onCard = pickable ? () => showCards([i])
                   : markable ? () => send({ type: 'show_at_end', tableId, cards: toggleShowMark(marks, i) })
                   : null;
+                // Your own cards land face down and you turn them over (the squeeze does its own reveal).
+                const heroPeel = p.isMe && !squeezeEnabled && c !== '??';
                 return (
                   <span
                     key={`${state?.handNo}-${p.seat}-${i}`}
@@ -1456,8 +1463,15 @@ export function TablePage({ tableId }: { tableId: string }) {
                     data-tip={pickable ? 'Show this card' : willShow ? 'Shown when the hand ends · tap to cancel' : markable ? 'Show this card when the hand ends' : undefined}
                   >
                     {willShow && <img className="show-mark" src="/assets/table/ui/ic-show-card.webp" alt="" />}
-                    <PlayingCard card={c} size="mini" dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
-                      style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
+                    {heroPeel ? (
+                      <span className="hero-peel" style={{ '--i': i, '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px` } as React.CSSProperties}>
+                        <PlayingCard card={c} size="mini" className={'peel-face ' + focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)} />
+                        <PlayingCard card="??" size="mini" className="peel-back" />
+                      </span>
+                    ) : (
+                      <PlayingCard card={c} size="mini" dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
+                        style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
+                    )}
                   </span>
                 );
               })}
