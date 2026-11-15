@@ -35,6 +35,7 @@ import './table-options.css';
 import './table-art.css';
 import './table-phone.css';
 import './table-phone-look.css';
+import './table-buttons.css';
 import './table-tips.css';
 
 createRoot(document.getElementById('root')!).render(
