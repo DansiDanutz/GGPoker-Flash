@@ -568,6 +568,7 @@ export class TournamentRoom {
       disconnected: player.disconnected,
       disconnectedAt: player.disconnectedAt,
       sittingOut: player.sittingOut,
+      sitOutNextHand: player.sitOutNextHand,
       away: player.away,
       awayChoice: player.awayChoice,
     };

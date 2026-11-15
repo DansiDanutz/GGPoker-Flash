@@ -302,3 +302,12 @@ also caught a tournament player moved to another table while disconnected,
 so the reconnect watched the old table and never reached the redirect; the
 player was blinded out. The rule now applies to cash tables only, and a
 tournament move keeps the player's remembered sit-out choice.
+
+## Appendix H: EGM round 7
+
+No CRITICAL. One HIGH candidate (pre-existing, not a regression), fixed:
+reloading the page after a cash-out bought in again from the URL's buy-in.
+The tab now remembers it held a seat (per-tab session storage, cleared on
+leaving the table), so a reload watches instead. A MEDIUM, also fixed: a
+tournament move now carries "sit out next hand", so a player dropped
+mid-hand is not dealt in at the new table.

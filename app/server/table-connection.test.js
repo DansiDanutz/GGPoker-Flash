@@ -35,7 +35,7 @@ test('while seated, the saved Auto-post choice follows the seat (switch, Post no
 
 test('a reconnect never buys in again after the seat was cashed out (EGM round 3)', () => {
   const index = fs.readFileSync(path.join(import.meta.dirname, 'index.js'), 'utf8');
-  assert.match(page, /type: 'join_table', tableId, buyin, observe, rejoin: everJoined\.current,/);
+  assert.match(page, /type: 'join_table', tableId, buyin, observe, rejoin: everJoined\.current/);
   assert.match(index, /const watchOnly = msg\.observe \|\| \(msg\.rejoin === true && !table\.tournament && !table\.seatOf\(ws\.userId\)\);/);
   assert.match(index, /if \(watchOnly\) \{/);
 });
@@ -45,4 +45,14 @@ test('a tournament reconnect is never turned into watching: the redirect to the 
   assert.match(index, /const watchOnly = msg\.observe \|\| \(msg\.rejoin === true && !table\.tournament && !table\.seatOf\(ws\.userId\)\);/);
   const room = fs.readFileSync(path.join(import.meta.dirname, 'tournament-room.js'), 'utf8');
   assert.match(room, /away: player\.away,\s*awayChoice: player\.awayChoice,/, 'a moved seat keeps the sit-out choice it had');
+});
+
+test('a page reload after a cash-out does not buy in again (EGM round 7)', () => {
+  const lib = fs.readFileSync(path.join(import.meta.dirname, '..', 'src/lib/seatSession.ts'), 'utf8');
+  assert.match(lib, /sessionStorage/, 'per-tab: survives a reload, not a new tab');
+  assert.match(page, /rejoin: everJoined\.current \|\| wasSeatedHere\(tableId\),/);
+  assert.match(page, /if \(!msg\.observe\) markSeatedHere\(tableId\);/);
+  assert.match(page, /clearSeatedHere\(tableId\);/);
+  const room = fs.readFileSync(path.join(import.meta.dirname, 'tournament-room.js'), 'utf8');
+  assert.match(room, /sitOutNextHand: player\.sitOutNextHand,/, 'a move mid-drop still sits the player out');
 });

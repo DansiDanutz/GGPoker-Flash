@@ -15,6 +15,7 @@ import { createSqueezePanel } from '../game/squeeze';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
 import { heroHoldsHand, showdownComplete, showdownPlan } from '../game/showdown';
 import { readJoinWaitForBlinds, saveJoinWaitForBlinds } from '../game/tableOptions';
+import { clearSeatedHere, markSeatedHere, wasSeatedHere } from '../lib/seatSession';
 import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
 import { seatNick, isAllInStatus } from '../game/seatLabel';
 import { autoTopUpAmount } from '../lib/autoTopUp';
@@ -312,7 +313,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     wsRef.current = ws;
     ws.onopen = () => {
       setConnected(true);
-      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe, rejoin: everJoined.current, seat: seatParam != null ? Number(seatParam) : null, waitForBlinds: joinWaitRef.current }));
+      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe, rejoin: everJoined.current || wasSeatedHere(tableId), seat: seatParam != null ? Number(seatParam) : null, waitForBlinds: joinWaitRef.current }));
     };
     ws.onmessage = (ev) => {
       let msg: any;
@@ -346,6 +347,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         setReservation({ seat: msg.seat, until: msg.until });
       } else if (msg.type === 'joined') {
         everJoined.current = true;
+        if (!msg.observe) markSeatedHere(tableId);
         setMySeat(msg.seat);
         if (msg.observe) setObserving(true); else {
           setObserving(false);
@@ -646,6 +648,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         window.setTimeout(() => ws.close(), 100);
       } else if (ws) ws.close();
       wsRef.current = null;
+      // Leaving the page in the app (not a reload, which runs no cleanup) ends this tab's seat.
+      clearSeatedHere(tableId);
     };
   }, [connect, tableId, userKey]);
 
@@ -835,6 +839,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const leave = () => {
     send({ type: 'leave_table' });
     everJoined.current = false;
+    clearSeatedHere(tableId);
     sound.play('click');
     navigate('/');
   };
