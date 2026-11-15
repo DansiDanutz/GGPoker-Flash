@@ -43,6 +43,8 @@ import './table-confirm.css';
 import './table-topbar-history.css';
 import './table-tips.css';
 import './table-reactions.css';
+import './table-phone-pots.css';
+import './table-phone-clock.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>
