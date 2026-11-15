@@ -1,0 +1,55 @@
+/* Table buttons in strong, distinct colours so they never blend into the green felt or the dark
+   panel: red Fold, bright green Call/Check, bright gold Raise/All-in, cream bet presets, light
+   Chat/React pills, and ringed side icons. Each has a light edge and a solid shadow so it reads as
+   something to press. Loaded after table-art.css, which drew these as dark artwork. */
+
+/* Action buttons: solid fills replace the dark 9-slice art. */
+.table-screen .action-bar .act-btn {
+  border-image: none; border: 2px solid; border-radius: 16px;
+  font-weight: 800; letter-spacing: .01em;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, .45), 0 8px 18px rgba(0, 0, 0, .55);
+}
+.table-screen .action-bar .act-btn.act-fold {
+  background: linear-gradient(#ef5a5f, #b81f2a); border-color: #ffb4b7; color: #fff;
+  text-shadow: 0 1px 2px rgba(80, 0, 0, .6);
+}
+.table-screen .action-bar .act-btn.act-check,
+.table-screen .action-bar .act-btn.act-call {
+  background: linear-gradient(#3ee07a, #139447); border-color: #b2ffcc; color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 60, 20, .7);
+}
+.table-screen .action-bar .act-btn.act-raise,
+.table-screen .action-bar .act-btn.act-allin {
+  background: linear-gradient(#ffe07a, #f2a812); border-color: #fff4c4; color: #231400; text-shadow: none;
+}
+.table-screen .action-bar .act-btn:active:not(:disabled) {
+  transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, .45), 0 4px 10px rgba(0, 0, 0, .5);
+}
+/* Not your turn: same colours, clearly greyed, so it is obvious they cannot be pressed yet. */
+.table-screen .action-bar .act-btn:disabled { filter: saturate(.25) brightness(.62); box-shadow: none; }
+
+/* Bet presets: cream chips with dark text on the dark panel. */
+.table-screen .action-bar .quick-bets button {
+  border-image: none; border: 2px solid #fff3cf; border-radius: 12px;
+  background: linear-gradient(#fbefcc, #e2c47a); color: #1d1405; font-weight: 800;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .4);
+}
+.table-screen .action-bar .quick-bets button:active:not(:disabled),
+.table-screen .action-bar .quick-bets button[aria-pressed="true"] {
+  background: linear-gradient(#ffe07a, #f2a812); color: #231400; transform: translateY(2px); box-shadow: none;
+}
+.table-screen .action-bar .quick-bets button:disabled { filter: saturate(.3) brightness(.6); box-shadow: none; }
+
+/* Chat / React: light pills that stand off the felt. */
+.table-screen .tchat-toggle {
+  background: #f4ead2; border: 2px solid #fff; color: #1a1408; font-weight: 800;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .55);
+}
+.table-screen .tchat-toggle:hover:not(:disabled),
+.table-screen .tchat-toggle[aria-expanded="true"] { background: #ffe07a; border-color: #fff4c4; color: #231400; }
+
+/* Side icons (sit out, add chips, history): a dark disc with a gold ring behind each icon. */
+.table-screen .dock-btn {
+  opacity: 1; background: rgba(10, 9, 7, .78); box-shadow: 0 0 0 2px #e8b84a, 0 4px 10px rgba(0, 0, 0, .6);
+}
+.table-screen .dock-btn.on { box-shadow: 0 0 0 3px #fff2b8, 0 0 16px rgba(255, 210, 90, .85); }
