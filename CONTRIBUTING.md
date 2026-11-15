@@ -1,4 +1,8 @@
-# Contributing to DanGG
+# Contributing to OpenPoker
+
+Contributions here target the shared OpenPoker software. DanGG.live is the first
+official implementation; preserve the distinction between the upstream project and
+an operator's service branding and deployment configuration.
 
 Fork the repository, create a topic branch and open a pull request against `main`.
 Describe the change and verification. Preserve authors, copyright notices and

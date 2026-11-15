@@ -1,13 +1,20 @@
-# DanGG
+# OpenPoker
 
-**Play-money poker room — live at [dangg.live](https://dangg.live).**
+**Open source play-money poker software — first official implementation at [DanGG.live](https://dangg.live).**
 
-DanGG is a working, server-authoritative poker room with committed DanGG assets and
-local graphics/audio generators: a React 19 + TypeScript client,
+OpenPoker is the public upstream software project developed from DanGG. DanGG.live
+is its first official implementation, with its own service name and visual identity.
+The existing Git history, authorship and license notices remain part of the project.
+
+The current codebase includes the DanGG-branded reference client, committed DanGG
+assets and local graphics/audio generators: a React 19 + TypeScript client,
 a Node.js/SQLite game server, real-time WebSocket tables, a signed Electron desktop
 shell, and an installable phone app (PWA) for Android and iPhone.
 
-[![CI](https://github.com/DansiDanutz/GGPoker-Flash/actions/workflows/ci.yml/badge.svg)](https://github.com/DansiDanutz/GGPoker-Flash/actions/workflows/ci.yml)
+Independent operators can build on OpenPoker under its [software license](docs/LICENSING.md)
+and use their own service identity; see the [brand policy](TRADEMARKS.md).
+
+[![CI](https://github.com/OpenPoker4all/OpenPoker/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenPoker4all/OpenPoker/actions/workflows/ci.yml)
 
 > **Play money only.** No real-money deposits, withdrawals or cash value. Not affiliated
 > with GGPoker. See [licensing](docs/LICENSING.md) for AGPL-3.0-only, retained MIT
@@ -34,6 +41,9 @@ shell, and an installable phone app (PWA) for Android and iPhone.
 ---
 
 ## Live service
+
+This section documents the existing DanGG.live deployment of OpenPoker. Its domain,
+branding, desktop app name and operational identifiers belong to that implementation.
 
 | | |
 |---|---|
@@ -358,8 +368,10 @@ Every push to `main` and every pull request runs the **CI** workflow
 | **Server tests** | `node --test server/*.test.js` (155 tests) |
 | **Typecheck and build** | `tsc --noEmit`, then `vite build` |
 
-`main` is protected by the `protect-main` ruleset: both checks are required, force-pushes
-and branch deletion are refused. Changes land through a pull request
+The required `protect-main` policy for `main` requires both checks and blocks
+force-pushes and branch deletion. Verify this policy after transferring repository
+ownership; source-only imports and standalone copies need their own repository settings.
+Changes land through a pull request
 (`git switch -c …`, push, `gh pr create`, `gh pr checks --watch`, `gh pr merge --squash`).
 Full detail: [`docs/CI.md`](docs/CI.md).
 

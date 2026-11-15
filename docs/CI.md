@@ -55,14 +55,19 @@ the job needs no install step.
 
 ## Branch protection
 
-`main` is guarded by the `protect-main` ruleset (id `27057638`):
+The required policy for `main` is a `protect-main` ruleset:
 
 - deleting the branch is refused;
 - force-pushing is refused;
 - **Server tests** and **Typecheck and build** are required status checks.
 
-Because the required checks can only run after a commit exists, direct pushes
-to `main` are refused with `2 of 2 required status checks are expected`.
+After transferring ownership, verify that this policy is active in
+`OpenPoker4all/OpenPoker` before merging. Source-only imports and standalone copies
+need their own repository settings because Git history does not contain rulesets.
+Look up the ruleset in the current repository rather than assuming a saved ID.
+
+With this policy active, the required checks can only run after a commit exists,
+so direct pushes to `main` are refused with `2 of 2 required status checks are expected`.
 Changes therefore land through a pull request:
 
 ```bash
@@ -77,7 +82,7 @@ gh pr merge --squash
 
 ## Emergency bypass
 
-There is no bypass actor. An admin who genuinely must push directly has to
+The normal policy has no bypass actor. An admin who genuinely must push directly has to
 disable the ruleset from **Settings → Rules → `protect-main`** for the duration
 of the push, then restore it to *Active* immediately.
 
@@ -87,7 +92,9 @@ rules off entirely. Because re-enabling by hand is easy to get wrong, capture
 the current definition before changing it:
 
 ```bash
-gh api repos/DansiDanutz/GGPoker-Flash/rulesets/27057638 > /tmp/protect-main.json
+ruleset_id="$(gh api repos/OpenPoker4all/OpenPoker/rulesets --jq '.[] | select(.name == "protect-main") | .id')"
+: "${ruleset_id:?The protect-main ruleset must exist before this step}"
+gh api "repos/OpenPoker4all/OpenPoker/rulesets/$ruleset_id" > /tmp/protect-main.json
 ```
 
 That file is the authoritative record of the rules to restore, including the

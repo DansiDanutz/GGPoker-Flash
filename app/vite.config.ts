@@ -18,7 +18,7 @@ const GIT_SHA = String(process.env.GIT_SHA || execFileSync('git', ['rev-parse', 
 if (!/^[0-9a-f]{40}$/.test(GIT_SHA)) throw new Error('GIT_SHA must identify the full source commit');
 const COMMIT = GIT_SHA;
 // Independent operators must point this at their own public corresponding source.
-const SOURCE_REPOSITORY = (process.env.SOURCE_REPOSITORY || 'https://github.com/DansiDanutz/GGPoker-Flash').replace(/\/$/, '');
+const SOURCE_REPOSITORY = (process.env.SOURCE_REPOSITORY || 'https://github.com/OpenPoker4all/OpenPoker').replace(/\/$/, '');
 if (!/^https:\/\/[^\s?#]+$/.test(SOURCE_REPOSITORY)) throw new Error('SOURCE_REPOSITORY must be an HTTPS repository URL');
 const SOURCE_URL = `${SOURCE_REPOSITORY}/tree/${COMMIT}`;
 
