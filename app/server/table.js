@@ -585,6 +585,7 @@ export class PokerTable {
     if (this.spinStarted()) this.applySpinBlinds();
 
     this.handNo++;
+    this.handReturns = new Map();
     this.markMissedBlinds();
     this.deck = shuffle(makeDeck(this.shortDeck));
     this.board = [];
@@ -1296,15 +1297,24 @@ export class PokerTable {
       ...this.ghosts.filter((g) => g.totalBet > 0).map((g) => ({ key: g, amount: g.totalBet, folded: true })),
     ];
     const { pots, returns } = buildPots(contributions);
+    this.handReturns = new Map();
     // Dead money rule: chips a player folded are never returned, whether the folder is still
     // seated (a Rush quick fold) or has left; their unmatched layer joins the top pot. Only a
     // live player's unmatched layer goes back to them.
     for (const r of returns) {
       const p = live.find((x) => x.id === r.key);
-      if (p && (!p.folded || !pots.length)) { p.stack += r.amount; this.pot -= r.amount; }
+      if (p && (!p.folded || !pots.length)) {
+        p.stack += r.amount; this.pot -= r.amount;
+        this.handReturns.set(p.id, (this.handReturns.get(p.id) || 0) + r.amount);
+      }
       else if (pots.length) pots[pots.length - 1].amount += r.amount;
     }
     return pots;
+  }
+
+  /** What a player really put into this hand's pots: their bets less any unmatched layer handed back. */
+  investedBy(p) {
+    return p.totalBet - (this.handReturns?.get(p.id) || 0);
   }
 
   // Give back the part of the largest bet that nobody matched, so it is never raked or contested.
@@ -1480,11 +1490,13 @@ export class PokerTable {
         const prior = results.find((r) => r.id === w.player.id);
         if (prior) {
           prior.amount += amt;
+          prior.contested = prior.contested || eligible.length > 1;
           prior.boards = [...new Set([...(prior.boards || []), boardIndex])];
         } else {
           results.push({
             id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt,
             hand: w.name, cards: w.cards.map(cardStr), board: boardIndex, boards: [boardIndex],
+            contested: eligible.length > 1, invested: this.investedBy(w.player),
           });
         }
       }
@@ -1580,7 +1592,7 @@ export class PokerTable {
     const summary = {
       pot: this.pot,
       rake,
-      winners: winner ? [{ id: winner.id, nick: winner.nick, amount: award, hand: null }] : [],
+      winners: winner ? [{ id: winner.id, nick: winner.nick, amount: award, hand: null, contested: false, invested: this.investedBy(winner) }] : [],
       board: this.board.map(cardStr),
       reason: 'fold',
     };
@@ -1640,6 +1652,7 @@ export class PokerTable {
         results.push({
           id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt,
           hand: w.name, cards: w.cards.map(cardStr), pot: pot.amount, potIndex,
+          contested: pot.eligible.length > 1, invested: this.investedBy(w.player),
         });
       }
     }

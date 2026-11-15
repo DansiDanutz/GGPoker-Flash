@@ -13,7 +13,7 @@ import { betLimits, potOdds, sizingPresets, sliderTarget, type BetContext } from
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
-import { WIN_BANNER_MS, heroHoldsHand, showdownComplete, showdownPlan } from '../game/showdown';
+import { WIN_BANNER_MS, heroHoldsHand, heroWon, showdownComplete, showdownPlan } from '../game/showdown';
 import { ALLIN_SPARKS } from '../game/allinFx';
 import { readJoinWaitForBlinds, saveJoinWaitForBlinds } from '../game/tableOptions';
 import { clearSeatedHere, markSeatedHere, wasSeatedHere } from '../lib/seatSession';
@@ -557,7 +557,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       window.setTimeout(() => sound.play('gather', { volume: .6 }), fxAt + 450);
       const heroId = stateRef.current?.players.find((p) => p.isMe)?.id;
       const mine = (evt.winners || []).filter((x: any) => x.id === heroId);
-      if (mine.length) {
+      if (heroWon(mine)) {
         const total = mine.reduce((a: number, x: any) => a + (x.amount || 0), 0);
         window.setTimeout(() => {
           setWinFx({ id: fxId.current++, amount: total, nick: mine[0].nick });
