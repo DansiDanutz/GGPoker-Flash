@@ -280,7 +280,7 @@ const MIME = {
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
   '.png': 'image/png', '.gif': 'image/gif', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
   '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
-  '.ico': 'image/x-icon', '.wasm': 'application/wasm',
+  '.ico': 'image/x-icon', '.wasm': 'application/wasm', '.txt': 'text/plain; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
 
@@ -290,7 +290,8 @@ function serveFile(req, res, file) {
   const headers = {
     ...SECURITY_HEADERS,
     ...(ext === '.html' ? { 'content-security-policy': HTML_CSP } : {}),
-    'content-type': MIME[ext] || 'application/octet-stream',
+    // Extensionless static files are the legal texts (LICENSE): show them, do not download them.
+    'content-type': MIME[ext] || (ext === '' ? 'text/plain; charset=utf-8' : 'application/octet-stream'),
     'accept-ranges': 'bytes',
     // The service worker must be revalidated so a deploy can replace it.
     'cache-control': ext === '.html' || path.basename(file) === 'sw.js' ? 'no-store' : 'public, max-age=3600',

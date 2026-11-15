@@ -34,13 +34,18 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws')) return;
+  // Licence and notices are plain files, not the app: leave them to the browser.
+  if (url.pathname.startsWith('/legal/')) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(VERSION).then((cache) => cache.put(SHELL, copy)).catch(() => undefined);
+          // Only a real app page may become the offline shell, never a file or an error page.
+          if (response.ok && (response.headers.get('content-type') || '').includes('text/html')) {
+            const copy = response.clone();
+            caches.open(VERSION).then((cache) => cache.put(SHELL, copy)).catch(() => undefined);
+          }
           return response;
         })
         .catch(() => caches.match(SHELL).then((hit) => hit || Response.error()))
