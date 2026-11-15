@@ -9,19 +9,24 @@ export const CHAT_SENDER_INTERVAL_MS = 1000;
 export const DEALER_NICK = 'Dealer';
 export const DEALER_KEYS_LIMIT = 500;
 
-// Reaction allowlist (Codex: three shipped client emoticons, integer IDs 1–3).
-// `glyph` keeps the current client's emoji rendering working until the artwork lands (C2/C3).
-export const REACTIONS = Object.freeze({
-  1: Object.freeze({ id: 1, label: 'Angry', glyph: '😠' }),
-  2: Object.freeze({ id: 2, label: 'Listening', glyph: '👂' }),
-  3: Object.freeze({ id: 3, label: 'Laughing', glyph: '😂' }),
-});
+// Reaction allowlist: integer IDs 1-12 in sticker-sheet order (IDs 1-3 are the Codex originals).
+// `glyph` keeps older clients' emoji rendering working; new clients show the sticker art.
+const REACTION_LIST = [
+  [1, 'Angry', '😠'], [2, 'Thinking', '🤔'], [3, 'Laughing', '😂'], [4, 'Nice hand', '👍'],
+  [5, 'Clap', '👏'], [6, 'Crying', '😢'], [7, 'Shocked', '😱'], [8, 'Cool', '😎'],
+  [9, 'Fish', '🐟'], [10, 'Shark', '🦈'], [11, 'On fire', '🔥'], [12, 'Ship it', '💰'],
+];
+export const REACTIONS = Object.freeze(Object.fromEntries(
+  REACTION_LIST.map(([id, label, glyph]) => [id, Object.freeze({ id, label, glyph })]),
+));
 
 // Legacy `emote` frames carry a glyph; map the ones that match a reaction, drop the rest.
 const LEGACY_EMOTES = Object.freeze({
   '😠': 1, '😡': 1, '🤬': 1, '😤': 1,
   '👂': 2, '🎧': 2, '🤔': 2,
   '😂': 3, '🤣': 3, '😆': 3, '😄': 3,
+  '👍': 4, '👏': 5, '😢': 6, '😭': 6, '😱': 7, '😮': 7, '😎': 8,
+  '🐟': 9, '🐠': 9, '🦈': 10, '🔥': 11, '💰': 12, '🚢': 12,
 });
 
 // C0 (Cc) controls, plus bidi overrides/isolates that can visually reorder a line.

@@ -40,12 +40,12 @@ test('validateChat trims, strips control characters and keeps 1–280 characters
 });
 
 test('validateReaction accepts only allowlisted integer IDs', () => {
-  for (const id of [1, 2, 3]) {
+  for (let id = 1; id <= 12; id++) {
     const res = validateReaction(id);
     assert.equal(res.ok, true);
     assert.equal(res.reaction.id, id);
   }
-  for (const bad of ['1', '2', 1.5, 0, 4, -1, NaN, Infinity, null, undefined, [1], {}, { id: 1 }, true, 'toString', '__proto__']) {
+  for (const bad of ['1', '2', 1.5, 0, 13, -1, NaN, Infinity, null, undefined, [1], {}, { id: 1 }, true, 'toString', '__proto__']) {
     assert.equal(validateReaction(bad).ok, false, String(JSON.stringify(bad)));
   }
 });
@@ -54,7 +54,9 @@ test('legacy emote glyphs map to reaction IDs; others are dropped', () => {
   assert.equal(reactionIdForEmote('😂'), 3);
   assert.equal(reactionIdForEmote('😡'), 1);
   assert.equal(reactionIdForEmote('👂'), 2);
-  assert.equal(reactionIdForEmote('🐟'), null);
+  assert.equal(reactionIdForEmote('🐟'), 9);
+  assert.equal(reactionIdForEmote('🔥'), 11);
+  assert.equal(reactionIdForEmote('🍕'), null);
   assert.equal(reactionIdForEmote('constructor'), null);
   assert.equal(reactionIdForEmote(3), null);
 });
@@ -203,4 +205,15 @@ test('dealer lines never touch the player sender limiter', () => {
   service.handleFrame(other, { type: 'chat', tableId: 't1', message: 'hi' });
   assert.equal(other.sent.at(-1).event.message, 'hi', 'dealer lines did not consume another sender\'s slot');
   assert.equal(other.sent.at(-1).event.kind, 'chat');
+});
+
+test('twelve reactions, the same list on server and client, in sticker-sheet order', async () => {
+  const { REACTIONS: client } = await import('../src/lib/tableChat.ts');
+  const { REACTIONS: server } = await import('./chat.js');
+  assert.equal(client.length, 12);
+  assert.deepEqual(client.map((r) => [r.id, r.label]), Object.values(server).map((r) => [r.id, r.label]));
+  assert.deepEqual(client.map((r) => r.label), [
+    'Angry', 'Thinking', 'Laughing', 'Nice hand', 'Clap', 'Crying',
+    'Shocked', 'Cool', 'Fish', 'Shark', 'On fire', 'Ship it',
+  ]);
 });

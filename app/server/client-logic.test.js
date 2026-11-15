@@ -553,7 +553,7 @@ test('chat frames parse into lines; unknown reactions and malformed rows are dro
   const r = reactionLineFrom({ reactionId: 3, userId: 2, nick: 'A', at: 8 });
   assert.equal(r.text, 'Laughing');
   assert.equal(r.kind, 'reaction');
-  for (const bad of ['3', 4, null, 1.5]) assert.equal(reactionLineFrom({ reactionId: bad, userId: 2, at: 1 }), null);
+  for (const bad of ['3', 13, 0, null, 1.5]) assert.equal(reactionLineFrom({ reactionId: bad, userId: 2, at: 1 }), null);
 });
 
 test('chat counter shows only in the last 40 characters; sender role marks self', () => {
