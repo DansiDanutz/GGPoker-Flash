@@ -167,9 +167,9 @@ test('short deck: a flush beats a full house and A-6-7-8-9 is a straight', () =>
   const full = score5(['Kh', 'Kd', 'Kc', '9s', '9d'].map(C), true);
   assert.ok(compareScores(flush, full) > 0);
   const wheel = score5(['As', '6d', '7c', '8h', '9s'].map(C), true);
-  assert.equal(wheel[0], 4);
+  assert.equal(wheel[0], 3, 'a straight, which ranks under three of a kind in Short Deck');
   assert.equal(wheel[1], 9);
-  assert.notEqual(score5(['As', '2d', '3c', '4h', '5s'].map(C), true)[0], 4);
+  assert.notEqual(score5(['As', '2d', '3c', '4h', '5s'].map(C), true)[0], 3);
   assert.equal(score5(['As', '6d', '7c', '8h', '9s'].map(C), false)[0], 0, 'not a straight in a full deck');
   assert.equal(bestHoldem(['Ah', 'Kh'].map(C), ['9h', '7h', '6h', 'Kd', 'Kc'].map(C), true).name, 'Flush');
 });

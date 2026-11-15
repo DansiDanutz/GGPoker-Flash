@@ -89,7 +89,7 @@ const RULES_TEXT: Record<RulesFamily, string[]> = {
   ],
   shortdeck: [
     "Short Deck (6+ Hold'em) removes the 2s through 5s, leaving a 36-card deck. Each player gets two hole cards and plays like Hold'em.",
-    'With fewer cards per suit, a flush is rarer and beats a full house. The lowest straight is A-6-7-8-9.',
+    'With fewer cards in the deck, a flush beats a full house and three of a kind beats a straight. The lowest straight is A-6-7-8-9.',
   ],
   aof: [
     'All-in or Fold is No-Limit Hold\'em where the only choices are to fold or to move all-in. When someone is already all-in you can call.',
@@ -102,7 +102,7 @@ const RULES_TEXT: Record<RulesFamily, string[]> = {
 };
 
 const SHORT_DECK_RANKS = [
-  'Royal flush', 'Straight flush', 'Four of a kind', 'Flush', 'Full house', 'Straight', 'Three of a kind', 'Two pair', 'One pair', 'High card',
+  'Royal flush', 'Straight flush', 'Four of a kind', 'Flush', 'Full house', 'Three of a kind', 'Straight', 'Two pair', 'One pair', 'High card',
 ];
 
 export function gameRules(gameOrTab: string, table: LobbyTable | null = null): GameRules {
