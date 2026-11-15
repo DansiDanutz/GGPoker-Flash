@@ -13,7 +13,7 @@ import { betLimits, potOdds, sizingPresets, sliderTarget, type BetContext } from
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
-import { heroHoldsHand, showdownComplete, showdownPlan } from '../game/showdown';
+import { WIN_BANNER_MS, heroHoldsHand, showdownComplete, showdownPlan } from '../game/showdown';
 import { readJoinWaitForBlinds, saveJoinWaitForBlinds } from '../game/tableOptions';
 import { clearSeatedHere, markSeatedHere, wasSeatedHere } from '../lib/seatSession';
 import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
@@ -560,7 +560,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         const total = mine.reduce((a: number, x: any) => a + (x.amount || 0), 0);
         window.setTimeout(() => {
           setWinFx({ id: fxId.current++, amount: total, nick: mine[0].nick });
-          window.setTimeout(() => setWinFx(null), 2600);
+          window.setTimeout(() => setWinFx(null), WIN_BANNER_MS);
         }, fxAt);
       }
       if (Array.isArray(evt.cards)) sound.play('show', { volume: .5 });

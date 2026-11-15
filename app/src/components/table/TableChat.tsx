@@ -126,16 +126,25 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
         </section>
       )}
       <div className="tchat-buttons">
-        <button type="button" className="tchat-toggle" aria-expanded={open}
+        <button type="button" className="tchat-toggle" aria-expanded={open} data-tip="Table chat"
           aria-label={unread ? `Chat, ${unread} unread` : 'Chat'}
           onClick={open ? store.close : store.open}>
-          Chat
+          <svg className="tchat-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5v-8Z" fill="currentColor" />
+            <circle cx="8.5" cy="9.5" r="1.3" fill="#fbefcc" /><circle cx="12" cy="9.5" r="1.3" fill="#fbefcc" /><circle cx="15.5" cy="9.5" r="1.3" fill="#fbefcc" />
+          </svg>
           {unread > 0 && !open && <span className="tchat-badge" aria-hidden="true">{unreadLabel}</span>}
         </button>
         <span className="tchat-react-wrap">
           <button type="button" className="tchat-toggle" disabled={readOnly} aria-haspopup="menu" aria-expanded={pickerOpen}
-            title={readOnly ? 'Spectators cannot react' : 'Send a reaction'}
-            onClick={() => setPickerOpen((v) => !v)}>React</button>
+            aria-label="React" data-tip={readOnly ? 'Spectators cannot react' : 'Send a reaction'}
+            onClick={() => setPickerOpen((v) => !v)}>
+            <svg className="tchat-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.5" fill="currentColor" />
+              <circle cx="8.8" cy="10" r="1.4" fill="#fbefcc" /><circle cx="15.2" cy="10" r="1.4" fill="#fbefcc" />
+              <path d="M7.6 13.6a4.8 4.8 0 0 0 8.8 0" fill="none" stroke="#fbefcc" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
           {pickerOpen && <ReactionPicker onPick={onReact} onClose={closePicker} />}
         </span>
       </div>

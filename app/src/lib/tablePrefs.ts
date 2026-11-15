@@ -2,7 +2,9 @@ export type BetValue = number | 'pot' | 'max';
 export type BetPrefs = { opening: BetValue[]; normal: BetValue[] };
 export const OPENING_CHOICES: BetValue[] = [2, 2.5, 3, 3.5, 4, 4.5, 5, 'pot'];
 export const NORMAL_CHOICES: BetValue[] = [33, 50, 66, 75, 80, 90, 100, 'max'];
-export const DEFAULT_BETS: BetPrefs = { opening: [2, 3, 4, 'pot'], normal: [33, 50, 75, 100] };
+/** The table shows three bet presets per row. */
+export const PRESET_COUNT = 3;
+export const DEFAULT_BETS: BetPrefs = { opening: [2, 3, 'pot'], normal: [50, 75, 100] };
 export const CARD_BACKS = [
   { id: 'red-pattern', label: 'Red pattern' },
   { id: 'blue-pattern', label: 'Blue pattern' },
@@ -19,7 +21,7 @@ export type CardBack = (typeof CARD_BACKS)[number]['id'];
 export function readBetPrefs(): BetPrefs {
   try {
     const p = JSON.parse(localStorage.getItem('ggpoker.betPrefs') || '');
-    if (Array.isArray(p?.opening) && p.opening.length === 4 && Array.isArray(p?.normal) && p.normal.length === 4) {
+    if (Array.isArray(p?.opening) && p.opening.length === PRESET_COUNT && Array.isArray(p?.normal) && p.normal.length === PRESET_COUNT) {
       if (p.opening.every((v: any) => OPENING_CHOICES.includes(v)) && p.normal.every((v: any) => NORMAL_CHOICES.includes(v))) return p;
     }
   } catch { /* use defaults */ }
