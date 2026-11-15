@@ -1,0 +1,15 @@
+/* Phone (portrait) table: the main and side pots sit in one centred row above the total pot,
+   like GGPoker mobile. Below the board they landed on the hero's cards in an all-in. The chip
+   art is dropped here: the total pot already shows the chips, the row only needs the amounts. */
+.table-screen .table-stage.stage-portrait .live-pots {
+  top: auto; bottom: calc(100% + 30px); margin: 0; height: auto;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 6px; padding: 0 24px;
+}
+.table-screen .table-stage.stage-portrait .live-pot { position: static; transform: none !important; }
+.table-screen .table-stage.stage-portrait .live-pot .pot-chips.live { display: none; }
+.table-screen .table-stage.stage-portrait .live-pot-label {
+  font-size: 12px; padding: 2px 9px; border-color: rgba(232, 184, 74, .55);
+}
+.table-screen .table-stage.stage-portrait .live-pot.main .live-pot-label {
+  color: #231400; background: linear-gradient(#ffe07a, #f2a812); border-color: #e8b84a;
+}

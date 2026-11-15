@@ -1,0 +1,7 @@
+/* Phone (portrait) table: an opponent's countdown sits centred on top of their seat, so it reads
+   as theirs. Beside the seat it floated out on the felt, far from the player it belongs to. */
+.table-screen .table-stage.stage-portrait .seat .native-clock {
+  left: 50%; right: auto; top: auto; bottom: calc(100% - 4px); transform: translateX(-50%);
+  width: 46px; height: 20px; z-index: 12;
+}
+.table-screen .table-stage.stage-portrait .seat .native-clock .clock-digit { height: 15px; }
