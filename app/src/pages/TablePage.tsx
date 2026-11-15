@@ -14,6 +14,7 @@ import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_F
 import { createSqueezePanel } from '../game/squeeze';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
 import { WIN_BANNER_MS, heroHoldsHand, showdownComplete, showdownPlan } from '../game/showdown';
+import { ALLIN_SPARKS } from '../game/allinFx';
 import { readJoinWaitForBlinds, saveJoinWaitForBlinds } from '../game/tableOptions';
 import { clearSeatedHere, markSeatedHere, wasSeatedHere } from '../lib/seatSession';
 import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
@@ -1203,7 +1204,18 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {cashDrop && <CashDropBanner drop={cashDrop} />}
 
-      {allInFx && <div className="allin-flash"><span>ALL IN</span></div>}
+      {allInFx && (
+        <div className="allin-flash" role="status" aria-label="All in">
+          <div className="allin-plaque">
+            <img className="allin-flare allin-flare-l" src="/assets/table/ui/fx-flare-left.webp" alt="" />
+            <img className="allin-line" src="/assets/table/ui/fx-divider.webp" alt="" />
+            <span className="allin-word">All in</span>
+            <img className="allin-line" src="/assets/table/ui/fx-divider.webp" alt="" />
+            <img className="allin-flare allin-flare-r" src="/assets/table/ui/fx-flare-right.webp" alt="" />
+          </div>
+          {ALLIN_SPARKS.map((s, i) => <i key={i} className="allin-spark" style={{ '--a': `${s.a}deg`, '--r': `${s.r}px`, '--d': `${s.d}s` } as React.CSSProperties} />)}
+        </div>
+      )}
 
       {menuOpen && (
         <div className="table-menu" onClick={() => setMenuOpen(false)}>
