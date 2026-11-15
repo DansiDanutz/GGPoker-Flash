@@ -1,0 +1,60 @@
+/* Your cards arrive the way real ones do: the dealer pitches them one after the other and each
+   lands face down; then you lift the near edge and turn them over, the second after the first.
+   (The squeeze, when it is on, does its own reveal.) Individual translate/rotate/scale carry the
+   pitch and `transform` the turn, so the two motions combine. */
+.table-screen .seat.me .hero-peel {
+  display: block; position: relative;
+  animation: heroPitch .45s cubic-bezier(.2, .85, .3, 1.05) both, heroTurn .6s cubic-bezier(.45, 0, .25, 1) both;
+  animation-delay: calc(var(--i) * .3s), calc(.8s + var(--i) * .45s);
+}
+.table-screen .seat.me .hero-peel .peel-back {
+  position: absolute; top: 0; left: 0; margin: 0;
+  /* Turned once more so it reads the right way round while the card is face down. It lies over
+     the face until the card is edge-on, then it is gone. No backface hiding: the fade-in flattens
+     the 3D context, and the back would then count as facing away and vanish. */
+  transform: rotateY(180deg);
+  animation: peelBackAway .6s linear both; animation-delay: calc(.8s + var(--i) * .45s);
+}
+@keyframes peelBackAway { 0%, 64.9% { opacity: 1; } 65%, 100% { opacity: 0; } }
+@keyframes heroPitch {
+  from { opacity: 0; translate: var(--dx, 40px) var(--dy, -40px); rotate: -14deg; scale: .6; }
+  to { opacity: 1; translate: 0 0; rotate: 0deg; scale: 1; }
+}
+/* Lift the near edge a little, then turn the card over towards you; it is edge-on at 65%. */
+@keyframes heroTurn {
+  0% { transform: perspective(700px) translateY(0) rotateX(0) rotateY(180deg); }
+  30% { transform: perspective(700px) translateY(-12px) rotateX(14deg) rotateY(180deg); }
+  65% { transform: perspective(700px) translateY(-8px) rotateX(8deg) rotateY(90deg); }
+  100% { transform: perspective(700px) translateY(0) rotateX(0) rotateY(0deg); }
+}
+.anim-off .seat.me .hero-peel,
+.table-screen.cards-off .seat.me .hero-peel { animation: none; }
+.anim-off .seat.me .hero-peel .peel-back,
+.table-screen.cards-off .seat.me .hero-peel .peel-back { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .table-screen .seat.me .hero-peel { animation: none; }
+  .table-screen .seat.me .hero-peel .peel-back { display: none; }
+}
+
+/* Your turn: a round badge beside your portrait counts the seconds down; its gold ring fills green
+   as the time goes, and turns red with five seconds left. It replaces the arc and the digit clock
+   on your seat. */
+.table-screen .seat .turn-badge { display: none; }
+@media (max-width: 760px) and (orientation: portrait) {
+  .table-screen .table-stage.stage-portrait .seat.me.active:not(.folded) .avatar-wrap::after,
+  .table-screen .table-stage.stage-portrait .seat.me .native-clock { display: none; }
+  .table-screen .table-stage.stage-portrait .seat.me .turn-badge {
+    display: grid; place-items: center; position: absolute; z-index: 4;
+    right: calc(50% + 44px); bottom: 12px; width: 52px; height: 52px; border-radius: 50%;
+    background:
+      radial-gradient(circle, #1b1712 0 68%, #5a3a06 69% 71%, transparent 72%),
+      conic-gradient(var(--used, #3ee07a) 0 calc((1 - var(--turn, 1)) * 360deg), #e8b84a 0);
+    box-shadow: 0 0 0 1.5px #5a3a06, 0 0 14px rgba(255, 196, 70, .55), 0 4px 10px rgba(0, 0, 0, .6);
+  }
+  .table-screen .table-stage.stage-portrait .seat.me .turn-badge span {
+    font: 800 21px/1 system-ui, sans-serif; color: #ffd36a; font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+  }
+  .table-screen .table-stage.stage-portrait .seat.me .turn-badge.hot { --used: #ff4d4d; }
+  .table-screen .table-stage.stage-portrait .seat.me .turn-badge.hot span { color: #ff6b6b; }
+}

@@ -1418,6 +1418,11 @@ export function TablePage({ tableId }: { tableId: string }) {
             onClick={() => { if (p.nick) openNote(p); }}
             title={p.nick ? 'Player note' : ''}
           >
+            {isActor && p.isMe && !p.folded && clockSeconds != null && (
+              <div className={'turn-badge' + (clockSeconds <= 5 ? ' hot' : '')} role="timer" aria-label={`${clockSeconds} seconds left`}>
+                <span>{clockSeconds}</span>
+              </div>
+            )}
             {isActor && clockSeconds != null && (
               <div className={`native-clock${clockSeconds <= 5 ? ' hot' : ''}${x < 30 ? ' clock-right' : ''}`} aria-hidden="true">
                 {String(Math.min(99, clockSeconds)).split('').map((d, i) => (
@@ -1436,6 +1441,8 @@ export function TablePage({ tableId }: { tableId: string }) {
                 const [px, py] = seatPosOf(p.seat!);
                 const shown = (p.shown || []).includes(i);
                 const pickable = p.isMe && canShowCards && c !== '??' && !shown;
+                // Your own cards land face down and you turn them over (the squeeze does its own reveal).
+                const heroPeel = p.isMe && !squeezeEnabled && c !== '??';
                 return (
                   <span
                     key={`${state?.handNo}-${p.seat}-${i}`}
@@ -1443,8 +1450,15 @@ export function TablePage({ tableId }: { tableId: string }) {
                     onClick={pickable ? (ev) => { ev.stopPropagation(); showCards([i]); } : undefined}
                     data-tip={pickable ? 'Show this card' : undefined}
                   >
-                    <PlayingCard card={c} size="mini" dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
-                      style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
+                    {heroPeel ? (
+                      <span className="hero-peel" style={{ '--i': i, '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px` } as React.CSSProperties}>
+                        <PlayingCard card={c} size="mini" className={'peel-face ' + focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)} />
+                        <PlayingCard card="??" size="mini" className="peel-back" />
+                      </span>
+                    ) : (
+                      <PlayingCard card={c} size="mini" dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
+                        style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
+                    )}
                   </span>
                 );
               })}
