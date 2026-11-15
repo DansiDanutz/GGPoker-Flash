@@ -65,3 +65,13 @@ test('short phones lay the slider flat in the panel instead, so it never covers 
   assert.match(short, /::after \{ display: none; \}/);
   assert.match(short, /writing-mode: horizontal-tb;/);
 });
+
+test('the turn timer is a thin ring hugging the portrait that drains with the clock, red when short', () => {
+  const s = look();
+  assert.match(rule(s, '.table-screen .table-stage.stage-portrait .seat .timer'), /display: none;/);
+  const ring = rule(s, '.table-screen .table-stage.stage-portrait .seat.active:not(.folded) .avatar-wrap::after');
+  assert.match(ring, /conic-gradient\(var\(--ring, #ffd36a\) calc\(var\(--turn, 1\) \* 360deg\)/);
+  assert.match(s, /\.seat\.active\.hot \.avatar-wrap::after \{ --ring: #ff4d4d; \}/);
+  // The seat carries the countdown so the ring can read it.
+  assert.match(read('src/pages/TablePage.tsx'), /\.\.\.\(isActor \? \{ '--turn': timerPct \} : \{\}\)/);
+});

@@ -16,6 +16,18 @@
   .table-screen .table-stage.stage-portrait .seat .avatar-wrap .face > * { width: 100%; height: 100%; object-fit: cover; font-size: 26px; }
   .table-screen .table-stage.stage-portrait .seat.active .avatar-wrap { box-shadow: 0 0 0 3px #ffd36a, 0 0 16px rgba(255, 196, 70, .7); }
   .table-screen .table-stage.stage-portrait .seat.folded .avatar-wrap { filter: grayscale(.85) brightness(.6); }
+  /* Turn timer: a ring hugging the portrait that drains clockwise from the top (--turn on the
+     seat runs 1 -> 0), red when time is short. The seat-sized ring does not fit this layout. */
+  .table-screen .table-stage.stage-portrait .seat .timer { display: none; }
+  .table-screen .table-stage.stage-portrait .seat.active:not(.folded) .avatar-wrap::after {
+    content: ''; position: absolute; inset: -6px; z-index: 3; border-radius: 50%; pointer-events: none;
+    background: conic-gradient(var(--ring, #ffd36a) calc(var(--turn, 1) * 360deg), rgba(0, 0, 0, .45) 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+    filter: drop-shadow(0 0 4px rgba(255, 196, 70, .6));
+  }
+  .table-screen .table-stage.stage-portrait .seat.active.urgent .avatar-wrap::after,
+  .table-screen .table-stage.stage-portrait .seat.active.hot .avatar-wrap::after { --ring: #ff4d4d; }
 
   /* Opponents' cards: a small fan peeking out above the portrait, behind it. */
   .table-screen .table-stage.stage-portrait .seat:not(.me) .cards {
