@@ -17,14 +17,14 @@
   }
 
   /* ---- scroll containers -------------------------------------------------------------- */
-  .mh, .mg, .me, .mc {
+  .mh, .mg, div.me:not(.seat), .mc {
     flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
     background: var(--ph-bg); color: #f1f1f1;
     padding-bottom: calc(var(--ph-nav-h) + 28px + env(safe-area-inset-bottom, 0px));
     -webkit-overflow-scrolling: touch; scrollbar-width: none;
   }
-  .mh::-webkit-scrollbar, .mg::-webkit-scrollbar, .me::-webkit-scrollbar, .mc::-webkit-scrollbar { display: none; }
-  .mh button, .mg button, .me button, .mc button { font: inherit; color: inherit; text-align: left; }
+  .mh::-webkit-scrollbar, .mg::-webkit-scrollbar, div.me:not(.seat)::-webkit-scrollbar, .mc::-webkit-scrollbar { display: none; }
+  .mh button, .mg button, div.me:not(.seat) button, .mc button { font: inherit; color: inherit; text-align: left; }
 
   /* ---- icon tab bar ------------------------------------------------------------------- */
   .mobile-nav {
