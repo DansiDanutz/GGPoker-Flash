@@ -62,6 +62,7 @@ import { tournamentGame, tournamentLobby } from './tournament-lobby.js';
 
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
+import { createMarketplaceRoutes } from './marketplace.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
@@ -551,6 +552,7 @@ const handleAdminChatRoute = createAdminChatRoutes({
 const handleAdminAuditRoute = createAdminAuditRoute({ db, json, requireAdmin });
 const handleAdminTransactionsRoute = createAdminTransactionsRoute({ db, json, requireAdmin });
 const handleAdminUsersListRoute = createAdminUsersListRoute({ db, json, requireAdmin, publicUser });
+const handleMarketplaceRoute = createMarketplaceRoutes({ db, json, requireUser, requireAdmin, readBody });
 // Snapshots go to the OS temp dir (override with GGPOKER_BACKUP_TMP); never inside DATA_DIR.
 const handleAdminBackupRoute = createAdminBackupRoute({
   db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
@@ -1310,6 +1312,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
+    if (await handleMarketplaceRoute(req, res, url)) return;
     if (p === '/healthz') {
       return json(res, 200, buildHealthSummary({
         versionInfo: appVersionInfo(),

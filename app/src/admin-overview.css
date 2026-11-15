@@ -1,0 +1,21 @@
+.admin-owner-overview { margin: 0 0 28px; padding: 24px; border: 1px solid #e7c27333; border-radius: 18px; background: radial-gradient(ellipse at 100% 0, #a97b2020, transparent 60%), #111214; }
+.admin-owner-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+.admin-owner-eyebrow { color: #e7c273; font-size: 10px; font-weight: 700; letter-spacing: .18em; }
+.admin-owner-heading h1 { margin: 10px 0; font-size: clamp(23px, 2.3vw, 34px); letter-spacing: -.04em; line-height: 1.2; color: #fff2d1; }
+.admin-owner-heading p { color: #b5b2aa; font-size: 13px; line-height: 1.7; max-width: 560px; }
+.admin-public-link { flex: 0 0 auto; padding: 11px 14px; border: 1px solid #e7c27355; border-radius: 8px; color: #f2d78d; font-size: 12px; text-decoration: none; }
+.admin-area-search { display: flex; flex-direction: column; gap: 7px; max-width: 440px; margin: 20px 0 16px; color: #c1beb5; font-size: 12px; }
+.admin-area-search input { width: 100%; padding: 11px 13px; border: 1px solid #444139; border-radius: 8px; background: #090a0c; color: #f2f0eb; font: inherit; }
+.admin-area-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.admin-area-card { min-width: 0; display: grid; grid-template-columns: 28px 1fr; gap: 6px 9px; padding: 15px; text-align: left; border: 1px solid #343331; border-radius: 10px; background: #191a1c; color: #c8c6c0; transition: border-color .2s, background .2s; }
+.admin-area-card:hover { border-color: #d8b15f; background: #24221b; }
+.admin-area-card.is-featured { background: linear-gradient(135deg, #49371c55, #1a1a18); border-color: #c6a35688; }
+.admin-area-card strong { font-size: 13px; align-self: center; color: #f6ead1; }
+.admin-area-icon { grid-row: span 3; font-size: 19px; }
+.admin-area-card > span:not(.admin-area-icon) { font-size: 11px; line-height: 1.6; }
+.admin-area-card small { color: #d9ba78; font-size: 10px; margin-top: 5px; }
+.admin-access-error { margin-bottom: 16px; padding: 16px; background: #311d1d; color: #f1c1b3; border: 1px solid #a24e3b; border-radius: 10px; line-height: 1.7; font-size: 13px; }
+.admin-access-error p { margin: 5px 0; }
+.admin-area-card:focus-visible, .admin-public-link:focus-visible, .admin-area-search input:focus-visible { outline: 2px solid #f4d68d; outline-offset: 3px; }
+@media (max-width: 1100px) { .admin-area-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin-owner-heading { flex-direction: column; } }
+@media (max-width: 520px) { .admin-owner-overview { padding: 16px; } .admin-area-grid { grid-template-columns: 1fr; } }

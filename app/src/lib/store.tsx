@@ -6,6 +6,7 @@ import { subscribePrefs } from './prefsSync';
 import { applyMotionPref } from './motion';
 import { restoreAccountSettings } from './settingsStore';
 import { landingRoute } from './phoneNav';
+import { marketplaceAuthDestination, resolveEntryRoute } from './entryRoute';
 import { isPhoneLayout } from './useIsPhone';
 import { completeInstall, installPending, isPhone, isStandalone, markInstallPending, skipInstall, subscribeInstall } from './install';
 
@@ -84,8 +85,7 @@ const Ctx = createContext<AppState | null>(null);
 const landing = () => landingRoute(isPhoneLayout());
 
 function currentRoute() {
-  const h = window.location.hash.replace(/^#/, '');
-  return h || landing();
+  return resolveEntryRoute(window.location.hash, window.location.pathname, window.location.search, landing());
 }
 
 /** True only after this browser session has passed the login/guest screen. */
@@ -116,6 +116,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [splashDone, setSplashDone] = useState(false);
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useState(currentRoute());
+  const routeRef = useRef(route);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [soundOn, setSoundOn] = useState(sound.enabled);
   const [animations, setAnimations] = useState(() => localStorage.getItem('ggpoker.animations') !== '0');
@@ -126,8 +127,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const toastId = useRef(1);
 
   const navigate = useCallback((to: string) => {
+    if (!window.dispatchEvent(new CustomEvent('dangg:before-navigate', { cancelable: true, detail: { to } }))) return;
     const commit = () => {
       if (window.location.hash !== '#' + to) window.history.pushState(null, '', '#' + to);
+      routeRef.current = to;
       flushSync(() => setRoute(to));
       window.scrollTo(0, 0);
     };
@@ -142,9 +145,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const onHash = () => setRoute(currentRoute());
+    const onHash = () => {
+      const next = currentRoute();
+      if (next === routeRef.current) return;
+      if (!window.dispatchEvent(new CustomEvent('dangg:before-navigate', { cancelable: true, detail: { to: next } }))) {
+        // A same-document Back/hash transition cannot use beforeunload. Restore the
+        // current route when its form guard declines to discard unsaved work.
+        window.history.pushState(null, '', '#' + routeRef.current);
+        return;
+      }
+      routeRef.current = next;
+      setRoute(next);
+    };
     window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    window.addEventListener('popstate', onHash);
+    return () => {
+      window.removeEventListener('hashchange', onHash);
+      window.removeEventListener('popstate', onHash);
+    };
   }, []);
 
   const refreshUser = useCallback(async (attempts = 1) => {
@@ -181,8 +199,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Every fresh app open goes to the login screen. The saved credentials
       // stay on the device, but the old session does not survive the reopen.
       if (!enteredThisSession()) {
-        setToken(null);
-        localStorage.removeItem('ggpoker.guest');
+        // The public catalog can be opened in a separate tab. It must not erase
+        // the shared token used by an administrator working in the original tab.
+        if (currentRoute().split('?')[0] !== '/marketplace') {
+          setToken(null);
+          localStorage.removeItem('ggpoker.guest');
+        }
         setGuest(false);
         setUser(null);
         setLoading(false);
@@ -330,6 +352,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [installGate]);
 
   const login = useCallback(async (loginId: string, pw: string) => {
+    const returnTo = marketplaceAuthDestination(currentRoute());
     const res = await api.login(loginId, pw);
     markEntered();
     setToken(res.token);
@@ -339,10 +362,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // The account's saved settings follow the player to this device (newer copy wins).
     api.me().then((me) => restoreAccountSettings(me.settings))
       .catch((error) => console.warn('Could not load account settings', error));
-    navigate(landing());
+    if (returnTo) navigate(returnTo);
+    else navigate(landing());
   }, [navigate]);
 
   const register = useCallback(async (data: { login: string; nick: string; password: string; email?: string }) => {
+    const returnTo = marketplaceAuthDestination(currentRoute());
     const res = await api.register(data);
     markEntered();
     setToken(res.token);
@@ -355,7 +380,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       markInstallPending();
       setInstallGate(true);
     }
-    navigate(landing());
+    if (returnTo) navigate(returnTo);
+    else navigate(landing());
   }, [navigate]);
 
   const logout = useCallback(async () => {

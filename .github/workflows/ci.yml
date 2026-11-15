@@ -73,3 +73,16 @@ jobs:
 
       - name: Verify build source and distributed notices
         run: node tools/verify-source-build.mjs
+
+      - name: Verify marketplace in Chrome
+        timeout-minutes: 5
+        run: node tools/marketplace-browser-smoke.mjs
+
+      - name: Upload marketplace browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketplace-browser-${{ github.run_id }}
+          path: app/artifacts/marketplace-browser/
+          if-no-files-found: ignore
+          retention-days: 7

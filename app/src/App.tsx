@@ -26,6 +26,7 @@ import { LoadingScreen } from './components/splash/LoadingScreen';
 import { Reconnect } from './pages/Reconnect';
 import { FirstLaunch } from './components/FirstLaunch';
 import { QuickMenu } from './components/QuickMenu';
+import { Marketplace } from './pages/Marketplace';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
   const desktop = typeof window !== 'undefined' && !!(window as any).ggDesktop;
@@ -91,6 +92,10 @@ export default function App() {
       default: return <ComingSoon title="Not found" />;
     }
   }, [route, loading]);
+
+  // The catalog is public and has its own layout, loading state and account controls.
+  // Viewing it never creates a guest player or requires installation of the poker app.
+  if (route.split('?')[0] === '/marketplace') return <Marketplace />;
 
   if (!splashDone || loading) {
     return (
