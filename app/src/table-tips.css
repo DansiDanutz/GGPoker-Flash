@@ -41,3 +41,6 @@
 .table-screen .dock-btn[data-tip]:hover::after,
 .table-screen .dock-btn[data-tip]:focus-visible::after,
 .table-screen .dock-btn[data-tip].tip-hold::after { transform: translate(0, 0); }
+/* The seat clocks keep their own placement and take the pointer so "Timer" can show. */
+.table-screen .native-clock[data-tip] { position: absolute; pointer-events: auto; }
+.table-screen .native-clock[data-tip]::after { font-family: system-ui, sans-serif; }
