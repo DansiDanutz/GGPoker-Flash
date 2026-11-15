@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const sha = (process.env.GIT_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' })).trim().toLowerCase();
-const repository = (process.env.SOURCE_REPOSITORY || 'https://github.com/DansiDanutz/GGPoker-Flash').replace(/\/$/, '');
+const repository = (process.env.SOURCE_REPOSITORY || 'https://github.com/OpenPoker4all/OpenPoker').replace(/\/$/, '');
 const version = JSON.parse(fs.readFileSync('dist/version.json', 'utf8'));
 assert.equal(version.commit, sha);
 assert.equal(version.source, `${repository}/tree/${sha}`);

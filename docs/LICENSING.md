@@ -1,4 +1,9 @@
-# DanGG licensing
+# OpenPoker licensing
+
+OpenPoker is the upstream software project developed from DanGG. DanGG.live is its
+first official implementation. The project name and the service name identify
+different roles; this naming change preserves the existing authorship, license
+history and third-party notices.
 
 ## New versions: AGPL-3.0-only
 
@@ -6,13 +11,14 @@ Copyright (c) 2026 Semenescu Dan and the respective contributors.
 Versions containing this transition use GNU Affero General Public License version 3
 only (`AGPL-3.0-only`), subject to retained MIT and third-party notices below.
 The complete [LICENSE](../LICENSE) is unmodified, including its standard appendix;
-the appendix's example does not grant an “or later” option for DanGG.
+the appendix's example does not grant an “or later” option for OpenPoker or the
+DanGG implementation.
 The software comes without warranty as described in the license.
 
 ## Historical MIT rights
 
 The public MIT baseline is
-[`6024afeb9da6e0f6bb436442dec2c5cef4523c4c`](https://github.com/DansiDanutz/GGPoker-Flash/tree/6024afeb9da6e0f6bb436442dec2c5cef4523c4c).
+[`6024afeb9da6e0f6bb436442dec2c5cef4523c4c`](https://github.com/OpenPoker4all/OpenPoker/tree/6024afeb9da6e0f6bb436442dec2c5cef4523c4c).
 Its exact LICENSE is preserved in [LICENSES/MIT-legacy.txt](../LICENSES/MIT-legacy.txt).
 Previously published MIT code and versions remain MIT, including permission to use,
 modify, distribute, sublicense and sell under its conditions. This transition does
@@ -23,12 +29,17 @@ contributions use AGPL-3.0-only. Authors retain their copyright.
 ## Commercial hosting, forks and source
 
 AGPL permits commercial use, paid hosting and competing forks that comply with it.
-It does not require pull requests to DanGG. When conveying covered software, comply
+It does not require pull requests to OpenPoker. When conveying covered software, comply
 with the applicable notice, license and source requirements, especially sections 4–6.
 Under section 13, a modified version must prominently offer all users interacting
 with it remotely over a computer network an opportunity to receive its Corresponding
 Source without charge through a standard or customary means of copying software.
 The license controls; an unrelated or older upstream source link is insufficient.
+
+These requirements also apply to covered modifications used by DanGG. Keeping a
+deployment repository private does not remove an applicable source-offer obligation.
+The offered source must match the deployed version, including its covered changes;
+an OpenPoker upstream link is sufficient only when it provides that source.
 
 The login footer links source and software license without an account or subscription.
 `dist/version.json` records the full commit and source URL compiled into the client;

@@ -1,4 +1,4 @@
-# Production image for the DanGG.ro game server and web client.
+# Production image for the DanGG implementation of OpenPoker.
 # Build context: repository root (see deploy/compose.yml).
 FROM node:26-bookworm-slim AS build
 
@@ -13,7 +13,7 @@ RUN pnpm install --frozen-lockfile
 COPY app/ ./
 # The commit being deployed; written to dist/version.json and reported by /healthz.
 ARG GIT_SHA=""
-ARG SOURCE_REPOSITORY="https://github.com/DansiDanutz/GGPoker-Flash"
+ARG SOURCE_REPOSITORY="https://github.com/OpenPoker4all/OpenPoker"
 ENV SOURCE_REPOSITORY=$SOURCE_REPOSITORY
 RUN GIT_SHA="$GIT_SHA" pnpm build
 
