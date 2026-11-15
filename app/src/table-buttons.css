@@ -40,11 +40,15 @@
 }
 .table-screen .action-bar .quick-bets button:disabled { filter: saturate(.3) brightness(.6); box-shadow: none; }
 
-/* Chat / React: light pills that stand off the felt. */
+/* Chat / React: round light icon buttons (speech bubble, smiley) that stand off the felt. */
 .table-screen .tchat-toggle {
+  width: 40px; height: 40px; padding: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
   background: #f4ead2; border: 2px solid #fff; color: #1a1408; font-weight: 800;
   box-shadow: 0 3px 8px rgba(0, 0, 0, .55);
 }
+.table-screen .tchat-toggle .tchat-icon { width: 24px; height: 24px; display: block; }
+.table-screen .tchat-toggle .tchat-badge { position: absolute; top: -4px; right: -4px; }
 .table-screen .tchat-toggle:hover:not(:disabled),
 .table-screen .tchat-toggle[aria-expanded="true"] { background: #ffe07a; border-color: #fff4c4; color: #231400; }
 
