@@ -1604,14 +1604,14 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}
         {pendingBet && (
-          <div className="action-row" style={{ background: 'rgba(217,168,60,.12)', borderTop: '1px solid #d9a83c', padding: '8px 10px' }}>
-            <span style={{ flex: 1, color: '#ffd98a', fontSize: 13 }}>
+          <div className="action-row confirm-row" role="alertdialog" aria-label="Confirm bet">
+            <span className="confirm-text">
               Confirm {pendingBet.action === 'allin' ? 'all in for' : (state?.currentBet || 0) > 0 ? 'raise to' : 'bet'}{' '}
               {amt(pendingBet.amount)}?
             </span>
-            <button className="btn btn-gold btn-sm" onClick={() => { const b = pendingBet; setPendingBet(null); act(b.action, b.amount); }}>Confirm</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setPendingBet(null)}>Cancel</button>
-            <button className="btn btn-ghost btn-sm" title="Bet now and stop asking; turn it back on in Table options" onClick={() => { const b = pendingBet; setPendingBet(null); setConfirmBets(false); act(b.action, b.amount); toast({ kind: 'info', title: 'Bet confirmation off', body: 'Turn it back on in Table options (gear).' }); }}>Don't ask again</button>
+            <button className="btn confirm-ok" onClick={() => { const b = pendingBet; setPendingBet(null); act(b.action, b.amount); }}>Confirm</button>
+            <button className="btn confirm-cancel" onClick={() => setPendingBet(null)}>Cancel</button>
+            <button className="btn confirm-skip" title="Bet now and stop asking; turn it back on in Table options" onClick={() => { const b = pendingBet; setPendingBet(null); setConfirmBets(false); act(b.action, b.amount); toast({ kind: 'info', title: 'Bet confirmation off', body: 'Turn it back on in Table options (gear).' }); }}>Don't ask again</button>
           </div>
         )}
         {canShowCards && (
