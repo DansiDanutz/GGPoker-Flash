@@ -3,6 +3,9 @@
  * cards turn in seat order over roughly two seconds, then the win badge and
  * pot move follow.
  */
+/** How long the hero's WIN banner stays up after the pot moves. */
+export const WIN_BANNER_MS = 2600;
+
 export type ShowdownReveal = { seat: number; at: number };
 
 export function showdownPlan(seats: number[], firstSeat?: number | null): ShowdownReveal[] {
