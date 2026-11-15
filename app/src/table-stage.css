@@ -1,0 +1,124 @@
+/* Table stage: one rail box (836:454, measured from the skins) that holds the felt, seats, pot,
+   board, bets and table animations. TablePage sizes it to fit between the top bar and the action bar.
+   Loaded last so it replaces the older screen-percent table rules. */
+
+.table-screen .room-mark { background-image: none; }
+.table-screen.room-bg-floor .room-mark { background: url('/assets/tables/room_floor.png') center bottom / 100% auto no-repeat; opacity: .7; }
+
+.table-stage { position: absolute; }
+
+/* The skin: the 1024px square source, placed so its rail matches the stage, fading into the room. */
+.table-stage::before {
+  content: ''; position: absolute; left: 50%; top: 50%; z-index: 1; pointer-events: none;
+  width: 122.49%; aspect-ratio: 1;
+  transform: translate(-50%, -50%) translate(0, 14.99%);
+  background: url('/assets/tables/skins/featured.webp') center / 100% 100% no-repeat;
+  -webkit-mask-image: radial-gradient(ellipse 47% 27% at 50% 35%, #000 88%, transparent 100%);
+  mask-image: radial-gradient(ellipse 47% 27% at 50% 35%, #000 88%, transparent 100%);
+}
+.room-bg-5ring .table-stage::before { background-image: url('/assets/tables/skins/5ring.webp'); }
+.room-bg-envelope .table-stage::before { background-image: url('/assets/tables/skins/envelope.webp'); }
+.room-bg-supercircuit .table-stage::before { background-image: url('/assets/tables/skins/supercircuit.webp'); }
+.room-bg-mystery .table-stage::before { background-image: url('/assets/tables/skins/mystery.webp'); }
+.room-bg-plo5envelope .table-stage::before { background-image: url('/assets/tables/skins/plo5envelope.webp'); }
+.room-bg-plo6super .table-stage::before { background-image: url('/assets/tables/skins/plo6super.webp'); }
+.room-bg-dark .table-stage::before { background-image: url('/assets/tables/skins/dark.webp'); }
+
+/* Felt colour: the chosen theme tints the skin's own felt (cut to its exact shape). Green keeps the skin. */
+.table-screen .table-stage .felt {
+  position: absolute; left: 50%; top: 50%; right: auto; bottom: auto; z-index: 1;
+  width: 89.713%; height: 81.057%;
+  transform: translate(-50%, -50%);
+  border-radius: 0; border: 0; box-shadow: none;
+  -webkit-mask: url('/assets/tables/felt-mask.png') center / 100% 100% no-repeat;
+  mask-image: url('/assets/tables/felt-mask.png');
+  mask-size: 100% 100%; mask-repeat: no-repeat; mask-position: center;
+  mix-blend-mode: color; opacity: .9; pointer-events: none;
+}
+.table-screen .table-stage .felt::after { display: none; }
+.table-screen.theme-green .table-stage .felt { opacity: 0; }
+
+/* Upright phones: the same skin turned a quarter so the long side runs down the screen. */
+/* Mirrored skins (top rail = bottom rail) so the upright table is symmetric left to right. */
+.table-stage.stage-portrait::before {
+  width: 225.55%;
+  transform: translate(-50%, -50%) rotate(90deg) translate(0, 14.99%);
+  background-image: url('/assets/tables/skins/portrait/featured.webp');
+}
+.room-bg-5ring .table-stage.stage-portrait::before { background-image: url('/assets/tables/skins/portrait/5ring.webp'); }
+.room-bg-envelope .table-stage.stage-portrait::before { background-image: url('/assets/tables/skins/portrait/envelope.webp'); }
+.room-bg-supercircuit .table-stage.stage-portrait::before { background-image: url('/assets/tables/skins/portrait/supercircuit.webp'); }
+.room-bg-mystery .table-stage.stage-portrait::before { background-image: url('/assets/tables/skins/portrait/mystery.webp'); }
+.room-bg-plo5envelope .table-stage.stage-portrait::before { background-image: url('/assets/tables/skins/portrait/plo5envelope.webp'); }
+.room-bg-plo6super .table-stage.stage-portrait::before { background-image: url('/assets/tables/skins/portrait/plo6super.webp'); }
+.room-bg-dark .table-stage.stage-portrait::before { background-image: url('/assets/tables/skins/portrait/dark.webp'); }
+.table-screen .table-stage.stage-portrait .felt {
+  width: 165.2%; height: 44.02%;
+  transform: translate(-50%, -50%) rotate(90deg);
+  -webkit-mask-image: url('/assets/tables/felt-mask-portrait.png');
+  mask-image: url('/assets/tables/felt-mask-portrait.png');
+}
+
+/* Live brand mark and table name on the felt (the skins carry no baked text). */
+.table-stage .table-watermark { z-index: 2; }
+.table-screen .table-stage .stage-mark {
+  top: 71%; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  white-space: nowrap; font-size: 11px; letter-spacing: 3px; color: rgba(245, 221, 162, .16); text-shadow: none;
+}
+.table-stage .stage-mark b { font-size: 34px; letter-spacing: 6px; font-weight: 700; color: rgba(245, 221, 162, .1); }
+.table-stage.stage-portrait .stage-mark { top: 58%; font-size: 10px; }
+.table-stage.stage-portrait .stage-mark b { font-size: 28px; }
+
+/* ---- Upright phones: compact GGPoker-style seats that sit on the felt ---- */
+.table-screen .table-stage.stage-portrait .seat { width: 96px; gap: 0; }
+.table-screen .table-stage.stage-portrait .seat .avatar-wrap { width: 54px; height: 54px; }
+.table-screen .table-stage.stage-portrait .seat .avatar-wrap .seat-ring { width: 54px; height: 54px; }
+/* Opponents' cards fan over the top of the avatar instead of stacking above it. */
+.table-screen .table-stage.stage-portrait .seat:not(.me) .cards { position: relative; z-index: 3; margin-bottom: -26px; }
+.table-screen .table-stage.stage-portrait .seat .cards .pcard.mini { width: 36px; height: 50px; }
+.table-screen .table-stage.stage-portrait .seat .plate {
+  position: relative; z-index: 4; width: 94px; min-width: 0; margin-top: -8px; padding: 2px 4px; text-align: center;
+}
+.table-screen .table-stage.stage-portrait .seat .plate .nm { max-width: 86px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table-screen .table-stage.stage-portrait .seat .plate .st { font-size: 12.5px; font-weight: 800; }
+.table-screen .table-stage.stage-portrait .seat.me { width: 120px; }
+.table-screen .table-stage.stage-portrait .seat.me .avatar-wrap,
+.table-screen .table-stage.stage-portrait .seat.me .avatar-wrap .seat-ring { width: 58px; height: 58px; }
+.table-screen .table-stage.stage-portrait .seat.me .cards { margin-bottom: -10px; position: relative; z-index: 3; }
+.table-screen .table-stage.stage-portrait .seat.me .cards .pcard.mini { width: 56px; height: 78px; }
+.table-screen .table-stage.stage-portrait .table-center { width: 92%; }
+.table-screen .table-stage.stage-portrait .board { gap: 4px; }
+.table-screen .table-stage.stage-portrait .board > .pcard { width: 56px; height: 78px; }
+
+/* The leaderboard ribbon folds to a one-line pill on upright phones so it never covers a seat. */
+@media (max-width: 760px) and (orientation: portrait), (max-height: 520px) and (orientation: landscape) {
+  .table-screen .daily-lb:not(.open) { width: auto; max-width: 132px; }
+  .table-screen .daily-lb:not(.open) .daily-lb-ribbon { display: block; padding: 3px 9px; border-radius: 999px; }
+  .table-screen .daily-lb:not(.open) .daily-lb-stat { display: none; }
+  .table-screen .daily-lb:not(.open) .daily-lb-title { font-size: 10px; }
+}
+
+/* Pre-action boxes (Check/Fold, Fold to any bet, Call): readable text that fits its frame, at a
+   height that leaves the table room. The native frame art stays. */
+.table-screen .reserved-actions button { width: 168px; height: 44px; border-width: 11px; font: 600 14px/1 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.table-screen .reserved-actions .reserve-text { left: 18px; top: 0; width: calc(100% - 18px); height: 22px; line-height: 22px; overflow: hidden; text-overflow: ellipsis; }
+.table-screen .reserved-actions button:before { left: -3px; top: 1px; width: 18px; height: 18px; }
+.table-screen .reserved-actions button[aria-pressed="true"]:after { left: -1px; top: 5px; width: 15px; height: 11px; }
+@media (max-width: 620px), (max-height: 520px) and (orientation: landscape) {
+  .table-screen .reserved-actions button { width: 31%; max-width: 150px; height: 38px; border-width: 9px; font-size: 12.5px; }
+  .table-screen .reserved-actions .reserve-text { height: 20px; line-height: 20px; }
+}
+
+/* ---- Short landscape phones: the same compact seats as upright phones ---- */
+.table-screen .table-stage.stage-short .seat { width: 92px; gap: 0; flex-direction: column; }
+.table-screen .table-stage.stage-short .seat .avatar-wrap,
+.table-screen .table-stage.stage-short .seat .avatar-wrap .seat-ring { width: 42px; height: 42px; }
+.table-screen .table-stage.stage-short .seat:not(.me) .cards { position: relative; z-index: 3; margin-bottom: -20px; }
+.table-screen .table-stage.stage-short .seat .cards .pcard.mini { width: 28px; height: 39px; }
+.table-screen .table-stage.stage-short .seat.me .cards .pcard.mini { width: 40px; height: 56px; }
+.table-screen .table-stage.stage-short .seat .plate { position: relative; z-index: 4; width: 90px; min-width: 0; margin-top: -6px; padding: 1px 4px; text-align: center; }
+.table-screen .table-stage.stage-short .seat .plate .nm { max-width: 82px; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table-screen .table-stage.stage-short .seat .plate .st { font-size: 11px; }
+
+.table-stage.stage-short .stage-mark { font-size: 8px; }
+.table-stage.stage-short .stage-mark b { font-size: 20px; letter-spacing: 4px; }

@@ -41,6 +41,8 @@ import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
 import { runChoice, runsLabel, type RunAsk } from '../game/runChoice';
+import { inward, seatLayout, type Spot } from '../game/tableStage';
+import { useTableStage } from '../components/table/useTableStage';
 import { BAD_BEAT_BANNER_MS, badBeatRows, type BadBeatHit } from '../game/badBeat';
 import { TB_CARD_SECONDS } from '../game/timeBankRules';
 import { canShowHand, showOptions } from '../game/showOptions';
@@ -99,30 +101,6 @@ const DEFAULT_ACTION_TIME_MS = 15000;
 const HOTKEY_HINT_KEYS = ['ggpoker.hotkeyHints'];
 const HOTKEY_MAP_KEYS = [HOTKEYS_KEY];
 const STACK_MODE_KEYS = ['ggpoker.stackMode'];
-
-const POS6 = [[50, 76], [12, 68], [16, 32], [50, 17], [84, 32], [88, 68]];
-const POS9 = [[50, 80], [26, 77], [10, 62], [11, 40], [29, 22], [50, 17], [71, 22], [89, 40], [90, 62]];
-// Portrait phones lose the bottom of the screen to the action bar, so the two
-// lowest seats move up to keep the hero's avatar, cards and stack visible.
-const POS6_PHONE = [[50, 65], [12, 63], [16, 31], [50, 17], [84, 31], [88, 63]];
-const POS9_PHONE = [[50, 68], [26, 69], [10, 58], [11, 38], [29, 21], [50, 16], [71, 21], [89, 38], [90, 58]];
-// Landscape phones are short: pull the top seat clear of the bar and drop the
-// hero above the action bar while leaving the pot and board room.
-const POS6_LANDSCAPE = [[50, 76], [13, 66], [17, 30], [50, 20], [83, 30], [87, 66]];
-const POS9_LANDSCAPE = [[50, 74], [26, 70], [10, 56], [11, 34], [29, 23], [50, 20], [71, 23], [89, 34], [90, 56]];
-
-function useLandscapePhone() {
-  const query = '(max-height: 520px) and (orientation: landscape)';
-  const [on, setOn] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const onChange = () => setOn(mq.matches);
-    onChange();
-    mq.addEventListener?.('change', onChange);
-    return () => mq.removeEventListener?.('change', onChange);
-  }, []);
-  return on;
-}
 
 function useNarrowScreen(maxWidth = 760) {
   // Also compact the ring on phones held sideways (short viewport, wide width).
@@ -268,6 +246,10 @@ export function TablePage({ tableId }: { tableId: string }) {
   const chipShuffleTimer = useRef<number | null>(null);
   const chipShuffleIdle = useRef<number | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  /** The rail box: seats, felt, pot and every table animation are laid out in its percentages. */
+  const stageRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef<Spot[]>(seatLayout(6, 'wide'));
+  const stageModeRef = useRef<'wide' | 'portrait'>('wide');
   const wsRef = useRef<WebSocket | null>(null);
   const stateRef = useRef<TableState | null>(null);
   const mySeatRef = useRef<number | null>(null);
@@ -407,7 +389,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [tableId, user]);
 
   const pushStack = (to: [number, number]) => {
-    const el = tableRef.current;
+    const el = stageRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     const stack = document.createElement('div');
@@ -429,11 +411,10 @@ export function TablePage({ tableId }: { tableId: string }) {
 
   // Street end: each wager slides from its seat anchor into the pot (native 400 ms, ease-out cubic).
   const collectWager = (seat: number) => {
-    const el = tableRef.current;
+    const el = stageRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const [x, y] = seatPosOf(seat);
-    const from: [number, number] = [x + (50 - x) * 0.2, y + (45 - y) * 0.2];
+    const from = inward(seatPosOf(seat), r, stageModeRef.current === 'portrait' ? 74 : r.height < 300 ? 54 : 120);
     const chipEl = document.createElement('div');
     chipEl.className = 'collect-chip';
     chipEl.style.left = `${(r.width * from[0]) / 100}px`;
@@ -449,7 +430,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const awardPot = (share: PayoutShare) => {
-    const el = tableRef.current;
+    const el = stageRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     const [ox, oy] = potOffset(share.potIndex, r.width);
@@ -479,7 +460,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const flyChips = (from: [number, number], to: [number, number], count = 3, color = '#d9a83c') => {
-    const el = tableRef.current;
+    const el = stageRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     for (let i = 0; i < count; i++) {
@@ -897,7 +878,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     const n = stateRef.current?.seats || 6;
     const base = mySeatRef.current ?? 0;
     const rel = (seat - base + n) % n;
-    const lay = n >= 7 ? POS9 : POS6;
+    const lay = layoutRef.current;
     const p = lay[rel % lay.length] || [50, 50];
     return [p[0], p[1]];
   };
@@ -916,12 +897,16 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [tableId, vpipHand]);
 
   const narrowScreen = useNarrowScreen();
-  const landscapePhone = useLandscapePhone();
-  const layout = state
-    ? state.seats >= 7
-      ? (narrowScreen ? (landscapePhone ? POS9_LANDSCAPE : POS9_PHONE) : POS9)
-      : (narrowScreen ? (landscapePhone ? POS6_LANDSCAPE : POS6_PHONE) : POS6)
-    : POS6;
+  const stage = useTableStage(tableRef, observing);
+  const layout = seatLayout(state?.seats || 6, stage.mode);
+  layoutRef.current = layout;
+  stageModeRef.current = stage.mode;
+  /** Px from a seat toward the felt centre for its bet, dealer disc and blind marker. */
+  const reach = stage.mode === 'portrait'
+    ? { bet: 74, dealer: 48, dealerSide: 40, blind: 50, blindSide: -34 }
+    : stage.short
+      ? { bet: 54, dealer: 40, dealerSide: 34, blind: 34, blindSide: -30 }
+      : { bet: 120, dealer: 92, dealerSide: 46, blind: 72, blindSide: -42 };
   const seatPos = (seat: number) => {
     const n = state?.seats || 6;
     const base = mySeatRef.current ?? 0;
@@ -1248,8 +1233,9 @@ export function TablePage({ tableId }: { tableId: string }) {
         <b>Rotate your device</b>
         <span>The table plays in landscape on tablets.</span>
       </div>
+      <div ref={stageRef} className={`table-stage stage-${stage.mode}${stage.short ? ' stage-short' : ''}`} style={{ left: stage.left, top: stage.top, width: stage.width, height: stage.height }}>
       <div className="felt" />
-      <div className="table-watermark" style={{ top: '34%', fontSize: 20, letterSpacing: 5 }}>{state?.name || ''}</div>
+      <div className="table-watermark stage-mark" aria-hidden="true"><b>DanGG</b><span>{state?.name || ''}</span></div>
       <div className="table-center">
         <div className="pot-stack">
           {chipShuffle ? (
@@ -1270,7 +1256,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           {!winFx && <div className="pot-label">Total Pot : {amt(state?.pot)}</div>}
         </div>
         {!winFx && livePots.length > 1 && <div className="live-pots">{livePots.map((amount, i) => {
-            const [x, y] = potOffset(i, tableRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);
+            const [x, y] = potOffset(i, stageRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);
             return (
               <div key={i} className={'live-pot' + (i === 0 ? ' main' : '')} style={{ transform: `translate(calc(-50% + ${x}px), ${y}px)` }}>
                 {i > 0 && <div className="pot-chips live" aria-hidden="true">
@@ -1355,7 +1341,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         return (
           <div
             key={p.seat}
-            className={'seat' + (p.isMe ? ' me' : '') + (landscapePhone && (y < 25 || y > 70) ? ' seat-row' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' + turnUrgencyClass(clockSeconds, !!p.isMe) : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
+            className={'seat' + (p.isMe ? ' me' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' + turnUrgencyClass(clockSeconds, !!p.isMe) : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
             style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default' }}
             onClick={() => { if (p.nick) openNote(p); }}
             title={p.nick ? 'Player note' : ''}
@@ -1425,27 +1411,19 @@ export function TablePage({ tableId }: { tableId: string }) {
       })}
 
       {state && state.button >= 0 && (() => {
-        const [x, y] = seatPos(state.button);
-        const rowSeat = landscapePhone && (y < 25 || y > 70);
-        const dx = rowSeat ? x + 13 : x + (x <= 50 ? 6.2 : -6.2);
-        const dy = rowSeat ? y : y + (y < 45 ? 4.5 : -4.5);
+        const [dx, dy] = inward(seatPos(state.button), stage, reach.dealer, reach.dealerSide);
         return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }} />;
       })()}
 
       {state && state.street !== 'idle' && ([['SB', state.sbSeat], ['BB', state.bbSeat]] as const).map(([label, seat]) => {
         if (seat == null || seat < 0) return null;
-        const [x, y] = seatPos(seat);
-        // Toward the felt centre from the seat, clear of the dealer disc.
-        const dx = x + (50 - x) * 0.2;
-        const dy = y + (45 - y) * 0.32;
+        // Toward the felt centre from the seat, on the other side from the dealer disc.
+        const [dx, dy] = inward(seatPos(seat), stage, reach.blind, reach.blindSide);
         return <div key={label} className={`blind-marker ${label.toLowerCase()}`} style={{ left: `${dx}%`, top: `${dy}%` }} aria-label={label === 'SB' ? 'Small blind' : 'Big blind'}>{label}</div>;
       })}
 
       {(state?.players || []).filter((p) => p && !p.empty && (p.bet || 0) > 0).map((p) => {
-        const [x, y] = seatPos(p.seat!);
-        const pull = narrowScreen ? 0.42 : 0.2;
-        const bx = x + (50 - x) * pull;
-        const by = y + (45 - y) * pull;
+        const [bx, by] = inward(seatPos(p.seat!), stage, reach.bet);
         const betCols = potChipLayout(p.bet || 0, state?.bb || 1, 4);
         return (
           <div key={'bet' + p.seat} className="table-bet" style={{ left: `${bx}%`, top: `${by}%` }}>
@@ -1465,6 +1443,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         const [x, y] = seatPos(f.seat);
         return <div key={f.id} className="float-chip" style={{ left: `${x}%`, top: `${y - 9}%` }}>{chip(f.amount)}</div>;
       })}
+
+      </div>
 
       <div className="squeeze-host" ref={squeezeHostRef} />
 
