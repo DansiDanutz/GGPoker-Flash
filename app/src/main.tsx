@@ -33,6 +33,7 @@ import './motion.css';
 import './table-stage.css';
 import './table-options.css';
 import './table-art.css';
+import './table-phone.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>
