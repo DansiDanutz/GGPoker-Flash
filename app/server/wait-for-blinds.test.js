@@ -89,6 +89,36 @@ test('waiting players on alternating seats come back within an orbit (Codex revi
   assert.ok(back, 'a waiting player is dealt back in instead of waiting forever');
 });
 
+test('a table never stalls on a player waiting for the big blind (EGM round 3)', () => {
+  const t = new PokerTable({ id: 'wb3', name: 'Wb3', game: 'holdem', sb: 1, bb: 2, seats: 2, min_buyin: 10, max_buyin: 1000 });
+  for (let i = 0; i < 2; i++) {
+    t.seats[i].player = { id: 'w' + i, nick: 'W' + i, stack: 100, isBot: false, sittingOut: false, inHand: false, cards: [], bet: 0, totalBet: 0 };
+  }
+  t.street = 'idle';
+  Object.assign(t.seats[1].player, { missedBlinds: true, waitForBlinds: true });
+  t.maybeStart();
+  assert.equal(t.street, 'preflop', 'with nobody else to play, the waiter is dealt in');
+  assert.equal(t.seats[1].player.inHand, true);
+  assert.equal(t.seats[1].player.missedBlinds, false, 'the blind is paid in this hand');
+});
+
+test('Wait for BB chosen before sitting applies from the first hand (EGM round 3)', () => {
+  const t = new PokerTable({ id: 'wb4', name: 'Wb4', game: 'holdem', sb: 1, bb: 2, seats: 5, min_buyin: 10, max_buyin: 1000, rakePercent: 0 });
+  t.nextHandAt = Date.now() + 1e9;
+  t.saveHand = () => {};
+  t.sit({ id: 'a', nick: 'A' }, 0, 100);
+  t.sit({ id: 'b', nick: 'B' }, 1, 100);
+  t.sit({ id: 'c', nick: 'C' }, 2, 100);
+  t.button = 2; t.nextHandAt = 0; t.startHand();
+  t.street = 'ended'; for (const s of t.seats) if (s.player) s.player.inHand = false;
+  t.nextHandAt = Date.now() + 1e9;
+  t.sit({ id: 'n', nick: 'New', waitForBlinds: true }, 3, 100);
+  assert.equal(t.seats[3].player.waitForBlinds, true);
+  assert.equal(t.waitsForBigBlind(t.seats[3].player), true, 'waits instead of posting at once');
+  t.sit({ id: 'm', nick: 'Other', waitForBlinds: 'yes' }, null, 100);
+  assert.notEqual(t.seatOf('m').player.waitForBlinds, true, 'only a real true opts in');
+});
+
 test('Post now restarts an idle table (Codex review #59)', () => {
   const t = new PokerTable({ id: 'wb2', name: 'Wb2', game: 'holdem', sb: 1, bb: 2, seats: 2, min_buyin: 10, max_buyin: 1000 });
   for (let i = 0; i < 2; i++) {

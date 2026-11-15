@@ -501,7 +501,10 @@ test('a player can show one card or both after the hand ends', () => {
   // Native ShowMuck / Codex rooms.mjs: a player dealt into the hand may show after folding.
   other.folded = true;
   assert.equal(t.showCards(2, [0]).ok, true, 'a folded player may show');
+  const foldedSeat = t.snapshotFor(1).players.find((p) => p.id === 2);
+  assert.deepEqual(foldedSeat.cards, ['Qd', '??'], 'the folded seat keeps the shown card face up (EGM round 3)');
   other.folded = false;
+  other.shown = [];
 
   assert.equal(t.showCards(1, [0]).ok, true);
   const half = t.snapshotFor(2).players.find((p) => p.id === 1);
@@ -613,7 +616,7 @@ test('when the clock runs out facing a bet, a Time Bank card is spent before fol
   assert.ok(t.actionEndsAt > Date.now());
 });
 
-test('an absent player (already timed out) is not kept alive by the time bank', () => {
+test('a second timeout in a row still spends one card, then folds and sits out (EGM round 3)', () => {
   const t = tableWith([player(1, 'A', 1000, 0, [C('As'), C('Kd')]), player(2, 'B', 800, 200, [C('2c'), C('3d')])]);
   t.street = 'river';
   t.currentBet = 200;
@@ -622,6 +625,11 @@ test('an absent player (already timed out) is not kept alive by the time bank', 
   t.seats[0].player.missedTurns = 1;
   t.actionEndsAt = Date.now() - 1;
   t.tick();
-  assert.equal(t.seats[0].player.folded, true);
-  assert.equal(t.seats[0].player.timeBankCards, 2);
+  assert.equal(t.seats[0].player.folded, false, 'the time bank runs first');
+  assert.equal(t.seats[0].player.timeBankCards, 1);
+  t.actionEndsAt = Date.now() - 1;
+  t.tick();
+  assert.equal(t.seats[0].player.folded, true, 'one card per turn, then the fold');
+  assert.equal(t.seats[0].player.sittingOut, true, 'two timeouts in a row sit the player out');
+  assert.equal(t.seats[0].player.timeBankCards, 1);
 });

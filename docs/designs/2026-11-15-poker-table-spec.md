@@ -1,7 +1,7 @@
 # Poker table: behaviour spec for review
 
 *   **Author:** Dan Semenescu
-*   **Status:** EGM rounds 1 and 2 fixed (decisions in Appendix A)
+*   **Status:** EGM rounds 1-3 fixed (decisions in Appendices A-C)
 *   **Date:** 2026-11-15
 *   **Code:** `app/server/table.js` (engine), `app/server/index.js` (socket handlers),
     `app/src/pages/TablePage.tsx` (table screen), `app/src/components/table/*`,
@@ -33,11 +33,15 @@ Fold) and the table screen of a tournament or Spin.
     expires.
 3.  A player who sits mid-hand waits for the next hand. A new player either posts
     the big blind at once or waits for the big blind ("Wait for BB", the
-    *Auto-post blinds* option off). Missed blinds are owed on return. This
+    *Auto-post blinds* option off; it can be set before sitting and goes with
+    the join). Missed blinds are owed on return. A waiter is dealt in at once
+    when nobody else is ready to play, so a table never stalls on a waiter. This
     applies from the second hand of a table's life; the first hand deals
     everyone in. Only automatic moves (Rush seats, tournament balancing) and
     bots skip the new-player blind; a returning account always owes it.
-4.  Leaving mid-hand folds the hand; chips not committed go back to the balance.
+4.  Leaving mid-hand folds the hand: every chip already bet stays in the pot,
+    and the players left face no bet from the departed seat (preflop they
+    still owe the big blind). Chips not committed go back to the balance.
     Leaving between hands returns the whole stack.
 5.  Add chips: up to `max_buyin` total; during a hand the chips are paid now and
     join the stack at the next deal. Remove chips down to `min_buyin` only while
@@ -74,7 +78,8 @@ Fold) and the table screen of a tournament or Spin.
     once `TB_OFFER_SECONDS` (10 s) or less are left, and the server refuses a
     card asked for earlier; each card is spent once. When the clock runs out
     facing a bet, one card is spent automatically (once per turn) before the
-    fold.
+    fold. A second timeout in a row still gets that card; two timeouts sit the
+    player out.
 3.  A player who times out twice in a row is sat out.
 
 ## 4. Pre-actions (reserved actions)
@@ -112,7 +117,8 @@ Fold) and the table screen of a tournament or Spin.
     button shows first. Winners show; other losers muck unless *Auto-muck* is
     off.
 2.  After the hand anyone dealt in (folded or not) may show one card, then more,
-    or all; a shown card stays shown. Opponents see only the shown cards.
+    or all; a shown card stays shown on the seat, folded or not. Opponents see
+    only the shown cards.
 3.  Hole cards of other players are never sent to a client unless shown
     (server-side, not hidden by CSS).
 
@@ -127,7 +133,8 @@ Fold) and the table screen of a tournament or Spin.
 1.  A disconnected player keeps the seat; their turn times out normally (with
     time bank) and they are sat out after it. The idle-seat sweep never cashes
     out a player who still holds a live hand; it marks them away and waits for
-    the hand to end. On reconnect they resume with the current state, including
+    the hand to end. That hand plays on the normal clock with the time bank;
+    the player is not dealt the next one. On reconnect they resume with the current state, including
     their own hole cards. Refreshing the balance (e.g. after Add chips) never
     reconnects the table socket.
 2.  Every action carries the hand number and the turn number; an action meant
@@ -207,3 +214,11 @@ LOW: run-it round reopens when a player leaves; bots never vote on run-it;
 actions without hand/turn numbers are accepted; Run it option shown where it
 does nothing; AoF all-in skips Confirm bets; checked-down first-to-show seat
 may stay mucked.
+
+## Appendix C: EGM round 3
+
+All five MEDIUM items from round 2 are fixed with tests: a leaver forfeits
+the bet (no free bluff), a waiter is dealt in rather than stalling the table,
+Wait for BB can be chosen before sitting, a folded player's shown card stays
+on the seat, and a dropped player's live hand runs on the clock and time
+bank. The LOW items listed in Appendix B remain open.

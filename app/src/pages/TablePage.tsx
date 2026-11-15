@@ -14,6 +14,7 @@ import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_F
 import { createSqueezePanel } from '../game/squeeze';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
 import { heroHoldsHand, showdownComplete, showdownPlan } from '../game/showdown';
+import { readJoinWaitForBlinds, saveJoinWaitForBlinds } from '../game/tableOptions';
 import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
 import { seatNick, isAllInStatus } from '../game/seatLabel';
 import { autoTopUpAmount } from '../lib/autoTopUp';
@@ -202,6 +203,10 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [cardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'official');
   const [globalRoomBg] = useState(() => localStorage.getItem('ggpoker.roomBg') || 'featured');
   const [showHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
+  const [joinWaitForBlinds, setJoinWaitForBlinds] = useState(readJoinWaitForBlinds);
+  const joinWaitRef = useRef(joinWaitForBlinds);
+  joinWaitRef.current = joinWaitForBlinds;
+  const changeJoinWait = (wait: boolean) => { setJoinWaitForBlinds(wait); saveJoinWaitForBlinds(wait); };
   // Hotkey preferences are live: Settings → Apply (or the table menu) in any window updates them.
   const hotkeyHints = usePref(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0', HOTKEY_HINT_KEYS);
   const hotkeyPrefs = usePref(readHotkeyPrefs, HOTKEY_PREF_KEYS);
@@ -307,7 +312,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     wsRef.current = ws;
     ws.onopen = () => {
       setConnected(true);
-      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe, seat: seatParam != null ? Number(seatParam) : null }));
+      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe, seat: seatParam != null ? Number(seatParam) : null, waitForBlinds: joinWaitRef.current }));
     };
     ws.onmessage = (ev) => {
       let msg: any;
@@ -805,7 +810,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const sitIn = () => {
-    send({ type: 'join_table', buyin: state?.minBuyin || buyin || 0, observe: false });
+    send({ type: 'join_table', buyin: state?.minBuyin || buyin || 0, observe: false, waitForBlinds: joinWaitRef.current });
   };
 
   const doRebuy = () => {
@@ -1247,6 +1252,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         onBetPrefs={saveBetPrefs}
         confirmBets={confirmBets}
         onConfirmBets={setConfirmBets}
+        joinWaitForBlinds={joinWaitForBlinds}
+        onJoinWaitForBlinds={changeJoinWait}
       />
 
       <SeatDock
@@ -1858,7 +1865,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           balance={user?.balance} scale={state.tournament ? 1 : 100}
           min={state.minBuyin || state.bb * 20} max={state.maxBuyin || state.bb * 100} step={Math.max(chipStep, state.bb || chipStep)}
           onCancel={() => { send({ type: 'cancel_reservation' }); setReservation(null); }}
-          onBuyIn={(amount) => { send({ type: 'join_table', buyin: amount, seat: reservation.seat, observe: false }); setReservation(null); }} />
+          onBuyIn={(amount) => { send({ type: 'join_table', buyin: amount, seat: reservation.seat, observe: false, waitForBlinds: joinWaitRef.current }); setReservation(null); }} />
       )}
       {rebuyOpen && (
         <div className="modal-backdrop" onClick={() => { setRebuyOpen(false); setRebuyOffer(null); }}>

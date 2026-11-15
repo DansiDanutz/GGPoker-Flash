@@ -19,3 +19,11 @@ test('only the table host may switch straddles for the whole table', () => {
   assert.match(index, /Only the table host can change straddles/);
   assert.match(page, /\{isHost && <button[^\n]*straddle: !state\?\.straddle/);
 });
+
+test('the Wait for BB choice travels with every join, before the seat can be dealt in', () => {
+  const index = fs.readFileSync(path.join(import.meta.dirname, 'index.js'), 'utf8');
+  assert.match(index, /seatHuman\(table, u, buyin, held \? held\.seat : msg\.seat, msg\.waitForBlinds === true\)/);
+  const joins = page.match(/type: 'join_table'[^\n]*/g) || [];
+  assert.ok(joins.length >= 3);
+  for (const j of joins) assert.match(j, /waitForBlinds: joinWaitRef\.current/, j);
+});

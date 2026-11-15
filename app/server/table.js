@@ -238,6 +238,8 @@ export class PokerTable {
       handsPlayed: 0,
       won: 0,
       autoMuck: true,
+      // Chosen before sitting (Table options), so a newcomer can wait for the big blind from hand one.
+      waitForBlinds: player.waitForBlinds === true,
       runItAsk: true,
       runPref: null,
       sitOutNextHand: false,
@@ -275,9 +277,9 @@ export class PokerTable {
         p.folded = true;
         this.log.push({ nick: p.nick, action: 'fold', street: this.street });
       }
-      // The part of the leaver's bet that nobody matched goes back with their stack (native
-      // splitPots: only matched chips can be won), so nobody has to answer a departed bet.
-      if (!isForfeit) this.returnLeaverExcess(p);
+      // Leaving folds: every chip the leaver bet stays in the pot as dead money (settlement keeps
+      // a departed seat's unmatched layer in the top pot), but nobody has to answer that bet.
+      if (!isForfeit) this.retireLeaverBet(p);
       // Keep the departed player's matched chips in the pot instead of losing them with the seat.
       this.ghosts.push({
         id: p.id, nick: p.nick, bet: p.bet, totalBet: p.totalBet, isBot: !!p.isBot,
@@ -330,7 +332,19 @@ export class PokerTable {
     if (this.street !== 'idle' && this.street !== 'ended') return;
     if (this.nextHandAt && Date.now() < this.nextHandAt) return;
     this.prepareDeal();
+    this.releaseWaitersIfShort();
     if (this.readySeats().length >= 2) this.startHand();
+  }
+
+  /**
+   * Waiting for the big blind needs a game to wait in. When the waiters are all that keeps the
+   * table from dealing, they stop waiting and post like any returning player.
+   */
+  releaseWaitersIfShort() {
+    const waiters = this.occupiedSeats().filter((s) => this.waitsForBigBlind(s.player));
+    if (!waiters.length || this.readySeats().length >= 2) return;
+    if (this.readySeats().length + waiters.length < 2) return;
+    for (const s of waiters) s.player.waitForBlinds = false;
   }
 
   /** Between hands, before who is dealt in is decided: pending top-ups and stack trims land. */
@@ -1203,20 +1217,17 @@ export class PokerTable {
   }
 
   /** Return a departing player's bet above everyone else's, and lower the bet to match. */
-  returnLeaverExcess(p) {
-    const others = [
-      ...this.seats.filter((s) => s.player && s.player !== p && s.player.inHand).map((s) => s.player.bet),
-      ...this.ghosts.map((g) => g.bet),
-    ];
-    const highest = others.length ? Math.max(...others) : 0;
-    const excess = Math.max(0, p.bet - highest);
-    if (excess > 0) {
-      p.bet -= excess;
-      p.totalBet -= excess;
-      p.stack += excess;
-      this.emit({ type: 'uncalled', seat: p.seat, playerId: p.id, amount: excess });
-    }
-    this.currentBet = Math.min(this.currentBet, Math.max(highest, p.bet));
+  /** The bet to answer falls to the highest live bet; the minimum raise never exceeds it (or the BB). */
+  retireLeaverBet(p) {
+    const others = this.seats
+      .filter((s) => s.player && s.player !== p && s.player.inHand && !s.player.folded)
+      .map((s) => s.player.bet);
+    // Preflop the big blind is owed even when the blind itself has gone.
+    const floor = this.street === 'preflop' ? this.bb : 0;
+    const highest = Math.max(floor, ...others);
+    if (this.currentBet <= highest) return;
+    this.currentBet = highest;
+    this.minRaise = Math.max(this.bb, Math.min(this.minRaise, highest));
   }
 
   /**
@@ -1838,6 +1849,7 @@ export class PokerTable {
         }
         this.prepareDeal();
         const alive = this.occupiedSeats().filter((s) => s.player && s.player.stack > 0);
+        this.releaseWaitersIfShort();
         if (this.readySeats().length >= 2) this.startHand();
         else if (this.tournament && alive.length === 1 && this.handNo > 0) this.awardTournamentWinner();
         else if (this.spin && alive.length === 1 && this.handNo > 0) this.awardSpinWinner();
@@ -1863,8 +1875,8 @@ export class PokerTable {
     }
     if (now >= this.actionEndsAt) {
       // Facing a bet, the clock spends one Time Bank Card before folding (GGPoker auto time bank),
-      // but not for a player already timed out last turn: an absent player must not stall the table.
-      if (this.toCall(p) > 0 && !p.missedTurns && !this.timeBankAction && this.useTimeBank(p.id).ok) return;
+      // once per turn. An absent player is still bounded: two timeouts in a row sit them out.
+      if (this.toCall(p) > 0 && !this.timeBankAction && this.useTimeBank(p.id).ok) return;
       // Two timeouts in a row sit the player out so an absent player cannot stall the table.
       p.missedTurns = (p.missedTurns || 0) + 1;
       if (p.missedTurns >= MAX_MISSED_TURNS && !p.sittingOut) {
@@ -2003,7 +2015,8 @@ export class PokerTable {
           shown: p.reveal ? p.cards.map((_, i) => i) : (p.shown || []),
           cards: (p.reveal || mine)
             ? p.cards.map(cardStr)
-            : (p.inHand && !p.folded
+            // A live hand, or a folded one with a card shown after the hand: only shown cards go out.
+            : ((p.inHand && !p.folded) || (p.shown || []).length
               ? p.cards.map((c, i) => ((p.shown || []).includes(i) ? cardStr(c) : '??'))
               : []),
           lastAction: p.lastAction,

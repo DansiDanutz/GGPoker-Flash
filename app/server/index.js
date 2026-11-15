@@ -884,7 +884,7 @@ function broadcastState(table) {
   }
 }
 
-function seatHuman(table, user, buyin, seatIndex = null) {
+function seatHuman(table, user, buyin, seatIndex = null, waitForBlinds = false) {
   const existing = table.seatOf(user.id);
   if (existing) return { ok: true, seat: existing.index };
   if (table.spin) {
@@ -904,6 +904,7 @@ function seatHuman(table, user, buyin, seatIndex = null) {
   });
   const res = table.sit({
     id: user.id, nick: user.nick, avatar: user.avatar, country: user.country, ...loadTimeBank(table, user),
+    waitForBlinds: waitForBlinds === true,
   }, wantedSeat, stack, sessionId);
   if (!res.ok) {
     addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
@@ -1072,9 +1073,10 @@ function sweepDisconnected(entry) {
       continue;
     }
     if (table.handInProgress() && p.inHand && !p.folded) {
-      // Never forfeit a live hand to a dropped connection: an all-in player keeps their equity.
-      // Sat out, their turns resolve at once (check, else fold); the seat cashes out after the hand.
-      Object.assign(p, { away: true, sittingOut: true });
+      // Never forfeit a live hand to a dropped connection: an all-in player keeps their equity, and
+      // their turns run on the normal clock with the time bank. Not dealt the next hand; the seat
+      // cashes out once this hand is over.
+      Object.assign(p, { away: true, sitOutNextHand: true });
       continue;
     }
     cashOutSeat(table, p.id, `Disconnected from ${table.cfg.name}`);
@@ -3174,8 +3176,8 @@ wss.on('connection', (ws, req) => {
           return;
         }
         const buyin = toInt(msg.buyin) || table.cfg.min_buyin;
-        let res = seatHuman(table, u, buyin, held ? held.seat : msg.seat);
-        if (!res.ok && msg.seat != null && !held) res = seatHuman(table, u, buyin, null);
+        let res = seatHuman(table, u, buyin, held ? held.seat : msg.seat, msg.waitForBlinds === true);
+        if (!res.ok && msg.seat != null && !held) res = seatHuman(table, u, buyin, null, msg.waitForBlinds === true);
         if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
         // Taking the held seat consumes the offer; any other seat just leaves the queue.
         if (held) setWaitlist(held.state);
