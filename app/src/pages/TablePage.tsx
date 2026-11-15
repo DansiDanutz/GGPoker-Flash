@@ -1414,7 +1414,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div
             key={p.seat}
             className={'seat' + (p.isMe ? ' me' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' + turnUrgencyClass(clockSeconds, !!p.isMe) : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
-            style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default' }}
+            style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default', ...(isActor ? { '--turn': timerPct } : {}) } as React.CSSProperties}
             onClick={() => { if (p.nick) openNote(p); }}
             title={p.nick ? 'Player note' : ''}
           >
