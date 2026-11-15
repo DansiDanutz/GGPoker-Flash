@@ -1,0 +1,26 @@
+/* Bet confirmation ("raise to $40?"): a solid dark panel with the buttons' gold edge and large
+   white text, so it reads at a glance. It sits above the floating time bank and slider column. */
+.table-screen .action-bar .confirm-row {
+  position: relative; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 0 8px 8px; padding: 10px 12px; border: 2px solid #e8b84a; border-radius: 14px;
+  background: linear-gradient(#211c14, #0e0c09); box-shadow: 0 0 14px rgba(255, 196, 70, .35), 0 6px 16px rgba(0, 0, 0, .6);
+}
+.table-screen .action-bar .confirm-row .confirm-text {
+  flex: 1 1 100%; font-size: 16px; font-weight: 800; color: #fff; text-align: center;
+}
+.table-screen .action-bar .confirm-row .btn {
+  flex: 1 1 0; min-width: 0; height: 40px; padding: 0 8px; border-radius: 12px; font-size: 14px; font-weight: 800;
+  border: 2px solid #e8b84a; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 3px 0 rgba(0, 0, 0, .45);
+}
+.table-screen .action-bar .confirm-row .confirm-ok { background: linear-gradient(#ffe07a, #f2a812); color: #231400; }
+.table-screen .action-bar .confirm-row .confirm-cancel { background: linear-gradient(#ef5a5f, #b81f2a); color: #fff; }
+.table-screen .action-bar .confirm-row .confirm-skip { background: linear-gradient(#fbefcc, #e2c47a); color: #1d1405; }
+
+/* Phone: the amount is already chosen, so the slider column steps aside, and the time bank
+   chip lifts above the bar instead of covering it. */
+@media (max-width: 760px) and (orientation: portrait) {
+  .table-screen .action-bar:has(.confirm-row) .main-actions .bet-slider,
+  .table-screen .action-bar:has(.confirm-row) .main-actions::after { display: none; }
+  .table-screen .action-bar:has(.confirm-row) .main-actions .bet-stepper > * { display: none; }
+  .table-screen .action-bar:has(.confirm-row) .main-actions .tb-btn { bottom: calc(100% + 96px); }
+}
