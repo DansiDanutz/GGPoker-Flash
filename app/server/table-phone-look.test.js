@@ -86,3 +86,13 @@ test('hole cards are held like a real hand: the second card overlaps the first, 
   assert.ok(overlap('.table-screen .table-stage.stage-portrait .seat:not(.me) .cards .card-slot:last-child') >= 18, "opponents' backs overlap too");
   assert.doesNotMatch(s, /\.seat\.me \.cards \.card-slot:(first|last)-child \{ transform: rotate\([^)]*\) translate/);
 });
+
+test("your own ring counts down along the part your cards and plate leave visible", () => {
+  const s = look();
+  const mine = rule(s, '.table-screen .table-stage.stage-portrait .seat.me.active:not(.folded) .avatar-wrap::after');
+  // A 170deg arc from just past the bottom round to the upper left, drained part on a dark track.
+  assert.match(mine, /conic-gradient\(from 170deg, var\(--ring, #ffd36a\) 0 calc\(var\(--turn, 1\) \* 170deg\), rgba\(0, 0, 0, \.55\) 0 170deg, transparent 0\)/);
+  // It comes after the shared ring rule, so it wins for your seat while red still applies when time is short.
+  assert.ok(s.indexOf('.seat.me.active:not(.folded) .avatar-wrap::after') > s.indexOf('.seat.active:not(.folded) .avatar-wrap::after {'));
+  assert.ok(s.indexOf('.seat.active.hot .avatar-wrap::after { --ring') > s.indexOf('.seat.me.active:not(.folded) .avatar-wrap::after'));
+});
