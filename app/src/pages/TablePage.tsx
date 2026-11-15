@@ -1329,7 +1329,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <b>Rotate your device</b>
         <span>The table plays in landscape on tablets.</span>
       </div>
-      <div ref={stageRef} className={`table-stage stage-${stage.mode}${stage.short ? ' stage-short' : ''}`} style={{ left: stage.left, top: stage.top, width: stage.width, height: stage.height, '--stage-w': `${stage.width}px`, '--stage-h': `${stage.height}px` } as React.CSSProperties}>
+      <div ref={stageRef} className={`table-stage stage-${stage.mode}${stage.short ? ' stage-short' : ''}`} style={{ left: stage.left, top: stage.top, width: stage.width, height: stage.height }}>
       <div className="felt" />
       <div className="table-watermark stage-mark" aria-hidden="true"><b>DanGG</b><span>{state?.name || ''}</span></div>
       <div className="table-center">
@@ -1736,7 +1736,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <button className="act-btn act-check" disabled={!myTurn || !!state?.allInOrFold} onClick={() => act('check')}>Check</button>
           ) : (
             <button className="act-btn act-call" disabled={!myTurn || (!!state?.allInOrFold && !facingShove)} onClick={() => act('call')}>
-              Call {amt(toCall)}
+              <span className="act-word">Call</span> <b className="act-amt">{amt(toCall)}</b>
             </button>
           )}
           {odds && (
@@ -1749,7 +1749,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             {(state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0) ? betPrefs.opening : betPrefs.normal).map((value, i) => {
               const opening = state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0);
               const target = state ? betTarget(value, opening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo, roundUnit) : minTo;
-              return <button key={`${value}-${i}`} disabled={!myTurn || !canRaise} onClick={() => setRaiseTo(target)}>{betLabel(value, opening)}</button>;
+              return <button key={`${value}-${i}`} disabled={!myTurn || !canRaise} onClick={() => setRaiseTo(target)}><span className="qb-tag">{betLabel(value, opening)}</span> <b className="qb-amt">{amt(target)}</b></button>;
             })}
           </div>
           <input
@@ -1804,7 +1804,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             disabled={!myTurn || !canRaise}
             onClick={() => requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo)}
           >
-            {raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')} {amt(raiseTo)}
+            <span className="act-word">{raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')}</span> <b className="act-amt">{amt(raiseTo)}</b>
           </button>
         </div>
         )}
