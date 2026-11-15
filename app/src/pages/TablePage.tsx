@@ -759,8 +759,6 @@ export function TablePage({ tableId }: { tableId: string }) {
   const sitOutNext = !!me?.sitOutNext;
   const canRabbit = !!me?.inHand && state?.street === 'ended' && (state?.board?.length || 0) < 5;
   const facingShove = !!state?.players.some((p) => !p.empty && !p.isMe && p.allIn && !p.folded);
-  // All in this hand: nothing left to decide, so the betting buttons step aside.
-  const heroAllIn = !!(me && me.inHand && me.allIn && !me.folded);
   const canPreAct = !!(state && me && !myTurn && me.inHand && !me.folded && !me.allIn
     && ['preflop', 'flop', 'turn', 'river'].includes(state.street) && !state.allInOrFold);
 
@@ -1714,7 +1712,9 @@ export function TablePage({ tableId }: { tableId: string }) {
             ><span className="reserve-text">Call Any</span></button>
           </div>
         )}
-        {heroAllIn ? null : state?.allInOrFold ? (
+        {/* Betting buttons only while it is your decision (GGPoker mobile): pre-actions cover
+            the wait, and nothing shows once you are all in, folded or out of the hand. */}
+        {!myTurn ? null : state?.allInOrFold ? (
           <div className="action-row aof-row">
             <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank +${TB_CARD_SECONDS}s`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
             <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
