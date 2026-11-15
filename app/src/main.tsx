@@ -34,6 +34,7 @@ import './table-stage.css';
 import './table-options.css';
 import './table-art.css';
 import './table-phone.css';
+import './table-phone-look.css';
 import './table-tips.css';
 
 createRoot(document.getElementById('root')!).render(

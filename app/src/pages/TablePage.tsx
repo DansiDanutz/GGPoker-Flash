@@ -1460,7 +1460,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="plate">
               <div className="nm" title={p.nick || undefined}>
                 {p.isBot && <span className="bot-badge" title="Computer player" aria-label="Bot">BOT</span>}
-                {seatNick(p.nick)}{p.nick ? <span className="seat-flag" aria-hidden="true">{seatFlag(p.nick, p.country)}</span> : null}
+                <span className="nm-text">{seatNick(p.nick)}</span>{p.nick ? <span className="seat-flag" aria-hidden="true">{seatFlag(p.nick, p.country)}</span> : null}
               </div>
               <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
                 {isAllInStatus(p) ? 'All-In' : stackLabel(p.stack)}
