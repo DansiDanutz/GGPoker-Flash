@@ -238,6 +238,7 @@ export class PokerTable {
       won: 0,
       autoMuck: true,
       runItAsk: true,
+      runPref: null,
       sitOutNextHand: false,
       leaveAfterHand: false,
       sitOutNextBigBlind: false,
@@ -944,6 +945,15 @@ export class PokerTable {
   }
 
   /** Per-player: whether to be offered running it more than once when all-in. Off means "once". */
+  /** Remembered run-it choice: null asks each time, 1-3 answers for the player. */
+  setRunPref(userId, value) {
+    const seat = this.seatOf(userId);
+    if (!seat?.player) return { ok: false, error: 'Take a seat first' };
+    if (value !== null && !(Number.isInteger(value) && value >= 1 && value <= MAX_RUNS)) return { ok: false, error: 'Choose ask, or 1 to 3 runs' };
+    seat.player.runPref = value;
+    return { ok: true };
+  }
+
   setRunItAsk(userId, value) {
     const seat = this.seatOf(userId);
     if (!seat?.player) return { ok: false, error: 'Take a seat first' };
@@ -1261,12 +1271,17 @@ export class PokerTable {
     const alive = this.activePlayers().filter((s) => !s.player.folded);
     if (alive.length < 2) return false;
     const humans = alive.filter((s) => !s.player.isBot);
-    if (!humans.length || humans.some((s) => s.player.runItAsk === false)) return false;
+    if (!humans.length || humans.some((s) => s.player.runItAsk === false || s.player.runPref === 1)) return false;
     const asked = humans.filter((s) => !s.player.disconnected && !s.player.sittingOut);
     if (!asked.length) return false;
     // All-in hands are tabled before the players decide.
     for (const s of alive) s.player.reveal = true;
-    this.runRound = { asked: new Set(asked.map((s) => s.player.id)), choices: new Map(), endsAt: Date.now() + RUN_ASK_MS };
+    const remembered = new Map(asked.filter((s) => s.player.runPref).map((s) => [s.player.id, s.player.runPref]));
+    if (remembered.size === asked.length) {
+      this.runBoards(agreedRuns([...remembered.values()]));
+      return true;
+    }
+    this.runRound = { asked: new Set(asked.map((s) => s.player.id)), choices: remembered, endsAt: Date.now() + RUN_ASK_MS };
     this.emit({ type: 'run_ask', endsAt: this.runRound.endsAt, maxRuns: MAX_RUNS });
     return true;
   }
@@ -1966,6 +1981,7 @@ export class PokerTable {
           country: p.country || '',
           sitOutNext: !!p.sitOutNextHand,
           runItAsk: mine ? p.runItAsk !== false : undefined,
+          runPref: mine ? (p.runPref ?? null) : undefined,
           timeBank: p.timeBank,
           timeBankCards: p.timeBankCards ?? 0,
           ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p), leaveAfterHand: !!p.leaveAfterHand, sitOutNextBigBlind: !!p.sitOutNextBigBlind, sitOutAll: !!p.sitOutAll, pendingTopUp: p.pendingTopUp || 0, topUpVersion: p.topUpVersion || 0, autoReduceBB: p.autoReduceBB || 0 } : {}),

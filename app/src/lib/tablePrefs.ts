@@ -26,6 +26,16 @@ export function readBetPrefs(): BetPrefs {
   return { opening: [...DEFAULT_BETS.opening], normal: [...DEFAULT_BETS.normal] };
 }
 
+export type PresetRow = keyof BetPrefs;
+export const PRESET_CHOICES: Record<PresetRow, readonly BetValue[]> = { opening: OPENING_CHOICES, normal: NORMAL_CHOICES };
+
+/** A copy of the presets with one chip changed; the same object back when the change is not allowed. */
+export function withPreset(prefs: BetPrefs, row: PresetRow, index: number, value: BetValue): BetPrefs {
+  if (!Number.isInteger(index) || index < 0 || index >= prefs[row].length) return prefs;
+  if (!PRESET_CHOICES[row].includes(value)) return prefs;
+  return { ...prefs, [row]: prefs[row].map((v, i) => (i === index ? value : v)) };
+}
+
 export function readCardBack(): CardBack {
   const v = localStorage.getItem('ggpoker.cardBack');
   return (CARD_BACKS.some((b) => b.id === v) ? v : 'red-pattern') as CardBack;

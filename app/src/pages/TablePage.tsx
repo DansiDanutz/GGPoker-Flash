@@ -5,7 +5,7 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { FxEffect, type FxName } from '../components/FxEffect';
-import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, type BetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval';
@@ -42,6 +42,7 @@ import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
 import { runChoice, runsLabel, type RunAsk } from '../game/runChoice';
 import { inward, seatLayout, type Spot } from '../game/tableStage';
+import { TableOptionsSheet } from '../components/table/TableOptionsSheet';
 import { useTableStage } from '../components/table/useTableStage';
 import { BAD_BEAT_BANNER_MS, badBeatRows, type BadBeatHit } from '../game/badBeat';
 import { TB_CARD_SECONDS } from '../game/timeBankRules';
@@ -62,6 +63,8 @@ type PlayerState = {
   leaveAfterHand?: boolean; sitOutNextBigBlind?: boolean; sitOutAll?: boolean;
   /** Own seat only: whether to be asked to run it more than once when all-in. */
   runItAsk?: boolean;
+  /** Own seat only: remembered run-it choice (null asks each time). */
+  runPref?: number | null;
   /** Own seat only: chips paid for the next deal, and the auto-reduce target in BB (0 = off). */
   pendingTopUp?: number; topUpVersion?: number; autoReduceBB?: number;
 };
@@ -213,7 +216,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const squeezeHostRef = useRef<HTMLDivElement | null>(null);
   const squeezeHandRef = useRef<number | null>(null);
   const firstStateRef = useRef(true);
-  const [betPrefs] = useState(readBetPrefs);
+  const [betPrefs, setBetPrefs] = useState(readBetPrefs);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const saveBetPrefs = (next: BetPrefs) => { setBetPrefs(next); try { localStorage.setItem('ggpoker.betPrefs', JSON.stringify(next)); } catch { /* private mode: keep for this session */ } };
   const stackMode = usePref<StackMode>(readStackMode, STACK_MODE_KEYS);
   const [cardAnim, setCardAnim] = useState<'deal' | 'flip' | 'slide' | 'off'>(() => {
     const saved = localStorage.getItem('ggpoker.cardAnim');
@@ -1144,6 +1149,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <div className="spacer" />
         <button onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
         <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
+        <button type="button" className="table-gear" aria-label="Table options" title="Table options" onClick={() => { setOptionsOpen(true); setMenuOpen(false); }}>⚙</button>
         <button onClick={() => setMenuOpen((v) => !v)}>Menu</button>
         <button onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
@@ -1217,6 +1223,16 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="menu-version">v{APP_VERSION} · build {buildLabel(APP_BUILD)}</div>
         </div>
       )}
+
+      <TableOptionsSheet
+        open={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+        me={me ?? undefined}
+        tableStraddle={!!state?.straddle}
+        onOption={(msg) => send({ type: 'option', tableId, ...msg })}
+        betPrefs={betPrefs}
+        onBetPrefs={saveBetPrefs}
+      />
 
       <div className="room-mark" />
       <div className="room-ambient" aria-hidden="true">

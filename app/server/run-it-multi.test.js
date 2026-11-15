@@ -178,3 +178,46 @@ test('Rush (fast-fold) tables run all-ins once without asking', () => {
   assert.equal(t.runRound, null);
   assert.equal(t.board.length, 5);
 });
+
+test('a remembered choice of twice or three times is filled in, and when everyone has one it runs at once', () => {
+  const t = allInOnTurn([['Ah', 'Kd'], ['2c', '3d']]);
+  assert.equal(t.setRunPref('p0', 3).ok, true);
+  assert.equal(t.setRunPref('p1', 2).ok, true);
+  t.runout();
+  assert.equal(t.runRound, null, 'nobody has to be asked');
+  assert.equal(t.result.boards.length, 2, 'the smaller remembered choice wins');
+  assert.equal(chipsOnTable(t), 200);
+});
+
+test('a remembered choice is shown as already chosen while the other player decides', () => {
+  const t = allInOnTurn([['Ah', 'Kd'], ['2c', '3d']]);
+  t.setRunPref('p0', 2);
+  t.runout();
+  assert.equal(t.runAskFor('p0').chosen, 2);
+  assert.equal(t.runAskFor('p1').chosen, null);
+  t.decideRuns('p1', 3);
+  assert.equal(t.result.boards.length, 2);
+});
+
+test('a remembered choice of once runs a single board without asking', () => {
+  const t = allInOnTurn([['Ah', 'Kd'], ['2c', '3d']]);
+  t.setRunPref('p1', 1);
+  t.runout();
+  assert.equal(t.runRound, null);
+  assert.equal(t.board.length, 5);
+  assert.equal(t.result.boards, undefined);
+});
+
+test('the remembered choice accepts only ask, 1, 2 or 3 and is only for seated players', () => {
+  const t = allInOnTurn([['Ah', 'Kd'], ['2c', '3d']]);
+  assert.equal(t.setRunPref('nobody', 2).ok, false);
+  assert.equal(t.setRunPref('p0', 4).ok, false);
+  assert.equal(t.setRunPref('p0', 'x').ok, false);
+  assert.equal(t.setRunPref('p0', null).ok, true);
+  assert.equal(t.seatOf('p0').player.runPref, null);
+  t.setRunPref('p0', 3);
+  const mine = t.snapshotFor('p0').players.find((s) => s && s.id === 'p0');
+  assert.equal(mine.runPref, 3, 'a player sees their own remembered choice');
+  const theirs = t.snapshotFor('p1').players.find((s) => s && s.id === 'p0');
+  assert.equal(theirs.runPref, undefined, 'nobody else sees it');
+});

@@ -3217,6 +3217,10 @@ wss.on('connection', (ws, req) => {
         const res = entry.table.setRunItAsk(ws.userId, !!msg.runItAsk);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
+      if (Object.prototype.hasOwnProperty.call(msg, 'runPref')) {
+        const res = entry.table.setRunPref(ws.userId, msg.runPref);
+        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      }
       broadcastState(entry.table);
       return;
     }
