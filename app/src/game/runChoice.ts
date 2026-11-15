@@ -16,3 +16,10 @@ const LABELS = ['Run it once', 'Run it twice', 'Run it three times'];
 export function runsLabel(runs: number): string {
   return LABELS[runs - 1] ?? `Run it ${runs} times`;
 }
+
+const SHORT = ['Once', 'Twice'];
+
+/** The word under the big count on a choice button: short enough to stay on one line. */
+export function runsShort(runs: number): string {
+  return SHORT[runs - 1] ?? `${runs} times`;
+}

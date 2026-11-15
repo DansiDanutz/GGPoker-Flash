@@ -29,6 +29,19 @@
 }
 .table-screen .straddle-ask .action-row .btn:active { transform: translateY(2px); }
 
+/* Run-it choices: a big count over one short word, so "three times" never wraps or clips on a
+   phone. Run it once is the plain (cream) choice; more runs get the gold of the action buttons. */
+.table-screen .run-ask .action-row .run-choice {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  height: 58px; padding: 0 6px; line-height: 1;
+  background: linear-gradient(#ffe07a, #f2a812); color: #231400;
+}
+.table-screen .run-ask .action-row .run-choice.run-once { background: linear-gradient(#fbefcc, #e2c47a); color: #1d1405; }
+.table-screen .run-ask .run-choice .run-n { font-size: 24px; font-weight: 900; letter-spacing: -.01em; }
+.table-screen .run-ask .run-choice .run-word {
+  font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+}
+
 /* ALL IN flash: a dark plaque with the buttons' gold rim, framed by the table's own gold divider
    and flare art, lettered in the same engraved serif as the DANGG mark on the felt. */
 .table-screen .allin-flash .allin-plaque {

@@ -43,7 +43,7 @@ import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
-import { runChoice, runsLabel, type RunAsk } from '../game/runChoice';
+import { runChoice, runsLabel, runsShort, type RunAsk } from '../game/runChoice';
 import { inward, seatLayout, type Spot } from '../game/tableStage';
 import { TableOptionsSheet } from '../components/table/TableOptionsSheet';
 import { useHoldTips } from '../lib/holdTips';
@@ -1606,7 +1606,10 @@ export function TablePage({ tableId }: { tableId: string }) {
             {!runModel.chosen && (
               <div className="action-row">
                 {runModel.options.map((runs) => (
-                  <button key={runs} className={'btn ' + (runs === 1 ? 'btn-dark' : 'btn-green')} onClick={() => send({ type: 'run_decide', tableId, runs })}>{runsLabel(runs)}</button>
+                  <button key={runs} className={'btn run-choice' + (runs === 1 ? ' run-once' : '')} aria-label={runsLabel(runs)} onClick={() => send({ type: 'run_decide', tableId, runs })}>
+                    <b className="run-n">{runs}×</b>
+                    <span className="run-word">{runsShort(runs)}</span>
+                  </button>
                 ))}
               </div>
             )}
