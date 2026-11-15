@@ -620,7 +620,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       sound.play('timebank', { volume: .6 });
       toast({ kind: 'info', title: 'Time Bank Card', body: `+${evt.seconds} seconds` });
     } else if (evt.type === 'sit_out') {
-      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: 'You ran out of time twice. Press "Deal Me In" to rejoin.' });
+      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: `You ran out of time, so you are sitting out. Press "I'm back" to play again.` });
     } else if (evt.type === 'bad_beat_jackpot') {
       sound.play('fireworks', { volume: .8 });
       setBadBeat({ total: evt.total, shares: evt.shares || [] });
@@ -1542,7 +1542,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         </div>
       ) : (
-      <div className={'action-bar' + (squeezing ? ' squeeze-lock' : '')} ref={actionBarRef}>
+      <div className={'action-bar' + (squeezing ? ' squeeze-lock' : '') + (sittingOut ? ' sitting-out' : '')} ref={actionBarRef}>
         {straddleModel && (
           <div className="straddle-ask" role="dialog" aria-label="Straddle">
             <div className="straddle-ask-head">
@@ -1613,7 +1613,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 <input type="checkbox" checked={!!me?.waitForBlinds} onChange={(e) => send({ type: 'option', tableId, waitForBlinds: e.target.checked })} /> Wait for Blinds
               </label>
             )}
-            <button className="btn btn-red" onClick={() => send({ type: 'sit_out', value: false })}>Deal Me In</button>
+            <button className="btn btn-back" onClick={() => send({ type: 'sit_out', value: false })}>I'm back</button>
           </div>
         )}
         {!sittingOut && me?.waitingForBigBlind && (

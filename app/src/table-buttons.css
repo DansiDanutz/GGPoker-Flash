@@ -25,6 +25,12 @@
 .table-screen .action-bar .act-btn:active:not(:disabled) {
   transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, .45), 0 4px 10px rgba(0, 0, 0, .5);
 }
+/* I'm back (sitting out): the Call green inside the same gold edge. */
+.table-screen .action-bar .sitout-row .btn-back {
+  border: 2px solid #e8b84a; border-radius: 14px; font-weight: 800; padding: 0 18px; min-height: 36px;
+  background: linear-gradient(#3ee07a, #139447); color: #fff; text-shadow: 0 1px 2px rgba(0, 60, 20, .7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 3px 0 rgba(0, 0, 0, .45), 0 6px 14px rgba(0, 0, 0, .5);
+}
 /* Not your turn: same colours, clearly greyed, so it is obvious they cannot be pressed yet. */
 .table-screen .action-bar .act-btn:disabled { filter: saturate(.25) brightness(.62); box-shadow: none; }
 

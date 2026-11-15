@@ -341,17 +341,21 @@ test('All-in or Fold: folding around gives the big blind the pot', () => {
   assert.equal(p(2).stack, 4050);
 });
 
-test('two timeouts in a row sit a player out', () => {
+test('one timeout folds the player and sits them out until they press I\'m back', () => {
   const { t, p } = deal([START, START, START]);
   p(0).timeBankCards = 0; // no card to spend: the clock folds at once
-  const far = Date.now() + 1e7;
-  t.tick(far);
+  t.tick(Date.now() + 1e7);
   assert.equal(p(0).folded, true);
-  assert.equal(p(0).sittingOut, false);
-  p(0).missedTurns = 1;
-  p(0).folded = false; t.actor = 1; t.actionEndsAt = 0;
-  t.tick(far);
   assert.equal(p(0).sittingOut, true);
+});
+
+test('pressing I\'m back after a timeout sits the player back in', () => {
+  const { t, p } = deal([START, START, START]);
+  p(0).timeBankCards = 0;
+  t.tick(Date.now() + 1e7);
+  assert.equal(p(0).sittingOut, true);
+  assert.equal(t.requestSitOut(p(0).id, false).ok, true);
+  assert.equal(p(0).sittingOut, false);
 });
 
 test('Omaha equity uses all hole cards', () => {

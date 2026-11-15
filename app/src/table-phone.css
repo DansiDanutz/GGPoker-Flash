@@ -92,4 +92,10 @@
   .table-screen .action-bar .reserved-actions { display: flex; justify-content: center; gap: 4px; padding: 0 6px; }
   .table-screen .action-bar .reserved-actions button { width: calc(25% - 4px); max-width: none; height: 40px; font-size: 11px; line-height: 1.1; }
   .table-screen .action-bar .reserved-actions .reserve-text { white-space: normal; overflow: visible; text-overflow: clip; display: flex; align-items: center; height: 100%; top: 0; line-height: 1.05; padding-left: 4px; text-align: left; }
+
+  /* Sitting out: the action buttons cannot be used, so a big "I'm back" button takes their place. */
+  .table-screen .action-bar.sitting-out .main-actions { display: none; }
+  .table-screen .action-bar.sitting-out .sitout-row { flex-wrap: wrap; justify-content: center; gap: 8px; padding: 8px 10px; font-size: 13px; text-align: center; }
+  .table-screen .action-bar.sitting-out .sitout-row > span { flex: 1 1 100%; }
+  .table-screen .action-bar.sitting-out .sitout-row .btn-back { flex: 1 1 100%; height: 54px; font-size: 18px; }
 }

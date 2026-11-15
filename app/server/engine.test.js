@@ -630,13 +630,12 @@ test('when the clock runs out facing a bet, a Time Bank card is spent before fol
   assert.ok(t.actionEndsAt > Date.now());
 });
 
-test('a second timeout in a row still spends one card, then folds and sits out (EGM round 3)', () => {
+test('a timeout still spends one card first, then folds and sits out (EGM round 3)', () => {
   const t = tableWith([player(1, 'A', 1000, 0, [C('As'), C('Kd')]), player(2, 'B', 800, 200, [C('2c'), C('3d')])]);
   t.street = 'river';
   t.currentBet = 200;
   t.actor = 1;
   t.seats[0].player.timeBankCards = 2;
-  t.seats[0].player.missedTurns = 1;
   t.actionEndsAt = Date.now() - 1;
   t.tick();
   assert.equal(t.seats[0].player.folded, false, 'the time bank runs first');
@@ -644,6 +643,6 @@ test('a second timeout in a row still spends one card, then folds and sits out (
   t.actionEndsAt = Date.now() - 1;
   t.tick();
   assert.equal(t.seats[0].player.folded, true, 'one card per turn, then the fold');
-  assert.equal(t.seats[0].player.sittingOut, true, 'two timeouts in a row sit the player out');
+  assert.equal(t.seats[0].player.sittingOut, true, 'the timeout sits the player out');
   assert.equal(t.seats[0].player.timeBankCards, 1);
 });
