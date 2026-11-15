@@ -70,3 +70,6 @@ jobs:
 
       - name: Build web client
         run: pnpm run build
+
+      - name: Verify build source and distributed notices
+        run: node tools/verify-source-build.mjs

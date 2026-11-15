@@ -157,3 +157,12 @@ to the configured HTTPS/WSS origin. Admin should still use the tunnel.
   UFW's default rules.
 - Play money only for this phase. Selling chips for real money requires payment
   integration, terms, age/geolocation checks and legal review first.
+
+## License and corresponding source
+
+Use `deploy/deploy.sh` to publish a CI-green commit with its full `GIT_SHA`.
+The login source link and `version.json` identify that commit; `/legal/LICENSE` and
+`/legal/MIT-legacy.txt` preserve the current and historical terms, with dependency
+notices at `/legal/THIRD-PARTY-NOTICES.txt`. Independent operators must publish their
+modified source and set `SOURCE_REPOSITORY` in the Compose build environment.
+See [licensing](../docs/LICENSING.md) for source obligations and archive builds.
