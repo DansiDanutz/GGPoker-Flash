@@ -20,9 +20,9 @@ test('a seat shows one status badge, the most important first', () => {
 test('the dock offers sit-out controls only to a seated cash player', () => {
   assert.deepEqual(dockItems({ seated: false, cash: true, straddleAllowed: true }), []);
   const cash = dockItems({ seated: true, cash: true, straddleAllowed: false });
-  assert.deepEqual(cash.map((i) => i.key), ['sitoutHand', 'sitoutBB', 'addChips', 'history']);
+  assert.deepEqual(cash.map((i) => i.key), ['sitoutHand', 'sitoutBB', 'addChips']);
   const tourney = dockItems({ seated: true, cash: false, straddleAllowed: false });
-  assert.deepEqual(tourney.map((i) => i.key), ['sitoutHand', 'history']);
+  assert.deepEqual(tourney.map((i) => i.key), ['sitoutHand']);
   const straddle = dockItems({ seated: true, cash: true, straddleAllowed: true });
   assert.equal(straddle[0].key, 'straddle');
 });

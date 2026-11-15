@@ -47,7 +47,6 @@ export function dockItems({ seated, cash, straddleAllowed }: { seated: boolean; 
     ...(straddleAllowed ? ['straddle' as const] : []),
     'sitoutHand',
     ...(cash ? ['sitoutBB' as const, 'addChips' as const] : []),
-    'history',
   ];
   return keys.map((key) => ({ key, label: DOCK[key], icon: ART.icon[key] }));
 }

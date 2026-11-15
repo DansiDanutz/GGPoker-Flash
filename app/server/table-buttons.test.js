@@ -51,7 +51,7 @@ test('Chat and React are round chip icon buttons (speech bubble, smiley), React 
   assert.match(rule(css(), '.table-screen .tchat-buttons'), /flex-direction: column-reverse;/);
   // The time-bank chip's striped gold edge around the presets' cream face, with a dark icon.
   const chip = rule(css(), '.table-screen .tchat-toggle');
-  assert.match(chip, /width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%;/);
+  assert.match(chip, /width: 41px; height: 41px; padding: 0; border: 0; border-radius: 50%;/);
   assert.match(chip, /repeating-conic-gradient\(#e8b84a 0 20deg, #231c12 20deg 30deg\)/);
   assert.match(chip, /radial-gradient\(circle, #fbefcc 0 40%, #e2c47a 56%/);
   assert.match(chip, /color: #1d1405;/);
