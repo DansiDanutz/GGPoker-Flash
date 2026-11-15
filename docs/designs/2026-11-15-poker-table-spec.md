@@ -345,3 +345,8 @@ saved run-it choice still counts after they leave; Enter in All-in or Fold
 sends a raise the server refuses; a rolled-back tournament move drops the
 saved sit-out flags; an action is stamped with the turn number current when it
 is sent, not the one drawn on screen.
+
+A re-review of that fix found one MEDIUM, fixed: after the redirect the tab
+joined the new table as a fresh buy-in, so a second move in that moment could
+charge again. The tab now carries its seat memory to the new table and joins
+as a rejoin; a join that asks to watch is never redirected.
