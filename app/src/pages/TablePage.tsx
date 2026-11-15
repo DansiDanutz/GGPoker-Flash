@@ -1389,7 +1389,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             )}
             {p.winAmount ? <div className="win-amount">+{chip(p.winAmount)}</div> : null}
             {p.winAmount ? <img className="native-win" src={animOff ? '/assets/table/native-win-final.png' : '/assets/table/native-win-effect.png'} alt="" /> : null}
-            {isActor && !p.folded ? <div className="timer" style={{ animationDuration: '1.4s' }} /> : null}
+            {isActor && !p.folded ? <div className="timer" style={{ '--turn': timerPct } as React.CSSProperties} /> : null}
             {!(p.isMe && squeezing) && <div
               className={'cards' + (showdownReveals[p.seat] != null && p.reveal ? ' showdown-reveal' : '')}
               style={{ '--reveal-delay': `${showdownReveals[p.seat] || 0}ms` } as React.CSSProperties}
@@ -1634,7 +1634,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <span className="aof-note">All-in or fold only</span>
           </div>
         ) : (
-        <div className="action-row">
+        <div className="action-row main-actions">
           <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} title={`Spend a Time Bank Card: +${TB_CARD_SECONDS} seconds`}>⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'} <b className="tb-cards">×{tbCards}</b></button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (

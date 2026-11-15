@@ -42,7 +42,12 @@
 
 /* Table markers, timer ring and labels. */
 .table-screen .dealer-btn { background: url('/assets/table/ui/mk-dealer.webp') center / contain no-repeat; border-radius: 50%; }
-.table-screen .seat .timer { border: 0; inset: -8px; background: url('/assets/table/ui/ring-gold.webp') center / contain no-repeat; }
+.table-screen .seat .timer {
+  border: 0; inset: -8px; animation: none; background: url('/assets/table/ui/ring-gold.webp') center / contain no-repeat;
+  /* Drains clockwise from the top as the turn clock runs down (--turn: 1 -> 0). */
+  -webkit-mask: conic-gradient(#000 calc(var(--turn, 1) * 360deg), transparent 0);
+  mask: conic-gradient(#000 calc(var(--turn, 1) * 360deg), transparent 0);
+}
 .table-screen .seat.active.urgent .timer, .table-screen .seat.active.hot .timer { background-image: url('/assets/table/ui/ring-red.webp'); }
 .table-screen .seat .action-badge {
   background: none; border-radius: 0; border: 0 solid transparent;
