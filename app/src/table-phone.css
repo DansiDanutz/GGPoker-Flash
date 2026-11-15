@@ -36,16 +36,16 @@
     border-radius: 9px; background: #c9a24a; color: #1a1408; font-size: 10px; line-height: 18px; text-align: center;
   }
 
-  /* Upright slider and stepper on the right edge, only while it is your turn to bet. */
+  /* On your turn the pre-action row is empty: the bet slider lies flat there, after the time
+     bank, with - / amount / + on the right. It stays inside the panel, so no seat is covered. */
   .table-screen .action-bar .main-actions .bet-slider {
-    position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(100% + 132px); z-index: 4;
-    width: 30px; height: 150px; min-width: 0; flex: none; margin: 0;
-    writing-mode: vertical-lr; direction: rtl;
-    background: url('/assets/table/ui/slider-track.webp') center / 12px 100% no-repeat;
+    position: absolute; left: 66px; right: 158px; bottom: calc(100% + 22px); z-index: 4;
+    width: auto; height: 30px; min-width: 0; flex: none; margin: 0;
+    background: url('/assets/table/ui/slider-track.webp') center / 100% 12px no-repeat;
   }
   .table-screen .action-bar .main-actions .bet-stepper {
-    position: absolute; right: max(6px, env(safe-area-inset-right, 0px)); bottom: calc(100% + 10px); z-index: 4;
-    display: flex; flex-direction: column-reverse; align-items: center; gap: 4px; width: 44px;
+    position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); bottom: calc(100% + 15px); z-index: 4;
+    display: flex; flex-direction: row; align-items: center; gap: 4px;
   }
   .table-screen .action-bar .main-actions .bet-stepper .bet-step { width: 34px; height: 34px; flex: none; }
   .table-screen .action-bar .main-actions .bet-stepper .amount-input {
@@ -54,8 +54,6 @@
   }
   .table-screen .action-bar .main-actions .bet-slider:disabled,
   .table-screen .action-bar .main-actions .bet-stepper:has(.amount-input:disabled) { display: none; }
-  /* The quick-control dock steps aside while the slider is up. */
-  .table-screen:has(.main-actions .bet-slider:not(:disabled)) .seat-dock { visibility: hidden; }
 
   /* Hero cards: bigger and fanned, like a hand held up to look at. */
   .table-screen .table-stage.stage-portrait .seat.me .cards .pcard.mini { width: 70px; height: 98px; }

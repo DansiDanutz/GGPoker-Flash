@@ -1,5 +1,5 @@
 // Phone action panel (mobile mockup): presets on top, Fold/Call/Raise in one row,
-// a vertical bet slider on the right edge, big tilted hero cards and a draining turn ring.
+// a bet slider lying flat in the panel's spare row, big tilted hero cards and a draining turn ring.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -23,11 +23,16 @@ test('the main action row is marked so phones can lay it out as a grid', () => {
   assert.match(s, /grid-template-areas:\s*"presets presets presets"\s*"fold call raise"/);
 });
 
-test('on phones the bet slider stands upright on the right edge', () => {
+test('on phones the bet slider lies flat in the panel, so it never covers a seat', () => {
   const s = css();
-  assert.match(s, /\.bet-slider[^{]*\{[^}]*writing-mode: vertical-lr/);
-  assert.match(s, /\.bet-slider[^{]*\{[^}]*direction: rtl/);
-  assert.match(s, /\.bet-stepper[^{]*\{[^}]*position: absolute/);
+  const slider = s.match(/\.main-actions \.bet-slider \{([^}]*)\}/)[1];
+  assert.doesNotMatch(slider, /writing-mode/, 'no upright slider over the felt');
+  assert.match(slider, /bottom:\s*calc\(100% \+ \d+px\)/);
+  assert.match(slider, /left:\s*66px/, 'starts after the time bank');
+  const stepper = s.match(/\.main-actions \.bet-stepper \{([^}]*)\}/)[1];
+  assert.match(stepper, /flex-direction:\s*row/);
+  assert.match(stepper, /position:\s*absolute/);
+  assert.doesNotMatch(s, /\.seat-dock \{ visibility: hidden; \}/, 'the dock no longer has to step aside');
 });
 
 test('the turn ring drains with the clock', () => {
