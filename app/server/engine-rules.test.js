@@ -172,6 +172,41 @@ test('a departed re-raise restores the earlier raise: its size and who already m
   assert.equal(t.street, 'turn', 'C already matched 400 and is not asked again');
 });
 
+test("a departed raise leaves the folded raiser's level standing for everyone left (EGM round 4)", () => {
+  const { t, p } = deal([START, START, START, START, START]); // seats 0..4, button 0, SB 1, BB 2, UTG 3
+  ok(t.act(4, 'raise', 300)); // UTG (A) opens to 300
+  ok(t.act(5, 'raise', 900)); // B 3-bets
+  ok(t.act(1, 'raise', 2700)); // button (C) 4-bets
+  ok(t.act(2, 'fold')); // SB
+  t.stand(5); // B leaves: the 3-bet stays in the pot and still stands
+  t.stand(1); // then C leaves while D is to act
+  assert.equal(t.currentBet, 900, "B's 3-bet still has to be answered");
+  assert.equal(t.minRaise, 600);
+  assert.equal(t.actor, 3);
+  ok(t.act(3, 'call')); // the big blind calls the 3-bet
+  assert.equal(t.actor, 4, 'A, who only opened, still owes the 3-bet');
+  assert.equal(p(3).bet, 300);
+  ok(t.act(4, 'call'));
+  assert.equal(t.street, 'flop', 'both answered the standing 3-bet');
+});
+
+test('a short all-in lock comes back when the full raise after it is withdrawn (EGM round 4)', () => {
+  const { t } = deal([START, START, 250, START, START]); // seat 2 is the short big blind
+  ok(t.act(4, 'call')); ok(t.act(5, 'call')); ok(t.act(1, 'call')); ok(t.act(2, 'call')); ok(t.act(3, 'check'));
+  assert.equal(t.street, 'flop');
+  ok(t.act(2, 'raise', 100)); // SB (A) bets 100
+  ok(t.act(3, 'allin')); // BB (B) all-in short for 150
+  ok(t.act(4, 'call')); // C calls 150
+  ok(t.act(5, 'raise', 400)); // D raises to 400 (a full raise)
+  t.stand(5); // D leaves before anyone answers
+  assert.equal(t.currentBet, 150);
+  assert.equal(t.actor, 1, 'the button, who has not acted on this street, is next');
+  ok(t.act(1, 'fold'));
+  assert.equal(t.actor, 2, 'A owes the 50 from the short all-in');
+  assert.equal(t.act(2, 'raise', 600).ok, false, 'the short all-in did not reopen betting for A');
+  ok(t.act(2, 'call'));
+});
+
 test('when the actor leaves, the action moves to the next player', () => {
   const { t } = deal([START, START, START]);
   assert.equal(t.actor, 1);

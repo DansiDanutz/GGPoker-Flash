@@ -54,7 +54,7 @@ export class PokerTable {
     this.pot = 0;
     this.currentBet = 0;
     this.minRaise = cfg.bb;
-    this.betLevels = []; // this street's bet levels: { to, minRaise, by }
+    this.betLevels = []; // this street's bet levels: { to, minRaise, by, full }
     this.actor = null;
     this.actionEndsAt = 0;
     this.timeBankUsed = new Set();
@@ -706,7 +706,7 @@ export class PokerTable {
     if (p.bet > this.currentBet) {
       this.currentBet = p.bet;
       this.minRaise = p.bet;
-      this.betLevels = [...this.betLevels, { to: p.bet, minRaise: p.bet, by: p.id }];
+      this.betLevels = [...this.betLevels, { to: p.bet, minRaise: p.bet, by: p.id, full: true }];
       this.pendingDeal.straddleSeat = seat;
     }
   }
@@ -1108,7 +1108,7 @@ export class PokerTable {
       const previousBet = this.currentBet;
       this.currentBet = p.bet;
       if (isFullRaise) this.minRaise = raiseSize;
-      this.betLevels = [...this.betLevels, { to: this.currentBet, minRaise: this.minRaise, by: p.id }];
+      this.betLevels = [...this.betLevels, { to: this.currentBet, minRaise: this.minRaise, by: p.id, full: isFullRaise }];
       if (p.stack === 0) p.allIn = true;
       for (const s of this.seats) {
         const other = s.player;
@@ -1223,25 +1223,30 @@ export class PokerTable {
     }
   }
 
-  /** Return a departing player's bet above everyone else's, and lower the bet to match. */
-  /** The bet to answer falls to the highest live bet; the minimum raise never exceeds it (or the BB). */
+  /**
+   * A leaver's bet stays in the pot, but nobody has to answer it: the bet to call falls to the
+   * highest bet anyone else made (folded and departed raises still stand), the minimum raise and
+   * the levels go back to that point, and a player owes a new decision only if a full raise was
+   * made after their last action (so a short all-in still does not reopen the betting).
+   */
   retireLeaverBet(p) {
-    const others = this.seats
-      .filter((s) => s.player && s.player !== p && s.player.inHand && !s.player.folded)
-      .map((s) => s.player.bet);
+    const others = [
+      ...this.seats.filter((s) => s.player && s.player !== p && s.player.inHand).map((s) => s.player.bet),
+      ...this.ghosts.filter((g) => g.id !== p.id).map((g) => g.bet),
+    ];
     // Preflop the big blind is owed even when the blind itself has gone.
     const floor = this.street === 'preflop' ? this.bb : 0;
     const highest = Math.max(floor, ...others);
     if (this.currentBet <= highest) return;
     this.currentBet = highest;
-    // The raise size and the players who had already matched the level that still stands come back.
-    const level = [...this.betLevels].reverse().find((l) => l.by !== p.id && l.to <= highest);
-    this.minRaise = level ? level.minRaise : this.bb;
     this.betLevels = this.betLevels.filter((l) => l.by !== p.id && l.to <= highest);
+    const last = this.betLevels.at(-1);
+    this.minRaise = last ? last.minRaise : this.bb;
     for (const s of this.seats) {
       const o = s.player;
       if (!o || o === p || !o.inHand || o.folded || o.allIn) continue;
-      if (highest > 0 && o.bet === highest && o.actedAtBet === highest) o.acted = true;
+      const reopened = this.betLevels.some((l) => l.full && l.by !== o.id && l.to > (o.actedAtBet ?? -1));
+      o.acted = o.actedAtBet != null && !reopened;
     }
   }
 

@@ -252,3 +252,16 @@ Open MEDIUM/LOW for a later round:
 *   A folded player's Add chips lands before the hand ends.
 *   After a cash-out on disconnect, the reconnecting client re-buys in
     without asking.
+
+## Appendix E: EGM round 4 (review of the round-3 fix)
+
+Three HIGH findings, fixed with tests:
+
+*   A finished Spin with a human still seated never closed. The idle close
+    now protects a Spin only until it has a winner.
+*   When a raiser left, a raise made earlier by a player who had since left
+    stopped counting. The bet to call is now the highest bet anyone else
+    made, departed or folded seats included.
+*   Withdrawing a full raise reopened betting for a player locked by an
+    earlier short all-in. A player now owes a new decision only if a full
+    raise still stands after their last action.
