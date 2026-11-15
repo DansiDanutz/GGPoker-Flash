@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 720" preserveAspectRatio="none">
+  <!-- DanGG phone table, drawn in perspective: the far (top) end narrower, the near (bottom) end wide
+       and rounded, a thick dark rail with its side showing at the bottom, green felt lit from above. -->
+  <defs>
+    <path id="outer" d="M200 18 C292 18 342 45 348 104 L390 548 C396 610 330 702 200 702 C70 702 4 610 10 548 L52 104 C58 45 108 18 200 18 Z"/>
+    <path id="inner" d="M200 44 C278 44 318 60 323 114 L364 546 C369 600 314 676 200 676 C86 676 31 600 36 546 L77 114 C82 60 122 44 200 44 Z"/>
+    <linearGradient id="railTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3c3c3e"/><stop offset=".45" stop-color="#2a2a2c"/><stop offset="1" stop-color="#18181a"/>
+    </linearGradient>
+    <linearGradient id="railSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d0d0e"/><stop offset="1" stop-color="#020202"/>
+    </linearGradient>
+    <radialGradient id="cloth" cx=".5" cy=".42" r=".62">
+      <stop offset="0" stop-color="#36a062"/><stop offset=".45" stop-color="#22794a"/>
+      <stop offset=".8" stop-color="#145634"/><stop offset="1" stop-color="#0c3d24"/>
+    </radialGradient>
+    <radialGradient id="glow" cx=".5" cy=".3" r=".5">
+      <stop offset="0" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="125%"><feGaussianBlur stdDeviation="9"/></filter>
+    <clipPath id="clothClip"><use href="#inner"/></clipPath>
+  </defs>
+  <use href="#outer" transform="translate(0 16)" fill="#000" opacity=".6" filter="url(#soft)"/>
+  <use id="apron" href="#outer" transform="translate(0 12)" fill="url(#railSide)"/>
+  <use id="rail" href="#outer" fill="url(#railTop)"/>
+  <use href="#outer" fill="none" stroke="#fff" stroke-opacity=".13" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+  <use href="#inner" fill="none" stroke="#060606" stroke-width="7" vector-effect="non-scaling-stroke"/>
+  <use id="felt" href="#inner" fill="url(#cloth)"/>
+  <g clip-path="url(#clothClip)">
+    <use href="#inner" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="22" filter="url(#soft)"/>
+    <rect width="400" height="720" fill="url(#glow)"/>
+  </g>
+  <path d="M200 78 C262 78 292 88 296 132 L332 540 C336 590 292 640 200 640 C108 640 64 590 68 540 L104 132 C108 88 138 78 200 78 Z"
+        fill="none" stroke="#e8d7a8" stroke-opacity=".18" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+</svg>

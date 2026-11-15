@@ -19,13 +19,6 @@ test('the GG phone layout loads after every other phone rule', () => {
   }
 });
 
-test('the stage tells CSS its size so the oval art and felt tint fit any phone', () => {
-  const src = read('src/pages/TablePage.tsx');
-  assert.match(src, /'--stage-w': `\$\{stage\.width\}px`/);
-  assert.match(src, /'--stage-h': `\$\{stage\.height\}px`/);
-  assert.match(css(), /var\(--stage-w\)/);
-});
-
 test('one slim row of buttons along the bottom', () => {
   assert.match(css(), /--phone-bar-h: 64px/);
   assert.match(css(), /grid-template-areas: "fold call raise"/);
@@ -62,18 +55,59 @@ test('the check-fold pre-action can wrap onto two lines in its narrow button', (
   assert.match(read('src/pages/TablePage.tsx'), /'Check \/ Fold'/);
 });
 
-test("David's phone oval art is the upright table on every phone room, stretched to the stage", () => {
-  assert.ok(fs.existsSync(path.join(root, 'public/assets/tables/skins/portrait/phone-oval.webp')));
-  assert.match(css(), /\.table-screen\[class\] \.table-stage\.stage-portrait::before \{[^}]*transform: none;[^}]*url\('\/assets\/tables\/skins\/portrait\/phone-oval\.webp'\) center \/ 100% 100% no-repeat/);
+test('the phone table is drawn in 3D perspective: narrow top, wide rounded bottom, thick dark rail', () => {
+  const svgPath = path.join(root, 'public/assets/tables/skins/portrait/phone-table-3d.svg');
+  assert.ok(fs.existsSync(svgPath), 'table drawing exists');
+  const svg = fs.readFileSync(svgPath, 'utf8');
+  assert.match(svg, /preserveAspectRatio="none"/, 'stretches to the stage');
+  assert.match(svg, /id="rail"/, 'has a rail');
+  assert.match(svg, /id="apron"/, 'has the rail side that gives it depth');
+  assert.match(svg, /id="felt"/, 'has a felt');
+  // Top edge narrower than the bottom: the shoulder at y 104 sits further in than the widest point.
+  assert.match(svg, /L390 548/);
+  assert.match(svg, /348 104/);
+  assert.match(css(), /\.table-screen\[class\] \.table-stage\.stage-portrait::before \{[^}]*transform: none;[^}]*url\('\/assets\/tables\/skins\/portrait\/phone-table-3d\.svg'\) center \/ 100% 100% no-repeat/);
 });
 
-test('the felt tint follows the oval: a stadium inside the gold line', () => {
-  assert.match(css(), /\.table-stage\.stage-portrait \.felt \{[^}]*border-radius: calc\(var\(--stage-w\) \* \.465\)/);
+test('the felt tint is cut to the same 3D felt shape', () => {
+  const mask = fs.readFileSync(path.join(root, 'public/assets/tables/skins/portrait/phone-table-3d-felt.svg'), 'utf8');
+  assert.match(mask, /preserveAspectRatio="none"/);
+  assert.match(css(), /\.table-stage\.stage-portrait \.felt \{[^}]*mask-image: url\('\/assets\/tables\/skins\/portrait\/phone-table-3d-felt\.svg'\)/);
 });
 
-test("the action, preset and pre-action buttons wear David's dark button art", () => {
-  assert.ok(fs.existsSync(path.join(root, 'public/assets/table/ui/btn-dark.webp')));
-  const rule = css().match(/([^{}]+)\{[^}]*border-image: url\('\/assets\/table\/ui\/btn-dark\.webp'\) 34 fill \/ 10px stretch/);
-  assert.ok(rule, 'one shared rule');
+test('action and pre-action buttons pop up when needed and stay still with reduced motion', () => {
+  assert.match(css(), /@keyframes gg-pop/);
+  assert.match(css(), /:is\(\.main-actions, \.reserved-actions, \.aof-row\) \{[^}]*animation: gg-pop/);
+  assert.match(css(), /prefers-reduced-motion: reduce\)[\s\S]*animation: none/);
+});
+
+test('nothing sits on the table between decisions: no seat dock, no bar shade, chat only as a small corner icon', () => {
+  assert.match(css(), /\.table-screen \.seat-dock \{ display: none; \}/);
+  assert.match(css(), /\.action-bar:not\(:has\(\.main-actions, \.reserved-actions, \.aof-row, \.straddle-ask\)\) \{[^}]*background: none/);
+  assert.match(css(), /\.table-screen:has\(\.action-bar :is\(\.main-actions, \.aof-row\)\) \.tchat-dock:not\(\.open\) \.tchat-buttons \{ visibility: hidden; \}/);
+});
+
+test('phone buttons are drawn like GGPoker mobile: flat charcoal, no gold edge, light grey text', () => {
+  const rule = css().match(/([^{}]+)\{[^}]*background: linear-gradient\(#343434, #262626\);[^}]*border: 0;[^}]*border-image: none;/);
+  assert.ok(rule, 'one shared flat charcoal rule');
   for (const sel of ['.main-actions .act-btn', '.quick-bets button', '.reserved-actions button']) assert.ok(rule[1].includes(sel), sel);
+  assert.doesNotMatch(css(), /btn-dark\.webp/, 'no gold-edged button art');
+});
+
+test('presets show a small tag (Pot, 3BB) at the top-left and the amount large in yellow', () => {
+  const page = read('src/pages/TablePage.tsx');
+  assert.match(page, /<span className="qb-tag">\{betLabel\(value, opening\)\}<\/span> <b className="qb-amt">\{amt\(target\)\}<\/b>/);
+  assert.match(css(), /\.quick-bets button \.qb-tag \{[^}]*position: absolute; left: 0; top: 0;/);
+  assert.match(css(), /\.qb-amt \{[^}]*color: #fde056/);
+});
+
+test('the raise button reads like a GG preset: the word small on top, the amount large in yellow', () => {
+  const page = read('src/pages/TablePage.tsx');
+  assert.match(page, /<span className="act-word">\{raiseTo >= allInTo \? 'All in' : \(state && state\.currentBet > 0 \? 'Raise' : 'Bet'\)\}<\/span> <b className="act-amt">\{amt\(raiseTo\)\}<\/b>/);
+  assert.match(css(), /\.act-btn \.act-amt \{[^}]*color: #fde056/);
+});
+
+test('Call reads like GG too: the word on top, the amount in yellow under it', () => {
+  assert.match(read('src/pages/TablePage.tsx'), /<span className="act-word">Call<\/span> <b className="act-amt">\{amt\(toCall\)\}<\/b>/);
+  assert.match(css(), /:is\(\.act-raise, \.act-allin, \.act-call\)/);
 });
