@@ -41,7 +41,7 @@ rm -rf "$APPR/server/data"
 python3 - <<PY
 import json
 p="$APPR/package.json"
-d=json.load(open(p)); d['main']='electron/main.cjs'; d['name']='ggpoker-clone-desktop'
+d=json.load(open(p)); d['main']='electron/main.cjs'; d['name']='dangg'
 json.dump(d,open(p,'w'),indent=2)
 PY
 cd "$HOME/Applications"

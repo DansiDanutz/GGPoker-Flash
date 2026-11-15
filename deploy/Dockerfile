@@ -5,12 +5,16 @@ FROM node:26-bookworm-slim AS build
 RUN npm install -g pnpm@10.32.1
 WORKDIR /src
 COPY tools ./tools
+COPY LICENSE THIRD-PARTY-NOTICES.txt ./
+COPY LICENSES ./LICENSES
 COPY app/package.json app/pnpm-lock.yaml ./app/
 WORKDIR /src/app
 RUN pnpm install --frozen-lockfile
 COPY app/ ./
 # The commit being deployed; written to dist/version.json and reported by /healthz.
 ARG GIT_SHA=""
+ARG SOURCE_REPOSITORY="https://github.com/DansiDanutz/GGPoker-Flash"
+ENV SOURCE_REPOSITORY=$SOURCE_REPOSITORY
 RUN GIT_SHA="$GIT_SHA" pnpm build
 
 FROM node:26-bookworm-slim AS runtime

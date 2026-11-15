@@ -38,7 +38,7 @@ echo "deploy: CI green for $short"
 
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
-git archive "$sha" app tools deploy | tar -x -C "$stage"
+git archive "$sha" app tools deploy LICENSE LICENSES THIRD-PARTY-NOTICES.txt | tar -x -C "$stage"
 
 # Mirror app/ and tools/ exactly, so files deleted from Git also leave the host. Protect what is
 # generated on the host and never committed: local data and build output. Client assets are
@@ -59,6 +59,9 @@ rsync "${rsync_opts[@]}" "$stage/app/" "$HOST:$REMOTE_ROOT/app/"
 rsync -az --delete "$stage/tools/" "$HOST:$REMOTE_ROOT/tools/"
 # deploy/ holds host-only files (.env, backups, logs), so update tracked files without deleting.
 rsync -az "$stage/deploy/" "$HOST:$REMOTE_ROOT/deploy/"
+
+rsync -az "$stage/LICENSE" "$stage/THIRD-PARTY-NOTICES.txt" "$HOST:$REMOTE_ROOT/"
+rsync -az "$stage/LICENSES/" "$HOST:$REMOTE_ROOT/LICENSES/"
 
 # Build first: if it fails, the old container keeps serving.
 ssh "$HOST" "cd $REMOTE_ROOT/deploy && GIT_SHA=$sha docker compose build game && docker compose up -d game"
