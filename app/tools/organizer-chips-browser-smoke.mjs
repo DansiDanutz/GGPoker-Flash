@@ -147,7 +147,8 @@ try {
     await ownerPage.waitForFunction(phone => !!document.querySelector('.pshell') === phone, {}, width <= 760);
     await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Browser Cash Chip Cup'), {}, manager);
     await ownerPage.$eval(manager, node => node.scrollIntoView({ block: 'start' }));
-    assert.ok(await ownerPage.$eval(manager, node => node.scrollWidth <= node.clientWidth + 1), `Tournament Manager overflow at ${width}`);
+    const layout = await ownerPage.$eval(manager, node => ({ width: node.clientWidth, scroll: node.scrollWidth, overflowing: [...node.querySelectorAll('*')].filter(child => child.getBoundingClientRect().right > node.getBoundingClientRect().right + 1).map(child => ({ tag: child.tagName, class: child.className, width: child.getBoundingClientRect().width })) }));
+    assert.ok(layout.scroll <= layout.width + 1, `Tournament Manager overflow at ${width}: ${JSON.stringify(layout)}`);
     if ([390, 1440].includes(width)) await ownerPage.screenshot({ path: path.join(artifacts, `tournament-manager-${width}.png`), fullPage: true });
   }
 

@@ -99,6 +99,13 @@ test('organiser tournament terms, capacity, setup replay, rescheduling and cance
     assert.equal(reopened.tableId, play.tableId, 'winner can revisit the existing result table');
     assert.equal((await srv.post(`/api/tournaments/${final.id}/play`, { token: loser.token, body: {} })).status, 400);
     assert.equal(db.prepare('SELECT count(*) n FROM organizer_chip_journals').get().n, beforeReplay, 'finished-game retry cannot duplicate payout');
+    for (let i = 0; i < 7; i++) db.prepare("INSERT INTO tournaments(id,name,owner_id,private,status,start_at,buyin) SELECT ?,name,owner_id,private,'completed',start_at,buyin FROM tournaments WHERE id=?").run(`archived-${i}`, final.id);
+    const next = await post('/api/tournaments/host', owner.token, { ...body, name: 'Next Cup', idempotencyKey: 'next-cup' });
+    assert.ok(next.id, 'completed history does not exhaust the active hosting allowance');
+    db.prepare("UPDATE tournaments SET status='registering' WHERE id LIKE 'archived-%'").run();
+    assert.equal((await srv.post('/api/tournaments/host', { token: owner.token, body: { ...body, idempotencyKey: 'over-limit' } })).status, 400);
+    assert.equal((await srv.get(`${bill}/me`, { token: owner.token })).data.balance_cents, 500, 'eight active events still cap hosting without an extra charge');
+
 
   } finally { await Promise.all(sockets.map(socket => socket.close())); db?.close(); await srv.stop(); fs.rmSync(srv.dataDir, { recursive: true, force: true }); }
 });

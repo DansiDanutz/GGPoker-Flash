@@ -11,7 +11,8 @@ Money testing remains free; choose the game economy before creating an event.
 - Rescheduling an unstarted future event: $1 per changed schedule. Retrying the
   same operation does not charge again. There is no hourly tournament charge.
 - Configure format, mode, buy-in, entry fee, starting stack, blind-level duration,
-  start time and 2–1,000 maximum players. Times are displayed in the browser's
+  start time and 2–1,000 maximum players. Up to eight active private events may
+  be hosted; completed and cancelled history does not consume that allowance. Times are displayed in the browser's
   local timezone and sent to the server as UTC.
 - Cash Chip events are freezeouts: registration closes at the scheduled start.
   They require at least two registered players. Re-entry, add-ons and Cash Chip

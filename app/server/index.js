@@ -1828,8 +1828,9 @@ const server = http.createServer(async (req, res) => {
       if (!playMoney && !requireManagement(u, 'tournaments-manager', 'host_tournament_create', res)) return;
       const setupPayload = JSON.stringify(b);
       if (usageBilling && !playMoney) { const previous = organizerBilling.replay(u.id, b.idempotencyKey, setupPayload); if (previous) return json(res, 200, { ok: true, ...previous }); }
-      const count = db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id = ? AND private = 1').get(u.id).n;
-      if (count >= 8) return json(res, 400, { error: 'You already have 8 private tournaments' });
+      const activeTournaments = db.prepare("SELECT COUNT(*) AS n FROM tournaments WHERE owner_id=? AND private=1 AND status NOT IN ('completed','cancelled')");
+      const count = activeTournaments.get(u.id).n;
+      if (count >= 8) return json(res, 400, { error: 'You already have 8 active private tournaments' });
       const name = String(b.name || `${u.nick}'s tournament`).trim().slice(0, 60) || `${u.nick}'s tournament`;
       const format = ['NLH', 'PLO', 'Short Deck'].includes(b.format) ? b.format : 'NLH';
       const game = format === 'PLO' ? 'omaha' : format === 'Short Deck' ? 'shortdeck' : 'holdem';
@@ -1849,7 +1850,7 @@ const server = http.createServer(async (req, res) => {
       const start = new Date(startMs).toISOString();
       const id = `home-t-${u.id}-${randomUUID().slice(0, 8)}`;
       const created = setup({ userId: u.id, kind: 'tournament', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
-        if (db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tournaments'), { status: 400 });
+        if (activeTournaments.get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 active private tournaments'), { status: 400 });
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled,owner_id,private)
         VALUES (?,?,?,?,?,0,?, 'registering', ?, 0, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1)`)
         .run(id, name, game, buyin, fee, start, maxPlayers, startingStack, blindSpeed, lateReg, format, mode, Math.max(0, Number(b.bounty) || 0), String(b.ticket || '').slice(0, 80), u.id);
