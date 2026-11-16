@@ -27,6 +27,8 @@ import { Reconnect } from './pages/Reconnect';
 import { FirstLaunch } from './components/FirstLaunch';
 import { QuickMenu } from './components/QuickMenu';
 import { Marketplace } from './pages/Marketplace';
+import { PlatformWorkspace } from './pages/PlatformWorkspace';
+import { PlatformTabs } from './components/PlatformTabs';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
   const desktop = typeof window !== 'undefined' && !!(window as any).ggDesktop;
@@ -70,6 +72,8 @@ export default function App() {
     if (parts[0] === 'login') return <Login />;
     if (parts[0] === 'table') return <TablePage tableId={parts[1]} />;
     switch (parts[0]) {
+      case 'contributor': return <PlatformWorkspace kind="contributor" />;
+      case 'organiser': return <PlatformWorkspace kind="organiser" />;
       case 'tournaments': return <Tournaments />;
       case 'cashier': return <Cashier />;
       case 'rewards': return <Rewards />;
@@ -136,6 +140,7 @@ export default function App() {
 
   return (
     <ScaleStage>
+      <PlatformTabs />
       {page}
       {firstLaunch && <FirstLaunch />}
       <MobileNav />

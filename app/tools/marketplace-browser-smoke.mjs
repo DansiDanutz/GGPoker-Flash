@@ -353,7 +353,7 @@ async function run() {
   assert.equal(publisherAccount.publisher.kind, 'company');
   assert.equal(publisherAccount.publisher.status, 'pending');
   assert.equal(publisherAccount.balance.available_cents, 0);
-  assert.equal(publisherAccount.submission_enabled, false);
+  assert.equal(publisherAccount.submission_enabled, true);
   assert.equal(publisherAccount.checkout_enabled, false);
   await member.reload({ waitUntil: 'domcontentloaded' });
   await waitText(member, '.mg-publisher-account h4', 'CI Publisher Company');
@@ -486,6 +486,7 @@ async function run() {
   currentPage = member;
   await member.goto(`${base}/#/?game=holdem`, { waitUntil: 'domcontentloaded' });
   await clickSelector(member, '.host-table-btn');
+  await member.select('#host-economy', 'organizer');
   await clickText(member, '.modal .tabs-line button', 'Spin & Go');
   await waitText(member, '.mg-host-access', 'An active paid plugin is required');
   assert.equal(await member.$eval('.modal-foot .btn-gold', (button) => button.disabled), true, 'An unpaid organizer can create Spin & Go.');
@@ -500,6 +501,7 @@ async function run() {
   await api('/api/admin/marketplace/commerce/payments/confirm', { token: adminToken, method: 'POST', body: { ...paymentProof, paymentId: 'ci-browser-payment-receipt', paidAt: new Date().toISOString() } });
   assert.equal((await api('/api/marketplace/publisher', { token: memberAuth.token })).balance.available_cents, 0, 'Commission should consume the reserved credits.');
   await clickSelector(member, '.host-table-btn');
+  await member.select('#host-economy', 'organizer');
   await clickText(member, '.modal .tabs-line button', 'Spin & Go');
   await waitText(member, '.mg-host-access', 'Paid management access active');
   await member.waitForFunction(() => !document.querySelector('.modal-foot .btn-gold')?.disabled);

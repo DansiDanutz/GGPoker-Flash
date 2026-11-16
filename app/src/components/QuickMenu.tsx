@@ -14,6 +14,8 @@ const LINKS = [
   { icon: '📋', label: 'Missions', to: '/missions' },
   { icon: '🏆', label: 'Leaders', to: '/leaderboard' },
   { icon: '◈', label: 'Marketplace', to: '/marketplace' },
+  { icon: '⌘', label: 'Contributor', to: '/contributor' },
+  { icon: '♠', label: 'Organiser', to: '/organiser' },
 ];
 
 export function QuickMenu() {
@@ -48,7 +50,7 @@ export function QuickMenu() {
         </div>
         <button className="quick-cashier" onClick={() => go('/cashier')}>Cashier</button>
         <div className="quick-grid">
-          {LINKS.map((l) => (
+          {LINKS.filter((l) => (user && !user.is_guest) || !['/marketplace', '/contributor', '/organiser'].includes(l.to)).map((l) => (
             <button key={l.to} onClick={() => go(l.to)}><span>{l.icon}</span>{l.label}</button>
           ))}
           {user?.is_admin && <button onClick={() => go('/admin')}><span>⚙</span>Admin DanGG</button>}

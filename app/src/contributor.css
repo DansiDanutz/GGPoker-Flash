@@ -1,0 +1,20 @@
+.contributor-workspace { max-width: 1000px; margin: auto; padding: 24px; color: var(--text, #e8e8ef); }
+.contributor-workspace p, .contributor-workspace li { line-height: 1.6; }
+.contributor-workspace a { color: #a4d9ff; text-decoration: underline; }
+.contributor-workspace code { overflow-wrap: anywhere; }
+.contributor-workspace fieldset { border: 1px solid #566171; border-radius: 12px; padding: 18px; min-width: 0; display: grid; gap: 14px; }
+.contributor-workspace label { display: grid; gap: 8px; }
+.contributor-workspace input, .contributor-workspace textarea { width: 100%; box-sizing: border-box; background: #151c28; border: 1px solid #657388; border-radius: 6px; padding: 10px; color: #fff; font: inherit; }
+.contributor-workspace button { min-height: 44px; padding: 8px 16px; cursor: pointer; }
+.contributor-workspace button:disabled { opacity: .55; cursor: default; }
+.contributor-workspace :focus-visible { outline: 2px solid #a4d9ff; outline-offset: 3px; }
+.contributor-workspace article { background: #171e2a; border: 1px solid #465264; border-radius: 12px; padding: 18px; margin: 16px 0; overflow-wrap: anywhere; }
+.contributor-heading, .contributor-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.contributor-workspace .contributor-check { display: flex; align-items: start; }
+.contributor-check input { width: 20px; height: 20px; flex-shrink: 0; }
+.contributor-notes { white-space: pre-wrap; }
+.platform-tabs { display: flex; flex-shrink: 0; min-height: 60px; box-sizing: border-box; gap: 8px; padding: 8px 16px; overflow-x: auto; background: #151c28; }
+.platform-tabs button { min-height: 44px; padding: 8px 14px; color: #eee; border: 1px solid #647084; background: transparent; border-radius: 6px; white-space: nowrap; }
+.platform-tabs button[aria-current=page] { background: #33445c; }
+.platform-workspace { overflow-y: auto; min-height: 0; flex: 1; }
+@media (max-width: 600px) { .contributor-workspace { padding: 16px 12px; } .platform-tabs { gap: 4px; padding: 8px; } .platform-tabs button { flex: 1; padding: 8px; font-size: 13px; } }

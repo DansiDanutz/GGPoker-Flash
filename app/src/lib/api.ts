@@ -14,6 +14,7 @@ export type User = {
   vip_points: number;
   elo?: number;
   is_admin: boolean;
+  is_guest?: boolean;
   banned: boolean;
   chat_muted?: boolean;
   country: string;
@@ -260,7 +261,7 @@ function readFileBase64(file: Blob): Promise<string> {
 }
 
 export const api = {
-  hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number; bombPot?: boolean; start_at?: string; idempotencyKey?: string }) =>
+  hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number; bombPot?: boolean; start_at?: string; idempotencyKey?: string; economy?: 'play_money' | 'organizer' }) =>
     request<{ id: string }>('/api/tables/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTables: () => request<{ tables: any[] }>('/api/tables/host'),
   joinTableWaitlist: (tableId: string) =>

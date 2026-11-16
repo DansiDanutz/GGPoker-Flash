@@ -65,6 +65,7 @@ import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import { createMarketplaceRoutes } from './marketplace.js';
 import { createMarketplaceCommerce } from './marketplace-commerce.js';
+import { createContributorSubmissions, createContributorRoutes } from './contributor-submissions.js';
 import { createManagementPolicy, privateSpinConfig, tableManagementProduct } from './management-plugins.js';
 import { createManagementRoutes } from './management-routes.js';
 import { createOrganizerBilling } from './organizer-billing.js';
@@ -572,6 +573,7 @@ if (!['off', 'enforce'].includes(organizerChipMode)) throw new Error('GGPOKER_OR
 const chipEconomyEnabled = organizerChipMode === 'enforce';
 if (chipEconomyEnabled && process.env.GGPOKER_USAGE_BILLING !== 'enforce') throw new Error('Organizer chips require service billing enforce mode');
 for (const tableName of ['tables', 'tournaments']) {
+  if (!db.prepare(`PRAGMA table_info(${tableName})`).all().some((column) => column.name === 'play_money')) db.exec(`ALTER TABLE ${tableName} ADD COLUMN play_money INTEGER NOT NULL DEFAULT 0`);
   if (!db.prepare(`PRAGMA table_info(${tableName})`).all().some((column) => column.name === 'chip_economy')) db.exec(`ALTER TABLE ${tableName} ADD COLUMN chip_economy INTEGER NOT NULL DEFAULT 0`);
 }
 const organizerChips = createOrganizerChips({ db });
@@ -605,6 +607,8 @@ const managementPolicy = usageBilling ? {
   },
 } : legacyManagementPolicy;
 const handleManagementRoute = createManagementRoutes({ db, commerce: marketplaceCommerce, policy: managementPolicy, billing: organizerBilling, json, requireUser, requireAdmin, readBody });
+const contributorSubmissions = createContributorSubmissions({ db, commerce: marketplaceCommerce, billing: organizerBilling });
+const handleContributorRoute = createContributorRoutes({ submissions: contributorSubmissions, json, requireUser, requireAdmin, readBody });
 const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES, getSetting, broadcastState });
 const handleOrganizerChipRoute = createOrganizerChipRoutes({ db, chips: organizerChips, events: organizerChipEvents,
   spin: organizerChipSpin, billing: organizerBilling, json, requireUser, requireAdmin, readBody, mode: organizerChipMode,
@@ -625,6 +629,11 @@ const handleOrganizerChipRoute = createOrganizerChipRoutes({ db, chips: organize
     if (cancel && table?.humans().length) throw Object.assign(new Error('Players must leave before cancelling the reserve.'), { status: 409 });
     table?.resetSpinIfIdle();
   } });
+function playMoneySetup({ create }) {
+  db.exec('BEGIN IMMEDIATE');
+  try { const result = create(); db.exec('COMMIT'); return result; }
+  catch (error) { db.exec('ROLLBACK'); throw error; }
+}
 const requireManagement = (actor, productId, action, res) => {
   if (usageBilling) {
     if (action.startsWith('admin_') && actor.is_admin) return true;
@@ -636,8 +645,8 @@ setInterval(() => { if (usageBilling) { try { organizerChips.releaseDueGrants();
 function serviceCanDeal(table, markStarted = false) {
   if (table.financialError || (usesOrganizerChips(table) && !chipEconomyEnabled)) return false;
   if (usesOrganizerChips(table) && table.tournament && db.prepare('SELECT status FROM tournaments WHERE id=?').get(table.cfg.tournamentId)?.status !== 'running') return false;
-  if (!usageBilling || !table.cfg.private || !table.cfg.owner_id || table.tournament) return true;
-  if (table.cfg.game !== 'spingold') return organizerBilling.canDeal(table.cfg.id);
+  if (!table.cfg.private || !table.cfg.owner_id || table.tournament) return true;
+  if (table.cfg.game !== 'spingold') return (table.cfg.play_money && !usesOrganizerChips(table)) || !usageBilling || organizerBilling.canDeal(table.cfg.id);
   const schedule = db.prepare('SELECT * FROM organizer_spin_schedule WHERE table_id=?').get(table.cfg.id);
   if (!schedule) return true; // Legacy Spin tables retain their existing lifecycle.
   if (Date.parse(schedule.start_at) > Date.now()) return false;
@@ -1509,6 +1518,7 @@ const server = http.createServer(async (req, res) => {
     if (await handleOrganizerChipRoute(req, res, url)) return;
     if (await handleOrganizerBillingRoute(req, res, url)) return;
     if (await handleManagementRoute(req, res, url)) return;
+    if (await handleContributorRoute(req, res, url)) return;
     if (await handleMarketplaceRoute(req, res, url)) return;
     if (p === '/healthz') {
       return json(res, 200, buildHealthSummary({
@@ -1559,6 +1569,7 @@ const server = http.createServer(async (req, res) => {
       if (!/^[A-Za-z0-9_.\-]{3,24}$/.test(login)) return json(res, 400, { error: 'Account ID must be 3-24 letters, digits, dots, dashes or underscores' });
       if (!nick) return json(res, 400, { error: 'Nickname must be 2-20 letters, digits, spaces, dots, dashes or underscores' });
       if (String(body.password || '').length < 6) return json(res, 400, { error: 'Password must be at least 6 characters' });
+      if (/^guest_[0-9a-f]{8}-[0-9a-f]{3}$/.test(login)) return json(res, 400, { error: 'That account ID is reserved for guest sessions.' });
       if (identityTaken(login) || identityTaken(nick)) return json(res, 400, { error: 'That account ID or nickname is already taken' });
       const user = createAccount(login, nick, String(body.password), String(body.email || '').slice(0, 120));
       // Count only accounts actually created, so typos in the form do not use up the allowance.
@@ -1726,11 +1737,14 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/tables/host' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const b = await readBody(req);
+      if (b.economy !== undefined && !['play_money', 'organizer'].includes(b.economy)) return json(res, 400, { error: 'Invalid game economy.' });
+      const playMoney = b.economy === 'play_money';
+      const setup = playMoney ? playMoneySetup : (options) => organizerBilling.setup(options);
       // Preserve the host API's Hold'em fallback and authorize the actual format.
       const game = ['holdem', 'omaha', 'omaha5', 'omaha6', 'shortdeck', 'spingold'].includes(b.game) ? b.game : 'holdem';
-      if (!requireManagement(u, tableManagementProduct(game), 'host_table_create', res)) return;
+      if (!playMoney && !requireManagement(u, tableManagementProduct(game), 'host_table_create', res)) return;
       const setupPayload = JSON.stringify(b);
-      if (usageBilling) { const previous = organizerBilling.replay(u.id, b.idempotencyKey, setupPayload); if (previous) return json(res, 200, { ok: true, ...previous }); }
+      if (usageBilling && !playMoney) { const previous = organizerBilling.replay(u.id, b.idempotencyKey, setupPayload); if (previous) return json(res, 200, { ok: true, ...previous }); }
       const count = db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id = ? AND private = 1').get(u.id).n;
       if (count >= 8) return json(res, 400, { error: 'You already have 8 private tables' });
       if (game === 'spingold') {
@@ -1740,13 +1754,14 @@ const server = http.createServer(async (req, res) => {
         const name = String(b.name || `${u.nick}'s Jackpot SNG`).trim().slice(0, 40) || 'Private Jackpot SNG';
         const launch = b.start_at ? Date.parse(b.start_at) : Date.now();
         if (!Number.isFinite(launch) || (b.start_at && launch <= Date.now())) return json(res, 400, { error: 'Choose a future Spin launch time.' });
-        const created = organizerBilling.setup({ userId: u.id, kind: 'spin', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
+        const created = setup({ userId: u.id, kind: 'spin', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
         if (db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tables'), { status: 400 });
         db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
           VALUES (?,?,?,'Private',?,?,0,?,?,?, ?,0,1,0,?,1,0)`)
           .run(id, name, spin.game, spin.sb, spin.bb, spin.min_buyin, spin.max_buyin, spin.seats, spin.speed, u.id);
-        if (usageBilling) db.prepare('INSERT INTO organizer_spin_schedule(table_id,start_at) VALUES (?,?)').run(id, new Date(launch).toISOString());
-        if (chipEconomyEnabled) db.prepare('UPDATE tables SET chip_economy=1 WHERE id=?').run(id);
+        if (usageBilling || playMoney) db.prepare('INSERT INTO organizer_spin_schedule(table_id,start_at) VALUES (?,?)').run(id, new Date(launch).toISOString());
+        if (!playMoney && chipEconomyEnabled) db.prepare('UPDATE tables SET chip_economy=1 WHERE id=?').run(id);
+        if (playMoney) db.prepare('UPDATE tables SET play_money=1 WHERE id=?').run(id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_spin_table', id);
         return { id }; } });
         return json(res, 200, { ok: true, ...created });
@@ -1755,17 +1770,18 @@ const server = http.createServer(async (req, res) => {
       const bb = Math.max(sb, Math.round(Number(b.bb) || sb * 2));
       const minBuyin = Math.max(bb, Math.round(Number(b.min_buyin) || bb * 20));
       const maxBuyin = Math.max(minBuyin, Math.round(Number(b.max_buyin) || minBuyin));
-      if (chipEconomyEnabled && ![sb, bb, minBuyin, maxBuyin].every((n) => Number.isSafeInteger(n) && n > 0 && n <= 9_000_000_000)) return json(res, 400, { error: 'Use bounded whole Cash Chips for stakes and buy-ins.' });
+      if ((playMoney || chipEconomyEnabled) && ![sb, bb, minBuyin, maxBuyin].every((n) => Number.isSafeInteger(n) && n > 0 && n <= 9_000_000_000)) return json(res, 400, { error: 'Use bounded whole Cash Chips for stakes and buy-ins.' });
       const seats = Math.max(2, Math.min(9, Math.round(Number(b.seats) || 6)));
-      const rake = chipEconomyEnabled ? validateCashRake({ rakePercent: b.rakePercent === undefined ? 5 : b.rakePercent, rakeCap: b.rakeCap === undefined ? 300 : b.rakeCap }) : null;
+      const rake = (playMoney || chipEconomyEnabled) ? validateCashRake({ rakePercent: b.rakePercent === undefined ? 5 : b.rakePercent, rakeCap: b.rakeCap === undefined ? 300 : b.rakeCap }) : null;
       const name = String(b.name || `${u.nick}'s table`).trim().slice(0, 40) || `${u.nick}'s table`;
       const id = `home-${u.id}-${randomUUID().slice(0, 8)}`;
-      const created = organizerBilling.setup({ userId: u.id, kind: 'cash', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
+      const created = setup({ userId: u.id, kind: 'cash', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
         if (db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tables'), { status: 400 });
       db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
         VALUES (?,?,?,?,?,?,0,?,?,?, 'Normal',0,1,0,?,1,?)`)
         .run(id, name, game, 'Private', sb, bb, minBuyin, maxBuyin, seats, u.id, b.bombPot ? 1 : 0);
-      if (rake) db.prepare('UPDATE tables SET chip_economy=1,rake_percent=?,rake_cap=? WHERE id=?').run(rake.rakePercent, rake.rakeCap, id);
+      if (rake) db.prepare('UPDATE tables SET chip_economy=?,rake_percent=?,rake_cap=? WHERE id=?').run(playMoney ? 0 : 1, rake.rakePercent, rake.rakeCap, id);
+        if (playMoney) db.prepare('UPDATE tables SET play_money=1 WHERE id=?').run(id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_table', id);
       return { id }; } });
       return json(res, 200, { ok: true, ...created });
@@ -1800,10 +1816,13 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/tournaments/host' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
-      if (!requireManagement(u, 'tournaments-manager', 'host_tournament_create', res)) return;
       const b = await readBody(req);
+      if (b.economy !== undefined && !['play_money', 'organizer'].includes(b.economy)) return json(res, 400, { error: 'Invalid game economy.' });
+      const playMoney = b.economy === 'play_money';
+      const setup = playMoney ? playMoneySetup : (options) => organizerBilling.setup(options);
+      if (!playMoney && !requireManagement(u, 'tournaments-manager', 'host_tournament_create', res)) return;
       const setupPayload = JSON.stringify(b);
-      if (usageBilling) { const previous = organizerBilling.replay(u.id, b.idempotencyKey, setupPayload); if (previous) return json(res, 200, { ok: true, ...previous }); }
+      if (usageBilling && !playMoney) { const previous = organizerBilling.replay(u.id, b.idempotencyKey, setupPayload); if (previous) return json(res, 200, { ok: true, ...previous }); }
       const count = db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id = ? AND private = 1').get(u.id).n;
       if (count >= 8) return json(res, 400, { error: 'You already have 8 private tournaments' });
       const name = String(b.name || `${u.nick}'s tournament`).trim().slice(0, 60) || `${u.nick}'s tournament`;
@@ -1815,18 +1834,20 @@ const server = http.createServer(async (req, res) => {
       const blindSpeed = Math.max(1, Math.min(120, Math.round(Number(b.blind_speed) || 8)));
       const lateReg = Math.max(0, Math.min(600, Math.round(Number(b.late_reg) || 90)));
       const mode = ['STANDARD', 'BOUNTY', 'MYSTERY', 'SATELLITE', 'FLIP'].includes(b.mode) ? b.mode : 'STANDARD';
-      if (chipEconomyEnabled && (mode === 'SATELLITE' || buyin < 1 || ![buyin, fee, startingStack, Number(b.bounty || 0)].every((n) => Number.isSafeInteger(n) && n >= 0 && n <= 9_000_000_000))) return json(res, 400, { error: 'Use whole Cash Chips, a positive buy-in, and a supported tournament mode.' });
-      if (chipEconomyEnabled && ['BOUNTY', 'MYSTERY'].includes(mode) && Number(b.bounty || 0) < 1) return json(res, 400, { error: 'Configure a positive Cash Chip bounty.' });
+      if (playMoney && ![buyin, fee, startingStack, Number(b.bounty || 0)].every((n) => Number.isSafeInteger(n) && n >= 0 && n <= 9_000_000_000)) return json(res, 400, { error: 'Use bounded whole Play Money chips.' });
+      if (!playMoney && chipEconomyEnabled && (mode === 'SATELLITE' || buyin < 1 || ![buyin, fee, startingStack, Number(b.bounty || 0)].every((n) => Number.isSafeInteger(n) && n >= 0 && n <= 9_000_000_000))) return json(res, 400, { error: 'Use whole Cash Chips, a positive buy-in, and a supported tournament mode.' });
+      if (!playMoney && chipEconomyEnabled && ['BOUNTY', 'MYSTERY'].includes(mode) && Number(b.bounty || 0) < 1) return json(res, 400, { error: 'Configure a positive Cash Chip bounty.' });
       const startMs = b.start_at ? Date.parse(b.start_at) : Date.now() + 3600000;
       if (!Number.isFinite(startMs) || startMs <= Date.now()) return json(res, 400, { error: 'Choose a future tournament start time.' });
       const start = new Date(startMs).toISOString();
       const id = `home-t-${u.id}-${randomUUID().slice(0, 8)}`;
-      const created = organizerBilling.setup({ userId: u.id, kind: 'tournament', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
+      const created = setup({ userId: u.id, kind: 'tournament', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
         if (db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tournaments'), { status: 400 });
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled,owner_id,private)
         VALUES (?,?,?,?,?,0,?, 'registering', 1000, 0, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1)`)
         .run(id, name, game, buyin, fee, start, startingStack, blindSpeed, lateReg, format, mode, Math.max(0, Number(b.bounty) || 0), String(b.ticket || '').slice(0, 80), u.id);
-      if (chipEconomyEnabled) db.prepare('UPDATE tournaments SET chip_economy=1 WHERE id=?').run(id);
+      if (!playMoney && chipEconomyEnabled) db.prepare('UPDATE tournaments SET chip_economy=1 WHERE id=?').run(id);
+        if (playMoney) db.prepare('UPDATE tournaments SET play_money=1 WHERE id=?').run(id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_tournament', id);
       return { id }; } });
       return json(res, 200, { ok: true, ...created });
@@ -3504,7 +3525,7 @@ wss.on('connection', (ws, req) => {
           return ws.send(JSON.stringify({ type: 'error', error: 'Only the table host can change straddles' }));
         }
         const productId = tableManagementProduct(entry.table.cfg.game);
-        if (!managementPolicy.check({ id: ws.userId }, productId, 'host_straddle_configure').can_manage) {
+        if (!entry.table.cfg.play_money && !managementPolicy.check({ id: ws.userId }, productId, 'host_straddle_configure').can_manage) {
           return ws.send(JSON.stringify({ type: 'error', ...managementPolicy.error(productId) }));
         }
         const res = entry.table.setStraddle(!!msg.straddle);

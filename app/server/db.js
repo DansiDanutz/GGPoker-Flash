@@ -790,6 +790,7 @@ export function publicUser(u) {
   if (!u) return null;
   return {
     id: u.id, login: u.login, nick: u.nick, email: u.email, avatar: u.avatar,
+    is_guest: /^guest_[0-9a-f]{8}-[0-9a-f]{3}$/.test(u.login),
     balance: u.balance, play_chips: u.play_chips, tickets: u.tickets, gems: u.gems,
     xp: u.xp, vip_level: u.vip_level, vip_points: u.vip_points, elo: u.elo ?? 1000, is_admin: !!u.is_admin,
     banned: !!u.banned, chat_muted: !!u.chat_muted, country: u.country, created_at: u.created_at,

@@ -7,7 +7,7 @@ export function validateCashRake({ rakePercent, rakeCap }) {
 }
 
 export function cashRakeConfig(row, getSetting) {
-  const scoped = row.private && row.chip_economy && row.owner_id && row.game !== 'spingold' && !row.tournamentId;
+  const scoped = row.private && (row.chip_economy || row.play_money) && row.owner_id && row.game !== 'spingold' && !row.tournamentId;
   const cap = scoped && row.rake_cap != null ? row.rake_cap : getSetting('rake_cap', 300);
   return {
     rakePercent: scoped && row.rake_percent != null ? row.rake_percent : getSetting('rake_percent', 5),

@@ -18,12 +18,12 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
     table_id TEXT PRIMARY KEY REFERENCES tables(id), start_at TEXT NOT NULL, started_at TEXT
   )`);
   const resources = (userId) => ({
-    tables: db.prepare('SELECT id,name,game,private,owner_id,chip_economy,rake_percent,rake_cap FROM tables WHERE private=1 AND owner_id=?').all(userId).map((row) => ({
+    tables: db.prepare('SELECT id,name,game,private,owner_id,chip_economy,rake_percent,rake_cap FROM tables WHERE private=1 AND play_money=0 AND owner_id=?').all(userId).map((row) => ({
       ...row, session: row.game === 'spingold' ? null : billing.cashSession(userId, row.id),
       ...cashRakeConfig(row, getSetting),
       schedule: db.prepare('SELECT start_at,started_at FROM organizer_spin_schedule WHERE table_id=?').get(row.id) || null,
     })),
-    tournaments: db.prepare('SELECT id,name,start_at,status FROM tournaments WHERE private=1 AND owner_id=?').all(userId),
+    tournaments: db.prepare('SELECT id,name,start_at,status FROM tournaments WHERE private=1 AND play_money=0 AND owner_id=?').all(userId),
   });
   return async (req, res, url) => {
     const p = url.pathname;
@@ -80,6 +80,7 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
       ? db.prepare('SELECT * FROM tournaments WHERE id=? AND owner_id=? AND private=1').get(id, user.id)
       : db.prepare('SELECT * FROM tables WHERE id=? AND owner_id=? AND private=1').get(id, user.id);
     if (!row || (kind === 'spin' && row.game !== 'spingold') || (kind === 'cash' && row.game === 'spingold')) fail('Resource not found.', 404);
+    if (row.play_money) fail('Play Money resources do not use service-credit billing.', 409);
     if (operation === 'rake') {
       if (kind !== 'cash' || !row.chip_economy) fail('Organizer Cash Chip table required.', 404);
       billing.requireMembership(user.id, 'organizer');

@@ -282,6 +282,7 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
         method(req, productPath ? ['PATCH'] : ['POST']);
         const id = productPath ? pathId(productPath[1]) : randomUUID();
         const previous = productPath ? getProduct(id) : null;
+        if (id.startsWith('contrib-')) fail('Use the contributor review queue to manage reviewed plugin releases.', 409);
         if (productPath && !previous) fail('Produsul nu a fost găsit.', 404);
         if (!productPath && db.prepare('SELECT COUNT(*) n FROM marketplace_products').get().n >= 200) fail('Catalogul permite cel mult 200 de produse.', 409);
         const product = normalizeProduct(await readBody(req), previous);
