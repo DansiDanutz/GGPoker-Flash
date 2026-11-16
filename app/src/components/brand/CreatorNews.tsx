@@ -1,11 +1,15 @@
 import React, { useEffect, useRef } from 'react';
-import { CREATOR_AVATAR_LARGE, CREATOR_NEWS, PROJECT_NAME } from '../../lib/creator';
+import { createPortal } from 'react-dom';
+import { CREATOR_AVATAR_LARGE, CREATOR_NEWS, PROJECT_NAME, sourceRepository } from '../../lib/creator';
 
 interface CreatorNewsProps {
   readonly onClose: () => void;
 }
 
-/** News card from the creator: DanGG is going open source. Closes on the button, backdrop or Escape. */
+/**
+ * News card from the creator: DanGG is going open source. Closes on the button, backdrop or Escape.
+ * Rendered into <body> so no page layer (the login footer) can sit over the card and swallow taps.
+ */
 export function CreatorNews({ onClose }: CreatorNewsProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -16,7 +20,7 @@ export function CreatorNews({ onClose }: CreatorNewsProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className="cn-backdrop" onClick={onClose}>
       <article
         className="cn-card"
@@ -30,7 +34,9 @@ export function CreatorNews({ onClose }: CreatorNewsProps) {
           <div>
             <small className="cn-kicker">{CREATOR_NEWS.kicker}</small>
             <h2 id="cn-title">{CREATOR_NEWS.title}</h2>
-            <span className="cn-badge"><GitHubMark />{CREATOR_NEWS.badge}</span>
+            <a className="cn-badge" href={sourceRepository(__APP_SOURCE_URL__)} target="_blank" rel="noopener noreferrer">
+              <GitHubMark />{CREATOR_NEWS.badge}
+            </a>
           </div>
         </div>
         <div className="cn-body">
@@ -39,7 +45,8 @@ export function CreatorNews({ onClose }: CreatorNewsProps) {
         </div>
         <button ref={closeRef} type="button" className="cn-close" onClick={onClose}>{CREATOR_NEWS.close}</button>
       </article>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
