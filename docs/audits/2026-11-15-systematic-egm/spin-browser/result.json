@@ -1,0 +1,32 @@
+{
+  "completed": true,
+  "players": [
+    7,
+    8,
+    9
+  ],
+  "geometry": [
+    {
+      "width": 320,
+      "overflowX": 0,
+      "hand": true,
+      "presentation": false,
+      "tableUrl": "#/table/spin:3c161137-2e50-4780-8410-32abd3a32552"
+    },
+    {
+      "width": 390,
+      "overflowX": 0,
+      "hand": true,
+      "presentation": false,
+      "tableUrl": "#/table/spin:3c161137-2e50-4780-8410-32abd3a32552"
+    },
+    {
+      "width": 768,
+      "overflowX": 0,
+      "hand": true,
+      "presentation": false,
+      "tableUrl": "#/table/spin:3c161137-2e50-4780-8410-32abd3a32552"
+    }
+  ],
+  "errors": []
+}

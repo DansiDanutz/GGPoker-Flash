@@ -1,0 +1,22 @@
+**No Blocker or Major remains.** Six Minor issues are still reproducible:
+
+1. **Minor — lost-response retries still replace operation IDs outside the repaired Spin paths.**  
+   `app/src/components/spin/SpinRegistration.tsx:96-107`, `app/src/components/AdminSpinRules.tsx:73-81`, `app/src/components/AdminSpinSixRules.tsx:57-66`, `app/src/components/AdminPushSeatGrant.tsx:34-48`, and `app/src/components/table/PushSeatPanel.tsx:16-38` generate a fresh UUID for every attempt while retaining the previous expected revision. Drop a successful response and repeat the same command: the retry cannot replay its receipt and normally returns a revision/already-reserved error until state is reloaded. Registration batches and presentation acknowledgements do preserve their IDs correctly.
+
+2. **Minor — stale failed loads can still overwrite the current view’s error state.**  
+   Successful responses are generation-checked, but the catches are not in `app/src/components/spin/SpinRegistration.tsx:17-27`, `app/src/components/AdminSpinRules.tsx:18-39`, and `app/src/components/AdminSpinSixRules.tsx:14-24`. Delay an old mode/stake request, switch selection, let the new request succeed, then fail the old one; its obsolete error appears over the current queue/rules.
+
+3. **Minor — Escape cannot close Push Seat.**  
+   `app/src/lib/useModalIsolation.ts:16-26` stops propagation for every non-Tab key at document capture phase. This prevents the panel’s bubble-phase Escape listener at `app/src/components/table/PushSeatPanel.tsx:10-14` from running. Open Push Seat and press Escape: it remains open; the close button and backdrop still work.
+
+4. **Minor — the legacy Spin effect obscures the committed wheel.**  
+   `app/src/pages/TablePage.tsx:1037-1042` starts `spin_intro` on hand 1, and `:1751-1761` plus `:1781` render it alongside the new presentation. The effect is above the modal (`app/src/design-v2.css:518-522`, z-index 80 versus `app/src/components/spin/spin.css:24`, z-index 60). Existing `spin-six-browser/wheel-1024.png`, `wheel-1440.png`, and `wheel-390-second.png` show the second animation covering or duplicating the wheel and obscuring prize content.
+
+5. **Minor — custom outcome counts do not match the wheel’s painted sectors.**  
+   Labels use `360 / labels.length` in `app/src/components/spin/SpinWheel.tsx:12-23`, but the background is permanently eight 45-degree sectors in `app/src/components/spin/spin.css:27`. The current one-outcome evidence (`spin-six-browser/wheel-320.png`) visibly has eight colored sectors but only one `4x` label; other custom counts likewise place labels over mismatched sector boundaries. Pointer alignment itself is correct.
+
+6. **Minor — manual form validation remains incomplete.**
+   - `app/src/components/AdminSpinSixRules.tsx:47-53` validates blinds and outcomes but not the clock fields edited at `:99-101`. Clearing “Seconds per action” produces `0`; Save sends it and receives the server’s generic 400 from `app/server/spin-six.js:8-11` instead of showing a field-level error.
+   - `app/src/components/AdminPushSeatGrant.tsx:58-64` enables Load for negative or fractional account IDs because it checks only `!Number(accountId)`. Values such as `-1` or `1.5` reach the API and fail at `app/server/index.js:2637-2640`. The inputs’ `min`/`step` attributes do not prevent these button-driven requests.
+
+Review used the current source and existing `result.json`/screenshot evidence. I did not rerun the browser scripts or test physical iOS/Safari.

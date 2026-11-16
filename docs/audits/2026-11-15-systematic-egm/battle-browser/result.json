@@ -1,0 +1,138 @@
+{
+  "completed": true,
+  "eventId": "battle-browser-mwicsek6",
+  "keyboardAction": true,
+  "geometry": [
+    {
+      "width": 320,
+      "player": 0,
+      "overflowX": 0,
+      "results": true,
+      "bounty": true,
+      "buttons": [
+        {
+          "text": "Refresh entry · no new charge",
+          "height": 44
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "player": 0,
+      "overflowX": 0,
+      "results": true,
+      "bounty": true,
+      "buttons": [
+        {
+          "text": "Refresh entry · no new charge",
+          "height": 44
+        }
+      ]
+    },
+    {
+      "width": 768,
+      "player": 0,
+      "overflowX": 0,
+      "results": true,
+      "bounty": true,
+      "buttons": [
+        {
+          "text": "Refresh entry · no new charge",
+          "height": 44
+        }
+      ]
+    },
+    {
+      "width": 1024,
+      "player": 0,
+      "overflowX": 0,
+      "results": true,
+      "bounty": true,
+      "buttons": [
+        {
+          "text": "Refresh entry · no new charge",
+          "height": 44
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "player": 0,
+      "overflowX": 0,
+      "results": true,
+      "bounty": true,
+      "buttons": [
+        {
+          "text": "Refresh entry · no new charge",
+          "height": 44
+        }
+      ]
+    },
+    {
+      "width": 320,
+      "player": 1,
+      "overflowX": 0,
+      "results": true,
+      "bounty": true,
+      "buttons": [
+        {
+          "text": "Refresh entry · no new charge",
+          "height": 44
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "player": 1,
+      "overflowX": 0,
+      "results": true,
+      "bounty": true,
+      "buttons": [
+        {
+          "text": "Refresh entry · no new charge",
+          "height": 44
+        }
+      ]
+    },
+    {
+      "width": 768,
+      "player": 1,
+      "overflowX": 0,
+      "results": true,
+      "bounty": true,
+      "buttons": [
+        {
+          "text": "Refresh entry · no new charge",
+          "height": 44
+        }
+      ]
+    },
+    {
+      "width": 1024,
+      "player": 1,
+      "overflowX": 0,
+      "results": true,
+      "bounty": true,
+      "buttons": [
+        {
+          "text": "Refresh entry · no new charge",
+          "height": 44
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "player": 1,
+      "overflowX": 0,
+      "results": true,
+      "bounty": true,
+      "buttons": [
+        {
+          "text": "Refresh entry · no new charge",
+          "height": 44
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

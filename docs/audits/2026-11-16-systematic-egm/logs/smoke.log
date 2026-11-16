@@ -1,0 +1,7 @@
+PASS  lobby — 157 tables
+PASS  cashier — 0 transactions
+PASS  elo-all — 50 rated
+PASS  elo-variants — holdem, omaha, shortdeck, rush
+PASS  notifications — 1 unread
+PASS  tournaments — 17 events
+Smoke OK — http://127.0.0.1:56199

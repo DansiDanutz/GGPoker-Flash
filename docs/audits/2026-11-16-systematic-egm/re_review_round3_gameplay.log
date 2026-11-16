@@ -1,0 +1,23 @@
+## Not clean: 3 Major defects remain; no Blockers found
+
+1. **Major — duplicate accounts can fill one Six-Max cohort, producing an unstartable event**
+   - `app/server/spin-queue.js:141-143` matches six registration rows without requiring distinct `actor_id` values.
+   - `app/server/spin-runtime.js:40-42` silently reuses the existing seat when the same account appears again, while `app/server/table.js:579-581` requires six occupied seats before dealing.
+   - Reproduced with actor sequence `[1,1,1,1,2,2]`: six entries were charged and linked to one event, but only two physical seats were occupied. With both accounts ready and the barrier expired, `handNo` remained `0` and the event remained `presentation`.
+   - These matched entries cannot self-cancel, so 30,000 credits remain locked unless administrative recovery intervenes.
+
+2. **Major — every ordinary post-bust checkpoint fails restart validation**
+   - Normal bust handling removes the settled player from their seat at `app/server/table.js:1959-1964`.
+   - Recovery nevertheless requires **every** entrant, including settled/busted entrants, to have a matching seated player at `app/server/spin-recovery.js:36-40`.
+   - Reproduced after a real Six-Max sixth-place settlement: the active checkpoint correctly contained `seats[0].player === null`, with one settled registration; `restoreSpinCheckpoint()` threw `Spin checkpoint entrant mismatch`.
+   - Thus restarting after an ordinary elimination quarantines the event. Quarantine cancellation is then blocked because a place settlement exists (`app/server/spin-queue.js:299-300`).
+   - The test at `app/server/spin-queue.test.js:228-244` misses this because it settles directly without removing the finisher’s seat.
+
+3. **Major — a transient winner-payout failure has no retry schedule**
+   - `app/server/table.js:497-507` returns immediately when `recordSpinFinish()` fails, leaving `nextHandAt` unchanged.
+   - The normal final-hand path has already cleared `nextHandAt` to `0`; subsequent ticks only perform ended-hand processing when it is truthy at `app/server/table.js:1898-1900`.
+   - Reproduced with one injected payout-hook failure: after later ticks, the payout hook still had exactly one call, `finished.length === 0`, `spinWinner === null`, and `nextHandAt === 0`. Restart restores the same non-retrying state.
+
+The current Push Seat receipt-failure rollback and destination-occupant revalidation paths passed targeted inspection and in-memory fault reproduction. No additional Blocker/Major was found in money conservation, immutable terms, receipt atomicity, quarantine cancellation, or physical-seat movement.
+
+Read-only review: no files edited, no services started, full suite not rerun. No Minor findings reported.

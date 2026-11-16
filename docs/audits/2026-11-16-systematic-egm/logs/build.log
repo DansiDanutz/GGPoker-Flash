@@ -1,0 +1,18 @@
+
+> ggpoker-desktop-clone@1.1.0 build /Users/dansidanutz/Projects/_studio-work/app-56efcd98
+> vite build
+
+vite v7.3.8 building client environment for production...
+transforming...
+✓ 190 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     1.14 kB │ gzip:   0.54 kB
+dist/assets/index-BZsiBzWh.css    257.38 kB │ gzip:  54.94 kB
+dist/assets/index-DyI7IC1S.js   1,060.90 kB │ gzip: 321.19 kB
+✓ built in 1.15s
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

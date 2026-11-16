@@ -1,0 +1,22 @@
+{
+  "completed": true,
+  "droppedSuccessfulResponses": 2,
+  "afterDrop": 1,
+  "afterSecondDrop": 2,
+  "afterRetry": 2,
+  "balance": 589900,
+  "expectedBalance": 589900,
+  "receipts": 2,
+  "ruleRevisions": [
+    1,
+    2
+  ],
+  "insuranceChoices": [
+    1,
+    0
+  ],
+  "insuranceDisabledBeforeRetry": true,
+  "refreshedRuleRevision": 2,
+  "originalPayloadsReplayed": true,
+  "staleQueueRejected": true
+}

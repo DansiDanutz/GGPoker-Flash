@@ -1,0 +1,47 @@
+No Blockers found; **Major findings remain**. Review was read-only, based on the current working tree and supplied audit evidence. No services were started.
+
+## Major
+
+1. **The wheel can stop with the pointer on a different multiplier than the committed result.**  
+   `app/src/game/spinPresentation.ts:6-15` calculates rotation using `SPIN_WHEEL_MULTIPLIERS`, but `app/src/components/spin/SpinWheel.tsx:11-21` renders the default labels in `SPIN_WHEEL_DISPLAY_ORDER`. The custom-multiplier rotation is also off except for certain positions. For example, default 2x is rendered at 135°, rotated by 45°, and finishes at 180°—opposite the pointer—while the center still says 2x. Multi-outcome 6-Max configurations are affected too. Use the actual rendered label array for lookup and rotate its selected index to 0°. The audit uses one outcome, 4x (`app/tools/spin-six-browser.mjs:30-34`), and checks only `data-multiplier`, not pointer alignment (`app/tools/spin-six-browser.mjs:95-107`).
+
+2. **Late queue responses can show another mode/stake’s registrations and allow cancelling them from the wrong view.**  
+   `app/src/components/spin/SpinRegistration.tsx:15-32` has no request generation, abort, or response identity check. A slower 3-Max response can overwrite a newer 6-Max selection; the heading and controls then say 6-Max while rows come from 3-Max. Cancellation at `app/src/components/spin/SpinRegistration.tsx:135-140` uses only registration ID/revision, so it can successfully cancel the unrelated 3-Max entry. Discard responses whose `state.mode`/`state.stake` no longer match, or cancel superseded requests.
+
+3. **Retrying an uncertain registration can create duplicate paid entries; partial batches are not reconciled.**  
+   Each request receives a new UUID at `app/src/components/spin/SpinRegistration.tsx:42-52`. If the server accepts an entry but the response is lost, the catch at `app/src/components/spin/SpinRegistration.tsx:74-76` reloads without recording success or preventing the user from registering again. With multiple matches, earlier entries may succeed before a later failure, but the UI gives no partial count and leaves the requested count unchanged. Preserve stable operation IDs per intended entry until reconciliation, report completed/total progress, and resume only the unconfirmed remainder.
+
+4. **Normal simultaneous 6-Max acknowledgements produce avoidable 409 errors and manual retries.**  
+   Every entrant’s acknowledgement increments the same event revision at `app/server/spin-queue.js:221-240`. Thus, simultaneous players submit the same revision and only the first succeeds. `app/src/components/spin/SpinPresentation.tsx:61-77` treats 409 like any other error instead of reconciling the newer revision and retrying safely. Other players can therefore see repeated errors during ordinary play. Add bounded conflict recovery using current server state and a stable operation ID, or revise the concurrency contract. The browser script acknowledges players sequentially at `app/tools/spin-six-browser.mjs:109-123`, so it cannot expose this.
+
+5. **Spin and Push Seat modal isolation is incomplete for keyboard users.**  
+   `app/src/components/spin/SpinPresentation.tsx:80-93` declares a modal dialog but never moves focus, traps it, restores it, or makes background controls inert. Background table controls remain tabbable. The global listener at `app/src/pages/TablePage.tsx:864-899` also remains active, including anytime actions such as hand-history navigation and sitting out at `app/src/pages/TablePage.tsx:997-1006`. Push Seat has a partial trap, but global hotkeys still leak, and when busy disables every button its trap has no controls (`app/src/components/table/PushSeatPanel.tsx:9-23`). Isolate all table hotkeys while either dialog is open and implement complete focus entry, containment, and restoration.
+
+6. **Spin admin loads can overwrite a newer stake selection with stale rules.**  
+   Both load effects lack stale-response protection: `app/src/components/AdminSpinRules.tsx:17-39` and `app/src/components/AdminSpinSixRules.tsx:13-24`. A response for $50 can arrive after selecting $100 and replace the form. Saving then combines the currently selected stake with the stale rules/revision (`AdminSpinRules.tsx:50-60`, `AdminSpinSixRules.tsx:39-48`). Six-Max’s buy-in check may reject the save, but 3-Max can apply the displayed stale timing values to the new stake. Key loaded state by mode/stake, ignore superseded responses, and disable format/stake changes while saving.
+
+7. **Push Seat grant state is not bound to the room/account that was loaded.**  
+   `app/src/components/AdminPushSeatGrant.tsx:14-27` accepts every load response even after the room or account fields change at `app/src/components/AdminPushSeatGrant.tsx:47-49`. Save then uses the current fields with the previous response’s `grantRevision` (`app/src/components/AdminPushSeatGrant.tsx:28-35`). A late response for account A can therefore enable a replacement grant for account B without B ever being loaded. Store and verify the loaded identity, invalidate pending loads on edits, and disable identity fields while busy.
+
+8. **Empty and reserved seats are misrepresented in the Push Seat selector.**  
+   The server represents an empty seat as a truthy object with `empty: true`, and a held seat additionally has `reserved: true` (`app/server/table.js:2146-2150`). `app/src/components/table/PushSeatPanel.tsx:62-66` treats either object as an occupant:
+   - Empty seats receive the accessible name **“occupied by undefined”** while visibly saying “Empty.”
+   - Reserved empty seats remain enabled and appear available, although the server rejects them at `app/server/push-seat.js:92-93`.
+   
+   Exclude `empty` entries from occupancy, expose “Reserved” state, and disable held destinations. The supplied browser scenario uses a full table and checks no empty/reserved labels.
+
+## Minor
+
+1. **Server error explanations are discarded.**  
+   `app/src/lib/api.ts:223-226` constructs errors from `data.error`, while these endpoints return `message`. Registration conflicts, admin validation failures, and Push Seat reservation errors consequently become generic “Request failed (400/409)” messages despite components displaying `reason.message`. Fall back to `data.message` before the generic status text.
+
+2. **Spin admin constraints are declared but never natively submitted or validated.**  
+   The inputs use `required`, `min`, and `max`, but saving occurs through ordinary button click handlers rather than a form submission (`app/src/components/AdminSpinRules.tsx:43-60,108`; `app/src/components/AdminSpinSixRules.tsx:32-48,124`). Empty fields become zero and invalid comma-separated values become `NaN`, producing only a server rejection. Use `<form onSubmit>` with validation or explicit inline errors, including per-outcome share and frequency totals.
+
+3. **Mobile admin forms retain three columns and clip into an internal horizontal scroller.**  
+   `app/src/styles.css:503` always defines three columns, while `app/src/responsive.css:273-276` hides page-level overflow and enables card-level horizontal scrolling. The supplied `docs/audits/2026-11-16-systematic-egm/admin-config-browser/admin-320.png` already shows the third general-settings column cut off. Stack these forms at narrow widths. The audit checks only document overflow at `app/tools/admin-config-browser.mjs:73-80`; it never scrolls the reviewed Spin/Push Seat sections into view or measures their internal overflow.
+
+4. **`reservationBeforeMove: true` is not guaranteed by the Push Seat test.**  
+   `app/tools/push-seat-browser.mjs:88-89` permits success when `movementState` appears even if no reservation was ever observed. Nevertheless, `app/tools/push-seat-browser.mjs:105` always writes `reservationBeforeMove: true`. Track an explicit observed-reservation flag and assert it independently of movement completion.
+
+Physical iOS/Safari remains untested; the supplied evidence covers responsive Chrome only.

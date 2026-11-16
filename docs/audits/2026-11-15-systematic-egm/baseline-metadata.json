@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "capturedDate": "2026-11-15",
+  "target": {
+    "repository": "/Users/davidai/Projects/GGPoker-flash",
+    "commit": "8ee5793ff63d24248d398f9597f5ba76ff85ab32",
+    "branch": "feat/systematic-egm-mobile-parity",
+    "workingTree": "dirty: design and audit evidence were untracked",
+    "dirtyStateSha256AtMetadataCreation": "a0960a880fa6cc0d29a9942e727f2232cbb0e2c6093c9ea2f0c82c75aa31d59e",
+    "dirtyStateAlgorithm": "SHA-256 of compact JSON rows {path,bytes,sha256}, sorted by relative path, for every file reported by git status --porcelain=v1 -z"
+  },
+  "versions": {
+    "node": "v26.13.0",
+    "pnpm": "10.32.1",
+    "chrome": "Google Chrome 157.0.8103.79",
+    "browserDriver": "puppeteer-core ^25.17.0 from app/package.json"
+  },
+  "server": {
+    "origin": "http://127.0.0.1:56198",
+    "data": "unique /tmp/dangg-egm-audit.* directory",
+    "ownedTask": "bash-afzdx8mg",
+    "productionDataUsed": false
+  },
+  "routes": ["/", "/login", "/tournaments", "/cashier", "/rewards", "/missions", "/leaderboard", "/elo", "/promotions", "/settings", "/slots", "/casino", "/profile", "/my-page", "/ocean", "/ggcare", "/honeymoon", "/support", "/hand-history", "/propbet", "/admin", "/table/nlh-diamond-01"],
+  "widths": [320, 390, 768, 1024, 1440],
+  "captureSelectors": {
+    "pageReady": "absence of .splash and body text not matching /Loading lobby|Loading…/",
+    "overflow": "document.documentElement.scrollWidth - document.documentElement.clientWidth",
+    "touchGeometry": "getBoundingClientRect on visible interactive controls",
+    "accessibleName": "explicit label, aria-label/aria-labelledby, text content, alt or title as implemented by tools/a11y-probe.mjs",
+    "focus": "sequential browser Tab navigation and document.activeElement"
+  },
+  "runs": [
+    {
+      "id": "baseline-shots",
+      "command": "node tools/shots.mjs --base http://127.0.0.1:56198 --out ../docs/audits/2026-11-15-systematic-egm/baseline-shots --widths 320,390,768,1024,1440 --routes /,/login,/tournaments,/cashier,/rewards,/missions,/leaderboard,/elo,/promotions,/settings,/slots,/casino,/profile,/my-page,/ocean,/ggcare,/honeymoon,/support,/hand-history,/propbet,/admin,/table/nlh-diamond-01",
+      "startedAt": null,
+      "outputLastModifiedAt": "2026-11-15T06:19:23+02:00",
+      "processStatus": "timed out after 300 seconds; not a clean process pass",
+      "capturesWritten": 110,
+      "documentOverflowFailures": 0
+    },
+    {
+      "id": "baseline-a11y",
+      "command": "BASE_URL=http://127.0.0.1:56198 node tools/a11y-probe.mjs --widths 390,1440 --stops 24 --routes /,/login,/tournaments,/cashier,/rewards,/missions,/leaderboard,/elo,/promotions,/settings,/slots,/casino,/profile,/my-page,/ocean,/ggcare,/honeymoon,/support,/hand-history,/propbet,/admin,/table/nlh-diamond-01",
+      "startedAt": null,
+      "outputLastModifiedAt": "2026-11-15T06:19:22+02:00",
+      "processStatus": "timed out after 300 seconds; not a clean process pass"
+    },
+    {
+      "id": "baseline-touch",
+      "command": "BASE_URL=http://127.0.0.1:56198 node tools/touch-probe.mjs /,/login,/tournaments,/cashier,/rewards,/missions,/leaderboard,/elo,/promotions,/settings,/slots,/casino,/profile,/my-page,/ocean,/ggcare,/honeymoon,/support,/hand-history,/propbet,/admin,/table/nlh-diamond-01 320,390",
+      "startedAt": null,
+      "outputLastModifiedAt": "2026-11-15T06:19:23+02:00",
+      "processStatus": "timed out after 300 seconds; not a clean process pass"
+    }
+  ],
+  "limitations": [
+    "Exact original start timestamps were not persisted and are null rather than reconstructed.",
+    "Captured output is valid partial evidence; process timeouts prevent clean-run claims.",
+    "Headless Chrome evidence is not physical iOS/Safari evidence."
+  ]
+}

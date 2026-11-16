@@ -1,0 +1,63 @@
+**Blocker and Major findings remain.** I found **3 Blockers, 5 Majors, and 1 Minor**. This was a read-only source review: no files were edited, no services were started, and I did not rerun the supplied green suite.
+
+## Blockers
+
+1. **Spin registration allows accounts with insufficient funds to play**
+   - `app/server/spin-queue.js:123-129` reserves house funds and debits the entry and premium without checking the player’s balance.
+   - `app/server/db.js:634-650` accepts a negative predicted balance, and `app/server/db.js:43` has no nonnegative balance constraint.
+   - A zero-balance account can therefore register, go negative, and receive real prize payouts. Check `balance >= stake + premium` inside the registration transaction before reserving or charging.
+
+2. **House receipts are not reversed for cancellations or entry-funded prizes**
+   - Registration credits the full entry and premium to the house at `app/server/spin-queue.js:125-129`; `creditHouse` increases both `available` and `settled_net` at `app/server/house-bank.js:94-102`.
+   - Cancellation refunds the player at `app/server/spin-queue.js:209-213`, but only releases reservations at `app/server/spin-queue.js:206-208`; it never removes the corresponding house receipts.
+   - Prize settlement credits the full player payout but debits only house exposure at `app/server/spin-queue.js:270-275`. The entry-funded allocation calculated at `app/server/spin-queue.js:244-259` is never debited.
+   - Consequently, completed-event house net becomes `entries - exposure`, or `2 * entries - prizePool`, instead of `entries - prizePool`: it is overstated by exactly the total entries. A cancelled registration similarly leaves its entire stake and premium credited to the house while also refunding the player.
+   - The algebraic check in `houseAccount` cannot detect this because `available` is left equally overstated. The project’s own worked contract requires cancellation of a receipt to reverse it (`docs/designs/2026-11-15-systematic-clone-mobile-egm.md:79-85`).
+   - Add signed house debits for refunds and entry-funded payout allocations, or consistently exclude entries from house receipts. Assert player-plus-house conservation and final `settled_net`, not merely `reserved === 0`.
+
+3. **A settlement failure can permanently forfeit a player’s prize**
+   - `app/server/table.js:438-445` appends the finisher before settlement and swallows payout-hook failures.
+   - `app/server/index.js:738-748` also catches and only logs wallet, house, and checkpoint failures.
+   - For a busted player, `app/server/index.js:800-805` subsequently writes a zero-value session close. Its unique `out:<session>` reference at `app/server/spin-ledger.js:15-17` prevents a later prize credit.
+   - Thus a transient database or house failure leaves the player marked finished, prevents table-level retry, and can permanently close the session at zero. Winners similarly remain marked finished without a retry path.
+   - Settlement failure must propagate without recording a terminal finish or zero close; the durable operation must remain retryable.
+
+## Major findings
+
+1. **Settlement marks the registration at the finishing place, not the actual finisher**
+   - `app/server/spin-queue.js:265` selects the entrant using `entrant_order = finish.place - 1`; `finish.id` is not used. `app/server/spin-queue.js:276-281` then settles that selected registration and constructs its receipt identity from it.
+   - If the first registered player finishes sixth, the sixth registered player is marked settled while the actual finisher remains matched. Wallet credit still goes to the correct player through `settlePayout`, but durable registration status, queue visibility, active-registration limits, and receipt/audit identity are wrong.
+   - `app/server/spin-queue.test.js:105-109` finishes players in exact reverse registration order, masking the defect.
+   - Select the registration by `actor_id = finish.id` and test arbitrary finishing orders with per-player status assertions after every place.
+
+2. **Cancellation uses mutable current insurance terms instead of the purchased premium**
+   - `app/server/spin-queue.js:211-213` reads the current `spin_rules.insurance_json` when refunding.
+   - Administrators can change or remove insurance while an older registration remains waiting (`app/server/spin-config.js:65-71`).
+   - A changed premium produces an over- or under-refund; removing insurance makes `insurance.premium` fail and cancellation return 500.
+   - Snapshot the premium on the registration and refund that immutable amount.
+
+3. **Valid multi-place Spin checkpoints become stale immediately after a payout**
+   - Every settlement increments `spin_events.revision` at `app/server/spin-queue.js:280`.
+   - The in-memory presentation revision is only updated by `syncSpinPresentation` at `app/server/spin-runtime.js:11-18`; the payout path does not call it before saving at `app/server/index.js:747`.
+   - Recovery requires the saved presentation revision to equal the bumped event revision at `app/server/spin-recovery.js:34`. Therefore, after a nonterminal place payout, the next restart rejects the valid checkpoint and quarantines the event at `app/server/index.js:4010-4014`.
+   - Late presentation acknowledgements can likewise become permanently stale once gameplay settlement bumps the shared event revision.
+   - Separate presentation and settlement revisions, or synchronize and persist them atomically. Add a restart test after the first payout of a multi-place event.
+
+4. **Quarantined matched Spins have no implemented funds-recovery path**
+   - Recovery quarantines unavailable events at `app/server/index.js:4010-4022`, while self-cancellation accepts only `waiting` registrations at `app/server/spin-queue.js:204-205`.
+   - No audited administrator cancellation/refund workflow exists for these matched events, leaving entries and active house holds stranded.
+   - This contradicts the explicit recoverable-quarantine contract at `docs/designs/2026-11-15-systematic-clone-mobile-egm.md:53,63,85`.
+   - Implement guarded, exactly-once quarantine cancellation: preserve settled insurance awards, block cohort cancellation after any actual prize payout, refund eligible entries/premiums, and release holds atomically.
+
+5. **Spin and Push Seat receipts commit separately from their commands**
+   - `app/server/game-receipts.js:32-40` inserts the receipt only after `command()` returns.
+   - Spin and Push Seat commands commit their inner transactions first—for example `app/server/spin-queue.js:103-139`, `app/server/push-seat.js:70-78`, `app/server/push-seat.js:87-106`, and `app/server/push-seat.js:131-164`.
+   - A crash after command commit but before receipt insertion means an identical retry finds no receipt and normally fails on the advanced revision instead of returning the committed response. This affects registration, cancellation, presentation, configuration, grants, reservations, and settlement.
+   - Existing replay tests exercise only the completed receipt path. Wrap the command and receipt insertion in one outer transaction, with in-memory seat changes installed only after commit.
+
+## Minor
+
+- **Restart resets the per-action Time Bank Card count**
+  - Spending is limited through `timeBankAction` at `app/server/table.js:1011-1018`, but that field is absent from `RECOVERY_PROPERTIES` at `app/server/table.js:29-38` and is not restored at `app/server/table.js:2054-2101`.
+  - After restart, `usedThisAction` becomes zero, allowing the configured per-action maximum to be spent again. Restoring `timeBankUsed` does not prevent this because `useTimeBank` does not consult it.
+  - Persist and validate `timeBankAction` alongside the actor and deadline.

@@ -1,0 +1,4417 @@
+{
+  "version": 1,
+  "branch": "feat/systematic-egm-mobile-parity",
+  "files": [
+    {
+      "path": "app/server/add-chips-live.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 7704,
+      "sha256": "45c5699c49e635cb24a87ccb6949455f430c0e8b12399c030ddea3d94a3019b3"
+    },
+    {
+      "path": "app/server/admin-permissions.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3335,
+      "sha256": "a2da6ad206bacc247101e144f3787dfc2b8dbe561e4179809477fced4a39a3c3"
+    },
+    {
+      "path": "app/server/admin-roles.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 2388,
+      "sha256": "7fc52b68c5114919e90d897ea8c412847cdda8bf436d315bbc4aba9ca6ac839a"
+    },
+    {
+      "path": "app/server/admin-users-list.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 9629,
+      "sha256": "889fd3aa9a95486604aba8694ffd666ed02df492d0a6d8a984bc14b1d5615455"
+    },
+    {
+      "path": "app/server/admin-users.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 5902,
+      "sha256": "306ec7c6a7795207d15e78d98491e6b672722d688be54baa63d224fdeda45718"
+    },
+    {
+      "path": "app/server/api.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 21055,
+      "sha256": "2add5e08180c72aeb40cf90fcc904a0225dfec4736239bca6935475d878cd5b0"
+    },
+    {
+      "path": "app/server/auto-fold.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 19144,
+      "sha256": "c84304d37cc51fa7d0c7836d5e5a56e282169a25f4dd667e166872b5d4e4088b"
+    },
+    {
+      "path": "app/server/auto-fold.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4923,
+      "sha256": "4dd1f3f437271cfe813e4037dda179c2801bc5d1c4551d54f80d8eb1b2c0a6eb"
+    },
+    {
+      "path": "app/server/battle-bounty.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 7039,
+      "sha256": "79718dfb623547bacb084b8dd0e77cfa5e73d720dd4c84da89c2dcc9db8b9cd0"
+    },
+    {
+      "path": "app/server/battle-bounty.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5304,
+      "sha256": "b778befe6377fe91a1cb00caa3a0290f6054e5be8a76e4f17c9e5468595b47e4"
+    },
+    {
+      "path": "app/server/battle-coordinator.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 19536,
+      "sha256": "cf8cda3d5006ba0271d879f768ffb1964a6a123f1d4d7d6753ba1a020c2c593b"
+    },
+    {
+      "path": "app/server/battle-coordinator.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5640,
+      "sha256": "253821373e5d5442407aa26f6470f1837ee191a3d32115b169c55d82ca709a3a"
+    },
+    {
+      "path": "app/server/battle-event.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 12224,
+      "sha256": "52369c7f0e3a6fe3d137b25b84b6efa527ea88a36768c1a89f2c3617ec420eec"
+    },
+    {
+      "path": "app/server/battle-event.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 6727,
+      "sha256": "768de60e9f4edb648c17a5e2d96b54d540678ead20879e1805001e8e219c56a3"
+    },
+    {
+      "path": "app/server/battle-http.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 6762,
+      "sha256": "b02ca2ebfe43a88bc2b55f23fda822ca2090e0ea21c5c3a5cbbd476d89626f57"
+    },
+    {
+      "path": "app/server/battle-qualification.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2962,
+      "sha256": "24dd969225f4e9b1f1b0f7d54779594e12c371c0adea855db238cc529ee51473"
+    },
+    {
+      "path": "app/server/battle-restart-http.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5646,
+      "sha256": "21b1e54ebc38b33fc616cc8a5e0fa342b2aa358d5fb0401e9c34c5122fa84c1a"
+    },
+    {
+      "path": "app/server/battle-store.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2827,
+      "sha256": "77d402993f17b2efa7d23565d05bdc57c6b8f0eceae7f21713eb3f2e1c1355ce"
+    },
+    {
+      "path": "app/server/best-five.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 5118,
+      "sha256": "3eca95cf8bdf0c1bc52080b987829aa1e369c5defc1002b5b5d832d8f3dbc357"
+    },
+    {
+      "path": "app/server/bet-and-muck-http.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4198,
+      "sha256": "d4dd4337921210cd49b7863e58dee04deb2b6839629e86335afe5e2b149dd2f1"
+    },
+    {
+      "path": "app/server/bet-and-muck.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5234,
+      "sha256": "5cb33bde049631545481061de24919f83302f025d81e91b69c3833a4edde24d8"
+    },
+    {
+      "path": "app/server/bet-and-muck.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4891,
+      "sha256": "122870e93109f50933a759fe9304626a00b35ecf3572c22bbf5c033488494741"
+    },
+    {
+      "path": "app/server/bet-muck-ranks.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1151,
+      "sha256": "22fcd94e882d423494e06457708bb7c6ebd14317de9f80d462ae03a5ff877cb2"
+    },
+    {
+      "path": "app/server/cash-insurance-http.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5507,
+      "sha256": "719080c9d68f672ae8077a8ce6cc3e2c7cd3ebc438bcfbf2a86327e91f721b7a"
+    },
+    {
+      "path": "app/server/cash-insurance.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 11279,
+      "sha256": "95ecf2b6acbdb4862a58298e2820fe631c4f1a236c29d6529d73ea194fa44ed9"
+    },
+    {
+      "path": "app/server/cash-insurance.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 9556,
+      "sha256": "670e0bfefafbd0a8c42a16ce1cd9fe2f93ddf47c45c504c00e6da298d99c7092"
+    },
+    {
+      "path": "app/server/client-logic.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 47845,
+      "sha256": "54ef67b759606ae09848eca4b6f74a9326f7cdaf51ddbabccec4687323268ae8"
+    },
+    {
+      "path": "app/server/continuation-stats.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3245,
+      "sha256": "4107137f731a9e4d81b76e56c4a4996216339e499875e8e6e2d5cac1a147c1f9"
+    },
+    {
+      "path": "app/server/continuation-stats.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4038,
+      "sha256": "fdfaa72ce74eefe8377ce07aba65a4fb7e11632002dfdaf31677a4cd123ef7ae"
+    },
+    {
+      "path": "app/server/db.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 36951,
+      "sha256": "5446b775b492e720178cb2e6bcd68f207acf828322ff607c3c24051ec2b45c5d"
+    },
+    {
+      "path": "app/server/elo.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3631,
+      "sha256": "ea6dcb4bd4bc9796250aaef9958930f2ee25a49e425f5d60d753ebd2226df9ab"
+    },
+    {
+      "path": "app/server/elo.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2393,
+      "sha256": "ca19fd15b4b422ef286127ee6e4e15b088742ed2e80b6606f7eeb52dad79e6ee"
+    },
+    {
+      "path": "app/server/engine-rules.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 13325,
+      "sha256": "f325e7b63909ade2a50c2e2e07dee41b265b7f45d15e8d3ccd9011ed9588345f"
+    },
+    {
+      "path": "app/server/game-checkpoints.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3109,
+      "sha256": "22ba5d503d68285cd0ed89a48696787fcc6894b660b364c93d50589802736797"
+    },
+    {
+      "path": "app/server/game-receipts.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2236,
+      "sha256": "bfedc898f382920c7e27759ef92370106d3554632aec2d62caf08dbc0af86aa6"
+    },
+    {
+      "path": "app/server/hand-history-reveal.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1362,
+      "sha256": "30e2ddac8c140cd1c7c8361239edc9b2a33928c2366005fab0180207774a230d"
+    },
+    {
+      "path": "app/server/hand-history-store.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 2335,
+      "sha256": "bce71ede0d1e7933e63e3fc07e2f795ea0ba2b112ed619ea0b897aae7d792d03"
+    },
+    {
+      "path": "app/server/hand-history.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 5704,
+      "sha256": "2e97dc012a41cd8d3371b00548f1c639124476e843c63194b6377be976c4551c"
+    },
+    {
+      "path": "app/server/hand-rank.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3423,
+      "sha256": "c7bf67316723664ff74e71760099c35d0dc821f5402a05cda0e1a159dc1b2bf0"
+    },
+    {
+      "path": "app/server/house-bank.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 9893,
+      "sha256": "f740e94fd298ea619ff39ea9b4ec169fbbd0ad17cb5e79f10587804136c8b0a1"
+    },
+    {
+      "path": "app/server/house-bank.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4605,
+      "sha256": "5149e85a6fc1251d9ae826a56ad25de09abfeca091a4c4c3851672ec886cc486"
+    },
+    {
+      "path": "app/server/index.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 234876,
+      "sha256": "540822790aeecdb36b0f3e379bd9003acb053e2365a8fbe82fe1a1cc41482267"
+    },
+    {
+      "path": "app/server/leave-mid-hand.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 1917,
+      "sha256": "acff2118e6bc5ee60c039dbd5a0c3caf50fe7738b1bd0f7ebd370c632bffab44"
+    },
+    {
+      "path": "app/server/push-seat-http.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3460,
+      "sha256": "ce2e1120a907fd2a7b922c70d34c877ed997f3d26a2c1f11feaa87d73b87600c"
+    },
+    {
+      "path": "app/server/push-seat.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 10335,
+      "sha256": "25a29b6b7c631e4c48fe67e1ae2b6884b03b17b1ec37333e23e0264fa6d10351"
+    },
+    {
+      "path": "app/server/push-seat.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 7392,
+      "sha256": "3697937394bea43fbafa602483562af3d3419b0a3aeb39e6ffa745163845007f"
+    },
+    {
+      "path": "app/server/rabbit-hunt.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 907,
+      "sha256": "d8c52ded0303501302544f503e6cfd53e32e692b279606dcac9aefb984b5234d"
+    },
+    {
+      "path": "app/server/rabbit-hunt.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2235,
+      "sha256": "3023c86de4543ea69ea6524a564e8646ffeafe2ac9b0139e8336067bf0c9ac47"
+    },
+    {
+      "path": "app/server/rabbit-ws.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2345,
+      "sha256": "ccaf2151fadc55abc18e0c45bb83a1e4c2f961ecb8ad29251526ca25186bfcec"
+    },
+    {
+      "path": "app/server/rimt-equity.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3547,
+      "sha256": "e1c55c2f2a58ed38d7ed9104397e54059b124b56adb4c4cc8dfeb4c638f910d9"
+    },
+    {
+      "path": "app/server/rimt-equity.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1483,
+      "sha256": "107b3ffc819c959d0a9f71dd12e08ff065fba5b8291c6a9c46a79e30875a27bd"
+    },
+    {
+      "path": "app/server/rimt-http.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3226,
+      "sha256": "548f90ffb33bb02b7b317026a0f685a19561142325ced42439cfd69da9c37000"
+    },
+    {
+      "path": "app/server/rimt-negotiation.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2839,
+      "sha256": "4b6056d6815022207546cf9a86938b07c97d015d89bc31d97118324e5d555c45"
+    },
+    {
+      "path": "app/server/rimt-recovery.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1727,
+      "sha256": "fe45a8dfdf1bd6a310dbeeb48d3ceba2ca584d944e25194c898f3393931e1784"
+    },
+    {
+      "path": "app/server/rimt-restart-http.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5951,
+      "sha256": "809849ea88615b7c16a1623ffd292ab007e43263f723d48de31c549cddb722e1"
+    },
+    {
+      "path": "app/server/rimt-table.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3260,
+      "sha256": "3f4559f6b3bf83c1827fc3d6af1fc4e6770d15b7192a24a2db7020e10f6ec230"
+    },
+    {
+      "path": "app/server/rimt.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5529,
+      "sha256": "a8daba357862017be9dc0ea1b5e356dab5c0924ba22421b05ea6c29f14c08726"
+    },
+    {
+      "path": "app/server/rush-pool.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 19463,
+      "sha256": "861b5c15958a02a9debe38c191d1d48887d66820638f4913a1a8b2e412bb9c9b"
+    },
+    {
+      "path": "app/server/rush-pool.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 23063,
+      "sha256": "1d550d9a09f235fd145d18f2db18d3e885f8d8913b91a479639738bd152655ee"
+    },
+    {
+      "path": "app/server/rush-quick-fold.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 7931,
+      "sha256": "d3b0c492d2800d7ebbb5041751fbc6a37e3f9eb4b9446569c4707ab7fb18382c"
+    },
+    {
+      "path": "app/server/seat-offer-decline.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2509,
+      "sha256": "72319b90c41eca8083ec99af000c9f5fde42a92f07a073632b718b0e0b1299ed"
+    },
+    {
+      "path": "app/server/session-stats.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2555,
+      "sha256": "b0c8ff484343cc93c66b446cb6ba3582d9028dd05854de0a09e143eb9897be1f"
+    },
+    {
+      "path": "app/server/session-stats.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2402,
+      "sha256": "da9f78fc82a39466a2aad725e699b7ec30d73927e925d520929d518d5bf95fc1"
+    },
+    {
+      "path": "app/server/share-hand.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 6942,
+      "sha256": "5b527d818e4c76a249d75a19214cad50ca09f4ff9807fa90c26ec72ec0cf17d4"
+    },
+    {
+      "path": "app/server/share-hand.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 6522,
+      "sha256": "bfefc728659ed4556b135c228e9bbd1c76838a86750b5b0f4932daacac1762a9"
+    },
+    {
+      "path": "app/server/show-cards-history.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2254,
+      "sha256": "7160716460b4bfb065d0a276d6df5af30c57ed72661eca7c940ebbb739682c8c"
+    },
+    {
+      "path": "app/server/spin-config.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4234,
+      "sha256": "41117aab72c63c7a04608731fdcf5c777b0f5cd54503434c301214147f4f38ac"
+    },
+    {
+      "path": "app/server/spin-config.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2419,
+      "sha256": "1a92373c77602ea7eca46fa7a13d88586bf67d643b0332bd761782092aaeac2f"
+    },
+    {
+      "path": "app/server/spin-http.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4128,
+      "sha256": "c2b1ee0fc3c6ca6ef42577f77079c8776342e18a8d27d419515ea0adc854f73f"
+    },
+    {
+      "path": "app/server/spin-insurance.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2544,
+      "sha256": "65a4fd235db43d2daf3d34ffb79b82b6cd62fbac59d9128acb94b1acfe33b09c"
+    },
+    {
+      "path": "app/server/spin-ledger.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 1557,
+      "sha256": "5c109796e00ea3481f00e2b0cc1b84efbf25d36bad59a4643554cd9a4f20d32c"
+    },
+    {
+      "path": "app/server/spin-queue.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 25849,
+      "sha256": "155d8de5b6a8a336180ce66aa31b69b93d2796d58bd165aff09d51d3a59a9b85"
+    },
+    {
+      "path": "app/server/spin-queue.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 21514,
+      "sha256": "294aad6c89676e259b9e0304b109787e0e231892332659af2e1a1d69effc185e"
+    },
+    {
+      "path": "app/server/spin-recovery.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3035,
+      "sha256": "283a14c1ff6db08cc01abe7c25b68a2ae4210f7b6b7743a69b399435715e1d4c"
+    },
+    {
+      "path": "app/server/spin-restart-http.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 6509,
+      "sha256": "d75c1772e484fef016aa3058308a849ec0ba5b65d8d9f6d2d5360bdd081c0f70"
+    },
+    {
+      "path": "app/server/spin-runtime-http.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4721,
+      "sha256": "f18218a8a29ccd91ef2d7abd50d3dd48f04328e09dfd97f38ccd6ddc63c7a559"
+    },
+    {
+      "path": "app/server/spin-runtime.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3162,
+      "sha256": "5787eb4dc7818dc528dd1e607eb5f89a279cae9b12b3fc5773f14a860325a6ac"
+    },
+    {
+      "path": "app/server/spin-runtime.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2801,
+      "sha256": "61bb1bfbbecf3d36176e29e6434af282c5257b1031970f4426a75fbd7d9dfc1b"
+    },
+    {
+      "path": "app/server/spin-six.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5547,
+      "sha256": "e5f3a261c0c2eb5dc40a44525442faad437233b64a3a38c4a1669eb7954f7a18"
+    },
+    {
+      "path": "app/server/spin-six.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 8808,
+      "sha256": "e72d6b5e29256c37afab51f1071b15f042332a7bd856c3b4a411b658ae155ec1"
+    },
+    {
+      "path": "app/server/spin-table.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 28389,
+      "sha256": "82f76580408a614a1503964ef1c704497eb2a827aab1ca647760344fd6a81c8f"
+    },
+    {
+      "path": "app/server/spin-terminal-replay.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3218,
+      "sha256": "9ebba3655656709fa9b467e8f1162978ceb833929c493fc9c5fbbee47a475f11"
+    },
+    {
+      "path": "app/server/table-stats.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 6663,
+      "sha256": "49612183388eb1c3a5041b6c32cbfd86f3641f4da7e46d0534c9327827472393"
+    },
+    {
+      "path": "app/server/table.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 102126,
+      "sha256": "eaa824335afc408e057ff39ca46e582bcc50f2ee4645b63f2deb136129d2bc36"
+    },
+    {
+      "path": "app/server/timeBankCards.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 1033,
+      "sha256": "2b53960570c1ac2d96f7ffede3ad1f0858d0cc0a7db9f858aade28ba46f8d7a6"
+    },
+    {
+      "path": "app/server/tournament-addon.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 6290,
+      "sha256": "dc21f0a8b4af19ac33c2462a4d155ac6b2ff8f3ac6656d4cd675fc52fb42c9e9"
+    },
+    {
+      "path": "app/server/tournament-controls.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 9102,
+      "sha256": "8bd3aa1d6853cb1cb1fdea565c963593b0d472700c6f6470ffbd949634d4e675"
+    },
+    {
+      "path": "app/server/tournament-disqualification.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4841,
+      "sha256": "c910b4cf80e363354d662b801cc5cfb54208875a9fe6a0577737f45dbaea521b"
+    },
+    {
+      "path": "app/server/tournament-flip.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2586,
+      "sha256": "ca4a6620d4fc0289aab9fa7080b135c922d1c14a7db6b9842dc6c9497c9d5c45"
+    },
+    {
+      "path": "app/server/tournament-formats.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 18725,
+      "sha256": "7a0b8e0060fda0c650e0ead660aa6df24e91ad759429191d6a42b33f5695dc06"
+    },
+    {
+      "path": "app/server/tournament-rebuy.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4826,
+      "sha256": "190cfbc84b93c47c73f8aa21753d3eb1d8d1f617c04e7b48d1d2a1d7b95d55b9"
+    },
+    {
+      "path": "app/server/tournament-reentry.test.js",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4701,
+      "sha256": "094ff15b5454298ea6c2072dedc93ef4d5b16e6a8170d6a21012f1f25a08f02b"
+    },
+    {
+      "path": "app/server/validate.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 6271,
+      "sha256": "162e0bc8a38f0680bf356c44722ac8b217811609e86dc501a89d1cdf73cf07eb"
+    },
+    {
+      "path": "app/server/waitlist-store.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 2744,
+      "sha256": "3f0c64d39f69b9b68b450ab7420bb4a139c87080f67d5bb5f3e6fd8588207a61"
+    },
+    {
+      "path": "app/server/waitlist.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 8008,
+      "sha256": "6e53455f638e5796f81b02f809fe4418014382d82aa025017178ac376df271b7"
+    },
+    {
+      "path": "app/server/waitlist.test.js",
+      "status": " M",
+      "mode": "644",
+      "bytes": 8268,
+      "sha256": "59e4f60292a9c0b3cd2391aeda07e20b873936e94e6b87a95e6d68a3578bfd07"
+    },
+    {
+      "path": "app/src/App.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 5929,
+      "sha256": "d0962028c36eb64efacb2f3879d40ea3542841018a34234ae39a6cdfdb9e3789"
+    },
+    {
+      "path": "app/src/components/AdminBattleEvents.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3777,
+      "sha256": "1f668613cec2377213bf8ed1ddb27ea12541ec845f465a3dd2933cf49373d019"
+    },
+    {
+      "path": "app/src/components/AdminCashInsuranceRules.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2238,
+      "sha256": "8434a661dfc93bf9987555dbc258d5f3ebf20f04b9b1ea2ec97b903537460d50"
+    },
+    {
+      "path": "app/src/components/AdminPushSeatGrant.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4741,
+      "sha256": "bece1a8581e93442eb53f7fc39cb40148d82ce0ee33c991c90e3db7163bc446f"
+    },
+    {
+      "path": "app/src/components/AdminSpinRules.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 7962,
+      "sha256": "2adaa6d9f815d84fcc23bd0fa8bffc014d8a481a2aff6e685533822918e72619"
+    },
+    {
+      "path": "app/src/components/AdminSpinSixRules.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 12057,
+      "sha256": "c50e9e0fddf31d10e990e8e056cc9961e50cbb29c7530bf3249d2e6cb37fdd12"
+    },
+    {
+      "path": "app/src/components/HandDetailModal.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 9748,
+      "sha256": "2d7f20b03db7848525a6e169f651845aea5fb971838ba0fbf3d4e7d6694eca60"
+    },
+    {
+      "path": "app/src/components/PageShell.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 3378,
+      "sha256": "c814b8d0b46737ddc05659457fdc21411042f89f2a6ffe3e989deedd8b37b12f"
+    },
+    {
+      "path": "app/src/components/SeatOfferModal.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 6265,
+      "sha256": "804b77861e6ba235d8d9b8b3290424a1d8b36c762c0ddd20785d2de7415b2975"
+    },
+    {
+      "path": "app/src/components/battle/BattleEvent.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5843,
+      "sha256": "52c680a7fd58c2f952fbb2844036e18211d781d78e57d320d29ba3d7a3b1569e"
+    },
+    {
+      "path": "app/src/components/battle/BattleRoom.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4690,
+      "sha256": "38d54f35cc74bec04298f01b65b61030638cb766731fbd4faf9cc7deb6129002"
+    },
+    {
+      "path": "app/src/components/battle/BattleRules.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1265,
+      "sha256": "3b87d4d4e2ba4977278724f20e37c46922c818a9b9533d3a909a01a33bd7d028"
+    },
+    {
+      "path": "app/src/components/spin/SpinInsurancePanel.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 695,
+      "sha256": "82069ade99353f3f6272eb88cf932dcad56d5c0261c493028838e19183ccfc0b"
+    },
+    {
+      "path": "app/src/components/spin/SpinPresentation.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5459,
+      "sha256": "10c4a22813486b8cd8d806eeeb8b87a49700c9eef739f4d42a642f858ab18962"
+    },
+    {
+      "path": "app/src/components/spin/SpinRegistration.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 9593,
+      "sha256": "4d445289fe4bdd0be09917e12e0392d64426658d227e6751f271f85a2414d507"
+    },
+    {
+      "path": "app/src/components/spin/SpinWheel.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2057,
+      "sha256": "e42afe5fb24d08860e2c9b15420a81927e960c481d50db40cd91c8cb672c898e"
+    },
+    {
+      "path": "app/src/components/spin/spin.css",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5788,
+      "sha256": "a66d42dfb1e1ca6122abb3d75d35dd20a217588f398bbb53036ad58a6e9f5e30"
+    },
+    {
+      "path": "app/src/components/table/AutoFoldEditor.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5049,
+      "sha256": "295793f362348ec049c7634a9c048f6819afcc054949994b70fd36a73efea3b1"
+    },
+    {
+      "path": "app/src/components/table/BetAndMuckPanel.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 738,
+      "sha256": "cc039656bb5168d1d9087be88bfa246db7b0984916fb4c7007b3fd279a173438"
+    },
+    {
+      "path": "app/src/components/table/CashInsurancePanel.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3178,
+      "sha256": "8ca4b1670351db75f6daaf5227f6212cfa45aca58807924fa8268fa756fa93a3"
+    },
+    {
+      "path": "app/src/components/table/OwnHandPanel.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 6553,
+      "sha256": "7c7bb4c5b652a459089424eed4dc1ada51f895e52771b4c517c3a4afdf31ee87"
+    },
+    {
+      "path": "app/src/components/table/PushSeatPanel.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4083,
+      "sha256": "29ed8bd88d1fb7f8de18c1dc5df68ec51ec4ee3c32cf381e5105f745dd74c1c5"
+    },
+    {
+      "path": "app/src/components/table/RimtPanel.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2044,
+      "sha256": "cf8ac9229129f899ee88f14b3bf358d1c7f3106ac5dd2b958d70f9b89cfbfe1b"
+    },
+    {
+      "path": "app/src/game/autoFoldData.ts",
+      "status": "??",
+      "mode": "644",
+      "bytes": 15604,
+      "sha256": "b24e018a5859f2a16db8ff640be07ea4f61646cd95585886f7fc1befae7fafa9"
+    },
+    {
+      "path": "app/src/game/eval.ts",
+      "status": " M",
+      "mode": "644",
+      "bytes": 8979,
+      "sha256": "06f743286f3b30d4f5b204149ae3ff6c4abba4d9f89b77bfb64fc0d6e8db9f81"
+    },
+    {
+      "path": "app/src/game/handRank.ts",
+      "status": "??",
+      "mode": "644",
+      "bytes": 8475,
+      "sha256": "45a9171824c29da2b9b5506df4f53a2ec8a83e538bb6cb57093a61fa39e8eb01"
+    },
+    {
+      "path": "app/src/game/spinPresentation.ts",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1326,
+      "sha256": "075321d767b62343c078c0177c31450fec00e0eaf58045eec8527ebe306854ec"
+    },
+    {
+      "path": "app/src/lib/api.ts",
+      "status": " M",
+      "mode": "644",
+      "bytes": 34233,
+      "sha256": "47b61c90a066e68aa5193da13f1a7fec3f756bb064f5a1385b7d7c7009853df5"
+    },
+    {
+      "path": "app/src/lib/useModalIsolation.ts",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1929,
+      "sha256": "6ab967fecb63a705fe9639d52560fd2187d234e926d85b0405557d3ee7cf671e"
+    },
+    {
+      "path": "app/src/pages/Admin.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 70571,
+      "sha256": "6cde540351fbbe6798a8085a7dbab32d3ad5b6c475fccfa732526eb397dc63aa"
+    },
+    {
+      "path": "app/src/pages/BattleRoyaleLobby.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2056,
+      "sha256": "17106f101e5462145e613624deeeebb0da7be126742a91c32a54b6fc10fb4065"
+    },
+    {
+      "path": "app/src/pages/Cashier.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 12618,
+      "sha256": "5edba2478cc2a733041809380f6f8473d3d4d45a86d3ed630d117e6c62ee60e0"
+    },
+    {
+      "path": "app/src/pages/Extras.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 18178,
+      "sha256": "8314086d83b878e37d6012a5635b20d32463457d211c36eb90cd8516a887819f"
+    },
+    {
+      "path": "app/src/pages/Lobby.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 47803,
+      "sha256": "13c11045490a71578322d7d141bf08daf83cec72b41c3ffbfc8fafa43980a0cc"
+    },
+    {
+      "path": "app/src/pages/Login.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 16299,
+      "sha256": "1b069acc014ed2950d643d84a4c58a5f53b581075de55a5b1956e9c989096ecd"
+    },
+    {
+      "path": "app/src/pages/Promotions.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 42031,
+      "sha256": "09b55dce9d4de127b4b093958b998ead48828b9e7d683a04a38f17244bead3ce"
+    },
+    {
+      "path": "app/src/pages/SharedHand.tsx",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4265,
+      "sha256": "0291369761738c62e9d590fb56a2d6e355e29cc2c9fa8eb831e2a6dcf7b985bf"
+    },
+    {
+      "path": "app/src/pages/TablePage.tsx",
+      "status": " M",
+      "mode": "644",
+      "bytes": 117521,
+      "sha256": "ef1fdc035ef6c1852fa15fc768dd6b066e4442d4139e152901e2b273f5017cd2"
+    },
+    {
+      "path": "app/src/responsive.css",
+      "status": " M",
+      "mode": "644",
+      "bytes": 76855,
+      "sha256": "87ea3e822a52f95f97dffc342465221cef77d1c49705c005b3f16280af0a0c8b"
+    },
+    {
+      "path": "app/src/table-chat.css",
+      "status": " M",
+      "mode": "644",
+      "bytes": 7247,
+      "sha256": "452511f0b35b417ac2eaff9f0018ac67c52829d93ac2e9637b3e5a4c3f4f0da3"
+    },
+    {
+      "path": "app/tools/a11y-probe.mjs",
+      "status": " M",
+      "mode": "644",
+      "bytes": 3780,
+      "sha256": "968a0f76de8427ac09cfa4861d5c632575fc0ec058f5a9cfd594d6ff911656da"
+    },
+    {
+      "path": "app/tools/admin-config-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 7050,
+      "sha256": "064db6a3b43925eb30dcc42f023c71e92bd6f597ad4da0d1d247ed7226390f93"
+    },
+    {
+      "path": "app/tools/auto-fold-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5892,
+      "sha256": "05874460fe1af0ff89b01efd5e7aa3c9f53f55962160d6ae7a4a66f5f1288e5f"
+    },
+    {
+      "path": "app/tools/battle-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 6414,
+      "sha256": "7af2601575ada6884d91d82d15b6a76d662dd4b7a362fcd66142dab721573ea5"
+    },
+    {
+      "path": "app/tools/battle-field-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 8920,
+      "sha256": "0fddc9a28a06a85cc572ff9eee290fb2ece0e12597d19b1befd2cafb1f20a122"
+    },
+    {
+      "path": "app/tools/bet-muck-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 7692,
+      "sha256": "a783ab8350f1ca0fe09c04fd9d6ca393ba4d02b8ecf59280f248985f9e149c06"
+    },
+    {
+      "path": "app/tools/cash-insurance-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 7111,
+      "sha256": "9882a1ab95de93e96d672d0a0b2e7984210dd1a2b88962a05fe0d2ff24717b6c"
+    },
+    {
+      "path": "app/tools/generate-bet-muck-ranks.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1553,
+      "sha256": "d1f076cc52a950f0ecb57e6d17cc8bfe32226732528d8ec003a4014e6de79f65"
+    },
+    {
+      "path": "app/tools/hand-panel-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 8596,
+      "sha256": "8d458ec534fde1236c1675b4e09acd6b54ee2f45dec33f7e18d793300182871b"
+    },
+    {
+      "path": "app/tools/push-seat-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 9645,
+      "sha256": "997ed22c5479da63e5e6fe41561aac8edf698e7656030df9725d43965c4c49b6"
+    },
+    {
+      "path": "app/tools/rimt-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5713,
+      "sha256": "9a4daffec925a82150b2ad856f281bd74eb595b2a446fefd01801a7c142ac340"
+    },
+    {
+      "path": "app/tools/share-hand-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 8556,
+      "sha256": "9a2388898f3fe809ae0a6c1f247f205755b0f2639df1a47e94162c5670fd85d0"
+    },
+    {
+      "path": "app/tools/shots.mjs",
+      "status": " M",
+      "mode": "644",
+      "bytes": 5699,
+      "sha256": "8bf7a305fc477201ceb6722887d37973af08162f14531bdfb3ff25b38a733bc6"
+    },
+    {
+      "path": "app/tools/spin-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 10175,
+      "sha256": "6b36950c26c3818ac9556bd41080ccb1b2e45b0794961b00b646cbe25d274f26"
+    },
+    {
+      "path": "app/tools/spin-registration-recovery.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 8146,
+      "sha256": "ea68093e9df2986b23e2f5cb3760fe30faec857d969e8705a6e87534cd15d84e"
+    },
+    {
+      "path": "app/tools/spin-six-browser.mjs",
+      "status": "??",
+      "mode": "644",
+      "bytes": 13394,
+      "sha256": "ce38d0e9956a6f3608670ee87b55416a4774c394bc122149000f4eddfc3b0f4a"
+    },
+    {
+      "path": "app/tools/touch-probe.mjs",
+      "status": " M",
+      "mode": "644",
+      "bytes": 2647,
+      "sha256": "dd3dfce42a8225135642d1cbe469db9772afa95a499063c5ef9557fb4f2257dc"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/auto-fold-browser/editor-1024.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 627768,
+      "sha256": "b769c860b0767e6cd6d3e28d2c8649e069147cff00f2114660bbe683bbf0c4bb"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/auto-fold-browser/editor-1440.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 649147,
+      "sha256": "cf81ac2f788dd956f6c28929b1722f1abefa0f8131001a15aadf9f91b79776c3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/auto-fold-browser/editor-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 192986,
+      "sha256": "9e0fa37cea1f0e8c93785e1ef294dbebaee81f4211a6a03a5573fd0fb227a628"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/auto-fold-browser/editor-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 259183,
+      "sha256": "dc41507fc7e454d34c5dc516f5b3099465a7e7e02c5b1c5681681864c6082c1a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/auto-fold-browser/editor-768.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 525544,
+      "sha256": "6a73f4e10633db3ca7444ffae03fe4b40942ee3173ce2176f43568314e7249a3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/auto-fold-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 779,
+      "sha256": "6240f07bea542d50709b6e8a56bd1a35c78728c083e2dd172ffc0ac84a9fad81"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-a11y.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4294,
+      "sha256": "7e5a350403fae4b604898da6de4edbe4cd655a55330f5ba800fe18d1551ba52d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-metadata.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3772,
+      "sha256": "80053c0b6e3b9d1669b9b667f646f0ac7bf64766b73ce8d2c7fce8c515c1a9ae"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 14317,
+      "sha256": "f27d217b0b2a222aff3fc0ee421da34209fb341fa5f894a61cc5f706715ed4b3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 28753,
+      "sha256": "cfcef42d222e99422911708dc094032c648faa7cd2e6fa043ff532eb05f83a6a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 48799,
+      "sha256": "f7fd60602119a902c8a1e0ba60b2d44f7ba6cbe7292eea3971514f97e0d4a985"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 126206,
+      "sha256": "0b7104b9e6781beed4f39e9a25edeb1be9c480dfa81ead957882eb1d52d1a7a9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 72147,
+      "sha256": "dd267d445d344e4f111166e149a220d1cc490d3b9f8c434bb3bb30ec2afaac68"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 93500,
+      "sha256": "b7c2af0b9f6446033ddfdc2b242ef8d6ebf4fa6eafcd747fb1836297a43d9eeb"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 33620,
+      "sha256": "31ca59b1320a1f265ed64cc08949121a3c692e2ca49af44135f2685916c8fb82"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 105044,
+      "sha256": "ec1eac25cbc7cc882f789260ce27c9d0a798ee00a4ac82ead3e6d3a10736a019"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 50103,
+      "sha256": "2e7e0b2f94a76eb583b6df90460913d9d26c5e330e3ed1400f45dab1084889ff"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 133674,
+      "sha256": "b5ac59f3df3cf752050bf5ae63adac8c22cd282f740edbb16e13a2df40b90a72"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 32174,
+      "sha256": "904f496838116c0523f9f424a4d533811034f97111ffa80b0361ab27cc008354"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 86478,
+      "sha256": "974153f01eb2f1d74d353e240b2742edcb9aa6e59fe7e31155e1c1da1fa2c8cc"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 65561,
+      "sha256": "e5f830280f1a69a73def57a530f15c0189c43d43a852a74c82a9ee036b0c41c8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 101556,
+      "sha256": "9f75f569682225a2eeb707dda87431a849bae8fc1e714f136b75eced47bb2de5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 61248,
+      "sha256": "7fca89d93da6ddbd44fabbe950afbaa96296981140d4dea4f09b831745b5325f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 159694,
+      "sha256": "7e8a8d23a0e3889402c621461366fbf908079ed149c0eaa9ed4414b151c7c43d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 53165,
+      "sha256": "2995ebb84cd9f18a5c17789c63a581d2c195478ac37b97f4b1fdaa9da4a4bcba"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 88588,
+      "sha256": "4327cb98d9d70beffa7879351e50dcc6ed30c2cb1036addc6da845f2624eb690"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 54086,
+      "sha256": "6a87b1821f2aafdfff104721e4982456665256270d7e1c4fa90ac63f9cd73630"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 120820,
+      "sha256": "16c3d398b0d112400fa2dcf00c8df1773efbe3c7a6bc1483b373afd8be5857a4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 49766,
+      "sha256": "2e4ccc7aae31663b8bb7ed63dac8979c76d0ec862bb33cd26471fd16d5f63205"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 238566,
+      "sha256": "aacbd0193edb17e2bcd2ddd3321ed51c5ff35ca0b0e62b28f29f2fea534c48f5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0320-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 144321,
+      "sha256": "4b5e54f286e3293f4a6962310dd806ee135ec4403306e293844fd5453ee8e499"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 29548,
+      "sha256": "9bffd7d85155200152b403d00c8b7b936d7879d847495dceb2daaba3afb80dca"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 50863,
+      "sha256": "ca5cd979e03665a7474efa39bcb997e0f3f070f02c30f3c1ed1bac76133e9cfa"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 138910,
+      "sha256": "e8364f2c138394c7083d21b6f557f511b3af6af49cb9b043d6828dc381b3c4f7"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 77000,
+      "sha256": "ee59779a133a42e63d72946f96e5624fdf44633fe54b4f74301b052bfadfef14"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 100696,
+      "sha256": "5fbe623e7d7fc4ba7575fe6be16d9da0a188f8a563075fbc34709eec39cf1735"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 35450,
+      "sha256": "f4596ec17ffc6a9e842d56916b97342aac0c8fbdffc4410deeb59603e75086c5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 115044,
+      "sha256": "8e0bc3dd8dc56e3ee62a384c8e8666b74fb45e77d27c46d8bbaffbc487974447"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 51403,
+      "sha256": "90e4b484b509164632a5bd41600ff182cbb26562cd6986aaed3ee4f3027ab73a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 150361,
+      "sha256": "606d374d0b5633496fccc8e013c4f6dfd519b1ed689a2c4b0bb627c1bf76d8a2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 35273,
+      "sha256": "321189b4ab65f1d8ee49d43076f65322102d208df896c21ca27f3a7278ee2cd9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 90591,
+      "sha256": "0491365bb7ea4a84ee78c49e668367ea30a2737add1036aa6b5dc18b5f2e609a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 69117,
+      "sha256": "838045509c4387665b7505eb85cb54a11757317f2357671bc025d880ae201ebb"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 113837,
+      "sha256": "91554e9b61a1264f63fff4be35a4c5f0a2c7702cddead0e58d559206d7d02c7c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 64899,
+      "sha256": "5e0645c3881c2fd7ffc15623b7f1373f0ef0d12c9ef55a05abaab1c21d32d662"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 176535,
+      "sha256": "ba4ffe1e04fd42fdb03502ed1bd4ddb082e1936c58dc799aeeb06386f71910cf"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 55518,
+      "sha256": "155199a2ec82735023102a96c1f242532188c82758689e07ed72a7d5b888e208"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 92704,
+      "sha256": "05d40244cccf88224cff374b0a7944047285c94e7550bd97b4d681d0fb81ce8a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 55749,
+      "sha256": "98f247b882569cd166e1cb775d4cf5b2f5f61d8ccc85a5552e6bfbbbb1bc9e6f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 133787,
+      "sha256": "d435aa68cbba0fa8f0db1876a209b68b78bd5f759ab88b0da1c1225ba1c899fd"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 51894,
+      "sha256": "c57a83ede492fd75e6995a23f47060a4618c4fede16eb752a763421049c8edcd"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 279810,
+      "sha256": "d336294001e064801a781f614eaaffa271a86cb9f212306cd6f4faea7ea3a88d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0390-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 162997,
+      "sha256": "b6bdf443b776741dc0af2046655d60f21f8bb6bca978bca0512191255ccdf032"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 48850,
+      "sha256": "f181d75a96bba76fe7be68089718548339099770de628c9b65e9a9e8fd4263a8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 82136,
+      "sha256": "b6099e2ffb2246e664bf97837beb14ed1ba378d3889c2606e25f4183defc105a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 343597,
+      "sha256": "999b4f6655da60843eaed4f58ad16526207c0bb390fbc8b0cf6225db4d0e181b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 114469,
+      "sha256": "93335ab1d0064b60a04f0a8453ed34548e994048b1a837a60603c7b17bc2eb31"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 168728,
+      "sha256": "c2a61e0c21ada4cb230450e969311c916a211c50768cdddf70012f5e827aa8ef"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 53246,
+      "sha256": "b2a0af7fcc4c22848a22620560b7e442b0b715d102c6e361669460af4f66df18"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 181895,
+      "sha256": "71e607c69361a9e96b509993351d08b7f340832b4a6f832609130b81c686a79e"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 79269,
+      "sha256": "fd1b710823bb35b171d892a62bcf5a7de2320f2eb7abdbf52fe53563f5ac58e4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 346603,
+      "sha256": "71e0f0f181ddda21b2508cf53bc51770e21eaefde6c63b48ca194468ca0f3138"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 341713,
+      "sha256": "b7cb973bd6436b48fd275887379ca64013aa9c3bcb04b46366d25bb51513f92f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 145802,
+      "sha256": "857eb6aed3f881d96bae9c2d1f948526060449eb27ec7863217e7449053a977c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 103894,
+      "sha256": "d5cbf02652c7531d43c9cb1f76b28f4dd1742bed93dd131d7c4b863a91843c99"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 200914,
+      "sha256": "85ee016e5eceb3580b61e0c9d3eb7489cf107b623a8bf66fc5b03c8ec065ba95"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 125477,
+      "sha256": "cc0661e6bbba984590e8c2a5ff438e3e9a54dc5855dd52f2163b13669e5b8ab9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 316772,
+      "sha256": "12bccb76b18b6bfd66ff8e829e5b2ac02b74217588b36cabce3b100c60961675"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 76506,
+      "sha256": "b05f843ef3909792236241cf38c6fb8fa65c045b6d9a9f599cadf935024f77c6"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 145784,
+      "sha256": "02aab0e77ba016979dd3764e6e61c0a3adfd1d8037e6377803ed502aaf2bd7f1"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 89917,
+      "sha256": "28221336b7aa7b57c1a96e809256f491d98a40d607c09cfd7c83033719a1be70"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 297103,
+      "sha256": "89b9f4ee36c9ef54b58566c52a6ff787c5f5cadd046102eb4d256f0171b09bdd"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 73829,
+      "sha256": "9d44c521b96c6f0bd084bc030b11c0d09c421a1ecc248e384bbb814e5f037ac9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 653939,
+      "sha256": "3d3810f53264f71081d4e13d867c5804620955f30c2cd860706993ff5e98fa90"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/0768-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 205881,
+      "sha256": "edf11f61e27de7e56ab97db709681944e471749bfb27d1a08f7ca15706ee3753"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 71641,
+      "sha256": "f17d42b94126e963adb4dbe8fa31a00504333cfe5b8c7b4b4e8246a5e7c27ce3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 107747,
+      "sha256": "de2ac20b154ea3f5870aa9eee1533cf468c8f3cb2b4ad41e3390f9c65f18a31f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 460414,
+      "sha256": "139ae41811529248c74027858e5d86ee4aa23a51374e3540d8a026551e6c5442"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 186746,
+      "sha256": "058c555914235a5981fc82db5ddd100c5a84f86c6a2f13e1a3b5a5a4aa4ccce9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 213607,
+      "sha256": "f1447e4757b4fd2080aa218dec4ae932e89a195537db8cbe0752e9eb09a51669"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 83985,
+      "sha256": "be696539d9955543ce78441ca9bcfc62c56a26bf0063ad7a2b59a8becfa558f8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 234245,
+      "sha256": "61ca926402d3eae869efc54d35df55c039c9d1bd0bb6da9d3cc851da8a95d887"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 98358,
+      "sha256": "b1d5c360ca7ae614df06ef0ee7d99846ce7a3c2825a0eba8d02168c344c5307d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 533862,
+      "sha256": "2b9089704fcc7bf41064299765f7fd57ac0b2c9c5c5bd2fe35bd32698b634893"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 506032,
+      "sha256": "4754894fceccc0c3acb2cfa85a3f33e63ea54ca8b103464a23dccf9b3eb53e3c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 174806,
+      "sha256": "cd2b56862dc9187ec0b9d2dba1cc7c3829ad402c5192bbc2802c2799390b9861"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 126383,
+      "sha256": "f00b5d3209f2f71da5c635122c02417a12f30d933fdb3dc0e9bf3f6a4209f7f5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 268016,
+      "sha256": "4345e88adcfd79017651718b4dfd1654fddf9abcff4c0b08943e46f64a96f5e2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 155609,
+      "sha256": "7179e4e33261835342b8da479806349e3dd7d202bca2911d1a57337519921838"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 503830,
+      "sha256": "9203221b21bf45b657f99ac7cba9c08d859591b6a77d4519fa3cc7e096898e11"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 94062,
+      "sha256": "67b8edb1aa4452a5689d64aaf78b9df56655c1b8a9d5a5d23e17cacf9f3db17c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 174806,
+      "sha256": "cd2b56862dc9187ec0b9d2dba1cc7c3829ad402c5192bbc2802c2799390b9861"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 120798,
+      "sha256": "2691bd715506f4e8b5e8922fd8d739e963b29059f95b4ae7289fcb4e8770ea30"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 435030,
+      "sha256": "36178535bf03369fa4052999e92f4375b659d16fcf311d0480d72f1e10d138b6"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 96666,
+      "sha256": "127a2b105d4b4683ce01355bc05bb721c42215dcf2de62ac8d2b03b84b493617"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 729858,
+      "sha256": "d55450be96b2dc8470925528b87cee48a5368337ca8082f1e2c053a01b40fe7f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1024-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 249172,
+      "sha256": "5c9e4e662959f91c7e7cffcd8ee62a162cf7c82f812fdaef22c751d6a69c2852"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 77627,
+      "sha256": "2fa393ffa9fa74d9c2902a79ab716fac139f201192cc7548f5d794965e71d15b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 113600,
+      "sha256": "93f3fc8e4d8a4a8cbe1d5bfd1cdb44726e8cbf93650b9ff1427074a4d0077698"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 464892,
+      "sha256": "1a4af05caee87cfc6dfe910b2c413502bcd09f9a4f55e379264b7255879ce686"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 193361,
+      "sha256": "e5cd92310549582989231be6657406b61f3b1f810f809f1dfadc02517b01b0d2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 250961,
+      "sha256": "0c96dfa698e477d60b7bf5119ce926d0666593d4b489849ecd13d586674fa410"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 95940,
+      "sha256": "d0ea5cfaaa37ff20d4d24b6c5b33b4633962453cce088e1aba9f5b86dc616879"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 280422,
+      "sha256": "3b7a2982dec7cf05a9dcd90d7bbf5b1511e45ddfbc04e3d4344d1e9d5ef9b549"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 105855,
+      "sha256": "68e4ba53dc4fd5c40dfb7b4e4c83b3dfc4515f13874a0ccd0e78ea88f8718849"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 659889,
+      "sha256": "3f2067713fe86602c928a9c4f5798b07994f96bf44d13a5c10fdc17da4d32487"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 630433,
+      "sha256": "9e57eaf17965a2ec1cb0a66a8ab1aeeb302d7ff934185b53a700a1bc808306d8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 196429,
+      "sha256": "d409996a42a8de8febad16bb8208263125424e18858179c5b785b730f0611a00"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 135570,
+      "sha256": "c41f9947bb4f43f637e648ea85be992c9f3d110504119885c9d1b52fe758083d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 305977,
+      "sha256": "497d76931d78295e971f252a9ef11e22c77f6175cfb70d68a3a75b830e1cf86b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 169200,
+      "sha256": "b8c298b916ddbd51bf226d9431f57ae5e9392e7df6cb9cef2d4c6cd895162569"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 530864,
+      "sha256": "5082f8d96dcbe013fe50f549c2bb497b3db4dcbb6487a9ab747894117d4c12e2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 100360,
+      "sha256": "487e0911a2d3bdd242800382b37f954a52026f4857b56adc4ca42359543c3ae2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 196429,
+      "sha256": "d409996a42a8de8febad16bb8208263125424e18858179c5b785b730f0611a00"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 127010,
+      "sha256": "3b20a0e48bef42476e271c663cda8c8c7808274602f91eb90844e7f31de8a4c8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 460400,
+      "sha256": "725a10700abe8dd8cb8fd6a807233ae78cc7e2c3c34688943a213440c8285a31"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 102702,
+      "sha256": "fc9bb28d4b8076d26da31990d2371697a708980329f9212e162161ba02daca38"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 949649,
+      "sha256": "e34d9596e9c444121c1984fcbb0e41bf6ab5e407bb6f881a55a34da9e51c5509"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/1440-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 269510,
+      "sha256": "49d594517c35f1e27a4e435959536160e9ccbed3308674569bd1f6fc878aa154"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-shots/report.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 24438,
+      "sha256": "a6fd6679f96fe4fd9bec8d1a7fc302e8da2bfec8fd6c12bdbdb4e2ef355c9fd9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-touch.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 7252,
+      "sha256": "80704be95da99497e0ff54524d90de5162c206b94cecacba223730bc5209aee6"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/baseline-verification.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2050,
+      "sha256": "8ab9e83c8a3733dcac89c522f51a42e7513862ed840f6f1665348f58c5b215b1"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-browser/event-1440.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 69678,
+      "sha256": "571d6301c9f18087bcc7e8d193d6f4ca10dcb1752971b28e2094886743599467"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-browser/event-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 67577,
+      "sha256": "24c91fef0f807b1a5ba3f124faa2c897bfaa1a6b0c09eb72e4f5a56a2955fc8f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2539,
+      "sha256": "f6f4ac65c23657743eda978c72aae5858780f7286def3c3c34659314728617c3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-browser/results-1024.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 70535,
+      "sha256": "abb89ad895245c5419b7485f6b72426996ff223921bf87b4ad91e4928c4f4a8e"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-browser/results-1440.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 73352,
+      "sha256": "6ca49c4fb577ac1dc02064809a04d6f2483cd9e74c8151ab32cdc747ac130cf3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-browser/results-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 53450,
+      "sha256": "aba6ef2872e154f6a6c5e09d2377950280a20027ca31a7cfa54a23c5844a599f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-browser/results-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 54069,
+      "sha256": "bd551800bea67718499d57f13eaffdc32e8e8e410c33a75a35d1f0334cb3b66a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-browser/results-768.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 68210,
+      "sha256": "a3e00768d891555a8edc082ded96a3d7be6fd64c2fb722a299cfc1ef65524333"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-field-browser/final-player-1.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 72256,
+      "sha256": "2aaefca3ca9c5503ac3181e16bcf1a3103f7d0b0aa9760994c370f68843f34f6"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-field-browser/final-player-2.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 70988,
+      "sha256": "3ce18d241832f8586941631eb7f1afbfc4356c653e9dd0d74e97a56fb0b775c5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-field-browser/final-player-3.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 70865,
+      "sha256": "f2040311bbeb6f22a35cbc45c1f3cbe7cc1b8ded5b968a31f5ae39a12522826d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-field-browser/final-player-4.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 73138,
+      "sha256": "7ff1505135c49e4c80889d451c49afdbd78386a18afbedaf2d621a883f7d5c98"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-field-browser/final-player-5.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 76089,
+      "sha256": "8501004bf3059e61bfd7ca9cdd77a4afe03e208fd4fb9ea27c763a740213fc2b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-field-browser/final-player-6.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 71027,
+      "sha256": "2443d265ef5bcb6a7d5597e685e16d336ed212e563007b0870694d504fb78fa5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/battle-field-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1415,
+      "sha256": "aabb5ff40307e1d8c16c05248ab8c62cdd67c49037287bacf4e235bf6bc05bf8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/bet-muck-browser/result-desktop.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 928005,
+      "sha256": "1e006a9c796f13941e950c051bf972f367d086899edd17ccf5ccbd0660374b1f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/bet-muck-browser/result-phone.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 244240,
+      "sha256": "66a5ac8fb43efdfc0f752714fe630eae4ea255832a3aff4b7219b79dd420e948"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/bet-muck-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 242,
+      "sha256": "bc747d3980c9fb1f93310365f01592d4d070c81569190215c6583c172eccb528"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/cash-insurance-browser/quote.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 275494,
+      "sha256": "e2f235ab429276e050b8042119865c0b184396e530b8667240b253e02dbc99fe"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/cash-insurance-browser/result-1440.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 938917,
+      "sha256": "77709ab3adfdf8967e9523c49481a7f2cc3ee41b210f030fdf906e5c9c098de8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/cash-insurance-browser/result-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 244310,
+      "sha256": "f7a5f378d39ee3101ff027541ffd3bf774186817f1af0af1e74a6fc454d377da"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/cash-insurance-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 272,
+      "sha256": "ccab28160426935e3bb17e2d05fcbf297ff1fab3b9159a3e6467f6a3fe30dfdd"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/comprehension_report.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3483,
+      "sha256": "449d602d1fe8275d1126d2ff72b0372a7e8d6a2bbb765dbd312e14afb1f02af3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/consolidated_review_report.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3509,
+      "sha256": "2ee68082a4d2ecf85a31df3eb0913cb2b7d9c62ec41485a41dc386e41532613c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/critic_report.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 7698,
+      "sha256": "3bd3013e5ba3195e7da70c178afa50d997a32db0fea66b89d0cd48eb7cd4c6fa"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/goldfish_review_report.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1278,
+      "sha256": "63a34f1b2b9c0b0bd509af2d34b807060f1359b1e25759c2052aad38a11d39c0"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/hand-panel-browser/hud-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 73202,
+      "sha256": "7510f3b5b4e36ab652b341e6113e0253acd7a3ce4637eff841e606d27b708267"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/hand-panel-browser/preflop-hand-rank.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 157643,
+      "sha256": "b3e39eb2f270d4b36756d1ceff975dc5d58d88a4d0fbaa4c6e116e515183b8e0"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/hand-panel-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2197,
+      "sha256": "847d9a20f482ffad6b9e367b15ca6801f66d87aa9a3ffada88efec1f0185b307"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/hand-panel-browser/stats-1024.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 472532,
+      "sha256": "69d43a0b17c93ac884775ebabffa6eebd00c3207a66e78077a592122755e306e"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/hand-panel-browser/stats-1440.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 779121,
+      "sha256": "f7ea8feac8fc8414cdedffb9a95e6ad3bebe90a65713f6fb2d18e7089f153279"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/hand-panel-browser/stats-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 98311,
+      "sha256": "fbe6c03faacb2a99e2afd77239c3aebfea2f0cf86de02c267a644a717ba23cdf"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/hand-panel-browser/stats-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 134237,
+      "sha256": "93f852c33aca0733f1b1d27c54c554db383a7e1974457a98948f214aa85df789"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/hand-panel-browser/stats-768.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 329149,
+      "sha256": "dee37909af6f79b20257d66be53fa58db0eb6f72fc2d37afa7c087e5be7b5d4c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/implementation_readiness_report.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3681,
+      "sha256": "e692197c34d96079c32a9729e593e395e60d6c032528c530b7ef29b3d4981f43"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/intermediate_zoom_out_report.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5676,
+      "sha256": "6a0d82bd93d5930865c48b0dc6d84697acdd409ebd9ceaaf0030ab419c3b20b2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-final-table/0320-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 223866,
+      "sha256": "fcad274534e1028e4f2a974b06bfded34d7a8fff40350449701513b2a09e4fb1"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-final-table/0390-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 265984,
+      "sha256": "d2d02e7413fccb9e7705fa56d449397f37d9a03d55ba1c4782bb9d5ac21a27ef"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-final-table/0768-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 610097,
+      "sha256": "44fe10479041da373429d4965cd5567ef473882b9bb24fbec618eaf8fccbdbe2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-final-table/0844x390-fixture.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 284301,
+      "sha256": "aaf603ceccb6b581cb42393858079a14c7f23b2112805bba13bfa78a2d07089b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-final-table/1024-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 722987,
+      "sha256": "3cd95bd129c81daf1c0af3d91c1486c394c42eddf4bbcf30a5e07b96b3447dc0"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-final-table/1440-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 955303,
+      "sha256": "cf8346cff2b972b03f97762a2c94c46137ff9059a4c9dbe9fcb50282b829573b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-final-table/report.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1351,
+      "sha256": "b8bb49120d929618128c713e02e6c828ba78e7841adca555db590ef972e0c6f7"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 28753,
+      "sha256": "cfcef42d222e99422911708dc094032c648faa7cd2e6fa043ff532eb05f83a6a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 47231,
+      "sha256": "837e0cc3fd105391aaf78f3471bd8d472f64171f9c42400d34a8c66317f5177e"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 126206,
+      "sha256": "269eb8b3671dd6b43413132fc81e248034fffcbcebfe2be87026a09fa98f92f9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 70752,
+      "sha256": "a7acf39e44fb1c0103928efb4c5d23b4579a13782f619b50f97ee5c66f755102"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 93403,
+      "sha256": "7d582513914936746176d8f90babc4b265c2815749a2dc247e4d35c9332b8f3f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 58286,
+      "sha256": "7bbe5a791560d871b57052aa88fcc134181e49c18d7f71a36704cd7c6f0bdc97"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 105044,
+      "sha256": "ec1eac25cbc7cc882f789260ce27c9d0a798ee00a4ac82ead3e6d3a10736a019"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 50199,
+      "sha256": "9f16488c3e3cf37b4632645d06ee4544dbe2e5ca0a396aae0da1902769a8d409"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 133404,
+      "sha256": "a7baa7d64cf1384c2f541c8241f6f9f956a44f9a12787c3042441f3d93bc84c3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 31059,
+      "sha256": "17a0bc848b539b107cf0d7b6ce814c97f973c5d1731a8b4efaaeea9d25bd39f2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 85521,
+      "sha256": "59a09ec3887645ed4b45836043a2bac1d15a20118223ebcdcad6290de53714d5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 64755,
+      "sha256": "5b20d145e18e9cd75cb5502e8f00b0f98fb8415e0f9dec480f63798114cb6b0a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 101556,
+      "sha256": "9f75f569682225a2eeb707dda87431a849bae8fc1e714f136b75eced47bb2de5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 61759,
+      "sha256": "941f07ac842b5f2398926e63bd191f2c18ce344365ba30f9264199a664d0dc00"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 159694,
+      "sha256": "7e8a8d23a0e3889402c621461366fbf908079ed149c0eaa9ed4414b151c7c43d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 53174,
+      "sha256": "f2ce73ec194856a6ba43430f4b07f9a6b74a04d71d95de3e27f3fda3b6faa9ca"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 87634,
+      "sha256": "156b1ca3808adc911083843a954a886ce42866a410b86afca8d4cab8505c7401"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 50477,
+      "sha256": "7aa5bd5af6697efbe4a0f67d1469455c3fa478a031257bb0dc98124195d2de38"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 120820,
+      "sha256": "16c3d398b0d112400fa2dcf00c8df1773efbe3c7a6bc1483b373afd8be5857a4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 46925,
+      "sha256": "b70df02c8e276c15d1d12a16454c9d58f9a64af1a8fd984466d6efbaf38ceac8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 185187,
+      "sha256": "d207fc5999e43cef47d7796661c1b85c8082de742d913a3b88f75a2963f92bec"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0320-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 141870,
+      "sha256": "062a64fe60c582ab9ab33a7da6f187ebbe7eadb5705fcb7573e84308b07dfa0c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 29277,
+      "sha256": "1c43877ddc89c9d2c5827e062f21cec4c5b83ed218e356989593d56783cde5d4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 49309,
+      "sha256": "0eb616116705f7bbff39b0c570d71c248a0be0537eccf4557a57283b6b23d5c2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 138622,
+      "sha256": "8df4f5333262f59190cba93868e3ed362a9b29ed677ceedb7f6fd6525699ce16"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 76779,
+      "sha256": "d3f1416b3c5192226f2b621fa0de8b7ce106104e113a928235dc72cc74a068ff"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 100717,
+      "sha256": "e28d96a0610b7b5c923a9df1a8c2c078e5940781437dcddbf0bddf35e1fb454c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 64193,
+      "sha256": "051d6d60157181e43471dd7b36e1989ead6c41753bf348eec0ba41d6766a029f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 114757,
+      "sha256": "8ea145f4b537d9748f1fd34663fe8892e52acdf17d6bc8a1fa7ca7332f1da2b9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 51058,
+      "sha256": "560d1990ea75239125cd8382240d0a2fe98c67f3848991699afcf1920011bab7"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 150096,
+      "sha256": "a7201f0a3c50af4156b827469cdfe94844ea18736af93f20bee43e893fbcf74c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 35387,
+      "sha256": "f74ea6ae607c885cd3c7dcfd782ff7074dc8f4168584b630702a7f1b635230af"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 90301,
+      "sha256": "173d197614e75abef886b9f894b7fb32b08a320adef064f2b67e9d41beebe055"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 68456,
+      "sha256": "8f247e002aab97d14b1730feee3c6a5887f52da9b7064dcd1ed023a4af0cbc81"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 113714,
+      "sha256": "8ce1d43ab042961cdd1e122b6f60b6defe49717fbebb016ca7ffec256181c0a4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 64681,
+      "sha256": "d21b13fb37097a2d236bcc948f1df5ad76ecd6e3d15362101735c8a0db875468"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 176531,
+      "sha256": "3021ad0dd7c73ac0e7226263d21e012588f6fe37170d6199bbbe2cde959cdcc8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 55151,
+      "sha256": "1e7fd91fd0157697b473bdb0fd28f78ebd7c73998a8f66d4e3d3ce4eb1e1fa07"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 92415,
+      "sha256": "329876b6d822ea6db9770d32c4c74e9531f275c086f6f3309ab173dd1becf321"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 51675,
+      "sha256": "f7b408d10dccba76bcfcfa726627c606114cc771f12e5d8b67dc461cd8990756"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 133441,
+      "sha256": "f51f05d97d7a2d8032c4c4fea55240c8f95d29610db9355f7383d1a2865efecc"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 48049,
+      "sha256": "4e45fe0651f73167056a0f4fcb42bce68494ccb94f40da96bafffb91d80e3b9c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 221140,
+      "sha256": "8eaac99ff72896e5a53b70509ae5d1338854faec18c6e6d883e4a91d0dd0570b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0390-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 160360,
+      "sha256": "3eeb42616634d752f39770601d45af9f8e516944985fa083577ab991070b2e6a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 48656,
+      "sha256": "6fd5b2882525a1896014b51d6c9137d9ab7b9bfff96ba70d4e8aefaefdcd9a1e"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 81835,
+      "sha256": "5a1aba84e6625831cc4ce9bf17fce7b4003895c8c7b000675a198c080ce5fd99"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 343261,
+      "sha256": "d461ea178d5a57f1028c64e87fe30312263a0f295d7faf51c74c54377f9757ba"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 113699,
+      "sha256": "a7c30a433844025da8040ac96078d3004a2aeaad8f3efd1a8aa47bc3bbe1ecff"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 168735,
+      "sha256": "06a6e708adb424aca7d3931f8a39c9e95d7b28e0318d52be597a055239d72cc2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 98032,
+      "sha256": "0b1806e1ca1d735b71edf25f2e352dae95fa9846d9dc6ae18a0f251a8d5d4f1d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 181396,
+      "sha256": "979e72e5043a7caef2145f822ba578d1cec606217f6e7eef7433ed5b27e0f3d1"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 79233,
+      "sha256": "0d68d1e1927eddfbb450d97d745d923b119d413804353ee7b9602c37aa9f3320"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 345230,
+      "sha256": "1393720bc2ef460b421e31c44f479a21074bc57dd0ef2a4ec6497fc42e1a20e2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 341212,
+      "sha256": "7faa5b0fee8654b5a6d7fd282c4d1a6505f6e41d279858025eb9c1a22f2f7b8d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 145034,
+      "sha256": "b05897cb93a9e72ea44d89b35a4f7d5bd74a96259f942372ed55f4dae0219226"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 103072,
+      "sha256": "008f7ca1369177a54c0f250c42bb002ee33249d04b7409f7459372cd43d20da9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 200642,
+      "sha256": "85ea9a0b6869779ce6ff752b777aba0a00ccf5ceb3269d5e652b6c30cd225be0"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 125683,
+      "sha256": "469958377008db580330422f0408adbce532e6b107baf6edfc03ab25e5247164"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 316561,
+      "sha256": "f5a0630f42460a8d76144c726e6c67f2ec11f6d8c1f16b1f3a3469bfdf9daa3d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 76106,
+      "sha256": "a0dc707f48efedfff9f875af1d75db1cb569692449fe6edef402801db1eaec13"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 145010,
+      "sha256": "a75b5af98f2ac9a8d85fc3cf3f6ced97d90cc163ab4a0c11f0e0599196a6b754"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 85128,
+      "sha256": "2cf459102d013e48eb622147b362c7005021263fb23aadd95c31ea200e1b3e18"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 296814,
+      "sha256": "2c23e8c01d91ef4e2ff0db5e131cbd6188c392ab6232231ef082f4dc1c76d980"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 70671,
+      "sha256": "d2c8d4f48d4e538be127a3d2cd40681f03039d9d8bcde1fac1e5f75b2c1da96f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 524009,
+      "sha256": "f5df870ebdbdd71a40aaf22f219924f43bb951de38a8848d2ebf51146462d51a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/0768-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 204504,
+      "sha256": "864a2c64311996a0a2a606ee97f27d325d5d86322eeccc5dbd7ca396e06f4ab4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5230,
+      "sha256": "e504416beb7d6bc71a71f036d771a97833ade62515e5afe39fad3fefe1f3a445"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 115262,
+      "sha256": "c29dad767943c3025878476c01f04efb27b6a2bf4f4a2f27d4cad6a54f5cb5bf"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 316879,
+      "sha256": "d3ca4a1ae145629cde29211b2516e8bffd16aab78c686b6289a1202fee6196aa"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 187860,
+      "sha256": "dcc84558eefdd15da3e4c88f87173d889a0fb6908254b8630b8cc5661a512ecf"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 143631,
+      "sha256": "c5141985814270e02e0742de76c27d9fb40e020fcb5f856962ddc8a50d03ddda"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5230,
+      "sha256": "e504416beb7d6bc71a71f036d771a97833ade62515e5afe39fad3fefe1f3a445"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 162711,
+      "sha256": "1e5c3092c45ffff839668431a8eccf1f8a2ca29fba4ada5df10fd6f0d6ab6103"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 98876,
+      "sha256": "0ea3cbdb5f7c69020b2a873f1eca362df06ea83e0254f0ee3033f737c534480b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 532542,
+      "sha256": "97c09c66d8577c029db7a4cb39f94dc258de7246482d20d0017d892c8d572d30"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 504455,
+      "sha256": "3365b034cd86b230c60c6fd97d8b2f44b0d2e369aa75d5544009fdc47a1cdb66"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 175203,
+      "sha256": "e0d48d8be67b6811ac15bef13f39dec99f1f53fde56eb6e2a9b0164c087281e6"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 121505,
+      "sha256": "021ce8d171823a7d24eda2c02eb1bb99eb7645e55060965dcc23fae3669b3acc"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 143506,
+      "sha256": "4332adea44a06b1c0651746f153e43a250906cffe246ce2834572e271961ff39"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 156919,
+      "sha256": "e794bb627a5ad70943efd8bca8d16b56cd378d1dc554a15a611cd11f51110134"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 504258,
+      "sha256": "f4597654aa3dc335e31c44485eb86d9f2b3a3a2144e850188ed5d2af6ec7e0ef"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5230,
+      "sha256": "e504416beb7d6bc71a71f036d771a97833ade62515e5afe39fad3fefe1f3a445"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 175179,
+      "sha256": "ed6aee21341a635622ccc3ad553973af936cdc9c0170f965e28588b013ac7563"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 116777,
+      "sha256": "5498b5bd08f952180b001bccd2c0b2ab544e9209de8c25c701440eaef52ad5d3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 435341,
+      "sha256": "403bde3059219d9fd74fae2ad0dc98c5d00ac1c600d951c51a0d45b8afc90433"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 95693,
+      "sha256": "d525cc56f797e65a854fadb170615f643ae818f2b9162a8cebb368e8619d906c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 5230,
+      "sha256": "e504416beb7d6bc71a71f036d771a97833ade62515e5afe39fad3fefe1f3a445"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round1-shots/1024-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 248007,
+      "sha256": "b0a20381ea55a1af30a9aa7c4d39a5604adfc98b539b8363f4b652e3246f105a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 28753,
+      "sha256": "cfcef42d222e99422911708dc094032c648faa7cd2e6fa043ff532eb05f83a6a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 47231,
+      "sha256": "837e0cc3fd105391aaf78f3471bd8d472f64171f9c42400d34a8c66317f5177e"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 126206,
+      "sha256": "269eb8b3671dd6b43413132fc81e248034fffcbcebfe2be87026a09fa98f92f9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 70752,
+      "sha256": "a7acf39e44fb1c0103928efb4c5d23b4579a13782f619b50f97ee5c66f755102"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 93403,
+      "sha256": "7d582513914936746176d8f90babc4b265c2815749a2dc247e4d35c9332b8f3f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 58286,
+      "sha256": "7bbe5a791560d871b57052aa88fcc134181e49c18d7f71a36704cd7c6f0bdc97"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 105044,
+      "sha256": "ec1eac25cbc7cc882f789260ce27c9d0a798ee00a4ac82ead3e6d3a10736a019"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 50199,
+      "sha256": "9f16488c3e3cf37b4632645d06ee4544dbe2e5ca0a396aae0da1902769a8d409"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 133617,
+      "sha256": "e8b6dacde64cecfd2014d0a533f3a038cade485ff5f960555e6970acf5aa0ea0"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 31059,
+      "sha256": "17a0bc848b539b107cf0d7b6ce814c97f973c5d1731a8b4efaaeea9d25bd39f2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 85521,
+      "sha256": "59a09ec3887645ed4b45836043a2bac1d15a20118223ebcdcad6290de53714d5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 64747,
+      "sha256": "37cd7175c414ef52ee394ea7281ef1372e5bad37238de9c191e7690e31a228c5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 101556,
+      "sha256": "9f75f569682225a2eeb707dda87431a849bae8fc1e714f136b75eced47bb2de5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 61759,
+      "sha256": "941f07ac842b5f2398926e63bd191f2c18ce344365ba30f9264199a664d0dc00"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 159694,
+      "sha256": "7e8a8d23a0e3889402c621461366fbf908079ed149c0eaa9ed4414b151c7c43d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 54821,
+      "sha256": "44428d8f1b7cf7cbe730eb2f67e00b47f3382c7d833cc5f1372492bb91874419"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 87634,
+      "sha256": "156b1ca3808adc911083843a954a886ce42866a410b86afca8d4cab8505c7401"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 50484,
+      "sha256": "674816bb7816dfab4160d4f339f6441302a81b11f5c7df81a69a7d190957e68a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 120820,
+      "sha256": "16c3d398b0d112400fa2dcf00c8df1773efbe3c7a6bc1483b373afd8be5857a4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 46925,
+      "sha256": "b70df02c8e276c15d1d12a16454c9d58f9a64af1a8fd984466d6efbaf38ceac8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 185202,
+      "sha256": "ce55ae2c395dee828707b1990881a553118a8b89f8364bcfc3c81c04f26d9266"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0320-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 141870,
+      "sha256": "062a64fe60c582ab9ab33a7da6f187ebbe7eadb5705fcb7573e84308b07dfa0c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 29277,
+      "sha256": "1c43877ddc89c9d2c5827e062f21cec4c5b83ed218e356989593d56783cde5d4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 49309,
+      "sha256": "0eb616116705f7bbff39b0c570d71c248a0be0537eccf4557a57283b6b23d5c2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 138622,
+      "sha256": "8df4f5333262f59190cba93868e3ed362a9b29ed677ceedb7f6fd6525699ce16"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 76779,
+      "sha256": "d3f1416b3c5192226f2b621fa0de8b7ce106104e113a928235dc72cc74a068ff"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 100717,
+      "sha256": "e28d96a0610b7b5c923a9df1a8c2c078e5940781437dcddbf0bddf35e1fb454c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 64193,
+      "sha256": "051d6d60157181e43471dd7b36e1989ead6c41753bf348eec0ba41d6766a029f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 114757,
+      "sha256": "8ea145f4b537d9748f1fd34663fe8892e52acdf17d6bc8a1fa7ca7332f1da2b9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 51058,
+      "sha256": "560d1990ea75239125cd8382240d0a2fe98c67f3848991699afcf1920011bab7"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 150253,
+      "sha256": "9c645fd50ebe3df9835570d942204287a877cc04a65fe76e9422d2aa5981dd99"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 35387,
+      "sha256": "f74ea6ae607c885cd3c7dcfd782ff7074dc8f4168584b630702a7f1b635230af"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 90301,
+      "sha256": "173d197614e75abef886b9f894b7fb32b08a320adef064f2b67e9d41beebe055"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 68466,
+      "sha256": "3e87ba085935b17f8be214aa8a9cfa1f3da1a6820980f08304a919ae7af10066"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 113714,
+      "sha256": "8ce1d43ab042961cdd1e122b6f60b6defe49717fbebb016ca7ffec256181c0a4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 64681,
+      "sha256": "d21b13fb37097a2d236bcc948f1df5ad76ecd6e3d15362101735c8a0db875468"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 176531,
+      "sha256": "3021ad0dd7c73ac0e7226263d21e012588f6fe37170d6199bbbe2cde959cdcc8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 56134,
+      "sha256": "f3e59df2e88ddc02a97903943fb76255ee71d75b32fdcb4d99956ef6391ee9ca"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 92418,
+      "sha256": "1bfc3c88c9b3e9623798cc0a1b0a72c430612c9986d84291c3576b71170e7273"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 51675,
+      "sha256": "f7b408d10dccba76bcfcfa726627c606114cc771f12e5d8b67dc461cd8990756"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 133441,
+      "sha256": "f51f05d97d7a2d8032c4c4fea55240c8f95d29610db9355f7383d1a2865efecc"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 48049,
+      "sha256": "4e45fe0651f73167056a0f4fcb42bce68494ccb94f40da96bafffb91d80e3b9c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 221104,
+      "sha256": "4fec5c395b1736ceab9e8e51494003e716c6d09a7fbd44f77eb78e0ed967a426"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0390-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 160360,
+      "sha256": "3eeb42616634d752f39770601d45af9f8e516944985fa083577ab991070b2e6a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 51330,
+      "sha256": "efb0dd4be2288c2a05dfc749136fa807c25381efaa1e3cdba0c5c9b99a5745d9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 81780,
+      "sha256": "0541971c82df7d6dc1ec00a27d59ebaaf6fe6afcd344a76b699eba75e6d45db5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 337937,
+      "sha256": "2c9c80def85ea3d230b53127cd2f4282a0008f967f8af3529209baaca1ecc66f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 116779,
+      "sha256": "04dd9faf94083e71baf2ff91c40d7ee92fd56f1689906f179610e91bbd4ebf39"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 169343,
+      "sha256": "2ee379948c423b5fa329ab6ba8feea30ce6fae8fcb8c6ac32af9141b1fc78479"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 100825,
+      "sha256": "fc1a058e0f561c849285ca452aa3423b8f92ad595d8025fdb1521f7796c18da5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 182881,
+      "sha256": "4815c43fa2c76a31e57910eb98e191d93cc201e42c1e72945bf402d335e892b5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 82549,
+      "sha256": "857e55c457cafba1b1997503a96738627ed728dec212ac0b855c5afcbeb72174"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 335542,
+      "sha256": "e1ce1a6ee33bfb0b38475e61e9dc3e7340f5af761a1d8ed7adfffd08e706d8a6"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 337215,
+      "sha256": "7d5e467013b9e7fec6a382d63ac22407bd0dcc1f8e459296b2768f461e8ec7d4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 147975,
+      "sha256": "83b110ac13fa92b0364139c5d9c6d5688d042965b9425853f3f86c390514566b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 104743,
+      "sha256": "3fadc90689b7169196c25fbb695ee43693cde0191093ffc3c0f5a3e53b3ab9c8"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 200980,
+      "sha256": "c741ebba009566f45aa665e12a5fbeab09ed84d7cdb2381920ebfd8473ee3b95"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 128178,
+      "sha256": "99002ea376c8746b89e8df17489c0affab08ea207325d190feeb36a7f2c5729a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 315297,
+      "sha256": "3de441d258caae515d8c0ba1f3c23d88798692845c935990b738565068fe90e6"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 80135,
+      "sha256": "08615661378dc535db4d5a0ce459e204929338a0adb46a97ac271500fde70696"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 147926,
+      "sha256": "ec081a0cbd30568bb96399386fb66542d4d22b7168e3ac2e7ee4b180cab479fb"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 87718,
+      "sha256": "d064f178517f3a6b3fe767434106943d52b6e1f6ecc9f0dc38976853a16278c6"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 293845,
+      "sha256": "eb7d3305731a5e6be8915551f4d2c1d084c7f0bba67f672f067c7a5b58c95369"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 73948,
+      "sha256": "1c4f26052d0e1e7f9dd5e1928d1307baf1e1a9059194e783236e67f2e3794acf"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 525521,
+      "sha256": "69fcc97f736cf1f98e2cedf441b3fde3b3607ea8fb08812eb5b1afad8a4948f3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/0768-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 207481,
+      "sha256": "73c04741f6b91a2892a26bd3380bea33b8ced6f7fc2eb6ec1d72ce0ee397f0db"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 74720,
+      "sha256": "e10af0f3af28d7d07101fae2d6ff548b86019da5bbbdde78a80af23543893326"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 118248,
+      "sha256": "0cea5d88efd84a3344feb777f5d9ccf662800b1bf83e6f4278d6728d946a70d2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 463947,
+      "sha256": "180bb295da1b22977aacbcd48fc869aefa032592cb0ec7dc66672d266ff5d4c4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 189916,
+      "sha256": "b6f5f79ff7894da17baef412e08329b2a753e362b8b3f71d1d2727e1131cb1dc"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 217425,
+      "sha256": "0e408cb31da469d0194b93bc10ad22f7836abcfa3b6f8349d175d62432e60493"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 125325,
+      "sha256": "9af45b2beb357c65426a2ec26cbfd48b1cbb7390d92836d634bc3df9279a3df1"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 237385,
+      "sha256": "c78a91bcb94f9bb9a17b3eafb271bc28d5a1ed23de9076bfe50addea6b61e8c7"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 102149,
+      "sha256": "4cd6ed199075e62eca13840802e41e9fe1331e415064a21c4d458c0f5860aea5"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 524571,
+      "sha256": "24d70ee18d788328b9ae7947b97a0a3ac8f6268368143d2c6fb7b09219457862"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 498338,
+      "sha256": "2caae90af863f17da54327a9230c000dee31e81c760d412ea3ef80bb4572b01f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 178936,
+      "sha256": "e67b408122bf1980b4ae4c420e8d9b737dfdece7809bd9aabfa82928757ff501"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 129110,
+      "sha256": "e0b42076d41c499c0661770754c15e71ede6b69ce4bebacc9cddaaac41d1f74b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 271392,
+      "sha256": "1c9895694358f840d12470da7a3a4e87c11efdb482083b10d00a6647c1de2ea0"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 160441,
+      "sha256": "178aa21fedf4b455209d95008609b44ed7e08fdc0414599264a61f32d4512454"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 500478,
+      "sha256": "6e90b6ef60d29621d20f1543654bd05c99f0dfb12e5bdcc0b334e21aa6757d8c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 97307,
+      "sha256": "4ee3fdf8833209b6cb6096141db9158617f267e60023a2c3fb476fb94047372a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 178914,
+      "sha256": "894b9fcb6dbd78ebea33baed166e2039173ab19b8ebceecfec552c2157f801c4"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 119465,
+      "sha256": "fc9a25a14d2bccf75fcbccbfd44b46cfc52631bc86f91e7620370a0ae77b714e"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 417238,
+      "sha256": "a6ce92f26120af113bc93bf64d8672fa1e855dbf402ea3e98a9eb96cc67fcf4f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 97986,
+      "sha256": "d07fe9f61f799624c5ce320a21148fc9260b1996aa7a8252d5ffd44cb3f45217"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 612805,
+      "sha256": "f2ee2395c5c2230e82e71537c6ccee324d4696341177789912a6f34c11276ecf"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1024-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 251478,
+      "sha256": "8ee582e210f68bfdec499a465d6c3fb473420cf8c196d3c080490fceef502e46"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-admin.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 77045,
+      "sha256": "bec1352a707da30080b19bcf8234a67fd2a16ed7b44ef8592381ffbdeccbf186"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 119748,
+      "sha256": "aff60f91e810f3f50864fe9b0eef0c751152b1d4062756c8218c44f3b858b7c0"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 464816,
+      "sha256": "a2fe42139063faa5c613beac1b224bfb9b466b6959ff94d3367ad2ed99983570"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-elo.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 193091,
+      "sha256": "582bafd5674421c80f11127e5a29031ea87a4043c62468d3bbb6ffe3a695647d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-ggcare.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 250300,
+      "sha256": "d5ef609533f1397be4c7c6dee2f3d925c0aeb0096608546c6d2034bfe6e39e3b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-hand-history.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 126721,
+      "sha256": "0598f22292fe55ed5a057c02719aad300c0bc97178ab26db8d633dc2745230c3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-honeymoon.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 280590,
+      "sha256": "199eb42537347bf60c17c3d7be391b0ff05c433b6c06a5f97eb0cdc9c43f3f7c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-leaderboard.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 105821,
+      "sha256": "80ee7320a46fdf0e7c8db122f92c946617db6a9bf2ab14fa83e7957907e3004e"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 657022,
+      "sha256": "4b28c0ca5284e95e65f4dbefac85e3ded9b15d7d572145d37f371ef19ebea69b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-login.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 629841,
+      "sha256": "ad212c4f965eb46e7838123beccda1d05d1275a4a4ab4e3914b789a13fe45b35"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-missions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 195972,
+      "sha256": "8e4dd4b7cdf044b42ff0a845ad71e620f625f28cdba31ea79621dca1d21cb88f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 135281,
+      "sha256": "956cf323089dff510ced2b5fd9773a0fff9117a7a1c798ae4276cb2f39d178b9"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-ocean.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 305887,
+      "sha256": "5db3df3f22bd0e8e52056993e68d82aa760b5abc7120b34827cb4a64f2c15ecf"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-profile.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 168674,
+      "sha256": "4147f461b40c87ff31a87f36b403611512e6a0bd7df5c452ef91df77c144b16f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-promotions.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 530842,
+      "sha256": "12aaa6d68acc0e71e6b6602a5f1b85ccb17e938b45662dfc41fa7cdd74abf354"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-propbet.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 99955,
+      "sha256": "efa3b2abbbe0d2a2ce7beeca3edf48c59126e5f395a2a65487d8b8150c37ff1a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 195972,
+      "sha256": "f250156348f11057ba4b0035f0faedb84f10cbedd87f50a43bad9851143efdfa"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-settings.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 125351,
+      "sha256": "193657f24b3992d62537aef4ea9e03552fe34fd1d9369b925198b8bff6975f2b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 460326,
+      "sha256": "e544c446cc1e2b201c5af6f0c82378e1dcae3802345c3c92898ddeb86366da9f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-support.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 99399,
+      "sha256": "ec991daf33cf2300a7bae42226b7de0a5325b6ee25c16cacfa4ca5b04b940feb"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 841760,
+      "sha256": "4cb4504aa650e451d95fd20fec029012507228f6898e256b4cd8dce80608af8a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/1440-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 268169,
+      "sha256": "163276835430fd3567ad769cd1e48ccc4b6af61742c947dedf809215a05caa0e"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round2-shots/report.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 26866,
+      "sha256": "71f1e52cffda8e2af807734b5fab4c6d86ae1b1576c92383c932eb71ef56b921"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round3-table/0320-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 225104,
+      "sha256": "69b14265f4c9f35fd3ade411543c936f6273d4502996a9ec0e1e05ee71ba11db"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round3-table/0390-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 268520,
+      "sha256": "a834ebd190b4ca788cc003b1175d191fd12b9963bc31aef39d9bacddf5715474"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round3-table/0768-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 622773,
+      "sha256": "cfd04c8feb31b5a6a93b5fc76975da2385bea5ea08690b8f57af36c59c49fd54"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round3-table/1024-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 727460,
+      "sha256": "ab00a7e4794125bb39f98fed73f79811e768cdf694eb107c7127162c074f3b96"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round3-table/1440-table-nlh-diamond-01.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 984760,
+      "sha256": "ffeed8e82b6685fa09fbf90544f20ffeec1e827e9f9219687d6bd807fa28027c"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-round3-table/report.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1351,
+      "sha256": "9a6961a949c714c75c0fd398ca5334d8965a142b889b3b8bed34144ee595f5b7"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/mobile-verification.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2697,
+      "sha256": "d85ca0541272666a84086b5c402ec39e9a3253ba81b43aa0fac070c5e563279b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/re_review_round1.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3589,
+      "sha256": "e0abfd577e4041bb330b68d63a526f64d865e6d8766110a9fb33af39bbb71370"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/re_review_round2.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3252,
+      "sha256": "e80983d6c8b85699e8c9235e76ad63b895ce79e44393d7d5425d39784aeafab1"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/re_review_round3.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1801,
+      "sha256": "12534acca2be6d549f27c47ccb4a0f01c696ed86c2c1681c29fca3ab1c37114d"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/re_review_round4.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1638,
+      "sha256": "6a2686dc41dd035667b285baffea235e80c74bc44d346b31ece0835b37e2098b"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/re_review_round5.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4216,
+      "sha256": "a1af31c53cff91abb7d88a3330d21904d8aa1a8214aedcdf5bfc113d68c0179e"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/re_review_round6.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3737,
+      "sha256": "3275ce0c8b04a61128470da5f8f8b11049e4416aa81c20f12b6e88422535c63a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/re_review_round7.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 2677,
+      "sha256": "19cbcdc7d40815c03f21d5401b4ebe90fc1b9539fb1ec33d627234d85e7acab2"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/rimt-three-browser.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 122,
+      "sha256": "92369fd89f90a57482efd1a325a91631cebb11ab404546a8da152ac5e65794f7"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/rimt-three-browser.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 237313,
+      "sha256": "40ca71a11f77373e0d44efaa2edc0b360418dd193f2ea72950862c11612f84bb"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/rimt-two-browser.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 109,
+      "sha256": "8ad34489f6ce380ed1ba7033b511ae8cea558f674edf81f22b69c4c3d1d1ef90"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/rimt-two-browser.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 234153,
+      "sha256": "c98c43cb8ce0e99f9eab956290d582dc257b2fa1e8cc3d4897bfafbe9e762703"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/share-hand-browser/dangg-hand-Browser-Table-browser-share-mwie3nzb.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 45476,
+      "sha256": "25dfc253dca144d4cf4beb18fede9cc136d036b0d0f6d5f20f69bb34045f3b53"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/share-hand-browser/dangg-hand-Browser-Table-browser-share-mwie4hs8.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 45735,
+      "sha256": "583859ebe7f936ba385e9fbdf543bc47b4c3f0e09b9f1019d9dc6c9163143309"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/share-hand-browser/dangg-hand-Browser-Table-browser-share-mwie6v9v.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 44541,
+      "sha256": "cf70d3b041d2182fcc4d025fcbbacd5f19d3ea9563a8d2309e6bc01abed6f4bd"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/share-hand-browser/public-1024.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 74757,
+      "sha256": "7d6442923d0f6bb0e32624c0d282c0c0d1743c66d986d71e0c05d91faab2b7b1"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/share-hand-browser/public-1440.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 76999,
+      "sha256": "0b632a3fc07476bbc7581deeeee342355e9f2d814415f2af24d70d13ff62829a"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/share-hand-browser/public-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 60437,
+      "sha256": "f43796d87ed5780d2a8671c0d2e2738d5170dc8adc79d5e6fda691d6507fb474"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/share-hand-browser/public-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 65417,
+      "sha256": "6deaf717c8c061bb6f928aa3f828589e344c62b6184bdf9b04e2c2eac28ff131"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/share-hand-browser/public-768.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 72914,
+      "sha256": "49f2c7887030a6742f0ebf2459e7d08704f61cd9c433adde8ef440be3f7a5ad6"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/share-hand-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 523,
+      "sha256": "ab2b22013c667f78521160dc960a83cfa61cf3eb6933d3e10c4b7f27e8406b8f"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/spin-browser/admin-rules-1024.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 167425,
+      "sha256": "84ddd2607b1de54981ffb7232db6d1775abe4e6293df78c5eb53bf70204b9aea"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/spin-browser/hand-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 262513,
+      "sha256": "b68343b3d45f56f1803fff3d6842989298434b5b325b07ffd366b93ea0d133e1"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/spin-browser/hand-768-reduced.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 655647,
+      "sha256": "2c49ab6286270e6798052fd71037c93b27e42d6829e74fda27b42ad8eeb85557"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/spin-browser/insurance-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 83228,
+      "sha256": "9780a6b3b96a7a79f168ccb1382867cfc4616ce265ae51506cac971b8c16a4e3"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/spin-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 621,
+      "sha256": "0808a6c027402b6d35743755742e216bd826f4ed6078d814e31da6442c46cb75"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/spin-browser/wheel-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 118200,
+      "sha256": "e9ba4b46d98767a985fc66a9e82abac2761057621c3a3ac59fb747574a6a8700"
+    },
+    {
+      "path": "docs/audits/2026-11-15-systematic-egm/zoom_out_report.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 6743,
+      "sha256": "d3385dcd3a5fe0ae79c55bbb2c854da45ecdc93be948bea264c678391f217376"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/admin-config-browser/admin-1024.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 171235,
+      "sha256": "a5ff9aa0bfed68dac521f529b05c383846c69e7aee1a8465f2bf5d1b5e2a4484"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/admin-config-browser/admin-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 74272,
+      "sha256": "68d1e8f03b9e39d3ebab0aacc48267a0322a1c5b79c3e97fae6ef55bf3101a5e"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/admin-config-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 888,
+      "sha256": "026b818e7d326bd7413ecc21176eac448cb36d3c624edf3da7bdeeb1ad9645a8"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0320-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 47231,
+      "sha256": "837e0cc3fd105391aaf78f3471bd8d472f64171f9c42400d34a8c66317f5177e"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0320-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 126206,
+      "sha256": "269eb8b3671dd6b43413132fc81e248034fffcbcebfe2be87026a09fa98f92f9"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0320-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 133454,
+      "sha256": "38c81289210f78b7b5a2679e74c4754f6ea4c1a65e5e4a4ff119d8d91dc35ead"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0320-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 64622,
+      "sha256": "c879416b6b4f39e5c9244144f23d512076794747939c877aa1b7c5d5bbb2667b"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0320-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 87650,
+      "sha256": "852ab3cbb7f3569adcfb782020a50724142824a3d5c59f4a94a2b27f5d0c8241"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0320-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 120820,
+      "sha256": "16c3d398b0d112400fa2dcf00c8df1773efbe3c7a6bc1483b373afd8be5857a4"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0320-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 141931,
+      "sha256": "f277ef5f82dd9fbdfbc8743208c1c94655f19220806a070dfd9e0165929691a0"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0390-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 49309,
+      "sha256": "0eb616116705f7bbff39b0c570d71c248a0be0537eccf4557a57283b6b23d5c2"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0390-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 138622,
+      "sha256": "8df4f5333262f59190cba93868e3ed362a9b29ed677ceedb7f6fd6525699ce16"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0390-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 149860,
+      "sha256": "e2b5540795608b8fe5c88ca2459bbd79a9c08ac2d39480497c27abf75a3d0f20"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0390-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 68328,
+      "sha256": "37dcdb18002b6a85883fe5ae1df4b5dca2176f8d557a45eb1b9abfe2091aeb70"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0390-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 92434,
+      "sha256": "08d2d8ed37ed95bc13322ebd9aa0aabc078914f3388dca2d74bdc358035bce25"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0390-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 133441,
+      "sha256": "f51f05d97d7a2d8032c4c4fea55240c8f95d29610db9355f7383d1a2865efecc"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0390-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 160406,
+      "sha256": "c39fa2cca8ff9f275141d8dc0df3fcf29e88a1233ced8a226e1edd84dcef25d7"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0768-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 81447,
+      "sha256": "5a1fb3edc620db3499d04d8d0168fea0ab78e191d96d4af84b57ff35078b8dba"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0768-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 337989,
+      "sha256": "e00e5182592646695f19facefb0deee03995856eb8c744392d9503cb3e80099b"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0768-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 334550,
+      "sha256": "550ddd94d6530ea66643c6f62f2a46702ac4f3aa0708f6282d3e9915189050f5"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0768-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 104540,
+      "sha256": "020ff1746994440f12bc9530f2457eeb8ad6121c331ab4d59b3b5f40848448c6"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0768-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 148031,
+      "sha256": "1a3c0918ae407fde4817b5f3c241090fe0f8958e6f5b5965c8aad6bda2b773ed"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0768-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 294339,
+      "sha256": "8c64651fff465259d0575b30ad006a9a41b860b0fac8c73c87d34939ca163117"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/0768-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 209208,
+      "sha256": "349f982bd66ce51d90b6bf7efe3b822c8f60659cfae8ad79b33b0af96672859e"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1024-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 107583,
+      "sha256": "343bd04a063b4fb8872e3f7cfc84eefc2dc400a65690bec7d4c2622b95f3f785"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1024-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 463971,
+      "sha256": "24eb71ddc94db8dd9b739eb08e1a941d585919fb805530c9ae999342cbec929f"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1024-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 523770,
+      "sha256": "2779127413017af30d5caa116512ddccda3ac863eff8af00affbedb5fce919e2"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1024-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 128995,
+      "sha256": "c599b43fe96b2750380263dd181cc4bec99f94fb04cdf2bda1cacf423bd21bba"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1024-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 178873,
+      "sha256": "ec144f326fa02eb6275e5e65b0135426167c227c9aa01c36a0a1b5c92ba910ec"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1024-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 417691,
+      "sha256": "9640a73eb7f98aae06a46315d9aefee0ada7f9257a16caa525d76c04f89592b9"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1024-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 252713,
+      "sha256": "32b9fe0fd4fcceb4db962a7f3e75229ae92e342dd4e03eb4c491a334a76fe034"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1440-cashier.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 109192,
+      "sha256": "ca77b6e9a59d1ba5d430a807c2b9e2a48c8bfc8d9a70044903ea4b7b51f18c66"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1440-casino.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 464667,
+      "sha256": "81d610e320b786e922e1264ff0238d603d4f9ad4e2628e8805b949774341ea97"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1440-lobby.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 655739,
+      "sha256": "7b945535048bb7ec3804a92101af1ed7759faa2c30bb4e00a0ca49877fab57f0"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1440-my-page.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 135059,
+      "sha256": "68afe85316f70d0b4f96b529aef579c54ed2967a72d194c109a400e766c977ce"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1440-rewards.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 195990,
+      "sha256": "650d69e0f4a913d3d124de1096c7803967743121a5ed18ed105e047ee806a063"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1440-slots.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 460819,
+      "sha256": "5519b9abf4cf52f7e09271857cffebd8be8ba09f6c99b07260422a7b878e6615"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/1440-tournaments.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 269300,
+      "sha256": "f20b157e48c64f2efd22265dc7e1e493a2c8112de50bfe91a449e0e877d95746"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/full-app-shots/report.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 8480,
+      "sha256": "acc7e98191be2dfe3386ee7fe7030165d861f7423f7cf16b153280dc93785a12"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/logs/a11y.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1339,
+      "sha256": "311001978f962e791f86967895a6b5eab3bd5d794ce3f53587b0c1944be30a2e"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/logs/admin-config.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 593,
+      "sha256": "80c42e78f64c989f9c0eb4548ec4d7be397a40d7f117933492b53021214edc06"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/logs/build.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 794,
+      "sha256": "16d4eab065ecf6516b1073d35b7eeeb8bfd14e27342757da43e845824c1338d8"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/logs/full-test.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 89736,
+      "sha256": "eb33596d201e32b1ea8295846b8e6ef98c365bc45a01d2c160336156ba5fa7b6"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/logs/mobile.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 132,
+      "sha256": "3d42a9784187844cf7efe932d1f093f3a0976bb4965afec77f522807fab4b37e"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/logs/registration-recovery.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 248,
+      "sha256": "5ebe99c4a65bbea7cd73359042d2782c3745be5a9c072f7d22b632c1f5b19eeb"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/logs/shots.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 4608,
+      "sha256": "7b711919fcadcf90d3f524eaaaf442b0761f922b0b4a783da8cb0582ad5514f4"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/logs/smoke.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 242,
+      "sha256": "1926a15124d2f0957c322854df2d9d68a68710596af7203b6826dfe6449a2cb9"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/logs/touch.log",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1076,
+      "sha256": "4d7365ca7ae2b3ba244ba95a438a63625603ee94b778d953b1a24b1e76923f5a"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/push-seat-browser/failure-0.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 232800,
+      "sha256": "ce47a303acc2f1e7b27905303f2fc98f41f7d5507f5b19b407c0341d6562ae06"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/push-seat-browser/failure-1.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 275972,
+      "sha256": "b02b343c9986f9ef1e7c8a2be8eab734373e8e5e8af84f350cef46521003420c"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/push-seat-browser/moved-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 238864,
+      "sha256": "d03ea59b7d9f9958702c4e36ae884abb34c86a0293d32d0a874d46a70dd0d468"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/push-seat-browser/panel-1024.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 354646,
+      "sha256": "38808533ebc79fe255f9f3ccf0839eb6119ba35e12f8a9abdccc26da1928b045"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/push-seat-browser/panel-1440.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 549730,
+      "sha256": "8480863a6ff54e7d43123e69f28ce60ca4efac871c69c29f648efda78a740897"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/push-seat-browser/panel-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 104220,
+      "sha256": "5c670a6b648cc37704bcd2a2484a79215f2e2f790218dd059b739aad1e1dfe09"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/push-seat-browser/panel-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 113943,
+      "sha256": "10b8c413d5d17f488242635af981b0770ae7c935e1f462466a1d1abf6529d06e"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/push-seat-browser/panel-768.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 271403,
+      "sha256": "44944ec4f855616463876e4e95c5bc47d84ed3552ef32b7da83400226ff680f6"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/push-seat-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1171,
+      "sha256": "6c8464bf3b9465cadd8ee40ca880c042456579054a997d31fbd30a9571ab4d32"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-registration-recovery/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 403,
+      "sha256": "3b7d348828b4dc48073c85a9e55fc3aad0fb4fbd62ae1e71b58975b340ea7fbd"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/failure-0.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 108518,
+      "sha256": "f15d59453c9b065e7316df41edbe8de513e7d0adc9c630370fdf3861b0a32a11"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/failure-1.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 122767,
+      "sha256": "d9a07ef13f20517cc91aac2b3566a6436b018c0bdd76f0d8fa2548dc5e96f44f"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/failure-2.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 226383,
+      "sha256": "cb20b7389cc7f6843da2e60ba8e055a105eaa8f23d2d53804d7163ebc261976d"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/failure-3.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 352006,
+      "sha256": "e4a3a6142c76b9aa5840852795c1bf63f712738934b58e6bfa68168af022b289"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/failure-4.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 437048,
+      "sha256": "fb25bd4746eaa3914626c8b3db3974a08bfd0629c6c97e49c682de37997b9169"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/failure-5.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 120302,
+      "sha256": "c992c8ebd7e252449adb80ca414eb5e0a635857e36b771473cdb41b1e2e49cb6"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/hand-1024.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 662298,
+      "sha256": "bf60f3c82db9fb86ac851ed157f89d22faea7220558f201c54dab66e47b1305c"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/hand-1440.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 967535,
+      "sha256": "4cad1712bd43f9decf59291eb2124af033ca238852f4804804ac3b137645041a"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/hand-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 230018,
+      "sha256": "41b7e05d5ed9a54b26fc799f8cce49a77420f40e318259d25012f15a417a9dbc"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/hand-390-second.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 272436,
+      "sha256": "60fa851934e16453610ec209e7e06152f94a006041353700aa7e4f57f60abbd9"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/hand-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 271567,
+      "sha256": "d382f34735f95e97b7e37314a2d6625872800bdcab664b241086167602511b2c"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/hand-768.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 604506,
+      "sha256": "92ad04df3e78295acae708b31a9b2750b1a2e490eda6c6bb7b1162a9ceeac406"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/result.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 1617,
+      "sha256": "cfa7819c0e7e28da667615c91ff652e55ece631eeb0d6b870f68a80e67f2731c"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/wheel-1024.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 361834,
+      "sha256": "cc01712cb3a59e54227ab366c3cc4c7baf6d9f23983e6aa0039914e2118e4d58"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/wheel-1440.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 441752,
+      "sha256": "ead8b195e11ebccb60565eb8c72dd4293d90f54d3effca12d4a83919d706d3b1"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/wheel-320.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 122556,
+      "sha256": "67e3cd4d028869418f12f3ca62be0163e866f6b002d4fd29daa2ba3d44143cdd"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/wheel-390-second.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 154072,
+      "sha256": "69262d66f5d9ee543b9611c343eba8940d5c7bd32348b0962b9796be0c0cad63"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/wheel-390.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 141963,
+      "sha256": "10522ab836e25cf4ecb67de48754b8b7ffb582d855ca166b7ebcff16ce8403b0"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/spin-six-browser/wheel-768.png",
+      "status": "??",
+      "mode": "644",
+      "bytes": 306685,
+      "sha256": "46bd796f46a76f3bf0b295eb051d5c3ceab25e2af05437954f6b377b2bf3fd6a"
+    },
+    {
+      "path": "docs/audits/2026-11-16-systematic-egm/verification-summary.json",
+      "status": "??",
+      "mode": "644",
+      "bytes": 3486,
+      "sha256": "71f731b3a7ee43ebf06181cb5ffae8affd4e6b8cb0a980db62c2920cf9638d72"
+    },
+    {
+      "path": "docs/designs/2026-11-15-systematic-clone-mobile-egm.md",
+      "status": "??",
+      "mode": "644",
+      "bytes": 163172,
+      "sha256": "5643f8bed4040357c65ded80b7a22bc335041924eb99b1626a99fe35a6a23b82"
+    }
+  ],
+  "sourceIdentifier": "b09f83338879fcb46af0ae2b0f7c31b9908e3bedb89604a803654c98ae5e7407"
+}
