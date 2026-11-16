@@ -2,3 +2,4 @@
 .rake-lab select { width: 100%; min-height: 44px; padding: 10px; border: 1px solid #657388; border-radius: 6px; background: #151c28; color: #fff; font: inherit; }
 .rake-lab dt { margin-top: 12px; }
 .rake-lab dd { margin: 4px 0 0; font-size: 1.4em; font-weight: 700; overflow-wrap: anywhere; }
+.pshell .page.rake-lab { padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }

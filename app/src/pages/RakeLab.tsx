@@ -31,7 +31,7 @@ export function RakeLab() {
         <label htmlFor="rake-lab-percent">Rake (%)<select id="rake-lab-percent" value={percent} onChange={event => setPercent(event.target.value)}>{[2, 3, 4, 5].map(value => <option key={value} value={value}>{value}%</option>)}</select></label>
         <label htmlFor="rake-lab-cap">Cap per hand (virtual chips)<input id="rake-lab-cap" type="number" min="1" max="9000000000" step="1" required value={cap} onChange={event => setCap(event.target.value)} /></label>
         <label className="contributor-check"><input type="checkbox" checked={flop} onChange={event => setFlop(event.target.checked)} />A flop was dealt</label>
-        <button type="submit">{busy ? 'Calculating…' : 'Calculate preview'}</button>
+        <button className="btn btn-red" type="submit">{busy ? 'Calculating…' : 'Calculate preview'}</button>
       </fieldset>
     </form>
     {error && <p role="alert">{error}</p>}

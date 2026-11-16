@@ -5,6 +5,20 @@ import { rm } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import { startServer } from './test-helpers.js';
+import { previewRake } from './rake-lab.js';
+
+test('preview math handles cap boundaries and rejects ambiguous parameters', () => {
+  const query = value => new URLSearchParams(value);
+  for (const [pot, rake] of [[0, 0], [19, 0], [20, 1], [5999, 299], [6000, 300], [20000, 300]]) {
+    const result = previewRake(query(`pot=${pot}&percent=5&cap=300&flop=1`));
+    assert.equal(result.rake, rake);
+    assert.equal(result.remaining + result.rake, pot);
+  }
+  assert.equal(previewRake(query('pot=20000&percent=5&cap=300&flop=0')).rake, 0);
+  for (const value of ['', 'pot=10&percent=5&cap=300&flop=1&extra=1', 'pot=9000000001&percent=5&cap=300&flop=1', 'pot=10&percent=5&cap=300&flop=2', 'pot=10&percent=6&cap=300&flop=1']) {
+    assert.throws(() => previewRake(query(value)), { status: 400 });
+  }
+});
 
 test('Rake Lab is free under paid enforcement and never changes financial balances', async (t) => {
   const srv = await startServer({ env: { GGPOKER_BIND: '127.0.0.1', GGPOKER_SEED_DEMO: '0', GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_ORGANIZER_CHIPS: 'enforce' } });
