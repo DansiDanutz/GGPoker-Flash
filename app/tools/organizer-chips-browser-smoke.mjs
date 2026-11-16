@@ -145,6 +145,7 @@ try {
   for (const width of [320, 390, 768, 1024, 1440]) {
     await ownerPage.setViewport({ width, height: 1000 });
     await ownerPage.waitForFunction(phone => !!document.querySelector('.pshell') === phone, {}, width <= 760);
+    await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Browser Cash Chip Cup'), {}, manager);
     await ownerPage.$eval(manager, node => node.scrollIntoView({ block: 'start' }));
     assert.ok(await ownerPage.$eval(manager, node => node.scrollWidth <= node.clientWidth + 1), `Tournament Manager overflow at ${width}`);
     if ([390, 1440].includes(width)) await ownerPage.screenshot({ path: path.join(artifacts, `tournament-manager-${width}.png`), fullPage: true });
