@@ -7,6 +7,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
+import { createServer as createHttpServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 
@@ -24,7 +25,7 @@ export function sandboxEnvironment(dataDir, password) {
 export async function startSandbox() {
   const directory = await mkdtemp(path.join(tmpdir(), 'openpoker-contributor-'));
   const password = randomBytes(18).toString('base64url');
-  let child, web, closing;
+  let child, web, browser, closing;
   const close = () => closing ||= (async () => {
     await web?.close();
     if (child?.pid && child.exitCode === null && child.signalCode === null) {
@@ -34,6 +35,7 @@ export async function startSandbox() {
         child.kill('SIGTERM');
       });
     }
+    if (browser) await new Promise(resolve => { browser.close(resolve); browser.closeAllConnections(); });
     await rm(directory, { recursive: true, force: true });
   })();
   try {
@@ -42,7 +44,7 @@ export async function startSandbox() {
       probe.listen(0, '127.0.0.1', () => { const port = probe.address().port; probe.close(() => resolve(port)); });
     });
     const url = `http://127.0.0.1:${webPort}`;
-    child = spawn(process.execPath, ['server/index.js'], { cwd: app, env: { ...sandboxEnvironment(path.join(directory, 'data'), password), GGPOKER_PUBLIC_ORIGIN: url }, stdio: ['ignore', 'pipe', 'pipe'] });
+    child = spawn(process.execPath, ['server/index.js'], { cwd: app, env: { ...sandboxEnvironment(path.join(directory, 'data'), password), GGPOKER_PUBLIC_ORIGIN: url }, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
     const port = await new Promise((resolve, reject) => {
       let output = '';
       const timer = setTimeout(() => reject(new Error('Sandbox startup timed out.')), 20000);
@@ -56,18 +58,27 @@ export async function startSandbox() {
       child.stderr.on('data', (chunk) => process.stderr.write(chunk));
     });
     const api = `http://127.0.0.1:${port}`;
+    // Own HTTP and signals: Vite's standalone SIGTERM handler exits before our cleanup.
+    browser = createHttpServer((req, res) => web.middlewares(req, res));
     web = await createServer({ root: app, configFile: path.join(app, 'vite.config.ts'), envDir: directory, cacheDir: path.join(directory, 'vite'),
       optimizeDeps: { noDiscovery: true, include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime'] },
-      server: { host: '127.0.0.1', port: webPort, strictPort: true, open: false, proxy: { '/api': { target: api, changeOrigin: true }, '/ws': { target: api.replace('http:', 'ws:'), ws: true, changeOrigin: true } } } });
-    await web.listen();
-    return { url: `http://127.0.0.1:${web.httpServer.address().port}`, api, directory, password, close, child };
+      server: { middlewareMode: { server: browser }, hmr: { server: browser }, host: '127.0.0.1', port: webPort, strictPort: true, open: false, proxy: { '/api': { target: api, changeOrigin: true }, '/ws': { target: api.replace('http:', 'ws:'), ws: true, changeOrigin: true } } } });
+    await new Promise((resolve, reject) => { browser.once('error', reject); browser.listen(webPort, '127.0.0.1', resolve); });
+    return { url, api, directory, password, close, child };
   } catch (error) { await close(); throw error; }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.length !== 2) throw new Error('No external URL, data directory or arguments are accepted.');
-  const sandbox = await startSandbox();
-  console.log(`\nOpenPoker Play Money sandbox: ${sandbox.url}\nTemporary local admin: admin / ${sandbox.password}\nNo payments or real Cash Chips. Stop with Ctrl+C; this sandbox database is then removed.\nBrowser changes hot-reload. Restart the sandbox after changing server code.\n`);
-  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => void sandbox.close().then(() => process.exit(0)));
-  sandbox.child.once('exit', () => void sandbox.close().then(() => process.exit(1)));
+  const started = startSandbox();
+  let stopping = false;
+  const stop = code => {
+    if (stopping) return;
+    stopping = true;
+    void started.then(sandbox => sandbox.close()).then(() => process.exit(code), error => { console.error(error.message); process.exit(1); });
+  };
+  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => stop(0));
+  const sandbox = await started;
+  console.log(`\nOpenPoker Play Money sandbox: ${sandbox.url}\nLocal API: ${sandbox.api}\nTemporary data: ${sandbox.directory}\nTemporary local admin: admin / ${sandbox.password}\nNo payments or real Cash Chips. Stop with Ctrl+C; this sandbox database is then removed.\nBrowser changes hot-reload. Restart the sandbox after changing server code.\n`);
+  sandbox.child.once('exit', () => stop(1));
 }
