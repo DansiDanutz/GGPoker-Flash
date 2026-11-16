@@ -85,7 +85,10 @@ try {
   await page.goto(sandbox.url + '/#/contributor');
   checks.push('Profile guides all three roles, uploaded avatar previews and persists, and management stays inside each workspace.');
   await page.waitForSelector('section[aria-label="Contributor workspace"] form');
-  assert.deepEqual(await page.$$eval('.platform-tabs button', (nodes) => nodes.map((n) => n.textContent)), ['Contributor', 'Organiser', 'Marketplace']);
+  assert.equal(await page.$('.platform-tabs'), null, 'Workspace tabs must not sit above the app chrome');
+  await page.evaluate(() => window.dispatchEvent(new Event('gg:quickmenu')));
+  await page.waitForSelector('.quick-workspace');
+  assert.deepEqual(await page.$$eval('.quick-workspace b', (nodes) => nodes.map((n) => n.textContent)), ['Marketplace', 'Contributor', 'Organiser']);
   assert.match(await page.$eval('.contributor-workspace', (node) => node.textContent), /pnpm sandbox/);
   for (const [selector, value] of [['input[pattern]', 'test-plugin'], ['input[type=url]', 'https://github.com/OpenPoker4all/OpenPoker/pull/219'], ['textarea', 'Tested both browser and server changes in Play Money.']]) await page.type(`section[aria-label="Contributor workspace"] ${selector}`, value);
   await button(page, 'section[aria-label="Contributor workspace"]', 'Submit for approval');
@@ -97,11 +100,13 @@ try {
     await page.setViewport({ width, height: 1000 });
     await page.waitForSelector('section[aria-label="Contributor workspace"]');
     assert.ok(await page.$eval('.contributor-workspace', (node) => node.scrollWidth <= node.clientWidth + 1), `Workspace overflow at ${width}`);
-    assert.ok(await page.$$eval('.platform-tabs button', (nodes) => nodes.every((node) => {
+    assert.ok(await page.$$eval('.quick-workspace', (nodes) => nodes.every((node) => {
+      node.scrollIntoView({ block: 'center' });
       const rect = node.getBoundingClientRect(); return document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === node;
-    })), `Workspace tabs obscured at ${width}`);
+    })), `Workspace links obscured at ${width}`);
     if ([375, 1440].includes(width)) await page.screenshot({ path: path.join(artifacts, `contributor-${width}.png`), fullPage: true });
   }
+  await page.click('.quick-close');
   await page.goto(sandbox.url + '/#/?host=cash');
   await page.waitForSelector('#host-economy');
   assert.equal(await page.$eval('#host-economy', (node) => node.value), 'play_money');

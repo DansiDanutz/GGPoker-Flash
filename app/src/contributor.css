@@ -13,8 +13,5 @@
 .contributor-workspace .contributor-check { display: flex; align-items: start; }
 .contributor-check input { width: 20px; height: 20px; flex-shrink: 0; }
 .contributor-notes { white-space: pre-wrap; }
-.platform-tabs { display: flex; flex-shrink: 0; min-height: 60px; box-sizing: border-box; gap: 8px; padding: 8px 16px; overflow-x: auto; background: #151c28; }
-.platform-tabs button { min-height: 44px; padding: 8px 14px; color: #eee; border: 1px solid #647084; background: transparent; border-radius: 6px; white-space: nowrap; }
-.platform-tabs button[aria-current=page] { background: #33445c; }
 .platform-workspace { overflow-y: auto; min-height: 0; flex: 1; }
-@media (max-width: 600px) { .contributor-workspace { padding: 16px 12px; } .platform-tabs { gap: 4px; padding: 8px; } .platform-tabs button { flex: 1; padding: 8px; font-size: 13px; } }
+@media (max-width: 600px) { .contributor-workspace { padding: 16px 12px; } }

@@ -10,6 +10,9 @@
 .profile-role-cards button { margin-top: auto; min-height: 44px; padding: 10px 14px; color: #effcf8; background: #24483e; border: 1px solid #619987; border-radius: 6px; font: inherit; cursor: pointer; }
 .profile-role-guide button:focus-visible { outline: 3px solid #a4d9ff; outline-offset: 3px; }
 .profile-role-note { color: #a7b7c4; font-size: 13px; }
+.profile-role-workspaces { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 0; }
+.profile-role-workspaces button { min-height: 40px; padding: 8px 14px; color: #effcf8; background: rgba(36,72,62,.55); border: 1px solid #3f6b5f; border-radius: 6px; font: inherit; font-size: 14px; cursor: pointer; }
+.profile-role-workspaces button:hover { border-color: #619987; }
 .workspace-intro { margin: 0 auto; max-width: 1000px; padding: 24px; color: #edf3f6; }
 .workspace-intro p, .workspace-intro li { line-height: 1.6; }
 .workspace-intro a { color: #a4d9ff; }

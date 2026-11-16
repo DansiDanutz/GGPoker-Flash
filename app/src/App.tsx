@@ -28,7 +28,6 @@ import { FirstLaunch } from './components/FirstLaunch';
 import { QuickMenu } from './components/QuickMenu';
 import { Marketplace } from './pages/Marketplace';
 import { PlatformWorkspace } from './pages/PlatformWorkspace';
-import { PlatformTabs } from './components/PlatformTabs';
 import { RakeLab } from './pages/RakeLab';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
@@ -142,7 +141,6 @@ export default function App() {
 
   return (
     <ScaleStage>
-      <PlatformTabs />
       {page}
       {firstLaunch && <FirstLaunch />}
       <MobileNav />
