@@ -3,6 +3,8 @@
 Open Organiser → Create Spin & Go. Cash Chip setup costs $3 service credits; changing a future, unstarted, empty launch costs $1. Retries reuse the operation key. There is no hourly fee. Play Money testing stays free. Paid setup returns to Organiser management.
 
 ## Terms and funding
+Private Spin & Go tables are humans-only, including free Play Money trials. They wait for three human entries before drawing a prize or dealing. Public Play Money practice tables still fill empty seats with bots. Play Money entries debit the virtual wallet; organiser Cash Chip tickets remain exclusive to their organiser economy.
+
 The existing engine supports exactly three seats, fixed 5,000/10,000 entries, and its existing random multipliers and blind rules. A launch time is the earliest permitted entry/start, not a promise to start with fewer than three players. Inspect the engine odds in the Spin lobby. Management does not allow changing odds or paying an unfunded jackpot.
 
 Before entry, fund the full maximum prize reserve: 20,000 times the stake. That is 100,000,000 Cash Chips for a 5,000 entry, or 200,000,000 for a 10,000 entry. This is separate from the $3 setup fee and players' entries. Insufficient inventory blocks funding without minting chips. The organiser may cancel an empty waiting reserve. Once committed, finish the round or use existing audited recovery; cancellation is not available.
