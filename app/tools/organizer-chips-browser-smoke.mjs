@@ -111,7 +111,7 @@ try {
   assert.ok(await ownerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Rake controls overflow mobile width');
   await ownerPage.screenshot({ path: path.join(artifacts, 'organizer-rake-mobile.png'), fullPage: true });
   await ownerPage.setViewport({ width: 1280, height: 1000 });
-  await ownerPage.goto(`${srv.base}/#/table/${cash.id}`);
+  await ownerPage.goto(`${srv.base}/#/table/${cash.id}?observe=1`);
   await ownerPage.waitForFunction(() => [...document.querySelectorAll('.table-topbar .pill')].some((el) => el.textContent.includes('Rake 2%') && el.textContent.includes('7 Cash Chips/hand')));
   await ownerPage.screenshot({ path: path.join(artifacts, 'organizer-rake-table.png'), fullPage: true });
   await ownerPage.goto(`${srv.base}/marketplace`); await ownerPage.waitForSelector(panel);
