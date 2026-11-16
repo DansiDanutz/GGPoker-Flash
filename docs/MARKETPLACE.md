@@ -134,3 +134,7 @@ volume remains in place; the new tables are created on startup. Verify the deplo
 commit through `/healthz`, then check the public catalog, private owner interface and
 published source link. A public-network request to `/api/admin/marketplace` must remain
 rejected by the existing network guard.
+
+## Organiser tournaments
+
+See [Tournament Manager](TOURNAMENT_MANAGER.md) for setup costs, game terms, scoped tickets, payouts, cancellation and recovery.

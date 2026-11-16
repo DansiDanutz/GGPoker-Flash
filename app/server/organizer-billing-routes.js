@@ -23,7 +23,7 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
       ...cashRakeConfig(row, getSetting),
       schedule: db.prepare('SELECT start_at,started_at FROM organizer_spin_schedule WHERE table_id=?').get(row.id) || null,
     })),
-    tournaments: db.prepare('SELECT id,name,start_at,status FROM tournaments WHERE private=1 AND play_money=0 AND owner_id=?').all(userId),
+    tournaments: db.prepare('SELECT id,name,start_at,status,format,mode,buyin,fee,starting_stack,blind_speed,late_reg,max_players,entrants,bounty,chip_economy FROM tournaments WHERE private=1 AND play_money=0 AND owner_id=?').all(userId),
   });
   return async (req, res, url) => {
     const p = url.pathname;

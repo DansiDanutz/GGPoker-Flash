@@ -1837,7 +1837,9 @@ const server = http.createServer(async (req, res) => {
       const fee = Math.max(0, Math.round(Number(b.fee) || 0));
       const startingStack = Math.max(100, Math.round(Number(b.starting_stack) || 10000));
       const blindSpeed = Math.max(1, Math.min(120, Math.round(Number(b.blind_speed) || 8)));
-      const lateReg = Math.max(0, Math.min(600, Math.round(Number(b.late_reg) || 90)));
+      const lateReg = !playMoney && chipEconomyEnabled ? 0 : Math.max(0, Math.min(600, Math.round(Number(b.late_reg ?? 90)) || 0));
+      const maxPlayers = b.max_players ?? 1000;
+      if (!Number.isSafeInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 1000) return json(res, 400, { error: 'Maximum players must be a whole number from 2 to 1000.' });
       const mode = ['STANDARD', 'BOUNTY', 'MYSTERY', 'SATELLITE', 'FLIP'].includes(b.mode) ? b.mode : 'STANDARD';
       if (playMoney && ![buyin, fee, startingStack, Number(b.bounty || 0)].every((n) => Number.isSafeInteger(n) && n >= 0 && n <= 9_000_000_000)) return json(res, 400, { error: 'Use bounded whole Play Money chips.' });
       if (!playMoney && chipEconomyEnabled && (mode === 'SATELLITE' || buyin < 1 || ![buyin, fee, startingStack, Number(b.bounty || 0)].every((n) => Number.isSafeInteger(n) && n >= 0 && n <= 9_000_000_000))) return json(res, 400, { error: 'Use whole Cash Chips, a positive buy-in, and a supported tournament mode.' });
@@ -1849,8 +1851,8 @@ const server = http.createServer(async (req, res) => {
       const created = setup({ userId: u.id, kind: 'tournament', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
         if (db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tournaments'), { status: 400 });
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled,owner_id,private)
-        VALUES (?,?,?,?,?,0,?, 'registering', 1000, 0, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1)`)
-        .run(id, name, game, buyin, fee, start, startingStack, blindSpeed, lateReg, format, mode, Math.max(0, Number(b.bounty) || 0), String(b.ticket || '').slice(0, 80), u.id);
+        VALUES (?,?,?,?,?,0,?, 'registering', ?, 0, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1)`)
+        .run(id, name, game, buyin, fee, start, maxPlayers, startingStack, blindSpeed, lateReg, format, mode, Math.max(0, Number(b.bounty) || 0), String(b.ticket || '').slice(0, 80), u.id);
       if (!playMoney && chipEconomyEnabled) db.prepare('UPDATE tournaments SET chip_economy=1 WHERE id=?').run(id);
         if (playMoney) db.prepare('UPDATE tournaments SET play_money=1 WHERE id=?').run(id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_tournament', id);
