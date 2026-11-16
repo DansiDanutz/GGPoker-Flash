@@ -489,6 +489,8 @@ async function run() {
   await member.select('#host-economy', 'organizer');
   await clickText(member, '.modal .tabs-line button', 'Spin & Go');
   await waitText(member, '.mg-host-access', 'An active paid plugin is required');
+  await waitText(member, '.modal', 'Humans only: invite three players.');
+  await screenshot(member, 'spin-human-seating', '.modal');
   assert.equal(await member.$eval('.modal-foot .btn-gold', (button) => button.disabled), true, 'An unpaid organizer can create Spin & Go.');
   assert.equal(await member.$eval('#host-spin-stake', (select) => select.value), '5000');
   assert.deepEqual(await member.$$eval('#host-spin-stake option', (options) => options.map((option) => option.value)), ['5000', '10000']);

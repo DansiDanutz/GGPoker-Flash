@@ -783,7 +783,7 @@ export function Lobby() {
               </>)}
 
               {hostKind === 'spin' && <>
-                <p className="muted small" style={{ marginTop: 0 }}>A private Jackpot Sit & Go using virtual play chips. The existing engine starts the game when three seats are filled.</p>
+                <p className="muted small" style={{ marginTop: 0 }}>Humans only: invite three players. The game waits until all three seats are filled; bots never take private Spin & Go seats.</p>
                 {myHosts.some((entry) => entry.game === 'spingold') && <div className="host-list">
                   <div className="panel-title" style={{ marginBottom: 4 }}>Your private Spin & Go tables</div>
                   {myHosts.filter((entry) => entry.game === 'spingold').map((table) => <div key={table.id} className="host-row">

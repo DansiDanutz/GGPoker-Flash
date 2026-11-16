@@ -59,6 +59,24 @@ test('bots never take a seat while humans are waiting', () => {
   assert.equal(botFillCount(t, 0), 0, 'tournament tables never get bots');
 });
 
+test('private Spin waits for three humans while public Spin still fills practice bots', () => {
+  const t = new PokerTable(cfg({ game: 'spingold', private: 1, play_money: 1, min_buyin: 5000, max_buyin: 5000 }));
+  t.sit({ id: 'h1', nick: 'First' }, 0, 5000);
+  assert.equal(t.fillBots(2), 0);
+  assert.equal(t.occupiedSeats().length, 1);
+  assert.equal(t.spinStarted(), false);
+  t.sit({ id: 'h2', nick: 'Second' }, 1, 5000);
+  assert.equal(t.spinStarted(), false);
+  t.sit({ id: 'h3', nick: 'Third' }, 2, 5000);
+  assert.equal(t.spinStarted(), true);
+  assert.equal(t.humans().length, 3);
+
+  const publicSpin = new PokerTable(cfg({ game: 'spingold', min_buyin: 5000, max_buyin: 5000 }));
+  publicSpin.sit({ id: 'h1', nick: 'First' }, 0, 5000);
+  assert.equal(publicSpin.fillBots(2), 2);
+  assert.equal(publicSpin.spinStarted(), true);
+});
+
 test('between hands a waiting human makes one bot stand up per queued human', () => {
   const t = fullTable();
   t.street = 'flop';

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { startServer } from './test-helpers.js';
 
-test('Spin setup, scoped tickets, funded play and refunds conserve chips', async () => {
+test('Spin setup, scoped tickets, funded play and refunds conserve chips', async (t) => {
   const srv = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_ORGANIZER_CHIPS: 'enforce' } }), sockets = [];
   let db;
   const post = async (route, token, body) => { const r = await srv.post(route, { token, body }); assert.equal(r.status, 200, JSON.stringify(r.data)); return r.data; };
@@ -44,10 +44,14 @@ test('Spin setup, scoped tickets, funded play and refunds conserve chips', async
     db.prepare("INSERT INTO organizer_chip_sessions VALUES (?, 'recovered-seat', ?, ?, 5000, 'open', datetime('now'), NULL)").run(owner.user.id, players[0].user.id, table.id);
     assert.equal((await srv.del(`/api/tables/host/${table.id}`, { token: owner.token })).status, 409);
     db.prepare("DELETE FROM organizer_chip_sessions WHERE session_id='recovered-seat'").run();
+    const entryTickets = [];
     for (const [i, p] of players.slice(0, 3).entries()) {
       const t = await post(chips + '/spin-tickets', owner.token, { tableId: table.id, key: `entry-${i}` });
       await post(chips + `/spin-tickets/${t.id}/transfer`, owner.token, { toUserId: p.user.id, key: `give-${i}` });
+      entryTickets.push(t.id);
     }
+    const spare = await post(chips + '/spin-tickets', owner.token, { tableId: table.id, key: 'spare' });
+    await post(chips + `/spin-tickets/${spare.id}/transfer`, owner.token, { toUserId: players[0].user.id, key: 'spare-transfer' });
     db.prepare('UPDATE organizer_spin_schedule SET start_at=? WHERE table_id=?').run(new Date(Date.now() - 1000).toISOString(), table.id);
     for (const p of players.slice(0, 3)) {
       const s = srv.socket(p.token); sockets.push(s); await s.opened; const acted = new Set();
@@ -66,12 +70,29 @@ test('Spin setup, scoped tickets, funded play and refunds conserve chips', async
     assert.equal(db.prepare('SELECT balance FROM organizer_chip_accounts WHERE account_key=?').get(`event:spin:${round.id}`).balance, 0);
     assert.equal(db.prepare('SELECT SUM(balance) n FROM organizer_chip_accounts WHERE organizer_id=?').get(owner.user.id).n, 100100000);
     assert.equal(db.prepare("SELECT count(*) n FROM organizer_chip_spin_tickets WHERE state='consumed'").get().n, 3);
-    const spare = await post(chips + '/spin-tickets', owner.token, { tableId: table.id, key: 'spare' });
-    await post(chips + `/spin-tickets/${spare.id}/transfer`, owner.token, { toUserId: players[3].user.id, key: 'spare-transfer' });
+    assert.equal(db.prepare('SELECT state FROM organizer_chip_spin_tickets WHERE id=?').get(spare.id).state, 'issued', 'rejoin cannot consume the next ticket');
+    for (const id of entryTickets) {
+      const ticket = db.prepare('SELECT * FROM organizer_chip_spin_tickets WHERE id=?').get(id);
+      assert.equal(ticket.state, 'consumed');
+      assert.equal(db.prepare('SELECT count(*) n FROM organizer_chip_journals WHERE reference=?').get(`spin-ticket:${id}:redeem`).n, 1);
+      assert.equal(db.prepare('SELECT count(*) n FROM organizer_chip_sessions WHERE session_id=?').get(ticket.session_id).n, 1);
+      const holder = players.find(p => p.user.id === ticket.holder_id);
+      assert.equal((await srv.post(chips + `/spin-tickets/${id}/refund`, { token: holder.token, body: {} })).status, 409);
+      assert.equal((await srv.post(chips + `/spin-tickets/${id}/transfer`, { token: holder.token, body: { toUserId: players[3].user.id, key: `reused-${id}` } })).status, 409);
+    }
+    const settled = db.prepare('SELECT account_key,balance FROM organizer_chip_accounts WHERE organizer_id=? ORDER BY account_key').all(owner.user.id);
+    for (const s of sockets) {
+      s.send({ type: 'join_table', tableId: table.id, rejoin: true });
+      await s.next(m => m.type === 'joined');
+    }
+    assert.deepEqual(db.prepare('SELECT account_key,balance FROM organizer_chip_accounts WHERE organizer_id=? ORDER BY account_key').all(owner.user.id), settled);
+    assert.equal(db.prepare('SELECT state FROM organizer_chip_spin_tickets WHERE id=?').get(spare.id).state, 'issued');
     for (const s of sockets) s.send({ type: 'leave_table', tableId: table.id });
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.equal((await srv.del(`/api/tables/host/${table.id}`, { token: owner.token })).status, 200);
     assert.equal(db.prepare('SELECT state FROM organizer_chip_spin_tickets WHERE id=?').get(spare.id).state, 'refunded');
-    assert.equal(db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key=?').get(owner.user.id, `wallet:${players[3].user.id}`).balance, 5000);
+    assert.equal(db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key=?').get(owner.user.id, `wallet:${players[0].user.id}`).balance, paid.find(p => p.user_id === players[0].user.id).payout + 10000);
+    assert.equal(db.prepare('SELECT SUM(balance) n FROM organizer_chip_accounts WHERE organizer_id=?').get(owner.user.id).n, 100100000);
+    t.diagnostic(JSON.stringify({ multiplier: outcome.multiplier, prizes: outcome.prizes, ticketsConsumed: entryTickets.length, unusedTicketRefunded: true, supplyIncludingBurn: 100100000, reconciled: true }));
   } finally { await Promise.all(sockets.map(s => s.close())); db?.close(); await srv.stop(); fs.rmSync(srv.dataDir, { recursive: true, force: true }); }
 });
