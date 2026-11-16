@@ -15,7 +15,7 @@ type AccessSeed = { user: UserChoice; productId: string; requestId: number };
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'catalog', label: 'Catalog' }, { id: 'requests', label: 'Solicitări' },
-  { id: 'access', label: 'Acces' }, { id: 'content', label: 'Conținut' },
+  { id: 'access', label: 'Acces manual' }, { id: 'content', label: 'Conținut' },
   { id: 'plugins', label: 'Pluginuri' },
   { id: 'finance', label: 'Finanțe și activări' },
 ];
@@ -356,7 +356,7 @@ export function AdminMarketplace({ onDirtyChange }: { onDirtyChange?: (dirty: bo
     {error && <div className="ma-notice ma-notice-error" role="alert"><strong>Datele nu au putut fi încărcate sau salvate.</strong><span>{error}</span>{!data && <p>Administrarea necesită un cont de administrator și conexiunea privată configurată pentru DanGG.</p>}<button type="button" className="ma-text-button" disabled={loading || dirty} onClick={() => void load()}>Încearcă din nou</button></div>}
     {notice && <div className="ma-notice ma-notice-success" role="status">{notice}<button type="button" aria-label="Închide confirmarea" className="ma-icon-button" onClick={() => setNotice('')}>×</button></div>}
     {!data ? !error && <div className="ma-loading" role="status"><span className="ma-spinner" />Se încarcă administrarea marketplace-ului…</div> : <>
-      <div className="ma-stats"><div><span>Produse</span><strong>{data.stats.products}</strong><small>în catalogul de administrare</small></div><div><span>Publicate</span><strong>{data.stats.published}</strong><small>vizibile comunității</small></div><div><span>Solicitări în așteptare</span><strong>{data.stats.pending}</strong><small>necesită un răspuns</small></div><div><span>Acces activ</span><strong>{data.stats.active_access}</strong><small>înregistrări neexpirate</small></div></div>
+      <div className="ma-stats"><div><span>Produse</span><strong>{data.stats.products}</strong><small>în catalogul de administrare</small></div><div><span>Publicate</span><strong>{data.stats.published}</strong><small>vizibile comunității</small></div><div><span>Solicitări în așteptare</span><strong>{data.stats.pending}</strong><small>necesită un răspuns</small></div><div><span>Acces manual activ</span><strong>{data.stats.active_access}</strong><small>Înregistrări manuale neexpirate</small></div></div>
       <div className="ma-tabs" role="tablist" aria-label="Administrare marketplace">{TABS.map((item, index) => <button key={item.id} id={`ma-tab-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls={`ma-panel-${item.id}`} tabIndex={tab === item.id ? 0 : -1} onClick={() => switchTab(item.id)} onKeyDown={(event) => { if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return; event.preventDefault(); const next = TABS[(index + (event.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length]; if (next.id === tab || !canDiscard()) return; setDirty(false); setEditor(null); setSeed(null); setTab(next.id); document.getElementById(`ma-tab-${next.id}`)?.focus(); }}>{item.label}{item.id === 'requests' && data.stats.pending > 0 && <span>{data.stats.pending}</span>}</button>)}</div>
       <div role="tabpanel" id={`ma-panel-${tab}`} aria-labelledby={`ma-tab-${tab}`}>
         {tab === 'catalog' && <>

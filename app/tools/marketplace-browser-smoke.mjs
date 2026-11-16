@@ -169,8 +169,19 @@ async function commerceStep(page, label) {
   await centerClick(element); await handle.dispose();
 }
 
-async function screenshot(page, name) {
-  await page.screenshot({ path: path.join(artifacts, `${name}.png`), fullPage: true });
+async function screenshot(page, name, focusSelector) {
+  // Background tabs may have a stale compositor surface. Foreground the page
+  // and allow layout/paint to settle before recording visual evidence.
+  await page.bringToFront();
+  if (focusSelector) {
+    const target = await page.waitForSelector(focusSelector, { visible: true });
+    await target.evaluate((node) => node.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' }));
+    await target.dispose();
+  }
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  // These pages scroll inside the app shell; a document-wide capture does not
+  // expand those containers. Targeted evidence records the scrolled viewport.
+  await page.screenshot({ path: path.join(artifacts, `${name}.png`), fullPage: !focusSelector });
 }
 
 async function assertPublicLayout(page, width) {
@@ -490,13 +501,16 @@ async function run() {
   await member.goto(`${base}/marketplace`, { waitUntil: 'domcontentloaded' });
   await waitText(member, '.mg-plugin .mg-status-active', 'Acces plătit activ');
   await waitText(member, '.mg-publisher-account .mg-status', 'Editor aprobat');
-  await screenshot(member, 'organizer-paid-access');
+  await screenshot(member, 'organizer-paid-access', '.mg-section');
+  await screenshot(member, 'publisher-approved', '.mg-publisher');
   completed.push('Unpaid host creation is blocked; paid Spin & Go works with zero publisher credits and no admin promotion');
 
   currentPage = owner;
   await clickText(owner, '.mf-heading button', 'Actualizează');
   await waitText(owner, '.mf-panel-title .mf-status', 'Plătită');
-  await screenshot(owner, 'admin-finance');
+  await owner.waitForSelector('#ma-tab-finance[aria-selected="true"]');
+  await screenshot(owner, 'admin-finance', '.mf-root');
+  assert.equal(await owner.$eval('#ma-tab-finance', (tab) => tab.getAttribute('aria-selected')), 'true', 'Finance was unmounted during its visual capture.');
   assert.deepEqual(pageErrors, [], 'Browser raised uncaught JavaScript errors.');
 }
 
