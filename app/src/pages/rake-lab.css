@@ -1,0 +1,4 @@
+.rake-lab { width: 100%; max-width: 680px; box-sizing: border-box; }
+.rake-lab select { width: 100%; min-height: 44px; padding: 10px; border: 1px solid #657388; border-radius: 6px; background: #151c28; color: #fff; font: inherit; }
+.rake-lab dt { margin-top: 12px; }
+.rake-lab dd { margin: 4px 0 0; font-size: 1.4em; font-weight: 700; overflow-wrap: anywhere; }

@@ -29,6 +29,7 @@ import { QuickMenu } from './components/QuickMenu';
 import { Marketplace } from './pages/Marketplace';
 import { PlatformWorkspace } from './pages/PlatformWorkspace';
 import { PlatformTabs } from './components/PlatformTabs';
+import { RakeLab } from './pages/RakeLab';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
   const desktop = typeof window !== 'undefined' && !!(window as any).ggDesktop;
@@ -72,6 +73,7 @@ export default function App() {
     if (parts[0] === 'login') return <Login />;
     if (parts[0] === 'table') return <TablePage tableId={parts[1]} />;
     switch (parts[0]) {
+      case 'rake-lab': return <RakeLab />;
       case 'contributor': return <PlatformWorkspace kind="contributor" />;
       case 'organiser': return <PlatformWorkspace kind="organiser" />;
       case 'tournaments': return <Tournaments />;
