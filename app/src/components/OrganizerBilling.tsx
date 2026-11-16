@@ -87,7 +87,7 @@ export function OrganizerBilling({ userId, role }: { userId?: number; role?: 'or
           </form>}
         </li>; })}
       </ul>}
-      <section aria-label="Tournament Manager">
+      <section className="mp-tournament-manager" aria-label="Tournament Manager">
         <h3>Tournament Manager</h3>
         <p>Configure a private event for {usd(tariffs?.tournament_setup ?? 500)}. Rescheduling costs {usd(tariffs?.reschedule ?? 100)}; there is no hourly tournament charge.</p>
         <p>Cash Chip events are freezeouts: registration closes at the scheduled start, with at least two entrants required. Buy or transfer tournament-specific tickets in the Cash Chips panel below. Each ticket grants the configured starting stack; tournament stacks are not wallet balances.</p>
@@ -101,7 +101,7 @@ export function OrganizerBilling({ userId, role }: { userId?: number; role?: 'or
             <div><strong>{tournament.name}</strong><p>{tournament.format} · {tournament.mode} · {tournament.status} · {when(tournament.start_at)}</p></div>
             <p>{tournament.entrants} / {tournament.max_players} entrants · Ticket: {(tournament.buyin + tournament.fee).toLocaleString()} {unit} ({tournament.buyin.toLocaleString()} buy-in + {tournament.fee.toLocaleString()} fee) · Starting stack: {tournament.starting_stack.toLocaleString()} tournament chips · Blind levels: {tournament.blind_speed} minutes.</p>
             {tournament.bounty > 0 && <p>Bounty: {tournament.bounty.toLocaleString()} {unit} per entrant, reserved separately at the start.</p>}
-            <a href={link}>Open tournament lobby</a>
+            <a className="mp-button mp-button-secondary" href={link}>Open tournament lobby</a>
             <label>Invite link<input className="admin-input" aria-label={`Invite for ${tournament.name}`} readOnly value={`${location.origin}/${link}`} onFocus={event => event.target.select()} /></label>
             <form onSubmit={(event: FormEvent) => {
               event.preventDefault(); const time = Date.parse(start);
