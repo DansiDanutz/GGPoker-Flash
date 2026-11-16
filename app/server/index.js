@@ -647,7 +647,7 @@ const handleAdminSnapshotRoutes = createAdminSnapshotRoutes({
 });
 const handleAdminTableDuplicateRoute = createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody,
   authorizeCopy: (actor, source, res) => {
-    if (usageBilling && source.private) { json(res, 409, { error: 'Create a new billed private table through its organizer account.' }); return false; }
+    if ((usageBilling && source.private) || source.chip_economy) { json(res, 409, { error: 'Create a new billed private table through its organizer account.' }); return false; }
     return requireManagement(actor, tableManagementProduct(source.game), 'admin_table_duplicate', res);
   } });
 
@@ -1425,7 +1425,7 @@ function disposeTournamentRoom(tournamentId, options = {}) { return ROOM_OWNER.d
  * race to start the event.
  */
 function startTournament(t) {
-  if (t.chip_economy && !chipEconomyEnabled) return false;
+  if (t.chip_economy && (!chipEconomyEnabled || Date.parse(t.start_at) > Date.now())) return false;
   let flipped;
   db.exec('BEGIN IMMEDIATE');
   try {
@@ -1894,6 +1894,7 @@ const server = http.createServer(async (req, res) => {
       const id = p.split('/')[3];
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id);
       if (!t) return json(res, 404, { error: 'not found' });
+      if (t.chip_economy && t.status === 'registering' && Date.parse(t.start_at) > Date.now()) return json(res, 409, { error: 'This Cash Chip tournament starts at its scheduled time.' });
       const reg = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       const room = ensureTournamentRoom(t);
       const seated = room.tableOf(u.id);

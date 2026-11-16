@@ -662,3 +662,26 @@ test('a move that fails puts the player back with their sit-out flags (EGM final
   assert.equal(back.stack, 1000);
   assert.deepEqual([back.sittingOut, back.sitOutNextHand, back.away, back.awayChoice], [true, true, true, 'out']);
 });
+
+test('failed prize persistence cannot put an unpaid finish into a restart snapshot', () => {
+  const { room, tables } = harness();
+  room.seat(player(1), { stack: 2000 });
+  room.seat(player(2), { stack: 0 });
+  tables.get('tourney-t1').handNo = 1;
+  room.ops.persistBust = () => { throw new Error('award write failed'); };
+  assert.throws(() => room.onBust('tourney-t1', player(2)), /award write failed/);
+  assert.equal(room.finished.length, 0);
+  const snapshot = room.snapshot();
+  assert.equal(snapshot.finished.length, 0);
+  const restored = harness();
+  assert.equal(restored.room.restore(snapshot), true);
+  restored.room.onBust('tourney-t1', player(2));
+  assert.equal(restored.calls.busts.length, 1, 'the failed award retries after restore');
+  assert.equal(restored.room.finished[0].id, 'p2');
+  restored.room.ops.persistWinner = () => { throw new Error('winner write failed'); };
+  assert.throws(() => restored.room.checkWinner(), /winner write failed/);
+  assert.equal(restored.room.winner, null, 'a failed winner payment remains retryable');
+  restored.room.ops.persistWinner = (record) => restored.calls.winners.push(record);
+  assert.equal(restored.room.checkWinner().id, 'p1');
+  assert.equal(restored.calls.winners.length, 1);
+});

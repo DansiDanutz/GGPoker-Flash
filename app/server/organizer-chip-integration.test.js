@@ -59,12 +59,14 @@ test('real server integrates enforced billing, scoped chips, events, buybacks, a
     await postOk(srv, `/api/tournaments/${tournament.id}/unregister`, first.token, {});
     await postOk(srv, `/api/tournaments/${tournament.id}/register`, first.token, {});
     await postOk(srv, `/api/tournaments/${tournament.id}/register`, second.token, {});
+    assert.equal((await srv.post(`/api/tournaments/${tournament.id}/play`, { token: first.token, body: {} })).status, 409, 'players cannot start a scheduled paid event early');
+    db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
+    db.prepare('UPDATE tournaments SET start_at=? WHERE id=?').run(new Date(Date.now() - 1000).toISOString(), tournament.id);
     const play = await postOk(srv, `/api/tournaments/${tournament.id}/play`, first.token, {});
     assert.ok(play.tableId);
     const lobby = await srv.get(`/api/tournaments/${tournament.id}`, { token: first.token });
     assert.equal(lobby.status, 200, JSON.stringify(lobby.data));
     assert.equal(lobby.data.prizePool, 2000, 'fees are excluded from the playable prize pool');
-    db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
     const event = db.prepare('SELECT contract,prize_pool FROM organizer_chip_event_states WHERE tournament_id=?').get(tournament.id);
     assert.equal(event.prize_pool, 2000); assert.equal(JSON.parse(event.contract).starting_stack, 10000);
     assert.equal(db.prepare('SELECT redemptions FROM organizer_chip_tickets WHERE id=?').get(ticketOne.id).redemptions, 2);

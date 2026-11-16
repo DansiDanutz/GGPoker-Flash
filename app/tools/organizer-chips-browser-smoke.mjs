@@ -10,7 +10,7 @@ import { startServer } from '../server/test-helpers.js';
 const artifacts = path.resolve('artifacts/marketplace-browser');
 const panel = 'section[aria-label="Cash Chips organizator"]';
 const errors = [];
-let srv, browser;
+let srv, browser, currentPage;
 const check = (r) => { assert.equal(r.status, 200, JSON.stringify(r.data)); return r.data; };
 const post = async (route, token, body) => check(await srv.post(route, { token, body }));
 async function click(page, scope, text) {
@@ -22,11 +22,11 @@ async function click(page, scope, text) {
 async function text(page, value) { await page.waitForFunction((selector, value) => document.querySelector(selector)?.textContent.includes(value), {}, panel, value); }
 async function input(page, selector, value) { const field = await page.waitForSelector(selector); await field.type(String(value)); }
 async function pageFor(token) {
-  const page = await browser.newPage(); page.setDefaultTimeout(15000);
+  const context = await browser.createBrowserContext();
+  const page = await context.newPage(); currentPage = page; page.setDefaultTimeout(15000);
   await page.setViewport({ width: 1280, height: 1000 });
   page.on('dialog', (dialog) => dialog.accept()); page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(srv.base);
-  await page.evaluate((token) => localStorage.setItem('ggpoker.token', token), token);
+  await page.evaluateOnNewDocument((token) => { localStorage.setItem('ggpoker.token', token); sessionStorage.setItem('ggpoker.entered', '1'); }, token);
   await page.goto(`${srv.base}/marketplace`);
   await page.waitForSelector(panel); return page;
 }
@@ -42,7 +42,9 @@ try {
   const ownerPage = await pageFor(owner.token);
   const billing = 'section[aria-label="Credite și servicii pentru organizatori"]';
   await ownerPage.waitForFunction((scope) => [...document.querySelectorAll(`${scope} article`)].some((a) => a.querySelector('strong')?.textContent === 'Organizator' && a.querySelector('button') && !a.querySelector('button').disabled), {}, billing);
-  await ownerPage.evaluate((scope) => [...document.querySelectorAll(`${scope} article`)].find((a) => a.querySelector('strong')?.textContent === 'Organizator').querySelector('button').click(), billing);
+  const subscribe = await ownerPage.evaluateHandle((scope) => [...document.querySelectorAll(`${scope} article`)].find((a) => a.querySelector('strong')?.textContent === 'Organizator').querySelector('button'), billing);
+  await subscribe.asElement().evaluate((button) => button.scrollIntoView({ block: 'center' }));
+  await subscribe.asElement().click(); await subscribe.dispose();
   await ownerPage.waitForFunction((scope) => document.querySelector(scope)?.textContent.includes('Abonamentul a fost actualizat.'), {}, billing);
   await click(ownerPage, panel, 'Actualizează'); await text(ownerPage, '100,000 Cash Chips');
   await click(ownerPage, panel, 'Cumpără pachete'); await text(ownerPage, '110,000 Cash Chips');
@@ -68,6 +70,7 @@ try {
   await fs.writeFile(path.join(artifacts, 'organizer-chip-report.json'), JSON.stringify({ ok: true, errors }));
 } catch (error) {
   process.exitCode = 1; console.error(error);
+  if (currentPage) { console.error('CHIP_DIAGNOSTIC', await currentPage.evaluate(() => document.body.innerText.slice(-12000)).catch(String)); await currentPage.screenshot({ path: path.join(artifacts, 'organizer-chip-failure.png'), fullPage: true }).catch(() => {}); }
   await fs.writeFile(path.join(artifacts, 'organizer-chip-report.json'), JSON.stringify({ ok: false, errors, error: String(error) }));
 } finally {
   await browser?.close();
