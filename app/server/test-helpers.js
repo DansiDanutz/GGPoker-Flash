@@ -52,7 +52,7 @@ function makeClient(child, port, dataDir, exited) {
     del: (route, opts) => call('DELETE', route, opts),
     login: async (login, password) => (await call('POST', '/api/auth/login', { body: { login, password } })).data.token,
     balance: async (token) => (await call('GET', '/api/me', { token })).data.user.balance,
-    socket: (token) => openSocket(port, token),
+    socket: (token, socketPort = port) => openSocket(socketPort, token),
     stop: async (signal = 'SIGKILL') => { child.kill(signal); await exited; },
   };
 }

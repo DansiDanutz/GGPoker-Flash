@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID, randomInt } from 'node:crypto';
 import net from 'node:net';
 import { WebSocketServer } from 'ws';
+import { startHeartbeat } from './websocket-heartbeat.js';
 import {
   db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, newSession, userByToken,
   publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone, missionPeriodKey,
@@ -3374,6 +3375,8 @@ const wss = new WebSocketServer({
   },
 });
 
+const stopHeartbeat = startHeartbeat(wss);
+
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, 'http://localhost');
   const token = url.searchParams.get('token');
@@ -3847,6 +3850,7 @@ let shuttingDown = false;
 function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
+  stopHeartbeat();
   // Snapshot tournament rooms before the live tables are closed underneath them.
   try { ROOM_OWNER.flushAll(); } catch { /* best effort */ }
   try {
