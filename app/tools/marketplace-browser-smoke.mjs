@@ -277,7 +277,7 @@ async function run() {
   await screenshot(owner, 'admin');
   await owner.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   await owner.waitForSelector('.market-admin .ma-product', { visible: true });
-  await screenshot(owner, 'admin-mobile');
+  await screenshot(owner, 'admin-mobile', '.ma-tabs');
   await owner.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1, isMobile: false, hasTouch: false });
   await owner.waitForSelector('.market-admin .ma-product', { visible: true });
   completed.push('UI admin login and return to the marketplace');
