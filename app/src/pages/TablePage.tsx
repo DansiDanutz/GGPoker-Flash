@@ -61,6 +61,7 @@ import FastFoldButton from '../components/table/FastFoldButton';
 import { BuyInDialog, TakeSeatControl, type Reservation } from '../components/TakeSeat';
 import { NATIVE_TABLE_WIDTH, PAYOUT_EASING, PAYOUT_FADE_MS, PAYOUT_HOLD_MS, PAYOUT_STOP_PX, PAYOUT_TRANSFER_MS, payoutShares, potOffset, stopShort, type PayoutShare } from '../game/payoutMotion';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
+import { cashChips } from '../lib/organizer-chips-api';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; country?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -83,6 +84,7 @@ type TableState = {
   timeBankUsed?: number[];
   pots?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
+  walletKind?: 'organizer_chips' | 'play_money'; organizerId?: number | null; organizerBalance?: number;
   spin?: {
     multiplier: number | null;
     prize: number;
@@ -720,10 +722,11 @@ export function TablePage({ tableId }: { tableId: string }) {
     myBet: me?.bet || 0, myStack: me?.stack || 0, maxRaiseTo: state?.maxRaiseTo || 0, raiseLocked: !!state?.raiseLocked, street: state?.street || 'idle',
   };
   const { toCall, minTo, maxTo, allInTo, canRaise } = betLimits(betCtx);
-  // Cash tables are stored in cents and shown in dollars; tournaments use whole chips.
-  const displayUnit = state?.tournament ? 1 : 100;
-  const chipStep = state?.tournament ? 1 : Math.min(100, state?.sb || 100);
-  const betStep = betUnitOf(bettingOptions, state?.sb || 0, state?.bb || 0);
+  const organizerChips = state?.walletKind === 'organizer_chips';
+  // Organizer Cash Chips and tournament stacks are whole integers; legacy play money remains cents.
+  const displayUnit = state?.tournament || organizerChips ? 1 : 100;
+  const chipStep = state?.tournament || organizerChips ? 1 : Math.min(100, state?.sb || 100);
+  const betStep = organizerChips ? 1 : betUnitOf(bettingOptions, state?.sb || 0, state?.bb || 0);
   // Native live piles: with a side pot the main pile shows only the main pot.
   const livePots = state?.pots || [];
   const potColumns = potChipLayout(livePots.length > 1 ? livePots[0] : state?.pot || 0, state?.bb || 1);
@@ -978,7 +981,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     return layout[rel % layout.length] || [50, 50];
   };
 
-  const chip = (v: number | undefined | null) => state?.tournament ? Math.round(v || 0).toLocaleString('en-US') : money(v || 0);
+  const chip = (v: number | undefined | null) => state?.tournament || organizerChips ? Math.round(v || 0).toLocaleString('en-US') : money(v || 0);
   // Chips/BB display applies to stacks, bets, pots and the bet controls; amounts sent stay in chips.
   const amountOpts = { mode: stackMode, bb: state?.bb || 0, tournament: !!state?.tournament };
   const amt = (v: number | undefined | null) => amountLabel(Number(v || 0), { ...amountOpts, formatChips: chip });
@@ -1217,13 +1220,13 @@ export function TablePage({ tableId }: { tableId: string }) {
         <button className="table-leave-btn" onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
 
-      {tableId && state && !state.tournament && !state.spin && (
+      {tableId && state && !state.tournament && !state.spin && !organizerChips && (
         <DailyLeaderboardRibbon tableId={tableId} stake={`${money(state.sb)}/${money(state.bb)}`} refreshKey={vpipHand} />
       )}
 
       {state?.tournament && <TournamentHud tournament={state.tournament} sb={state.sb} bb={state.bb} ante={state.ante} />}
 
-      {cashDrop && <CashDropBanner drop={cashDrop} />}
+      {!organizerChips && cashDrop && <CashDropBanner drop={cashDrop} />}
 
       {allInFx && (
         <div className="allin-flash" role="status" aria-label="All in">
@@ -1380,7 +1383,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               </div>
             );
         })}</div>}
-        {badBeat && <div className="bad-beat-banner" role="alert" onClick={() => setBadBeat(null)}>
+        {!organizerChips && badBeat && <div className="bad-beat-banner" role="alert" onClick={() => setBadBeat(null)}>
           <div className="bbj-title">BAD BEAT JACKPOT!</div>
           <div className="bbj-total">{money(badBeat.total)}</div>
           {badBeatRows(badBeat).map((row) => (
@@ -1940,7 +1943,7 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {reservation && state && (
         <BuyInDialog reservation={reservation} now={serverNow} format={chip}
-          balance={user?.balance} scale={state.tournament ? 1 : 100}
+          balance={organizerChips ? state.organizerBalance : user?.balance} scale={state.tournament || organizerChips ? 1 : 100}
           min={state.minBuyin || state.bb * 20} max={state.maxBuyin || state.bb * 100} step={Math.max(chipStep, state.bb || chipStep)}
           onCancel={() => { send({ type: 'cancel_reservation' }); setReservation(null); }}
           onBuyIn={(amount) => { send({ type: 'join_table', buyin: amount, seat: reservation.seat, observe: false, waitForBlinds: joinWaitRef.current }); setReservation(null); }} />
@@ -1950,7 +1953,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head"><h3>{rebuyOffer ? 'Reload' : 'Add Chips'}</h3></div>
             <div className="modal-body">
-              <p className="muted small">Amount to add, up to the table maximum of {chip(state?.maxBuyin)}. Your stack is {chip(me?.stack)}{myPending > 0 ? `, with ${chip(myPending)} already pending` : ''}; your balance is {chip(user?.balance ?? 0)}.</p>
+              <p className="muted small">Amount to add, up to the table maximum of {chip(state?.maxBuyin)}. Your stack is {chip(me?.stack)}{myPending > 0 ? `, with ${chip(myPending)} already pending` : ''}; your balance is {organizerChips ? cashChips(state?.organizerBalance) : chip(user?.balance ?? 0)}.</p>
               {(meLive || myPending > 0) && <p className="muted small" style={{ color: '#ffd98a' }}>You are in a hand: the chips are paid now and join your stack at the next deal. Leaving first refunds them.</p>}
               {rebuyOffer && (now < rebuyOffer.until
                 ? <p className="muted small" style={{ color: '#ffd98a' }}>{Math.max(1, Math.ceil((rebuyOffer.until - now) / 1000))}s to reload before the next hand is dealt.</p>

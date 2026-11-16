@@ -37,6 +37,9 @@ export type LobbyTable = {
   featured: boolean;
   private?: boolean;
   owner_id?: number | null;
+  chip_economy?: boolean;
+  /** Viewer balance for this table's organizer-scoped Cash Chip wallet, when supplied. */
+  organizer_balance?: number;
   /** Real occupied seats on the live table, bots included; 0 when the table is not running. */
   players: number;
   /** How many of `players` are bots. */
@@ -257,7 +260,7 @@ function readFileBase64(file: Blob): Promise<string> {
 }
 
 export const api = {
-  hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number; bombPot?: boolean }) =>
+  hostTable: (data: { name: string; game: string; seats: number; sb: number; bb: number; min_buyin: number; max_buyin: number; bombPot?: boolean; start_at?: string; idempotencyKey?: string }) =>
     request<{ id: string }>('/api/tables/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTables: () => request<{ tables: any[] }>('/api/tables/host'),
   joinTableWaitlist: (tableId: string) =>
@@ -269,7 +272,7 @@ export const api = {
   leaveGroupWaitlist: (groupKey: string) =>
     request<{ ok: true; left: boolean }>(`/api/lobby/groups/${encodeURIComponent(groupKey)}/waitlist`, { method: 'DELETE' }),
   myWaitlists: () => request<MyWaitlists>('/api/waitlists/me'),
-  hostTournament: (data: any) => request<{ id: string }>('/api/tournaments/host', { method: 'POST', body: JSON.stringify(data) }),
+  hostTournament: (data: Record<string, unknown> & { idempotencyKey?: string }) => request<{ id: string }>('/api/tournaments/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTournaments: () => request<{ tournaments: any[] }>('/api/tournaments/host'),
   deleteHostTournament: (id: string) => request<any>(`/api/tournaments/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   tournament: (id: string) => request<TournamentDetail>(`/api/tournaments/${encodeURIComponent(id)}`),

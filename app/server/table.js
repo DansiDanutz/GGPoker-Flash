@@ -208,6 +208,7 @@ export class PokerTable {
   }
 
   sit(player, seatIndex = null, buyin = null, sessionId = null) {
+    if (this.cfg.chip_economy && player.isBot) return { ok: false, error: 'Organizer chip games do not allow bots' };
     if (this.seatOf(player.id)) return { ok: false, error: 'already seated' };
     const seat = seatIndex != null ? this.seats[seatIndex] : this.freeSeatFor(player.id);
     if (!seat) return { ok: false, error: 'table full' };
@@ -309,6 +310,7 @@ export class PokerTable {
   }
 
   fillBots(count) {
+    if (this.cfg.chip_economy) return 0;
     // Seat everyone first so the opening hand is dealt to the whole table, not just the first two.
     this.holdStart = true;
     let added = 0;
@@ -358,7 +360,10 @@ export class PokerTable {
   /** Between hands, before who is dealt in is decided: pending top-ups and stack trims land. */
   prepareDeal() {
     if (!this.hooks.beforeDeal) return;
-    try { this.hooks.beforeDeal(this); } catch (e) { console.error('before deal hook', e); }
+    try { this.hooks.beforeDeal(this); } catch (e) {
+      if (this.cfg.chip_economy) { this.financialError = 'Chip reconciliation required'; throw e; }
+      console.error('before deal hook', e);
+    }
   }
 
   // Elimination formats deal sitting-out players in (they auto-fold) so nobody can stall a tournament.
@@ -425,7 +430,11 @@ export class PokerTable {
 
   /** Draw the multiplier from the verified table when the first hand is dealt. */
   drawSpin() {
-    const outcome = spinOutcome(Number(this.cfg.min_buyin), this.spinTicket());
+    const outcome = this.pendingSpinOutcome || spinOutcome(Number(this.cfg.min_buyin), this.spinTicket());
+    this.pendingSpinOutcome = outcome;
+    try { this.hooks.beforeSpinDraw?.(this, outcome); }
+    catch (error) { if (this.cfg.chip_economy) this.financialError = 'Spin funding reconciliation required'; throw error; }
+    this.pendingSpinOutcome = null;
     this.spinMultiplier = outcome.multiplier;
     this.spinPrize = outcome.prizePool;
     this.spinPayouts = Object.freeze([...outcome.prizes]);
@@ -442,11 +451,11 @@ export class PokerTable {
   recordSpinFinish(player, place) {
     if (!this.spinPayouts || this.finished.some((f) => f.id === player.id)) return null;
     const entry = { nick: player.nick, id: player.id, place, payout: this.spinPayouts[place - 1] || 0 };
-    this.finished.push(entry);
-    this.emit({ type: 'spin_payout', ...entry });
     try {
       if (this.hooks.onSpinPayout) this.hooks.onSpinPayout(this, { ...entry, sessionId: player.sessionId || null, isBot: !!player.isBot });
-    } catch (e) { console.error('spin payout hook', e); }
+    } catch (e) { if (this.cfg.chip_economy) { this.financialError = 'Spin payout reconciliation required'; throw e; } console.error('spin payout hook', e); }
+    this.finished.push(entry);
+    this.emit({ type: 'spin_payout', ...entry });
     return entry;
   }
 
@@ -561,6 +570,8 @@ export class PokerTable {
   }
 
   startHand() {
+    if (this.financialError) return;
+    if (this.hooks.canStartHand && !this.hooks.canStartHand(this)) return;
     this.prepareDeal();
     this.timeBankUsed = new Set();
     // A deferred "sit out next hand" takes effect before this deal.
@@ -985,6 +996,7 @@ export class PokerTable {
   }
 
   setInsurance(userId, value) {
+    if (this.cfg.chip_economy) return { ok: false, error: 'Insurance is unavailable in organizer chip games' };
     if (!this.spin) return { ok: false, error: 'insurance is Jackpot SNG only' };
     // Native Spin insurance settlement is unobserved; do not invent premiums/payouts.
     return { ok: false, error: 'Insurance is not available in DanGG' };
@@ -1707,7 +1719,7 @@ export class PokerTable {
 
   /** Cash Hold'em/Omaha only: native excludes AoF and featured tables (HandHistory.getBadBeatJackpotSummaryVo). */
   badBeatEligible() {
-    return !this.elimination && !this.aof && !this.shortDeck && typeof this.hooks.jackpotPool === 'function';
+    return !this.cfg.chip_economy && !this.elimination && !this.aof && !this.shortDeck && typeof this.hooks.jackpotPool === 'function';
   }
 
   /** Pays the Bad Beat Jackpot into stacks when a qualifying hand loses at showdown. */
@@ -1870,6 +1882,7 @@ export class PokerTable {
   }
 
   tick(now = Date.now()) {
+    if (this.financialError) return;
     this.expireReservations(now);
     if (this.runRound && now >= this.runRound.endsAt) this.closeRunRound();
     if (this.tournament) {
@@ -2064,6 +2077,8 @@ export class PokerTable {
       minBuyin: this.cfg.min_buyin,
       maxBuyin: this.cfg.max_buyin,
       ownerId: this.cfg.owner_id || null,
+      walletKind: this.cfg.chip_economy ? 'organizer_chips' : 'play_money',
+      organizerId: this.cfg.chip_economy ? this.cfg.owner_id : null,
       private: !!this.cfg.private,
       bombPot: !!this.bomb,
       button: this.button,
@@ -2188,6 +2203,14 @@ export class PokerTable {
   }
 
   emit(evt) {
+    if (this.financialError) return;
+    if (evt.type === 'win' && this.hooks.beforeSettlement) {
+      try { this.hooks.beforeSettlement(this, evt); } catch (error) {
+        this.financialError = 'Chip reconciliation required';
+        this.actor = null; this.nextHandAt = 0;
+        throw error;
+      }
+    }
     evt.tableId = this.cfg.id;
     this.tableVersion += 1;
     evt.seq = ++this.messageSeq;

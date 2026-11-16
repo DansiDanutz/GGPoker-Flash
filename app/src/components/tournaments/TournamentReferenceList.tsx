@@ -2,6 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { money } from '../../lib/api';
 import { Countdown } from '../PageShell';
 import { phaseOf, PHASE_LABEL, type TournamentFilters } from '../../lib/tournamentFilters';
+import { cashChips } from '../../lib/organizer-chips-api';
+
+const eventMoney = (t: any, amount: number) => t.chip_economy ? cashChips(amount) : money(amount);
 
 const EMBLEM = '/assets/ui/emblems';
 
@@ -64,7 +67,7 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
   const now = Date.now();
   const selected = useMemo(() => list.find((t) => t.id === selectedId) || list[0] || null, [list, selectedId]);
   const isReg = selected ? registered.includes(selected.id) : false;
-  const totalGtd = list.reduce((n, t) => n + (t.gtd || 0), 0);
+  const totalGtd = list.filter((t) => !t.chip_economy).reduce((n, t) => n + (t.gtd || 0), 0);
 
   return (
     <div className="tref">
@@ -138,9 +141,9 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
                     <b>{t.name}</b>
                     {reg && <em>Registered</em>}
                   </div>
-                  <div className="tref-buyin">{t.buyin === 0 ? 'Freeroll' : money(t.buyin + t.fee)}</div>
+                  <div className="tref-buyin">{t.buyin === 0 ? 'Freeroll' : eventMoney(t, t.buyin + t.fee)}</div>
                   <div className="tref-players">{(t.entrants || 0).toLocaleString()}</div>
-                  <div className="tref-prize">{money(t.gtd || 0, true)}</div>
+                  <div className="tref-prize">{t.chip_economy ? cashChips(t.prizePool ?? (t.entrants || 0) * (t.buyin || 0)) : money(t.gtd || 0, true)}</div>
                 </div>
               );
             })}
@@ -169,7 +172,7 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
             <div className="tref-side-title">Summary</div>
             <div className="tref-kv"><span>Events</span><b>{list.length}</b></div>
             <div className="tref-kv"><span>Guarantees</span><b className="gold">{money(totalGtd, true)}</b></div>
-            <div className="tref-kv"><span>Balance</span><b>{money(balance)}</b></div>
+            <div className="tref-kv"><span>Balance</span><b>{selected?.chip_economy ? 'See organizer wallet' : money(balance)}</b></div>
           </div>
 
           <div className="tref-side-actions">
@@ -195,12 +198,12 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
                 </div>
                 <div className="tref-detail-status">{statusText(selected, now)} · starts {new Date(selected.start_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
                 <div className="tref-side-card">
-                  <div className="tref-kv"><span>Buy-in</span><b>{selected.buyin === 0 ? 'Freeroll' : money(selected.buyin + selected.fee)}</b></div>
-                  <div className="tref-kv"><span>Guarantee</span><b className="gold">{money(selected.gtd || 0, true)}</b></div>
-                  <div className="tref-kv"><span>Prize pool</span><b>{money((selected.entrants || 0) * (selected.buyin || 0), true)}</b></div>
-                  <div className="tref-kv"><span>Overlay</span><b>{money(Math.max(0, (selected.gtd || 0) - (selected.entrants || 0) * (selected.buyin || 0)), true)}</b></div>
+                  <div className="tref-kv"><span>Buy-in</span><b>{selected.buyin === 0 ? 'Freeroll' : eventMoney(selected, selected.buyin + selected.fee)}</b></div>
+                  {!selected.chip_economy && <div className="tref-kv"><span>Guarantee</span><b className="gold">{money(selected.gtd || 0, true)}</b></div>}
+                  <div className="tref-kv"><span>Prize pool</span><b>{eventMoney(selected, selected.prizePool ?? (selected.entrants || 0) * (selected.buyin || 0))}</b></div>
+                  {!selected.chip_economy && <div className="tref-kv"><span>Overlay</span><b>{money(Math.max(0, (selected.gtd || 0) - (selected.entrants || 0) * (selected.buyin || 0)), true)}</b></div>}
                   <div className="tref-kv"><span>Players</span><b>{(selected.entrants || 0).toLocaleString()}</b></div>
-                  <div className="tref-kv"><span>Starting chips</span><b>{(selected.starting_stack || 0).toLocaleString()}</b></div>
+                  <div className="tref-kv"><span>Starting stack</span><b>{(selected.starting_stack || 0).toLocaleString()} tournament chips</b></div>
                   <div className="tref-kv"><span>Blind interval</span><b>{selected.blind_speed || 0} min</b></div>
                   <div className="tref-kv"><span>Late reg ends</span><b>{new Date(new Date(selected.start_at).getTime() + (selected.late_reg || 0) * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b></div>
                 </div>

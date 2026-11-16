@@ -36,6 +36,8 @@ import { gameRules } from '../lib/gameRules';
 import { PROMO_ART } from '../lib/promoArt';
 import { marketplaceApi, type ManagementAccount } from '../lib/marketplace-api';
 import { ManagementAccessNotice } from '../components/ManagementPlugins';
+import { organizerBillingApi, type BillingMode, type OrganizerTariffs } from '../lib/organizer-billing-api';
+import { cashChips } from '../lib/organizer-chips-api';
 
 const PREVIEW_SEATS = [
   { x: 50, y: 8 }, { x: 10, y: 30 }, { x: 90, y: 30 },
@@ -51,7 +53,7 @@ function MiniTable({ table, players }: { table: LobbyTable | null; players: { na
       <div className="mini-arrows" style={{ left: '50%', top: 6, transform: 'translateX(-50%)' }}>▼</div>
       <div className="mini-arrows" style={{ left: '50%', bottom: 4, transform: 'translateX(-50%)' }}>▲</div>
       <div className="buyin-range">
-        Buy-in Range<br /><b>{money(table.min_buyin, true)} - {money(table.max_buyin, true)}</b>
+        Buy-in Range<br /><b>{table.chip_economy ? `${table.min_buyin.toLocaleString()} - ${cashChips(table.max_buyin)}` : `${money(table.min_buyin, true)} - ${money(table.max_buyin, true)}`}</b>
       </div>
       {PREVIEW_SEATS.map((pos, i) => {
         const p = players[i];
@@ -74,7 +76,11 @@ function MiniTable({ table, players }: { table: LobbyTable | null; players: { na
 }
 
 function fmtStakes(t: LobbyTable) {
-  return `${money(t.sb, true)} / ${money(t.bb, true)}`;
+  return t.chip_economy ? `${t.sb.toLocaleString()} / ${cashChips(t.bb)}` : `${money(t.sb, true)} / ${money(t.bb, true)}`;
+}
+
+function tableAmount(t: LobbyTable, amount: number) {
+  return t.chip_economy ? cashChips(amount) : money(amount);
 }
 
 /** `?game=<tab>` picks a lobby tab; plain `?play=1` means Hold'em (the phone shows its game list first). */
@@ -102,7 +108,9 @@ export function Lobby() {
   const [myHosts, setMyHosts] = useState<any[]>([]);
   const [myTourneys, setMyTourneys] = useState<any[]>([]);
   const [hostKind, setHostKind] = useState<'cash' | 'tournament' | 'spin'>('cash');
-  const [hostSpinForm, setHostSpinForm] = useState({ name: '', stake: 5000 });
+  const [hostSpinForm, setHostSpinForm] = useState({ name: '', stake: 5000, start_at: '' });
+  const [hostBilling, setHostBilling] = useState<{ mode: BillingMode; tariffs: OrganizerTariffs } | null>(null);
+  const hostKeys = useRef(new Map<string, string>());
   const [hostManagement, setHostManagement] = useState<ManagementAccount | null>(null);
   const [hostAccessLoading, setHostAccessLoading] = useState(false);
   const [hostAccessError, setHostAccessError] = useState('');
@@ -223,7 +231,9 @@ export function Lobby() {
     if (!hostOpen) return;
     let cancelled = false;
     setHostAccessLoading(true); setHostManagement(null); setHostAccessError(''); setHostListError('');
-    setMyHosts([]); setMyTourneys([]);
+    setMyHosts([]); setMyTourneys([]); setHostBilling(null);
+    organizerBillingApi.config().then((result) => { if (!cancelled) setHostBilling(result); })
+      .catch(() => { if (!cancelled) { setHostBilling(null); setHostAccessError('Cannot load service prices. Retry before creating a resource.'); } });
     marketplaceApi.managementMine().then((result) => { if (!cancelled) setHostManagement(result); })
       .catch((error: unknown) => { if (!cancelled) setHostAccessError(error instanceof Error ? error.message : 'Cannot check management access.'); })
       .finally(() => { if (!cancelled) setHostAccessLoading(false); });
@@ -237,7 +247,14 @@ export function Lobby() {
   }, [hostOpen, user?.id, hostAccessRetry]);
   const hostProductId = hostKind === 'spin' ? 'spin-and-go-manager' : hostKind === 'tournament' ? 'tournaments-manager' : 'cash-games-manager';
   const hostAccess = hostManagement?.access.find((entry) => entry.product_id === hostProductId);
-  const hostCanManage = !hostAccessLoading && !hostAccessError && Boolean(hostAccess?.can_manage);
+  const hostCanManage = !hostAccessLoading && !hostAccessError && hostBilling !== null && Boolean(hostAccess?.can_manage);
+
+  const requestKey = (payload: object) => {
+    const identity = JSON.stringify(payload);
+    const existing = hostKeys.current.get(identity);
+    if (existing) return { identity, key: existing };
+    const key = crypto.randomUUID(); hostKeys.current.set(identity, key); return { identity, key };
+  };
 
   const copyHostLink = async (id: string) => {
     const link = `${location.origin}/#/table/${id}?observe=1`;
@@ -294,13 +311,17 @@ export function Lobby() {
 
   const createHost = async () => {
     if (hostBusy || !hostCanManage) return;
+    const payload = { ...hostForm, name: hostForm.name.trim() || `${user?.nick || 'My'} table` };
+    if (hostBilling?.mode === 'enforce' && !window.confirm(`Create “${payload.name}” paused and debit $${(hostBilling.tariffs.cash_setup / 100).toFixed(2)} setup credits? Start it later in Marketplace for $${(hostBilling.tariffs.cash_hour / 100).toFixed(2)} per active hour.`)) return;
+    const replay = requestKey(payload);
     setHostBusy(true);
     try {
-      const r = await api.hostTable({ ...hostForm, name: hostForm.name.trim() || `${user?.nick || 'My'} table` });
-      toast({ kind: 'success', title: 'Private table created', body: 'Share the table link or take a seat now.' });
+      const r = await api.hostTable({ ...payload, idempotencyKey: replay.key });
+      hostKeys.current.delete(replay.identity);
+      toast({ kind: 'success', title: 'Private table created', body: hostBilling?.mode === 'enforce' ? 'The table is paused. Start and manage billing in Marketplace.' : 'Share the table link or take a seat now.' });
       setHostOpen(false);
       await load();
-      navigate(`/table/${r.id}?buyin=${hostForm.min_buyin}`);
+      navigate(hostBilling?.mode === 'enforce' ? '/marketplace' : `/table/${r.id}?buyin=${hostForm.min_buyin}`);
     } catch (e: any) {
       toast({ kind: 'error', title: 'Could not host table', body: e.message });
     } finally { setHostBusy(false); }
@@ -308,9 +329,15 @@ export function Lobby() {
 
   const createHostTournament = async () => {
     if (hostBusy || !hostCanManage) return;
+    if (hostBilling?.mode === 'enforce' && hostTourneyForm.mode === 'SATELLITE') { toast({ kind: 'error', title: 'Cash Chip satellites are not available', body: 'A satellite must first be bound to a target tournament.' }); return; }
+    if (!Number.isFinite(Date.parse(hostTourneyForm.start_at))) { toast({ kind: 'error', title: 'Choose a valid tournament start time' }); return; }
+    const payload = { ...hostTourneyForm, start_at: new Date(hostTourneyForm.start_at).toISOString() };
+    if (hostBilling?.mode === 'enforce' && !window.confirm(`Create tournament “${payload.name || `${user?.nick || 'My'} tournament`}” and debit $${(hostBilling.tariffs.tournament_setup / 100).toFixed(2)} setup credits?`)) return;
+    const replay = requestKey(payload);
     setHostBusy(true);
     try {
-      const r = await api.hostTournament({ ...hostTourneyForm, start_at: new Date(hostTourneyForm.start_at).toISOString() });
+      const r = await api.hostTournament({ ...payload, idempotencyKey: replay.key });
+      hostKeys.current.delete(replay.identity);
       toast({ kind: 'success', title: 'Private tournament created', body: 'Copy the invite link or open the event.' });
       setHostOpen(false);
       navigate(`/tournaments?id=${r.id}`);
@@ -321,9 +348,14 @@ export function Lobby() {
 
   const createHostSpin = async () => {
     if (hostBusy || !hostCanManage) return;
+    if (hostSpinForm.start_at && !Number.isFinite(Date.parse(hostSpinForm.start_at))) { toast({ kind: 'error', title: 'Choose a valid Spin start time' }); return; }
+    const payload = { name: hostSpinForm.name.trim() || `${user?.nick || 'My'} Spin & Go`, game: 'spingold', seats: 3, sb: 10, bb: 20, min_buyin: hostSpinForm.stake, max_buyin: hostSpinForm.stake, ...(hostSpinForm.start_at ? { start_at: new Date(hostSpinForm.start_at).toISOString() } : {}) };
+    if (hostBilling?.mode === 'enforce' && !window.confirm(`Create Spin & Go “${payload.name}” and debit $${(hostBilling.tariffs.spin_setup / 100).toFixed(2)} setup credits${hostSpinForm.start_at ? ` for ${new Date(hostSpinForm.start_at).toLocaleString()}` : ''}?`)) return;
+    const replay = requestKey(payload);
     setHostBusy(true);
     try {
-      const result = await api.hostTable({ name: hostSpinForm.name.trim() || `${user?.nick || 'My'} Spin & Go`, game: 'spingold', seats: 3, sb: 10, bb: 20, min_buyin: hostSpinForm.stake, max_buyin: hostSpinForm.stake });
+      const result = await api.hostTable({ ...payload, idempotencyKey: replay.key });
+      hostKeys.current.delete(replay.identity);
       toast({ kind: 'success', title: 'Private Spin & Go created', body: 'Invite three players to start the play-money game.' });
       setHostOpen(false);
       await load();
@@ -493,14 +525,14 @@ export function Lobby() {
                       {t.pro && <span className="tag pro">PRO</span>}
                     </div>
                     <div className="c-stakes">{fmtStakes(t)}</div>
-                    <div className="c-buyin">{money(t.min_buyin, true)}</div>
+                    <div className="c-buyin">{t.chip_economy ? t.min_buyin.toLocaleString() : money(t.min_buyin, true)}</div>
                     <div className="player-bars">
                       {Array.from({ length: t.seats }).map((_, i) => (
                         <i key={i} className={i < t.players ? 'on' : ''} />
                       ))}
                     </div>
                     <div className={'wait-cell' + (waitCount(t) ? ' has-wait' : '')}>{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
-                    <div className={t.avgPot ? 'c-pot' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
+                    <div className={t.avgPot ? 'c-pot' : 'zero'}>{t.avgPot ? (t.chip_economy ? t.avgPot.toLocaleString() : money(t.avgPot, true)) : '-'}</div>
                     <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
                     <div className={t.handsPerHour ? '' : 'zero'}>{t.handsPerHour || '-'}</div>
                   </div>
@@ -627,25 +659,25 @@ export function Lobby() {
                 <input
                   type="range"
                   min={buyinTable.min_buyin}
-                  max={Math.min(buyinTable.max_buyin, Math.max(user?.balance ?? buyinTable.min_buyin, buyinTable.min_buyin))}
-                  step={buyinStep(buyinTable)}
+                  max={Math.min(buyinTable.max_buyin, Math.max(buyinTable.chip_economy ? (buyinTable.organizer_balance ?? buyinTable.max_buyin) : (user?.balance ?? buyinTable.min_buyin), buyinTable.min_buyin))}
+                  step={buyinTable.chip_economy ? 1 : buyinStep(buyinTable)}
                   value={buyin}
                   onChange={(e) => setBuyin(Number(e.target.value))}
                   style={{ width: '100%' }}
                 />
               </div>
               <div className="between buyin-amount" style={{ margin: '10px 0 4px' }}>
-                <span className="muted">Min {money(buyinTable.min_buyin)}</span>
+                <span className="muted">Min {tableAmount(buyinTable, buyinTable.min_buyin)}</span>
                 <span className="buyin-stepper">
-                  <button type="button" aria-label="Lower buy-in" onClick={() => setBuyin(stepBuyin(buyinTable, buyin, -1, user?.balance))}>−</button>
-                  <b style={{ color: '#ffd98a', fontSize: 18 }}>{money(buyin)}</b>
-                  <button type="button" aria-label="Raise buy-in" onClick={() => setBuyin(stepBuyin(buyinTable, buyin, 1, user?.balance))}>+</button>
+                  <button type="button" aria-label="Lower buy-in" onClick={() => setBuyin(buyinTable.chip_economy ? Math.max(buyinTable.min_buyin, buyin - 1) : stepBuyin(buyinTable, buyin, -1, user?.balance))}>−</button>
+                  <b style={{ color: '#ffd98a', fontSize: 18 }}>{tableAmount(buyinTable, buyin)}</b>
+                  <button type="button" aria-label="Raise buy-in" onClick={() => setBuyin(buyinTable.chip_economy ? Math.min(buyinTable.max_buyin, buyin + 1) : stepBuyin(buyinTable, buyin, 1, user?.balance))}>+</button>
                 </span>
-                <span className="muted">Max {money(buyinTable.max_buyin)}</span>
+                <span className="muted">Max {tableAmount(buyinTable, buyinTable.max_buyin)}</span>
               </div>
               <div className="row" style={{ marginTop: 10 }}>
                 {[0.25, 0.5, 0.75, 1].map((f) => (
-                  <button key={f} className="btn btn-ghost btn-sm" onClick={() => setBuyin(Math.round((buyinTable.min_buyin + (buyinTable.max_buyin - buyinTable.min_buyin) * f) / 100) * 100)}>
+                  <button key={f} className="btn btn-ghost btn-sm" onClick={() => { const amount = buyinTable.min_buyin + (buyinTable.max_buyin - buyinTable.min_buyin) * f; setBuyin(buyinTable.chip_economy ? Math.round(amount) : Math.round(amount / 100) * 100); }}>
                     {Math.round(f * 100)}%
                   </button>
                 ))}
@@ -659,7 +691,7 @@ export function Lobby() {
                 window.open(url, '_blank', 'width=1200,height=961');
                 setBuyinTable(null);
               }}>New window</button>
-              <button className="btn btn-red" onClick={confirmJoin}>Take a seat · {money(buyin)}</button>
+              <button className="btn btn-red" onClick={confirmJoin}>Take a seat · {tableAmount(buyinTable, buyin)}</button>
             </div>
           </div>
         </div>
@@ -676,6 +708,7 @@ export function Lobby() {
                 <button className={hostKind === 'spin' ? 'on' : ''} onClick={() => setHostKind('spin')}>Spin & Go</button>
               </div>
               <ManagementAccessNotice name={hostKind === 'cash' ? 'Cash Games Manager' : hostKind === 'spin' ? 'Spin & Go Manager' : 'Tournaments Manager'} access={hostAccess} mode={hostManagement?.mode} loading={hostAccessLoading} error={hostAccessError} onRetry={() => setHostAccessRetry((value) => value + 1)} onMarketplace={() => { setHostOpen(false); navigate('/marketplace'); }} />
+              {hostBilling?.mode === 'enforce' ? <p className="muted small">Service-credit setup fee: {hostKind === 'cash' ? `$${(hostBilling.tariffs.cash_setup / 100).toFixed(2)}; the table is created paused, then costs $${(hostBilling.tariffs.cash_hour / 100).toFixed(2)} per active hour, paid upfront.` : hostKind === 'tournament' ? `$${(hostBilling.tariffs.tournament_setup / 100).toFixed(2)}; later rescheduling costs $${(hostBilling.tariffs.reschedule / 100).toFixed(2)}.` : `$${(hostBilling.tariffs.spin_setup / 100).toFixed(2)}; later rescheduling costs $${(hostBilling.tariffs.reschedule / 100).toFixed(2)}.`} Manage the resource and balance in Marketplace.</p> : <p className="muted small">Service-credit billing is inactive on this installation; legacy hosting remains available.</p>}
               {hostListError && <p className="mg-error" role="alert">{hostListError} <button type="button" className="mg-link" onClick={() => setHostAccessRetry((value) => value + 1)}>Try again</button></p>}
               {hostKind === 'cash' && (<>
                 <p className="muted small" style={{ marginTop: 0 }}>Local play-money table. Only you and players with the table link can see it.</p>
@@ -725,15 +758,15 @@ export function Lobby() {
                 <input className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} tournament`} value={hostTourneyForm.name} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, name: e.target.value })} maxLength={60} />
                 <div className="grid g2" style={{ marginTop: 10 }}>
                   <div><label className="admin-label">Format</label><select className="admin-select" style={{ width: '100%' }} value={hostTourneyForm.format} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, format: e.target.value })}><option value="NLH">No-limit Hold'em</option><option value="PLO">Pot-limit Omaha</option><option value="Short Deck">Short Deck</option></select></div>
-                  <div><label className="admin-label">Mode</label><select className="admin-select" style={{ width: '100%' }} value={hostTourneyForm.mode} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, mode: e.target.value })}><option>STANDARD</option><option>BOUNTY</option><option>MYSTERY</option><option>SATELLITE</option><option>FLIP</option></select></div>
-                  <div><label className="admin-label">Buy-in (cents)</label><input className="admin-input" type="number" min={0} value={hostTourneyForm.buyin} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, buyin: Number(e.target.value) })} /></div>
-                  <div><label className="admin-label">Fee (cents)</label><input className="admin-input" type="number" min={0} value={hostTourneyForm.fee} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, fee: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Mode</label><select className="admin-select" style={{ width: '100%' }} value={hostTourneyForm.mode} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, mode: e.target.value })}><option>STANDARD</option><option>BOUNTY</option><option>MYSTERY</option>{hostBilling?.mode !== 'enforce' && <option>SATELLITE</option>}<option>FLIP</option></select></div>
+                  <div><label className="admin-label">Buy-in ({hostBilling?.mode === 'enforce' ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={0} step={1} value={hostTourneyForm.buyin} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, buyin: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Fee ({hostBilling?.mode === 'enforce' ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={0} step={1} value={hostTourneyForm.fee} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, fee: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Starting stack</label><input className="admin-input" type="number" min={100} value={hostTourneyForm.starting_stack} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, starting_stack: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Blind speed (min)</label><input className="admin-input" type="number" min={1} max={120} value={hostTourneyForm.blind_speed} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, blind_speed: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Late registration (min)</label><input className="admin-input" type="number" min={0} max={600} value={hostTourneyForm.late_reg} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, late_reg: Number(e.target.value) })} /></div>
-                  <div><label className="admin-label">Bounty (cents)</label><input className="admin-input" type="number" min={0} value={hostTourneyForm.bounty} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, bounty: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Bounty ({hostBilling?.mode === 'enforce' ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={0} step={1} value={hostTourneyForm.bounty} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, bounty: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Start</label><input className="admin-input" type="datetime-local" value={hostTourneyForm.start_at} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, start_at: e.target.value })} /></div>
-                  <div><label className="admin-label">Satellite ticket</label><input className="admin-input" value={hostTourneyForm.ticket} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, ticket: e.target.value })} placeholder="Target event" /></div>
+                  {hostBilling?.mode !== 'enforce' ? <div><label className="admin-label">Satellite ticket</label><input className="admin-input" value={hostTourneyForm.ticket} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, ticket: e.target.value })} placeholder="Target event" /></div> : <div className="muted small">Cash Chip satellites need a bound target event and are not available yet.</div>}
                 </div>
                 <p className="muted small">Freezeout starts when at least two players register at the start time.</p>
               </>)}
@@ -752,7 +785,9 @@ export function Lobby() {
                 <label className="admin-label" htmlFor="host-spin-name">Table name</label>
                 <input id="host-spin-name" className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} Spin & Go`} value={hostSpinForm.name} onChange={(event) => setHostSpinForm((current) => ({ ...current, name: event.target.value }))} maxLength={40} />
                 <label className="admin-label" htmlFor="host-spin-stake" style={{ marginTop: 12 }}>Buy-in in play chips</label>
-                <select id="host-spin-stake" className="admin-select" style={{ width: '100%' }} value={hostSpinForm.stake} onChange={(event) => setHostSpinForm((current) => ({ ...current, stake: Number(event.target.value) }))}><option value={5000}>5,000 play chips</option><option value={10000}>10,000 play chips</option></select>
+                <select id="host-spin-stake" className="admin-select" style={{ width: '100%' }} value={hostSpinForm.stake} onChange={(event) => setHostSpinForm((current) => ({ ...current, stake: Number(event.target.value) }))}><option value={5000}>5,000 {hostBilling?.mode === 'enforce' ? 'Cash Chips' : 'play chips'}</option><option value={10000}>10,000 {hostBilling?.mode === 'enforce' ? 'Cash Chips' : 'play chips'}</option></select>
+                {hostBilling?.mode === 'enforce' && <div className="muted small" style={{ marginTop: 8 }}>Starting the round temporarily reserves up to {(hostSpinForm.stake * 20000).toLocaleString()} Cash Chips for the maximum prize. Unused chips return after completion or cancellation while waiting.</div>}
+                {hostBilling?.mode === 'enforce' && <><label className="admin-label" htmlFor="host-spin-start" style={{ marginTop: 12 }}>Scheduled start (optional)</label><input id="host-spin-start" className="admin-input" style={{ width: '100%' }} type="datetime-local" value={hostSpinForm.start_at} onChange={(event) => setHostSpinForm((current) => ({ ...current, start_at: event.target.value }))} /></>}
                 <p className="muted small">Seat count, blind structure and prize rules come from the game engine. Buying the management plugin does not buy game chips or change these rules.</p>
               </>}
             </div>

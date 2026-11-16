@@ -67,6 +67,13 @@ import { createMarketplaceRoutes } from './marketplace.js';
 import { createMarketplaceCommerce } from './marketplace-commerce.js';
 import { createManagementPolicy, privateSpinConfig, tableManagementProduct } from './management-plugins.js';
 import { createManagementRoutes } from './management-routes.js';
+import { createOrganizerBilling } from './organizer-billing.js';
+import { createOrganizerBillingRoutes } from './organizer-billing-routes.js';
+import { createOrganizerChips } from './organizer-chips.js';
+import { createOrganizerChipEvents } from './organizer-chip-events.js';
+import { createOrganizerChipSpin } from './organizer-chip-spin.js';
+import { createOrganizerChipRoutes } from './organizer-chip-routes.js';
+import { chipEventRevision, canRestoreChipEvent, pauseChipEvent } from './organizer-chip-checkpoint.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
@@ -345,7 +352,7 @@ function lobbyTables(userId = null) {
       id: t.id, name: t.name, game: t.game, category: t.category,
       sb: t.sb, bb: t.bb, ante: t.ante, min_buyin: t.min_buyin, max_buyin: t.max_buyin,
       seats: t.seats, speed: t.speed, featured: !!t.featured,
-      private: !!t.private, owner_id: t.owner_id || null,
+      private: !!t.private, owner_id: t.owner_id || null, chip_economy: !!t.chip_economy,
       players, bots, seated,
       // Real queue length and the caller's 1-based position (0 = not queued), from waitlist.js.
       wait: waitlist.queueSize(waitState, waitlist.tableQueue(t.id)),
@@ -559,9 +566,83 @@ const handleAdminTransactionsRoute = createAdminTransactionsRoute({ db, json, re
 const handleAdminUsersListRoute = createAdminUsersListRoute({ db, json, requireAdmin, publicUser });
 const handleMarketplaceRoute = createMarketplaceRoutes({ db, json, requireUser, requireAdmin, readBody });
 const marketplaceCommerce = createMarketplaceCommerce({ db });
-const managementPolicy = createManagementPolicy({ db, commerce: marketplaceCommerce });
-const handleManagementRoute = createManagementRoutes({ db, commerce: marketplaceCommerce, policy: managementPolicy, json, requireUser, requireAdmin, readBody });
-const requireManagement = (actor, productId, action, res) => managementPolicy.requireAccess(actor, productId, action, res, json);
+const organizerChipMode = process.env.GGPOKER_ORGANIZER_CHIPS || 'off';
+if (!['off', 'enforce'].includes(organizerChipMode)) throw new Error('GGPOKER_ORGANIZER_CHIPS must be off or enforce');
+const chipEconomyEnabled = organizerChipMode === 'enforce';
+if (chipEconomyEnabled && process.env.GGPOKER_USAGE_BILLING !== 'enforce') throw new Error('Organizer chips require service billing enforce mode');
+for (const tableName of ['tables', 'tournaments']) {
+  if (!db.prepare(`PRAGMA table_info(${tableName})`).all().some((column) => column.name === 'chip_economy')) db.exec(`ALTER TABLE ${tableName} ADD COLUMN chip_economy INTEGER NOT NULL DEFAULT 0`);
+}
+const organizerChips = createOrganizerChips({ db });
+const organizerBilling = createOrganizerBilling({ db, mode: process.env.GGPOKER_USAGE_BILLING || 'off',
+  onOrganizerMembership: chipEconomyEnabled ? (grant) => organizerChips.grantMembership(grant) : null });
+const usageBilling = organizerBilling.mode === 'enforce';
+organizerChips.releaseDueGrants();
+const organizerChipEvents = createOrganizerChipEvents({ db, chips: organizerChips });
+const organizerChipSpin = createOrganizerChipSpin({ db, chips: organizerChips });
+organizerChipSpin.recoverRounds();
+organizerChips.recoverSessions();
+const usesOrganizerChips = (table) => !!table.cfg.chip_economy;
+const chipWalletBalance = (table, userId) => organizerChips.balance(table.cfg.owner_id, userId);
+// Existing product-wide purchases need an explicit migration before changing their promise.
+if (usageBilling && db.prepare("SELECT 1 FROM marketplace_paid_access WHERE product_id IN ('cash-games-manager','tournaments-manager','spin-and-go-manager') AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").get(new Date().toISOString())) {
+  throw new Error('Reconcile existing paid product access before enabling service-credit billing.');
+}
+const legacyManagementPolicy = createManagementPolicy({ db, commerce: marketplaceCommerce });
+const managementPolicy = usageBilling ? {
+  ...legacyManagementPolicy, mode: 'enforce',
+  check: (actor, productId) => managementPolicy.account(actor.id).access.find((entry) => entry.product_id === productId) || { can_manage: false },
+  error: () => ({ error: 'An active organizer membership is required.', code: 'membership_required', marketplace_url: '/marketplace' }),
+  catalog: () => ({ ...legacyManagementPolicy.catalog(), mode: 'enforce', billing_model: 'service_credits' }),
+  account: (id) => {
+    const account = legacyManagementPolicy.account(id);
+    const member = organizerBilling.account(id).memberships.organizer;
+    return { ...account, mode: 'enforce', billing_model: 'service_credits', access: account.access.map((entry) => ({
+      ...entry, active: member.active && entry.reason !== 'not_implemented', can_manage: member.active && entry.reason !== 'not_implemented',
+      expires_at: member.expires_at, reason: entry.reason === 'not_implemented' ? entry.reason : member.active ? 'organizer_membership' : 'membership_required',
+    })) };
+  },
+} : legacyManagementPolicy;
+const handleManagementRoute = createManagementRoutes({ db, commerce: marketplaceCommerce, policy: managementPolicy, billing: organizerBilling, json, requireUser, requireAdmin, readBody });
+const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES });
+const handleOrganizerChipRoute = createOrganizerChipRoutes({ db, chips: organizerChips, events: organizerChipEvents,
+  spin: organizerChipSpin, billing: organizerBilling, json, requireUser, requireAdmin, readBody, mode: organizerChipMode,
+  onEventResolved: (id) => {
+    for (const flight of TOURNAMENT_ROOMS.get(id)?.flights || []) {
+      const entry = LIVE_TABLES.get(flight.id);
+      if (!entry) continue;
+      for (const client of entry.clients) {
+        if (client.readyState === 1) client.send(JSON.stringify({ type: 'error', error: 'This tournament has been settled. Return to the tournament lobby.' }));
+        client.tables.delete(flight.id);
+      }
+    }
+    disposeTournamentRoom(id, { force: true });
+  },
+  prepareSpin: (id, cancel = false) => {
+    const table = LIVE_TABLES.get(id)?.table;
+    if (table?.financialError || table?.spinStarted() && !table.spinWinner) throw Object.assign(new Error('This round is already running or needs reconciliation.'), { status: 409 });
+    if (cancel && table?.humans().length) throw Object.assign(new Error('Players must leave before cancelling the reserve.'), { status: 409 });
+    table?.resetSpinIfIdle();
+  } });
+const requireManagement = (actor, productId, action, res) => {
+  if (usageBilling) {
+    if (action.startsWith('admin_') && actor.is_admin) return true;
+    organizerBilling.requireMembership(actor.id, 'organizer'); return true;
+  }
+  return managementPolicy.requireAccess(actor, productId, action, res, json);
+};
+setInterval(() => { if (usageBilling) { try { organizerChips.releaseDueGrants(); organizerBilling.tickCash(); } catch (error) { console.error('organizer billing renewal failed', error); } } }, 1000).unref();
+function serviceCanDeal(table, markStarted = false) {
+  if (table.financialError || (usesOrganizerChips(table) && !chipEconomyEnabled)) return false;
+  if (usesOrganizerChips(table) && table.tournament && db.prepare('SELECT status FROM tournaments WHERE id=?').get(table.cfg.tournamentId)?.status !== 'running') return false;
+  if (!usageBilling || !table.cfg.private || !table.cfg.owner_id || table.tournament) return true;
+  if (table.cfg.game !== 'spingold') return organizerBilling.canDeal(table.cfg.id);
+  const schedule = db.prepare('SELECT * FROM organizer_spin_schedule WHERE table_id=?').get(table.cfg.id);
+  if (!schedule) return true; // Legacy Spin tables retain their existing lifecycle.
+  if (Date.parse(schedule.start_at) > Date.now()) return false;
+  if (markStarted && !schedule.started_at) db.prepare('UPDATE organizer_spin_schedule SET started_at=? WHERE table_id=?').run(new Date().toISOString(), table.cfg.id);
+  return true;
+}
 // Snapshots go to the OS temp dir (override with GGPOKER_BACKUP_TMP); never inside DATA_DIR.
 const handleAdminBackupRoute = createAdminBackupRoute({
   db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
@@ -576,7 +657,10 @@ const handleAdminSnapshotRoutes = createAdminSnapshotRoutes({
   db, json, requireAdmin, readBody, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined, getSetting,
 });
 const handleAdminTableDuplicateRoute = createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody,
-  authorizeCopy: (actor, source, res) => requireManagement(actor, tableManagementProduct(source.game), 'admin_table_duplicate', res) });
+  authorizeCopy: (actor, source, res) => {
+    if ((usageBilling && source.private) || source.chip_economy) { json(res, 409, { error: 'Create a new billed private table through its organizer account.' }); return false; }
+    return requireManagement(actor, tableManagementProduct(source.game), 'admin_table_duplicate', res);
+  } });
 
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
@@ -669,6 +753,13 @@ function getLiveTable(id) {
     rakeCap: getSetting('rake_cap', 300),
   };
   const table = new PokerTable(cfg, {
+    canStartHand: (table) => serviceCanDeal(table, true),
+    beforeSettlement: (table, summary) => {
+      if (!usesOrganizerChips(table) || table.tournament || table.spin) return;
+      organizerChips.settleHand({ organizerId: table.cfg.owner_id, tableId: table.cfg.id, handId: table.handId,
+        players: table.humans().map((player) => ({ userId: player.id, sessionId: player.sessionId, amount: player.stack + (player.pendingTopUp || 0) })),
+        rake: summary.rake || 0 });
+    },
     onEvent: (t, evt) => {
       broadcastTable(t, evt);
       // C4 dealer log (DanGG extra): one line per hand start.
@@ -731,13 +822,22 @@ function getLiveTable(id) {
       }
     },
     onTournamentPayout: (table, p) => {
+      if (usesOrganizerChips(table)) return organizerChipEvents.award({ organizerId: table.cfg.owner_id, tournamentId: table.cfg.tournamentId, userId: p.id, amount: p.payout, payoutId: `place:${p.place}` });
       try {
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(p.id);
         if (u) addTransaction(u.id, 'tourney_payout', p.payout, `${table.cfg.name} — finished ${ordinal(p.place)}`);
         table.emit({ type: 'tourney_payout', ...p });
       } catch (e) { console.error('tourney payout', e); }
     },
+    beforeSpinDraw: (table, outcome) => {
+      if (!usesOrganizerChips(table)) return;
+      const round = organizerChipSpin.currentRound(table.cfg.id);
+      if (!round) throw new Error('Organizer must reserve the Spin prize pool first.');
+      organizerChipSpin.commitRound({ roundId: round.id, outcome,
+        players: table.humans().map((p) => ({ userId: p.id, sessionId: p.sessionId, amount: table.cfg.min_buyin })) });
+    },
     onSpinPayout: (table, p) => {
+      if (usesOrganizerChips(table)) return organizerChipSpin.payPlace({ tableId: table.cfg.id, userId: p.id, sessionId: p.sessionId, place: p.place, amount: p.payout });
       try {
         const res = settleSpinPayout(table, p);
         if (res.reason === 'no session') console.error('spin payout without session', table.cfg.id, p.id);
@@ -751,14 +851,15 @@ function getLiveTable(id) {
         if (table.tournament?.managed) {
           TOURNAMENT_ROOMS.get(table.cfg.tournamentId)?.onBust(table.cfg.id, p);
         }
-      } catch (e) { console.error('tourney bust', e); }
+      } catch (e) { if (usesOrganizerChips(table)) { table.financialError = 'Tournament payout reconciliation required'; pauseChipEvent(db, table.cfg.tournamentId, LIVE_TABLES); throw e; } console.error('tourney bust', e); }
     },
     onFlightSettled: (table, winner) => {
       try {
         TOURNAMENT_ROOMS.get(table.cfg.tournamentId)?.onFlightSettled(table.cfg.id, winner);
-      } catch (e) { console.error('tourney flight settled', e); }
+      } catch (e) { if (usesOrganizerChips(table)) { table.financialError = 'Tournament reconciliation required'; pauseChipEvent(db, table.cfg.tournamentId, LIVE_TABLES); throw e; } console.error('tourney flight settled', e); }
     },
     onTournamentEnd: (table, winner) => {
+      if (usesOrganizerChips(table)) throw new Error('Organizer events require the managed tournament room.');
       try {
         const tid = table.cfg.tournamentId;
         if (tid) {
@@ -775,10 +876,12 @@ function getLiveTable(id) {
       } catch (e) { console.error('tournament end', e); }
     },
     onMint: (table, kind, amount) => {
+      if (usesOrganizerChips(table)) return;
       const key = kind === 'bot' ? 'mint_bot_total' : 'mint_spin_total';
       setSetting(key, (Number(getSetting(key, 0)) || 0) + Number(amount || 0));
     },
     onBounty: (table, info) => {
+      if (usesOrganizerChips(table)) return organizerChipEvents.awardBounty({ organizerId: table.cfg.owner_id, tournamentId: table.cfg.tournamentId, userId: info.winnerId, bustedUserId: info.bustedId, amount: info.amount });
       const winner = db.prepare('SELECT * FROM users WHERE id = ?').get(info.winnerId);
       if (winner) {
         addTransaction(winner.id, info.mystery ? 'mystery_bounty' : 'bounty', info.amount,
@@ -790,7 +893,7 @@ function getLiveTable(id) {
     },
     beforeDeal: (table) => settleChipMoves(table),
     onSeatBusted: (table, player) => {
-      if (!table.spin) return;
+      if (!table.spin || usesOrganizerChips(table)) return;
       const seat = table.seatOf(player.id);
       const sessionId = seat?.player?.sessionId;
       // Normally a no-op: the place payout (onSpinPayout) already closed this session.
@@ -809,6 +912,10 @@ function getLiveTable(id) {
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bad_beat_jackpot', `${table.cfg.name} ${badBeat.total} ${who}`);
     },
     onHandComplete: ({ table, winner, summary }) => {
+      if (usesOrganizerChips(table)) {
+        if (table.cfg.tournamentId) scheduleTournamentRoomSave(TOURNAMENT_ROOMS.get(table.cfg.tournamentId));
+        return;
+      }
       if (table.badBeatEligible()) {
         const add = jackpotAccrual(summary?.rake);
         if (add > 0) setSetting('jackpot', (Number(getSetting('jackpot', JACKPOT_SEED)) || 0) + add);
@@ -855,7 +962,7 @@ function getLiveTable(id) {
       } else {
         entry.emptySince = null;
       }
-    } catch (e) { console.error('tick', e); }
+    } catch (e) { if (usesOrganizerChips(table)) { table.financialError = 'Chip reconciliation required'; if (table.tournament) pauseChipEvent(db, table.cfg.tournamentId, LIVE_TABLES); } console.error('tick', e); }
   }, 260);
   LIVE_TABLES.set(id, entry);
   // Re-apply any seat holds an earlier instance of this table left on the wait list.
@@ -910,27 +1017,34 @@ function broadcastState(table) {
   for (const client of entry.clients) {
     if (client.readyState !== 1) continue;
     try {
-      client.send(JSON.stringify({ type: 'state', state: table.snapshotFor(client.userId) }));
+      if (table.financialError) { client.send(JSON.stringify({ type: 'error', error: 'This table is paused for chip reconciliation.' })); continue; }
+      const state = table.snapshotFor(client.userId);
+      if (usesOrganizerChips(table)) state.organizerBalance = chipWalletBalance(table, client.userId);
+      client.send(JSON.stringify({ type: 'state', state }));
     } catch { /* noop */ }
   }
 }
 
 function seatHuman(table, user, buyin, seatIndex = null, waitForBlinds = false) {
+  if (usesOrganizerChips(table) && !chipEconomyEnabled) return { ok: false, error: 'Organizer Cash Chips are currently disabled.' };
   const existing = table.seatOf(user.id);
   if (existing) return { ok: true, seat: existing.index };
+  if (usageBilling && table.cfg.private && table.cfg.owner_id && !serviceCanDeal(table)) return { ok: false, error: 'The organizer must start or fund this table before joining.' };
   if (table.spin) {
+    if (usesOrganizerChips(table) && organizerChipSpin.currentRound(table.cfg.id)?.state !== 'waiting') return { ok: false, error: 'The organizer must reserve a new Spin prize pool first.' };
     table.resetSpinIfIdle();
     if (!table.spinStakeValid()) return { ok: false, error: 'This Jackpot SNG stake is not available' };
     if (table.spinStarted()) return { ok: false, error: 'This Jackpot SNG has already started' };
   }
   const stack = toInt(buyin) ?? table.cfg.min_buyin;
   if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
-  if (user.balance < stack) return { ok: false, error: 'not enough balance' };
+  if ((usesOrganizerChips(table) ? chipWalletBalance(table, user.id) : user.balance) < stack) return { ok: false, error: usesOrganizerChips(table) ? 'Not enough chips for this organizer' : 'not enough balance' };
   const wantedSeat = toInt(seatIndex, { min: 0, max: table.cfg.seats - 1 });
   if (wantedSeat != null && table.isHeldFor(wantedSeat, user.id)) return { ok: false, error: 'seat held' };
   if (!makeRoomForHuman(table, wantedSeat, user.id)) return { ok: false, error: 'table full' };
   const sessionId = `${table.cfg.id}:${randomUUID()}`;
-  addTransactionEx(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`, 'USD', {
+  if (usesOrganizerChips(table)) organizerChips.openSeat({ organizerId: table.cfg.owner_id, userId: user.id, tableId: table.cfg.id, sessionId, amount: stack });
+  else addTransactionEx(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`, 'USD', {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
   });
   const res = table.sit({
@@ -938,7 +1052,8 @@ function seatHuman(table, user, buyin, seatIndex = null, waitForBlinds = false) 
     waitForBlinds: waitForBlinds === true,
   }, wantedSeat, stack, sessionId);
   if (!res.ok) {
-    addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
+    if (usesOrganizerChips(table)) organizerChips.closeSeat({ organizerId: table.cfg.owner_id, userId: user.id, tableId: table.cfg.id, sessionId });
+    else addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
       sessionId, reference: `refund:${sessionId}`, onDuplicate: 'skip',
     });
     return res;
@@ -978,6 +1093,7 @@ function evictTournamentBot(table) {
 
 /** Wallet writer for one seat's chip moves (Add / Remove Chips): idempotent by reference. */
 function seatLedger(table, player) {
+  if (usesOrganizerChips(table)) return ({ kind, amount, reference }) => organizerChips.seatMove({ organizerId: table.cfg.owner_id, userId: player.id, tableId: table.cfg.id, sessionId: player.sessionId, kind, amount, reference });
   return ({ kind, amount, memo, reference }) => addTransactionEx(player.id, kind, amount, `${memo} ${table.cfg.name}`, 'USD', {
     sessionId: player.sessionId, reference, onDuplicate: 'skip',
   });
@@ -993,7 +1109,7 @@ function settleChipMoves(table) {
         player, bb: table.bb, minBuyin: table.cfg.min_buyin, maxBuyin: table.cfg.max_buyin, handNo: table.handNo,
         ledger: seatLedger(table, player),
       });
-    } catch (e) { console.error('chip moves before deal', table.cfg.id, player.id, e); }
+    } catch (e) { if (usesOrganizerChips(table)) throw e; console.error('chip moves before deal', table.cfg.id, player.id, e); }
   }
 }
 
@@ -1001,6 +1117,13 @@ function settleChipMoves(table) {
 function cashOutSeat(table, userId, reason, opts = {}) {
   const seat = table.seatOf(userId);
   if (!seat || !seat.player) return;
+  if (usesOrganizerChips(table) && table.financialError) return;
+  // A paid cash session stays in its last settled checkpoint until this hand finishes.
+  if (usesOrganizerChips(table) && !table.tournament && !table.spin && table.handInProgress() && seat.player.inHand) {
+    seat.player.leaveAfterHand = true;
+    seat.player.sittingOut = true;
+    return;
+  }
   const sessionId = seat.player.sessionId;
   saveTimeBank(db, table, seat.player);
   // Chips paid for the next deal never reached the table: they go back before the cash-out.
@@ -1009,7 +1132,7 @@ function cashOutSeat(table, userId, reason, opts = {}) {
     // Spin chips are not cash: leaving takes the lowest open place (paid by onSpinPayout),
     // and this close is skipped when that payout already closed the session.
     table.leaveSpin(userId);
-    closeSpinSession(userId, sessionId, reason);
+    if (!usesOrganizerChips(table)) closeSpinSession(userId, sessionId, reason);
     return;
   }
   // stand() folds a live hand first, so the returned stack is what the player really keeps.
@@ -1020,6 +1143,7 @@ function cashOutSeat(table, userId, reason, opts = {}) {
     return;
   }
   const sid = sessionId || `${table.cfg.id}:${randomUUID()}`;
+  if (usesOrganizerChips(table)) { organizerChips.closeSeat({ organizerId: table.cfg.owner_id, userId, tableId: table.cfg.id, sessionId: sid }); return; }
   addTransactionEx(userId, stack > 0 ? 'cashout' : 'session_close', stack, reason, 'USD', {
     sessionId: sid, reference: `out:${sid}`, onDuplicate: 'skip',
   });
@@ -1040,7 +1164,7 @@ function queueTopUp(ws, table, player, rawAmount, idempotencyKey) {
   if (!player.sessionId) player.sessionId = `${table.cfg.id}:${randomUUID()}`;
   const res = setPendingTopUp({
     player, total: (player.pendingTopUp || 0) + amount, minBuyin: table.cfg.min_buyin, maxBuyin: table.cfg.max_buyin,
-    balance: u.balance, ledger: seatLedger(table, player),
+    balance: usesOrganizerChips(table) ? chipWalletBalance(table, player.id) : u.balance, ledger: seatLedger(table, player),
     // Same keyed reference as a between-hands rebuy: one Add Chips submission is paid once.
     chargeReference: keyedRebuyReference(player.sessionId, idempotencyKey),
   });
@@ -1137,11 +1261,17 @@ function clearTable(id) {
 /** The tournament lobby lists at most this many players (the field can be thousands). */
 const LOBBY_PLAYER_LIMIT = 500;
 
+function tournamentPrizePool(t) {
+  if (!t.chip_economy) return prizePoolOf(t);
+  return db.prepare('SELECT prize_pool FROM organizer_chip_event_states WHERE tournament_id=?').get(t.id)?.prize_pool
+    ?? db.prepare("SELECT COALESCE(SUM(buyin),0) n FROM organizer_chip_tickets WHERE tournament_id=? AND state='redeemed'").get(t.id).n;
+}
+
 /** The shared descriptor every flight of one tournament hands to its table. */
 function tournamentDescriptor(t) {
   const bb = Math.max(20, Math.round(Number(t.starting_stack || 10000) / 100));
   return {
-    prizePool: prizePoolOf(t),
+    prizePool: tournamentPrizePool(t),
     entrants: Number(t.entrants) || 0,
     level: 1,
     blindEvery: Math.max(5, Number(t.blind_speed) || 10),
@@ -1172,6 +1302,7 @@ function tournamentTableConfig(t, tournament, index, seats) {
     seats,
     speed: 'Normal',
     tournamentId: t.id,
+    chip_economy: t.chip_economy || 0, owner_id: t.owner_id || null, private: t.private || 0,
     flightIndex: index,
     flightCount: 1,
     tournament,
@@ -1226,28 +1357,38 @@ function makeTournamentRoom(t) {
         }
       },
       persistBust: ({ tableId, playerId, nick, place, payout }) => {
+        if (t.chip_economy && payout > 0) organizerChipEvents.award({ organizerId: t.owner_id, tournamentId: t.id, userId: playerId, amount: payout, payoutId: `place:${place}` });
         const table = LIVE_TABLES.get(tableId)?.table;
         if (table) table.finished.push({ id: playerId, nick, place, payout });
         scheduleTournamentRoomSave(TOURNAMENT_ROOMS.get(t.id));
         if (payout <= 0) return;
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(playerId);
-        if (u) addTransaction(u.id, 'tourney_payout', payout, `${t.name} — finished ${ordinal(place)}`);
+        if (u && !t.chip_economy) addTransaction(u.id, 'tourney_payout', payout, `${t.name} — finished ${ordinal(place)}`);
         if (table) table.emit({ type: 'tourney_payout', id: playerId, nick, place, payout });
       },
       persistWinner: ({ playerId, nick, prize, tableId }) => {
+        if (t.chip_economy) {
+          db.exec('BEGIN IMMEDIATE');
+          try {
+            if (prize > 0) organizerChipEvents.award({ organizerId: t.owner_id, tournamentId: t.id, userId: playerId, amount: prize, payoutId: 'place:1' });
+            organizerChipEvents.burnRemainder({ organizerId: t.owner_id, tournamentId: t.id });
+            db.prepare("UPDATE tournaments SET status='completed' WHERE id=?").run(t.id);
+            db.exec('COMMIT');
+          } catch (error) { db.exec('ROLLBACK'); pauseChipEvent(db, t.id, LIVE_TABLES); throw error; }
+        }
         const table = LIVE_TABLES.get(tableId)?.table;
         if (table) {
           const seat = table.seatOf(playerId);
-          if (seat?.player) seat.player.stack += prize;
+          if (seat?.player && !t.chip_economy) seat.player.stack += prize;
           table.tournament.winner = { nick, id: playerId, prize };
           table.street = 'ended';
           table.nextHandAt = 0;
           table.emit({ type: 'tourney_win', nick, id: playerId, prize, tableName: table.cfg.name });
         }
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(playerId);
-        if (u && table?.tournament?.mode === 'SATELLITE') {
+        if (u && !t.chip_economy && table?.tournament?.mode === 'SATELLITE') {
           addTransaction(u.id, 'satellite_win', 1, `Satellite ticket: ${table.tournament.ticket || t.name}`, 'TICKET');
-        } else if (u && prize > 0) {
+        } else if (u && !t.chip_economy && prize > 0) {
           addTransaction(u.id, 'tourney_win', prize, `Tournament win: ${t.name}`);
         }
         db.prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?").run(t.id);
@@ -1265,11 +1406,28 @@ const ROOM_OWNER = new TournamentRoomOwner({
   rooms: TOURNAMENT_ROOMS,
   makeRoom: makeTournamentRoom,
   loadSnapshot: (id) => loadRoomSnapshot(db, id),
-  saveSnapshot: (room) => saveRoomSnapshot(room, { liveTables: LIVE_TABLES, db }),
+  saveSnapshot: (room) => {
+    if (db.prepare("SELECT 1 FROM tournaments WHERE id=? AND chip_economy=1 AND status='paused'").get(room.id)) return { ok: false, reason: 'financial reconciliation required' };
+    const ownTransaction = !db.isTransaction;
+    if (ownTransaction) db.exec('BEGIN IMMEDIATE');
+    try {
+    const result = saveRoomSnapshot(room, { liveTables: LIVE_TABLES, db });
+    if (result.ok && db.prepare('SELECT chip_economy FROM tournaments WHERE id=?').get(room.id)?.chip_economy) {
+      const state = loadRoomSnapshot(db, room.id);
+      state.chipRevision = chipEventRevision(db, room.id);
+      db.prepare('UPDATE tourney_state SET state=? WHERE tournament_id=?').run(JSON.stringify(state), room.id);
+    }
+    if (ownTransaction) db.exec('COMMIT');
+    return result;
+    } catch (error) { if (ownTransaction) db.exec('ROLLBACK'); throw error; }
+  },
   deleteSnapshot: (id) => deleteRoomSnapshot(db, id),
 });
 
-function ensureTournamentRoom(t) { return ROOM_OWNER.ensure(t); }
+function ensureTournamentRoom(t) {
+  if (t.chip_economy && t.status === 'paused') throw Object.assign(new Error('This tournament is paused for chip reconciliation.'), { status: 409 });
+  return ROOM_OWNER.ensure(t);
+}
 function disposeTournamentRoom(tournamentId, options = {}) { return ROOM_OWNER.dispose(tournamentId, options); }
 
 /**
@@ -1279,8 +1437,20 @@ function disposeTournamentRoom(tournamentId, options = {}) { return ROOM_OWNER.d
  * race to start the event.
  */
 function startTournament(t) {
-  const flipped = db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(t.id);
+  if (t.chip_economy && (!chipEconomyEnabled || Date.parse(t.start_at) > Date.now())) return false;
+  let flipped;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const current = db.prepare('SELECT * FROM tournaments WHERE id=?').get(t.id);
+    if (current?.status !== 'registering') { db.exec('ROLLBACK'); return false; }
+    if (t.chip_economy) organizerChipEvents.startEvent({ organizerId: t.owner_id, tournamentId: t.id });
+    flipped = db.prepare("UPDATE tournaments SET status = 'running' WHERE id = ? AND status = 'registering'").run(t.id);
+    db.exec('COMMIT');
+  } catch (error) { db.exec('ROLLBACK'); throw error; }
   if (!flipped.changes) return false;
+  // /play may have cached a registering room with an older prize pool.
+  const cached = TOURNAMENT_ROOMS.get(t.id);
+  if (cached && t.chip_economy) cached.tournament.prizePool = tournamentPrizePool(t);
   const room = ensureTournamentRoom(t);
   room.syncLevel();
   const registrants = db.prepare(`SELECT u.id, u.nick, u.avatar FROM tourney_regs r JOIN users u ON u.id = r.user_id
@@ -1336,6 +1506,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
+    if (await handleOrganizerChipRoute(req, res, url)) return;
+    if (await handleOrganizerBillingRoute(req, res, url)) return;
     if (await handleManagementRoute(req, res, url)) return;
     if (await handleMarketplaceRoute(req, res, url)) return;
     if (p === '/healthz') {
@@ -1506,7 +1678,7 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/tables/host' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
-      const rows = db.prepare('SELECT id,name,game,sb,bb,min_buyin,max_buyin,seats,bomb_pot FROM tables WHERE owner_id = ? AND private = 1 AND enabled = 1 ORDER BY rowid DESC').all(u.id);
+      const rows = db.prepare('SELECT id,name,game,sb,bb,min_buyin,max_buyin,seats,bomb_pot,chip_economy,owner_id FROM tables WHERE owner_id = ? AND private = 1 AND enabled = 1 ORDER BY rowid DESC').all(u.id);
       return json(res, 200, { tables: rows });
     }
 
@@ -1516,8 +1688,12 @@ const server = http.createServer(async (req, res) => {
       const t = db.prepare('SELECT * FROM tables WHERE id = ? AND owner_id = ? AND private = 1').get(id, u.id);
       if (!t) return json(res, 404, { error: 'not found' });
       const live = LIVE_TABLES.get(id);
+      if (t.chip_economy && organizerChipSpin.currentRound(id)?.state === 'committed') return json(res, 409, { error: 'Finish the funded round first.' });
       if (live && live.table.occupiedSeats().length) return json(res, 409, { error: 'Table has players — ask them to leave first' });
       if (live) { clearInterval(live.timer); LIVE_TABLES.delete(id); CUSTOM_CFG.delete(id); }
+      if (t.chip_economy) organizerChipSpin.abortRound(id);
+      organizerBilling.stopCash({ userId: u.id, tableId: id });
+      db.prepare('DELETE FROM organizer_spin_schedule WHERE table_id=?').run(id);
       db.prepare('DELETE FROM tables WHERE id = ?').run(id);
       db.prepare('DELETE FROM table_mutes WHERE table_id = ?').run(id);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'delete_host_table', id);
@@ -1553,6 +1729,8 @@ const server = http.createServer(async (req, res) => {
       // Preserve the host API's Hold'em fallback and authorize the actual format.
       const game = ['holdem', 'omaha', 'omaha5', 'omaha6', 'shortdeck', 'spingold'].includes(b.game) ? b.game : 'holdem';
       if (!requireManagement(u, tableManagementProduct(game), 'host_table_create', res)) return;
+      const setupPayload = JSON.stringify(b);
+      if (usageBilling) { const previous = organizerBilling.replay(u.id, b.idempotencyKey, setupPayload); if (previous) return json(res, 200, { ok: true, ...previous }); }
       const count = db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id = ? AND private = 1').get(u.id).n;
       if (count >= 8) return json(res, 400, { error: 'You already have 8 private tables' });
       if (game === 'spingold') {
@@ -1560,30 +1738,42 @@ const server = http.createServer(async (req, res) => {
         try { spin = privateSpinConfig(b); } catch (error) { return json(res, 400, { error: error.message }); }
         const id = `home-spin-${u.id}-${randomUUID().slice(0, 8)}`;
         const name = String(b.name || `${u.nick}'s Jackpot SNG`).trim().slice(0, 40) || 'Private Jackpot SNG';
+        const launch = b.start_at ? Date.parse(b.start_at) : Date.now();
+        if (!Number.isFinite(launch) || (b.start_at && launch <= Date.now())) return json(res, 400, { error: 'Choose a future Spin launch time.' });
+        const created = organizerBilling.setup({ userId: u.id, kind: 'spin', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
+        if (db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tables'), { status: 400 });
         db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
           VALUES (?,?,?,'Private',?,?,0,?,?,?, ?,0,1,0,?,1,0)`)
           .run(id, name, spin.game, spin.sb, spin.bb, spin.min_buyin, spin.max_buyin, spin.seats, spin.speed, u.id);
+        if (usageBilling) db.prepare('INSERT INTO organizer_spin_schedule(table_id,start_at) VALUES (?,?)').run(id, new Date(launch).toISOString());
+        if (chipEconomyEnabled) db.prepare('UPDATE tables SET chip_economy=1 WHERE id=?').run(id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_spin_table', id);
-        return json(res, 200, { ok: true, id });
+        return { id }; } });
+        return json(res, 200, { ok: true, ...created });
       }
       const sb = Math.max(1, Math.round(Number(b.sb) || 100));
       const bb = Math.max(sb, Math.round(Number(b.bb) || sb * 2));
       const minBuyin = Math.max(bb, Math.round(Number(b.min_buyin) || bb * 20));
       const maxBuyin = Math.max(minBuyin, Math.round(Number(b.max_buyin) || minBuyin));
+      if (chipEconomyEnabled && ![sb, bb, minBuyin, maxBuyin].every((n) => Number.isSafeInteger(n) && n > 0 && n <= 9_000_000_000)) return json(res, 400, { error: 'Use bounded whole Cash Chips for stakes and buy-ins.' });
       const seats = Math.max(2, Math.min(9, Math.round(Number(b.seats) || 6)));
       const name = String(b.name || `${u.nick}'s table`).trim().slice(0, 40) || `${u.nick}'s table`;
-      const id = `home-${u.id}-${Date.now().toString(36)}`;
+      const id = `home-${u.id}-${randomUUID().slice(0, 8)}`;
+      const created = organizerBilling.setup({ userId: u.id, kind: 'cash', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
+        if (db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tables'), { status: 400 });
       db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
         VALUES (?,?,?,?,?,?,0,?,?,?, 'Normal',0,1,0,?,1,?)`)
         .run(id, name, game, 'Private', sb, bb, minBuyin, maxBuyin, seats, u.id, b.bombPot ? 1 : 0);
-      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_table', id);
-      return json(res, 200, { ok: true, id });
+      if (chipEconomyEnabled) db.prepare('UPDATE tables SET chip_economy=1 WHERE id=?').run(id);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_table', id);
+      return { id }; } });
+      return json(res, 200, { ok: true, ...created });
     }
 
     // ---------- tournaments ----------
     if (p === '/api/tournaments') {
       const u = userByToken(tokenFrom(req));
-      const rows = db.prepare('SELECT * FROM tournaments WHERE enabled = 1 AND (COALESCE(private,0) = 0 OR owner_id = ?) ORDER BY start_at').all(u?.id || null);
+      const rows = db.prepare("SELECT * FROM tournaments WHERE enabled=1 AND (COALESCE(private,0)=0 OR owner_id=? OR (chip_economy=1 AND EXISTS (SELECT 1 FROM organizer_chip_tickets k WHERE k.tournament_id=tournaments.id AND k.holder_id=? AND k.state IN ('issued','redeemed','consumed')))) ORDER BY start_at").all(u?.id || null, u?.id || null);
       const regs = u ? db.prepare('SELECT tournament_id FROM tourney_regs WHERE user_id = ?').all(u.id).map((r) => r.tournament_id) : [];
       return json(res, 200, { tournaments: rows, registered: regs });
     }
@@ -1600,6 +1790,7 @@ const server = http.createServer(async (req, res) => {
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ? AND owner_id = ? AND private = 1').get(id, u.id);
       if (!t) return json(res, 404, { error: 'not found' });
       if (t.status !== 'registering') return json(res, 409, { error: 'Tournament has started' });
+      if (t.chip_economy) organizerChipEvents.cancelEvent({ organizerId: u.id, tournamentId: id });
       disposeTournamentRoom(id, { force: true });
       db.prepare('DELETE FROM tournaments WHERE id = ?').run(id);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'delete_host_tournament', id);
@@ -1610,6 +1801,8 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       if (!requireManagement(u, 'tournaments-manager', 'host_tournament_create', res)) return;
       const b = await readBody(req);
+      const setupPayload = JSON.stringify(b);
+      if (usageBilling) { const previous = organizerBilling.replay(u.id, b.idempotencyKey, setupPayload); if (previous) return json(res, 200, { ok: true, ...previous }); }
       const count = db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id = ? AND private = 1').get(u.id).n;
       if (count >= 8) return json(res, 400, { error: 'You already have 8 private tournaments' });
       const name = String(b.name || `${u.nick}'s tournament`).trim().slice(0, 60) || `${u.nick}'s tournament`;
@@ -1621,13 +1814,21 @@ const server = http.createServer(async (req, res) => {
       const blindSpeed = Math.max(1, Math.min(120, Math.round(Number(b.blind_speed) || 8)));
       const lateReg = Math.max(0, Math.min(600, Math.round(Number(b.late_reg) || 90)));
       const mode = ['STANDARD', 'BOUNTY', 'MYSTERY', 'SATELLITE', 'FLIP'].includes(b.mode) ? b.mode : 'STANDARD';
-      const start = b.start_at ? new Date(b.start_at).toISOString() : new Date(Date.now() + 3600000).toISOString();
-      const id = `home-t-${u.id}-${Date.now().toString(36)}`;
+      if (chipEconomyEnabled && (mode === 'SATELLITE' || buyin < 1 || ![buyin, fee, startingStack, Number(b.bounty || 0)].every((n) => Number.isSafeInteger(n) && n >= 0 && n <= 9_000_000_000))) return json(res, 400, { error: 'Use whole Cash Chips, a positive buy-in, and a supported tournament mode.' });
+      if (chipEconomyEnabled && ['BOUNTY', 'MYSTERY'].includes(mode) && Number(b.bounty || 0) < 1) return json(res, 400, { error: 'Configure a positive Cash Chip bounty.' });
+      const startMs = b.start_at ? Date.parse(b.start_at) : Date.now() + 3600000;
+      if (!Number.isFinite(startMs) || startMs <= Date.now()) return json(res, 400, { error: 'Choose a future tournament start time.' });
+      const start = new Date(startMs).toISOString();
+      const id = `home-t-${u.id}-${randomUUID().slice(0, 8)}`;
+      const created = organizerBilling.setup({ userId: u.id, kind: 'tournament', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
+        if (db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tournaments'), { status: 400 });
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled,owner_id,private)
         VALUES (?,?,?,?,?,0,?, 'registering', 1000, 0, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1)`)
         .run(id, name, game, buyin, fee, start, startingStack, blindSpeed, lateReg, format, mode, Math.max(0, Number(b.bounty) || 0), String(b.ticket || '').slice(0, 80), u.id);
-      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_tournament', id);
-      return json(res, 200, { ok: true, id });
+      if (chipEconomyEnabled) db.prepare('UPDATE tournaments SET chip_economy=1 WHERE id=?').run(id);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_tournament', id);
+      return { id }; } });
+      return json(res, 200, { ok: true, ...created });
     }
 
     // Where a spectator should watch this tournament: the busiest live flight.
@@ -1653,7 +1854,7 @@ const server = http.createServer(async (req, res) => {
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ? AND enabled = 1').get(id);
       if (!t) return json(res, 404, { error: 'not found' });
       const room = t.status === 'running' ? TOURNAMENT_ROOMS.get(id) : null;
-      const payouts = room ? room.payouts() : payoutTable(t.entrants, prizePoolOf(t), { mode: t.mode, ticket: t.ticket });
+      const payouts = room ? room.payouts() : payoutTable(t.entrants, tournamentPrizePool(t), { mode: t.mode, ticket: t.ticket });
       const registrants = t.status === 'registering'
         ? db.prepare(`SELECT u.id, u.nick, u.country FROM tourney_regs r JOIN users u ON u.id = r.user_id
             WHERE r.tournament_id = ? ORDER BY r.created_at, r.rowid LIMIT ?`).all(id, LOBBY_PLAYER_LIMIT)
@@ -1662,7 +1863,7 @@ const server = http.createServer(async (req, res) => {
       const lobby = tournamentLobby({ t, room, registrants, countryOf: (uid) => countryOf.get(uid)?.country || '' });
       return json(res, 200, {
         tournament: t,
-        prizePool: prizePoolOf(t),
+        prizePool: tournamentPrizePool(t),
         payouts,
         placesPaid: payouts.length,
         bubble: bubblePlace(payouts),
@@ -1677,6 +1878,12 @@ const server = http.createServer(async (req, res) => {
       const id = p.split('/')[3];
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id);
       if (!t) return json(res, 404, { error: 'not found' });
+      if (t.chip_economy) {
+        if (!chipEconomyEnabled) return json(res, 409, { error: 'Cash Chips are disabled.' });
+        const ticket = db.prepare("SELECT id FROM organizer_chip_tickets WHERE tournament_id=? AND holder_id=? AND state='issued' ORDER BY created_at LIMIT 1").get(id, u.id);
+        if (!ticket) return json(res, 409, { error: 'Buy or receive a ticket for this tournament first.' });
+        return json(res, 200, { ok: true, ...organizerChipEvents.redeemTicket({ userId: u.id, ticketId: ticket.id }) });
+      }
       const already = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       if (already) return json(res, 400, { error: 'Already registered' });
       if (!t.enabled || !['registering', 'running'].includes(t.status)) return json(res, 400, { error: 'Registration is closed' });
@@ -1699,6 +1906,7 @@ const server = http.createServer(async (req, res) => {
       const id = p.split('/')[3];
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id);
       if (!t) return json(res, 404, { error: 'not found' });
+      if (t.chip_economy && t.status === 'registering' && Date.parse(t.start_at) > Date.now()) return json(res, 409, { error: 'This Cash Chip tournament starts at its scheduled time.' });
       const reg = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       const room = ensureTournamentRoom(t);
       const seated = room.tableOf(u.id);
@@ -1717,6 +1925,7 @@ const server = http.createServer(async (req, res) => {
         const own = room.tableOf(u.id);
         if (own) return json(res, 200, { ok: true, tableId: own.cfg.id, tableIndex: room.flightIndexOf(own.cfg.id) });
       }
+      if (t.chip_economy) return json(res, 409, { error: 'No active tournament seat. The event may require reconciliation.' });
       // Flights are allocated by the seating engine: humans fill one table
       // before the next opens, and a bot steps aside when a human arrives.
       const result = room.seat({ id: u.id, nick: u.nick, avatar: u.avatar }, { stack: t.starting_stack });
@@ -1737,6 +1946,11 @@ const server = http.createServer(async (req, res) => {
       const already = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       if (!already || !t) return json(res, 400, { error: 'Not registered' });
       if (t.status !== 'registering') return json(res, 400, { error: 'Unregistration is closed' });
+      if (t.chip_economy) {
+        const ticket = db.prepare("SELECT id FROM organizer_chip_tickets WHERE tournament_id=? AND holder_id=? AND state='redeemed'").get(id, u.id);
+        if (!ticket) return json(res, 409, { error: 'Matching tournament ticket required.' });
+        return json(res, 200, { ok: true, ...organizerChipEvents.unregisterTicket({ userId: u.id, ticketId: ticket.id }) });
+      }
       // A seated player is in the event on every flight, not just the legacy table.
       const seatedOnFlight = TOURNAMENT_ROOMS.get(id)?.tableOf(u.id);
       if (seatedOnFlight || tournamentTableIds(id, MAX_FLIGHTS).some((tid) => LIVE_TABLES.get(tid)?.table.seatOf(u.id))) {
@@ -2903,7 +3117,7 @@ const server = http.createServer(async (req, res) => {
           if (entry.table.seatOf(id)) cashOutSeat(entry.table, id, 'Account deleted by admin');
         }
         db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
-        db.prepare('DELETE FROM tourney_regs WHERE user_id = ?').run(id);
+        db.prepare('DELETE FROM tourney_regs WHERE user_id=? AND tournament_id IN (SELECT id FROM tournaments WHERE chip_economy=0)').run(id);
         db.prepare('DELETE FROM friends WHERE user_id = ? OR friend_id = ?').run(id, id);
         db.prepare(`UPDATE users SET banned = 1, deleted_at = datetime('now'),
           login = ?, nick = ?, email = '' WHERE id = ?`).run(`deleted:${id}:${target.login}`, `Deleted ${id}`, id);
@@ -2921,7 +3135,11 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/admin/tables' && req.method === 'POST') {
       const a = requireAdmin(req, res); if (!a) return;
       const b = await readBody(req);
+      if (db.prepare('SELECT 1 FROM tables WHERE id=? AND chip_economy=1').get(b.id || '')) return json(res, 409, { error: 'Manage Cash Chip resources through their owner workflow.' });
       if (b.delete) {
+        const owned = db.prepare('SELECT owner_id FROM tables WHERE id=?').get(b.id);
+        if (owned?.owner_id) organizerBilling.stopCash({ userId: owned.owner_id, tableId: b.id });
+        db.prepare('DELETE FROM organizer_spin_schedule WHERE table_id=?').run(b.id);
         db.prepare('DELETE FROM tables WHERE id = ?').run(b.id);
         return json(res, 200, { ok: true });
       }
@@ -2931,7 +3149,8 @@ const server = http.createServer(async (req, res) => {
       const id = String(b.id || `custom-${Date.now()}`).slice(0, 60);
       // Authorize the canonical values used by the upsert. Raw request coercion
       // or a truncated ID must not select a cheaper, unrelated capability.
-      const previousTable = db.prepare('SELECT game FROM tables WHERE id = ?').get(id);
+      const previousTable = db.prepare('SELECT game,private FROM tables WHERE id = ?').get(id);
+      if (usageBilling && previousTable?.private) return json(res, 409, { error: 'Manage billed private resources through their owner workflow.' });
       const tableProducts = new Set([tableManagementProduct(t.game), ...(previousTable ? [tableManagementProduct(previousTable.game)] : [])]);
       for (const productId of tableProducts) if (!requireManagement(a, productId, 'admin_table_configure', res)) return;
       db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort)
@@ -2956,6 +3175,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/admin/tournaments' && req.method === 'POST') {
       const a = requireAdmin(req, res); if (!a) return;
       const b = await readBody(req);
+      if (db.prepare('SELECT 1 FROM tournaments WHERE id=? AND chip_economy=1').get(b.id || '')) return json(res, 409, { error: 'Manage Cash Chip events through their owner workflow.' });
       if (b.delete) {
         disposeTournamentRoom(b.id, { force: true });
         db.prepare('DELETE FROM tournaments WHERE id = ?').run(b.id);
@@ -2963,6 +3183,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (!requireManagement(a, 'tournaments-manager', 'admin_tournament_configure', res)) return;
       const id = b.id || `t${Date.now()}`;
+      if (usageBilling && db.prepare('SELECT 1 FROM tournaments WHERE id=? AND private=1').get(id)) return json(res, 409, { error: 'Reschedule private events through the owner billing workflow.' });
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET name=excluded.name, game=excluded.game, buyin=excluded.buyin, fee=excluded.fee, gtd=excluded.gtd,
@@ -3097,7 +3318,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404, { 'content-type': 'text/plain' });
     res.end('Not found');
   } catch (err) {
-    if (err && err.status) return json(res, err.status, { error: err.message });
+    if (err && err.status) return json(res, err.status, { error: err.message, ...(err.code ? { code: err.code } : {}) });
     console.error('api error', p, err);
     json(res, 500, { error: 'internal error' });
   }
@@ -3144,6 +3365,8 @@ wss.on('connection', (ws, req) => {
         return;
       }
     }
+    const financialTable = LIVE_TABLES.get(msg.tableId)?.table;
+    if (financialTable?.financialError) return ws.send(JSON.stringify({ type: 'error', error: 'This table is paused for chip reconciliation.' }));
     if (msg.type === 'reserve_seat' || msg.type === 'cancel_reservation') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry || !ws.userId) return;
@@ -3254,7 +3477,7 @@ wss.on('connection', (ws, req) => {
       }
       // Fill part of the table with bots, always leaving the choice of seats to humans; no
       // bot sits down while anyone is waiting for this table or its group.
-      const bots = botFillCount(table, waitingFor(waitState, table.cfg));
+      const bots = usesOrganizerChips(table) ? 0 : botFillCount(table, waitingFor(waitState, table.cfg));
       if (bots) table.fillBots(bots);
       entry.clients.add(ws);
       ws.tables.add(msg.tableId);
@@ -3375,9 +3598,10 @@ wss.on('connection', (ws, req) => {
       if (toInt(msg.amount) === 0) return;
       const amount = toInt(msg.amount, { min: 1 });
       const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
-      if (!u || (amount !== null && u.balance < amount)) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
+      const walletBalance = u && (usesOrganizerChips(table) ? chipWalletBalance(table, u.id) : u.balance);
+      if (!u || (amount !== null && walletBalance < amount)) return ws.send(JSON.stringify({ type: 'error', error: 'not enough balance' }));
       // F14 limits: up to the table maximum; at least the table minimum, or all the wallet holds.
-      const limits = addChipsLimits({ stack: seat.player.stack, minBuyin: table.cfg.min_buyin, maxBuyin: table.cfg.max_buyin, balance: u.balance });
+      const limits = addChipsLimits({ stack: seat.player.stack, minBuyin: table.cfg.min_buyin, maxBuyin: table.cfg.max_buyin, balance: walletBalance });
       if (amount === null || amount < limits.min || amount > limits.max) {
         return ws.send(JSON.stringify({ type: 'error', error: 'Top-up must bring your stack within the table buy-in limits' }));
       }
@@ -3385,7 +3609,7 @@ wss.on('connection', (ws, req) => {
       const sessionId = seat.player.sessionId;
       const rebuyNo = (seat.player.rebuyCount || 0) + 1;
       // A client key (one per Add Chips submission) makes a retried message a no-op replay.
-      const award = addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
+      const award = usesOrganizerChips(table) ? seatLedger(table, seat.player)({ kind: 'rebuy', amount: -amount, reference: rebuyReference(sessionId, rebuyNo, msg.idempotencyKey) }) : addTransactionEx(u.id, 'rebuy', -amount, `Rebuy ${table.cfg.name}`, 'USD', {
         sessionId, reference: rebuyReference(sessionId, rebuyNo, msg.idempotencyKey), onDuplicate: 'skip',
       });
       if (!award.applied) return broadcastState(table);
@@ -3605,7 +3829,13 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 function restoreRunningTournamentRooms() {
   try {
     const rows = db.prepare("SELECT * FROM tournaments WHERE status = 'running' AND enabled = 1").all();
-    const restored = ROOM_OWNER.restoreRunning(rows);
+    const safeRows = rows.filter((t) => {
+      if (!t.chip_economy || (chipEconomyEnabled && canRestoreChipEvent(db, t.id, loadRoomSnapshot(db, t.id)))) return true;
+      db.prepare("UPDATE tournaments SET status='paused' WHERE id=?").run(t.id);
+      db.prepare('INSERT INTO audit_log(actor,action,detail) VALUES (?,?,?)').run('system', 'organizer_event_recovery_required', t.id);
+      return false;
+    });
+    const restored = ROOM_OWNER.restoreRunning(safeRows);
     if (restored) console.log(`tournament rooms restored: ${restored}`);
   } catch (err) { console.error('tournament boot restore', err); }
 }

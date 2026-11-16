@@ -7,6 +7,8 @@ import {
 import '../marketplace.css';
 import { ManagementPlugins } from '../components/ManagementPlugins';
 import { MarketplacePublisher } from '../components/MarketplacePublisher';
+import { OrganizerBilling } from '../components/OrganizerBilling';
+import { OrganizerChips } from '../components/OrganizerChips';
 
 type IconName = 'arrow' | 'code' | 'server' | 'layers' | 'check' | 'search' | 'close' | 'spark' | 'clock' | 'shield' | 'external' | 'grid';
 
@@ -260,6 +262,9 @@ export function Marketplace() {
           <ManagementPlugins userId={user?.id} onSelect={(productId) => { const product = products.find((entry) => entry.id === productId); if (product) openProduct(product); else { setCategory('all'); setQuery(''); scrollToSection('marketplace-catalog'); } }} />
         </section>
 
+        <section className="mp-section mp-container"><OrganizerBilling key={user?.id ?? "guest"} userId={user?.id} /></section>
+        <section className="mp-section mp-container"><OrganizerChips key={`chips-${user?.id ?? 'guest'}`} userId={user?.id} /></section>
+
         <section id="marketplace-how" className="mp-explanation-band" aria-labelledby="marketplace-how-title"><div className="mp-container mp-section">
           <div className="mp-section-heading"><div><span className="mp-eyebrow">LIBERTATE PENTRU COMUNITATE. OPȚIUNI PENTRU ORGANIZATORI.</span><h2 id="marketplace-how-title">Un proiect deschis.<br />Mai multe moduri de a-l folosi.</h2></div><p>Licența codului și accesul la un serviciu sunt lucruri distincte. Alege varianta potrivită pentru tine.</p></div>
           <div className="mp-explanation-grid">
@@ -291,12 +296,13 @@ export function Marketplace() {
             <details><summary>Pot copia, folosi și îmbunătăți DanGG?<span>+</span></summary><p>Da. Ediția Community este publicată sub AGPLv3. Poți să o folosești și să o modifici, inclusiv comercial, respectând licența. Pentru versiunile modificate oferite utilizatorilor prin rețea se aplică obligațiile AGPL privind accesul la sursa corespunzătoare.</p></details>
             <details><summary>Pentru ce plătesc în marketplace?<span>+</span></summary><p>Pentru serviciile, capacitatea sau extensiile descrise în oferta aleasă. În această etapă trimiți o solicitare, iar echipa confirmă disponibilitatea, prețul și condițiile. Trimiterea unei solicitări nu efectuează o plată și nu creează automat un abonament.</p></details>
             <details><summary>O funcție plătită este automat cu cod închis?<span>+</span></summary><p>Nu. Licența fiecărui produs stabilește drepturile asupra codului. O funcție distribuită sub AGPL poate fi modificată pe o instalare proprie; aceasta nu oferă acces gratuit la infrastructura sau serviciile oficiale DanGG. Condițiile modulelor comerciale se verifică înainte de livrare.</p></details>
-            <details><summary>Serviciile au legătură cu jetoanele de joc?<span>+</span></summary><p>Nu. DanGG este o experiență play-money. Jetoanele sunt virtuale, fără valoare monetară și fără răscumpărare. Produsele marketplace sunt pentru software și servicii, separate de soldurile din joc.</p></details>
+            <details><summary>Serviciile au legătură cu jetoanele de joc?<span>+</span></summary><p>Soldurile demo gratuite nu au valoare monetară și nu se convertesc în Cash Chips. Când serviciile plătite sunt active, abonamentul Organizator de $9/lună include 100.000 Cash Chips; pachetele suplimentare costă $1 pentru 10.000. Cash Chips sunt valabile numai la organizatorul emitent. Acesta stabilește separat condițiile cu jucătorii și plătește eventualele răscumpărări; platforma nu execută și nu garantează acele plăți externe. Creditele pentru servicii rămân un sold separat.</p></details>
+            <details><summary>Cum se verifică o alimentare sau o solicitare de rambursare?<span>+</span></summary><p>Alimentările NervixPay se creditează numai după verificarea manuală a plății finale și a contului beneficiar. Păstrează ID-ul comenzii și contactează Suport pentru verificare, o plată greșită sau o solicitare de rambursare. Deschiderea checkout-ului nu confirmă plata, iar alimentarea nu activează automat un abonament. Rambursările și răscumpărările externe nu sunt automate.</p></details>
           </div>
         </section>
       </main>
 
-      <footer className="mp-footer"><div className="mp-container"><div><img src={brand.logo} alt="DanGG" /><p>Poker social. Cod deschis. Comunitatea ta.</p></div><nav aria-label="Informații legale"><a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Cod sursă<Icon name="external" /></a><a href="/legal/LICENSE" target="_blank" rel="noopener noreferrer">Licență AGPLv3</a><a href={`${SOURCE_FILE_ROOT}/TRADEMARKS.md`} target="_blank" rel="noopener noreferrer">Brand DanGG</a><button type="button" onClick={() => navigate('/support')}>Suport</button></nav><span>DanGG · Play-money only</span></div></footer>
+      <footer className="mp-footer"><div className="mp-container"><div><img src={brand.logo} alt="DanGG" /><p>Poker social. Cod deschis. Comunitatea ta.</p></div><nav aria-label="Informații legale"><a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Cod sursă<Icon name="external" /></a><a href="/legal/LICENSE" target="_blank" rel="noopener noreferrer">Licență AGPLv3</a><a href={`${SOURCE_FILE_ROOT}/TRADEMARKS.md`} target="_blank" rel="noopener noreferrer">Brand DanGG</a><button type="button" onClick={() => navigate('/support')}>Suport</button></nav><span>DanGG · Demo &amp; organizer services · 18+</span></div></footer>
 
       {selected && <div className="mp-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeProduct(); }}>
         <section ref={dialogRef} className="mp-modal" role="dialog" aria-modal="true" aria-labelledby={dialogTitle}>

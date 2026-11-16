@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { money } from '../../lib/api';
+import { cashChips } from '../../lib/organizer-chips-api';
 import { eventClock } from '../../lib/mobileLobby';
 import { tournamentFilterCount, TOURNAMENT_SEARCH_MAX, type TournamentFilters } from '../../lib/tournamentFilters';
 import { TournamentCategoryRail, TournamentFilterBar } from '../TournamentFilterBar';
@@ -48,7 +49,7 @@ function bannerTone(t: any): string {
 const wholeMoney = (cents: number) => money(cents).replace(/\.00$/, '');
 
 /** Satellites pay seats, not chips; everything else shows its guarantee. */
-const prizeLabel = (t: any) => (String(t.mode || '').toUpperCase() === 'SATELLITE' || !t.gtd ? 'Ticket' : wholeMoney(t.gtd));
+const prizeLabel = (t: any) => t.chip_economy ? cashChips(t.prizePool ?? (t.entrants || 0) * (t.buyin || 0)) : (String(t.mode || '').toUpperCase() === 'SATELLITE' || !t.gtd ? 'Ticket' : wholeMoney(t.gtd));
 
 const startLabel = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 
@@ -66,7 +67,7 @@ function EventRow({ t, now, onOpen }: { t: any; now: number; onOpen: () => void 
       <span className={'me-title' + (tone ? ' banner banner-' + tone : '')}>{t.name}</span>
       <span className="me-info">
         <span className="me-meta">Starts: {startLabel(t.start_at)}</span>
-        <span className="me-meta">Buy-in: {t.buyin === 0 ? 'Freeroll' : wholeMoney(t.buyin + t.fee)}</span>
+        <span className="me-meta">Buy-in: {t.buyin === 0 ? 'Freeroll' : (t.chip_economy ? cashChips(t.buyin + t.fee) : wholeMoney(t.buyin + t.fee))}</span>
         <span className="me-entrants"><NavGlyph name="people" size={16} />{(t.entrants || 0).toLocaleString()}</span>
       </span>
       <span className="me-prize"><small>Prize</small><b>{prizeLabel(t)}</b></span>
@@ -89,8 +90,8 @@ export function MobileEvents({ list, featured, heroArt, filters, onFilters, onRe
           <span className="me-hero-copy">
             <small>Tournament series</small>
             <b>{featured.name}</b>
-            <strong>{money(featured.gtd, true)} <em>GTD</em></strong>
-            <span>{startLabel(featured.start_at)} · Buy-in {featured.buyin === 0 ? 'Freeroll' : money(featured.buyin + featured.fee)}</span>
+            <strong>{featured.chip_economy ? cashChips(featured.prizePool ?? (featured.entrants || 0) * (featured.buyin || 0)) : money(featured.gtd, true)} {!featured.chip_economy && <em>GTD</em>}</strong>
+            <span>{startLabel(featured.start_at)} · Buy-in {featured.buyin === 0 ? 'Freeroll' : (featured.chip_economy ? cashChips(featured.buyin + featured.fee) : money(featured.buyin + featured.fee))}</span>
           </span>
         </button>
       )}

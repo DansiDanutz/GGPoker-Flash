@@ -60,7 +60,7 @@ export function LoadingScreen({ logo }: LoadingScreenProps) {
       <div className="ls-bar" aria-hidden="true"><i /></div>
       <p className="ls-status">{loadingStep(elapsed)}</p>
       <CreatorCredit className="ls-credit" />
-      <p className="ls-legal">Play money · 18+ · no real-money gambling</p>
+      <p className="ls-legal">18+ · Demo and organizer balances stay separate</p>
     </div>
   );
 }

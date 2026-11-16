@@ -341,10 +341,10 @@ export class TournamentRoom {
   recordBust(bust, place, field) {
     const payout = payoutFor(this.payouts(field), place);
     const record = { id: bust.id, nick: bust.nick, place, payout, tableId: bust.tableId };
-    this.finished.push(record);
     this.ops.persistBust({
       tournamentId: this.id, tableId: bust.tableId, playerId: bust.id, nick: bust.nick, place, payout,
     });
+    this.finished.push(record);
     return record;
   }
 
@@ -438,7 +438,7 @@ export class TournamentRoom {
     const alive = this.alivePlayers();
     if (alive.length !== 1) return null;
     const winner = alive[0];
-    this.winner = {
+    const finish = {
       id: winner.id,
       nick: winner.nick,
       prize: payoutFor(this.payouts(), 1),
@@ -449,10 +449,11 @@ export class TournamentRoom {
       tournamentId: this.id,
       playerId: winner.id,
       nick: winner.nick,
-      prize: this.winner.prize,
+      prize: finish.prize,
       tableId: winner.tableId,
       place: 1,
     });
+    this.winner = finish;
     this.closeEmptyFlights();
     return this.winner;
   }

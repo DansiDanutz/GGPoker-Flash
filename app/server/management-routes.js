@@ -22,7 +22,7 @@ function identifier(value) {
   return value;
 }
 
-export function createManagementRoutes({ db, commerce, policy, json, requireUser, requireAdmin, readBody }) {
+export function createManagementRoutes({ db, commerce, policy, billing, json, requireUser, requireAdmin, readBody }) {
   const method = (req, expected) => { if (req.method !== expected) fail('Method not allowed.', 405); };
   const implemented = (productId) => {
     const plugin = managementPlugin(productId);
@@ -56,6 +56,7 @@ export function createManagementRoutes({ db, commerce, policy, json, requireUser
         }
         method(req, 'POST');
         const body = bodyFields(await readBody(req), ['displayName', 'kind', 'nervixpayMerchantId']);
+        billing?.requireMembership(user.id, 'contributor');
         const publisher = commerce.registerPublisher({ ...body, ownerUserId: user.id });
         json(res, 201, { publisher }); return true;
       }
@@ -77,13 +78,17 @@ export function createManagementRoutes({ db, commerce, policy, json, requireUser
       let result;
       if (p === `${ADMIN}/publishers`) {
         const body = bodyFields(await readBody(req), ['ownerUserId', 'displayName', 'kind', 'nervixpayMerchantId']);
+        billing?.requireMembership(body.ownerUserId, 'contributor');
         result = { publisher: commerce.registerPublisher({ ...body, actor: actor.login }) };
         audit(actor, 'marketplace_publisher_recorded', { publisher_id: result.publisher.id });
       } else if (p === `${ADMIN}/offers`) {
         const body = bodyFields(await readBody(req), ['productId', 'publisherId']); implemented(body.productId);
+        const publisher = db.prepare('SELECT owner_user_id FROM marketplace_publishers WHERE id=?').get(body.publisherId);
+        if (publisher) billing?.requireMembership(publisher.owner_user_id, 'contributor');
         result = { offer: commerce.bindOffer({ ...body, actor: actor.login }) };
       } else if (p === `${ADMIN}/orders`) {
         const body = bodyFields(await readBody(req), ['buyerUserId', 'productId', 'idempotencyKey']); implemented(body.productId);
+        if (billing?.mode === 'enforce') fail('Legacy product-wide purchases are unavailable under service-credit billing.', 409);
         result = { order: commerce.reserveOrder(body) };
         audit(actor, 'marketplace_order_reserved_by_operator', { order_id: result.order.id });
       } else if (p === `${ADMIN}/payments/confirm`) {

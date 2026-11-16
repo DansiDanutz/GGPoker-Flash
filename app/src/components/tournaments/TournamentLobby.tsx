@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { api, money, type TournamentDetail } from '../../lib/api';
 import { Countdown } from '../PageShell';
 import { explainers, gameName, lobbyTheme, modeName, statusLabel } from '../../lib/tournamentLobby';
+import { cashChips } from '../../lib/organizer-chips-api';
 import {
   InfoPanel, InfoTip, PlayersPanel, PrizePanel, PropBetPanel, RulesPanel, SatellitesPanel, StructurePanel, TablesPanel,
 } from './TournamentLobbyPanels';
@@ -76,7 +77,7 @@ function ActionButton({ t, d, registered, busy, onRegister, onUnregister, onPlay
     <div className="tl-actions">
       {t.status === 'running' && <button type="button" className="tl-btn ghost" disabled={busy} onClick={() => onWatch()}>Watch</button>}
       <button type="button" className="tl-btn reg" disabled={busy || !open || full} onClick={onRegister}>
-        {!open ? 'Reg. Closed' : full ? 'Full' : `Register · ${t.buyin + t.fee ? money(t.buyin + t.fee) : 'Free'}`}
+        {!open ? 'Reg. Closed' : full ? 'Full' : `Register · ${t.buyin + t.fee ? (t.chip_economy ? cashChips(t.buyin + t.fee) : money(t.buyin + t.fee)) : 'Free'}`}
       </button>
     </div>
   );
@@ -114,6 +115,8 @@ export function TournamentLobby(props: Props) {
   const ex = explainers(t, d);
   const modeTip = t.mode === 'BOUNTY' ? ex.bounty : t.mode === 'MYSTERY' ? ex.mystery : t.mode === 'FLIP' ? ex.flip : t.mode === 'SATELLITE' ? ex.satellite : null;
   const live = d?.tournament ?? t;
+  const chipEvent = Boolean(live.chip_economy || t.chip_economy);
+  const financial = (amount: number) => chipEvent ? cashChips(amount) : money(amount);
   const left_ = live.status === 'running' && d?.playersLeft ? `${d.playersLeft.toLocaleString()} / ${Number(live.entrants).toLocaleString()}` : Number(live.entrants).toLocaleString();
 
   // Portalled to <body> so it sits above the desktop page shell and the phone shell alike.
@@ -129,16 +132,16 @@ export function TournamentLobby(props: Props) {
           </div>
           <div className="tl-pool">
             <small>Prize Pool</small>
-            <b>{live.mode === 'SATELLITE' ? `${live.ticket || 'Seat'} ticket` : money(d?.prizePool ?? Math.max(live.gtd || 0, 0))}</b>
+            <b>{live.mode === 'SATELLITE' ? `${live.ticket || 'Seat'} ticket` : financial(d?.prizePool ?? (chipEvent ? Number(live.entrants || 0) * Number(live.buyin || 0) : Math.max(live.gtd || 0, 0)))}</b>
             <dl>
-              <div><dt>Buy-in</dt><dd>{live.buyin + live.fee ? money(live.buyin + live.fee) : 'Freeroll'}</dd></div>
-              <div><dt>Guaranteed</dt><dd>{live.gtd ? money(live.gtd) : '—'}</dd></div>
+              <div><dt>Buy-in</dt><dd>{live.buyin + live.fee ? financial(live.buyin + live.fee) : 'Freeroll'}</dd></div>
+              {!chipEvent && <div><dt>Guaranteed</dt><dd>{live.gtd ? money(live.gtd) : '—'}</dd></div>}
             </dl>
           </div>
           <ClockRing t={live} d={d} />
           <dl className="tl-stats">
             <div><dt>Players</dt><dd>{left_}</dd></div>
-            <div><dt>Starting Stack</dt><dd>{Number(live.starting_stack).toLocaleString()}</dd></div>
+            <div><dt>Starting Stack</dt><dd>{Number(live.starting_stack).toLocaleString()} tournament chips</dd></div>
             <div><dt>Largest Stack</dt><dd>{d?.stacks ? d.stacks.largest.toLocaleString() : '—'}</dd></div>
             <div><dt>Average Stack</dt><dd>{d?.stacks ? d.stacks.average.toLocaleString() : '—'}</dd></div>
           </dl>
@@ -159,7 +162,7 @@ export function TournamentLobby(props: Props) {
             <div className="tl-pane">
               {centre === 'info' && <InfoPanel t={live} d={d} />}
               {centre === 'structure' && <StructurePanel d={d} />}
-              {centre === 'prizes' && <PrizePanel d={d} />}
+              {centre === 'prizes' && <PrizePanel d={d} chipEconomy={chipEvent} />}
             </div>
           </section>
           <section className="tl-col tl-right">
@@ -171,7 +174,7 @@ export function TournamentLobby(props: Props) {
             </div>
           </section>
         </div>
-        <footer className="tl-foot"><span>Balance: <b>{money(props.balance)}</b></span><span>Play money only · no cash value</span></footer>
+        <footer className="tl-foot"><span>Balance: <b>{financial(props.balance)}</b></span><span>{chipEvent ? 'Organizer-scoped Cash Chips' : 'Play money only · no cash value'}</span></footer>
       </div>
     </div>,
     document.body,

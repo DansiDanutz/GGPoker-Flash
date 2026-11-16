@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { LobbyTable, money } from '../lib/api';
+import { cashChips } from '../lib/organizer-chips-api';
 import {
   COLUMN_LABEL, ColumnId, columnsFor, groupTables, promotionOf, TableGroup, tableGroupKey, tableSizeChip,
   VARIANT_LABEL, variantOf,
@@ -35,8 +36,8 @@ function Cell({ column, group, wait, onJoin, onChanged }: CellProps & { column: 
       const variant = variantOf(first);
       return <span className={`lob-game lob-game-${variant}`}>{VARIANT_LABEL[variant]}</span>;
     }
-    case 'stakes': return <span className="lob-num">{money(group.sb, true)} / {money(group.bb, true)}</span>;
-    case 'buyin': return <span className="lob-num">{money(first.min_buyin, true)}</span>;
+    case 'stakes': return <span className="lob-num">{first.chip_economy ? `${group.sb.toLocaleString()} / ${group.bb.toLocaleString()}` : `${money(group.sb, true)} / ${money(group.bb, true)}`}</span>;
+    case 'buyin': return <span className="lob-num">{first.chip_economy ? cashChips(first.min_buyin) : money(first.min_buyin, true)}</span>;
     case 'players': return (
       <span className="lob-players-cell">
         <span className="lob-players" aria-label={`${group.players} players at ${group.tables.length} tables`}>👤 {group.players}</span>
