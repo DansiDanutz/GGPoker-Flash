@@ -1,0 +1,882 @@
+[
+  {
+    "width": 320,
+    "route": "/",
+    "file": "0320-lobby.png",
+    "text": "D $10,000.00 EVERY DAY · PLAY CHIPS Daily Chip Flipout Join now → BAD BEAT JACKP",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/login",
+    "file": "0320-login.png",
+    "text": "The table is waiting. Play money poker. Help EN PLAY-MONEY POKER ROOM Join Log",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/tournaments",
+    "file": "0320-tournaments.png",
+    "text": "D $10,000.00 TOURNAMENT SERIES SUNDAY MAJOR $250K $250K GTD Nov 16, 01:56 · Buy-",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/cashier",
+    "file": "0320-cashier.png",
+    "text": "Cashier $10,000.00 Cashier Transactions Bonuses Play-money wallet · no real dep",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/rewards",
+    "file": "0320-rewards.png",
+    "text": "D $10,000.00 DanGG Pass Daily missions Prize Wheel Fish ranks Fish history Leade",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/missions",
+    "file": "0320-missions.png",
+    "text": "Missions $10,000.00 DanGG Pass Daily missions Prize Wheel Fish ranks Fish histor",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/leaderboard",
+    "file": "0320-leaderboard.png",
+    "text": "Leaderboard $10,000.00 Top players by VIP points across every room VIP points ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/elo",
+    "file": "0320-elo.png",
+    "text": "ELO $10,000.00 ELO Rating Skill-based rating for local cash tables. Win hands t",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/promotions",
+    "file": "0320-promotions.png",
+    "text": "Promotions $10,000.00 All running offers, missions and giveaways ALL-IN Daily ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/settings",
+    "file": "0320-settings.png",
+    "text": "Settings $10,000.00 General Sound Table & cards Betting Account Responsible gami",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/slots",
+    "file": "0320-slots.png",
+    "text": "Slots $10,000.00 6 DanGG Originals · play-money only 18+ For adults only. Play",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/casino",
+    "file": "0320-casino.png",
+    "text": "D $10,000.00 PLAY-MONEY CASINO Pick a game. Take a seat. 18+ · chips have no cas",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/profile",
+    "file": "0320-profile.png",
+    "text": "Profile $10,000.00 D 5 DansiDanutz ID DansiDanutz · Member since 2026-11-15 VIP ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/my-page",
+    "file": "0320-my-page.png",
+    "text": "D $10,000.00 Overview My Promo Weekly Mission Transactions Tickets Messages Play",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/ocean",
+    "file": "0320-ocean.png",
+    "text": "Ocean Rewards $10,000.00 DANGG REWARDS Dive deeper, earn more 💎 1,240 gems 🐟 S",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/ggcare",
+    "file": "0320-ggcare.png",
+    "text": "GG Care $10,000.00 #THANKSDANGG Player Care Bad beat protection, daily prizes a",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/honeymoon",
+    "file": "0320-honeymoon.png",
+    "text": "Honeymoon $10,000.00 NEW PLAYER PACKAGE Welcome Bonus Start your first week wit",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/support",
+    "file": "0320-support.png",
+    "text": "Support $10,000.00 Answers, contact and responsible gaming FAQ Is this real mo",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/hand-history",
+    "file": "0320-hand-history.png",
+    "text": "Hand history $10,000.00 Every hand you played is stored locally and can be repl",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/propbet",
+    "file": "0320-propbet.png",
+    "text": "Prop bet $10,000.00 Bet on what happens next at the tables Stake $1.00 $5.00 $",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/admin",
+    "file": "0320-admin.png",
+    "text": "Admin $10,000.00 Restricted area — administrator account required. Log in with",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 320,
+    "route": "/table/nlh-diamond-01",
+    "file": "0320-table-nlh-diamond-01.png",
+    "text": "NLH Diamond 01 🔊 Menu Leave table $10.00/$20.00 Daily Leaderboard Total Prize $",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/",
+    "file": "0390-lobby.png",
+    "text": "D $9,500.00 EVERY DAY · PLAY CHIPS Daily Chip Flipout Join now → BAD BEAT JACKPO",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/login",
+    "file": "0390-login.png",
+    "text": "The table is waiting. Play money poker. Help EN PLAY-MONEY POKER ROOM Join Log",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/tournaments",
+    "file": "0390-tournaments.png",
+    "text": "D $9,500.00 TOURNAMENT SERIES SUNDAY MAJOR $250K $250K GTD Nov 16, 01:56 · Buy-i",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/cashier",
+    "file": "0390-cashier.png",
+    "text": "Cashier $9,500.00 Cashier Transactions Bonuses Play-money wallet · no real depo",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/rewards",
+    "file": "0390-rewards.png",
+    "text": "D $9,500.00 DanGG Pass Daily missions Prize Wheel Fish ranks Fish history Leader",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/missions",
+    "file": "0390-missions.png",
+    "text": "Missions $9,500.00 DanGG Pass Daily missions Prize Wheel Fish ranks Fish history",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/leaderboard",
+    "file": "0390-leaderboard.png",
+    "text": "Leaderboard $9,500.00 Top players by VIP points across every room VIP points E",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/elo",
+    "file": "0390-elo.png",
+    "text": "ELO $9,500.00 ELO Rating Skill-based rating for local cash tables. Win hands to",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/promotions",
+    "file": "0390-promotions.png",
+    "text": "Promotions $9,500.00 All running offers, missions and giveaways ALL-IN Daily C",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/settings",
+    "file": "0390-settings.png",
+    "text": "Settings $9,500.00 General Sound Table & cards Betting Account Responsible gamin",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/slots",
+    "file": "0390-slots.png",
+    "text": "Slots $9,500.00 6 DanGG Originals · play-money only 18+ For adults only. Play ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/casino",
+    "file": "0390-casino.png",
+    "text": "D $9,500.00 PLAY-MONEY CASINO Pick a game. Take a seat. 18+ · chips have no cash",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/profile",
+    "file": "0390-profile.png",
+    "text": "Profile $9,500.00 D 5 DansiDanutz ID DansiDanutz · Member since 2026-11-15 VIP 5",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/my-page",
+    "file": "0390-my-page.png",
+    "text": "D $9,500.00 Overview My Promo Weekly Mission Transactions Tickets Messages Playe",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/ocean",
+    "file": "0390-ocean.png",
+    "text": "Ocean Rewards $9,500.00 DANGG REWARDS Dive deeper, earn more 💎 1,240 gems 🐟 Sh",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/ggcare",
+    "file": "0390-ggcare.png",
+    "text": "GG Care $9,500.00 #THANKSDANGG Player Care Bad beat protection, daily prizes an",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/honeymoon",
+    "file": "0390-honeymoon.png",
+    "text": "Honeymoon $9,500.00 NEW PLAYER PACKAGE Welcome Bonus Start your first week with",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/support",
+    "file": "0390-support.png",
+    "text": "Support $9,500.00 Answers, contact and responsible gaming FAQ Is this real mon",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/hand-history",
+    "file": "0390-hand-history.png",
+    "text": "Hand history $9,500.00 Every hand you played is stored locally and can be repla",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/propbet",
+    "file": "0390-propbet.png",
+    "text": "Prop bet $9,500.00 Bet on what happens next at the tables Stake $1.00 $5.00 $1",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/admin",
+    "file": "0390-admin.png",
+    "text": "Admin $9,500.00 Restricted area — administrator account required. Log in with ",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 390,
+    "route": "/table/nlh-diamond-01",
+    "file": "0390-table-nlh-diamond-01.png",
+    "text": "NLH Diamond 01 🔊 Menu Leave table $10.00/$20.00 Daily Leaderboard Total Prize $",
+    "overflowX": 0,
+    "scrollH": 844
+  },
+  {
+    "width": 768,
+    "route": "/",
+    "file": "0768-lobby.png",
+    "text": "191,505 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 EVERY DAY · PLAY CHIPS",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/login",
+    "file": "0768-login.png",
+    "text": "The table is waiting. Play money poker. Help EN Log in Create account Welcome ba",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/tournaments",
+    "file": "0768-tournaments.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 All GGMasters Bounty H",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/cashier",
+    "file": "0768-cashier.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Cashier Transactions B",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/rewards",
+    "file": "0768-rewards.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 DanGG Pass Daily missi",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/missions",
+    "file": "0768-missions.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 DanGG Pass Daily missi",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/leaderboard",
+    "file": "0768-leaderboard.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Leaderboard Top playe",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/elo",
+    "file": "0768-elo.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 ELO Rating Skill-base",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/promotions",
+    "file": "0768-promotions.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Promotions All runnin",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/settings",
+    "file": "0768-settings.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 General Sound Table & ",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/slots",
+    "file": "0768-slots.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Slots 6 DanGG Origina",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/casino",
+    "file": "0768-casino.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 ONLY ON DANGG Six slot",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/profile",
+    "file": "0768-profile.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 D 5 DansiDanutz ID Dan",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/my-page",
+    "file": "0768-my-page.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Overview My Promo Week",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/ocean",
+    "file": "0768-ocean.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 DANGG REWARDS Dive dee",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/ggcare",
+    "file": "0768-ggcare.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 #THANKSDANGG Player Ca",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/honeymoon",
+    "file": "0768-honeymoon.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 NEW PLAYER PACKAGE Wel",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/support",
+    "file": "0768-support.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Help & Support Answer",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/hand-history",
+    "file": "0768-hand-history.png",
+    "text": "191,525 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Hand History Every ha",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/propbet",
+    "file": "0768-propbet.png",
+    "text": "191,368 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Prop Bet Bet on what ",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/admin",
+    "file": "0768-admin.png",
+    "text": "191,368 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO D 5 Admin Console Restric",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 768,
+    "route": "/table/nlh-diamond-01",
+    "file": "0768-table-nlh-diamond-01.png",
+    "text": "NLH Diamond 01 6-max Blinds $10.00/$20.00 🔊 Pop out Menu Leave table $10.00/$20",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/",
+    "file": "1024-lobby.png",
+    "text": "191,345 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/login",
+    "file": "1024-login.png",
+    "text": "The table is waiting. Play money poker. Help EN Log in Create account Welcome ba",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/tournaments",
+    "file": "1024-tournaments.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/cashier",
+    "file": "1024-cashier.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/rewards",
+    "file": "1024-rewards.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/missions",
+    "file": "1024-missions.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/leaderboard",
+    "file": "1024-leaderboard.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/elo",
+    "file": "1024-elo.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/promotions",
+    "file": "1024-promotions.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/settings",
+    "file": "1024-settings.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/slots",
+    "file": "1024-slots.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/casino",
+    "file": "1024-casino.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/profile",
+    "file": "1024-profile.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/my-page",
+    "file": "1024-my-page.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/ocean",
+    "file": "1024-ocean.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/ggcare",
+    "file": "1024-ggcare.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/honeymoon",
+    "file": "1024-honeymoon.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/support",
+    "file": "1024-support.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/hand-history",
+    "file": "1024-hand-history.png",
+    "text": "191,355 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/propbet",
+    "file": "1024-propbet.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/admin",
+    "file": "1024-admin.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1024,
+    "route": "/table/nlh-diamond-01",
+    "file": "1024-table-nlh-diamond-01.png",
+    "text": "NLH Diamond 01 6-max Blinds $10.00/$20.00 Hand #3 Connected 🔊 Pop out Menu Leav",
+    "overflowX": 0,
+    "scrollH": 1024
+  },
+  {
+    "width": 1440,
+    "route": "/",
+    "file": "1440-lobby.png",
+    "text": "191,305 Online 3 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/login",
+    "file": "1440-login.png",
+    "text": "The table is waiting. Play money poker. Help EN Log in Create account Welcome ba",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/tournaments",
+    "file": "1440-tournaments.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/cashier",
+    "file": "1440-cashier.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/rewards",
+    "file": "1440-rewards.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/missions",
+    "file": "1440-missions.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/leaderboard",
+    "file": "1440-leaderboard.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/elo",
+    "file": "1440-elo.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/promotions",
+    "file": "1440-promotions.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/settings",
+    "file": "1440-settings.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/slots",
+    "file": "1440-slots.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/casino",
+    "file": "1440-casino.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/profile",
+    "file": "1440-profile.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/my-page",
+    "file": "1440-my-page.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/ocean",
+    "file": "1440-ocean.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/ggcare",
+    "file": "1440-ggcare.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/honeymoon",
+    "file": "1440-honeymoon.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/support",
+    "file": "1440-support.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/hand-history",
+    "file": "1440-hand-history.png",
+    "text": "191,303 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/propbet",
+    "file": "1440-propbet.png",
+    "text": "191,364 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/admin",
+    "file": "1440-admin.png",
+    "text": "191,364 Online 1 🔊 EN POKER TOURNAMENTS SLOTS CASINO BAD BEAT JACKPOT $1,990,26",
+    "overflowX": 0,
+    "scrollH": 900
+  },
+  {
+    "width": 1440,
+    "route": "/table/nlh-diamond-01",
+    "file": "1440-table-nlh-diamond-01.png",
+    "text": "NLH Diamond 01 6-max Blinds $10.00/$20.00 Hand #4 Connected 🔊 Pop out Menu Leav",
+    "overflowX": 0,
+    "scrollH": 900
+  }
+]

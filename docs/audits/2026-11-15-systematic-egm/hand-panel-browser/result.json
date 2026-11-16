@@ -1,0 +1,115 @@
+{
+  "completed": true,
+  "tableId": "hand-panel-mwifhktv",
+  "continuation": {
+    "flopCbOpportunities": 1,
+    "flopCbBets": 1,
+    "flopCbResponses": 0,
+    "flopCbFolds": 0,
+    "flopCbCalls": 0,
+    "flopCbRaises": 0,
+    "turnCbOpportunities": 1,
+    "turnCbBets": 1,
+    "turnCbResponses": 0,
+    "turnCbFolds": 0,
+    "turnCbCalls": 0,
+    "turnCbRaises": 0
+  },
+  "responses": {
+    "flopCbOpportunities": 0,
+    "flopCbBets": 0,
+    "flopCbResponses": 1,
+    "flopCbFolds": 0,
+    "flopCbCalls": 1,
+    "flopCbRaises": 0,
+    "turnCbOpportunities": 0,
+    "turnCbBets": 0,
+    "turnCbResponses": 1,
+    "turnCbFolds": 0,
+    "turnCbCalls": 1,
+    "turnCbRaises": 0
+  },
+  "session": {
+    "known": true,
+    "sessionId": "hand-panel-mwifhktv:67838d01-e824-4f11-b971-a22d62519154",
+    "sessionStartedAt": 1794783053218,
+    "hands": 1,
+    "showdowns": 1,
+    "showdownWins": 0,
+    "nonShowdownWins": 0
+  },
+  "focusReturned": true,
+  "geometry": [
+    {
+      "width": 320,
+      "overflowX": 0,
+      "panel": {
+        "x": 12,
+        "y": 64,
+        "width": 296,
+        "height": 418,
+        "top": 64,
+        "right": 308,
+        "bottom": 482,
+        "left": 12
+      }
+    },
+    {
+      "width": 390,
+      "overflowX": 0,
+      "panel": {
+        "x": 12,
+        "y": 64,
+        "width": 366,
+        "height": 366,
+        "top": 64,
+        "right": 378,
+        "bottom": 430,
+        "left": 12
+      }
+    },
+    {
+      "width": 768,
+      "overflowX": 0,
+      "panel": {
+        "x": 74,
+        "y": 90,
+        "width": 620,
+        "height": 368,
+        "top": 90,
+        "right": 694,
+        "bottom": 458,
+        "left": 74
+      }
+    },
+    {
+      "width": 1024,
+      "overflowX": 0,
+      "panel": {
+        "x": 202,
+        "y": 90,
+        "width": 620,
+        "height": 368,
+        "top": 90,
+        "right": 822,
+        "bottom": 458,
+        "left": 202
+      }
+    },
+    {
+      "width": 1440,
+      "overflowX": 0,
+      "panel": {
+        "x": 410,
+        "y": 90,
+        "width": 620,
+        "height": 368,
+        "top": 90,
+        "right": 1030,
+        "bottom": 458,
+        "left": 410
+      }
+    }
+  ],
+  "errors": []
+}

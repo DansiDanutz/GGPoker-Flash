@@ -1,5 +1,5 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
-import { WaitlistOffer } from '../lib/api';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { api, WaitlistOffer } from '../lib/api';
 import { useApp } from '../lib/store';
 import {
   formatCountdown, isOfferUrgent, OFFER_ANNOUNCE_SECONDS, OFFER_HOLD_SECONDS, offerProgress, offerSecondsLeft,
@@ -66,7 +66,7 @@ function useCountdownAnnouncement(seconds: number, tableName: string): string {
  * table's own route the table banner shows the offer instead, so this renders nothing.
  */
 export function SeatOfferModal() {
-  const { route, navigate } = useApp();
+  const { route, navigate, toast, user } = useApp();
   const { offer, dismissOffer } = useWaitlist();
   const seconds = useOfferSeconds(offer);
   const announcement = useCountdownAnnouncement(seconds, offer?.tableName || '');
@@ -75,13 +75,22 @@ export function SeatOfferModal() {
   const titleId = useId();
   const routeTable = tableRouteId(route);
   const isModal = !!offer && seconds > 0 && routeTable === null;
+  const pass = useCallback(async () => {
+    if (!offer || !user) return;
+    try {
+      await api.declineSeatOffer(offer.tableId, offer, user.id);
+      dismissOffer();
+    } catch (error: any) {
+      toast({ kind: 'error', title: 'Could not pass this seat', body: error?.message || 'Please try again.' });
+    }
+  }, [offer, user, dismissOffer, toast]);
 
   useEffect(() => {
     if (!isModal) return;
     const previous = document.activeElement as HTMLElement | null;
     takeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { dismissOffer(); return; }
+      if (e.key === 'Escape') { void pass(); return; }
       if (e.key !== 'Tab' || !dialogRef.current) return;
       const buttons = [...dialogRef.current.querySelectorAll<HTMLButtonElement>('button:not([disabled])')];
       if (!buttons.length) return;
@@ -92,7 +101,7 @@ export function SeatOfferModal() {
     };
     window.addEventListener('keydown', onKey);
     return () => { window.removeEventListener('keydown', onKey); previous?.focus?.(); };
-  }, [isModal, dismissOffer]);
+  }, [isModal, pass]);
 
   if (!offer || seconds <= 0 || routeTable === offer.tableId) return null;
 
@@ -115,7 +124,7 @@ export function SeatOfferModal() {
   );
   const buttons = (
     <>
-      <button type="button" className="btn btn-dark" onClick={dismissOffer}>Pass</button>
+      <button type="button" className="btn btn-dark" onClick={() => { void pass(); }}>Pass</button>
       <button ref={takeRef} type="button" className="btn btn-red" onClick={take}>Take seat</button>
     </>
   );

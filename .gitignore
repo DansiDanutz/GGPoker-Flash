@@ -32,3 +32,6 @@ deploy/backups/
 .mobile-audit/
 app/.audit/
 app/server/data-dev/
+
+# audit screenshots stay local; reports, logs and JSON results are committed
+docs/audits/**/*.png

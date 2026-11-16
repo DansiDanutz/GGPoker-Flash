@@ -108,6 +108,18 @@ test('a top-up replayed after the next deal settled it is refused, not charged t
       const mine = m.type === 'state' && m.state.players.find((p) => p.isMe);
       if (mine && m.state.actor === mine.id) sock.send({ type: 'action', tableId: TABLE, action: 'fold', amount: 0, handNo: m.state.handNo, turnNo: m.state.turnNo });
     });
+    let insuranceHandled = false;
+    sock.ws.on('message', async (raw) => {
+      const m = JSON.parse(String(raw));
+      if (m.type !== 'state' || m.state.cashInsurance?.status !== 'awaiting-quote' || insuranceHandled) return;
+      const underdogId = m.state.cashInsurance.underdogId;
+      if (underdogId !== me.id) return;
+      insuranceHandled = true;
+      const quoted = await server.post(`/api/rooms/${TABLE}/insurance/quote`, { token, body: { handId: m.state.handId, expectedRevision: 0, ruleRevision: 1, operationId: 'topup-insurance-quote', coverage: 1 } });
+      assert.equal(quoted.status, 200, JSON.stringify(quoted.data));
+      const declined = await server.post(`/api/rooms/${TABLE}/insurance/decision`, { token, body: { handId: m.state.handId, quoteId: quoted.data.state.quote.quoteId, expectedRevision: 1, operationId: 'topup-insurance-decline', decision: 'decline' } });
+      assert.equal(declined.status, 200, JSON.stringify(declined.data));
+    });
     // The next deal settles the pending chips, so pending is back to 0 and basePending matches again.
     await sock.next((m) => m.type === 'state' && m.state.handNo > live.state.handNo
       && m.state.players.some((p) => p.isMe && (p.pendingTopUp || 0) === 0), 45000);

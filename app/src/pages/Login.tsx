@@ -249,7 +249,7 @@ export function Login() {
               <label htmlFor="login-id">Account ID or nickname</label>
               <div className="login2-input">
                 <UserIcon />
-                <input id="login-id" value={loginId} onChange={(e) => setLoginId(e.target.value)} autoFocus autoComplete="username" placeholder="Your DanGG.Live ID" required />
+                <input id="login-id" aria-label="Account ID or nickname" value={loginId} onChange={(e) => setLoginId(e.target.value)} autoFocus autoComplete="username" placeholder="Your DanGG.Live ID" required />
               </div>
             </div>
 
@@ -259,14 +259,14 @@ export function Login() {
                   <label htmlFor="login-nick">Nickname at the tables</label>
                   <div className="login2-input">
                     <UserIcon />
-                    <input id="login-nick" value={nick} onChange={(e) => setNick(e.target.value)} autoComplete="nickname" placeholder="Pick a nickname" />
+                    <input id="login-nick" aria-label="Nickname at the tables" value={nick} onChange={(e) => setNick(e.target.value)} autoComplete="nickname" placeholder="Pick a nickname" />
                   </div>
                 </div>
                 <div className="login2-field">
                   <label htmlFor="login-email">Email <span className="login2-hint">optional</span></label>
                   <div className="login2-input">
                     <MailIcon />
-                    <input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" />
+                    <input id="login-email" aria-label="Email (optional)" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" />
                   </div>
                 </div>
               </>
@@ -278,6 +278,7 @@ export function Login() {
                 <LockIcon />
                 <input
                   id="login-password"
+                  aria-label="Password"
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -294,7 +295,7 @@ export function Login() {
             {!registering && (
               <div className="login2-row">
                 <label className="login2-remember" title="Keeps your account ID and password on this device">
-                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                  <input type="checkbox" aria-label="Remember me" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
                   <span className="login2-check" aria-hidden="true" />
                   Remember me
                 </label>

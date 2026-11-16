@@ -24,6 +24,8 @@ import { autoTopUpAmount } from '../lib/autoTopUp';
 import { DEFAULT_NOTE_COLOR, noteColorHex, noteColorTitle, normalizeLabels } from '../lib/noteColors';
 import { NoteColorPicker } from '../components/NoteColorPicker';
 import { OpponentHud } from '../components/OpponentHud';
+import { OwnHandPanel } from '../components/table/OwnHandPanel';
+import { AutoFoldEditor } from '../components/table/AutoFoldEditor';
 import { HOTKEYS_ENABLED_KEY, HOTKEYS_KEY, HOTKEY_PREF_KEYS, comboFromEvent, readHotkeyPrefs, readHotkeys, resolveHotkey, showCardIndices, type HotkeyAction } from '../lib/hotkeys';
 import { amountLabel, betInputUnit, fromInputValue, toInputValue } from '../lib/chipDisplay';
 import { usePref } from '../lib/usePref';
@@ -39,6 +41,11 @@ import { SeatReaction } from '../components/table/SeatReaction';
 import { ReportPlayerModal } from '../components/table/ReportPlayerModal';
 import { CashDropBanner } from '../components/table/CashDropBanner';
 import { DailyLeaderboardRibbon } from '../components/table/DailyLeaderboardRibbon';
+import { RimtPanel } from '../components/table/RimtPanel';
+import { SpinPresentation } from '../components/spin/SpinPresentation';
+import { PushSeatPanel } from '../components/table/PushSeatPanel';
+import { BetAndMuckPanel } from '../components/table/BetAndMuckPanel';
+import { CashInsurancePanel } from '../components/table/CashInsurancePanel';
 import { TournamentHud } from '../components/table/TournamentHud';
 import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
@@ -84,17 +91,31 @@ type TableState = {
   pots?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
   spin?: {
+    seats: number;
+    multipliers?: number[];
     multiplier: number | null;
     prize: number;
     buyIn?: number;
-    /** Places 1-3 from the verified table; null until the first hand draws the Spin. */
+    /** Committed event places, or null before a legacy table draws. */
     payouts?: number[] | null;
     finished?: { id: string | number; nick: string; place: number; payout: number }[];
     winner: any;
+    eventId?: string | null;
+    presentation?: {
+      revision: number; barrierOpensAt: number; acknowledgements: string[]; insured: boolean; insurancePayout?: number; insuranceMultiplier?: number;
+    } | null;
   } | null;
   tournament?: { id?: string | null; name: string; prizePool: number; level: number; winner: any; mode?: string; bounty?: number; ticket?: string; nextBlindAt?: number | null; managed?: boolean; tableIndex?: number; tables?: number; playersLeft?: number | null; payouts?: PayoutRow[] } | null;
+  pushSeat?: { remaining: number; revision: number; reservation: { destinationSeat: number; status: string } | null };
   straddle?: boolean;
   straddleAsk?: StraddleAsk | null;
+  rimt?: { handId: string; revision: number; phase: 'propose' | 'decide' | 'complete'; proposer: number; decider: number; proposal: 1 | 2 | 3 | null; runs: 1 | 2 | 3 | null; reason: string | null; suggestUntil: number; decisionEndsAt: number | null } | null;
+  betAndMuck?: { bettorId: number; action: 'bet' | 'raise'; amount: number; status: 'awaiting-response' | 'consumed' } | null;
+  cashInsurance?: any;
+  cashInsuranceRevision?: number;
+  cashInsuranceRuleRevision?: number;
+  betMuckRevision?: number;
+  betAndMuckEligible?: boolean;
   /** Set only for an all-in player being asked how many times to run it. */
   runAsk?: RunAsk | null;
   runRoundEndsAt?: number | null;
@@ -161,6 +182,14 @@ export function TablePage({ tableId }: { tableId: string }) {
   // Cards shown to the table this hand (cards_shown), drawn with the fade-up.
   const [shownFx, setShownFx] = useState<{ hand: number; seats: Record<number, number[]> }>({ hand: -1, seats: {} });
   const [menuOpen, setMenuOpen] = useState(false);
+  const [handPanelOpen, setHandPanelOpen] = useState(false);
+  const [autoFoldOpen, setAutoFoldOpen] = useState(false);
+  const [pushSeatOpen, setPushSeatOpen] = useState(false);
+  const pushSeatTrigger = useRef<HTMLButtonElement>(null);
+  const closePushSeat = useCallback(() => {
+    setPushSeatOpen(false);
+    requestAnimationFrame(() => pushSeatTrigger.current?.focus());
+  }, []);
   const [preAction, setPreAction] = useState<PreAction | null>(null);
   const lastDealtHand = useRef(-1);
   const clockOffset = useRef(0);
@@ -233,6 +262,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
   const confirmBets = bettingOptions.confirm === 'always';
   const [pendingBet, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number } | null>(null);
+  const [betMuckSelected, setBetMuckSelected] = useState(false);
+  const betMuckSelectedRef = useRef(false);
   const actionBarRef = useRef<HTMLDivElement | null>(null);
   const [squeezeEnabled] = useState(readSqueeze);
   const [squeezing, setSqueezing] = useState(false);
@@ -353,7 +384,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           lastDealtHand.current = s.handNo;
           sound.play('deal', { volume: .75 });
         }
-        if (s.spin && !spinSeen.current) {
+        if (s.spin && !s.spin.eventId && !spinSeen.current) {
           spinSeen.current = true;
           setSpinShow(true);
           sound.play('wheel');
@@ -797,7 +828,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [myTurn, minTo, maxTo, state?.handNo]);
 
   // A confirmation is only valid for the exact moment it was raised on.
-  useEffect(() => { setPendingBet(null); }, [state?.handNo, state?.street, myTurn, raiseTo]);
+  useEffect(() => { setPendingBet(null); setBetMuckSelected(false); betMuckSelectedRef.current = false; }, [state?.handNo, state?.street, myTurn, raiseTo]);
 
   const send = (msg: any) => {
     const ws = wsRef.current;
@@ -831,6 +862,20 @@ export function TablePage({ tableId }: { tableId: string }) {
 
   const act = (action: string, amount = 0) => {
     if (!myTurn) return;
+    const current = stateRef.current;
+    if (betMuckSelectedRef.current && current?.betAndMuckEligible && ['bet', 'raise', 'allin'].includes(action) && current.handId) {
+      const flaggedAction = current.currentBet > 0 ? 'raise' as const : 'bet' as const;
+      api.betAndMuck(tableId, {
+        action: flaggedAction,
+        amount: action === 'allin' ? allInTo : amount,
+        handId: current.handId,
+        expectedRevision: current.betMuckRevision || 0,
+        operationId: crypto.randomUUID(),
+      }).then(() => sound.play(action === 'allin' ? 'voiceAllIn' : current.currentBet > 0 ? 'voiceRaise' : 'voiceBet', { volume: .6 })).catch((error) => {
+        toast({ kind: 'error', title: 'Bet-and-Muck rejected', body: error.message });
+      });
+      return;
+    }
     const voices: Record<string, string> = { fold: 'voiceFold', check: 'voiceCheck', call: 'voiceCall', raise: 'voiceRaise', bet: 'voiceBet', allin: 'voiceAllIn' };
     const voice = voices[action];
     if (voice) setTimeout(() => sound.play(voice as any, { volume: .6 }), 120);
@@ -1054,7 +1099,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [squeezing]);
 
   useEffect(() => {
-    if (state?.spin && state.handNo === 1 && !spinIntroSeen.current) {
+    if (state?.spin && !state.spin.eventId && state.handNo === 1 && !spinIntroSeen.current) {
       spinIntroSeen.current = true;
       setFxEffect('spin_intro');
     }
@@ -1209,13 +1254,17 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
         <div className="spacer" />
+        <button data-hand-rank-open disabled={squeezing || !me?.cards?.some((card: string) => card !== '??')} onClick={() => setHandPanelOpen(true)}>Hand Rank</button>
         <button type="button" className="table-sound-btn" aria-label="Sound" aria-pressed={sound.enabled} data-tip="Sound" onClick={() => sound.setEnabled(!sound.enabled)}>{sound.enabled ? '🔊' : '🔇'}</button>
         <button type="button" className="table-history-btn" aria-label="Hand history" data-tip="Hand history" onClick={() => navigate('/hand-history')}><img src="/assets/table/ui/ic-history.webp" alt="" /></button>
         <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
         <button type="button" className="table-gear" aria-label="Table options" data-tip="Table options" onClick={() => { setOptionsOpen(true); setMenuOpen(false); }}>⚙</button>
-        <button type="button" className="table-menu-btn" aria-label="Table menu" data-tip="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}><span className="menu-text">Menu</span></button>
+        <button ref={pushSeatTrigger} type="button" className="table-menu-btn" aria-label="Table menu" data-tip="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}><span className="menu-text">Menu</span></button>
         <button className="table-leave-btn" onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
+
+      {autoFoldOpen && <AutoFoldEditor onClose={() => setAutoFoldOpen(false)} />}
+      {handPanelOpen && me && state && !squeezing && <OwnHandPanel tableId={tableId} me={me} board={state.board} game={state.game} rabbitCards={rabbit} rabbitOpened={rabbit.length > 0 && state.board.length + rabbit.length === 5} onClose={() => { setHandPanelOpen(false); window.setTimeout(() => document.querySelector<HTMLButtonElement>('[data-hand-rank-open]')?.focus(), 0); }} onProfile={() => navigate('/profile')} />}
 
       {tableId && state && !state.tournament && !state.spin && (
         <DailyLeaderboardRibbon tableId={tableId} stake={`${money(state.sb)}/${money(state.bb)}`} refreshKey={vpipHand} />
@@ -1261,6 +1310,8 @@ export function TablePage({ tableId }: { tableId: string }) {
           {state?.ownerId === user?.id && state.private && (
             <button onClick={async () => { setMuteOpen(true); setMenuOpen(false); try { const r = await api.hostMutes(tableId); setMutes((r.muted || []).map((m) => m.user_id)); } catch { setMutes([]); } }}>Table moderation…</button>
           )}
+          {state?.game === 'rush' && !state.tournament && <button onClick={() => { setAutoFoldOpen(true); setMenuOpen(false); }}>Auto Fold</button>}
+          {!state?.tournament && !state?.spin && <button disabled={!me || !state?.pushSeat?.remaining} title={state?.pushSeat?.remaining ? 'Move to another physical seat between hands' : 'No Push Seat uses granted'} onClick={() => { setPushSeatOpen(true); setMenuOpen(false); }}>Push Seat{state?.pushSeat?.remaining ? ` ×${state.pushSeat.remaining}` : ''}</button>}
           <button aria-pressed={hotkeyPrefs.enabled} title="Turn table hotkeys on or off in every table window" onClick={toggleHotkeys}>{hotkeyPrefs.enabled ? '✓ ' : ''}Hotkeys</button>
           <div className="menu-section">Card animation</div>
           <div className="anim-switch">
@@ -1288,7 +1339,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           {state?.straddle && <button disabled={!me} title="Post a straddle automatically whenever you are asked" onClick={() => send({ type: 'option', tableId, autoStraddle: !me?.autoStraddle })}>{me?.autoStraddle ? '✓ ' : ''}Auto-straddle</button>}
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
           {!!state?.runItOffered && <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItAsk: !(me?.runItAsk ?? true) })}>{(me?.runItAsk ?? true) ? '✓ ' : ''}Offer to run it more than once</button>}
-          {state?.spin && <button disabled title="Insurance is not available in DanGG yet">Insurance — not available</button>}
+          {state?.spin && <button disabled title="Insurance terms are selected during registration">{state.spin.presentation?.insured ? 'Insurance selected at registration' : 'No insurance selected'}</button>}
           <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
           <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
           <button onClick={() => navigate('/hand-history')}>Hand history</button>
@@ -1387,32 +1438,47 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="bbj-row" key={row.label}><span>{row.label}</span><b>{row.names}</b><em>{money(row.amount)}</em></div>
           ))}
         </div>}
-        <div className="board">
-          {(state?.board || []).map((c, i) => {
-            const [dxp, dyp] = state && state.button >= 0 ? seatPos(state.button) : [50, 12];
-            const fromX = Math.round((50 - dxp) * 4);
-            const fromY = Math.round((45 - dyp) * 3);
-            const runDelay = runPlan?.delays[0]?.[i];
-            const delay = runDelay != null ? `${runDelay}ms` : `${(i < 3 ? i : 0) * 0.07}s`;
-            return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt className={focusClass(winnerFocus?.board, i)} style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: delay } as React.CSSProperties} />;
-          })}
-          {((state?.boards?.length ?? 0) > 1 || othersChoosingRuns) && (
-            <div className="extra-boards">
-              {(state?.boards ?? []).slice(1).map((run, r) => (
-                <div className="board second-board" key={`run-${r + 2}`} aria-label={`Board ${r + 2}`}>
-                  {run.map((c, i) => {
-                    const delay = runPlan?.delays[r + 1]?.[i] ?? null;
-                    return <PlayingCard key={`run${r + 2}-${state?.handNo}-${i}-${c}`} card={c} size="mini" dealt={delay !== null} style={delay !== null ? { animationDelay: `${delay}ms` } : undefined} />;
-                  })}
-                </div>
-              ))}
-              {othersChoosingRuns && <div className="run-wait-note">Players are choosing how many times to run it</div>}
-            </div>
-          )}
-          {state && state.board.length === 0 && state.street !== 'idle' && (
-            <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 12, letterSpacing: 2 }}>PRE-FLOP</div>
-          )}
-        </div>
+        {state?.result?.rimt && state.boards && state.boards.length > 1 ? (
+          <div className="rimt-boards">
+            {(state.result?.rimt?.sharedCount || 0) > 0 && (
+              <div className="board rimt-shared-board">
+                {state.board.slice(0, state.result.rimt.sharedCount).map((c, i) => <PlayingCard key={`shared-${state.handNo}-${i}-${c}`} card={c} size="mini" />)}
+              </div>
+            )}
+            {state.boards.map((board, run) => (
+              <div className={`board rimt-board rimt-run-${run}`} data-run={run} key={`run-${state.handNo}-${run}`}>
+                {board.slice(state.result?.rimt?.sharedCount || 0).map((c, i) => <PlayingCard key={`run-${state.handNo}-${run}-${i}-${c}`} card={c} size="mini" />)}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="board">
+            {(state?.board || []).map((c, i) => {
+              const [dxp, dyp] = state && state.button >= 0 ? seatPos(state.button) : [50, 12];
+              const fromX = Math.round((50 - dxp) * 4);
+              const fromY = Math.round((45 - dyp) * 3);
+              const runDelay = runPlan?.delays[0]?.[i];
+              const delay = runDelay != null ? `${runDelay}ms` : `${(i < 3 ? i : 0) * 0.07}s`;
+              return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt className={focusClass(winnerFocus?.board, i)} style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: delay } as React.CSSProperties} />;
+            })}
+            {((state?.boards?.length ?? 0) > 1 || othersChoosingRuns) && (
+              <div className="extra-boards">
+                {(state?.boards ?? []).slice(1).map((run, r) => (
+                  <div className="board second-board" key={`run-${r + 2}`} aria-label={`Board ${r + 2}`}>
+                    {run.map((c, i) => {
+                      const delay = runPlan?.delays[r + 1]?.[i] ?? null;
+                      return <PlayingCard key={`run${r + 2}-${state?.handNo}-${i}-${c}`} card={c} size="mini" dealt={delay !== null} style={delay !== null ? { animationDelay: `${delay}ms` } : undefined} />;
+                    })}
+                  </div>
+                ))}
+                {othersChoosingRuns && <div className="run-wait-note">Players are choosing how many times to run it</div>}
+              </div>
+            )}
+            {state && state.board.length === 0 && state.street !== 'idle' && (
+              <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 12, letterSpacing: 2 }}>PRE-FLOP</div>
+            )}
+          </div>
+        )}
         {handInfo && showHand && (
           <div className="hand-strength">{handInfo.name} <span>·</span> {holeLabel}</div>
         )}
@@ -1589,7 +1655,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         onSend={sendChat} onReact={sendReaction} onMute={muteChatLine} onReport={reportChatLine} />
 
       {observing ? (
-        <div className="action-bar">
+        <div className="action-bar" ref={actionBarRef}>
           <div className="action-row">
             <div style={{ flex: 1, color: '#cfcfcf', fontSize: 13 }} role="status" aria-live="polite">{waitBannerText}</div>
             {!state?.tournament && <button className={'btn ' + (myTableQueue && !offerLive ? 'btn-gold' : 'btn-red')} onClick={sitIn}>{offerLive ? 'Take seat' : 'Take a seat'} · {chip(state?.minBuyin)}</button>}
@@ -1598,6 +1664,19 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       ) : (
       <div className={'action-bar' + (squeezing ? ' squeeze-lock' : '') + (sittingOut ? ' sitting-out' : '')} ref={actionBarRef}>
+        {state?.rimt && state.handId && (
+          <RimtPanel
+            tableId={tableId}
+            handId={state.handId}
+            phase={state.rimt.phase}
+            revision={state.rimt.revision}
+            proposer={state.rimt.proposer}
+            decider={state.rimt.decider}
+            proposal={state.rimt.proposal}
+            mySeat={mySeat}
+            onState={(next) => { stateRef.current = next; setState(next); }}
+          />
+        )}
         {straddleModel && (
           <div className="straddle-ask" role="dialog" aria-label="Straddle">
             <div className="straddle-ask-head">
@@ -1668,7 +1747,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="grow" />
             {!state?.tournament && (
               <label className="wait-blinds" title="Come back on your big blind instead of posting now">
-                <input type="checkbox" checked={!!me?.waitForBlinds} onChange={(e) => send({ type: 'option', tableId, waitForBlinds: e.target.checked })} /> Wait for Blinds
+                <input type="checkbox" aria-label="Wait for Blinds" checked={!!me?.waitForBlinds} onChange={(e) => send({ type: 'option', tableId, waitForBlinds: e.target.checked })} /> Wait for Blinds
               </label>
             )}
             <button className="btn btn-back" onClick={() => send({ type: 'sit_out', value: false })}>I'm back</button>
@@ -1681,6 +1760,8 @@ export function TablePage({ tableId }: { tableId: string }) {
             <button className="btn btn-ghost" onClick={() => send({ type: 'option', tableId, waitForBlinds: false })}>Post now</button>
           </div>
         )}
+        <CashInsurancePanel tableId={tableId} offer={state?.cashInsurance} revision={state?.cashInsuranceRevision || 0} ruleRevision={state?.cashInsuranceRuleRevision || 1} userId={user?.id || 0} />
+        <BetAndMuckPanel eligible={!!state?.betAndMuckEligible} flag={state?.betAndMuck || null} selected={betMuckSelected} onToggle={(value) => { betMuckSelectedRef.current = value; setBetMuckSelected(value); }} />
         <FastFoldButton
           game={state?.game}
           street={state?.street}
@@ -1833,7 +1914,21 @@ export function TablePage({ tableId }: { tableId: string }) {
       </div>
       )}
 
-      {spinShow && state?.spin && (
+      {pushSeatOpen && state?.pushSeat && me && <PushSeatPanel tableId={tableId} seatCount={state.seats} currentSeat={me.seat} players={state.players} pushSeat={state.pushSeat} onClose={closePushSeat} />}
+
+      {state?.spin?.eventId && state.spin.presentation && state.spin.multiplier != null && (
+        <SpinPresentation spin={{
+          eventId: state.spin.eventId,
+          multiplier: state.spin.multiplier,
+          prize: state.spin.prize,
+          payouts: state.spin.payouts || [],
+          seats: state.spin.seats,
+          multipliers: state.spin.multipliers,
+          presentation: state.spin.presentation,
+        }} />
+      )}
+
+      {spinShow && state?.spin && !state.spin.eventId && (
         <div className="spin-overlay">
           <div className="spin-title">JACKPOT SNG</div>
           <div className="spin-ring">

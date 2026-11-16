@@ -14,6 +14,7 @@ export type User = {
   vip_points: number;
   elo?: number;
   is_admin: boolean;
+  role: 'owner' | 'moderator' | 'player';
   banned: boolean;
   chat_muted?: boolean;
   country: string;
@@ -104,6 +105,14 @@ export type WaitlistJoinResult =
 export type WaitlistQueue = { queueKey: string; position: number; size: number; tableName?: string } & WaitlistTarget;
 
 export type WaitlistOffer = { tableId: string; tableName: string; seat: number; deadline: number; holdMs: number };
+
+export type SpinRegistration = { registrationId: string; eventId: string | null; status: 'waiting' | 'matched' | 'cancelled' | 'settled'; revision: number; insurance?: boolean };
+export type SpinQueueState = {
+  mode: '3max' | '6max'; stake: number; revision: number; ruleRevision: number; maxActive: number; complete: boolean;
+  insurance: { premium: number; payout: number } | null;
+  registrations: SpinRegistration[];
+};
+export type SpinCommandState = { registrationId?: string; eventId: string | null; status?: string; acknowledgements?: Record<string, string[]> };
 
 export type MyWaitlists = { queues: WaitlistQueue[]; offers: WaitlistOffer[] };
 
@@ -212,7 +221,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let data: any = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = { error: text }; }
   if (!res.ok) {
-    const err = new Error(data?.error || `Request failed (${res.status})`);
+    const err = new Error(data?.error || data?.message || `Request failed (${res.status})`);
     (err as any).status = res.status;
     throw err;
   }
@@ -269,6 +278,43 @@ export const api = {
   leaveGroupWaitlist: (groupKey: string) =>
     request<{ ok: true; left: boolean }>(`/api/lobby/groups/${encodeURIComponent(groupKey)}/waitlist`, { method: 'DELETE' }),
   myWaitlists: () => request<MyWaitlists>('/api/waitlists/me'),
+  rimt: (tableId: string, body: { handId: string; expectedRevision: number; operationId: string; choice: number | 'accept' | 'decline' }) =>
+    request<{ ok: true; operationId: string; revision: number; state: any }>(`/api/rooms/${encodeURIComponent(tableId)}/rimt`, { method: 'POST', body: JSON.stringify(body) }),
+  autoFoldPreferences: () => request<{ ok: true; preferences: any }>('/api/auto-fold'),
+  saveAutoFoldPreferences: (body: { expectedRevision: number; operationId: string; config: any }) => request<{ ok: true; revision: number; state: any }>('/api/auto-fold', { method: 'POST', body: JSON.stringify(body) }),
+  sharedHand: (shareId: string) => request<{ ok: true; hand: any }>(`/api/shared-hands/${encodeURIComponent(shareId)}`),
+  createHandShare: (handId: string | number, expectedRevision: number, operationId: string) => request<{ ok: true; state: any }>(`/api/hands/${encodeURIComponent(String(handId))}/share`, { method: 'POST', body: JSON.stringify({ expectedRevision, operationId }) }),
+  revokeHandShare: (handId: string | number, shareId: string, expectedRevision: number, operationId: string) => request<{ ok: true; state: any }>(`/api/hands/${encodeURIComponent(String(handId))}/share/revoke`, { method: 'POST', body: JSON.stringify({ shareId, expectedRevision, operationId }) }),
+  battleCatalog: () => request<{ ok: true; events: any[] }>('/api/battle'),
+  battleState: (eventId: string) => request<{ ok: true; state: any }>(`/api/battle/${encodeURIComponent(eventId)}`),
+  battleRegister: (eventId: string, expectedRevision: number, operationId: string) => request<{ ok: true; state: any }>(`/api/battle/${encodeURIComponent(eventId)}/register`, { method: 'POST', body: JSON.stringify({ eventId, expectedRevision, operationId }) }),
+  battleCancel: (eventId: string, expectedRevision: number, operationId: string) => request<{ ok: true; state: any }>(`/api/battle/${encodeURIComponent(eventId)}/cancel`, { method: 'POST', body: JSON.stringify({ eventId, expectedRevision, operationId }) }),
+  battleReopen: (eventId: string, expectedRevision: number, operationId: string) => request<{ ok: true; state: any }>(`/api/battle/${encodeURIComponent(eventId)}/reopen`, { method: 'POST', body: JSON.stringify({ eventId, expectedRevision, operationId }) }),
+  battleAction: (eventId: string, body: { eventId: string; stage: string; roomId: string; handId: string; expectedRevision: number; operationId: string; action: string; amount: number }) => request<{ ok: true; state: any }>(`/api/battle/${encodeURIComponent(eventId)}/action`, { method: 'POST', body: JSON.stringify(body) }),
+  cashInsuranceQuote: (tableId: string, body: { handId: string; expectedRevision: number; ruleRevision: number; operationId: string; coverage: number }) =>
+    request<{ ok: true; revision: number; state: any }>(`/api/rooms/${encodeURIComponent(tableId)}/insurance/quote`, { method: 'POST', body: JSON.stringify(body) }),
+  cashInsuranceDecision: (tableId: string, body: { handId: string; quoteId: string; expectedRevision: number; operationId: string; decision: 'accept' | 'decline' }) =>
+    request<{ ok: true; revision: number; state: any }>(`/api/rooms/${encodeURIComponent(tableId)}/insurance/decision`, { method: 'POST', body: JSON.stringify(body) }),
+  betAndMuck: (tableId: string, body: { action: 'bet' | 'raise'; amount: number; handId: string; expectedRevision: number; operationId: string }) =>
+    request<{ ok: true; revision: number; state: any }>(`/api/rooms/${encodeURIComponent(tableId)}/bet-and-muck`, { method: 'POST', body: JSON.stringify({ ...body, betAndMuck: true }) }),
+  pushSeat: (tableId: string, body: { destinationSeat: number; expectedRevision: number; operationId: string }) => request<{ ok: true; revision: number; state: any }>(`/api/rooms/${encodeURIComponent(tableId)}/push-seat`, { method: 'POST', body: JSON.stringify(body) }),
+  cancelPushSeat: (tableId: string, body: { expectedRevision: number; operationId: string }) => request<{ ok: true; revision: number; state: any }>(`/api/rooms/${encodeURIComponent(tableId)}/push-seat/cancel`, { method: 'POST', body: JSON.stringify(body) }),
+  spinQueue: (stake: number, mode: '3max' | '6max' = '3max') => request<{ ok: true; state: SpinQueueState }>(`/api/spin/queue?mode=${mode}&stake=${stake}`),
+  spinRegister: (body: { stake: number; mode?: '3max' | '6max'; expectedRevision: number; ruleRevision: number; operationId: string; insurance: boolean }) =>
+    request<{ ok: true; revision: number; state: SpinCommandState }>('/api/spin/register', { method: 'POST', body: JSON.stringify({ mode: '3max', ...body }) }),
+  spinCancel: (registrationId: string, body: { expectedRevision: number; operationId: string }) =>
+    request<{ ok: true; revision: number; state: SpinCommandState }>(`/api/spin/registrations/${encodeURIComponent(registrationId)}/cancel`, { method: 'POST', body: JSON.stringify(body) }),
+  spinPresentation: (eventId: string) => request<{ ok: true; state: { eventId: string; revision: number; acknowledgements: string[] } }>(`/api/spin/${encodeURIComponent(eventId)}/presentation`),
+  spinPresented: (eventId: string, body: { expectedRevision: number; operationId: string; stage: 'wheel' | 'insurance' | 'ready' }) =>
+    request<{ ok: true; revision: number; state: SpinCommandState }>(`/api/spin/${encodeURIComponent(eventId)}/presented`, { method: 'POST', body: JSON.stringify(body) }),
+  declineSeatOffer: (tableId: string, offer: WaitlistOffer, userId: number) => request<{ ok: true; state: { offerId: string; status: 'declined' } }>(`/api/rooms/${encodeURIComponent(tableId)}/seat-offer/decline`, {
+    method: 'POST',
+    body: JSON.stringify({
+      offerId: [offer.tableId, offer.seat, userId, offer.deadline].map((value) => encodeURIComponent(String(value))).join(':'),
+      expectedRevision: offer.deadline,
+      operationId: crypto.randomUUID(),
+    }),
+  }),
   hostTournament: (data: any) => request<{ id: string }>('/api/tournaments/host', { method: 'POST', body: JSON.stringify(data) }),
   hostTournaments: () => request<{ tournaments: any[] }>('/api/tournaments/host'),
   deleteHostTournament: (id: string) => request<any>(`/api/tournaments/host/${encodeURIComponent(id)}`, { method: 'DELETE' }),
@@ -354,6 +400,14 @@ export const api = {
     saveMission: (body: any) => request('/api/admin/missions', { method: 'POST', body: JSON.stringify(body) }),
     settings: () => request<{ settings: any }>('/api/admin/settings'),
     saveSettings: (body: any) => request('/api/admin/settings', { method: 'POST', body: JSON.stringify(body) }),
+    createBattle: (config: any, operationId: string) => request<{ ok: true; state: any }>('/api/admin/battle', { method: 'POST', body: JSON.stringify({ config, operationId }) }),
+    abortBattle: (eventId: string, expectedRevision: number, operationId: string) => request<{ ok: true; state: any }>(`/api/battle/${encodeURIComponent(eventId)}/abort`, { method: 'POST', body: JSON.stringify({ eventId, expectedRevision, operationId }) }),
+    cashInsuranceRules: () => request<{ ok: true; state: any }>('/api/admin/cash-insurance-rules'),
+    saveCashInsuranceRules: (body: any) => request<{ ok: true; revision: number; state: any }>('/api/admin/cash-insurance-rules', { method: 'POST', body: JSON.stringify(body) }),
+    pushSeatGrant: (tableId: string, accountId: number) => request<{ ok: true; state: any }>(`/api/admin/rooms/${encodeURIComponent(tableId)}/push-seat-grant?accountId=${accountId}`),
+    savePushSeatGrant: (tableId: string, body: any) => request<{ ok: true; revision: number; state: any }>(`/api/admin/rooms/${encodeURIComponent(tableId)}/push-seat-grant`, { method: 'POST', body: JSON.stringify(body) }),
+    spinRules: (stake: number, mode: '3max' | '6max' = '3max') => request<{ ok: true; state: any }>(`/api/admin/spin/rules?mode=${mode}&stake=${stake}`),
+    saveSpinRules: (body: any) => request<{ ok: true; revision: number; state: any }>('/api/admin/spin/rules', { method: 'PUT', body: JSON.stringify(body) }),
     audit: (filters: Partial<AdminAuditFilters> = {}) => {
       const query = auditQuery(filters);
       return request<AdminAuditPage>(`/api/admin/audit${query ? `?${query}` : ''}`);

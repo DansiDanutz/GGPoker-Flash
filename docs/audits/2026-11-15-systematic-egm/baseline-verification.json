@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "repository": "/Users/davidai/Projects/GGPoker-flash",
+    "branch": "feat/systematic-egm-mobile-parity",
+    "commit": "8ee5793ff63d24248d398f9597f5ba76ff85ab32",
+    "applicationSourceChangedBeforeRun": false
+  },
+  "workingDirectory": "/Users/davidai/Projects/GGPoker-flash/app",
+  "taskId": "bash-ffwt5ofz",
+  "process": {
+    "command": "node --version && pnpm --version && pnpm test && pnpm exec tsc --noEmit -p tsconfig.json && pnpm build",
+    "startedAtFromOutputBirthTime": "2026-11-15T05:53:29+02:00",
+    "completedAtFromOutputModificationTime": "2026-11-15T05:54:14+02:00",
+    "wallTimeSeconds": 45.541,
+    "exitStatus": 0,
+    "outputPath": "/Users/davidai/.kimi-code/sessions/wd_davidai_87506d3aa990/session_92721af3-44d9-4308-b54a-e750e4692bee/agents/main/tasks/bash-ffwt5ofz/output.log",
+    "outputBytes": 70561
+  },
+  "versions": {
+    "node": "v26.13.0",
+    "pnpm": "10.32.1"
+  },
+  "checks": [
+    {
+      "command": "pnpm test",
+      "exitStatus": 0,
+      "observed": {
+        "tests": 862,
+        "passed": 862,
+        "failed": 0,
+        "durationMs": 37748.521625
+      }
+    },
+    {
+      "command": "pnpm exec tsc --noEmit -p tsconfig.json",
+      "exitStatus": 0,
+      "observed": "No TypeScript errors; the chained command continued to the production build."
+    },
+    {
+      "command": "pnpm build",
+      "exitStatus": 0,
+      "observed": {
+        "viteVersion": "7.3.8",
+        "modulesTransformed": 165,
+        "durationSeconds": 1.33,
+        "mainJavaScript": "dist/assets/index-uJWwe9h2.js",
+        "mainJavaScriptBytesKibibytes": 972.39,
+        "warning": "Some chunks are larger than 500 kB after minification."
+      }
+    }
+  ],
+  "recordedAt": "2026-11-15T14:23:25+02:00",
+  "limitations": [
+    "This is baseline evidence only, not final verification of later changes.",
+    "The build warning remains recorded and is not treated as a failure.",
+    "The timestamps come from the task output file's filesystem birth and modification times."
+  ]
+}

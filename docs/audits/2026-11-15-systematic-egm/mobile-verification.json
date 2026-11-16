@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "repository": "/Users/davidai/Projects/GGPoker-flash",
+    "branch": "feat/systematic-egm-mobile-parity",
+    "baseCommit": "8ee5793ff63d24248d398f9597f5ba76ff85ab32"
+  },
+  "browser": {
+    "driver": "puppeteer-core with headless Chrome",
+    "fixtureApi": "http://127.0.0.1:56198",
+    "sourceServer": "http://127.0.0.1:56199",
+    "productionDataUsed": false
+  },
+  "results": {
+    "touchTargets": {
+      "cases": 88,
+      "routes": 22,
+      "widths": [320, 390, 768, 1024],
+      "undersizedTargets": 0,
+      "threshold": "44px height and 24px width",
+      "processExit": 0,
+      "evidence": [
+        "/Users/davidai/.kimi-code/sessions/wd_davidai_87506d3aa990/session_92721af3-44d9-4308-b54a-e750e4692bee/agents/main/tasks/bash-wfulgrjr/output.log",
+        "/Users/davidai/.kimi-code/sessions/wd_davidai_87506d3aa990/session_92721af3-44d9-4308-b54a-e750e4692bee/agents/main/tasks/bash-q2lmnbj9/output.log"
+      ]
+    },
+    "keyboardAndReflow": {
+      "cases": 44,
+      "routes": 22,
+      "widths": [390, 1440],
+      "stopsPerCase": 24,
+      "unnamedFocusStops": 0,
+      "offscreenFocusStops": 0,
+      "missingFocusOutlines": 0,
+      "zoom200OverflowPixels": 0,
+      "processExit": 0,
+      "evidence": "/Users/davidai/.kimi-code/sessions/wd_davidai_87506d3aa990/session_92721af3-44d9-4308-b54a-e750e4692bee/agents/main/tasks/bash-q2lmnbj9/output.log"
+    },
+    "screenshots": {
+      "cases": 110,
+      "routes": 22,
+      "widths": [320, 390, 768, 1024, 1440],
+      "documentOverflowFailures": 0,
+      "reactPageErrors": 0,
+      "evidence": "mobile-round2-shots/report.json"
+    },
+    "tableGeometry": {
+      "widths": [320, 390, 768, 1024, 1440],
+      "overflowPixels": 0,
+      "portraitClearance": "Lowest seat to Chat is at least 8px; Chat to action bar is at least 8px in measured fixtures",
+      "landscape": "844x390: all controls are inside the viewport; Chat ends 8px above the action bar",
+      "evidence": [
+        "mobile-final-table/",
+        "mobile-final-table/0844x390-fixture.png"
+      ]
+    },
+    "buildAndTests": {
+      "tests": 872,
+      "testsPassed": 872,
+      "testsFailed": 0,
+      "typeScript": "passed",
+      "productionBuild": "passed on Mac mini through duo run pnpm build",
+      "buildWarning": "Main JavaScript chunk remains above 500 kB"
+    }
+  },
+  "limitations": [
+    "Physical iOS/Safari and installed iOS PWA behavior were not tested.",
+    "Chromium touch/coarse-pointer and viewport evidence is not a claim of full native-device parity.",
+    "Gameplay workflows outside the separately tested Rabbit Hunt and take-seat decline slices remain under implementation."
+  ]
+}

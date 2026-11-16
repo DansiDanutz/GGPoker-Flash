@@ -34,7 +34,7 @@ test('a Rush player facing a bet may quick fold before their turn', () => {
   assert.equal(a.folded, true);
   assert.equal(a.rushQueued, true);
   assert.equal(t.actor, 'D', 'the player to act keeps the turn');
-  assert.deepEqual(t.log.at(-1), { nick: 'A', action: 'fold', street: 'preflop' });
+  assert.deepEqual(t.log.at(-1), { seat: 0, nick: 'A', action: 'fold', canRaise: false, street: 'preflop' });
 });
 
 test('a quick-folded player is skipped when the action reaches them', () => {

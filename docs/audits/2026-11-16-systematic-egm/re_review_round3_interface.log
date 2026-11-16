@@ -1,0 +1,20 @@
+**No reproducible Blocker/Major remains** in the requested Spin 6-Max or Push Seat UI scope.
+
+### Minor — edited admin retries reuse the wrong operation identity
+
+- `app/src/components/AdminSpinRules.tsx:73-80`
+- `app/src/components/AdminSpinSixRules.tsx:60-66`
+- `app/src/components/AdminPushSeatGrant.tsx:44-47`
+
+The operation key contains identity and revision, but not the submitted values. Reproduction:
+
+1. Save rules or a grant and let the server commit while the response is lost.
+2. Change a rule value or replacement-use count.
+3. Retry Save without reloading.
+4. The client reuses the original operation ID with a different payload. The server deterministically returns **409 “Operation ID was already used for another request”** at `app/server/game-receipts.js:27-30`.
+
+No duplicate or incorrect save occurs, and reloading recovers, so this is Minor. Include a payload fingerprint in the operation key or regenerate the operation ID when values change; retain it only for unchanged retries.
+
+Otherwise, the inspected revision pinning, 409 recovery, presentation acknowledgements, Escape propagation, dynamic wheel sectors, validation, grant identity checks, and Push Seat retries are coherent with their server contracts.
+
+Read-only review: no files changed, services started, or tests rerun. Existing evidence records **990/990 passing** at `docs/audits/2026-11-16-systematic-egm/logs/full-test.log:1037-1044` and successful browser journeys.

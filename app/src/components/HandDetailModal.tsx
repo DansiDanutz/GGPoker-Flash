@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { money } from '../lib/api';
+import { api, money } from '../lib/api';
 import { PlayingCard } from './Card';
 import { showdownFocus, focusClass } from '../game/eval';
 import { anonymizeHand, formatHandAmount, handExportFileName, handExportLines, handStreetColumns, STREET_BOARD_CARDS, type AmountUnit } from '../lib/handDetail';
@@ -24,6 +24,10 @@ export function HandDetailModal({ hand: stored, userId, onClose, onSetHidden }: 
   const [anonymous, setAnonymous] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+  const [share, setShare] = useState<any>(null);
+  const [shareRevision, setShareRevision] = useState(stored.shareRevision || 0);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareError, setShareError] = useState('');
   const hand = useMemo(() => (anonymous ? anonymizeHand(stored, userId) : stored), [anonymous, stored, userId]);
   const board = useMemo(() => (hand.board || '').split(' ').filter(Boolean), [hand.board]);
   const focus = useMemo(() => showdownFocus(hand.result, board, hand.game), [hand.result, board, hand.game]);
@@ -44,6 +48,28 @@ export function HandDetailModal({ hand: stored, userId, onClose, onSetHidden }: 
     } finally {
       setExporting(false);
     }
+  };
+
+  const createShare = async () => {
+    setShareBusy(true);
+    setShareError('');
+    try {
+      const result = await api.createHandShare(stored.handId || stored.id, shareRevision, crypto.randomUUID());
+      setShare(result.state);
+      setShareRevision(result.state.revision);
+    } catch (error: any) { setShareError(error.message || 'This hand cannot be shared'); }
+    finally { setShareBusy(false); }
+  };
+  const revokeShare = async () => {
+    if (!share) return;
+    setShareBusy(true);
+    setShareError('');
+    try {
+      const result = await api.revokeHandShare(stored.handId || stored.id, share.shareId, shareRevision, crypto.randomUUID());
+      setShareRevision(result.state.revision);
+      setShare(null);
+    } catch (error: any) { setShareError(error.message || 'Could not revoke this link'); }
+    finally { setShareBusy(false); }
   };
 
   useEffect(() => {
@@ -78,7 +104,10 @@ export function HandDetailModal({ hand: stored, userId, onClose, onSetHidden }: 
               <button className="btn btn-ghost btn-sm" onClick={() => onSetHidden(!stored.hidden)}>{stored.hidden ? 'Unhide hand' : 'Hide hand'}</button>
             )}
             <button className="btn btn-ghost btn-sm" disabled={exporting} onClick={exportPng}>{exporting ? 'Exporting…' : 'Export PNG'}</button>
+            {!share && <button className="btn btn-ghost btn-sm" data-share-action="create" disabled={shareBusy || stored.hidden} onClick={createShare}>{shareBusy ? 'Sharing…' : 'Share Hand'}</button>}
+            {share && <><a className="btn btn-ghost btn-sm" href={`#${share.url}`} target="_blank" rel="noreferrer">Open shared hand</a><button className="btn btn-ghost btn-sm" data-share-action="revoke" disabled={shareBusy} onClick={revokeShare}>Revoke link</button></>}
             {exportError && <span className="small" role="alert" style={{ color: '#e08a8a' }}>{exportError}</span>}
+            {shareError && <span className="small" role="alert" style={{ color: '#e08a8a' }}>{shareError}</span>}
           </div>
           <div className="between" style={{ marginBottom: 12 }}>
             <span className="muted">Pot</span><b className="gold">{amount(hand.pot)}</b>

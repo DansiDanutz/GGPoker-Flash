@@ -125,6 +125,19 @@ export function accept(state, userId, tableId, now) {
   return { state: withOffers(state, state.offers.filter((o) => o !== held)), status: 'accepted', tableId, seat: held.seat };
 }
 
+export function offerIdOf(offer) {
+  return [offer.tableId, offer.seat, offer.userId, offer.deadline]
+    .map((value) => encodeURIComponent(String(value))).join(':');
+}
+
+export function decline(state, userId, tableId, offerId, now) {
+  const held = state.offers.find((o) => o.userId === userId && o.tableId === tableId && offerIdOf(o) === offerId);
+  if (!held) return { state, status: 'none', released: [] };
+  if (now >= held.deadline) return { state, status: 'expired', released: [] };
+  const result = leave(state, userId, held.queueKey);
+  return { state: result.state, status: 'declined', released: result.released };
+}
+
 /**
  * Drop every offer whose deadline has passed and pass each seat to the next player in
  * the same queue (#2 becomes the new holder). Returns the `expired` offers and the

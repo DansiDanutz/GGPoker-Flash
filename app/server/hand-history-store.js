@@ -1,5 +1,6 @@
 // Hand history storage queries: hands a player sat in, and the hands they chose to hide.
 import { handForViewer } from './hand-history.js';
+import { ensureShareHandStore } from './share-hand.js';
 
 /**
  * Rows of `hands` whose stored players include this user id, newest first. Matching on
@@ -24,7 +25,9 @@ export function createHandHistoryStore(db) {
   )`);
   const played = db.prepare(PLAYED_HANDS_SQL);
   const hiddenRows = db.prepare('SELECT hand_row FROM hidden_hands WHERE user_id = ?');
+  ensureShareHandStore(db);
   const handRow = db.prepare('SELECT * FROM hands WHERE id = ?');
+  const shareRevision = db.prepare('SELECT revision FROM hand_identities WHERE hand_row = ?');
   const hide = db.prepare('INSERT OR IGNORE INTO hidden_hands (user_id, hand_row) VALUES (?, ?)');
   const unhide = db.prepare('DELETE FROM hidden_hands WHERE user_id = ? AND hand_row = ?');
 
@@ -35,7 +38,7 @@ export function createHandHistoryStore(db) {
       return played.all(userId, limit)
         .map((row) => handForViewer(row, userId))
         .filter(Boolean)
-        .map((hand) => ({ ...hand, hidden: hidden.has(hand.id) }));
+        .map((hand) => ({ ...hand, hidden: hidden.has(hand.id), shareRevision: shareRevision.get(hand.id)?.revision || 0 }));
     },
     /** @returns {boolean} false when the hand does not exist or the user did not play it */
     setHidden(userId, handId, hidden) {

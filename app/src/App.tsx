@@ -7,6 +7,9 @@ import { Login } from './pages/Login';
 import { Lobby } from './pages/Lobby';
 import { TablePage } from './pages/TablePage';
 import { Tournaments } from './pages/Tournaments';
+import { BattleRoyaleLobby } from './pages/BattleRoyaleLobby';
+import { BattleEvent } from './components/battle/BattleEvent';
+import { SharedHand } from './pages/SharedHand';
 import { Cashier } from './pages/Cashier';
 import { Rewards, Leaderboard } from './pages/Rewards';
 import { Elo } from './pages/Elo';
@@ -68,7 +71,10 @@ export default function App() {
     const parts = path.split('/').filter(Boolean);
     if (parts.length === 0) return <Lobby />;
     if (parts[0] === 'login') return <Login />;
+    if (parts[0] === 'share' && parts[1]) return <SharedHand shareId={parts[1]} />;
     if (parts[0] === 'table') return <TablePage tableId={parts[1]} />;
+    if (parts[0] === 'battle' && parts[1]) return <BattleEvent eventId={parts[1]} />;
+    if (parts[0] === 'battle') return <BattleRoyaleLobby />;
     switch (parts[0]) {
       case 'tournaments': return <Tournaments />;
       case 'cashier': return <Cashier />;
@@ -106,7 +112,7 @@ export default function App() {
     );
   }
 
-  if (!user && !guest) {
+  if (!user && !guest && !route.split('?')[0].startsWith('/share/')) {
     // A saved session that could not reach the server is not a logout.
     if (authOffline) {
       return (

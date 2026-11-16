@@ -1,0 +1,95 @@
+{
+  "completed": true,
+  "eventId": "battle-field-mwidak0i",
+  "accounts": 18,
+  "stages": [
+    "rush",
+    "draining",
+    "shootout",
+    "final",
+    "finished"
+  ],
+  "shootoutRounds": 2,
+  "finalists": [
+    81,
+    83,
+    84,
+    87,
+    93,
+    95
+  ],
+  "keyboardAction": true,
+  "prizes": [
+    {
+      "accountId": 95,
+      "place": 1,
+      "amount": 5400
+    },
+    {
+      "accountId": 84,
+      "place": 2,
+      "amount": 3600
+    },
+    {
+      "accountId": 87,
+      "place": 2,
+      "amount": 3600
+    },
+    {
+      "accountId": 81,
+      "place": 4,
+      "amount": 1800
+    },
+    {
+      "accountId": 83,
+      "place": 4,
+      "amount": 1800
+    },
+    {
+      "accountId": 93,
+      "place": 4,
+      "amount": 1800
+    }
+  ],
+  "bounties": 17,
+  "walletTotal": 10801700,
+  "geometry": [
+    {
+      "player": 1,
+      "width": 320,
+      "overflowX": 0,
+      "results": true
+    },
+    {
+      "player": 2,
+      "width": 390,
+      "overflowX": 0,
+      "results": true
+    },
+    {
+      "player": 3,
+      "width": 768,
+      "overflowX": 0,
+      "results": true
+    },
+    {
+      "player": 4,
+      "width": 1024,
+      "overflowX": 0,
+      "results": true
+    },
+    {
+      "player": 5,
+      "width": 1440,
+      "overflowX": 0,
+      "results": true
+    },
+    {
+      "player": 6,
+      "width": 390,
+      "overflowX": 0,
+      "results": true
+    }
+  ],
+  "errors": []
+}

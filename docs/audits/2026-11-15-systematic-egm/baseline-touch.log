@@ -1,0 +1,190 @@
+/@320: 0 targets under 44h/24w; min text 10.5px (SPAN: BAD BEAT JACKPOT)
+/@390: 0 targets under 44h/24w; min text 99px ()
+/login@320: 5 targets under 44h/24w; min text 12px (login2-splash-legal: 18+ · Play money only · No rea)
+   33x65  "Help"
+   33x68  "EN"
+   40x260 login2-splash-guest "Play as guest"
+   18x48  "Terms"
+   18x56  "Privacy"
+/login@390: 5 targets under 44h/24w; min text 12px (login2-splash-legal: 18+ · Play money only · No rea)
+   33x65  "Help"
+   33x68  "EN"
+   40x330 login2-splash-guest "Play as guest"
+   18x48  "Terms"
+   18x56  "Privacy"
+/tournaments@320: 0 targets under 44h/24w; min text 14px (me-empty: Loading events…)
+/tournaments@390: 0 targets under 44h/24w; min text 13px (SPAN: Nov 16, 01:56 · Buy-in $240.00)
+/cashier@320: 7 targets under 44h/24w; min text 12px (muted small: Instant, local demo processing)
+   36x76 on "Cashier"
+   36x106  "Transactions"
+   36x83  "Bonuses"
+   33x73 on "Deposit"
+   33x83  "Withdraw"
+   40x251 admin-input ""
+   32x279 admin-select "Instant bank transferVisa •••• 424"
+/cashier@390: 7 targets under 44h/24w; min text 12px (muted small: Instant, local demo processing)
+   36x76 on "Cashier"
+   36x106  "Transactions"
+   36x83  "Bonuses"
+   33x73 on "Deposit"
+   33x83  "Withdraw"
+   40x305 admin-input ""
+   32x332 admin-select "Instant bank transferVisa •••• 424"
+/rewards@320: 6 targets under 44h/24w; min text 12px (SPAN: 8,201 XP)
+   36x107 on "DanGG Pass"
+   36x116  "Daily missions"
+   36x101  "Prize Wheel"
+   36x92  "Fish ranks"
+   36x99  "Fish history"
+   36x107  "Leaderboard"
+/rewards@390: 6 targets under 44h/24w; min text 12px (SPAN: 8,201 XP)
+   36x107 on "DanGG Pass"
+   36x116  "Daily missions"
+   36x101  "Prize Wheel"
+   36x92  "Fish ranks"
+   36x99  "Fish history"
+   36x107  "Leaderboard"
+/missions@320: 6 targets under 44h/24w; min text 10.5px (tag gtd: CASH)
+   36x107  "DanGG Pass"
+   36x116 on "Daily missions"
+   36x101  "Prize Wheel"
+   36x92  "Fish ranks"
+   36x99  "Fish history"
+   36x107  "Leaderboard"
+/missions@390: 6 targets under 44h/24w; min text 10.5px (tag gtd: CASH)
+   36x107  "DanGG Pass"
+   36x116 on "Daily missions"
+   36x101  "Prize Wheel"
+   36x92  "Fish ranks"
+   36x99  "Fish history"
+   36x107  "Leaderboard"
+/leaderboard@320: 3 targets under 44h/24w; min text 14px (page-sub: Top players by VIP points acro)
+   33x92 on "VIP points"
+   33x92  "Elo"
+   33x92  "XP"
+/leaderboard@390: 3 targets under 44h/24w; min text 14px (page-sub: Top players by VIP points acro)
+   33x115 on "VIP points"
+   33x115  "Elo"
+   33x115  "XP"
+/elo@320: 5 targets under 44h/24w; min text 9px (SPAN: ELO)
+   30x41 on "All"
+   30x70  "Hold'em"
+   30x50  "PLO"
+   30x83  "Short Deck"
+   30x74  "Fast Fold"
+/elo@390: 5 targets under 44h/24w; min text 9px (SPAN: ELO)
+   30x41 on "All"
+   30x70  "Hold'em"
+   30x50  "PLO"
+   30x83  "Short Deck"
+   30x74  "Fast Fold"
+/promotions@320: 0 targets under 44h/24w; min text 10.5px (tag gtd: All-in)
+/promotions@390: 0 targets under 44h/24w; min text 10.5px (tag gtd: All-in)
+/settings@320: 16 targets under 44h/24w; min text 12px (muted small: Default buy-in (0% = table min)
+   36x77 on "General"
+   36x69  "Sound"
+   36x111  "Table & cards"
+   36x73  "Betting"
+   36x80  "Account"
+   36x153  "Responsible gaming"
+   32x262 admin-select "EnglishRomânăDeutschFrançaisEspaño"
+   21x38  ""
+   21x38  ""
+   21x34  ""
+   21x38  ""
+   16x262  ""
+/settings@390: 16 targets under 44h/24w; min text 12px (muted small: Default buy-in (0% = table min)
+   36x77 on "General"
+   36x69  "Sound"
+   36x111  "Table & cards"
+   36x73  "Betting"
+   36x80  "Account"
+   36x153  "Responsible gaming"
+   32x332 admin-select "EnglishRomânăDeutschFrançaisEspaño"
+   21x38  ""
+   21x38  ""
+   21x38  ""
+   21x38  ""
+   16x332  ""
+/slots@320: 0 targets under 44h/24w; min text 9px (slot-tile-badge: FEATURED)
+/slots@390: 0 targets under 44h/24w; min text 11.5px (SPAN: 0 games)
+/casino@320: 0 targets under 44h/24w; min text 14px (SPAN: Play-money casinoPick a game.T)
+/casino@390: 0 targets under 44h/24w; min text 14px (SPAN: Play-money casinoPick a game.T)
+/profile@320: 1 targets under 44h/24w; min text 10.5px (tag gtd: VIP 5)
+   32x204 admin-input ""
+/profile@390: 1 targets under 44h/24w; min text 10.5px (tag gtd: VIP 5)
+   32x274 admin-input ""
+/my-page@320: 11 targets under 44h/24w; min text 11px (vip-badge: 5)
+   36x86 on "Overview"
+   36x92  "My Promo"
+   36x123  "Weekly Mission"
+   36x106  "Transactions"
+   36x73  "Tickets"
+   36x91  "Messages"
+   36x105  "Player notes"
+   36x75  "Friends"
+   36x107  "Leaderboard"
+   36x80  "Verify ID"
+   36x79  "Security"
+/my-page@390: 11 targets under 44h/24w; min text 11px (vip-badge: 5)
+   36x86 on "Overview"
+   36x92  "My Promo"
+   36x123  "Weekly Mission"
+   36x106  "Transactions"
+   36x73  "Tickets"
+   36x91  "Messages"
+   36x105  "Player notes"
+   36x75  "Friends"
+   36x107  "Leaderboard"
+   36x80  "Verify ID"
+   36x79  "Security"
+/ocean@320: 0 targets under 44h/24w; min text 10.5px (SPAN: Clownfish)
+/ocean@390: 0 targets under 44h/24w; min text 10.5px (SPAN: Clownfish)
+/ggcare@320: 0 targets under 44h/24w; min text 12px (muted small: A small thank-you every day yo)
+/ggcare@390: 0 targets under 44h/24w; min text 12px (muted small: A small thank-you every day yo)
+/honeymoon@320: 0 targets under 44h/24w; min text 12px (muted small: A one-time gift credited the f)
+/honeymoon@390: 0 targets under 44h/24w; min text 12px (muted small: A one-time gift credited the f)
+/support@320: 1 targets under 44h/24w; min text 12px (muted small: Play money only. Set session r)
+   38x262  ""
+/support@390: 1 targets under 44h/24w; min text 12px (muted small: Play money only. Set session r)
+   38x332  ""
+/hand-history@320: 4 targets under 44h/24w; min text 10px (mini-card-txt: 6h)
+   32x292 admin-input ""
+   32x94 admin-select "All resultsWonLost"
+   32x103 admin-select "All gamesHold’emPLOShort DeckFast "
+   13x13  ""
+/hand-history@390: 4 targets under 44h/24w; min text 10px (mini-card-txt: 6h)
+   32x362 admin-input ""
+   32x94 admin-select "All resultsWonLost"
+   32x103 admin-select "All gamesHold’emPLOShort DeckFast "
+   13x13  ""
+/propbet@320: 0 targets under 44h/24w; min text 10.5px (tag gtd: 1.96x)
+/propbet@390: 0 targets under 44h/24w; min text 10.5px (tag gtd: 1.96x)
+/admin@320: 0 targets under 44h/24w; min text 13px (SPAN: Account)
+/admin@390: 0 targets under 44h/24w; min text 13px (SPAN: Account)
+/table/nlh-diamond-01@320: 15 targets under 44h/24w; min text 99px ()
+   27x25  "🔊"
+   22x37  "Menu"
+   22x64  "Leave table"
+   30x54 tchat-toggle "Chat"
+   30x61 tchat-toggle "React"
+   13x13  ""
+   38x97 btn btn-red "Deal Me In"
+   38x111 tb-btn "⏱ Time bank ×3"
+   38x74 act-btn act-fold "Fold"
+   38x110 act-btn act-call "Call $40.00"
+   6x72 bet-slider "Bet amount"
+   34x34 bet-step "Bet less"
+/table/nlh-diamond-01@390: 13 targets under 44h/24w; min text 99px ()
+   27x25  "🔊"
+   22x37  "Menu"
+   22x64  "Leave table"
+   30x54 tchat-toggle "Chat"
+   30x61 tchat-toggle "React"
+   38x111 tb-btn "⏱ Time bank ×0"
+   38x67 act-btn act-fold "Fold"
+   38x78 act-btn act-check "Check"
+   6x101 bet-slider "Bet amount"
+   34x34 bet-step "Bet less"
+   30x64 amount-input "Bet amount"
+   34x34 bet-step "Bet more"

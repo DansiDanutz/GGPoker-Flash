@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DanGG systematic clone and EGM audit</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0f14;--panel:#151c25;--text:#edf2f7;--muted:#aab7c5;--line:#344354;--gold:#e2b862;--green:#75d6a0;--red:#ff9d95}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}main{width:min(1120px,100%);margin:auto;padding:28px 18px 60px}h1{font-size:clamp(26px,5vw,42px);line-height:1.12;margin:0 0 12px}h2{font-size:21px;margin:0 0 12px}h3{font-size:16px;margin:0 0 8px}.meta,.muted{color:var(--muted)}.status{display:inline-block;padding:8px 12px;border:1px solid var(--gold);border-radius:6px;color:var(--gold);font-weight:700}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:14px}.metric{font-size:30px;font-weight:800;color:var(--green)}ul{padding-left:20px}li{margin:6px 0}a{color:#9fc8ff;overflow-wrap:anywhere}code{overflow-wrap:anywhere;color:#f2cf89}.table{width:100%;border-collapse:collapse}.table th,.table td{text-align:left;padding:9px;border-bottom:1px solid var(--line);vertical-align:top}.table th{color:var(--muted)}.warning{border-left:3px solid var(--gold);padding-left:12px}.small{font-size:13px}@media(max-width:600px){main{padding:20px 12px 44px}.table,.table tbody,.table tr,.table td{display:block;width:100%}.table thead{display:none}.table tr{border-bottom:1px solid var(--line)}.table td{border:0;padding:4px 0}.table td:first-child{font-weight:700;margin-top:8px}}
+</style>
+</head>
+<body><main>
+<p class="meta">GGPoker-flash · feat/systematic-egm-mobile-parity · 16 November 2026</p>
+<h1>Systematic clone and EGM audit</h1>
+<p class="status">EGM complete · gameplay and interface reviews clean</p>
+<p>Source manifest: <code>b09f83338879fcb46af0ae2b0f7c31b9908e3bedb89604a803654c98ae5e7407</code> (630 files). Production dangg.live was not deployed or modified.</p>
+<section class="grid">
+<div class="card"><h2>Regression</h2><div class="metric">1001 / 1001</div><p>Unit and integration tests passed. TypeScript and <code>git diff --check</code> pass.</p></div>
+<div class="card"><h2>Production</h2><div class="metric">Build green</div><p>Required <code>duo run pnpm build</code> launcher. API smoke: 6/6 checks.</p></div>
+<div class="card"><h2>Responsive</h2><div class="metric">35 / 35</div><p>Seven main routes at 320, 390, 768, 1024 and 1440 px; zero page-level horizontal overflow.</p></div>
+<div class="card"><h2>Accessibility</h2><div class="metric">14 + 14</div><p>Keyboard/reflow cases and touch-target cases pass. Two phone-homepage geometry checks pass.</p></div>
+</section>
+<section class="card"><h2>Gameplay completed in this continuation</h2><ul>
+<li><strong>Spin 6-Max:</strong> independent complete local-practice rules, six funded entrants, six-seat play, x4 insurance, configurable blinds and time cards, arbitrary finisher identity, multi-place payouts and restart recovery.</li>
+<li><strong>Push Seat:</strong> owner grants, atomic physical-seat reservations, cancellation, separate between-hand swaps, rollback/restart and two-request destination conflict handling.</li>
+<li><strong>Money and recovery:</strong> underfunding rejection, entry-pool exclusion from house profit, premium reversals, atomic command receipts, retryable payout failures and exactly-once quarantine cancellation.</li>
+<li><strong>Interface:</strong> actual wheel-pointer alignment, concurrent acknowledgement reconciliation, stable operation IDs and original revisions, stale-response rejection, modal focus/hotkey isolation, accurate empty/reserved labels and narrow admin reflow.</li></ul></section>
+<section class="card"><h2>Measured verification</h2><table class="table"><thead><tr><th>Check</th><th>Observed result</th><th>Evidence</th></tr></thead><tbody>
+<tr><td>Full regression</td><td>1001 passed, 0 failed</td><td><a href="logs/full-test.log">full-test.log</a></td></tr>
+<tr><td>Production build</td><td>Vite build passed through required launcher</td><td><a href="logs/build.log">build.log</a></td></tr>
+<tr><td>Main-route screenshots</td><td>35 images; zero horizontal overflow; representative images inspected</td><td><a href="full-app-shots/">full-app-shots/</a> · <a href="logs/shots.log">shots.log</a></td></tr>
+<tr><td>Keyboard and 200% reflow</td><td>14 cases; 0 offscreen, unlabelled, missing-outline or zoom-overflow results</td><td><a href="logs/a11y.log">a11y.log</a></td></tr>
+<tr><td>Touch targets</td><td>14 cases; 0 below the probe minimum</td><td><a href="logs/touch.log">touch.log</a></td></tr>
+<tr><td>Six-player browser</td><td>Six entrants, concurrent acknowledgements, pointer alignment, isolated hotkeys, full settlement and zero overflow</td><td><a href="spin-six-browser/result.json">spin-six-browser/result.json</a></td></tr>
+<tr><td>Registration response loss</td><td>Two dropped successful responses across rule and insurance changes; exactly two entries and receipts; original per-operation payloads replayed; correct balance</td><td><a href="spin-registration-recovery/result.json">spin-registration-recovery/result.json</a></td></tr>
+<tr><td>Push Seat browser</td><td>Observed reservation, physical occupied-seat swap, stable focus and five-width containment</td><td><a href="push-seat-browser/result.json">push-seat-browser/result.json</a></td></tr>
+<tr><td>Owner configuration</td><td>Six-player rules and Push Seat grants saved; zero clipped controls or overflowing cards</td><td><a href="admin-config-browser/result.json">admin-config-browser/result.json</a></td></tr>
+<tr><td>Machine-readable summary</td><td>Commands, counts and limitations</td><td><a href="verification-summary.json">verification-summary.json</a> · <a href="source-manifest.json">source-manifest.json</a></td></tr>
+</tbody></table></section>
+<section class="card"><h2>Review findings repaired</h2><ul>
+<li>Insufficient-fund registration, house receipt conservation, actual-finisher mapping, immutable premium refunds and zero-value reservation cancellation.</li>
+<li>Payout failures no longer permanently mark finishers or close sessions at zero. Multi-place checkpoints and per-action time-card counts survive restart.</li>
+<li>Command and receipt insertion now commits atomically. Quarantine cancellation preserves insurance awards and blocks cohort cancellation after place settlement.</li>
+<li>Wheel rendering, stale async identities, duplicate-registration recovery, simultaneous acknowledgements, modal isolation, grant identity and seat occupancy labels were corrected.</li>
+<li>Admin forms stack at narrow widths and are checked per control, not only by page-level overflow.</li></ul>
+<p><a href="re_review_round1_gameplay.log">First gameplay review</a> · <a href="re_review_round1_interface.log">First interface review</a> · <a href="re_review_round2_gameplay.log">Second gameplay review</a> · <a href="re_review_round2_interface.log">Second interface review</a> · <a href="re_review_round3_gameplay.log">Third gameplay review</a> · <a href="re_review_round3_interface.log">Third interface review</a></p>
+<p><strong>Final confirmation:</strong> <a href="re_review_final_gameplay.log">Gameplay clean</a> · <a href="re_review_final_interface.log">Interface clean</a>. No Blocker or Major findings remain.</p></section>
+<section class="card warning"><h2>Explicit limitations</h2><ul>
+<li>The design document names <code>isolated-matrix.mjs</code> and <code>isolated-desktop.mjs</code>, but those files do not exist in this repository. The installed harnesses listed above were run instead; this is not represented as a native matrix run.</li>
+<li>No packaged-Electron lifecycle test or physical iOS/Safari test was performed. Responsive Chrome evidence is not proof of those environments.</li>
+<li>Six-Max frequencies, blind schedules, insurance terms and Push Seat grants are explicit local-practice configuration, not recovered native operator presets.</li>
+<li>The production dangg.live service was not deployed or modified.</li></ul></section>
+</main></body></html>

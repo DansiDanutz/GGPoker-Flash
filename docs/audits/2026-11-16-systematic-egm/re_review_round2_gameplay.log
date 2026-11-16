@@ -1,0 +1,88 @@
+## Blockers remain
+
+### Blocker — simultaneous-bust retry can pay the same place twice
+
+`app/server/table.js:1917-1937` increments `batch` only after a successful payout. If one bust fails, a later bust in the same hand receives the same place; the failed player receives it again on retry.
+
+Reproduced through the real registered-event ledger with a 10x, 10,000-buy-in event:
+
+- Prize pool: **100,000**
+- Recorded payouts: 1st = 80,000, plus **two 2nd-place payouts of 20,000**
+- Total paid: **120,000**
+- Event incorrectly reached `finished`
+
+Second place is entry-funded (`spinPlaceExposures` returns `[70000,0,0]`), so the house reservation does not prevent the overpayment. Reserve each finisher’s place before attempting settlement, including across retries.
+
+### Blocker — failed leave payout permanently loses the player’s prize
+
+`app/server/table.js:452-464` ignores whether `recordSpinFinish()` succeeded and stands the player anyway. `app/server/index.js:1050-1055` then unconditionally writes the zero-value session close.
+
+Consequences:
+
+- `app/server/spin-runtime.js:40-50` permits the matched player to reseat with the configured starting stack.
+- The existing `out:<session>` close makes the subsequent prize credit return `applied: false` at `app/server/spin-ledger.js:15-18`.
+- `app/server/spin-queue.js:277-278` rejects every subsequent settlement as a duplicate session close.
+
+Reproduced with a registered 100x event and one injected failure:
+
+```text
+session close: 0
+reseat: ok
+finished: []
+balance: 90000
+expected after third-place payout: 190000
+registration status: matched
+seat after retry: empty
+```
+
+Leaving must not remove the seat or close the session until its place payout commits.
+
+## Major
+
+### Major — Push Seat receipt failure leaves the physical swap applied
+
+The rollback in `app/server/push-seat.js:131-160` covers only the command body. `withGameReceipt()` inserts the receipt afterward at `app/server/game-receipts.js:35-43`; if that insert fails, the database rolls back but the seat swap remains in memory.
+
+Injected receipt-write failure produced:
+
+```text
+before seats: [1,2,3]
+after seats:  [3,2,1]
+remaining uses: 1
+reservation: reserved
+result: error
+```
+
+The existing failure test at `app/server/push-seat.test.js:94-104` covers a grant-update failure, not receipt insertion. Roll back the in-memory swap unless the entire receipt-bound operation succeeds.
+
+### Major — registration replay reactivates quarantine-cancelled events
+
+`app/server/index.js:2821-2823` calls `activateSpinEvent()` even for replayed registrations. Activation at `app/server/index.js:889-905` never checks `event.status`, and `app/server/spin-recovery.js:7-18` treats only `finished` as terminal.
+
+Reproduced over isolated HTTP:
+
+1. Quarantine-cancel an event successfully.
+2. Retry the original registration operation.
+3. Replay returns `200` with stale `status: "matched"`.
+4. The event and all three registrations remain `cancelled`, but a **new active checkpoint** is created and the cancelled table is activated.
+
+Terminal events must not activate on registration replay. Relatedly, the restart query at `app/server/index.js:4055-4060` also selects every status except `finished`, including `cancelled`.
+
+### Major — an empty Push Seat destination does not detect a later occupant
+
+The reservation stores `destination_account_id` at `app/server/push-seat.js:98-100`, but validation at `app/server/push-seat.js:138-150` checks occupant identity only when the original occupant was non-null.
+
+Reproduced sequence:
+
+1. Player 1 reserves empty physical seat 3.
+2. Player 3 takes that seat before the boundary.
+3. The reservation completes and forcibly swaps player 3 to player 1’s old seat.
+
+Compare the current occupant, including `null`, against the reserved occupant in all cases; expire the reservation when either occupancy state changes.
+
+## Verification
+
+- All **42 requested tests passed**, including Spin restart, six-seat gameplay, insurance, checkpoint, and Push Seat suites.
+- Both supplied browser/recovery `result.json` artifacts report success, but do not exercise these failure sequences.
+- No additional Blocker/Major was found in underfunding rejection, entry-funded house exposure, premium reversals or immutability, normal finisher identity, Spin financial receipt atomicity, multi-place checkpoint revision handling, or time-card recovery.
+- No source files were edited; reproductions used isolated temporary databases and test servers only.

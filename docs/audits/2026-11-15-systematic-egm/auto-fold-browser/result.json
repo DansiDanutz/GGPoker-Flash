@@ -1,0 +1,44 @@
+{
+  "completed": true,
+  "tableId": "auto-fold-browser-mwihr5sp",
+  "preferenceRevision": 2,
+  "folded": true,
+  "geometry": [
+    {
+      "width": 320,
+      "overflowX": 0,
+      "gridWidth": 620,
+      "scrollerWidth": 274,
+      "cells": 169
+    },
+    {
+      "width": 390,
+      "overflowX": 0,
+      "gridWidth": 620,
+      "scrollerWidth": 344,
+      "cells": 169
+    },
+    {
+      "width": 768,
+      "overflowX": 0,
+      "gridWidth": 620,
+      "scrollerWidth": 686,
+      "cells": 169
+    },
+    {
+      "width": 1024,
+      "overflowX": 0,
+      "gridWidth": 620,
+      "scrollerWidth": 686,
+      "cells": 169
+    },
+    {
+      "width": 1440,
+      "overflowX": 0,
+      "gridWidth": 620,
+      "scrollerWidth": 686,
+      "cells": 169
+    }
+  ],
+  "errors": []
+}

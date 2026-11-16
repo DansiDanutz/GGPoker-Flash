@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-16",
+  "branch": "feat/systematic-egm-mobile-parity",
+  "checks": {
+    "unitAndIntegration": { "command": "pnpm test", "passed": 1001, "failed": 0, "evidence": "logs/full-test.log" },
+    "typescript": { "command": "pnpm exec tsc --noEmit -p tsconfig.json", "passed": true },
+    "whitespace": { "command": "git diff --check", "passed": true },
+    "productionBuild": { "command": "duo run pnpm build", "passed": true, "evidence": "logs/build.log" },
+    "apiSmoke": { "command": "DANGGRO_URL=http://127.0.0.1:56199 node tools/smoke.mjs", "passed": 6, "failed": 0, "evidence": "logs/smoke.log" },
+    "routeScreenshots": { "command": "node tools/shots.mjs --widths 320,390,768,1024,1440", "routes": 7, "widths": [320, 390, 768, 1024, 1440], "screenshots": 35, "horizontalOverflowFailures": 0, "evidence": "full-app-shots/" },
+    "keyboardReflow": { "command": "node tools/a11y-probe.mjs --routes /,/slots,/casino,/cashier,/my-page,/rewards,/tournaments --widths 390,1440 --stops 24", "cases": 14, "offscreen": 0, "unlabelled": 0, "missingFocusOutline": 0, "zoom200Overflow": 0, "evidence": "logs/a11y.log" },
+    "touchTargets": { "command": "node tools/touch-probe.mjs /,/casino,/slots,/cashier,/my-page,/rewards,/tournaments 320,390", "cases": 14, "belowMinimum": 0, "evidence": "logs/touch.log" },
+    "phoneHomepage": { "command": "node tools/mobile-audit.mjs 320,390", "cases": 2, "passed": 2, "evidence": "logs/mobile.log" },
+    "spinSix": { "command": "node tools/spin-six-browser.mjs", "players": 6, "restartedDuringPresentation": true, "concurrentAcknowledgements": true, "wheelAligned": true, "modalFocusContained": true, "hotkeysIsolated": true, "settledRegistrations": 6, "paidPrizeTransactions": 1, "horizontalOverflowFailures": 0, "browserErrors": 0, "evidence": "spin-six-browser/result.json" },
+    "registrationRecovery": { "command": "node tools/spin-registration-recovery.mjs", "droppedSuccessfulResponses": 2, "afterDrop": 1, "afterSecondDrop": 2, "afterRetry": 2, "receipts": 2, "ruleRevisions": [1, 2], "insuranceChoices": [1, 0], "originalPayloadsReplayed": true, "duplicateEntries": 0, "staleQueueRejected": true, "evidence": "spin-registration-recovery/result.json" },
+    "pushSeat": { "command": "node tools/push-seat-browser.mjs", "physicalSwap": true, "keyboardFocusStable": true, "horizontalOverflowFailures": 0, "browserErrors": 0, "evidence": "push-seat-browser/result.json" },
+    "adminConfiguration": { "command": "node tools/admin-config-browser.mjs", "sixRulesSaved": true, "pushSeatGrantSaved": true, "horizontalOverflowFailures": 0, "browserErrors": 0, "evidence": "admin-config-browser/result.json" },
+    "egmReviews": { "gameplay": "clean", "interface": "clean", "blockers": 0, "majorFindings": 0, "evidence": ["re_review_final_gameplay.log", "re_review_final_interface.log"] }
+  },
+  "limitations": [
+    "The design document names isolated-matrix.mjs and isolated-desktop.mjs, but those files do not exist in this repository; the installed harnesses listed above were run instead.",
+    "No native packaged-Electron lifecycle test or physical iOS/Safari test was performed; responsive Chrome browser verification must not be represented as proof of those environments.",
+    "Six-Max frequencies, blind schedules, insurance terms, and Push Seat grant policy are explicit local-practice configuration, not recovered native operator presets.",
+    "The production dangg.live service was not deployed or modified."
+  ]
+}

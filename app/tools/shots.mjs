@@ -81,18 +81,18 @@ async function main() {
 
       for (const route of ROUTES) {
         const url = `${BASE}/#${route}`;
-        page.on('pageerror', (e) => console.error(`[pageerror ${width}${route}]`, String(e).slice(0, 300)));
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
+        const pageErrors = [];
+        page.on('pageerror', (e) => { const text = String(e).slice(0, 300); pageErrors.push(text); console.error(`[pageerror ${width}${route}]`, text); });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
         try {
-          // The splash unmounts only once the session and lobby payload have landed.
-          await page.waitForFunction(() => !document.querySelector('.splash'), { timeout: 25000, polling: 150 });
+          await page.waitForFunction(() => !document.querySelector('.splash') && (document.querySelector('.pshell') || document.querySelector('.app-header') || document.querySelector('.login2')), { timeout: 25000, polling: 150 });
           await page.waitForFunction(
             () => !/Loading lobby|Loading…/.test(document.body.innerText),
             { timeout: 15000, polling: 150 },
           );
         } catch { /* surface stayed busy; capture anyway for the record */ }
         await sleep(800);
-        await page.evaluate(() => document.querySelectorAll('.toasts .toast').forEach((n) => n.remove()));
+        await page.evaluate(() => document.querySelectorAll('.toasts .toast').forEach((n) => { n.style.visibility = 'hidden'; }));
         const name = `${String(width).padStart(4, '0')}-${slug(route)}.png`;
         await page.screenshot({ path: path.join(OUT, name), fullPage });
         const info = await page.evaluate(() => ({
@@ -100,7 +100,7 @@ async function main() {
           overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           scrollH: document.documentElement.scrollHeight,
         }));
-        results.push({ width, route, file: name, ...info });
+        results.push({ width, route, file: name, pageErrors, ...info });
         console.log(`${name}  overflowX=${info.overflowX}  scrollH=${info.scrollH}  "${info.text}"`);
       }
       await page.close();
@@ -110,7 +110,9 @@ async function main() {
   }
   fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(results, null, 2));
   const overflow = results.filter((r) => r.overflowX > 1);
+  const pageErrors = results.filter((r) => r.pageErrors.length);
   console.log(`\n${results.length} shots in ${OUT}`);
+  if (pageErrors.length) process.exitCode = 1;
   if (overflow.length) {
     console.log('HORIZONTAL OVERFLOW:');
     for (const r of overflow) console.log(`  ${r.width}px ${r.route} +${r.overflowX}px`);
@@ -118,7 +120,9 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(process.exitCode || 0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

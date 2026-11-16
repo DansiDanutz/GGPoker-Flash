@@ -14,6 +14,7 @@ import { LobbyGroupRows } from '../components/LobbyGroupRows';
 import { RushPoolRows } from '../components/RushPoolRow';
 import { RushInfoDialog, RushSidePanel } from '../components/RushSidePanel';
 import { SpinInfoPanel } from '../components/SpinInfoPanel';
+import { SpinRegistration } from '../components/spin/SpinRegistration';
 import { visiblePools } from '../lib/rushPools';
 import { previewSeats } from '../lib/lobbyPreview';
 import { CASHDROP_RULE_LABEL, cashDropRateLabel } from '../lib/cashDrop';
@@ -165,6 +166,8 @@ export function Lobby() {
     setGameTab(playRouteTab(route) ?? 'holdem');
   }, [route]);
 
+  useEffect(() => { if (gameTab === 'battle') navigate('/battle'); }, [gameTab]);
+
 
   const tables: LobbyTable[] = useMemo(() => {
     if (!data) return [];
@@ -257,6 +260,13 @@ export function Lobby() {
 
   const openJoin = (t: LobbyTable) => {
     sound.play('click', { volume: .6 });
+    if (t.game === 'spingold') {
+      setGameTab('spin');
+      setSelected(t.id);
+      setBuyinTable(null);
+      requestAnimationFrame(() => document.getElementById('spin-registration')?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+      return;
+    }
     setBuyinTable(t);
     const pct = Math.max(0, Math.min(100, Number(localStorage.getItem('ggpoker.buyinPct') || 0)));
     const preferred = pct > 0 ? Math.round((t.max_buyin * pct) / 100 / 100) * 100 : t.min_buyin;
@@ -457,6 +467,7 @@ export function Lobby() {
               <button className="host-table-btn" onClick={openHost}>+ Host</button>
               <LobbyFiltersPopover filters={filters} tableCount={tables.length} onChange={setFilter} onReset={() => setFilter(resetExtraFilters(filters))} />
             </div>
+          {gameTab === 'spin' && <SpinRegistration stake={table?.game === 'spingold' ? table.min_buyin : 5000} />}
             <div className="table-list" key={gameTab}>
               {viewMode === 'table' && !isRushTab && !unavailable && phoneView !== 'tables' && <div className="list-head">
                 <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
@@ -526,7 +537,7 @@ export function Lobby() {
               <div className="mini-table-wrap">
                 <MiniTable table={table} players={previewPlayers} />
               </div>
-              <WaitlistSideActions table={table} onJoin={openJoin} onWatch={(t) => navigate(`/table/${t.id}?observe=1`)} onChanged={load} />
+              {gameTab !== 'spin' && <WaitlistSideActions table={table} onJoin={openJoin} onWatch={(t) => navigate(`/table/${t.id}?observe=1`)} onChanged={load} />}
               {!isRushTab && gameTab !== 'spin' && <SeatedPlayersList table={table} />}
               {hasRules && (
                 <button type="button" className="gi-link" aria-expanded={gameInfoOpen} onClick={() => setGameInfoOpen((v) => !v)}>

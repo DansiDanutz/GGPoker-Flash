@@ -1,7 +1,7 @@
 // Input validation helpers shared by the HTTP and WebSocket handlers.
 import { BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
 
-export const GAMES = Object.freeze(['holdem', 'omaha', 'omaha5', 'shortdeck', 'rush', 'rushplo', 'aof', 'spingold', 'battleroyale', 'flipandgo']);
+export const GAMES = Object.freeze(['holdem', 'omaha', 'omaha5', 'omaha6', 'shortdeck', 'rush', 'rushplo', 'aof', 'spingold', 'battleroyale', 'flipandgo']);
 /** Fast Fold game ids: Hold'em pools (`rush`) and pot-limit Omaha pools (`rushplo`). */
 export const RUSH_GAMES = Object.freeze(['rush', 'rushplo']);
 /** @param {string} game @returns {boolean} */
@@ -81,6 +81,10 @@ export function parseTableConfig(body) {
   if (seats === null) return { ok: false, error: `Seats must be between ${MIN_SEATS} and ${MAX_SEATS}` };
   const actionSeconds = parseActionSeconds(body.action_seconds);
   if (actionSeconds === undefined) return { ok: false, error: `Action time must be ${ACTION_SECONDS.min}-${ACTION_SECONDS.max} seconds` };
+  const rimtMode = String(body.rimt_mode || 'legacy-twice');
+  if (!['off', 'legacy-twice', 'negotiated'].includes(rimtMode)) return { ok: false, error: 'Invalid Run It Multiple Times mode' };
+  const betMuckConditionRank = toInt(body.bet_muck_condition_rank ?? 7462, { min: 1, max: 7462 });
+  if (betMuckConditionRank === null) return { ok: false, error: 'Bet-and-Muck rank must be 1-7462' };
   return {
     ok: true,
     value: {
@@ -91,6 +95,9 @@ export function parseTableConfig(body) {
       featured: body.featured ? 1 : 0, enabled: body.enabled === false ? 0 : 1,
       sort: toInt(body.sort, { min: 0, max: 1e6 }) ?? 999,
       action_seconds: actionSeconds,
+      rimt_mode: rimtMode,
+      bet_and_muck: body.bet_and_muck ? 1 : 0,
+      bet_muck_condition_rank: betMuckConditionRank,
     },
   };
 }

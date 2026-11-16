@@ -294,6 +294,9 @@ function init() {
   try { db.exec('ALTER TABLE tables ADD COLUMN bomb_pot INTEGER DEFAULT 0'); } catch { /* already exists */ }
   // Owner-set seconds per decision (null = default 15 s).
   try { db.exec('ALTER TABLE tables ADD COLUMN action_seconds INTEGER'); } catch { /* already exists */ }
+  try { db.exec("ALTER TABLE tables ADD COLUMN rimt_mode TEXT NOT NULL DEFAULT 'legacy-twice' CHECK(rimt_mode IN ('off','legacy-twice','negotiated'))"); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tables ADD COLUMN bet_and_muck INTEGER NOT NULL DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tables ADD COLUMN bet_muck_condition_rank INTEGER NOT NULL DEFAULT 7462 CHECK(bet_muck_condition_rank BETWEEN 1 AND 7462)'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE reports ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE hands ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE hands ADD COLUMN meta TEXT'); } catch { /* already exists */ }
@@ -313,6 +316,8 @@ function init() {
   db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Quick Flip%' AND (mode IS NULL OR mode='STANDARD')");
   db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND (mode IS NULL OR mode='STANDARD')");
   db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND (mode IS NULL OR mode='STANDARD')");
+  try { db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT ''"); } catch { /* already exists */ }
+  db.exec("UPDATE users SET role = CASE WHEN is_admin = 1 THEN 'owner' ELSE 'player' END WHERE role = '' OR role IS NULL");
   try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE transactions ADD COLUMN reference TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE transactions ADD COLUMN tournament_id TEXT'); } catch { /* already exists */ }
@@ -347,6 +352,7 @@ function init() {
   migrateIdentity(db);
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
+  db.exec("UPDATE users SET role = CASE WHEN is_admin = 1 THEN 'owner' ELSE 'player' END WHERE role = '' OR role IS NULL");
   ensurePloVariants();
   ensureRushLadder();
   ensureSpinTables();
@@ -651,34 +657,34 @@ export function setSetting(key, value) {
 }
 
 export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', opts = {}) {
-  const { sessionId = null, reference = null, onDuplicate = 'throw', tournamentId = null } = opts;
+  const { sessionId = null, reference = null, onDuplicate = 'throw', joinTransaction = false, database = db, tournamentId = null } = opts;
   const col = currency === 'PLAY' ? 'play_chips' : currency === 'TICKET' ? 'tickets' : currency === 'GEM' ? 'gems' : 'balance';
-  db.exec('BEGIN IMMEDIATE');
+  if (!joinTransaction) database.exec('BEGIN IMMEDIATE');
   try {
-    const row = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId);
+    const row = database.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId);
     if (!row) throw new Error('user not found');
     if (reference) {
       const predicted = row.v + amount;
       const sql = onDuplicate === 'skip'
         ? `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,reference) DO NOTHING`
-         : `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id) VALUES (?,?,?,?,?,?,?,?,?)`;
-      const info = db.prepare(sql).run(userId, kind, currency, amount, predicted, memo || '', sessionId, reference, tournamentId);
+        : `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id) VALUES (?,?,?,?,?,?,?,?,?)`;
+      const info = database.prepare(sql).run(userId, kind, currency, amount, predicted, memo || '', sessionId, reference, tournamentId);
       if (info.changes === 0) {
-        db.exec('COMMIT');
+        if (!joinTransaction) database.exec('COMMIT');
         return { applied: false, balance: row.v };
       }
-      db.prepare(`UPDATE users SET ${col} = ? WHERE id = ?`).run(predicted, userId);
-      db.exec('COMMIT');
+      database.prepare(`UPDATE users SET ${col} = ? WHERE id = ?`).run(predicted, userId);
+      if (!joinTransaction) database.exec('COMMIT');
       return { applied: true, balance: predicted };
     }
-    db.prepare(`UPDATE users SET ${col} = ${col} + ? WHERE id = ?`).run(amount, userId);
-    const after = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId).v;
-    db.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,tournament_id) VALUES (?,?,?,?,?,?,?,?)')
+    database.prepare(`UPDATE users SET ${col} = ${col} + ? WHERE id = ?`).run(amount, userId);
+    const after = database.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId).v;
+    database.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,tournament_id) VALUES (?,?,?,?,?,?,?,?)')
       .run(userId, kind, currency, amount, after, memo || '', sessionId, tournamentId);
-    db.exec('COMMIT');
+    if (!joinTransaction) database.exec('COMMIT');
     return { applied: true, balance: after };
   } catch (err) {
-    try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+    try { if (!joinTransaction) database.exec('ROLLBACK'); } catch { /* ignore */ }
     throw err;
   }
 }
@@ -701,6 +707,7 @@ export function refundOpenSessions(options = {}) {
   const refund = options.refund || addTransactionEx;
   let refunded = 0;
   for (const s of openSessions()) {
+    if (options.skipSession?.(s.session_id)) continue;
     try {
       const tableId = String(s.session_id).split(':')[0] || 'table';
       const award = refund(s.user_id, 'buyin_refund', s.chips_in, `Crash refund ${tableId}`, 'USD', {
@@ -791,5 +798,6 @@ export function publicUser(u) {
     balance: u.balance, play_chips: u.play_chips, tickets: u.tickets, gems: u.gems,
     xp: u.xp, vip_level: u.vip_level, vip_points: u.vip_points, elo: u.elo ?? 1000, is_admin: !!u.is_admin,
     banned: !!u.banned, chat_muted: !!u.chat_muted, country: u.country, created_at: u.created_at,
+    role: u.role || (u.is_admin ? 'owner' : 'player'),
   };
 }

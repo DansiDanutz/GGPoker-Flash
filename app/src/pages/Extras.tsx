@@ -80,7 +80,7 @@ export function Profile() {
           <div className="card">
             <div className="panel-title">Edit profile</div>
             <label className="admin-label">Nickname</label>
-            <div className="row"><input className="admin-input" style={{ flex: 1 }} value={nick} onChange={(e) => setNick(e.target.value)} maxLength={20} /><button className="btn btn-red btn-sm" onClick={save}>Save</button></div>
+            <div className="row"><input className="admin-input" aria-label="Nickname" style={{ flex: 1 }} value={nick} onChange={(e) => setNick(e.target.value)} maxLength={20} /><button className="btn btn-red btn-sm" onClick={save}>Save</button></div>
             <label className="admin-label">Avatar</label>
             <div className="avatar-current">
               <div className="avatar-ring" style={{ width: 64, height: 64 }}>
@@ -165,15 +165,15 @@ export function HandHistory() {
         <h1 className="page-title">Hand History</h1>
         <p className="page-sub">Every hand you played is stored locally and can be replayed</p>
         <div className="row hist-filters" style={{ marginBottom: 10 }}>
-          <input className="admin-input" style={{ width: 260 }} placeholder="Search table or game…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select className="admin-select" value={resFilter} onChange={(e) => setResFilter(e.target.value)}>
+          <input className="admin-input" aria-label="Search table or game" style={{ width: 260 }} placeholder="Search table or game…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <select className="admin-select" aria-label="Filter by result" value={resFilter} onChange={(e) => setResFilter(e.target.value)}>
             <option value="all">All results</option><option value="won">Won</option><option value="lost">Lost</option>
           </select>
-          <select className="admin-select" value={gameFilter} onChange={(e) => setGameFilter(e.target.value)}>
+          <select className="admin-select" aria-label="Filter by game" value={gameFilter} onChange={(e) => setGameFilter(e.target.value)}>
             <option value="all">All games</option><option value="holdem">Hold’em</option><option value="omaha">PLO</option><option value="shortdeck">Short Deck</option><option value="rush">Fast Fold</option>
           </select>
           <label className="row small" style={{ gap: 4 }}>
-            <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />Show hidden ({hiddenCount})
+            <input type="checkbox" aria-label={`Show hidden hands (${hiddenCount})`} checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />Show hidden ({hiddenCount})
           </label>
           <span className="muted small">{filtered.length} hands</span>
         </div>
@@ -185,7 +185,7 @@ export function HandHistory() {
               {filtered.map((h) => {
                 const won = h.result?.winners?.some((w: any) => w.id === user?.id);
                 return (
-                  <tr key={h.id} onClick={() => setDetail(h)} style={{ cursor: 'pointer', opacity: h.hidden ? 0.55 : 1 }}>
+                  <tr key={h.id} tabIndex={0} role="button" aria-label={`Open hand ${h.handNo} from ${h.tableName}`} onClick={() => setDetail(h)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetail(h); } }} style={{ cursor: 'pointer', opacity: h.hidden ? 0.55 : 1 }}>
                     <td>{h.handNo}</td>
                     <td>{h.tableName}</td>
                     <td style={{ textTransform: 'capitalize' }}>{h.game}</td>
@@ -237,16 +237,16 @@ export function Support() {
           <div className="card">
             <div className="panel-title">FAQ</div>
             {faq.map(([q, a], i) => (
-              <div key={q} className="faq-item" onClick={() => setOpen(i)}>
+              <button type="button" key={q} className="faq-item" aria-expanded={open === i} onClick={() => setOpen(open === i ? -1 : i)}>
                 <div className="faq-q">{q}<span>{open === i ? '−' : '+'}</span></div>
                 {open === i && <div className="faq-a">{a}</div>}
-              </div>
+              </button>
             ))}
           </div>
           <div className="card">
             <div className="panel-title">Contact support</div>
-            <div className="field"><label>Subject</label><input placeholder="How can we help?" /></div>
-            <div className="field"><label>Message</label><textarea rows={5} placeholder="Describe the issue…" style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10 }} /></div>
+            <div className="field"><label htmlFor="support-subject">Subject</label><input id="support-subject" aria-label="Subject" placeholder="How can we help?" /></div>
+            <div className="field"><label htmlFor="support-message">Message</label><textarea id="support-message" aria-label="Message" rows={5} placeholder="Describe the issue…" style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10 }} /></div>
             <button className="btn btn-red" onClick={() => toast({ kind: 'success', title: 'Message sent', body: 'Support usually replies within 24h.' })}>Send message</button>
             <div className="panel-title" style={{ marginTop: 18 }}>Responsible gaming</div>
             <p className="muted small">Play money only. Set session reminders and limits in Settings → Responsible gaming.</p>

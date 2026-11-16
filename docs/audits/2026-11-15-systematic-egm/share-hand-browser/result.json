@@ -1,0 +1,32 @@
+{
+  "completed": true,
+  "handId": "browser-share-mwie6v9v",
+  "publicValid": true,
+  "revoked": true,
+  "hidden": true,
+  "downloaded": "dangg-hand-Browser-Table-browser-share-mwie6v9v.png",
+  "reflowOverflow": 0,
+  "geometry": [
+    {
+      "width": 320,
+      "overflowX": 0
+    },
+    {
+      "width": 390,
+      "overflowX": 0
+    },
+    {
+      "width": 768,
+      "overflowX": 0
+    },
+    {
+      "width": 1024,
+      "overflowX": 0
+    },
+    {
+      "width": 1440,
+      "overflowX": 0
+    }
+  ],
+  "errors": []
+}

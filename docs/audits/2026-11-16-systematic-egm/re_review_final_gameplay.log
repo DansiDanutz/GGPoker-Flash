@@ -1,0 +1,3 @@
+Clean — no Blocker/Major defects remain in the reported cases or adjacent committed-retry paths.
+
+Independently re-checked pre-commit leave ordering, continued-play winner order, post-commit leave and winner replays, committed bust settlement, unique places, single payout execution, and recovery-state round-tripping.

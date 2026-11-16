@@ -1,0 +1,50 @@
+{
+  "completed": true,
+  "sixRuleRevision": 1,
+  "sixComplete": true,
+  "insurance": {
+    "premium": 100,
+    "payout": 1000
+  },
+  "pushSeat": {
+    "roomId": "nlh-silver-07",
+    "accountId": 4,
+    "remaining": 2,
+    "grantRevision": 1,
+    "revision": 1,
+    "reservation": null
+  },
+  "geometry": [
+    {
+      "width": 320,
+      "overflowX": 0,
+      "clippedControls": [],
+      "overflowingCards": 0
+    },
+    {
+      "width": 390,
+      "overflowX": 0,
+      "clippedControls": [],
+      "overflowingCards": 0
+    },
+    {
+      "width": 768,
+      "overflowX": 0,
+      "clippedControls": [],
+      "overflowingCards": 0
+    },
+    {
+      "width": 1024,
+      "overflowX": 0,
+      "clippedControls": [],
+      "overflowingCards": 0
+    },
+    {
+      "width": 1440,
+      "overflowX": 0,
+      "clippedControls": [],
+      "overflowingCards": 0
+    }
+  ],
+  "errors": []
+}

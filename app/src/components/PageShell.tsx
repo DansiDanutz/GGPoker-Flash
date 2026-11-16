@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useApp } from '../lib/store';
 import { TitleBar } from './TitleBar';
 import { AppHeader } from './AppHeader';
@@ -38,10 +38,30 @@ export function PageShell({ activeTop, children, subnav }: {
 }
 
 export function SubNav({ items, active, onChange }: { items: { key: string; label: string }[]; active: string; onChange: (k: string) => void }) {
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  useEffect(() => {
+    refs.current[active]?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }, [active]);
+  const onKeyDown = (event: React.KeyboardEvent, index: number) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length;
+    onChange(items[next].key);
+    refs.current[items[next].key]?.focus();
+  };
   return (
-    <div className="subnav">
-      {items.map((i) => (
-        <button key={i.key} className={active === i.key ? 'on' : ''} onClick={() => onChange(i.key)}>{i.label}</button>
+    <div className="subnav" role="tablist" aria-label="Page sections">
+      {items.map((item, index) => (
+        <button
+          key={item.key}
+          ref={(node) => { refs.current[item.key] = node; }}
+          role="tab"
+          aria-selected={active === item.key}
+          tabIndex={active === item.key ? 0 : -1}
+          className={active === item.key ? 'on' : ''}
+          onClick={() => onChange(item.key)}
+          onKeyDown={(event) => onKeyDown(event, index)}
+        >{item.label}</button>
       ))}
     </div>
   );
