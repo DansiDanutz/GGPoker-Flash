@@ -29,7 +29,7 @@ if ! git merge-base --is-ancestor "$sha" origin/main; then
   exit 1
 fi
 
-green="$(gh run list --workflow "$CI_WORKFLOW" --commit "$sha" --status success --limit 1 --json databaseId --jq 'length')"
+green="$(gh run list --workflow "$CI_WORKFLOW" --commit "$sha" --limit 20 --json conclusion --jq '[.[] | select(.conclusion == "success")] | length')"
 if [[ "$green" != "1" ]]; then
   echo "deploy: refusing, no successful $CI_WORKFLOW run for $short" >&2
   exit 1
