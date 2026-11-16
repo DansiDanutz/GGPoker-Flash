@@ -14,5 +14,10 @@ export function ProfileRoleGuide() {
       <article><span>03 · BUILD FOR PLAYERS</span><h3>Contributor</h3><p>Build and test locally for free. The $9 monthly membership lets you submit plugins for marketplace review.</p><ol><li>Register your publisher profile for approval.</li><li>Submit tested work and track review and publication.</li></ol><button type="button" onClick={() => navigate(registered ? '/contributor' : '/login')}>{registered ? 'Open Contributor' : 'Sign in to contribute'}</button></article>
     </div>
     <p className="profile-role-note">Memberships renew manually. Service credits, publisher commission credits, Play Money and organiser Cash Chips are separate balances.</p>
+    {/* The account menu owns the workspace shortcuts; the guide keeps the marketplace
+        reachable on phones, where there is no account menu. */}
+    <div className="profile-role-workspaces">
+      <button type="button" onClick={() => navigate('/marketplace')}>Browse the Marketplace</button>
+    </div>
   </section>;
 }

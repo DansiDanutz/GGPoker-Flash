@@ -13,13 +13,18 @@ const LINKS = [
   { icon: '👤', label: 'My Page', to: '/my-page' },
   { icon: '📋', label: 'Missions', to: '/missions' },
   { icon: '🏆', label: 'Leaders', to: '/leaderboard' },
+];
+
+// The three platform workspaces live in the account menu only; the lobby keeps
+// its single title bar free of a second row of navigation.
+const WORKSPACES = [
   { icon: '◈', label: 'Marketplace', to: '/marketplace' },
   { icon: '⌘', label: 'Contributor', to: '/contributor' },
   { icon: '♠', label: 'Organiser', to: '/organiser' },
 ];
 
 export function QuickMenu() {
-  const { user, navigate } = useApp();
+  const { user, navigate, route } = useApp();
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const onOpen = () => setOpen(true);
@@ -49,8 +54,26 @@ export function QuickMenu() {
           <div><small>XP</small><b>{((user?.xp ?? 0) / 1000).toFixed(1)}K</b></div>
         </div>
         <button className="quick-cashier" onClick={() => go('/cashier')}>Cashier</button>
+        {user && !user.is_guest && (
+          <div className="quick-workspaces">
+            <span className="quick-workspaces-title">Workspaces</span>
+            {WORKSPACES.map((l) => (
+              <button
+                key={l.to}
+                type="button"
+                className="quick-workspace"
+                aria-current={route.split('?')[0] === l.to ? 'page' : undefined}
+                onClick={() => go(l.to)}
+              >
+                <span aria-hidden="true">{l.icon}</span>
+                <b>{l.label}</b>
+                <i aria-hidden="true">→</i>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="quick-grid">
-          {LINKS.filter((l) => (user && !user.is_guest) || !['/marketplace', '/contributor', '/organiser'].includes(l.to)).map((l) => (
+          {LINKS.map((l) => (
             <button key={l.to} onClick={() => go(l.to)}><span>{l.icon}</span>{l.label}</button>
           ))}
           {user?.is_admin && <button onClick={() => go('/admin')}><span>⚙</span>Admin DanGG</button>}

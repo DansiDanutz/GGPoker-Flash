@@ -85,7 +85,12 @@ try {
   await page.goto(sandbox.url + '/#/contributor');
   checks.push('Profile guides all three roles, uploaded avatar previews and persists, and management stays inside each workspace.');
   await page.waitForSelector('section[aria-label="Contributor workspace"] form');
-  assert.deepEqual(await page.$$eval('.platform-tabs button', (nodes) => nodes.map((n) => n.textContent)), ['Contributor', 'Organiser', 'Marketplace']);
+  assert.equal(await page.$('.platform-tabs'), null, 'Workspace tabs must not sit above the app chrome');
+  await page.evaluate(() => window.dispatchEvent(new Event('gg:quickmenu')));
+  await page.waitForSelector('.quick-workspace');
+  assert.deepEqual(await page.$$eval('.quick-workspace b', (nodes) => nodes.map((n) => n.textContent)), ['Marketplace', 'Contributor', 'Organiser']);
+  await page.evaluate(() => document.querySelector('.quick-close')?.click());
+  await page.waitForFunction(() => !document.querySelector('.quick-menu'));
   assert.match(await page.$eval('.contributor-workspace', (node) => node.textContent), /pnpm sandbox/);
   for (const [selector, value] of [['input[pattern]', 'test-plugin'], ['input[type=url]', 'https://github.com/OpenPoker4all/OpenPoker/pull/219'], ['textarea', 'Tested both browser and server changes in Play Money.']]) await page.type(`section[aria-label="Contributor workspace"] ${selector}`, value);
   await button(page, 'section[aria-label="Contributor workspace"]', 'Submit for approval');
@@ -97,11 +102,32 @@ try {
     await page.setViewport({ width, height: 1000 });
     await page.waitForSelector('section[aria-label="Contributor workspace"]');
     assert.ok(await page.$eval('.contributor-workspace', (node) => node.scrollWidth <= node.clientWidth + 1), `Workspace overflow at ${width}`);
-    assert.ok(await page.$$eval('.platform-tabs button', (nodes) => nodes.every((node) => {
-      const rect = node.getBoundingClientRect(); return document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === node;
-    })), `Workspace tabs obscured at ${width}`);
+    // Phones hide the desktop account menu; their entry point is the My Page hub,
+    // checked below. Only desktop widths owe an account-menu layout.
+    if (width >= 768) {
+      await page.evaluate(() => window.dispatchEvent(new Event('gg:quickmenu')));
+      await page.waitForSelector('.quick-workspace');
+      assert.ok(await page.$$eval('.quick-workspace', (nodes) => {
+        const panel = document.querySelector('.quick-menu').getBoundingClientRect();
+        return panel.width > 0 && nodes.every((node) => {
+          const rect = node.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0
+            && rect.x >= panel.x - 1 && rect.x + rect.width <= panel.x + panel.width + 1
+            && rect.y >= panel.y - 1 && rect.y + rect.height <= panel.y + panel.height + 1;
+        });
+      }), `Workspace links mislaid at ${width}`);
+      await page.evaluate(() => document.querySelector('.quick-close')?.click());
+      await page.waitForFunction(() => !document.querySelector('.quick-menu'));
+    }
     if ([375, 1440].includes(width)) await page.screenshot({ path: path.join(artifacts, `contributor-${width}.png`), fullPage: true });
   }
+  await page.setViewport({ width: 390, height: 1000 });
+  await page.goto(sandbox.url + '/#/my-page');
+  await page.waitForSelector('.ma .profile-role-workspaces button');
+  assert.equal(await page.$('.platform-tabs'), null);
+  assert.match(await page.$eval('.ma .profile-role-workspaces button', (node) => node.textContent), /Marketplace/);
+  checks.push('Phones reach the Marketplace from the profile role guide instead of a top strip.');
+  await page.setViewport({ width: 1440, height: 1000 });
   await page.goto(sandbox.url + '/#/?host=cash');
   await page.waitForSelector('#host-economy');
   assert.equal(await page.$eval('#host-economy', (node) => node.value), 'play_money');
