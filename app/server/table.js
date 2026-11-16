@@ -561,6 +561,7 @@ export class PokerTable {
   }
 
   startHand() {
+    if (this.hooks.canStartHand && !this.hooks.canStartHand(this)) return;
     this.prepareDeal();
     this.timeBankUsed = new Set();
     // A deferred "sit out next hand" takes effect before this deal.

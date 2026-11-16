@@ -1,6 +1,7 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { marketplaceCommerceApi, type CommerceAdminData, type CommerceOrder, type PaymentProof, type PublisherStatus } from '../lib/marketplace-commerce-api';
 import { MANAGEMENT_PRODUCT_IDS, marketplacePrice, type MarketplaceProduct } from '../lib/marketplace-api';
+import { organizerBillingApi } from '../lib/organizer-billing-api';
 import '../marketplace-finance.css';
 
 const dollars = (cents: number) => new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'USD' }).format(cents / 100);
@@ -46,6 +47,7 @@ export function AdminMarketplaceFinance({ products, onDirtyChange, initialOrder 
   const [reviewStatus, setReviewStatus] = useState<Exclude<PublisherStatus, 'pending'>>('approved');
   const [reviewReason, setReviewReason] = useState('');
   const [credits, setCredits] = useState({ amount: '', reference: '', kind: 'confirmed_topup' as 'confirmed_topup' | 'adjustment', verified: false });
+  const [organizerCredit, setOrganizerCredit] = useState({ userId: '', amount: '', reference: '', verified: false });
   const [offerProduct, setOfferProduct] = useState('');
   const [buyerId, setBuyerId] = useState(initialOrder ? String(initialOrder.buyerUserId) : '');
   const [orderProduct, setOrderProduct] = useState(initialOrder?.productId || '');
@@ -63,7 +65,7 @@ export function AdminMarketplaceFinance({ products, onDirtyChange, initialOrder 
   const saleProducts = eligibleProducts.filter((product) => data?.offers.some((offer) => offer.product_id === product.id && data.publishers.some((entry) => entry.id === offer.publisher_id && entry.status === 'approved')));
   const selectedProduct = products.find((product) => product.id === orderProduct);
   const productName = (id: string) => products.find((product) => product.id === id)?.name || id;
-  const isDirty = Boolean(publisherForm.ownerUserId || publisherForm.displayName || publisherForm.nervixpayMerchantId || credits.amount || credits.reference || reviewReason || offerProduct || buyerId || paymentId || paidAt || releaseReason || refundReference || (selectedOrder && !selectedOrder.payment_binding && proof.providerOrderId));
+  const isDirty = Boolean(publisherForm.ownerUserId || publisherForm.displayName || publisherForm.nervixpayMerchantId || credits.amount || credits.reference || organizerCredit.userId || organizerCredit.amount || organizerCredit.reference || reviewReason || offerProduct || buyerId || paymentId || paidAt || releaseReason || refundReference || (selectedOrder && !selectedOrder.payment_binding && proof.providerOrderId));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -130,6 +132,11 @@ export function AdminMarketplaceFinance({ products, onDirtyChange, initialOrder 
     <div className="mf-economics"><div><strong>100%</strong><span>din plata cumpărătorului ajunge direct la editor</span></div><div><strong>20%</strong><span>comision rezervat din creditele editorului</span></div><div><strong>Separat</strong><span>de jetoane, taxe NervixPay și soldurile jucătorilor</span></div></div>
     {error && <div className="ma-notice ma-notice-error" role="alert">{error}</div>}
     {notice && <div className="ma-notice ma-notice-success" role="status">{notice}</div>}
+    <details className="mf-panel"><summary>Credite pentru servicii de organizator</summary><p className="mf-help">Înregistrează numai finanțare USD verificată independent. Referința trebuie să fie chitanța unică a furnizorului. Formularul nu transferă bani și nu efectuează rambursări.</p><form onSubmit={(event) => { event.preventDefault(); void run('organizer-credit', async () => { if (!organizerCredit.verified) throw new Error('Confirmă verificarea independentă a finanțării.'); await organizerBillingApi.credit(Number(organizerCredit.userId), centsFromInput(organizerCredit.amount), organizerCredit.reference.trim()); setOrganizerCredit({ userId: '', amount: '', reference: '', verified: false }); }, 'Creditele de servicii ale organizatorului au fost înregistrate.'); }}>
+      <div className="mf-form-grid"><Field label="ID utilizator"><input type="number" min={1} step={1} required value={organizerCredit.userId} onChange={(event) => setOrganizerCredit((value) => ({ ...value, userId: event.target.value, verified: false }))} /></Field><Field label="Suma verificată în USD"><input required inputMode="decimal" placeholder="100.00" value={organizerCredit.amount} onChange={(event) => setOrganizerCredit((value) => ({ ...value, amount: event.target.value, verified: false }))} /></Field></div>
+      <Field label="Referința unică a chitanței furnizorului"><input required maxLength={160} value={organizerCredit.reference} onChange={(event) => setOrganizerCredit((value) => ({ ...value, reference: event.target.value, verified: false }))} /></Field>
+      <label className="mf-check"><input type="checkbox" required checked={organizerCredit.verified} onChange={(event) => setOrganizerCredit((value) => ({ ...value, verified: event.target.checked }))} /><span>Am verificat independent finanțarea USD, utilizatorul, suma și chitanța furnizorului.</span></label><button className="ma-button ma-button-primary" disabled={Boolean(busy)}>{busy === 'organizer-credit' ? 'Se înregistrează…' : 'Înregistrează creditele organizatorului'}</button>
+    </form></details>
     {!data ? <p role="status">{loading ? 'Se încarcă registrele comerciale…' : 'Datele financiare nu sunt disponibile. Reîncearcă încărcarea.'}</p> : <>
       <div className="mf-steps" aria-label="Etapele administrării comerciale">{([['publishers', '1', 'Editori și credite'], ['offers', '2', 'Oferte'], ['orders', '3', 'Comenzi și activări']] as const).map(([id, number, title]) => <button type="button" key={id} disabled={Boolean(busy)} aria-pressed={step === id} className={step === id ? 'is-active' : ''} onClick={() => setStep(id)}><b>{number}</b>{title}</button>)}</div>
 

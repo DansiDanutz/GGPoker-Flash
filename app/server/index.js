@@ -67,6 +67,8 @@ import { createMarketplaceRoutes } from './marketplace.js';
 import { createMarketplaceCommerce } from './marketplace-commerce.js';
 import { createManagementPolicy, privateSpinConfig, tableManagementProduct } from './management-plugins.js';
 import { createManagementRoutes } from './management-routes.js';
+import { createOrganizerBilling } from './organizer-billing.js';
+import { createOrganizerBillingRoutes } from './organizer-billing-routes.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
@@ -559,9 +561,46 @@ const handleAdminTransactionsRoute = createAdminTransactionsRoute({ db, json, re
 const handleAdminUsersListRoute = createAdminUsersListRoute({ db, json, requireAdmin, publicUser });
 const handleMarketplaceRoute = createMarketplaceRoutes({ db, json, requireUser, requireAdmin, readBody });
 const marketplaceCommerce = createMarketplaceCommerce({ db });
-const managementPolicy = createManagementPolicy({ db, commerce: marketplaceCommerce });
-const handleManagementRoute = createManagementRoutes({ db, commerce: marketplaceCommerce, policy: managementPolicy, json, requireUser, requireAdmin, readBody });
-const requireManagement = (actor, productId, action, res) => managementPolicy.requireAccess(actor, productId, action, res, json);
+const organizerBilling = createOrganizerBilling({ db, mode: process.env.GGPOKER_USAGE_BILLING || 'off' });
+const usageBilling = organizerBilling.mode === 'enforce';
+// Existing product-wide purchases need an explicit migration before changing their promise.
+if (usageBilling && db.prepare("SELECT 1 FROM marketplace_paid_access WHERE product_id IN ('cash-games-manager','tournaments-manager','spin-and-go-manager') AND status='active' AND (expires_at IS NULL OR expires_at>?) LIMIT 1").get(new Date().toISOString())) {
+  throw new Error('Reconcile existing paid product access before enabling service-credit billing.');
+}
+const legacyManagementPolicy = createManagementPolicy({ db, commerce: marketplaceCommerce });
+const managementPolicy = usageBilling ? {
+  ...legacyManagementPolicy, mode: 'enforce',
+  check: (actor, productId) => managementPolicy.account(actor.id).access.find((entry) => entry.product_id === productId) || { can_manage: false },
+  error: () => ({ error: 'An active organizer membership is required.', code: 'membership_required', marketplace_url: '/marketplace' }),
+  catalog: () => ({ ...legacyManagementPolicy.catalog(), mode: 'enforce', billing_model: 'service_credits' }),
+  account: (id) => {
+    const account = legacyManagementPolicy.account(id);
+    const member = organizerBilling.account(id).memberships.organizer;
+    return { ...account, mode: 'enforce', billing_model: 'service_credits', access: account.access.map((entry) => ({
+      ...entry, active: member.active && entry.reason !== 'not_implemented', can_manage: member.active && entry.reason !== 'not_implemented',
+      expires_at: member.expires_at, reason: entry.reason === 'not_implemented' ? entry.reason : member.active ? 'organizer_membership' : 'membership_required',
+    })) };
+  },
+} : legacyManagementPolicy;
+const handleManagementRoute = createManagementRoutes({ db, commerce: marketplaceCommerce, policy: managementPolicy, billing: organizerBilling, json, requireUser, requireAdmin, readBody });
+const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES });
+const requireManagement = (actor, productId, action, res) => {
+  if (usageBilling) {
+    if (action.startsWith('admin_') && actor.is_admin) return true;
+    organizerBilling.requireMembership(actor.id, 'organizer'); return true;
+  }
+  return managementPolicy.requireAccess(actor, productId, action, res, json);
+};
+setInterval(() => { if (usageBilling) { try { organizerBilling.tickCash(); } catch (error) { console.error('organizer billing renewal failed', error); } } }, 1000).unref();
+function serviceCanDeal(table, markStarted = false) {
+  if (!usageBilling || !table.cfg.private || !table.cfg.owner_id || table.tournament) return true;
+  if (table.cfg.game !== 'spingold') return organizerBilling.canDeal(table.cfg.id);
+  const schedule = db.prepare('SELECT * FROM organizer_spin_schedule WHERE table_id=?').get(table.cfg.id);
+  if (!schedule) return true; // Legacy Spin tables retain their existing lifecycle.
+  if (Date.parse(schedule.start_at) > Date.now()) return false;
+  if (markStarted && !schedule.started_at) db.prepare('UPDATE organizer_spin_schedule SET started_at=? WHERE table_id=?').run(new Date().toISOString(), table.cfg.id);
+  return true;
+}
 // Snapshots go to the OS temp dir (override with GGPOKER_BACKUP_TMP); never inside DATA_DIR.
 const handleAdminBackupRoute = createAdminBackupRoute({
   db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
@@ -576,7 +615,10 @@ const handleAdminSnapshotRoutes = createAdminSnapshotRoutes({
   db, json, requireAdmin, readBody, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined, getSetting,
 });
 const handleAdminTableDuplicateRoute = createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody,
-  authorizeCopy: (actor, source, res) => requireManagement(actor, tableManagementProduct(source.game), 'admin_table_duplicate', res) });
+  authorizeCopy: (actor, source, res) => {
+    if (usageBilling && source.private) { json(res, 409, { error: 'Create a new billed private table through its organizer account.' }); return false; }
+    return requireManagement(actor, tableManagementProduct(source.game), 'admin_table_duplicate', res);
+  } });
 
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
@@ -669,6 +711,7 @@ function getLiveTable(id) {
     rakeCap: getSetting('rake_cap', 300),
   };
   const table = new PokerTable(cfg, {
+    canStartHand: (table) => serviceCanDeal(table, true),
     onEvent: (t, evt) => {
       broadcastTable(t, evt);
       // C4 dealer log (DanGG extra): one line per hand start.
@@ -918,6 +961,7 @@ function broadcastState(table) {
 function seatHuman(table, user, buyin, seatIndex = null, waitForBlinds = false) {
   const existing = table.seatOf(user.id);
   if (existing) return { ok: true, seat: existing.index };
+  if (usageBilling && table.cfg.private && table.cfg.owner_id && !serviceCanDeal(table)) return { ok: false, error: 'The organizer must start or fund this table before joining.' };
   if (table.spin) {
     table.resetSpinIfIdle();
     if (!table.spinStakeValid()) return { ok: false, error: 'This Jackpot SNG stake is not available' };
@@ -1336,6 +1380,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
+    if (await handleOrganizerBillingRoute(req, res, url)) return;
     if (await handleManagementRoute(req, res, url)) return;
     if (await handleMarketplaceRoute(req, res, url)) return;
     if (p === '/healthz') {
@@ -1518,6 +1563,8 @@ const server = http.createServer(async (req, res) => {
       const live = LIVE_TABLES.get(id);
       if (live && live.table.occupiedSeats().length) return json(res, 409, { error: 'Table has players — ask them to leave first' });
       if (live) { clearInterval(live.timer); LIVE_TABLES.delete(id); CUSTOM_CFG.delete(id); }
+      organizerBilling.stopCash({ userId: u.id, tableId: id });
+      db.prepare('DELETE FROM organizer_spin_schedule WHERE table_id=?').run(id);
       db.prepare('DELETE FROM tables WHERE id = ?').run(id);
       db.prepare('DELETE FROM table_mutes WHERE table_id = ?').run(id);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'delete_host_table', id);
@@ -1553,6 +1600,8 @@ const server = http.createServer(async (req, res) => {
       // Preserve the host API's Hold'em fallback and authorize the actual format.
       const game = ['holdem', 'omaha', 'omaha5', 'omaha6', 'shortdeck', 'spingold'].includes(b.game) ? b.game : 'holdem';
       if (!requireManagement(u, tableManagementProduct(game), 'host_table_create', res)) return;
+      const setupPayload = JSON.stringify(b);
+      if (usageBilling) { const previous = organizerBilling.replay(u.id, b.idempotencyKey, setupPayload); if (previous) return json(res, 200, { ok: true, ...previous }); }
       const count = db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id = ? AND private = 1').get(u.id).n;
       if (count >= 8) return json(res, 400, { error: 'You already have 8 private tables' });
       if (game === 'spingold') {
@@ -1560,11 +1609,17 @@ const server = http.createServer(async (req, res) => {
         try { spin = privateSpinConfig(b); } catch (error) { return json(res, 400, { error: error.message }); }
         const id = `home-spin-${u.id}-${randomUUID().slice(0, 8)}`;
         const name = String(b.name || `${u.nick}'s Jackpot SNG`).trim().slice(0, 40) || 'Private Jackpot SNG';
+        const launch = b.start_at ? Date.parse(b.start_at) : Date.now();
+        if (!Number.isFinite(launch) || (b.start_at && launch <= Date.now())) return json(res, 400, { error: 'Choose a future Spin launch time.' });
+        const created = organizerBilling.setup({ userId: u.id, kind: 'spin', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
+        if (db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tables'), { status: 400 });
         db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
           VALUES (?,?,?,'Private',?,?,0,?,?,?, ?,0,1,0,?,1,0)`)
           .run(id, name, spin.game, spin.sb, spin.bb, spin.min_buyin, spin.max_buyin, spin.seats, spin.speed, u.id);
+        if (usageBilling) db.prepare('INSERT INTO organizer_spin_schedule(table_id,start_at) VALUES (?,?)').run(id, new Date(launch).toISOString());
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_spin_table', id);
-        return json(res, 200, { ok: true, id });
+        return { id }; } });
+        return json(res, 200, { ok: true, ...created });
       }
       const sb = Math.max(1, Math.round(Number(b.sb) || 100));
       const bb = Math.max(sb, Math.round(Number(b.bb) || sb * 2));
@@ -1572,12 +1627,15 @@ const server = http.createServer(async (req, res) => {
       const maxBuyin = Math.max(minBuyin, Math.round(Number(b.max_buyin) || minBuyin));
       const seats = Math.max(2, Math.min(9, Math.round(Number(b.seats) || 6)));
       const name = String(b.name || `${u.nick}'s table`).trim().slice(0, 40) || `${u.nick}'s table`;
-      const id = `home-${u.id}-${Date.now().toString(36)}`;
+      const id = `home-${u.id}-${randomUUID().slice(0, 8)}`;
+      const created = organizerBilling.setup({ userId: u.id, kind: 'cash', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
+        if (db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tables'), { status: 400 });
       db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
         VALUES (?,?,?,?,?,?,0,?,?,?, 'Normal',0,1,0,?,1,?)`)
         .run(id, name, game, 'Private', sb, bb, minBuyin, maxBuyin, seats, u.id, b.bombPot ? 1 : 0);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_table', id);
-      return json(res, 200, { ok: true, id });
+      return { id }; } });
+      return json(res, 200, { ok: true, ...created });
     }
 
     // ---------- tournaments ----------
@@ -1610,6 +1668,8 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       if (!requireManagement(u, 'tournaments-manager', 'host_tournament_create', res)) return;
       const b = await readBody(req);
+      const setupPayload = JSON.stringify(b);
+      if (usageBilling) { const previous = organizerBilling.replay(u.id, b.idempotencyKey, setupPayload); if (previous) return json(res, 200, { ok: true, ...previous }); }
       const count = db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id = ? AND private = 1').get(u.id).n;
       if (count >= 8) return json(res, 400, { error: 'You already have 8 private tournaments' });
       const name = String(b.name || `${u.nick}'s tournament`).trim().slice(0, 60) || `${u.nick}'s tournament`;
@@ -1621,13 +1681,18 @@ const server = http.createServer(async (req, res) => {
       const blindSpeed = Math.max(1, Math.min(120, Math.round(Number(b.blind_speed) || 8)));
       const lateReg = Math.max(0, Math.min(600, Math.round(Number(b.late_reg) || 90)));
       const mode = ['STANDARD', 'BOUNTY', 'MYSTERY', 'SATELLITE', 'FLIP'].includes(b.mode) ? b.mode : 'STANDARD';
-      const start = b.start_at ? new Date(b.start_at).toISOString() : new Date(Date.now() + 3600000).toISOString();
-      const id = `home-t-${u.id}-${Date.now().toString(36)}`;
+      const startMs = b.start_at ? Date.parse(b.start_at) : Date.now() + 3600000;
+      if (!Number.isFinite(startMs) || startMs <= Date.now()) return json(res, 400, { error: 'Choose a future tournament start time.' });
+      const start = new Date(startMs).toISOString();
+      const id = `home-t-${u.id}-${randomUUID().slice(0, 8)}`;
+      const created = organizerBilling.setup({ userId: u.id, kind: 'tournament', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
+        if (db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tournaments'), { status: 400 });
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled,owner_id,private)
         VALUES (?,?,?,?,?,0,?, 'registering', 1000, 0, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1)`)
         .run(id, name, game, buyin, fee, start, startingStack, blindSpeed, lateReg, format, mode, Math.max(0, Number(b.bounty) || 0), String(b.ticket || '').slice(0, 80), u.id);
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_tournament', id);
-      return json(res, 200, { ok: true, id });
+      return { id }; } });
+      return json(res, 200, { ok: true, ...created });
     }
 
     // Where a spectator should watch this tournament: the busiest live flight.
@@ -2922,6 +2987,9 @@ const server = http.createServer(async (req, res) => {
       const a = requireAdmin(req, res); if (!a) return;
       const b = await readBody(req);
       if (b.delete) {
+        const owned = db.prepare('SELECT owner_id FROM tables WHERE id=?').get(b.id);
+        if (owned?.owner_id) organizerBilling.stopCash({ userId: owned.owner_id, tableId: b.id });
+        db.prepare('DELETE FROM organizer_spin_schedule WHERE table_id=?').run(b.id);
         db.prepare('DELETE FROM tables WHERE id = ?').run(b.id);
         return json(res, 200, { ok: true });
       }
@@ -2931,7 +2999,8 @@ const server = http.createServer(async (req, res) => {
       const id = String(b.id || `custom-${Date.now()}`).slice(0, 60);
       // Authorize the canonical values used by the upsert. Raw request coercion
       // or a truncated ID must not select a cheaper, unrelated capability.
-      const previousTable = db.prepare('SELECT game FROM tables WHERE id = ?').get(id);
+      const previousTable = db.prepare('SELECT game,private FROM tables WHERE id = ?').get(id);
+      if (usageBilling && previousTable?.private) return json(res, 409, { error: 'Manage billed private resources through their owner workflow.' });
       const tableProducts = new Set([tableManagementProduct(t.game), ...(previousTable ? [tableManagementProduct(previousTable.game)] : [])]);
       for (const productId of tableProducts) if (!requireManagement(a, productId, 'admin_table_configure', res)) return;
       db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort)
@@ -2963,6 +3032,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (!requireManagement(a, 'tournaments-manager', 'admin_tournament_configure', res)) return;
       const id = b.id || `t${Date.now()}`;
+      if (usageBilling && db.prepare('SELECT 1 FROM tournaments WHERE id=? AND private=1').get(id)) return json(res, 409, { error: 'Reschedule private events through the owner billing workflow.' });
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET name=excluded.name, game=excluded.game, buyin=excluded.buyin, fee=excluded.fee, gtd=excluded.gtd,
@@ -3097,7 +3167,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404, { 'content-type': 'text/plain' });
     res.end('Not found');
   } catch (err) {
-    if (err && err.status) return json(res, err.status, { error: err.message });
+    if (err && err.status) return json(res, err.status, { error: err.message, ...(err.code ? { code: err.code } : {}) });
     console.error('api error', p, err);
     json(res, 500, { error: 'internal error' });
   }
