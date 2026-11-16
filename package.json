@@ -1,0 +1,9 @@
+{
+  "name": "openpoker-cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local OpenPoker contributor commands",
+  "license": "AGPL-3.0-only",
+  "bin": { "openpoker": "openpoker.mjs" },
+  "engines": { "node": ">=26" }
+}

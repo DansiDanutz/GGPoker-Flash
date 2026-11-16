@@ -10,7 +10,17 @@ third-party licenses. Do not submit proprietary client assets, credentials or us
 
 ## Setup and verification
 
-Use Node 26 and pnpm 10.32.1:
+Use Node 26+ and pnpm 10.32.1. From the repository root:
+
+```sh
+node openpoker.mjs doctor
+node openpoker.mjs setup
+node openpoker.mjs sandbox
+```
+
+The [CLI guide](docs/CLI.md) covers the optional `openpoker` command, focused tests,
+checks and builds. The sandbox uses disposable Play Money data. For normal persistent
+development, the existing app commands also remain available:
 
 ```sh
 cd app

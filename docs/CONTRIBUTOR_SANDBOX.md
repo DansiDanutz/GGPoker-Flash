@@ -9,9 +9,9 @@ Guests see the free game experience. Signed-in accounts also have Contributor, O
 Use the repository's supported Node version (26) and pnpm (10.32.1). Clone or fork the source into your own development machine or VM, then:
 
 ```sh
-cd app
-pnpm install --frozen-lockfile
-pnpm sandbox
+node openpoker.mjs doctor
+node openpoker.mjs setup
+node openpoker.mjs sandbox
 ```
 
 The command starts the actual game server plus Vite, each on an available loopback port. The terminal prints the URL and a randomly generated temporary admin password. Use that admin or create ordinary test accounts. Seeded balances are virtual. Hosting is unrestricted by paid memberships inside this local sandbox.
