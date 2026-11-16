@@ -28,6 +28,11 @@ export function swipeOpens(offset: number, max: number): boolean {
   return max > 0 && offset >= max * SWIPE_OPEN_RATIO;
 }
 
+/** The public repository behind a corresponding-source URL such as `<repo>/tree/<commit>`. */
+export function sourceRepository(sourceUrl: string): string {
+  return sourceUrl.replace(/\/tree\/[^/]+\/?$/, '');
+}
+
 /** The news card that opens when a player taps the creator badge. */
 export const CREATOR_NEWS = Object.freeze({
   kicker: 'News from Dan',
@@ -38,7 +43,7 @@ export const CREATOR_NEWS = Object.freeze({
     'Anyone can contribute. Fix a bug, design a table, translate a screen, suggest a feature. Players need their own software, and AI is here to help sustain it, so a small community can build and run what used to take a whole company.',
     'Play free, build together. No more middleman.',
   ]),
-  badge: 'Coming soon on GitHub',
+  badge: 'View the code on GitHub',
   signature: '— Dan',
   close: 'Got it',
 });

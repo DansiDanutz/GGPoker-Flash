@@ -1,7 +1,8 @@
 // The creator badge opens a news card: DanGG is going open source on GitHub.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CREATOR_NEWS } from '../src/lib/creator.ts';
+import fs from 'node:fs';
+import { CREATOR_NEWS, sourceRepository } from '../src/lib/creator.ts';
 
 test('the news card says the code goes open source on GitHub and anyone can contribute', () => {
   const text = [CREATOR_NEWS.title, ...CREATOR_NEWS.paragraphs].join(' ');
@@ -12,4 +13,17 @@ test('the news card says the code goes open source on GitHub and anyone can cont
   assert.match(text, /AI/);
   assert.equal(CREATOR_NEWS.signature, '— Dan');
   assert.ok(Object.isFrozen(CREATOR_NEWS) && Object.isFrozen(CREATOR_NEWS.paragraphs));
+});
+
+test('the GitHub badge links to the repository, not one commit', () => {
+  assert.equal(sourceRepository('https://github.com/OpenPoker4all/OpenPoker/tree/0123456789abcdef0123456789abcdef01234567'), 'https://github.com/OpenPoker4all/OpenPoker');
+  assert.equal(sourceRepository('https://github.com/OpenPoker4all/OpenPoker'), 'https://github.com/OpenPoker4all/OpenPoker');
+  const card = fs.readFileSync(new URL('../src/components/brand/CreatorNews.tsx', import.meta.url), 'utf8');
+  assert.match(card, /<a className="cn-badge" href=\{sourceRepository\(__APP_SOURCE_URL__\)\} target="_blank" rel="noopener noreferrer">/);
+});
+
+test('the news card renders into <body>, so the login footer can never cover Got it', () => {
+  const card = fs.readFileSync(new URL('../src/components/brand/CreatorNews.tsx', import.meta.url), 'utf8');
+  assert.match(card, /return createPortal\(/);
+  assert.match(card, /document\.body,\n\s*\);/);
 });
