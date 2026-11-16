@@ -21,7 +21,14 @@ async function click(page, scope, text) {
   await handle.asElement().click(); await handle.dispose();
 }
 async function text(page, value) { await page.waitForFunction((selector, value) => document.querySelector(selector)?.textContent.includes(value), {}, panel, value); }
-async function input(page, selector, value) { const field = await page.waitForSelector(selector); await field.type(String(value)); }
+async function input(page, selector, value) {
+  const field = await page.waitForSelector(selector);
+  await field.focus();
+  const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+  await page.keyboard.down(modifier); await page.keyboard.press('KeyA'); await page.keyboard.up(modifier);
+  await field.type(String(value));
+  assert.equal(await field.evaluate((el) => el.value), String(value));
+}
 async function pageFor(token) {
   const context = await browser.createBrowserContext();
   const page = await context.newPage(); currentPage = page; page.setDefaultTimeout(15000);
@@ -73,13 +80,13 @@ try {
   assert.deepEqual(await ownerPage.$$eval('#host-rake-percent option', (options) => options.map((option) => option.value)), ['2', '3', '4', '5']);
   await input(ownerPage, '.modal input[maxlength="40"]', 'Browser Rake Cash');
   await ownerPage.select('#host-rake-percent', '3');
-  const createCap = await ownerPage.$('#host-rake-cap'); await createCap.click({ clickCount: 3 }); await createCap.press('Backspace'); await createCap.type('25');
+  await input(ownerPage, '#host-rake-cap', '25');
   await click(ownerPage, '.modal-foot', 'Create table');
   await ownerPage.waitForSelector('.mp-rake-form');
   let cash = check(await srv.get('/api/marketplace/billing/me', { token: owner.token })).tables.find((table) => table.name === 'Browser Rake Cash');
   assert.equal(cash.rakePercent, 3); assert.equal(cash.rakeCap, 25);
   await ownerPage.select('.mp-rake-form select', '2');
-  const editCap = await ownerPage.$('.mp-rake-form input'); await editCap.click({ clickCount: 3 }); await editCap.press('Backspace'); await editCap.type('7');
+  await input(ownerPage, '.mp-rake-form input', '7');
   await click(ownerPage, '.mp-rake-form', 'Salvează rake');
   await ownerPage.waitForFunction((scope) => document.querySelector(scope)?.textContent.includes('Rake-ul a fost salvat.'), {}, billing);
   await ownerPage.reload(); await ownerPage.waitForSelector('.mp-rake-form');
