@@ -9,7 +9,8 @@ const localDateTime = (value: string) => {
 };
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Cererea nu a reușit.';
 
-export function OrganizerBilling({ userId }: { userId?: number }) {
+export function OrganizerBilling({ userId, role }: { userId?: number; role?: 'organizer' | 'contributor' }) {
+  const contributorOnly = role === 'contributor';
   const [config, setConfig] = useState<OrganizerBillingConfig | null>(null);
   const [account, setAccount] = useState<OrganizerBillingAccount | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,15 +52,16 @@ export function OrganizerBilling({ userId }: { userId?: number }) {
     setNotice(`Checkout deschis pentru ${usd(amountCents)}. După plată, operatorul verifică chitanța înainte de creditare. Deschiderea, revenirea sau închiderea paginii NervixPay nu confirmă o plată și nu creditează automat contul.`);
   };
 
-  if (loading && !config) return <section className="mp-account-panel" aria-busy="true"><p>Se încarcă serviciile organizatorului…</p></section>;
-  return <section className="mp-account-panel" aria-label="Credite și servicii pentru organizatori">
-    <div className="mp-section-heading"><div><span className="mp-eyebrow">SERVICII PENTRU ORGANIZATORI</span><h2>Credite, abonamente și resurse</h2></div><button type="button" className="mp-button mp-button-secondary" disabled={loading || Boolean(busy)} onClick={() => void load()}>{loading ? 'Se actualizează…' : 'Actualizează'}</button></div>
-    {config && <p>Tarife: Cash {usd(config.tariffs.cash_setup)} configurare + $5–$1/oră cât timp masa este activă; turneu {usd(config.tariffs.tournament_setup)} configurare + {usd(config.tariffs.reschedule)} reprogramare; Spin &amp; Go {usd(config.tariffs.spin_setup)} configurare + {usd(config.tariffs.reschedule)} reprogramare. Abonamentele costă {usd(config.tariffs.membership)} pentru o lună calendaristică.</p>}
+  if (loading && !config) return <section className="mp-account-panel" aria-busy="true"><p>Loading membership and service credits…</p></section>;
+  return <section className="mp-account-panel" aria-label={contributorOnly ? "Contributor membership and credits" : "Credite și servicii pentru organizatori"}>
+    <div className="mp-section-heading"><div><span className="mp-eyebrow">{contributorOnly ? 'CONTRIBUTOR MEMBERSHIP' : 'SERVICII PENTRU ORGANIZATORI'}</span><h2>{contributorOnly ? 'Membership and service credits' : 'Credite, abonamente și resurse'}</h2></div><button type="button" className="mp-button mp-button-secondary" disabled={loading || Boolean(busy)} onClick={() => void load()}>{loading ? 'Se actualizează…' : 'Actualizează'}</button></div>
+    {contributorOnly && config && <p>Contributor membership costs {usd(config.tariffs.membership)} for one calendar month, renewed manually. Build and test locally for free; membership and an approved publisher profile are required for marketplace submission. Publisher commission credits are managed separately below.</p>}
+    {!contributorOnly && config && <p>Tarife: Cash {usd(config.tariffs.cash_setup)} configurare + $5–$1/oră cât timp masa este activă; turneu {usd(config.tariffs.tournament_setup)} configurare + {usd(config.tariffs.reschedule)} reprogramare; Spin &amp; Go {usd(config.tariffs.spin_setup)} configurare + {usd(config.tariffs.reschedule)} reprogramare. Abonamentele costă {usd(config.tariffs.membership)} pentru o lună calendaristică.</p>}
     {!enforced && <div className="mp-notice" role="status">Facturarea prin credite nu este activă pe această instalare. Controalele de debit sunt dezactivate, iar găzduirea existentă continuă în modul legacy.</div>}
     {error && <div className="mp-notice mp-notice-error" role="alert">{error}</div>}
     {notice && <div className="mp-notice mp-notice-success" role="status">{notice}</div>}
     {!userId ? <p>Intră în cont pentru a vedea soldul și resursele tale.</p> : account && <>
-      <div className="mp-account-grid"><article><strong>{usd(account.balance_cents)}</strong><p>sold credite servicii</p></article>{(['organizer', 'contributor'] as const).map((role) => <article key={role}><strong>{role === 'organizer' ? 'Organizator' : 'Contributor'}</strong><p>{account.memberships[role].active ? `Activ până la ${when(account.memberships[role].expires_at)}` : 'Inactiv'}</p><button type="button" className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy)} onClick={() => void run(`subscribe:${role}`, `Confirmi debitarea a ${usd(tariffs?.membership || 900)} pentru o lună de abonament ${role}?`, (key) => organizerBillingApi.subscribe(role, key), 'Abonamentul a fost actualizat.')}>{busy === `subscribe:${role}` ? 'Se procesează…' : account.memberships[role].active ? 'Reînnoiește' : 'Activează'}</button></article>)}</div>
+      <div className="mp-account-grid"><article><strong>{usd(account.balance_cents)}</strong><p>sold credite servicii</p></article>{(role ? [role] : ['organizer', 'contributor'] as const).map((role) => <article key={role}><strong>{role === 'organizer' ? 'Organizator' : 'Contributor'}</strong><p>{account.memberships[role].active ? `Activ până la ${when(account.memberships[role].expires_at)}` : 'Inactiv'}</p><button type="button" className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy)} onClick={() => void run(`subscribe:${role}`, `Confirmi debitarea a ${usd(tariffs?.membership || 900)} pentru o lună de abonament ${role}?`, (key) => organizerBillingApi.subscribe(role, key), 'Abonamentul a fost actualizat.')}>{busy === `subscribe:${role}` ? 'Se procesează…' : account.memberships[role].active ? 'Reînnoiește' : 'Activează'}</button></article>)}</div>
       {config?.manual_funding.enabled && <section aria-label="Finanțare manuală credite servicii">
         <h3>Adaugă credite servicii prin NervixPay</h3>
         <p>Plata este verificată manual de operator și nu creditează automat contul. Creditele servicii nu sunt depozite ale jucătorilor și nu reprezintă Cash Chips. După verificare, activezi separat abonamentul; nu există reînnoire automată.</p>
@@ -67,6 +69,7 @@ export function OrganizerBilling({ userId }: { userId?: number }) {
         <div className="mp-account-grid">{config.manual_funding.links.map((link) => <article key={link.amount_cents}><strong>{usd(link.amount_cents)}</strong><p>credite servicii, după reconcilierea chitanței</p><button type="button" className="mp-button mp-button-secondary" onClick={() => openFunding(link.url, link.amount_cents)}>Deschide plata {usd(link.amount_cents)}</button></article>)}</div>
         <p>După plată, păstrează chitanța și referința comenzii. Dacă soldul nu reflectă o plată verificată, contactează suportul platformei din pagina <a href="#/support">Suport</a> și include chitanța plus <code>{fundingReference}</code>.</p>
       </section>}
+      {!contributorOnly && <>
       <p>Tariful Cash scade după totalul orelor plătite pe toate mesele tale, pe viață: {config?.tariffs.cash_hour_tiers.map((tier, index, tiers) => `${index === 0 ? 1 : (tiers[index - 1].through || 0) + 1}${tier.through === null ? '+' : `–${tier.through}`} ore: ${usd(tier.cents)}/oră`).join('; ')}. Fiecare masă activă consumă câte o oră. Fiecare oră se achită în avans, fără reduceri retroactive.</p>
       {account.cash_usage && <p aria-label="Tarif orar Cash">Ore plătite: <strong>{account.cash_usage.paid_hours}</strong> · Următoarea oră (#{account.cash_usage.next_hour}): <strong>{usd(hourPrice)}</strong>. Reluarea în perioada deja achitată este gratuită.</p>}
       <h3>Resurse găzduite</h3>
@@ -84,6 +87,7 @@ export function OrganizerBilling({ userId }: { userId?: number }) {
         </li>; })}
         {account.tournaments.map((tournament) => { const start = starts[`tournament:${tournament.id}`] || localDateTime(tournament.start_at); return <li key={tournament.id}><div><strong>{tournament.name}</strong><p>Turneu · {tournament.status} · {when(tournament.start_at)}</p></div><form onSubmit={(event: FormEvent) => { event.preventDefault(); const startAt = new Date(start).toISOString(); void run(`tournament:${tournament.id}:${startAt}`, `Confirmi debitarea a ${usd(tariffs?.reschedule || 100)} pentru reprogramarea „${tournament.name}” la ${when(startAt)}?`, (key) => organizerBillingApi.reschedule('tournament', tournament.id, startAt, key), 'Turneul a fost reprogramat.'); }}><input aria-label={`Start nou pentru ${tournament.name}`} className="admin-input" type="datetime-local" required value={start} disabled={!enforced || tournament.status !== 'registering'} onChange={(event) => setStarts((current) => ({ ...current, [`tournament:${tournament.id}`]: event.target.value }))} /><button className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy) || tournament.status !== 'registering'}>Reprogramează ({usd(tariffs?.reschedule || 100)})</button></form></li>; })}
       </ul>}
+      </>}
       <h3>Istoric credite</h3>
       {!account.ledger?.length ? <p>Nicio operațiune înregistrată.</p> : <ul className="mp-account-list">{account.ledger.map((entry) => <li key={entry.id}><div className="mp-account-row"><strong>{entry.kind}</strong><strong>{entry.amount_cents > 0 ? '+' : ''}{usd(entry.amount_cents)}</strong></div><time>{when(entry.created_at)}{entry.resource_id ? ` · ${entry.resource_id}` : ''}</time></li>)}</ul>}
     </>}

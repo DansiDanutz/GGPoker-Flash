@@ -2,6 +2,8 @@ import React, { useMemo, useRef, useState } from 'react';
 import { api, money } from '../../lib/api';
 import { useApp } from '../../lib/store';
 import { sound } from '../../lib/sound';
+import { fileToAvatar } from '../../lib/avatar';
+import { ProfileRoleGuide } from '../ProfileRoleGuide';
 
 type Preset = { id: string; name: string; src: string; category: 'poker' | 'ocean' | 'lucky' };
 
@@ -56,15 +58,10 @@ export function ProfilePane() {
 
   const pickUpload = async (f: File | undefined) => {
     if (!f) return;
-    if (f.size > 2 * 1024 * 1024) { toast({ kind: 'error', title: 'Image too large', body: 'Use an image under 2 MB.' }); return; }
-    const src = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result));
-      r.onerror = reject;
-      r.readAsDataURL(f);
-    });
-    setSelected(src);
-    setCategory('custom');
+    setBusy(true);
+    try { setSelected(await fileToAvatar(f)); setCategory('custom'); }
+    catch (error) { toast({ kind: 'error', title: 'Image could not be loaded', body: error instanceof Error ? error.message : 'Choose another image.' }); }
+    finally { setBusy(false); if (file.current) file.current.value = ''; }
   };
 
   const apply = async () => {
@@ -83,22 +80,24 @@ export function ProfilePane() {
 
   return (
     <div className="mpp">
+      <ProfileRoleGuide />
+      <h2>Your avatar and nickname</h2>
+      <p>Choose a portrait or upload a PNG, JPEG or WebP under 8 MB. Uploaded images are centre-cropped to a square. Preview your choice, then select Apply to save.</p>
       <div className="mpp-head">
         <div className="mpp-portrait">
-          <img src={selected && selected.startsWith('/assets/avatars') ? selected : (user?.avatar || '/assets/avatars/gg-05.jpg')} alt="" />
+          <img src={selected || '/assets/avatars/gg-05.jpg'} alt="Selected avatar preview" />
           <span className="mpp-vip">{user?.vip_level ?? 0}</span>
         </div>
         <div className="mpp-nick">
           <label htmlFor="mpp-nick">Nickname</label>
           <div className="mpp-nick-row">
             <input id="mpp-nick" value={nick} maxLength={20} onChange={(e) => setNick(e.target.value)} />
-            <span className="mpp-lock" aria-hidden="true">🔒</span>
           </div>
-          <small>ID {user?.login} · {money(user?.balance ?? 0)} balance</small>
+          <small>ID {user?.login} · {money(user?.balance ?? 0)} Play Money balance</small>
         </div>
       </div>
 
-      <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => pickUpload(e.target.files?.[0])} />
+      <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden disabled={busy} onChange={(e) => void pickUpload(e.target.files?.[0])} />
 
       <div className="mpp-chips" role="tablist" aria-label="Avatar category">
         {CATEGORIES.map((c) => (
@@ -108,14 +107,14 @@ export function ProfilePane() {
       </div>
 
       <div className="mpp-grid">
-        <button type="button" className="mpp-cell mpp-upload" onClick={() => file.current?.click()}>
+        <button type="button" className="mpp-cell mpp-upload" disabled={busy} onClick={() => file.current?.click()}>
           <span className="mpp-upload-ico" aria-hidden="true">
             <svg width="30" height="26" viewBox="0 0 30 26" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 8h5l2-3h10l2 3h5v14H3z" /><circle cx="15" cy="15" r="5" /></svg>
           </span>
           <span>Upload Image</span>
         </button>
         {shown.map((p) => (
-          <button key={p.id} type="button" className={'mpp-cell' + (selected === p.src ? ' on' : '')} onClick={() => setSelected(p.src)} aria-label={p.name} aria-pressed={selected === p.src}>
+          <button key={p.id} type="button" disabled={busy} className={'mpp-cell' + (selected === p.src ? ' on' : '')} onClick={() => setSelected(p.src)} aria-label={p.name} aria-pressed={selected === p.src}>
             <img src={p.src} alt="" loading="lazy" />
             <span>{p.name}</span>
           </button>
@@ -124,7 +123,7 @@ export function ProfilePane() {
           <div className="mpp-empty">No avatars in this category yet.</div>
         )}
         {category === 'custom' && !shown.length && (
-          <div className="mpp-empty">Upload an image to use it as your avatar.</div>
+          <div className="mpp-empty">{selected.startsWith('data:') ? 'Your uploaded image is shown in the preview. Select Apply to save.' : 'Upload an image to use it as your avatar.'}</div>
         )}
       </div>
 

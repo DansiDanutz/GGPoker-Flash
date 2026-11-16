@@ -15,6 +15,7 @@ let srv, browser, currentPage;
 const check = (r) => { assert.equal(r.status, 200, JSON.stringify(r.data)); return r.data; };
 const post = async (route, token, body) => check(await srv.post(route, { token, body }));
 async function click(page, scope, text) {
+  await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
   await page.waitForFunction((scope, text) => [...document.querySelectorAll(`${scope} button`)].some((b) => b.textContent.trim() === text && !b.disabled), {}, scope, text);
   const handle = await page.evaluateHandle((scope, text) => [...document.querySelectorAll(`${scope} button`)].find((b) => b.textContent.trim() === text && !b.disabled), scope, text);
   await handle.asElement().evaluate((b) => b.scrollIntoView({ block: 'center' }));
@@ -85,6 +86,7 @@ try {
   await input(ownerPage, '#host-rake-cap', '25');
   await click(ownerPage, '.modal-foot', 'Create table');
   await ownerPage.waitForSelector('.mp-rake-form');
+  assert.equal(new URL(ownerPage.url()).hash, '#/organiser');
   let cash = check(await srv.get('/api/marketplace/billing/me', { token: owner.token })).tables.find((table) => table.name === 'Browser Rake Cash');
   assert.equal(cash.rakePercent, 3); assert.equal(cash.rakeCap, 25);
   await ownerPage.select('.mp-rake-form select', '2');
