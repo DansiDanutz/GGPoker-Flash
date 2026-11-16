@@ -22,7 +22,7 @@ export type BillingTable = {
   session?: { active: number | boolean; paid_until: string } | null;
   schedule?: { start_at: string; started_at: string | null } | null;
 };
-export type BillingTournament = { id: string; name: string; start_at: string; status: string };
+export type BillingTournament = { id: string; name: string; start_at: string; status: string; format: string; mode: string; buyin: number; fee: number; starting_stack: number; blind_speed: number; late_reg: number; max_players: number; entrants: number; bounty: number; chip_economy: number };
 export type OrganizerBillingAccount = {
   mode: BillingMode; balance_cents: number;
   cash_usage: { paid_hours: number; next_hour: number; next_hour_cents: number };

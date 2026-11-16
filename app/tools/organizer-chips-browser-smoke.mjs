@@ -129,7 +129,29 @@ try {
   await click(ownerPage, panel, 'Transferă'); await text(ownerPage, 'Cash Chips au fost transferate.');
   const recipientAccount = check(await srv.get('/api/marketplace/chips/me', { token: recipient.token }));
   assert.equal(recipientAccount.balances.find((b) => b.organizer_id === owner.user.id).balance, 10000);
-  const event = await post('/api/tournaments/host', owner.token, { name: 'Browser Cash Chip Cup', format: 'NLH', buyin: 1000, fee: 100, starting_stack: 10000, mode: 'STANDARD', start_at: new Date(Date.now() + 3600000).toISOString(), idempotencyKey: 'browser-chip-event' });
+  await ownerPage.goto(`${srv.base}/#/?host=tournament&economy=organizer`);
+  await ownerPage.waitForSelector('#host-economy');
+  assert.equal(await ownerPage.$eval('#host-economy', node => node.value), 'organizer');
+  await input(ownerPage, '.modal input[maxlength="60"]', 'Browser Cash Chip Cup');
+  await input(ownerPage, 'input[aria-label="Maximum tournament players"]', 6);
+  await click(ownerPage, '.modal-foot', 'Create tournament');
+  const manager = 'section[aria-label="Tournament Manager"]';
+  await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Browser Cash Chip Cup'), {}, manager);
+  assert.equal(new URL(ownerPage.url()).hash, '#/organiser');
+  const event = check(await srv.get('/api/tournaments/host', { token: owner.token })).tournaments.find(t => t.name === 'Browser Cash Chip Cup');
+  assert.equal(event.max_players, 6); assert.equal(event.late_reg, 0);
+  assert.match(await ownerPage.$eval(manager, node => node.textContent), /0 \/ 6 entrants/);
+  assert.match(await ownerPage.$eval(`${manager} input[readonly]`, node => node.value), new RegExp(event.id));
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    await ownerPage.setViewport({ width, height: 1000 });
+    await ownerPage.waitForFunction(phone => !!document.querySelector('.pshell') === phone, {}, width <= 760);
+    await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Browser Cash Chip Cup'), {}, manager);
+    await ownerPage.$eval(manager, node => node.scrollIntoView({ block: 'start' }));
+    const layout = await ownerPage.$eval(manager, node => ({ width: node.clientWidth, scroll: node.scrollWidth, overflowing: [...node.querySelectorAll('*')].filter(child => child.getBoundingClientRect().right > node.getBoundingClientRect().right + 1).map(child => ({ tag: child.tagName, class: child.className, width: child.getBoundingClientRect().width })) }));
+    assert.ok(layout.scroll <= layout.width + 1, `Tournament Manager overflow at ${width}: ${JSON.stringify(layout)}`);
+    if ([390, 1440].includes(width)) await ownerPage.screenshot({ path: path.join(artifacts, `tournament-manager-${width}.png`), fullPage: true });
+  }
+
   const playerPage = await pageFor(recipient.token);
   await text(playerPage, '10,000 Cash Chips'); await text(playerPage, 'Browser Cash Chip Cup');
   await click(playerPage, panel, 'Cumpără bilet'); await text(playerPage, 'Biletul a fost emis.');
@@ -140,6 +162,12 @@ try {
   await text(playerPage, 'Cash Chips');
   assert.ok(await playerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Cash Chip page overflows mobile width');
   await playerPage.screenshot({ path: path.join(artifacts, 'organizer-chip-mobile.png'), fullPage: true });
+  await click(ownerPage, manager, 'Cancel tournament');
+  await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('No hosted tournaments yet.'), {}, manager);
+  const refunded = check(await srv.get('/api/marketplace/chips/me', { token: recipient.token }));
+  assert.equal(refunded.balances.find(row => row.organizer_id === owner.user.id).balance, 10000);
+  assert.equal(refunded.tickets.find(ticket => ticket.tournament_id === event.id).state, 'refunded');
+  console.log('PASS Tournament Manager creation, capacity, freezeout terms, responsive controls and cancellation refund');
   assert.deepEqual(errors, []);
   console.log('PASS Cash Chip membership grant, pack purchase, scoped transfer and ticket redemption in Chrome; mobile layout');
   await fs.writeFile(path.join(artifacts, 'organizer-chip-report.json'), JSON.stringify({ ok: true, errors }));

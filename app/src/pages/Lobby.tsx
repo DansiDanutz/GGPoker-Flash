@@ -121,7 +121,7 @@ export function Lobby() {
   const [hostAccessRetry, setHostAccessRetry] = useState(0);
   const [hostListError, setHostListError] = useState('');
   const hostDialogRef = useRef<HTMLDivElement>(null);
-  const [hostTourneyForm, setHostTourneyForm] = useState({ name: '', format: 'NLH', buyin: 1000, fee: 100, gtd: 0, starting_stack: 10000, blind_speed: 8, late_reg: 90, mode: 'STANDARD', bounty: 0, ticket: '', start_at: new Date(Date.now() + 3600000).toISOString().slice(0, 16) });
+  const [hostTourneyForm, setHostTourneyForm] = useState({ name: '', format: 'NLH', buyin: 1000, fee: 100, gtd: 0, starting_stack: 10000, max_players: 1000, blind_speed: 8, late_reg: 0, mode: 'STANDARD', bounty: 0, ticket: '', start_at: (() => { const date = new Date(Date.now() + 3600000); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })() });
   const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
   const [promoIdx, setPromoIdx] = useState(0);
   const [promoPaused, setPromoPaused] = useState(false);
@@ -345,7 +345,7 @@ export function Lobby() {
       hostKeys.current.delete(replay.identity);
       toast({ kind: 'success', title: 'Private tournament created', body: 'Copy the invite link or open the event.' });
       setHostOpen(false);
-      navigate(`/tournaments?id=${r.id}`);
+      navigate(!hostPlayMoney && hostBilling?.mode === 'enforce' ? '/organiser' : `/tournaments?id=${r.id}`);
     } catch (e: any) {
       toast({ kind: 'error', title: 'Could not host tournament', body: e.message });
     } finally { setHostBusy(false); }
@@ -750,7 +750,7 @@ export function Lobby() {
               </>)}
 
               {hostKind === 'tournament' && (<>
-                <p className="muted small" style={{ marginTop: 0 }}>Private freezeout. Registrants need the invite link.</p>
+                <p className="muted small" style={{ marginTop: 0 }}>Private freezeout. Registrants need the invite link. {hostUsesChips ? 'Tickets use this organiser’s Cash Chips; registration closes at the scheduled start. No re-entry or add-ons. There is no hourly tournament charge.' : 'Play Money testing uses virtual balances and costs no service credits.'}</p>
                 {myTourneys.length > 0 && (
                   <div className="host-list">
                     <div className="panel-title" style={{ marginBottom: 4 }}>Your private tournaments</div>
@@ -768,17 +768,18 @@ export function Lobby() {
                 <input className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} tournament`} value={hostTourneyForm.name} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, name: e.target.value })} maxLength={60} />
                 <div className="grid g2" style={{ marginTop: 10 }}>
                   <div><label className="admin-label">Format</label><select className="admin-select" style={{ width: '100%' }} value={hostTourneyForm.format} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, format: e.target.value })}><option value="NLH">No-limit Hold'em</option><option value="PLO">Pot-limit Omaha</option><option value="Short Deck">Short Deck</option></select></div>
-                  <div><label className="admin-label">Mode</label><select className="admin-select" style={{ width: '100%' }} value={hostTourneyForm.mode} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, mode: e.target.value })}><option>STANDARD</option><option>BOUNTY</option><option>MYSTERY</option>{hostBilling?.mode !== 'enforce' && <option>SATELLITE</option>}<option>FLIP</option></select></div>
-                  <div><label className="admin-label">Buy-in ({hostBilling?.mode === 'enforce' ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={0} step={1} value={hostTourneyForm.buyin} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, buyin: Number(e.target.value) })} /></div>
-                  <div><label className="admin-label">Fee ({hostBilling?.mode === 'enforce' ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={0} step={1} value={hostTourneyForm.fee} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, fee: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Mode</label><select className="admin-select" style={{ width: '100%' }} value={hostTourneyForm.mode} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, mode: e.target.value })}><option>STANDARD</option><option>BOUNTY</option><option>MYSTERY</option>{!hostUsesChips && <option>SATELLITE</option>}<option>FLIP</option></select></div>
+                  <div><label className="admin-label">Buy-in ({hostUsesChips ? 'Cash Chips' : 'play-money cents'})</label><input className="admin-input" type="number" min={0} step={1} value={hostTourneyForm.buyin} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, buyin: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Fee ({hostUsesChips ? 'Cash Chips' : 'play-money cents'})</label><input className="admin-input" type="number" min={0} step={1} value={hostTourneyForm.fee} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, fee: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Starting stack</label><input className="admin-input" type="number" min={100} value={hostTourneyForm.starting_stack} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, starting_stack: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Blind speed (min)</label><input className="admin-input" type="number" min={1} max={120} value={hostTourneyForm.blind_speed} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, blind_speed: Number(e.target.value) })} /></div>
-                  <div><label className="admin-label">Late registration (min)</label><input className="admin-input" type="number" min={0} max={600} value={hostTourneyForm.late_reg} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, late_reg: Number(e.target.value) })} /></div>
-                  <div><label className="admin-label">Bounty ({hostBilling?.mode === 'enforce' ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={0} step={1} value={hostTourneyForm.bounty} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, bounty: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Maximum players</label><input aria-label="Maximum tournament players" className="admin-input" type="number" min={2} max={1000} step={1} value={hostTourneyForm.max_players} onChange={e => setHostTourneyForm({ ...hostTourneyForm, max_players: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Late registration (min)</label><input className="admin-input" type="number" min={0} max={600} disabled={hostUsesChips} value={hostUsesChips ? 0 : hostTourneyForm.late_reg} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, late_reg: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Bounty ({hostUsesChips ? 'Cash Chips' : 'play-money cents'})</label><input className="admin-input" type="number" min={0} step={1} value={hostTourneyForm.bounty} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, bounty: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Start</label><input className="admin-input" type="datetime-local" value={hostTourneyForm.start_at} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, start_at: e.target.value })} /></div>
-                  {hostBilling?.mode !== 'enforce' ? <div><label className="admin-label">Satellite ticket</label><input className="admin-input" value={hostTourneyForm.ticket} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, ticket: e.target.value })} placeholder="Target event" /></div> : <div className="muted small">Cash Chip satellites need a bound target event and are not available yet.</div>}
+                  {!hostUsesChips ? <div><label className="admin-label">Satellite ticket</label><input className="admin-input" value={hostTourneyForm.ticket} onChange={(e) => setHostTourneyForm({ ...hostTourneyForm, ticket: e.target.value })} placeholder="Target event" /></div> : <div className="muted small">Cash Chip satellites need a bound target event and are not available yet.</div>}
                 </div>
-                <p className="muted small">Freezeout starts when at least two players register at the start time.</p>
+                <p className="muted small">At least two entrants are required at the scheduled start. Blinds begin at approximately 50 big blinds per starting stack and rise 1.5× per level. Entry fee is separate from the prize pool. Standard payouts: 50% / 30% / 20% with three or more entrants; 62.5% / 37.5% with two. Bounty reserves are additional organiser funds.</p>
               </>)}
 
               {hostKind === 'spin' && <>
