@@ -1,0 +1,20 @@
+# Spin & Go organiser management
+
+User requested implementation following Cash Games and Tournament Manager. Preserve existing $3 setup / $1 reschedule, three-player engine, 5000/10000 stakes, multipliers and maximum funded liability. No production deployment or wagering in this task.
+
+## Contract
+Organiser sees stake, three seats, launch, latest round/outcome, reserve required, open-table/invite, reschedule, reserve/cancel and empty-table closure. Paid creation returns to Organiser; Play Money remains free. Existing Cash Chip panel reserve controls remain compatible.
+
+Entry tickets are prepaid one-seat vouchers bound to an organiser, table and stake. A holder can transfer or refund an unused ticket; refunds go to the current holder in the same organiser economy. Tickets do not promise a seat or reserve capacity. At seat purchase the oldest matching issued ticket is used before wallet chips; the table UI must disclose this. Redemption and chip-session creation share one database transaction: transfer ticket escrow to the holder wallet and immediately use existing openSeat to fund table escrow, then mark ticket consumed. No spendable intermediate credit escapes. Normal failed-seat/leave/restart refunds return Cash Chips, not a resurrected ticket. Retrying a seat join cannot consume twice. A ticket is bound to a table, not a particular random outcome or round; unused tickets remain usable for later rounds or refundable. Existing wallet buy-ins continue to work.
+
+Use a separate small spin ticket table, with unique actor/key operations and existing chip ledger accounts; leave tournament ticket schema and event accounting unchanged. Validate active users, enabled private chip Spin ownership/stake, keys and exact replay payloads. Refund remaining issued tickets when deleting an empty table, atomically with reserve abort and deletion. Do not permit deletion with open chip sessions, disputed or committed rounds. A waiting round reserve may be cancelled only without seats; issued tickets stay refundable.
+
+## Scope and validation
+Affected paths: chip ticket service and route adapter, seatHuman and host deletion, billing resource terms, API types, Organiser/Chips/Table/Lobby UI, existing browser workflow, isolated server tests, documentation. Reuse management card CSS and existing request/confirmation helpers; no dependencies.
+
+Prove invalid setup no charge, setup/reschedule retry charges once, ownership, ticket issue/transfer/refund/replay, same table/organiser enforcement, ticket-first seat purchase, no double debit, prestart leave/refund, insufficient reserve refusal, actual three-player completion, prizes + burn + returned reserve conserving minted supply, duplicate settlement, and closed-table ticket refund. Existing maximum-outcome unit tests cover rare jackpot without changing production RNG. Browser checks cover creation/management/ticket controls, five widths and free-mode labels. Preserve source and build on remote CI due constrained local disk.
+
+Limits: no configurable odds, private lower-reserve tiers, rebuy/re-entry during one round or live financial wagering. Test fixtures alone mint test reserve. Random prizes must match committed outcome, not guessed multipliers.
+
+## Review disposition
+Fresh design review read existing ledger, Spin lifecycle, seatHuman and host deletion. Identified deletion of disputed rounds after live-state removal, unobserved persisted sessions, and incomplete rollback/replay tests. Implementation rejects committed/disputed rounds and any open chip session before changes; refunds/abort/deletion share a transaction and only then remove live state. Ticket escrow is `ticket:<uuid>`; issue/redeem/refund references are `spin-ticket:<uuid>:<operation>`. Schema persists holder, organiser, table, price, state and unique consumed session. All ticket→wallet→seat movements and consumed state roll back together. Failed table.sit uses existing closeSeat and leaves the ticket consumed with one chip refund. Unit failure injection, scope/replay tests and HTTP disputed/open-session closure tests cover these decisions.

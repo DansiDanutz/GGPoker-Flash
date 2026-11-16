@@ -38,6 +38,9 @@ export function createOrganizerSpinTickets({ db, chips }) {
   });
   const issue = ({ userId, tableId, key }) => operation(userId, key, ['issue', tableId], () => {
     const t = eligible(tableId), id = randomUUID();
+    active(t.owner_id);
+    const membership = db.prepare("SELECT expires_at FROM organizer_billing_memberships WHERE user_id=? AND role='organizer' AND active=1").get(t.owner_id);
+    if (!membership || Date.parse(membership.expires_at) <= Date.now()) fail('Active organiser membership required to sell new tickets.', 402);
     chips.moveInTransaction({ organizerId: t.owner_id, from: `wallet:${userId}`, to: `ticket:${id}`, amount: t.min_buyin, kind: 'spin_ticket_issue', reference: `spin-ticket:${id}:issue` });
     db.prepare("INSERT INTO organizer_chip_spin_tickets VALUES (?,?,?,?,?,'issued',NULL,?)").run(id, t.owner_id, t.id, userId, t.min_buyin, new Date().toISOString());
     return { id };

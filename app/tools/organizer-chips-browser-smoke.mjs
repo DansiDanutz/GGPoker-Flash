@@ -168,6 +168,35 @@ try {
   assert.equal(refunded.balances.find(row => row.organizer_id === owner.user.id).balance, 10000);
   assert.equal(refunded.tickets.find(ticket => ticket.tournament_id === event.id).state, 'refunded');
   console.log('PASS Tournament Manager creation, capacity, freezeout terms, responsive controls and cancellation refund');
+  await ownerPage.goto(`${srv.base}/#/?host=spin&economy=organizer`);
+  await input(ownerPage, '#host-spin-name', 'Browser Spin Cup');
+  await click(ownerPage, '.modal-foot', 'Create Spin & Go');
+  const spinManager = 'section[aria-label="Spin & Go Manager"]';
+  await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Browser Spin Cup'), {}, spinManager);
+  assert.equal(new URL(ownerPage.url()).hash, '#/organiser');
+  assert.match(await ownerPage.$eval(spinManager, node => node.textContent), /100,000,000/);
+  const spinTable = check(await srv.get('/api/marketplace/billing/me', { token: owner.token })).tables.find(t => t.name === 'Browser Spin Cup');
+  await click(ownerPage, spinManager, 'Buy entry ticket');
+  await click(ownerPage, panel, 'Actualizează');
+  const spinTickets = 'section[aria-label="Spin entry tickets"]';
+  await ownerPage.waitForSelector(`${spinTickets} input[type=number]`);
+  await input(ownerPage, `${spinTickets} input[type=number]`, recipient.user.id);
+  await click(ownerPage, spinTickets, 'Transfer Spin ticket');
+  await click(playerPage, panel, 'Actualizează');
+  await playerPage.waitForFunction((scope, id) => document.querySelector(scope)?.textContent.includes(id), {}, spinTickets, spinTable.id);
+  await click(playerPage, spinTickets, 'Refund unused ticket');
+  assert.equal(check(await srv.get('/api/marketplace/chips/me', { token: recipient.token })).balances.find(row => row.organizer_id === owner.user.id).balance, 15000);
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    await ownerPage.setViewport({ width, height: 1000 });
+    await ownerPage.waitForFunction(phone => !!document.querySelector('.pshell') === phone, {}, width <= 760);
+    await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Browser Spin Cup'), {}, spinManager);
+    await ownerPage.$eval(spinManager, node => node.scrollIntoView({ block: 'start' }));
+    assert.ok(await ownerPage.$eval(spinManager, node => node.scrollWidth <= node.clientWidth + 1), `Spin Manager overflow at ${width}`);
+    if ([390, 1440].includes(width)) await ownerPage.screenshot({ path: path.join(artifacts, `spin-manager-${width}.png`), fullPage: true });
+  }
+  await click(ownerPage, spinManager, 'Close empty table');
+  await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('No hosted Spin & Go tables yet.'), {}, spinManager);
+  console.log('PASS Spin Manager creation, reserve disclosure, ticket transfer/refund, five widths and table closure');
   assert.deepEqual(errors, []);
   console.log('PASS Cash Chip membership grant, pack purchase, scoped transfer and ticket redemption in Chrome; mobile layout');
   await fs.writeFile(path.join(artifacts, 'organizer-chip-report.json'), JSON.stringify({ ok: true, errors }));

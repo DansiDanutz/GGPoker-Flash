@@ -364,7 +364,7 @@ export function Lobby() {
       toast({ kind: 'success', title: 'Private Spin & Go created', body: 'Invite three players to start the play-money game.' });
       setHostOpen(false);
       await load();
-      navigate(`/table/${result.id}?buyin=${hostSpinForm.stake}`);
+      navigate(hostUsesChips ? '/organiser' : `/table/${result.id}?buyin=${hostSpinForm.stake}`);
     } catch (error: unknown) {
       toast({ kind: 'error', title: 'Could not host Spin & Go', body: error instanceof Error ? error.message : 'Please try again.' });
     } finally { setHostBusy(false); }
@@ -795,9 +795,9 @@ export function Lobby() {
                 <div className="mg-host-spin-details"><div><strong>3</strong><span>players per game</span></div><div><strong>Fixed</strong><span>play-chip buy-in</span></div><div><strong>Auto</strong><span>start when full</span></div></div>
                 <label className="admin-label" htmlFor="host-spin-name">Table name</label>
                 <input id="host-spin-name" className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} Spin & Go`} value={hostSpinForm.name} onChange={(event) => setHostSpinForm((current) => ({ ...current, name: event.target.value }))} maxLength={40} />
-                <label className="admin-label" htmlFor="host-spin-stake" style={{ marginTop: 12 }}>Buy-in in play chips</label>
-                <select id="host-spin-stake" className="admin-select" style={{ width: '100%' }} value={hostSpinForm.stake} onChange={(event) => setHostSpinForm((current) => ({ ...current, stake: Number(event.target.value) }))}><option value={5000}>5,000 {hostBilling?.mode === 'enforce' ? 'Cash Chips' : 'play chips'}</option><option value={10000}>10,000 {hostBilling?.mode === 'enforce' ? 'Cash Chips' : 'play chips'}</option></select>
-                {hostBilling?.mode === 'enforce' && <div className="muted small" style={{ marginTop: 8 }}>Starting the round temporarily reserves up to {(hostSpinForm.stake * 20000).toLocaleString()} Cash Chips for the maximum prize. Unused chips return after completion or cancellation while waiting.</div>}
+                <label className="admin-label" htmlFor="host-spin-stake" style={{ marginTop: 12 }}>Buy-in in {hostUsesChips ? 'Cash Chips' : 'play chips'}</label>
+                <select id="host-spin-stake" className="admin-select" style={{ width: '100%' }} value={hostSpinForm.stake} onChange={(event) => setHostSpinForm((current) => ({ ...current, stake: Number(event.target.value) }))}><option value={5000}>5,000 {hostUsesChips ? 'Cash Chips' : 'play chips'}</option><option value={10000}>10,000 {hostUsesChips ? 'Cash Chips' : 'play chips'}</option></select>
+                {hostUsesChips && <div className="muted small" style={{ marginTop: 8 }}>Starting the round temporarily reserves up to {(hostSpinForm.stake * 20000).toLocaleString()} Cash Chips for the maximum prize. Unused chips return after completion or cancellation while waiting.</div>}
                 {hostBilling?.mode === 'enforce' && <><label className="admin-label" htmlFor="host-spin-start" style={{ marginTop: 12 }}>Scheduled start (optional)</label><input id="host-spin-start" className="admin-input" style={{ width: '100%' }} type="datetime-local" value={hostSpinForm.start_at} onChange={(event) => setHostSpinForm((current) => ({ ...current, start_at: event.target.value }))} /></>}
                 <p className="muted small">Seat count, blind structure and prize rules come from the game engine. Buying the management plugin does not buy game chips or change these rules.</p>
               </>}
