@@ -71,7 +71,19 @@ voice takes are committed inputs. Proprietary client extraction is not required.
 
 ## Quick start
 
-Requirements: **Node 26**, **pnpm 10.32+**. Everything else is installed by pnpm.
+Requirements: **Node 26+**, **pnpm 10.32.1** (the CI version). The OpenPoker CLI
+provides setup, diagnostics and the free contributor sandbox:
+
+```bash
+node openpoker.mjs doctor
+node openpoker.mjs setup
+node openpoker.mjs sandbox
+```
+
+Run these from the repository root. Open the URL printed in the terminal; Ctrl+C
+stops the sandbox and removes its temporary Play Money data. Browser edits hot-reload;
+restart after server edits. See [the CLI guide](docs/CLI.md) for the optional
+`openpoker` shortcut, test/build commands and Windows via WSL instructions.
 
 ### Web client + game server (development)
 
@@ -87,7 +99,7 @@ server, and the service worker is not registered in dev.
 ```bash
 pnpm build          # production bundle → app/dist
 pnpm start          # serve app/dist + API on :5198
-pnpm test           # server suite (155 tests)
+pnpm test           # server test suite
 pnpm smoke          # read-only smoke test against a running server
 ```
 
