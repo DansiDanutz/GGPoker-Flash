@@ -75,6 +75,14 @@ test('real server integrates enforced billing, scoped chips, events, buybacks, a
     await tournamentSocket.next((message) => message.type === 'joined' && message.tableId === play.tableId);
     const tournamentState = await tournamentSocket.next((message) => message.type === 'state' && message.state?.id === play.tableId && message.state.players.some((player) => player.isMe));
     assert.ok(tournamentState.state.players.find((player) => player.isMe).stack <= 10000, 'the configured 10,000 stack is seated before blinds are posted');
+    db.prepare("UPDATE tournaments SET status='paused' WHERE id=?").run(tournament.id);
+    await postOk(srv, `/api/admin/marketplace/chips/tournaments/${tournament.id}/resolve`, admin, {
+      awards: [{ userId: first.user.id, amount: 1000 }, { userId: second.user.id, amount: 1000 }], reason: 'Test operator reconciled interrupted event with player agreement',
+    });
+    const settledEvent = await tournamentSocket.nextType('error'); assert.match(settledEvent.error, /settled/);
+    assert.equal((await srv.get(`/api/tournaments/${tournament.id}/watch`, { token: first.token })).status, 404, 'resolved live flights are removed');
+    const finished = await srv.post(`/api/tournaments/${tournament.id}/play`, { token: first.token, body: {} });
+    assert.equal(finished.status, 400); assert.match(finished.data.error, /finished/);
     await tournamentSocket.close();
 
     const buyback = await postOk(srv, `${CHIPS}/buybacks`, first.token, { organizerId: owner.user.id, amount: 1000, paymentAmount: '10.00', paymentCurrency: 'USDT', paymentDetails: 'Manual integration agreement', key: 'buyback-one' });

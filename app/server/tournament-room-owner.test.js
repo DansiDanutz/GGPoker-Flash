@@ -89,3 +89,13 @@ test('sweeps schedule a save only when players moved or a table broke', async ()
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.deepEqual(idle.saved, []);
 });
+
+test('disposing a settled room cancels pending snapshot writes', async () => {
+  const { owner, saved } = harness();
+  const active = owner.ensure({ id: 'retired', status: 'running' });
+  owner.schedule(active);
+  owner.dispose('retired', { force: true });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(owner.get('retired'), null);
+  assert.deepEqual(saved, []);
+});

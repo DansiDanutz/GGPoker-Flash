@@ -7,7 +7,7 @@ function fields(body, allowed) {
   return body;
 }
 
-export function createOrganizerChipRoutes({ db, chips, events, spin, billing, json, requireUser, requireAdmin, readBody, mode, prepareSpin }) {
+export function createOrganizerChipRoutes({ db, chips, events, spin, billing, json, requireUser, requireAdmin, readBody, mode, prepareSpin, onEventResolved }) {
   return async (req, res, url) => {
     const path = url.pathname;
     const adminMatch = path.match(/^\/api\/admin\/marketplace\/chips\/buybacks\/([^/]+)\/resolve$/);
@@ -31,7 +31,9 @@ export function createOrganizerChipRoutes({ db, chips, events, spin, billing, js
       }
       if (req.method !== 'POST' || !eventMatch[2]) fail('Method not allowed.', 405);
       const body = fields(await readBody(req), ['awards', 'reason']);
-      json(res, 200, events.resolveEvent({ adminId: admin.id, tournamentId, ...body })); return true;
+      const result = events.resolveEvent({ adminId: admin.id, tournamentId, ...body });
+      onEventResolved?.(tournamentId);
+      json(res, 200, result); return true;
     }
     const recoveryMatch = path.match(/^\/api\/admin\/marketplace\/chips\/spin\/([^/]+)(?:\/(resolve))?$/);
     if (recoveryMatch) {

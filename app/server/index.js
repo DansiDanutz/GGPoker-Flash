@@ -607,6 +607,17 @@ const handleManagementRoute = createManagementRoutes({ db, commerce: marketplace
 const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES });
 const handleOrganizerChipRoute = createOrganizerChipRoutes({ db, chips: organizerChips, events: organizerChipEvents,
   spin: organizerChipSpin, billing: organizerBilling, json, requireUser, requireAdmin, readBody, mode: organizerChipMode,
+  onEventResolved: (id) => {
+    for (const flight of TOURNAMENT_ROOMS.get(id)?.flights || []) {
+      const entry = LIVE_TABLES.get(flight.id);
+      if (!entry) continue;
+      for (const client of entry.clients) {
+        if (client.readyState === 1) client.send(JSON.stringify({ type: 'error', error: 'This tournament has been settled. Return to the tournament lobby.' }));
+        client.tables.delete(flight.id);
+      }
+    }
+    disposeTournamentRoom(id, { force: true });
+  },
   prepareSpin: (id, cancel = false) => {
     const table = LIVE_TABLES.get(id)?.table;
     if (table?.financialError || table?.spinStarted() && !table.spinWinner) throw Object.assign(new Error('This round is already running or needs reconciliation.'), { status: 409 });

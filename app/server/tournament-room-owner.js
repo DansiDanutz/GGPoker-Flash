@@ -51,6 +51,8 @@ export class TournamentRoomOwner {
   }
 
   dispose(id, { force = false } = {}) {
+    clearTimeout(this.saveTimers.get(id));
+    this.saveTimers.delete(id);
     const room = this.rooms.get(id);
     if (!room) return;
     room.dispose({ force });
