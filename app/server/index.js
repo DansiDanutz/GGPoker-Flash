@@ -75,6 +75,7 @@ import { cashRakeConfig, validateCashRake } from './cash-rake.js';
 import { createOrganizerChips } from './organizer-chips.js';
 import { createOrganizerChipEvents } from './organizer-chip-events.js';
 import { createOrganizerChipSpin } from './organizer-chip-spin.js';
+import { createOrganizerSpinTickets } from './organizer-spin-tickets.js';
 import { createOrganizerChipRoutes } from './organizer-chip-routes.js';
 import { chipEventRevision, canRestoreChipEvent, pauseChipEvent } from './organizer-chip-checkpoint.js';
 import * as adminWaitlist from './admin-waitlist.js';
@@ -584,6 +585,7 @@ const usageBilling = organizerBilling.mode === 'enforce';
 organizerChips.releaseDueGrants();
 const organizerChipEvents = createOrganizerChipEvents({ db, chips: organizerChips });
 const organizerChipSpin = createOrganizerChipSpin({ db, chips: organizerChips });
+const organizerSpinTickets = createOrganizerSpinTickets({ db, chips: organizerChips });
 organizerChipSpin.recoverRounds();
 organizerChips.recoverSessions();
 const usesOrganizerChips = (table) => !!table.cfg.chip_economy;
@@ -612,7 +614,7 @@ const contributorSubmissions = createContributorSubmissions({ db, commerce: mark
 const handleContributorRoute = createContributorRoutes({ submissions: contributorSubmissions, json, requireUser, requireAdmin, readBody });
 const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES, getSetting, broadcastState });
 const handleOrganizerChipRoute = createOrganizerChipRoutes({ db, chips: organizerChips, events: organizerChipEvents,
-  spin: organizerChipSpin, billing: organizerBilling, json, requireUser, requireAdmin, readBody, mode: organizerChipMode,
+  spin: organizerChipSpin, spinTickets: organizerSpinTickets, billing: organizerBilling, json, requireUser, requireAdmin, readBody, mode: organizerChipMode,
   onEventResolved: (id) => {
     for (const flight of TOURNAMENT_ROOMS.get(id)?.flights || []) {
       const entry = LIVE_TABLES.get(flight.id);
@@ -1029,7 +1031,7 @@ function broadcastState(table) {
     try {
       if (table.financialError) { client.send(JSON.stringify({ type: 'error', error: 'This table is paused for chip reconciliation.' })); continue; }
       const state = table.snapshotFor(client.userId);
-      if (usesOrganizerChips(table)) state.organizerBalance = chipWalletBalance(table, client.userId);
+      if (usesOrganizerChips(table)) { state.organizerBalance = chipWalletBalance(table, client.userId); state.spinTicketValue = table.spin ? organizerSpinTickets.available(client.userId, table.cfg.id)?.price || 0 : 0; }
       client.send(JSON.stringify({ type: 'state', state }));
     } catch { /* noop */ }
   }
@@ -1048,12 +1050,12 @@ function seatHuman(table, user, buyin, seatIndex = null, waitForBlinds = false) 
   }
   const stack = toInt(buyin) ?? table.cfg.min_buyin;
   if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
-  if ((usesOrganizerChips(table) ? chipWalletBalance(table, user.id) : user.balance) < stack) return { ok: false, error: usesOrganizerChips(table) ? 'Not enough chips for this organizer' : 'not enough balance' };
+  if (!(table.spin && usesOrganizerChips(table) && organizerSpinTickets.available(user.id, table.cfg.id)) && (usesOrganizerChips(table) ? chipWalletBalance(table, user.id) : user.balance) < stack) return { ok: false, error: usesOrganizerChips(table) ? 'Not enough chips for this organizer' : 'not enough balance' };
   const wantedSeat = toInt(seatIndex, { min: 0, max: table.cfg.seats - 1 });
   if (wantedSeat != null && table.isHeldFor(wantedSeat, user.id)) return { ok: false, error: 'seat held' };
   if (!makeRoomForHuman(table, wantedSeat, user.id)) return { ok: false, error: 'table full' };
   const sessionId = `${table.cfg.id}:${randomUUID()}`;
-  if (usesOrganizerChips(table)) organizerChips.openSeat({ organizerId: table.cfg.owner_id, userId: user.id, tableId: table.cfg.id, sessionId, amount: stack });
+  if (usesOrganizerChips(table)) (table.spin ? organizerSpinTickets : organizerChips).openSeat({ organizerId: table.cfg.owner_id, userId: user.id, tableId: table.cfg.id, sessionId, amount: stack });
   else addTransactionEx(user.id, 'buyin', -stack, `Buy-in ${table.cfg.name}`, 'USD', {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
   });
@@ -1704,15 +1706,19 @@ const server = http.createServer(async (req, res) => {
       const t = db.prepare('SELECT * FROM tables WHERE id = ? AND owner_id = ? AND private = 1').get(id, u.id);
       if (!t) return json(res, 404, { error: 'not found' });
       const live = LIVE_TABLES.get(id);
-      if (t.chip_economy && organizerChipSpin.currentRound(id)?.state === 'committed') return json(res, 409, { error: 'Finish the funded round first.' });
-      if (live && live.table.occupiedSeats().length) return json(res, 409, { error: 'Table has players — ask them to leave first' });
+      if (t.chip_economy && ['committed', 'disputed'].includes(organizerChipSpin.currentRound(id)?.state)) return json(res, 409, { error: 'Finish or reconcile the funded round first.' });
+      if (live?.table.occupiedSeats().length || (t.chip_economy && db.prepare("SELECT 1 FROM organizer_chip_sessions WHERE table_id=? AND status='open'").get(id))) return json(res, 409, { error: 'Table has funded seats — ask players to leave or reconcile first.' });
+      if (t.game !== 'spingold') organizerBilling.stopCash({ userId: u.id, tableId: id });
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        if (t.chip_economy) { organizerChipSpin.abortRound(id); organizerSpinTickets.refundTable(id); }
+        db.prepare('DELETE FROM organizer_spin_schedule WHERE table_id=?').run(id);
+        db.prepare('DELETE FROM tables WHERE id = ?').run(id);
+        db.prepare('DELETE FROM table_mutes WHERE table_id = ?').run(id);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'delete_host_table', id);
+        db.exec('COMMIT');
+      } catch (error) { db.exec('ROLLBACK'); throw error; }
       if (live) { clearInterval(live.timer); LIVE_TABLES.delete(id); CUSTOM_CFG.delete(id); }
-      if (t.chip_economy) organizerChipSpin.abortRound(id);
-      organizerBilling.stopCash({ userId: u.id, tableId: id });
-      db.prepare('DELETE FROM organizer_spin_schedule WHERE table_id=?').run(id);
-      db.prepare('DELETE FROM tables WHERE id = ?').run(id);
-      db.prepare('DELETE FROM table_mutes WHERE table_id = ?').run(id);
-      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'delete_host_table', id);
       return json(res, 200, { ok: true });
     }
 
