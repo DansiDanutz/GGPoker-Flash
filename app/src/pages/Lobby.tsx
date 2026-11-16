@@ -112,7 +112,7 @@ export function Lobby() {
   const [myHosts, setMyHosts] = useState<any[]>([]);
   const [myTourneys, setMyTourneys] = useState<any[]>([]);
   const [hostKind, setHostKind] = useState<'cash' | 'tournament' | 'spin'>(hostQuery === 'spin' || hostQuery === 'tournament' ? hostQuery : 'cash');
-  const [hostSpinForm, setHostSpinForm] = useState({ name: '', stake: 5000, start_at: '' });
+  const [hostSpinForm, setHostSpinForm] = useState({ name: '', stake: 5000, rakePercent: 5, start_at: '' });
   const [hostBilling, setHostBilling] = useState<OrganizerBillingConfig | null>(null);
   const hostKeys = useRef(new Map<string, string>());
   const [hostManagement, setHostManagement] = useState<ManagementAccount | null>(null);
@@ -354,14 +354,14 @@ export function Lobby() {
   const createHostSpin = async () => {
     if (hostBusy || !hostCanManage) return;
     if (hostSpinForm.start_at && !Number.isFinite(Date.parse(hostSpinForm.start_at))) { toast({ kind: 'error', title: 'Choose a valid Spin start time' }); return; }
-    const payload = { economy: hostEconomy, name: hostSpinForm.name.trim() || `${user?.nick || 'My'} Spin & Go`, game: 'spingold', seats: 3, sb: 10, bb: 20, min_buyin: hostSpinForm.stake, max_buyin: hostSpinForm.stake, ...(hostSpinForm.start_at ? { start_at: new Date(hostSpinForm.start_at).toISOString() } : {}) };
+    const payload = { economy: hostEconomy, name: hostSpinForm.name.trim() || `${user?.nick || 'My'} Spin & Go`, game: 'spingold', seats: 3, sb: 10, bb: 20, min_buyin: hostSpinForm.stake, max_buyin: hostSpinForm.stake, rakePercent: hostSpinForm.rakePercent, ...(hostSpinForm.start_at ? { start_at: new Date(hostSpinForm.start_at).toISOString() } : {}) };
     if (!hostPlayMoney && hostBilling?.mode === 'enforce' && !window.confirm(`Create Spin & Go “${payload.name}” and debit $${(hostBilling.tariffs.spin_setup / 100).toFixed(2)} setup credits${hostSpinForm.start_at ? ` for ${new Date(hostSpinForm.start_at).toLocaleString()}` : ''}?`)) return;
     const replay = requestKey(payload);
     setHostBusy(true);
     try {
       const result = await api.hostTable({ ...payload, idempotencyKey: replay.key });
       hostKeys.current.delete(replay.identity);
-      toast({ kind: 'success', title: 'Private Spin & Go created', body: 'Invite three players to start the play-money game.' });
+      toast({ kind: 'success', title: 'Private Spin & Go created', body: hostUsesChips ? 'Open entries and invite three players.' : 'Invite three players to start the play-money game.' });
       setHostOpen(false);
       await load();
       navigate(hostUsesChips ? '/organiser' : `/table/${result.id}?buyin=${hostSpinForm.stake}`);
@@ -573,7 +573,7 @@ export function Lobby() {
             </>
           )}
           {isRushTab && <RushSidePanel leaderboard={data?.rushLeaderboard} myId={user?.id} onShowInfo={() => setRushInfoOpen(true)} />}
-          {gameTab === 'spin' && <SpinInfoPanel buyIn={table && table.game === 'spingold' ? table.min_buyin : null} formatChips={(n) => money(n)} />}
+          {gameTab === 'spin' && <SpinInfoPanel table={table?.game === 'spingold' ? table : null} />}
           {!isRushTab && gameTab !== 'spin' && <div className="mini-stats">
             <div className="between"><span className="muted small">Last jackpot</span><b className="gold">{money(data?.jackpot || 0)}</b></div>
             {(data?.recentWinners || []).slice(0, 3).map((w: any, i: number) => (
@@ -797,7 +797,7 @@ export function Lobby() {
                 <input id="host-spin-name" className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} Spin & Go`} value={hostSpinForm.name} onChange={(event) => setHostSpinForm((current) => ({ ...current, name: event.target.value }))} maxLength={40} />
                 <label className="admin-label" htmlFor="host-spin-stake" style={{ marginTop: 12 }}>Buy-in in {hostUsesChips ? 'Cash Chips' : 'play chips'}</label>
                 <select id="host-spin-stake" className="admin-select" style={{ width: '100%' }} value={hostSpinForm.stake} onChange={(event) => setHostSpinForm((current) => ({ ...current, stake: Number(event.target.value) }))}><option value={5000}>5,000 {hostUsesChips ? 'Cash Chips' : 'play chips'}</option><option value={10000}>10,000 {hostUsesChips ? 'Cash Chips' : 'play chips'}</option></select>
-                {hostUsesChips && <div className="muted small" style={{ marginTop: 8 }}>Starting the round temporarily reserves up to {(hostSpinForm.stake * 20000).toLocaleString()} Cash Chips for the maximum prize. Unused chips return after completion or cancellation while waiting.</div>}
+                {hostUsesChips && <><label className="admin-label" htmlFor="host-spin-rake" style={{ marginTop: 12 }}>Rake</label><select id="host-spin-rake" className="admin-select" style={{ width: '100%' }} value={hostSpinForm.rakePercent} onChange={(event) => setHostSpinForm((current) => ({ ...current, rakePercent: Number(event.target.value) }))}>{[2, 3, 4, 5].map((rate) => <option key={rate} value={rate}>{rate}%</option>)}</select><div className="muted small" style={{ marginTop: 8 }}>Three entries form a {(hostSpinForm.stake * 3).toLocaleString()} Cash Chip pool. Rake is {(hostSpinForm.stake * 3 * hostSpinForm.rakePercent / 100).toLocaleString()}; the winner receives {(hostSpinForm.stake * 3 * (100 - hostSpinForm.rakePercent) / 100).toLocaleString()} Cash Chips.</div></>}
                 {hostBilling?.mode === 'enforce' && <><label className="admin-label" htmlFor="host-spin-start" style={{ marginTop: 12 }}>Scheduled start (optional)</label><input id="host-spin-start" className="admin-input" style={{ width: '100%' }} type="datetime-local" value={hostSpinForm.start_at} onChange={(event) => setHostSpinForm((current) => ({ ...current, start_at: event.target.value }))} /></>}
                 <p className="muted small">Seat count, blind structure and prize rules come from the game engine. Buying the management plugin does not buy game chips or change these rules.</p>
               </>}

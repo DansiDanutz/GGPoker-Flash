@@ -18,7 +18,7 @@ export type BillingLedgerEntry = {
 };
 export type BillingTable = {
   id: string; name: string; game: string;
-  min_buyin: number; seats: number; occupied: number; spinRound?: { id: string; state: string; max_reserve: number; outcome: string | null } | null;
+  min_buyin: number; seats: number; occupied: number; spinRound?: { id: string; state: string; max_reserve?: number; outcome: string | null } | null;
   chip_economy: number; rakePercent: number; rakeCap: number;
   session?: { active: number | boolean; paid_until: string } | null;
   schedule?: { start_at: string; started_at: string | null } | null;
@@ -54,6 +54,7 @@ export const organizerBillingApi = {
   startCash: (id: string, idempotencyKey: string) => request(`/cash/${encodeURIComponent(id)}/start`, { idempotencyKey }),
   stopCash: (id: string) => request(`/cash/${encodeURIComponent(id)}/stop`, {}),
   setCashRake: (id: string, rakePercent: number, rakeCap: number) => request(`/cash/${encodeURIComponent(id)}/rake`, { rakePercent, rakeCap }),
+  setSpinRake: (id: string, rakePercent: number) => request(`/spin/${encodeURIComponent(id)}/rake`, { rakePercent }),
   reschedule: (kind: 'spin' | 'tournament', id: string, startAt: string, idempotencyKey: string) => request(`/${kind}/${encodeURIComponent(id)}/reschedule`, { startAt, idempotencyKey }),
   credit: (userId: number, amountCents: number, reference: string) => request('', { userId, amountCents, reference }, '/api/admin/marketplace/billing/credits'),
   refunds: () => request<{ refunds: ServiceCreditRefund[] }>('', undefined, '/api/admin/marketplace/billing/refunds'),

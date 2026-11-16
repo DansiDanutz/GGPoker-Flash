@@ -1,19 +1,24 @@
 import { useEffect, useState } from 'react';
+import { money, type LobbyTable } from '../lib/api';
+import { cashChips } from '../lib/organizer-chips-api';
 
 type SpinPayout = { multiplier: number; prizePool: number; prizes: number[]; oneIn: number; blindUp: string };
 type SpinInfo = { buyIn: number; seats: number; payouts: SpinPayout[]; blinds: { level: number; smallBlind: number; bigBlind: number }[] };
 type Tab = 'info' | 'blinds' | 'payout';
 
-type Props = { buyIn: number | null; formatChips: (n: number) => string };
+type Props = { table: LobbyTable | null };
 
 /** Jackpot SNG side panel: Info / Blind Structure / Payout for the selected stake. */
-export function SpinInfoPanel({ buyIn, formatChips }: Props) {
+export function SpinInfoPanel({ table }: Props) {
+  const buyIn = table?.min_buyin ?? null;
+  const paid = Boolean(table?.chip_economy);
+  const formatChips = paid ? cashChips : money;
   const [tab, setTab] = useState<Tab>('info');
   const [info, setInfo] = useState<SpinInfo | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!buyIn) { setInfo(null); return; }
+    if (!buyIn || paid) { setInfo(null); return; }
     const controller = new AbortController();
     setFailed(false);
     fetch(`/api/spin/info?buyin=${buyIn}`, { signal: controller.signal })
@@ -21,9 +26,13 @@ export function SpinInfoPanel({ buyIn, formatChips }: Props) {
       .then((d) => setInfo(d.info))
       .catch((e) => { if (e?.name !== 'AbortError') { setInfo(null); setFailed(true); } });
     return () => controller.abort();
-  }, [buyIn]);
+  }, [buyIn, paid]);
 
   if (!buyIn) return <div className="spin-info muted small">Select a Jackpot SNG table to see its rules.</div>;
+  if (paid) {
+    const rakePercent = table?.rakePercent ?? 5, entryTotal = buyIn * 3, rake = entryTotal * rakePercent / 100;
+    return <div className="spin-info"><div className="spin-info-body small"><p>3-max hyper turbo. Three {cashChips(buyIn)} entries form a {cashChips(entryTotal)} pool.</p><p className="muted">Rake {cashChips(rake)} ({rakePercent}%); winner takes {cashChips(entryTotal - rake)}. Fixed pooled payout — no wheel, multiplier, or jackpot reserve.</p></div></div>;
+  }
   if (failed) return <div className="spin-info muted small">Jackpot SNG details are unavailable for this stake.</div>;
   if (!info) return <div className="spin-info muted small">Loading…</div>;
   const top = info.payouts[0];
@@ -53,7 +62,7 @@ export function SpinInfoPanel({ buyIn, formatChips }: Props) {
             <tr key={p.multiplier}>
               <td>×{p.multiplier.toLocaleString()}</td>
               <td>{formatChips(p.prizePool)}</td>
-              <td>{p.prizes.filter((x) => x > 0).map(formatChips).join(' / ')}</td>
+              <td>{p.prizes.filter((x) => x > 0).map((prize) => formatChips(prize)).join(' / ')}</td>
               <td>1 in {p.oneIn.toLocaleString()}</td>
               <td>{p.blindUp}</td>
             </tr>

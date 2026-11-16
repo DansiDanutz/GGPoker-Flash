@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { spinPayouts } from './spin.js';
+import { organizerSpinOutcome } from './organizer-spin-prizes.js';
 
 const MAX_MULTIPLIER = 20_000;
 function fail(message, status = 400, code = 'organizer_spin_invalid') { throw Object.assign(new Error(message), { status, code }); }
@@ -43,16 +44,14 @@ export function createOrganizerChipSpin({ db, chips }) {
     return cfg;
   }
   const reserveRound = ({ organizerId, tableId, stake }) => transaction(db, () => {
-    eligible(organizerId, tableId, stake);
+    const cfg = eligible(organizerId, tableId, stake);
     const existing = currentRound(tableId);
     if (existing) {
       if (existing.organizer_id !== organizerId || existing.stake !== stake) fail('Active round has different details.', 409, 'round_conflict');
       return existing;
     }
-    const roundId = crypto.randomUUID(), maxReserve = stake * MAX_MULTIPLIER;
-    if (!Number.isSafeInteger(maxReserve)) fail('Spin reserve is too large.');
-    chips.moveInTransaction({ organizerId, from: `wallet:${organizerId}`, to: poolKey(roundId), amount: maxReserve, kind: 'spin_reserve', reference: `spin:${roundId}:reserve` });
-    db.prepare("INSERT INTO organizer_chip_spin_rounds(id,organizer_id,table_id,stake,max_reserve,state,created_at) VALUES (?,?,?,?,?,'waiting',?)").run(roundId, organizerId, tableId, stake, maxReserve, stamp());
+    const roundId = crypto.randomUUID(), outcome = organizerSpinOutcome(stake, cfg.rake_percent ?? 5);
+    db.prepare("INSERT INTO organizer_chip_spin_rounds(id,organizer_id,table_id,stake,max_reserve,state,outcome,created_at) VALUES (?,?,?,?,0,'waiting',?,?)").run(roundId, organizerId, tableId, stake, JSON.stringify(outcome), stamp());
     return round(roundId);
   });
   function verifiedOutcome(stake, outcome) {
@@ -61,10 +60,19 @@ export function createOrganizerChipSpin({ db, chips }) {
     if (!expected || outcome.prizePool !== expected.prizePool || !Array.isArray(outcome.prizes) || outcome.prizes.length !== 3 || outcome.prizes.some((amount, index) => amount !== expected.prizes[index])) fail('Spin outcome does not match configured odds.', 409, 'outcome_mismatch');
     return { multiplier: expected.multiplier, prizePool: expected.prizePool, prizes: expected.prizes };
   }
+  function committedOutcome(row, supplied) {
+    const stored = row.outcome && JSON.parse(row.outcome);
+    if (stored?.payoutModel !== 'pooled') return verifiedOutcome(row.stake, supplied);
+    let expected;
+    try { expected = organizerSpinOutcome(row.stake, stored.rakePercent); }
+    catch { fail('Stored Spin outcome is invalid.', 409, 'outcome_mismatch'); }
+    if (JSON.stringify(stored) !== JSON.stringify(expected) || JSON.stringify(supplied) !== JSON.stringify(expected)) fail('Spin outcome does not match the predetermined pool.', 409, 'outcome_mismatch');
+    return expected;
+  }
   const commitRound = ({ roundId, players, outcome }) => transaction(db, () => {
     const row = round(roundId);
     if (!row) fail('Spin round not found.', 404, 'round_not_found');
-    const normalizedOutcome = verifiedOutcome(row.stake, outcome), outcomeJson = JSON.stringify(normalizedOutcome);
+    const normalizedOutcome = committedOutcome(row, outcome), outcomeJson = JSON.stringify(normalizedOutcome);
     if (row.state === 'committed' || row.state === 'complete') {
       const stored = db.prepare('SELECT user_id,session_id FROM organizer_chip_spin_players WHERE round_id=? ORDER BY session_id').all(row.id);
       const supplied = [...players].map((p) => ({ user_id: p.userId, session_id: p.sessionId })).sort((a, b) => a.session_id.localeCompare(b.session_id));
@@ -85,7 +93,7 @@ export function createOrganizerChipSpin({ db, chips }) {
     return { ...round(row.id), applied: true };
   });
   function finish(row) {
-    const outcome = JSON.parse(row.outcome), rake = Math.max(0, row.entry_total - outcome.prizePool);
+    const outcome = JSON.parse(row.outcome), rake = outcome.payoutModel === 'pooled' ? outcome.rakeAmount : Math.max(0, row.entry_total - outcome.prizePool);
     if (rake) chips.moveInTransaction({ organizerId: row.organizer_id, from: poolKey(row.id), to: 'burn', amount: rake, kind: 'spin_rake', reference: `spin:${row.id}:rake` });
     const remainder = poolBalance(row);
     if (remainder) chips.moveInTransaction({ organizerId: row.organizer_id, from: poolKey(row.id), to: `wallet:${row.organizer_id}`, amount: remainder, kind: 'spin_reserve_return', reference: `spin:${row.id}:return` });
@@ -138,7 +146,13 @@ export function createOrganizerChipSpin({ db, chips }) {
     return active ? abort(active) : null;
   });
   const recoverRounds = () => transaction(db, () => db.prepare("SELECT * FROM organizer_chip_spin_rounds WHERE state IN ('waiting','committed') ORDER BY created_at").all().map(abort));
-  return { reserveRound, currentRound, commitRound, payPlace, abortRound, recoverRounds };
+  const outcomeForTable = (tableId) => {
+    const outcome = currentRound(tableId)?.outcome;
+    if (!outcome) return undefined;
+    const parsed = JSON.parse(outcome);
+    return parsed.payoutModel === 'pooled' ? parsed : undefined;
+  };
+  return { reserveRound, currentRound, outcomeForTable, commitRound, payPlace, abortRound, recoverRounds };
 }
 
 export { MAX_MULTIPLIER };

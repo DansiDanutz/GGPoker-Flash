@@ -75,6 +75,7 @@ import { createOrganizerBillingRoutes } from './organizer-billing-routes.js';
 import { cashRakeConfig, validateCashRake } from './cash-rake.js';
 import { createOrganizerChips } from './organizer-chips.js';
 import { createOrganizerChipEvents } from './organizer-chip-events.js';
+import { organizerSpinOutcome } from './organizer-spin-prizes.js';
 import { createOrganizerChipSpin } from './organizer-chip-spin.js';
 import { createOrganizerSpinTickets } from './organizer-spin-tickets.js';
 import { createOrganizerChipRoutes } from './organizer-chip-routes.js';
@@ -358,6 +359,7 @@ function lobbyTables(userId = null) {
       sb: t.sb, bb: t.bb, ante: t.ante, min_buyin: t.min_buyin, max_buyin: t.max_buyin,
       seats: t.seats, speed: t.speed, featured: !!t.featured,
       private: !!t.private, owner_id: t.owner_id || null, chip_economy: !!t.chip_economy,
+      ...(t.game === 'spingold' && t.chip_economy ? { rakePercent: t.rake_percent ?? 5 } : {}),
       players, bots, seated,
       // Real queue length and the caller's 1-based position (0 = not queued), from waitlist.js.
       wait: waitlist.queueSize(waitState, waitlist.tableQueue(t.id)),
@@ -764,6 +766,7 @@ function getLiveTable(id) {
     botSpeed: getSetting('bot_speed_ms', 900),
     seats: row.seats,
     ...cashRakeConfig(row, getSetting),
+    ...(row.game === 'spingold' && row.chip_economy ? { rakePercent: row.rake_percent ?? 5 } : {}),
   };
   const table = new PokerTable(cfg, {
     canStartHand: (table) => serviceCanDeal(table, true),
@@ -842,10 +845,11 @@ function getLiveTable(id) {
         table.emit({ type: 'tourney_payout', ...p });
       } catch (e) { console.error('tourney payout', e); }
     },
+    spinOutcome: (table) => usesOrganizerChips(table) ? organizerChipSpin.outcomeForTable(table.cfg.id) : undefined,
     beforeSpinDraw: (table, outcome) => {
       if (!usesOrganizerChips(table)) return;
       const round = organizerChipSpin.currentRound(table.cfg.id);
-      if (!round) throw new Error('Organizer must reserve the Spin prize pool first.');
+      if (!round) throw new Error('Organizer must open Spin entries first.');
       organizerChipSpin.commitRound({ roundId: round.id, outcome,
         players: table.humans().map((p) => ({ userId: p.id, sessionId: p.sessionId, amount: table.cfg.min_buyin })) });
     },
@@ -1044,7 +1048,7 @@ function seatHuman(table, user, buyin, seatIndex = null, waitForBlinds = false) 
   if (existing) return { ok: true, seat: existing.index };
   if (usageBilling && table.cfg.private && table.cfg.owner_id && !serviceCanDeal(table)) return { ok: false, error: 'The organizer must start or fund this table before joining.' };
   if (table.spin) {
-    if (usesOrganizerChips(table) && organizerChipSpin.currentRound(table.cfg.id)?.state !== 'waiting') return { ok: false, error: 'The organizer must reserve a new Spin prize pool first.' };
+    if (usesOrganizerChips(table) && organizerChipSpin.currentRound(table.cfg.id)?.state !== 'waiting') return { ok: false, error: 'The organizer must open entries for a new Spin first.' };
     table.resetSpinIfIdle();
     if (!table.spinStakeValid()) return { ok: false, error: 'This Jackpot SNG stake is not available' };
     if (table.spinStarted()) return { ok: false, error: 'This Jackpot SNG has already started' };
@@ -1762,6 +1766,7 @@ const server = http.createServer(async (req, res) => {
       if (game === 'spingold') {
         let spin;
         try { spin = privateSpinConfig(b); } catch (error) { return json(res, 400, { error: error.message }); }
+        const spinTerms = !playMoney && chipEconomyEnabled ? organizerSpinOutcome(spin.min_buyin, b.rakePercent === undefined ? 5 : b.rakePercent) : null;
         const id = `home-spin-${u.id}-${randomUUID().slice(0, 8)}`;
         const name = String(b.name || `${u.nick}'s Jackpot SNG`).trim().slice(0, 40) || 'Private Jackpot SNG';
         const launch = b.start_at ? Date.parse(b.start_at) : Date.now();
@@ -1772,7 +1777,7 @@ const server = http.createServer(async (req, res) => {
           VALUES (?,?,?,'Private',?,?,0,?,?,?, ?,0,1,0,?,1,0)`)
           .run(id, name, spin.game, spin.sb, spin.bb, spin.min_buyin, spin.max_buyin, spin.seats, spin.speed, u.id);
         if (usageBilling || playMoney) db.prepare('INSERT INTO organizer_spin_schedule(table_id,start_at) VALUES (?,?)').run(id, new Date(launch).toISOString());
-        if (!playMoney && chipEconomyEnabled) db.prepare('UPDATE tables SET chip_economy=1 WHERE id=?').run(id);
+        if (spinTerms) db.prepare('UPDATE tables SET chip_economy=1,rake_percent=? WHERE id=?').run(spinTerms.rakePercent, id);
         if (playMoney) db.prepare('UPDATE tables SET play_money=1 WHERE id=?').run(id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_spin_table', id);
         return { id }; } });

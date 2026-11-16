@@ -65,7 +65,7 @@ export function createOrganizerChipRoutes({ db, chips, events, spin, spinTickets
     if (path === '/api/marketplace/chips/me' && req.method === 'GET') {
       json(res, 200, { mode, service_billing: billing.account(user.id), balances: chips.account(user.id), ...(db ? {
         organizer_supply: chips.supply(user.id), grants: db.prepare('SELECT reference,available_at,status FROM organizer_chip_grants WHERE organizer_id=? ORDER BY available_at DESC LIMIT 100').all(user.id),
-        tables: db.prepare("SELECT id,name,game,min_buyin FROM tables WHERE owner_id=? AND chip_economy=1 AND game='spingold'").all(user.id).map((t) => ({ ...t, activeRound: spin.currentRound(t.id), maximumReserve: t.min_buyin * 20000 }))
+        tables: db.prepare("SELECT id,name,game,min_buyin,rake_percent FROM tables WHERE owner_id=? AND chip_economy=1 AND game='spingold'").all(user.id).map((t) => ({ ...t, activeRound: spin.currentRound(t.id), maximumReserve: spin.currentRound(t.id)?.max_reserve || 0, rakePercent: t.rake_percent ?? 5 }))
       } : {}), ...events.list(user.id), spinTickets: spinTickets?.list(user.id) || [], tournaments: events.eligibleTournaments(user.id) }); return true;
     }
     if (req.method !== 'POST') fail('Method not allowed.', 405);
@@ -86,7 +86,7 @@ export function createOrganizerChipRoutes({ db, chips, events, spin, spinTickets
       const table = db.prepare("SELECT * FROM tables WHERE id=? AND owner_id=? AND private=1 AND chip_economy=1 AND game='spingold'").get(tableId, user.id);
       if (!table) fail('Owned Cash Chip Spin table not found.', 404);
       const active = spin.currentRound(tableId);
-      if (spinMatch[2] === 'cancel' && active && active.state !== 'waiting') fail('Only a waiting reserve can be cancelled.', 409);
+      if (spinMatch[2] === 'cancel' && active && active.state !== 'waiting') fail('Only waiting entries can be cancelled.', 409);
       prepareSpin(tableId, spinMatch[2] === 'cancel');
       json(res, 200, spinMatch[2] === 'start' ? spin.reserveRound({ organizerId: user.id, tableId, stake: table.min_buyin }) : spin.abortRound(tableId)); return true;
     }

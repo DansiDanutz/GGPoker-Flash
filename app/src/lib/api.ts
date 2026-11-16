@@ -39,6 +39,7 @@ export type LobbyTable = {
   private?: boolean;
   owner_id?: number | null;
   chip_economy?: boolean;
+  rakePercent?: number;
   /** Viewer balance for this table's organizer-scoped Cash Chip wallet, when supplied. */
   organizer_balance?: number;
   /** Real occupied seats on the live table, bots included; 0 when the table is not running. */

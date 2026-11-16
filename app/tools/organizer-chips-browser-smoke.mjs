@@ -24,10 +24,11 @@ async function click(page, scope, text) {
 async function text(page, value) { await page.waitForFunction((selector, value) => document.querySelector(selector)?.textContent.includes(value), {}, panel, value); }
 async function input(page, selector, value) {
   const field = await page.waitForSelector(selector);
-  await field.focus();
-  const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-  await page.keyboard.down(modifier); await page.keyboard.press('KeyA'); await page.keyboard.up(modifier);
-  await field.type(String(value));
+  await field.evaluate((el, nextValue) => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, nextValue);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }, String(value));
   assert.equal(await field.evaluate((el) => el.value), String(value));
 }
 async function pageFor(token) {
@@ -174,8 +175,19 @@ try {
   const spinManager = 'section[aria-label="Spin & Go Manager"]';
   await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Browser Spin Cup'), {}, spinManager);
   assert.equal(new URL(ownerPage.url()).hash, '#/organiser');
-  assert.match(await ownerPage.$eval(spinManager, node => node.textContent), /100,000,000/);
+  assert.match(await ownerPage.$eval(spinManager, node => node.textContent), /Pool 15,000 Cash Chips · Rake 750 Cash Chips \(5%\) · Winner prize 14,250 Cash Chips/);
+  const spinRake = `${spinManager} form[aria-label="Spin rake for Browser Spin Cup"]`;
+  await ownerPage.select(`${spinRake} select`, '2');
+  await click(ownerPage, spinRake, 'Save rake');
+  await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Spin rake saved.'), {}, billing);
+  await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Winner prize 14,700 Cash Chips'), {}, spinManager);
   const spinTable = check(await srv.get('/api/marketplace/billing/me', { token: owner.token })).tables.find(t => t.name === 'Browser Spin Cup');
+  assert.equal(spinTable.rakePercent, 2);
+  await ownerPage.goto(`${srv.base}/#/table/${encodeURIComponent(spinTable.id)}?observe=1`);
+  await ownerPage.waitForFunction(() => document.body.textContent.includes('Pooled prize 14,700 Cash Chips'));
+  assert.equal(await ownerPage.$('.spin-ring'), null);
+  await ownerPage.goto(`${srv.base}/#/organiser`);
+  await ownerPage.waitForSelector(spinManager);
   await click(ownerPage, spinManager, 'Buy entry ticket');
   await click(ownerPage, panel, 'Actualizează');
   const spinTickets = 'section[aria-label="Spin entry tickets"]';
@@ -196,7 +208,7 @@ try {
   }
   await click(ownerPage, spinManager, 'Close empty table');
   await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('No hosted Spin & Go tables yet.'), {}, spinManager);
-  console.log('PASS Spin Manager creation, reserve disclosure, ticket transfer/refund, five widths and table closure');
+  console.log('PASS Spin Manager creation, pooled payout/rake editing, ticket transfer/refund, five widths and table closure');
   assert.deepEqual(errors, []);
   console.log('PASS Cash Chip membership grant, pack purchase, scoped transfer and ticket redemption in Chrome; mobile layout');
   await fs.writeFile(path.join(artifacts, 'organizer-chip-report.json'), JSON.stringify({ ok: true, errors }));

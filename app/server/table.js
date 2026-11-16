@@ -12,6 +12,7 @@ import {
 import { randomInt } from 'node:crypto';
 import { FOLD_WIN_BOT_MS, FOLD_WIN_MS, SHOWDOWN_CLEAR_MS, runPresentationMs } from './handPacing.js';
 import { payoutFor, payoutTable } from './tournament.js';
+import { organizerSpinOutcome } from './organizer-spin-prizes.js';
 import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
 import { ACTION_SECONDS, isRushGame, parseActionSeconds } from './validate.js';
 import { clampTournamentLevel, tournamentLevelBlinds } from './tournament-blinds.js';
@@ -428,20 +429,21 @@ export class PokerTable {
     return this.spin && !!this.spinPayouts;
   }
 
-  /** Draw the multiplier from the verified table when the first hand is dealt. */
+  /** Commit the paid pool or draw the Play Money prize before the first hand. */
   drawSpin() {
-    const outcome = this.pendingSpinOutcome || spinOutcome(Number(this.cfg.min_buyin), this.spinTicket());
+    const outcome = this.pendingSpinOutcome || this.hooks.spinOutcome?.(this) || spinOutcome(Number(this.cfg.min_buyin), this.spinTicket());
     this.pendingSpinOutcome = outcome;
     try { this.hooks.beforeSpinDraw?.(this, outcome); }
     catch (error) { if (this.cfg.chip_economy) this.financialError = 'Spin funding reconciliation required'; throw error; }
     this.pendingSpinOutcome = null;
+    this.spinOutcome = outcome;
     this.spinMultiplier = outcome.multiplier;
     this.spinPrize = outcome.prizePool;
     this.spinPayouts = Object.freeze([...outcome.prizes]);
     this.spinStartedAt = this.spinClock();
     this.spinCompletedHands = 0;
     this.spinLevel = 0;
-    this.emit({ type: 'spin_drawn', multiplier: this.spinMultiplier, prize: this.spinPrize, payouts: this.spinPayouts });
+    this.emit({ type: 'spin_drawn', ...(outcome.payoutModel ? { payoutModel: outcome.payoutModel } : {}), multiplier: this.spinMultiplier, prize: this.spinPrize, payouts: this.spinPayouts });
   }
 
   /**
@@ -481,7 +483,7 @@ export class PokerTable {
     if (!this.spinWinner && this.humans().length) return false;
     for (const seat of this.seats) seat.player = null;
     Object.assign(this, {
-      handNo: 0, spinMultiplier: null, spinPrize: 0, spinPayouts: null, spinWinner: null, finished: [],
+      handNo: 0, spinOutcome: null, spinMultiplier: null, spinPrize: 0, spinPayouts: null, spinWinner: null, finished: [],
       spinStartedAt: 0, spinCompletedHands: 0, spinLevel: 0,
       sb: this.cfg.sb, bb: this.cfg.bb, minRaise: this.cfg.bb, street: 'idle', nextHandAt: 0,
     });
@@ -495,7 +497,7 @@ export class PokerTable {
   applySpinBlinds() {
     // startHand only runs between hands, so every hand dealt since the draw has completed.
     this.spinCompletedHands = this.handNo;
-    const { level, smallBlind, bigBlind } = spinBlindLevel(this.spinMultiplier, {
+    const { level, smallBlind, bigBlind } = spinBlindLevel(this.spinOutcome?.payoutModel === 'pooled' ? 3 : this.spinMultiplier, {
       startedAt: this.spinStartedAt, now: this.spinClock(), completedHands: this.spinCompletedHands,
     });
     const raised = this.spinLevel > 0 && level !== this.spinLevel;
@@ -510,7 +512,7 @@ export class PokerTable {
     const first = this.recordSpinFinish(w.player, 1);
     if (this.hooks.onMint) this.hooks.onMint(this, 'spin', this.spinPrize);
     this.spinWinner = { nick: w.player.nick, id: w.player.id, prize: first ? first.payout : 0 };
-    this.emit({ type: 'spin_win', ...this.spinWinner, multiplier: this.spinMultiplier });
+    this.emit({ type: 'spin_win', ...this.spinWinner, ...(this.spinOutcome?.payoutModel ? { payoutModel: this.spinOutcome.payoutModel } : {}), multiplier: this.spinMultiplier });
     this.street = 'ended';
     this.nextHandAt = 0;
     if (this.hooks.onHandComplete) this.hooks.onHandComplete({ table: this, winner: { id: w.player.id } });
@@ -2063,6 +2065,8 @@ export class PokerTable {
 
   snapshotFor(viewerId = null) {
     const now = Date.now();
+    const spinTerms = this.spin && this.cfg.chip_economy
+      ? this.spinOutcome || this.hooks.spinOutcome?.(this) || organizerSpinOutcome(Number(this.cfg.min_buyin), this.cfg.rakePercent ?? 5) : null;
     return {
       id: this.cfg.id,
       tableEpoch: this.tableEpoch,
@@ -2153,6 +2157,7 @@ export class PokerTable {
       lastAction: this.lastAction,
       canStart: this.street === 'idle',
       spin: this.spin ? {
+        ...(spinTerms ? { payoutModel: spinTerms.payoutModel, rakePercent: spinTerms.rakePercent, rakeAmount: spinTerms.rakeAmount, entryTotal: spinTerms.entryTotal } : {}),
         multiplier: this.spinMultiplier, prize: this.spinPrize, buyIn: Number(this.cfg.min_buyin),
         payouts: this.spinPayouts, finished: this.finished, winner: this.spinWinner,
         blindLevel: this.spinLevel || null,
