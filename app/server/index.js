@@ -66,6 +66,7 @@ import { createAdminUsersListRoute } from './admin-users-list.js';
 import { createMarketplaceRoutes } from './marketplace.js';
 import { createMarketplaceCommerce } from './marketplace-commerce.js';
 import { createContributorSubmissions, createContributorRoutes } from './contributor-submissions.js';
+import { previewRake } from './rake-lab.js';
 import { createManagementPolicy, privateSpinConfig, tableManagementProduct } from './management-plugins.js';
 import { createManagementRoutes } from './management-routes.js';
 import { createOrganizerBilling } from './organizer-billing.js';
@@ -1515,6 +1516,10 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
+    if (p === '/api/plugins/rake-lab') {
+      if (req.method !== 'GET') return json(res, 405, { error: 'Use GET for the read-only Rake Lab preview.' });
+      return json(res, 200, previewRake(url.searchParams));
+    }
     if (await handleOrganizerChipRoute(req, res, url)) return;
     if (await handleOrganizerBillingRoute(req, res, url)) return;
     if (await handleManagementRoute(req, res, url)) return;

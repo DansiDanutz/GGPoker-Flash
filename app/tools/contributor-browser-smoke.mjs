@@ -77,6 +77,38 @@ try {
   const account = await (await fetch(sandbox.api + '/api/marketplace/billing/me', { headers })).json();
   assert.equal(account.ledger.length, 0); assert.equal(account.balance_cents, 0);
   checks.push('Browser-created Play Money table is playable and leaves service-credit billing untouched.');
+  await page.goto(sandbox.url + '/#/contributor');
+  await page.waitForFunction(() => [...document.querySelectorAll('article h3')].some(node => node.textContent === 'Rake Lab'));
+  const sampleHandle = await page.evaluateHandle(() => [...document.querySelectorAll('article')].find(node => node.querySelector('h3')?.textContent === 'Rake Lab')?.querySelector('button'));
+  const sampleButton = sampleHandle.asElement(); assert.ok(sampleButton);
+  await sampleButton.evaluate(node => node.scrollIntoView({ block: 'center' }));
+  await sampleButton.click(); await sampleHandle.dispose();
+  await page.waitForFunction(() => location.hash === '#/rake-lab');
+  await page.waitForSelector('#rake-lab-pot');
+  // The app's view-transition overlay intercepts clicks until navigation finishes.
+  await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
+  await page.focus('.rake-lab button[type=submit]');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('article[aria-label="Rake preview result"]');
+  assert.match(await page.$eval('.rake-lab [role=status]', node => node.textContent), /Cap reached/);
+  assert.deepEqual(await page.$$eval('.rake-lab dd', nodes => nodes.map(node => node.textContent)), ['6,000 chips', '300 chips', '5,700 chips']);
+  await page.click('.rake-lab input[type=checkbox]');
+  await page.locator('.rake-lab button[type=submit]').click();
+  await page.waitForFunction(() => document.querySelector('.rake-lab [role=status]')?.textContent.includes('No flop, no rake'));
+  assert.deepEqual(await page.$$eval('.rake-lab dd', nodes => nodes.map(node => node.textContent)), ['6,000 chips', '0 chips', '6,000 chips']);
+  for (const toast of await page.$$('.toasts .toast')) await toast.click();
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    await page.setViewport({ width, height: 1000 });
+    await page.waitForFunction(phone => !!document.querySelector('.pshell') === phone, {}, width <= 760);
+    assert.ok(await page.$eval('.rake-lab', node => node.scrollWidth <= node.clientWidth + 1), `Rake Lab overflow at ${width}`);
+    await page.$eval('.rake-lab a', node => node.scrollIntoView({ block: 'center' }));
+    const footer = await page.$eval('.rake-lab a', node => { const rect = node.getBoundingClientRect(); const panel = node.closest('.rake-lab'); return { visible: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) === node, y: rect.y, panelHeight: panel.clientHeight, panelScroll: panel.scrollTop, panelContent: panel.scrollHeight, overflow: getComputedStyle(panel).overflowY }; });
+    assert.ok(footer.visible, `Rake Lab footer unreachable at ${width}: ${JSON.stringify(footer)}`);
+    if ([390, 1440].includes(width)) await page.screenshot({ path: path.join(artifacts, `rake-lab-${width}.png`), fullPage: true });
+  }
+  const afterPreview = await (await fetch(sandbox.api + '/api/marketplace/billing/me', { headers })).json();
+  assert.equal(afterPreview.ledger.length, 0); assert.equal(afterPreview.balance_cents, 0);
+  checks.push('Registered Rake Lab renders cap/no-flop results at five widths without spending service credits.');
   const admin = await call('/api/auth/login', { login: 'admin', password: sandbox.password });
   const adminPage = await pageFor(admin.token, '/admin?section=marketplace');
   await adminPage.waitForSelector('.ma-tabs');

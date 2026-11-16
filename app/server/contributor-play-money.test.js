@@ -5,6 +5,7 @@ import { rm } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import { startServer, seatHumans } from './test-helpers.js';
+import { CONTRIBUTOR_PLUGINS } from './contributor-plugins.js';
 
 test('free Play Money hosting works under paid enforcement without spending or creating Cash Chips', async (t) => {
   const srv = await startServer({ env: { GGPOKER_BIND: '127.0.0.1', GGPOKER_MARKETPLACE_ENFORCEMENT: 'enforce', GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_ORGANIZER_CHIPS: 'enforce' } });
@@ -47,5 +48,5 @@ test('free Play Money hosting works under paid enforcement without spending or c
   for (const route of ['/api/marketplace/contributor', '/api/admin/marketplace/contributor']) assert.equal((await srv.get(route)).status, 401);
   assert.equal((await srv.get('/api/admin/marketplace/contributor', { token })).status, 403);
   assert.equal((await srv.post('/api/marketplace/contributor', { token, body: { pluginId: 'test-plugin', prUrl: 'https://github.com/OpenPoker4all/OpenPoker/pull/1', notes: 'Local tests passed.' } })).status, 402);
-  assert.deepEqual((await srv.get('/api/marketplace/contributor/plugins')).data.plugins, []);
+  assert.deepEqual((await srv.get('/api/marketplace/contributor/plugins')).data.plugins, CONTRIBUTOR_PLUGINS.map(plugin => ({ ...plugin, play_money_free: true })));
 });
