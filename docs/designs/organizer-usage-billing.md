@@ -35,14 +35,43 @@ Active legacy paid access to the three management products blocks startup in `en
 
 No new billing configuration has been deployed. The approved PR #210 production deployment keeps paid enforcement off and checkout disabled.
 
-## Newly requested chips and tournament tickets
+## Organizer Cash Chips and tickets
 
-The owner additionally requires Organizer subscription Cash Chip allowances, user transfers, and transferable tournament-specific tickets purchased with an organizer's Cash Chips. This work is not implemented by this billing draft.
+`GGPOKER_ORGANIZER_CHIPS=off` is the default. `enforce` requires service-credit billing enforcement. Newly hosted private resources are permanently marked as organizer-chip games. Legacy resources and free USD/PLAY/TICKET/GEM wallets are never converted.
 
-A ticket must bind its tournament, owner, entry value and configured starting stack. For example, a $10 entry ticket redeems for that tournament's starting stack; tournament chips are not ten dollars worth of freely convertible cash. Purchase and redemption must not debit twice, and a transferred ticket must be redeemable only by its current holder. Ticket value/stack changes, registration cancellation and event cancellation need explicit consistent accounting.
+- Each paid Organizer month grants **100,000 Cash Chips**. Early renewal schedules the next grant for its next membership period. Contributor memberships do not grant player chips.
+- An active Organizer can buy **10,000 additional Cash Chips for $1 of service credits**, atomically and replay-safely.
+- Balances are keyed by organizer and user. Transfers preserve the organizer identity; chips cannot fund another organizer's game or ticket.
+- The wholesale price does **not** set player deposit/buyback terms. Organizers negotiate external monetary terms themselves.
+- Cash buy-ins, rebuys and pending top-ups use organizer escrow. Bots, insurance, jackpots and free game rewards cannot mint into this economy. Settlement reconciles all funded sessions before publishing a win, and burns exact rake. Dealt players' mid-hand departures wait for settlement; nonparticipating seats may leave immediately.
+- Restart refunds each last-committed cash holding once. An unfinished hand rolls back to its settled checkpoint, with no original-buy-in or free-wallet fallback.
 
-Pending owner decisions: the monthly Cash Chip allowance included in $9, and whether these are game-only balances or withdrawable money. The current application's USD-denominated player wallet is play money; do not turn its existing free/demo balances into redeemable funds. Do not combine player chips with the service-credit ledger. These decisions block chip grants, ticket implementation and paid launch, not the default-off billing tests.
+Tickets bind organizer, tournament, current holder, buy-in, fee and starting stack. Purchase escrows chips once; transfer changes the holder; redemption grants one registration. Unregister restores the ticket, including repeated cycles. Start verifies the exact funded participant set, burns fees and refunds unused issued tickets. Prizes contain buy-ins only. Cancelling an unstarted event refunds current holders. Tournament playing stacks cannot be withdrawn; awards credit organizer-scoped Cash Chip wallets.
 
-## Verification
+STANDARD, FLIP, BOUNTY and MYSTERY have funded prizes. Bounties require separate organizer reserves. Cash Chip satellites are refused until target-event tickets are explicitly bound; legacy unbound TICKET balances cannot pay prizes.
 
-Focused service tests cover membership dates and replay, receipt replay, setup rollback, role/action conflicts, upfront cash billing, free paid-period resume, insufficient credits, expired membership, failed ledger writes, and restart recovery. HTTP integration tests cover owner boundaries, fees and rescheduling plus the production private-network finance boundary. A game-engine test proves an unfunded table takes no blinds and an already-running hand still settles.
+Spin requires an explicit **20,000× stake** reserve before players join: 100 million chips at a 5,000 stake. This materially exceeds a new organizer's allowance. The draw commits three funded seats and a verified payout schedule before publication. Exact place payouts are idempotent; unused reserve returns to the organizer and entry surplus over prizes burns as rake. Waiting reserves can be cancelled after players leave. An interrupted committed round with any recorded finishing place requires private operator reconciliation; stake refunds never stack on top of paid prizes.
+
+## Buybacks and exceptional recovery
+
+A buyback specifies chips plus separately negotiated payment amount/currency/details. The request locks payout escrow. The organizer pays externally and reports a unique receipt matching the agreement. Recipient confirmation returns chips to organizer inventory: **buybacks do not burn chips**. Unreported requests may be cancelled/rejected; reported payments stay locked until confirmation or audited resolution.
+
+No automated NervixPay customer payout is implemented or claimed. A receipt report is an assertion, not automatic provider verification. Provider approval and a supported merchant payout contract remain external gates.
+
+Recovery APIs require an authenticated administrator through the existing private-network boundary:
+
+- `POST /api/admin/marketplace/chips/buybacks/:id/resolve`: `{resolution:"paid"|"refund",reason}`.
+- `GET /api/admin/marketplace/chips/spin/:roundId` returns the stored outcome and participants. `POST .../:roundId/resolve`: `{userId,place,reason}`. Only disputed/completed rounds qualify; the amount comes from the immutable outcome. Evidence must establish finishing places.
+- Tournament snapshots carry a financial-journal revision. Restart pauses an event whose snapshot is absent or predates a committed payout. `GET /api/admin/marketplace/chips/tournaments/:id` exposes escrow, tickets and journals. `POST .../:id/resolve`: `{awards:[{userId,amount}],reason}` allocates **exactly** remaining prize escrow to event participants and closes the event, returning unused bounty reserve. Existing payouts remain. The operator must review hand history/player agreements before choosing the allocation.
+
+Exceptional recovery is audited and replay-safe, requires operator attention and does not invent a finish order or resume stale paid stacks.
+
+## Later phase: Diamonds
+
+Diamonds are for future OpenPoker tournaments shared across organizers' players. The proposed organizer-interface sales model splits profit **50% organizer / 50% platform**. No Diamond ledger, sale or conversion is enabled. Price and distributable-profit calculation belong to that later design.
+
+## Verification and launch gates
+
+Tests cover billing periods, hourly charges, receipt boundaries, setup rollback, organizer isolation, immutable burns, mint/rake conservation, tickets, exact entrant sets, bounties, buybacks and recovery. Real HTTP/WebSocket tests drive a raked hand with a pending top-up and prove exactly-once restart refunds without altering free USD. Browser CI exercises grants, packs, transfers, tickets and mobile rendering on a disposable enforced fixture.
+
+This paid revision is a draft and is undeployed. Activation requires provider approval and verified funding, review of legacy-resource migration and customer terms, passing current-head review/CI and separate authorization for an exact production rollout. Earlier approval covered only PR #210 with paid enforcement off.

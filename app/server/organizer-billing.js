@@ -27,7 +27,7 @@ function transaction(db, fn) {
   catch (error) { db.exec('ROLLBACK'); throw error; }
 }
 
-export function createOrganizerBilling({ db, now = Date.now, mode = 'off' }) {
+export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrganizerMembership = null }) {
   if (!['off', 'enforce'].includes(mode)) fail('Billing mode must be off or enforce.');
   db.exec(`
     CREATE TABLE IF NOT EXISTS organizer_billing_accounts (user_id INTEGER PRIMARY KEY REFERENCES users(id), balance_cents INTEGER NOT NULL DEFAULT 0 CHECK(balance_cents >= 0));
@@ -105,9 +105,11 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off' }) {
     const old = operation(userId, k, 'subscribe', role);
     if (old) return old;
     const current = access(userId, role);
-    const expires_at = nextMonth(current.active ? Date.parse(current.expires_at) : now());
+    const periodStart = current.active ? Date.parse(current.expires_at) : now();
+    const expires_at = nextMonth(periodStart);
     debit(userId, ORGANIZER_TARIFFS.membership, 'membership', `membership:${userId}:${k}`, null, { role });
     db.prepare('INSERT INTO organizer_billing_memberships VALUES (?,?,1,?) ON CONFLICT(user_id,role) DO UPDATE SET active=1,expires_at=excluded.expires_at').run(userId, role, expires_at);
+    if (role === 'organizer' && onOrganizerMembership) onOrganizerMembership({ organizerId: userId, reference: `membership:${userId}:${k}`, availableAt: new Date(periodStart).toISOString() });
     return record(userId, k, 'subscribe', role, { role, expires_at });
   });
   function replay(userId, k, payload) {

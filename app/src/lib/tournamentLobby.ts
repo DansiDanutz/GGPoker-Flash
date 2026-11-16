@@ -2,6 +2,9 @@
 // what the server implements: tournament-lobby.js (structure, late reg, clock),
 // table.js (bounty, mystery tiers, Quick Flip first hand) and tournament.js (payouts).
 import { money, type TournamentDetail } from './api';
+import { cashChips } from './organizer-chips-api';
+
+const financial = (t: any, amount: number) => t.chip_economy ? cashChips(amount) : money(amount);
 import { ordinal } from './tournamentPrizes';
 
 export type LobbyTheme = 'standard' | 'bounty' | 'mystery' | 'satellite' | 'flip' | 'shortdeck' | 'plo';
@@ -38,11 +41,11 @@ export function explainers(t: any, d: TournamentDetail | null): Record<string, E
   return {
     bounty: {
       title: 'Bounty',
-      body: `Every player carries a fixed ${money(t.bounty || 0)} bounty. Knock a player out and the bounty is paid to your balance straight away, on top of any prize.`,
+      body: `Every player carries a fixed ${financial(t, t.bounty || 0)} bounty. Knock a player out and the bounty is paid to your balance straight away, on top of any prize.`,
     },
     mystery: {
       title: 'Mystery Bounty',
-      body: `Each knockout pays a random bounty of ${MYSTERY_TIERS.map((x) => `${x}×`).join(', ')} the ${money(t.bounty || 0)} base — up to ${money((t.bounty || 0) * 10)}. It is paid to your balance as soon as the player is out.`,
+      body: `Each knockout pays a random bounty of ${MYSTERY_TIERS.map((x) => `${x}×`).join(', ')} the ${financial(t, t.bounty || 0)} base — up to ${financial(t, (t.bounty || 0) * 10)}. It is paid to your balance as soon as the player is out.`,
     },
     flip: {
       title: 'Quick Flip',
@@ -74,11 +77,11 @@ export function infoRows(t: any, d: TournamentDetail | null): InfoRow[] {
   const ex = explainers(t, d);
   const rows: InfoRow[] = [
     { label: 'Game Type', value: `${gameName(t)} · ${modeName(t)}` },
-    { label: 'Buy-in', value: t.buyin === 0 && t.fee === 0 ? 'Freeroll' : `${money(t.buyin)} + ${money(t.fee)}` },
-    { label: 'Starting Chips', value: `${Number(t.starting_stack).toLocaleString()} (${STARTING_BIG_BLINDS} BB)` },
+    { label: 'Buy-in', value: t.buyin === 0 && t.fee === 0 ? 'Freeroll' : `${financial(t, t.buyin)} + ${financial(t, t.fee)}` },
+    { label: 'Starting Stack', value: `${Number(t.starting_stack).toLocaleString()} tournament chips (${STARTING_BIG_BLINDS} BB)` },
   ];
-  if (t.mode === 'BOUNTY') rows.push({ label: 'Bounty', value: money(t.bounty || 0), explain: ex.bounty });
-  if (t.mode === 'MYSTERY') rows.push({ label: 'Mystery Bounty', value: `up to ${money((t.bounty || 0) * 10)}`, explain: ex.mystery });
+  if (t.mode === 'BOUNTY') rows.push({ label: 'Bounty', value: financial(t, t.bounty || 0), explain: ex.bounty });
+  if (t.mode === 'MYSTERY') rows.push({ label: 'Mystery Bounty', value: `up to ${financial(t, (t.bounty || 0) * 10)}`, explain: ex.mystery });
   if (t.mode === 'SATELLITE') rows.push({ label: 'Prize', value: `${t.ticket || 'Seat'} ticket`, explain: ex.satellite });
   if (t.mode === 'FLIP') rows.push({ label: 'First Hand', value: 'Everyone all-in', explain: ex.flip });
   rows.push({ label: 'Starting Time', value: timeOf(t.start_at) });

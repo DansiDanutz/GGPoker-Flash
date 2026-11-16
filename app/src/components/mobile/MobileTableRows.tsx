@@ -1,5 +1,6 @@
 import React from 'react';
 import { GAME_LABEL, money, type LobbyTable } from '../../lib/api';
+import { cashChips } from '../../lib/organizer-chips-api';
 import { gameTone, maxLabel } from '../../lib/phoneTables';
 import { NavGlyph } from './PhoneIcons';
 
@@ -14,17 +15,17 @@ export function MobileTableRows({ tables, onJoin }: { tables: readonly LobbyTabl
         const tone = gameTone(t.game);
         const label = GAME_LABEL[t.game] || t.game;
         return (
-          <button key={t.id} type="button" role="listitem" className={`mt-row tone-${tone}`} onClick={() => onJoin(t)} aria-label={`${t.name}, ${label}, ${money(t.sb, true)}/${money(t.bb, true)}, ${t.players} of ${t.seats} seated`}>
+          <button key={t.id} type="button" role="listitem" className={`mt-row tone-${tone}`} onClick={() => onJoin(t)} aria-label={`${t.name}, ${label}, ${t.chip_economy ? `${t.sb}/${t.bb} Cash Chips` : `${money(t.sb, true)}/${money(t.bb, true)}`}, ${t.players} of ${t.seats} seated`}>
             <span className="mt-tag" aria-hidden="true"><i>{label}</i></span>
             <span className="mt-main">
               <span className="mt-chips">
                 <i className="mt-chip">{t.name}</i>
                 <i className="mt-chip mt-max">{maxLabel(t.seats)}</i>
-                {t.ante > 0 && <i className="mt-chip">Ante {money(t.ante, true)}</i>}
+                {t.ante > 0 && <i className="mt-chip">Ante {t.chip_economy ? cashChips(t.ante) : money(t.ante, true)}</i>}
               </span>
-              <b className="mt-stakes">{money(t.sb, true)} / {money(t.bb, true)}</b>
+              <b className="mt-stakes">{t.chip_economy ? `${t.sb.toLocaleString()} / ${t.bb.toLocaleString()}` : `${money(t.sb, true)} / ${money(t.bb, true)}`}</b>
             </span>
-            <span className="mt-buyin"><small>Buy-in</small><b>{money(t.min_buyin, true)}</b></span>
+            <span className="mt-buyin"><small>Buy-in</small><b>{t.chip_economy ? cashChips(t.min_buyin) : money(t.min_buyin, true)}</b></span>
             <span className={'mt-seats' + (t.players >= t.seats ? ' full' : '')}>
               <NavGlyph name="people" size={16} />
               {t.players}

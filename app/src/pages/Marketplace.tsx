@@ -8,6 +8,7 @@ import '../marketplace.css';
 import { ManagementPlugins } from '../components/ManagementPlugins';
 import { MarketplacePublisher } from '../components/MarketplacePublisher';
 import { OrganizerBilling } from '../components/OrganizerBilling';
+import { OrganizerChips } from '../components/OrganizerChips';
 
 type IconName = 'arrow' | 'code' | 'server' | 'layers' | 'check' | 'search' | 'close' | 'spark' | 'clock' | 'shield' | 'external' | 'grid';
 
@@ -262,6 +263,7 @@ export function Marketplace() {
         </section>
 
         <section className="mp-section mp-container"><OrganizerBilling key={user?.id ?? "guest"} userId={user?.id} /></section>
+        <section className="mp-section mp-container"><OrganizerChips key={`chips-${user?.id ?? 'guest'}`} userId={user?.id} /></section>
 
         <section id="marketplace-how" className="mp-explanation-band" aria-labelledby="marketplace-how-title"><div className="mp-container mp-section">
           <div className="mp-section-heading"><div><span className="mp-eyebrow">LIBERTATE PENTRU COMUNITATE. OPȚIUNI PENTRU ORGANIZATORI.</span><h2 id="marketplace-how-title">Un proiect deschis.<br />Mai multe moduri de a-l folosi.</h2></div><p>Licența codului și accesul la un serviciu sunt lucruri distincte. Alege varianta potrivită pentru tine.</p></div>

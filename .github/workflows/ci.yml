@@ -78,6 +78,10 @@ jobs:
         timeout-minutes: 5
         run: node tools/marketplace-browser-smoke.mjs
 
+      - name: Verify organizer chips in Chrome
+        timeout-minutes: 3
+        run: node tools/organizer-chips-browser-smoke.mjs
+
       - name: Upload marketplace browser screenshots
         if: always()
         uses: actions/upload-artifact@v4

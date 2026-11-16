@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { money, type TournamentDetail } from '../../lib/api';
 import { ordinal, prizeText } from '../../lib/tournamentPrizes';
+import { cashChips } from '../../lib/organizer-chips-api';
 import { seatFlag } from '../../lib/seatFlag';
 import { gameRules } from '../../lib/gameRules';
 import { bigBlinds, infoRows, timeOf, type Explainer } from '../../lib/tournamentLobby';
@@ -53,15 +54,15 @@ export function StructurePanel({ d }: { d: TournamentDetail | null }) {
   );
 }
 
-export function PrizePanel({ d }: { d: TournamentDetail | null }) {
+export function PrizePanel({ d, chipEconomy = false }: { d: TournamentDetail | null; chipEconomy?: boolean }) {
   if (!d) return <p className="tl-empty">Loading prizes…</p>;
   return (
     <>
-      <div className="tl-prize-head"><span>Prize Pool</span><b>{money(d.prizePool)}</b><small>{d.placesPaid} {d.placesPaid === 1 ? 'place' : 'places'} paid</small></div>
+      <div className="tl-prize-head"><span>Prize Pool</span><b>{chipEconomy ? cashChips(d.prizePool) : money(d.prizePool)}</b><small>{d.placesPaid} {d.placesPaid === 1 ? 'place' : 'places'} paid</small></div>
       <table className="tl-grid">
         <thead><tr><th>Place</th><th>Prize</th></tr></thead>
         <tbody>
-          {d.payouts.map((p) => <tr key={p.place}><td>{ordinal(p.place)}</td><td className="gold">{prizeText(p, (n) => money(n))}</td></tr>)}
+          {d.payouts.map((p) => <tr key={p.place}><td>{ordinal(p.place)}</td><td className="gold">{prizeText(p, (n) => chipEconomy ? cashChips(n) : money(n))}</td></tr>)}
         </tbody>
       </table>
     </>
@@ -83,7 +84,7 @@ export function PlayersPanel({ t, d, meId, query }: { t: any; d: TournamentDetai
             <td>{p.rank}</td>
             <td className="tl-flag" aria-hidden="true">{seatFlag(p.nick, p.country)}</td>
             <td>{p.nick}{p.table != null && <small> · T{p.table}</small>}</td>
-            {bounty && <td className="gold">{money(t.bounty || 0)}</td>}
+            {bounty && <td className="gold">{t.chip_economy ? cashChips(t.bounty || 0) : money(t.bounty || 0)}</td>}
             <td>{p.stack.toLocaleString()} <small>({bigBlinds(p.stack, d)})</small></td>
           </tr>
         ))}
@@ -120,7 +121,7 @@ export function RulesPanel({ t }: { t: any }) {
       <h4>Tournament rules</h4>
       <p>Everyone starts with the same stack. Blinds rise on a clock, and a player who runs out of chips is out. Prizes go to the last players standing, in the order shown on the Prize Pool tab.</p>
       <p>Registered players are seated when the tournament starts. If you are not at your table, your hands are folded and your blinds are posted until you open it.</p>
-      <p>Play money only: buy-ins and prizes are play chips with no cash value.</p>
+      <p>{t.chip_economy ? 'Buy-ins and prizes use Cash Chips scoped to this organizer. Tournament stack chips are not a wallet balance.' : 'Play money only: buy-ins and prizes are play chips with no cash value.'}</p>
     </div>
   );
 }
@@ -133,7 +134,7 @@ export function SatellitesPanel({ t, all, onOpen }: { t: any; all: readonly any[
   return (
     <ul className="tl-list">
       {feeders.map((s) => (
-        <li key={s.id}><button type="button" onClick={() => onOpen(s)}><b>{s.name}</b><span>{timeOf(s.start_at)} · {s.buyin + s.fee ? money(s.buyin + s.fee) : 'Free'}</span></button></li>
+        <li key={s.id}><button type="button" onClick={() => onOpen(s)}><b>{s.name}</b><span>{timeOf(s.start_at)} · {s.buyin + s.fee ? (s.chip_economy ? cashChips(s.buyin + s.fee) : money(s.buyin + s.fee)) : 'Free'}</span></button></li>
       ))}
     </ul>
   );

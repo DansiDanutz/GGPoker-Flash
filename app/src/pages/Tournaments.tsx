@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
@@ -13,6 +13,7 @@ import {
   TournamentFilters, tournamentFilterCount, withTournamentFilters, writeTournamentFilters,
 } from '../lib/tournamentFilters';
 import { PROMO_ART } from '../lib/promoArt';
+import { cashChips, organizerChipsApi, type ChipAccount } from '../lib/organizer-chips-api';
 
 const SERIES_ART: Record<string, string> = {
   wsop: '/assets/ui/discover/Bg_Discover_WSOPExpress_Promo1_EN.png',
@@ -27,9 +28,14 @@ export function Tournaments() {
   const [filters, setFilters] = useState<TournamentFilters>(() => readTournamentFilters());
   const [detail, setDetail] = useState<any>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [chipAccount, setChipAccount] = useState<ChipAccount | null>(null);
+  const ticketKeys = useRef(new Map<string, string>());
 
   const load = async () => {
-    try { setData(await api.tournaments()); } catch (e: any) { toast({ kind: 'error', title: 'Tournaments', body: e.message }); }
+    try {
+      const [events, scoped] = await Promise.all([api.tournaments(), user ? organizerChipsApi.mine().catch(() => null) : Promise.resolve(null)]);
+      setData(events); setChipAccount(scoped);
+    } catch (e: any) { toast({ kind: 'error', title: 'Tournaments', body: e.message }); }
   };
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
   useEffect(() => {
@@ -40,8 +46,8 @@ export function Tournaments() {
 
   const registered: string[] = data?.registered || [];
   const list = useMemo(
-    () => (data ? filterTournaments(data.tournaments, { ...filters, registered: data.registered || [], nowMs: Date.now() }) : []),
-    [data, filters],
+    () => (data ? filterTournaments(data.tournaments.map((t: any) => chipAccount?.tournaments.some((row) => row.id === t.id) ? { ...t, chip_economy: true } : t), { ...filters, registered: data.registered || [], nowMs: Date.now() }) : []),
+    [data, filters, chipAccount],
   );
 
   const updateFilters = (patch: Partial<TournamentFilters>) => {
@@ -61,9 +67,21 @@ export function Tournaments() {
     if (!user) { navigate('/login'); return; }
     setBusy(t.id);
     try {
-      await api.registerTourney(t.id);
+      const chipEvent = chipAccount?.tournaments.find((row) => row.id === t.id);
+      if (chipEvent) {
+        if (chipAccount?.mode !== 'enforce') throw new Error('Cash Chip tournament registration is currently inactive.');
+        let ticket = chipAccount.tickets.find((row) => row.tournament_id === t.id && row.state === 'issued');
+        if (!ticket) {
+          if (!window.confirm(`Buy a ticket for “${t.name}” using ${cashChips(chipEvent.buyin + chipEvent.fee)} from organizer #${chipEvent.owner_id}?`)) return;
+          const key = ticketKeys.current.get(t.id) || crypto.randomUUID(); ticketKeys.current.set(t.id, key);
+          const issued = await organizerChipsApi.buyTicket(t.id, key);
+          ticketKeys.current.delete(t.id);
+          ticket = { id: issued.id, organizer_id: chipEvent.owner_id, tournament_id: t.id, holder_id: user.id, price: chipEvent.buyin + chipEvent.fee, buyin: chipEvent.buyin, fee: chipEvent.fee, starting_stack: chipEvent.starting_stack, state: 'issued' };
+        }
+        await organizerChipsApi.redeemTicket(ticket.id);
+      } else await api.registerTourney(t.id);
       sound.play('coin');
-      toast({ kind: 'success', title: 'Registered', body: `${t.name} · ${money(t.buyin + t.fee)}` });
+      toast({ kind: 'success', title: 'Registered', body: `${t.name} · ${chipEvent ? cashChips(chipEvent.buyin + chipEvent.fee) : money(t.buyin + t.fee)}` });
       await load();
       await refreshUser();
     } catch (e: any) {
@@ -117,6 +135,10 @@ export function Tournaments() {
   const openDetail = (t: any) => setDetail(t);
   const closeDetail = useCallback(() => setDetail(null), []);
   const lobbyError = useCallback((message: string) => toast({ kind: 'error', title: 'Tournament', body: message }), [toast]);
+  const detailChipEvent = chipAccount?.tournaments.find((row) => row.id === liveDetail?.id);
+  const detailOrganizerId = detailChipEvent?.owner_id ?? liveDetail?.owner_id;
+  const detailIsChipEvent = Boolean(liveDetail?.chip_economy || detailChipEvent);
+  const detailBalance = detailIsChipEvent ? (chipAccount?.balances.find((row) => row.organizer_id === detailOrganizerId)?.balance || 0) : (user?.balance ?? 0);
 
   return (
     <>
@@ -154,7 +176,7 @@ export function Tournaments() {
           all={data?.tournaments || []}
           registered={registered.includes(detail.id)}
           busy={busy === detail.id}
-          balance={user?.balance ?? 0}
+          balance={detailBalance}
           meId={user?.id}
           onClose={closeDetail}
           onRegister={() => register(detail)}
