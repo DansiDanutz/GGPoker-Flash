@@ -1,19 +1,23 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import {
-  MARKETPLACE_CATEGORY_LABELS, MARKETPLACE_DELIVERY_LABELS, marketplaceApi, marketplacePrice,
+  MANAGEMENT_PRODUCT_IDS, MARKETPLACE_CATEGORY_LABELS, MARKETPLACE_DELIVERY_LABELS, marketplaceApi, marketplacePrice,
   type MarketplaceAdminData, type MarketplaceEntitlement, type MarketplaceProduct,
   type MarketplaceProductInput, type MarketplaceRequest, type MarketplaceSettings,
 } from '../lib/marketplace-api';
 import '../admin-marketplace.css';
+import { ManagementPlugins } from './ManagementPlugins';
+import { AdminMarketplaceFinance } from './AdminMarketplaceFinance';
 
-type Tab = 'catalog' | 'requests' | 'access' | 'content';
+type Tab = 'catalog' | 'requests' | 'access' | 'content' | 'plugins' | 'finance';
 type UserChoice = { id: number; nick: string; login?: string };
 type AccessSeed = { user: UserChoice; productId: string; requestId: number };
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'catalog', label: 'Catalog' }, { id: 'requests', label: 'Solicitări' },
   { id: 'access', label: 'Acces' }, { id: 'content', label: 'Conținut' },
+  { id: 'plugins', label: 'Pluginuri' },
+  { id: 'finance', label: 'Finanțe și activări' },
 ];
 const STATUS_LABELS = { draft: 'Ciornă', coming_soon: 'În pregătire', available: 'Disponibil', archived: 'Arhivat' };
 const REQUEST_LABELS = { pending: 'În așteptare', approved: 'Aprobată', declined: 'Refuzată' };
@@ -64,6 +68,7 @@ function ProductEditor({ product, onClose, onSaved, onDirtyChange }: {
   const nameInput = useRef<HTMLInputElement>(null);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved) || featureText !== saved.features.join('\n') || price !== (saved.price_cents === null ? '' : String(saved.price_cents / 100));
   const priced = ['one_time', 'monthly', 'yearly'].includes(draft.pricing);
+  const managementProduct = Boolean(product && MANAGEMENT_PRODUCT_IDS.has(product.id));
   useEffect(() => { nameInput.current?.focus(); }, []);
   // Refresh an untouched editor from the server without rebasing unsaved changes.
   useEffect(() => {
@@ -109,8 +114,8 @@ function ProductEditor({ product, onClose, onSaved, onDirtyChange }: {
         <Field label="Tipul produsului"><select value={draft.delivery} onChange={(event) => edit('delivery', event.target.value as MarketplaceProductInput['delivery'])}>{Object.entries(MARKETPLACE_DELIVERY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
         <Field label="Vizibilitate"><select value={draft.status} onChange={(event) => edit('status', event.target.value as MarketplaceProductInput['status'])}>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
         <Field label="Poziție în catalog" hint="Numerele mai mici apar primele."><input type="number" min={-10000} max={10000} step={1} value={draft.sort_order} onChange={(event) => edit('sort_order', Number(event.target.value))} /></Field>
-        <Field label="Modalitate de tarifare"><select value={draft.pricing} onChange={(event) => edit('pricing', event.target.value as MarketplaceProductInput['pricing'])}>{Object.entries(PRICING_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-        <Field label="Monedă"><select value={draft.currency} onChange={(event) => edit('currency', event.target.value as MarketplaceProductInput['currency'])}>{['EUR', 'RON', 'USD'].map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></Field>
+        <Field label="Modalitate de tarifare" hint={managementProduct ? 'Pluginurile de administrare folosesc o ofertă la cerere sau un tarif plătit.' : undefined}><select value={draft.pricing} onChange={(event) => edit('pricing', event.target.value as MarketplaceProductInput['pricing'])}>{Object.entries(PRICING_LABELS).filter(([value]) => !managementProduct || value !== 'free').map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+        <Field label="Monedă" hint={managementProduct ? 'Comenzile de pluginuri și creditele de comision se înregistrează în USD.' : undefined}><select value={draft.currency} disabled={managementProduct} onChange={(event) => edit('currency', event.target.value as MarketplaceProductInput['currency'])}>{(managementProduct ? ['USD'] : ['EUR', 'RON', 'USD']).map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></Field>
         {priced && <Field label="Preț afișat" hint="Valoarea afișată nu activează încasarea online." wide><input inputMode="decimal" type="number" min="0.01" max={1000000} step="0.01" required value={price} onChange={(event) => setPrice(event.target.value)} /></Field>}
         <Field label="Beneficii incluse" hint="Un beneficiu pe rând, maximum 12." wide><textarea rows={5} maxLength={2000} value={featureText} onChange={(event) => setFeatureText(event.target.value)} /></Field>
       </div>
@@ -153,7 +158,7 @@ function RequestsPanel({ requests, products, onRefresh, onGrant, onDirtyChange, 
       <div className="ma-request-heading"><div><span className="ma-eyebrow">SOLICITAREA #{request.id}</span><h3>{request.product_name}</h3><p>{request.user_nick || `Utilizator #${request.user_id}`} <span>· {dateLabel(request.created_at)}</span></p></div><span className={`ma-badge ma-status-${request.status}`}>{REQUEST_LABELS[request.status]}</span></div>
       <p className="ma-request-message">{request.message || 'Utilizatorul a solicitat informații fără un mesaj suplimentar.'}</p>
       <label className="ma-field"><span>Răspuns pentru utilizator</span><textarea id={`ma-response-${request.id}`} rows={3} maxLength={2000} disabled={busy !== null} value={responses[request.id] ?? request.response} onChange={(event) => setResponses((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Explică disponibilitatea și pașii următori…" /></label>
-      <div className="ma-request-actions"><button type="button" className="ma-button ma-button-secondary" disabled={busy !== null} onClick={() => review(request, 'declined')}>{busy === request.id ? 'Se salvează…' : 'Refuză cererea'}</button><button type="button" className="ma-button ma-button-primary" disabled={busy !== null} onClick={() => review(request, 'approved')}>{request.status === 'approved' ? 'Salvează răspunsul' : 'Aprobă cererea'}</button>{request.status === 'approved' && products.some((product) => product.id === request.product_id && product.status === 'available') && <button type="button" className="ma-button ma-button-secondary" disabled={busy !== null} onClick={() => onGrant(request)}>Pregătește accesul ↗</button>}</div>
+      <div className="ma-request-actions"><button type="button" className="ma-button ma-button-secondary" disabled={busy !== null} onClick={() => review(request, 'declined')}>{busy === request.id ? 'Se salvează…' : 'Refuză cererea'}</button><button type="button" className="ma-button ma-button-primary" disabled={busy !== null} onClick={() => review(request, 'approved')}>{request.status === 'approved' ? 'Salvează răspunsul' : 'Aprobă cererea'}</button>{request.status === 'approved' && products.some((product) => product.id === request.product_id && product.status === 'available') && <button type="button" className="ma-button ma-button-secondary" disabled={busy !== null} onClick={() => onGrant(request)}>{MANAGEMENT_PRODUCT_IDS.has(request.product_id) ? 'Pregătește comanda ↗' : 'Pregătește accesul ↗'}</button>}</div>
     </article>)}</div>}
   </section>;
 }
@@ -162,7 +167,7 @@ function AccessPanel({ products, entitlements, seed, onRefresh, onDirtyChange, o
   products: MarketplaceProduct[]; entitlements: MarketplaceEntitlement[]; seed: AccessSeed | null;
   onRefresh: () => Promise<void>; onDirtyChange: (dirty: boolean) => void; onNotice: (message: string) => void;
 }) {
-  const available = products.filter((product) => product.status === 'available');
+  const available = products.filter((product) => product.status === 'available' && !MANAGEMENT_PRODUCT_IDS.has(product.id));
   const [choice, setChoice] = useState<UserChoice | null>(seed?.user || null);
   const [query, setQuery] = useState(seed?.user.nick || '');
   const [matches, setMatches] = useState<UserChoice[]>([]);
@@ -219,6 +224,7 @@ function AccessPanel({ products, entitlements, seed, onRefresh, onDirtyChange, o
     <form className="ma-panel ma-grant" onSubmit={grant} aria-busy={busy === 'grant'}><fieldset className="ma-fieldset" disabled={busy !== null}>
       <div className="ma-panel-heading"><div><span className="ma-eyebrow">ACCES MANUAL</span><h3>Acordă acces la un serviciu</h3></div></div>
       <p className="ma-hint">Înregistrează dreptul de acces pentru o ofertă disponibilă. Furnizarea serviciului se face conform ofertei; această operațiune nu instalează module și nu încasează bani.</p>
+      <p className="ma-hint">Pluginurile de administrare se activează printr-o comandă plătită verificată în fila „Finanțe și activări”. Accesul manual nu le deblochează.</p>
       <ErrorNotice message={error} />
       <Field label="Utilizator existent" hint="Caută după nume sau cont, minimum două caractere."><input autoComplete="off" value={query} onChange={(event) => { setChoice(null); setQuery(event.target.value); }} placeholder="Caută un utilizator…" /></Field>
       {choice ? <div className="ma-selected-user"><span><strong>{choice.nick}</strong><small>{choice.login || `ID ${choice.id}`}</small></span><button type="button" className="ma-text-button" onClick={() => { setChoice(null); setQuery(''); }}>Schimbă</button></div> : <div className="ma-user-results" aria-live="polite">{searching && <p>Se caută…</p>}{searchError && <p className="ma-inline-error">{searchError}</p>}{!searching && searched && !matches.length && <p>Niciun utilizator activ găsit.</p>}{matches.map((user) => <button type="button" key={user.id} onClick={() => { setChoice(user); setQuery(user.nick); setMatches([]); }}><strong>{user.nick}</strong><span>{user.login} · #{user.id}</span></button>)}</div>}
@@ -341,7 +347,7 @@ export function AdminMarketplace({ onDirtyChange }: { onDirtyChange?: (dirty: bo
   };
   const prepareGrant = (request: MarketplaceRequest) => {
     if (!canDiscard()) return;
-    setDirty(false); setSeed({ user: { id: request.user_id, nick: request.user_nick || `Utilizator #${request.user_id}` }, productId: request.product_id, requestId: request.id }); setTab('access'); setNotice('');
+    setDirty(false); setSeed({ user: { id: request.user_id, nick: request.user_nick || `Utilizator #${request.user_id}` }, productId: request.product_id, requestId: request.id }); setTab(MANAGEMENT_PRODUCT_IDS.has(request.product_id) ? 'finance' : 'access'); setNotice('');
   };
   const products = (data?.products || []).filter((product) => (!status || product.status === status) && `${product.name} ${product.summary} ${product.slug}`.toLocaleLowerCase('ro').includes(query.toLocaleLowerCase('ro')));
 
@@ -360,6 +366,8 @@ export function AdminMarketplace({ onDirtyChange }: { onDirtyChange?: (dirty: bo
         {tab === 'requests' && <RequestsPanel requests={data.requests} products={data.products} onRefresh={load} onGrant={prepareGrant} onDirtyChange={setDirty} onNotice={setNotice} />}
         {tab === 'access' && <AccessPanel products={data.products} entitlements={data.entitlements} seed={seed} onRefresh={load} onDirtyChange={setDirty} onNotice={setNotice} />}
         {tab === 'content' && <ContentPanel settings={data.settings} onSaved={(settings) => { setData((current) => current ? { ...current, settings } : current); setNotice('Conținutul public a fost salvat.'); }} onDirtyChange={setDirty} />}
+        {tab === 'plugins' && <ManagementPlugins admin />}
+        {tab === 'finance' && <AdminMarketplaceFinance products={data.products} onDirtyChange={setDirty} initialOrder={seed ? { buyerUserId: seed.user.id, productId: seed.productId } : undefined} />}
       </div>
       <footer className="ma-footer"><span>Modificările sunt păstrate în baza de date și în jurnalul de administrare.</span><span>Plăți online: neactivate</span></footer>
     </>}

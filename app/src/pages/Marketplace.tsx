@@ -5,6 +5,8 @@ import {
   type MarketplaceAccount, type MarketplaceCatalog, type MarketplaceCategory, type MarketplaceProduct,
 } from '../lib/marketplace-api';
 import '../marketplace.css';
+import { ManagementPlugins } from '../components/ManagementPlugins';
+import { MarketplacePublisher } from '../components/MarketplacePublisher';
 
 type IconName = 'arrow' | 'code' | 'server' | 'layers' | 'check' | 'search' | 'close' | 'spark' | 'clock' | 'shield' | 'external' | 'grid';
 
@@ -201,6 +203,7 @@ export function Marketplace() {
           <button className="mp-brand" type="button" onClick={() => navigate(user ? '/' : '/login')} aria-label="Deschide DanGG"><img src={brand.logo} alt="DanGG" /><span>MARKETPLACE</span></button>
           <nav className="mp-navigation" aria-label="Navigare marketplace">
             <button type="button" onClick={() => scrollToSection('marketplace-catalog')}>Catalog</button>
+            <button type="button" onClick={() => scrollToSection('marketplace-management')}>Organizatori</button>
             <button type="button" onClick={() => scrollToSection('marketplace-how')}>Cum funcționează</button>
             {user && <button type="button" onClick={() => scrollToSection('marketplace-account')}>Contul meu</button>}
           </nav>
@@ -253,6 +256,10 @@ export function Marketplace() {
           <div className="mp-catalog-note"><Icon name="shield" /><p>{catalog?.settings.contact_note || 'Solicitările sunt analizate de echipa DanGG. Această pagină nu procesează plăți; prețul și livrarea se confirmă înainte de activare.'}</p></div>
         </section>
 
+        <section id="marketplace-management" className="mp-section mp-container" aria-label="Administrare prin pluginuri">
+          <ManagementPlugins userId={user?.id} onSelect={(productId) => { const product = products.find((entry) => entry.id === productId); if (product) openProduct(product); else { setCategory('all'); setQuery(''); scrollToSection('marketplace-catalog'); } }} />
+        </section>
+
         <section id="marketplace-how" className="mp-explanation-band" aria-labelledby="marketplace-how-title"><div className="mp-container mp-section">
           <div className="mp-section-heading"><div><span className="mp-eyebrow">LIBERTATE PENTRU COMUNITATE. OPȚIUNI PENTRU ORGANIZATORI.</span><h2 id="marketplace-how-title">Un proiect deschis.<br />Mai multe moduri de a-l folosi.</h2></div><p>Licența codului și accesul la un serviciu sunt lucruri distincte. Alege varianta potrivită pentru tine.</p></div>
           <div className="mp-explanation-grid">
@@ -275,6 +282,8 @@ export function Marketplace() {
             })}</ul>}<p className="mp-access-note">Drepturile de acces sunt înregistrate în cont. Livrarea fiecărui serviciu se confirmă conform ofertei.</p></div>
           </div>}
         </section>}
+
+        <div className="mp-section mp-container" id="marketplace-publisher"><MarketplacePublisher userId={user?.id} onLogin={() => navigate('/login?returnTo=marketplace')} /></div>
 
         <section className="mp-section mp-container mp-faq" aria-labelledby="marketplace-faq-title">
           <div><span className="mp-eyebrow">RĂSPUNSURI CLARE</span><h2 id="marketplace-faq-title">Înainte să alegi.</h2><p>Ce primești prin codul open-source și ce înseamnă serviciile din marketplace.</p><a className="mp-text-link" href={`${SOURCE_FILE_ROOT}/docs/LICENSING.md`} target="_blank" rel="noopener noreferrer">Ghidul de licențiere<Icon name="external" /></a></div>

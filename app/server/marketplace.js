@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Marketplace catalog, interest requests and manually provisioned service access.
-// This module does not process payments or change any gameplay balance or feature.
+// Commercial settlement and hosted management policy live in separate modules.
 import { randomUUID } from 'node:crypto';
+import { managementPlugin, seedManagementProducts } from './management-plugins.js';
 
 const PUBLIC_ROOT = '/api/marketplace';
 const ADMIN_ROOT = '/api/admin/marketplace';
@@ -119,6 +120,13 @@ function normalizeProduct(body, previous = null) {
     output.price_cents = value.price_cents;
   }
   if (['available', 'coming_soon'].includes(output.status) && !output.summary) fail('Adaugă un rezumat înainte de publicare.');
+  const plugin = managementPlugin(previous?.id);
+  if (plugin) {
+    if (!plugin.implemented && output.status === 'available') fail('Acest modul de administrare nu este încă implementat.', 409);
+    if (output.pricing === 'free') fail('Modulele de administrare folosesc un preț plătit sau o ofertă la cerere.');
+    if (output.currency !== 'USD') fail('Decontarea modulelor de administrare este disponibilă în USD.');
+    if (output.delivery !== 'hosted_service') fail('Acest modul reprezintă un serviciu de administrare găzduit.');
+  }
   return output;
 }
 
@@ -188,6 +196,7 @@ export function ensureMarketplaceSchema(db) {
     const insert = db.prepare(`INSERT OR IGNORE INTO marketplace_products (id,slug,name,summary,description,category,delivery,status,pricing,price_cents,currency,features_json,featured,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'coming_soon','quote',NULL,'EUR',?,?,?,?,?)`);
     const now = timestamp();
     for (const [index, item] of SEEDS.entries()) insert.run(item.id, item.slug, item.name, item.summary, item.description, item.category, item.delivery, JSON.stringify(item.features), item.featured ? 1 : 0, index * 10, now, now);
+    seedManagementProducts(db);
   });
 }
 
@@ -329,6 +338,7 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
         const body = objectBody(await readBody(req), ['product_id', 'user_id', 'expires_at', 'note']);
         const productId = textField(body.product_id, 'Produsul', 100, 1);
         const userId = numericId(body.user_id);
+        if (managementPlugin(productId)) fail('Accesul la un modul plătit se activează numai după înregistrarea unei plăți verificate în secțiunea Financiar.', 409);
         const product = getProduct(productId);
         if (!product || product.status !== 'available') fail('Accesul poate fi acordat numai pentru un produs disponibil.', 409);
         const target = db.prepare('SELECT id FROM users WHERE id=? AND banned=0 AND deleted_at IS NULL').get(userId);

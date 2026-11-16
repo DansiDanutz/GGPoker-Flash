@@ -451,6 +451,7 @@ DanGG assets with `bash tools/setup_assets.sh`; this does not extract the old cl
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Components, request flow, data model, table protocol |
 | [`docs/MARKETPLACE.md`](docs/MARKETPLACE.md) | Public marketplace, catalog, access requests and private owner administration |
+| [`docs/MARKETPLACE_IMPLEMENTATION.md`](docs/MARKETPLACE_IMPLEMENTATION.md) | Organizer plugins, publisher economics, payment ledger, implementation and rollout |
 | [`docs/CI.md`](docs/CI.md) | CI workflow, required checks, branch protection, PR flow |
 | [`docs/RELEASE.md`](docs/RELEASE.md) | Release checklist, verified surfaces, known gaps |
 | [`CHANGELOG.md`](CHANGELOG.md) | Dated history of shipped work |

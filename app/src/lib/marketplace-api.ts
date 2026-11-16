@@ -1,4 +1,5 @@
 import { getToken } from './api';
+import type { MarketplacePublisher, PublisherBalance } from './marketplace-commerce-api';
 
 export type MarketplaceCategory = 'hosting' | 'tools' | 'customization' | 'extensions';
 export type MarketplaceDelivery = 'hosted_service' | 'open_source_extension' | 'commercial_module';
@@ -76,6 +77,30 @@ export type MarketplaceAdminData = MarketplaceAccount & {
   stats: { products: number; published: number; pending: number; active_access: number };
 };
 
+export type ManagementMode = 'off' | 'observe' | 'enforce';
+export const MANAGEMENT_PRODUCT_IDS = new Set(['cash-games-manager', 'tournaments-manager', 'spin-and-go-manager', 'sit-and-go-manager', 'social-casino-manager']);
+export type ManagementPlugin = {
+  id: string;
+  name: string;
+  summary: string;
+  implemented: boolean;
+  scope: string;
+  capabilities: string[];
+};
+export type ManagementAccess = {
+  product_id: string;
+  active: boolean;
+  expires_at: string | null;
+  can_manage: boolean;
+  reason: string;
+};
+export type ManagementCatalog = {
+  mode: ManagementMode;
+  plugins: ManagementPlugin[];
+};
+export type ManagementAccount = ManagementCatalog & { access: ManagementAccess[] };
+export type PublisherAccount = { publisher: MarketplacePublisher | null; balance: PublisherBalance | null; submission_enabled: false; checkout_enabled: false };
+
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {};
@@ -96,6 +121,10 @@ const ADMIN = '/api/admin/marketplace';
 export const marketplaceApi = {
   catalog: () => request<MarketplaceCatalog>('/api/marketplace'),
   mine: () => request<MarketplaceAccount>('/api/marketplace/me'),
+  management: () => request<ManagementCatalog>('/api/marketplace/management'),
+  managementMine: () => request<ManagementAccount>('/api/marketplace/management/me'),
+  publisher: () => request<PublisherAccount>('/api/marketplace/publisher'),
+  registerPublisher: (body: { displayName: string; kind: 'individual' | 'company'; nervixpayMerchantId: string }) => request<{ publisher: MarketplacePublisher }>('/api/marketplace/publisher', 'POST', body),
   requestAccess: (product_id: string, message: string) => request<{ request: MarketplaceRequest }>(
     '/api/marketplace/requests', 'POST', { product_id, message },
   ),

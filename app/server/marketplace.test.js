@@ -53,8 +53,10 @@ test('public catalog has honest seeded products, safe settings and no checkout',
   const result = await srv.get('/api/marketplace');
   assert.equal(result.status, 200);
   assert.equal(result.data.checkout_enabled, false);
-  assert.equal(result.data.products.length, 4);
-  assert.ok(result.data.products.every((product) => product.status === 'coming_soon' && product.pricing === 'quote' && product.price_cents === null));
+  assert.equal(result.data.products.length, 9);
+  assert.ok(result.data.products.every((product) => product.pricing === 'quote' && product.price_cents === null));
+  const implemented = new Set(['cash-games-manager', 'tournaments-manager', 'spin-and-go-manager']);
+  assert.ok(result.data.products.every((product) => product.status === (implemented.has(product.id) ? 'available' : 'coming_soon')));
   assert.deepEqual(Object.keys(result.data).sort(), ['checkout_enabled', 'products', 'settings']);
   assert.deepEqual(Object.keys(result.data.settings).sort(), ['contact_note', 'requests_enabled', 'subtitle', 'title']);
   assert.deepEqual(Object.keys(result.data.products[0]).sort(), ['category', 'created_at', 'currency', 'delivery', 'description', 'featured', 'features', 'id', 'name', 'price_cents', 'pricing', 'slug', 'sort_order', 'status', 'summary', 'updated_at']);
