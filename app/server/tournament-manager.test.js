@@ -90,11 +90,14 @@ test('organiser tournament terms, capacity, setup replay, rescheduling and cance
     }
     assert.equal(finished, 'completed', 'real tournament hands reach settlement');
     const balances = [first, second].map(player => db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key=?').get(owner.user.id, `wallet:${player.user.id}`).balance);
-    assert.deepEqual(balances.sort((a,b) => a-b), [750, 1250]);
+    assert.deepEqual([...balances].sort((a,b) => a-b), [750, 1250]);
     assert.equal(db.prepare("SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key='burn'").get(owner.user.id).balance, 200);
     assert.equal(db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key=?').get(owner.user.id, `event:${final.id}`).balance, 0);
     const beforeReplay = db.prepare('SELECT count(*) n FROM organizer_chip_journals').get().n;
-    assert.equal((await srv.post(`/api/tournaments/${final.id}/play`, { token: first.token, body: {} })).status, 400);
+    const winner = [first, second][balances.indexOf(1250)], loser = [first, second][balances.indexOf(750)];
+    const reopened = await post(`/api/tournaments/${final.id}/play`, winner.token, {});
+    assert.equal(reopened.tableId, play.tableId, 'winner can revisit the existing result table');
+    assert.equal((await srv.post(`/api/tournaments/${final.id}/play`, { token: loser.token, body: {} })).status, 400);
     assert.equal(db.prepare('SELECT count(*) n FROM organizer_chip_journals').get().n, beforeReplay, 'finished-game retry cannot duplicate payout');
 
   } finally { await Promise.all(sockets.map(socket => socket.close())); db?.close(); await srv.stop(); fs.rmSync(srv.dataDir, { recursive: true, force: true }); }
