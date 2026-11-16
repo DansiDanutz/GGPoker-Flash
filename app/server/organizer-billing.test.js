@@ -96,3 +96,63 @@ test('restart pauses an expired session without debit and missed whole hours are
 test('published tariffs retain the contracted cent values', () => {
   assert.deepEqual(ORGANIZER_TARIFFS, { membership: 900, cash_setup: 1000, tournament_setup: 500, spin_setup: 300, reschedule: 100, cash_hour: 500, cash_start: 500 });
 });
+
+test('service-credit topup refunds reserve available balance and settle externally without another transfer', () => {
+  const f = fixture(), billing = createOrganizerBilling({ db: f.db, now: f.now, mode: 'enforce' });
+  fund(billing, 2000, 'provider-refund-source');
+  const reserved = billing.reserveCreditRefund({ userId: 2, originalReference: 'provider-refund-source', amountCents: 700, requestId: 'refund-request-1', actor: 1, reason: 'Customer requested a partial refund' });
+  assert.equal(reserved.status, 'reserved'); assert.equal(billing.account(2).balance_cents, 1300);
+  assert.deepEqual(billing.reserveCreditRefund({ userId: 2, originalReference: 'provider-refund-source', amountCents: 700, requestId: 'refund-request-1', actor: 1, reason: 'Customer requested a partial refund' }), reserved);
+  assert.throws(() => billing.reserveCreditRefund({ userId: 2, originalReference: 'provider-refund-source', amountCents: 701, requestId: 'refund-request-1', actor: 1, reason: 'Changed request' }), (error) => error.code === 'refund_conflict');
+  const paid = billing.markCreditRefundPaid({ requestId: 'refund-request-1', externalReference: 'processor-refund-1', actor: 1 });
+  assert.equal(paid.status, 'paid'); assert.equal(billing.markCreditRefundPaid({ requestId: 'refund-request-1', externalReference: 'processor-refund-1', actor: 1 }).status, 'paid');
+  assert.equal(billing.account(2).balance_cents, 1300, 'external payment never credits or debits service credits again');
+  assert.equal(billing.history(2).filter((entry) => entry.kind === 'credit_refund_reserved').length, 1);
+  assert.equal(billing.getCreditRefund('refund-request-1').external_reference, 'processor-refund-1');
+  assert.equal(billing.listCreditRefunds({ userId: 2 }).length, 1);
+});
+
+test('refund reservation enforces original topup ownership, remaining value, operators, and available credits', () => {
+  const f = fixture(), billing = createOrganizerBilling({ db: f.db, now: f.now, mode: 'off' });
+  fund(billing, 1000, 'bounded-source'); fund(billing, 500, 'foreign-source', 3);
+  assert.throws(() => billing.reserveCreditRefund({ userId: 2, originalReference: 'foreign-source', amountCents: 100, requestId: 'foreign', actor: 1, reason: 'Wrong customer' }), (error) => error.code === 'refund_source_invalid');
+  assert.throws(() => billing.reserveCreditRefund({ userId: 2, originalReference: 'topup:bounded-source', amountCents: 100, requestId: 'canonical-prefix-rejected', actor: 1, reason: 'Only raw provider receipts are accepted' }), (error) => error.code === 'refund_source_invalid');
+  assert.throws(() => billing.reserveCreditRefund({ userId: 2, originalReference: 'bounded-source', amountCents: 100, requestId: 'not-operator', actor: 2, reason: 'Unauthorized request' }), (error) => error.code === 'operator_required');
+  assert.equal(billing.account(2).balance_cents, 1000, 'invalid operator never reserves credits');
+  billing.reserveCreditRefund({ userId: 2, originalReference: 'bounded-source', amountCents: 600, requestId: 'partial-a', actor: 1, reason: 'First partial refund' });
+  assert.throws(() => billing.reserveCreditRefund({ userId: 2, originalReference: 'bounded-source', amountCents: 401, requestId: 'over-original', actor: 1, reason: 'Too much against receipt' }), (error) => error.code === 'refund_source_exhausted');
+  fund(billing, 800, 'available-source'); f.db.prepare('UPDATE organizer_billing_accounts SET balance_cents=100 WHERE user_id=2').run();
+  assert.throws(() => billing.reserveCreditRefund({ userId: 2, originalReference: 'available-source', amountCents: 500, requestId: 'over-balance', actor: 1, reason: 'Not enough unused credits' }), (error) => error.code === 'insufficient_credit');
+  f.db.prepare("INSERT INTO organizer_billing_ledger(user_id,kind,amount_cents,reference,metadata,created_at) VALUES (2,'membership',-1,'not-a-topup','{}',?)").run(new Date(f.now()).toISOString());
+  assert.throws(() => billing.reserveCreditRefund({ userId: 2, originalReference: 'not-a-topup', amountCents: 1, requestId: 'wrong-kind', actor: 1, reason: 'Wrong ledger kind' }), (error) => error.code === 'refund_source_invalid');
+});
+
+test('reserved refunds cancel once with restored credits while paid references remain globally immutable', () => {
+  const f = fixture(), billing = createOrganizerBilling({ db: f.db, now: f.now, mode: 'enforce' });
+  fund(billing, 1500, 'cancel-source');
+  billing.reserveCreditRefund({ userId: 2, originalReference: 'cancel-source', amountCents: 500, requestId: 'cancel-me', actor: 1, reason: 'Reserve before processor call' });
+  const cancelled = billing.cancelCreditRefund({ requestId: 'cancel-me', actor: 1, reason: 'Processor rejected the refund' });
+  assert.equal(cancelled.status, 'cancelled'); assert.equal(billing.account(2).balance_cents, 1500);
+  assert.equal(billing.cancelCreditRefund({ requestId: 'cancel-me', actor: 1, reason: 'Processor rejected the refund' }).status, 'cancelled');
+  assert.throws(() => billing.markCreditRefundPaid({ requestId: 'cancel-me', externalReference: 'cannot-pay-cancelled', actor: 1 }), (error) => error.code === 'refund_state');
+  billing.reserveCreditRefund({ userId: 2, originalReference: 'cancel-source', amountCents: 400, requestId: 'paid-one', actor: 1, reason: 'Paid refund one' });
+  billing.markCreditRefundPaid({ requestId: 'paid-one', externalReference: 'external-global-1', actor: 1 });
+  assert.throws(() => billing.markCreditRefundPaid({ requestId: 'paid-one', externalReference: 'changed-external', actor: 1 }), (error) => error.code === 'refund_conflict');
+  billing.reserveCreditRefund({ userId: 2, originalReference: 'cancel-source', amountCents: 300, requestId: 'paid-two', actor: 1, reason: 'Paid refund two' });
+  assert.throws(() => billing.markCreditRefundPaid({ requestId: 'paid-two', externalReference: 'external-global-1', actor: 1 }), (error) => error.code === 'external_refund_conflict');
+  assert.throws(() => billing.cancelCreditRefund({ requestId: 'paid-one', actor: 1, reason: 'Cannot cancel paid refund' }), (error) => error.code === 'refund_state');
+  assert.equal(billing.history(2).filter((entry) => entry.kind === 'credit_refund_cancelled').length, 1);
+});
+
+test('financial recovery refunds existing banned payers but never creates accounts for unknown users', () => {
+  const f = fixture(), billing = createOrganizerBilling({ db: f.db, now: f.now, mode: 'enforce' });
+  fund(billing, 1200, 'closed-payer-source'); f.db.prepare('UPDATE users SET banned=1 WHERE id=2').run();
+  const reserved = billing.reserveCreditRefund({ userId: 2, originalReference: 'closed-payer-source', amountCents: 400, requestId: 'closed-cancel', actor: 1, reason: 'Refund a closed payer account' });
+  assert.equal(reserved.status, 'reserved');
+  assert.equal(billing.cancelCreditRefund({ requestId: 'closed-cancel', actor: 1, reason: 'External processor rejected it' }).status, 'cancelled');
+  billing.reserveCreditRefund({ userId: 2, originalReference: 'closed-payer-source', amountCents: 500, requestId: 'closed-paid', actor: 1, reason: 'Refund a closed payer externally' });
+  assert.equal(billing.markCreditRefundPaid({ requestId: 'closed-paid', externalReference: 'closed-payer-external-1', actor: 1 }).status, 'paid');
+  assert.equal(f.db.prepare('SELECT balance_cents FROM organizer_billing_accounts WHERE user_id=2').get().balance_cents, 700);
+  assert.throws(() => billing.reserveCreditRefund({ userId: 999, originalReference: 'closed-payer-source', amountCents: 1, requestId: 'unknown-payer', actor: 1, reason: 'Must not create an account' }), (error) => error.code === 'user_not_found');
+  assert.equal(f.db.prepare('SELECT 1 FROM organizer_billing_accounts WHERE user_id=999').get(), undefined);
+});

@@ -224,7 +224,7 @@ export function Login() {
             </button>
           )}
           <CreatorCredit className="login2-splash-credit" withNews />
-          <p className="login2-splash-legal">18+ · Play money only · No real-money gambling</p>
+          <p className="login2-splash-legal">18+ · Demo balances and organizer Cash Chips are separate</p>
         </div>
       </>) : <>
       <LoginHero />
@@ -239,7 +239,7 @@ export function Login() {
 
           <div className="login2-head">
             <h2>{registering ? 'Create your account' : 'Welcome back'}</h2>
-            <p>{registering ? 'No deposit. No cash value. Just play.' : 'Your next hand is waiting.'}</p>
+            <p>{registering ? 'Start with free demo games. Organizer services are separate.' : 'Your next hand is waiting.'}</p>
           </div>
 
           {err && <div className="login2-error" role="alert">{err}</div>}
@@ -317,7 +317,7 @@ export function Login() {
           )}
 
           <CreatorCredit className="login2-card-credit" withNews />
-          <p className="login2-foot-note">18+ only. Play money only. No real money, deposits or cash value.</p>
+          <p className="login2-foot-note">18+ only. Demo balances have no cash value. Organizer games have separate balances and terms.</p>
           <p className="login2-version">v{APP_VERSION} · build {buildLabel(APP_BUILD)}</p>
         </div>
       </div>
@@ -349,14 +349,17 @@ export function Login() {
             <h3>{legal === 'terms' ? 'Terms of play' : 'Privacy'}</h3>
             {legal === 'terms' ? (
               <>
-                <p>DanGG is a play-money poker room. No real money is wagered, won or lost, and chips or accounts have no cash value.</p>
+                <p>Free demo balances have no cash value and cannot be converted into organizer Cash Chips. Paid platform services, when enabled, use separate service credits and explicitly renewed memberships.</p>
+                <p>Organizer Cash Chips work only in that organizer's games and tickets. Organizers set their own player payment and buyback terms. Any external buyback payment is the organizer's responsibility; the platform does not execute or guarantee it.</p>
+                <p>NervixPay service-credit funding is manually verified before crediting your account. Keep your order receipt and contact Support about missing credits, incorrect payments or refund requests. Funding does not automatically activate or renew a membership.</p>
                 <p>You must be 18 or older to play. The casino games are for adults and use the same play money.</p>
                 <p>Play is for entertainment. Abuse, collusion or automated play can end a session. Play responsibly.</p>
               </>
             ) : (
               <>
                 <p>We store your nickname, login, hashed password, game history and device preferences to run the game and keep your session secure.</p>
-                <p>No real-money payment data is collected. Contact support to delete your account and game history.</p>
+                <p>For paid services we store account-linked credit amounts, provider receipt references and billing history. Organizer chip transfers, tickets and buyback records are retained for reconciliation. A NervixPay checkout receives the account reference shown before you open it; any receipt details you enter there are processed by NervixPay. We do not request your wallet private keys.</p>
+                <p>Contact Support about your data or deletion requests. Financial and reconciliation records may need to remain available after account closure.</p>
               </>
             )}
             <button type="button" className="login2-modal-close" onClick={() => setLegal(null)}>Close</button>

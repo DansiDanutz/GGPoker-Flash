@@ -160,7 +160,7 @@ export function InstallApp({ onClose }: InstallAppProps = {}) {
         </button>
 
         <p className="install-note">
-          Play money only · no real-money deposits or cash value.
+          Demo balances and organizer Cash Chips stay separate · 18+.
         </p>
       </div>
     </div>

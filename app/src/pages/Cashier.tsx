@@ -119,7 +119,7 @@ export function Cashier() {
                   <div className="cashier-ewallet">aircash</div>
                 </section>
 
-                <p className="cashier-note">DanGG is play money only — “deposit” credits practice chips to this account and has no cash value.</p>
+                <p className="cashier-note">This demo cashier adds free practice chips with no cash value. It does not fund organizer Cash Chips or service credits.</p>
               </>
             )}
 
@@ -146,7 +146,7 @@ export function Cashier() {
             {tab === 'withdraw' && (
               <section className="cashier-card">
                 <header><b>Withdraw</b><span aria-hidden="true">⌃</span></header>
-                <p className="cashier-withdraw-note">Withdrawals are unavailable while DanGG is a play-money room. Your balance has no cash value and cannot be cashed out.</p>
+                <p className="cashier-withdraw-note">This demo balance has no cash value and cannot be withdrawn. Organizer Cash Chip buybacks are handled separately with the issuing organizer.</p>
                 <div className="cashier-row">
                   <button type="button" className="cashier-next" disabled>Withdraw</button>
                 </div>
@@ -179,7 +179,7 @@ export function Cashier() {
           </div>
 
           <div className="cashier-foot">
-            DanGG is a play-money practice room. No real-money deposits, withdrawals or cash value. © 2026 DanGG.
+            Demo cashier only. These free practice chips have no cash value. © 2026 DanGG.
           </div>
         </div>
       </div>

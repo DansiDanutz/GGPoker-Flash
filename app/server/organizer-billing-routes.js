@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { ORGANIZER_TARIFFS } from './organizer-billing.js';
 
+const MANUAL_FUNDING_LINKS = Object.freeze([
+  { amount_cents: 900, url: 'https://nervixpay.live/l/b0afce77-773a-48a0-9a73-72274791313d' },
+  { amount_cents: 1000, url: 'https://nervixpay.live/l/9aae5873-9e81-4ac0-be07-3b189ffded2f' },
+]);
+
 function fail(message, status = 400) { throw Object.assign(new Error(message), { status }); }
 function fields(body, allowed) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some((key) => !allowed.includes(key))) fail('Unexpected request field.');
@@ -20,15 +25,39 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
   });
   return async (req, res, url) => {
     const p = url.pathname;
-    if (!p.startsWith('/api/marketplace/billing') && p !== '/api/admin/marketplace/billing/credits') return false;
+    if (!p.startsWith('/api/marketplace/billing') && !p.startsWith('/api/admin/marketplace/billing/')) return false;
     if (p === '/api/marketplace/billing' && req.method === 'GET') {
-      json(res, 200, { mode: billing.mode, tariffs: ORGANIZER_TARIFFS, checkout_enabled: false }); return true;
+      const manualFunding = billing.mode === 'enforce' && process.env.GGPOKER_NERVIXPAY_MANUAL_FUNDING === 'on';
+      json(res, 200, {
+        mode: billing.mode, tariffs: ORGANIZER_TARIFFS, checkout_enabled: false,
+        manual_funding: manualFunding ? {
+          enabled: true, merchant_display: 'Fake or Real', settlement_account_display: 'Seme',
+          assets: ['USDC on Polygon', 'USDT on BNB Chain'], links: MANUAL_FUNDING_LINKS,
+        } : { enabled: false, links: [] },
+      }); return true;
     }
     if (p === '/api/admin/marketplace/billing/credits') {
       const actor = requireAdmin(req, res); if (!actor) return true;
       if (req.method !== 'POST') fail('Method not allowed.', 405);
       const b = fields(await readBody(req), ['userId', 'amountCents', 'reference']);
       json(res, 200, billing.credit({ ...b, actor: actor.id })); return true;
+    }
+    if (p.startsWith('/api/admin/marketplace/billing/')) {
+      const actor = requireAdmin(req, res); if (!actor) return true;
+      if (p === '/api/admin/marketplace/billing/refunds') {
+        if (req.method === 'GET') { json(res, 200, { refunds: billing.listCreditRefunds() }); return true; }
+        if (req.method !== 'POST') fail('Method not allowed.', 405);
+        const b = fields(await readBody(req), ['userId', 'originalReference', 'amountCents', 'requestId', 'reason']);
+        json(res, 200, billing.reserveCreditRefund({ ...b, actor: actor.id })); return true;
+      }
+      const refundAction = p.match(/^\/api\/admin\/marketplace\/billing\/refunds\/([^/]+)\/(paid|cancel)$/);
+      if (!refundAction) fail('Billing route not found.', 404);
+      if (req.method !== 'POST') fail('Method not allowed.', 405);
+      const requestId = decodeURIComponent(refundAction[1]);
+      const paid = refundAction[2] === 'paid';
+      const b = fields(await readBody(req), paid ? ['externalReference'] : ['reason']);
+      json(res, 200, paid ? billing.markCreditRefundPaid({ ...b, requestId, actor: actor.id })
+        : billing.cancelCreditRefund({ ...b, requestId, actor: actor.id })); return true;
     }
     const user = requireUser(req, res); if (!user) return true;
     if (p === '/api/marketplace/billing/me' && req.method === 'GET') {

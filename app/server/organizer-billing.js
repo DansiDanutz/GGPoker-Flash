@@ -35,6 +35,12 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     CREATE TABLE IF NOT EXISTS organizer_billing_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id), kind TEXT NOT NULL, amount_cents INTEGER NOT NULL, reference TEXT NOT NULL UNIQUE, resource_id TEXT, metadata TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS organizer_billing_operations (user_id INTEGER NOT NULL REFERENCES users(id), idempotency_key TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, result_id TEXT, created_at TEXT NOT NULL, PRIMARY KEY(user_id,idempotency_key));
     CREATE TABLE IF NOT EXISTS organizer_cash_sessions (user_id INTEGER NOT NULL REFERENCES users(id), table_id TEXT PRIMARY KEY, active INTEGER NOT NULL DEFAULT 0, paid_until TEXT NOT NULL, next_charge_at TEXT NOT NULL, started_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS organizer_billing_refunds (
+      request_id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), original_reference TEXT NOT NULL,
+      original_ledger_id INTEGER NOT NULL, amount_cents INTEGER NOT NULL CHECK(amount_cents > 0),
+      status TEXT NOT NULL CHECK(status IN ('reserved','paid','cancelled')), external_reference TEXT UNIQUE,
+      reason TEXT NOT NULL, actor_id INTEGER NOT NULL, cancelled_reason TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
     CREATE TRIGGER IF NOT EXISTS organizer_billing_ledger_no_update BEFORE UPDATE ON organizer_billing_ledger BEGIN SELECT RAISE(ABORT,'immutable billing ledger'); END;
     CREATE TRIGGER IF NOT EXISTS organizer_billing_ledger_no_delete BEFORE DELETE ON organizer_billing_ledger BEGIN SELECT RAISE(ABORT,'immutable billing ledger'); END;
   `);
@@ -43,9 +49,19 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
   if (mode === 'enforce') db.prepare('UPDATE organizer_cash_sessions SET active=0 WHERE paid_until<=?').run(stamp());
   const activeUser = (id) => db.prepare('SELECT id FROM users WHERE id=? AND deleted_at IS NULL AND banned=0').get(uid(id));
   function user(id) { if (!activeUser(id)) fail('Active user required.', 403, 'user_inactive'); }
+  function existingUser(id) { if (!db.prepare('SELECT id FROM users WHERE id=?').get(uid(id))) fail('User not found.', 404, 'user_not_found'); }
   function enabled() { if (mode !== 'enforce') fail('Organizer billing is disabled.', 409, 'billing_disabled'); }
   const ensure = (id) => db.prepare('INSERT OR IGNORE INTO organizer_billing_accounts(user_id) VALUES (?)').run(uid(id));
   const balance = (id) => db.prepare('SELECT balance_cents FROM organizer_billing_accounts WHERE user_id=?').get(id)?.balance_cents || 0;
+  function operator(id) {
+    user(id);
+    if (!db.prepare('SELECT id FROM users WHERE id=? AND is_admin=1').get(id)) fail('Verified operator required.', 403, 'operator_required');
+    return id;
+  }
+  function boundedText(value, name, max = 160) {
+    if (typeof value !== 'string' || !value.trim() || value.trim().length > max) fail(`${name} must contain 1–${max} characters.`);
+    return value.trim();
+  }
   function access(id, role) {
     const row = db.prepare('SELECT * FROM organizer_billing_memberships WHERE user_id=? AND role=?').get(id, role);
     return { active: !!row && row.active === 1 && Date.parse(row.expires_at) > now(), expires_at: row?.expires_at || null };
@@ -82,8 +98,7 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     return result;
   }
   const credit = ({ userId, amountCents, reference, actor }) => transaction(db, () => {
-    user(userId); user(actor);
-    if (!db.prepare('SELECT id FROM users WHERE id=? AND is_admin=1').get(actor)) fail('Verified operator required.', 403, 'operator_required');
+    user(userId); operator(actor);
     if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > MAX_CENTS) fail('Amount must be a bounded USD-cent integer.');
     if (typeof reference !== 'string' || !reference.trim() || reference.trim().length > 160) fail('A receipt reference of 1–160 characters is required.');
     const receipt = reference.trim(), ref = `topup:${receipt}`;
@@ -98,6 +113,60 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     journal(userId, 'credit_topup', amountCents, ref, null, { actor, receipt });
     db.prepare('INSERT INTO audit_log(actor,action,detail) VALUES (?,?,?)').run(String(actor), 'organizer_credit_topup', JSON.stringify({ userId, amountCents, reference: receipt }));
     return account(userId);
+  });
+  const getCreditRefund = (requestId) => db.prepare('SELECT request_id,user_id,original_reference,amount_cents,status,external_reference,reason,created_at FROM organizer_billing_refunds WHERE request_id=?').get(key(requestId)) || null;
+  const listCreditRefunds = ({ userId } = {}) => userId == null
+    ? db.prepare('SELECT request_id,user_id,original_reference,amount_cents,status,external_reference,reason,created_at FROM organizer_billing_refunds ORDER BY created_at DESC,request_id DESC LIMIT 100').all()
+    : db.prepare('SELECT request_id,user_id,original_reference,amount_cents,status,external_reference,reason,created_at FROM organizer_billing_refunds WHERE user_id=? ORDER BY created_at DESC,request_id DESC LIMIT 100').all(uid(userId));
+  const reserveCreditRefund = ({ userId, originalReference, amountCents, requestId, actor, reason }) => transaction(db, () => {
+    existingUser(userId); operator(actor); requestId = key(requestId); originalReference = boundedText(originalReference, 'originalReference'); reason = boundedText(reason, 'reason', 1000);
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > MAX_CENTS) fail('Amount must be a bounded USD-cent integer.');
+    const existing = db.prepare('SELECT * FROM organizer_billing_refunds WHERE request_id=?').get(requestId);
+    if (existing) {
+      if (existing.user_id !== userId || existing.original_reference !== originalReference || existing.amount_cents !== amountCents || existing.actor_id !== actor || existing.reason !== reason) fail('Refund request already used with different details.', 409, 'refund_conflict');
+      return getCreditRefund(requestId);
+    }
+    const source = db.prepare("SELECT * FROM organizer_billing_ledger WHERE reference=? AND user_id=? AND kind='credit_topup'").get(`topup:${originalReference}`, userId);
+    if (!source) fail('Original service-credit topup not found for this user.', 409, 'refund_source_invalid');
+    const allocated = db.prepare("SELECT COALESCE(SUM(amount_cents),0) total FROM organizer_billing_refunds WHERE original_ledger_id=? AND status IN ('reserved','paid')").get(source.id).total;
+    if (allocated + amountCents > source.amount_cents) fail('Original topup has no remaining refundable value.', 409, 'refund_source_exhausted');
+    const debitResult = db.prepare('UPDATE organizer_billing_accounts SET balance_cents=balance_cents-? WHERE user_id=? AND balance_cents>=?').run(amountCents, userId, amountCents);
+    if (debitResult.changes !== 1) fail('Insufficient service credits.', 402, 'insufficient_credit');
+    db.prepare("INSERT INTO organizer_billing_refunds VALUES (?,?,?,?,?,'reserved',NULL,?,?,NULL,?,?)").run(requestId, userId, originalReference, source.id, amountCents, reason, actor, stamp(), stamp());
+    journal(userId, 'credit_refund_reserved', -amountCents, `credit-refund:${requestId}:reserve`, originalReference, { actor, requestId, originalReference, reason });
+    db.prepare('INSERT INTO audit_log(actor,action,detail) VALUES (?,?,?)').run(String(actor), 'organizer_credit_refund_reserved', JSON.stringify({ requestId, userId, originalReference, amountCents, reason }));
+    return getCreditRefund(requestId);
+  });
+  const markCreditRefundPaid = ({ requestId, externalReference, actor }) => transaction(db, () => {
+    operator(actor); requestId = key(requestId); externalReference = boundedText(externalReference, 'externalReference');
+    const row = db.prepare('SELECT * FROM organizer_billing_refunds WHERE request_id=?').get(requestId);
+    if (!row) fail('Refund request not found.', 404, 'refund_not_found');
+    if (row.status === 'paid') {
+      if (row.external_reference !== externalReference) fail('Paid refund details cannot be changed.', 409, 'refund_conflict');
+      return getCreditRefund(requestId);
+    }
+    if (row.status !== 'reserved') fail('Only a reserved refund can be marked paid.', 409, 'refund_state');
+    if (db.prepare('SELECT 1 FROM organizer_billing_refunds WHERE external_reference=? AND request_id<>?').get(externalReference, requestId)) fail('External refund reference is already used.', 409, 'external_refund_conflict');
+    db.prepare("UPDATE organizer_billing_refunds SET status='paid',external_reference=?,updated_at=? WHERE request_id=?").run(externalReference, stamp(), requestId);
+    db.prepare('INSERT INTO audit_log(actor,action,detail) VALUES (?,?,?)').run(String(actor), 'organizer_credit_refund_paid', JSON.stringify({ requestId, externalReference }));
+    return getCreditRefund(requestId);
+  });
+  const cancelCreditRefund = ({ requestId, actor, reason }) => transaction(db, () => {
+    operator(actor); requestId = key(requestId); reason = boundedText(reason, 'reason', 1000);
+    const row = db.prepare('SELECT * FROM organizer_billing_refunds WHERE request_id=?').get(requestId);
+    if (!row) fail('Refund request not found.', 404, 'refund_not_found');
+    if (row.status === 'cancelled') {
+      if (row.cancelled_reason !== reason) fail('Cancelled refund details cannot be changed.', 409, 'refund_conflict');
+      return getCreditRefund(requestId);
+    }
+    if (row.status !== 'reserved') fail('Only a reserved refund can be cancelled.', 409, 'refund_state');
+    ensure(row.user_id);
+    if (balance(row.user_id) > MAX_CENTS - row.amount_cents) fail('Service-credit balance limit exceeded.');
+    db.prepare('UPDATE organizer_billing_accounts SET balance_cents=balance_cents+? WHERE user_id=?').run(row.amount_cents, row.user_id);
+    db.prepare("UPDATE organizer_billing_refunds SET status='cancelled',cancelled_reason=?,updated_at=? WHERE request_id=?").run(reason, stamp(), requestId);
+    journal(row.user_id, 'credit_refund_cancelled', row.amount_cents, `credit-refund:${requestId}:cancel`, row.original_reference, { actor, requestId, reason });
+    db.prepare('INSERT INTO audit_log(actor,action,detail) VALUES (?,?,?)').run(String(actor), 'organizer_credit_refund_cancelled', JSON.stringify({ requestId, reason }));
+    return getCreditRefund(requestId);
   });
   const subscribe = ({ userId, role, idempotencyKey: k }) => transaction(db, () => {
     enabled(); user(userId);
@@ -197,5 +266,5 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     user(id);
     return db.prepare('SELECT * FROM organizer_billing_ledger WHERE user_id=? ORDER BY id DESC LIMIT 100').all(id);
   }
-  return { mode, tariffs: ORGANIZER_TARIFFS, account, credit, subscribe, requireMembership, setup, replay, cashSession, startCash, stopCash, tickCash, canDeal, reschedule, history };
+  return { mode, tariffs: ORGANIZER_TARIFFS, account, credit, reserveCreditRefund, markCreditRefundPaid, cancelCreditRefund, getCreditRefund, listCreditRefunds, subscribe, requireMembership, setup, replay, cashSession, startCash, stopCash, tickCash, canDeal, reschedule, history };
 }

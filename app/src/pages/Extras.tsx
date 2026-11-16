@@ -222,7 +222,7 @@ export function Support() {
   const { toast } = useApp();
   const [open, setOpen] = useState(0);
   const faq = [
-    ['Is this real money?', 'No. DanGG is a play-money poker site built for demonstration. No real money, deposits or cash value are involved.'],
+    ['Which balance am I using?', 'Free demo balances have no cash value. Paid service credits and organizer Cash Chips are separate when enabled. Cash Chips work only with their issuing organizer, who sets and fulfills any external payment or buyback terms.'],
     ['How do I get chips?', 'Open the Cashier and deposit play money instantly, or claim your daily missions in My Rewards.'],
     ['Where are my hand histories?', 'Every hand you play is stored locally and can be replayed from Hand History.'],
     ['Can I play with friends?', 'Yes — open the same table in two browser windows or on two devices on your local network. Bots fill empty seats.'],

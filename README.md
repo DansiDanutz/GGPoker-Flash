@@ -16,7 +16,10 @@ and use their own service identity; see the [brand policy](TRADEMARKS.md).
 
 [![CI](https://github.com/OpenPoker4all/OpenPoker/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenPoker4all/OpenPoker/actions/workflows/ci.yml)
 
-> **Play money only.** No real-money deposits, withdrawals or cash value. Not affiliated
+> **Separate balances.** Free demo balances have no cash value. Optional paid organizer
+> services use separate service credits and organizer-specific Cash Chips; external player
+> payments and buybacks are the organizer's responsibility. Paid features default off.
+> Not affiliated
 > with GGPoker. See [licensing](docs/LICENSING.md) for AGPL-3.0-only, retained MIT
 > rights, third-party notices and the limits of the asset provenance review.
 

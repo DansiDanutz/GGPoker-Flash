@@ -19,7 +19,7 @@ async function postOk(srv, route, token, body) {
 }
 
 test('enforced organizer billing covers funding, memberships, setup, sessions, replay and rescheduling', async () => {
-  const srv = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce' } });
+  const srv = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'off' } });
   try {
     const admin = await srv.login('admin', 'admin123');
     const owner = await register(srv, 'billing_owner');
@@ -29,6 +29,8 @@ test('enforced organizer billing covers funding, memberships, setup, sessions, r
     assert.equal(config.status, 200);
     assert.equal(config.data.mode, 'enforce');
     assert.equal(config.data.tariffs.membership, 900);
+    assert.equal(config.data.checkout_enabled, false);
+    assert.deepEqual(config.data.manual_funding, { enabled: false, links: [] });
     await postOk(srv, '/api/admin/tables', admin, { name: 'Platform table without a subscription', game: 'holdem' });
     assert.equal((await srv.post('/api/tables/host', { token: admin, body: { game: 'holdem', idempotencyKey: 'admin-private-unpaid' } })).status, 402, 'admin authority never buys private hosting');
 
@@ -118,6 +120,27 @@ test('enforced organizer billing covers funding, memberships, setup, sessions, r
   } finally { await srv.stop(); }
 });
 
+test('manual NervixPay funding links require both explicit opt-in and enforced billing', async () => {
+  const enabled = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'on' } });
+  try {
+    const config = await enabled.get(BILLING);
+    assert.equal(config.status, 200);
+    assert.equal(config.data.checkout_enabled, false, 'automated checkout remains disabled');
+    assert.equal(config.data.manual_funding.enabled, true);
+    assert.deepEqual(config.data.manual_funding.links, [
+      { amount_cents: 900, url: 'https://nervixpay.live/l/b0afce77-773a-48a0-9a73-72274791313d' },
+      { amount_cents: 1000, url: 'https://nervixpay.live/l/9aae5873-9e81-4ac0-be07-3b189ffded2f' },
+    ]);
+    assert.deepEqual(config.data.manual_funding.assets, ['USDC on Polygon', 'USDT on BNB Chain']);
+  } finally { await enabled.stop(); }
+
+  const billingOff = await startServer({ env: { GGPOKER_USAGE_BILLING: 'off', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'on' } });
+  try {
+    const config = await billingOff.get(BILLING);
+    assert.deepEqual(config.data.manual_funding, { enabled: false, links: [] });
+  } finally { await billingOff.stop(); }
+});
+
 test('production admin network guard also protects organizer credit funding', async () => {
   const srv = await startServer({ env: {
     NODE_ENV: 'production', GGPOKER_TRUST_PROXY: '1', GGPOKER_ADMIN_ALLOW: '',
@@ -129,5 +152,30 @@ test('production admin network guard also protects organizer credit funding', as
     });
     assert.equal(denied.status, 403);
     assert.match(String(denied.data?.error), /restricted/i);
+    assert.equal((await srv.get('/api/admin/marketplace/billing/refunds', { headers: { 'x-forwarded-for': '203.0.113.5' } })).status, 403);
+  } finally { await srv.stop(); }
+});
+
+test('only private finance admins can reserve, cancel or record externally paid service-credit refunds', async () => {
+  const srv = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce' } });
+  const refunds = '/api/admin/marketplace/billing/refunds';
+  try {
+    const admin = await srv.login('admin', 'admin123');
+    const owner = await register(srv, 'refund_owner');
+    const body = { userId: owner.user.id, originalReference: 'refund-route-receipt', amountCents: 1000, requestId: 'refund-route-1', reason: 'Verified unused credit refund request' };
+    await postOk(srv, '/api/admin/marketplace/billing/credits', admin, { userId: owner.user.id, amountCents: 1000, reference: body.originalReference });
+    assert.equal((await srv.get(refunds, { token: owner.token })).status, 403);
+    assert.equal((await srv.post(refunds, { token: owner.token, body })).status, 403);
+    assert.equal((await srv.post(refunds, { token: admin, body: { ...body, actor: owner.user.id } })).status, 400);
+    assert.equal((await postOk(srv, refunds, admin, body)).status, 'reserved');
+    assert.equal((await srv.get(`${BILLING}/me`, { token: owner.token })).data.balance_cents, 0);
+    assert.equal((await srv.get(refunds, { token: admin })).data.refunds[0].request_id, body.requestId);
+    assert.equal((await srv.post(`${refunds}/${body.requestId}/cancel`, { token: owner.token, body: { reason: 'Not authorized' } })).status, 403);
+    assert.equal((await postOk(srv, `${refunds}/${body.requestId}/cancel`, admin, { reason: 'Verified no external payment was sent' })).status, 'cancelled');
+    assert.equal((await srv.get(`${BILLING}/me`, { token: owner.token })).data.balance_cents, 1000);
+    await postOk(srv, refunds, admin, { ...body, requestId: 'refund-route-2' });
+    assert.equal((await postOk(srv, `${refunds}/refund-route-2/paid`, admin, { externalReference: 'verified-external-refund-1' })).status, 'paid');
+    assert.equal((await postOk(srv, `${refunds}/refund-route-2/paid`, admin, { externalReference: 'verified-external-refund-1' })).status, 'paid');
+    assert.equal((await srv.get(`${BILLING}/me`, { token: owner.token })).data.balance_cents, 0);
   } finally { await srv.stop(); }
 });

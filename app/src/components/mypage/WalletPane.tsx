@@ -53,7 +53,7 @@ export function WalletPane() {
         <button type="button" className="wallet-action" onClick={() => navigate('/rewards')}>Daily freebie</button>
       </div>
 
-      <p className="wallet-note">Play money only. Balances have no cash value and cannot be withdrawn.</p>
+      <p className="wallet-note">These demo balances have no cash value and cannot be withdrawn. Organizer Cash Chips and service credits are separate.</p>
     </div>
   );
 }

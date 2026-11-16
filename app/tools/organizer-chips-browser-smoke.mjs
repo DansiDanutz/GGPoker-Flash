@@ -26,13 +26,17 @@ async function pageFor(token) {
   const page = await context.newPage(); currentPage = page; page.setDefaultTimeout(15000);
   await page.setViewport({ width: 1280, height: 1000 });
   page.on('dialog', (dialog) => dialog.accept()); page.on('pageerror', (error) => errors.push(error.message));
-  await page.evaluateOnNewDocument((token) => { localStorage.setItem('ggpoker.token', token); sessionStorage.setItem('ggpoker.entered', '1'); }, token);
+  await page.evaluateOnNewDocument((token) => {
+    localStorage.setItem('ggpoker.token', token); sessionStorage.setItem('ggpoker.entered', '1');
+    window.__externalCheckoutAttempts = [];
+    window.open = (url, target, features) => { window.__externalCheckoutAttempts.push({ url: String(url), target, features }); return null; };
+  }, token);
   await page.goto(`${srv.base}/marketplace`);
   await page.waitForSelector(panel); return page;
 }
 try {
   await fs.mkdir(artifacts, { recursive: true });
-  srv = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_ORGANIZER_CHIPS: 'enforce' } });
+  srv = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_ORGANIZER_CHIPS: 'enforce', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'on' } });
   const admin = await srv.login('admin', 'admin123');
   const owner = await post('/api/auth/register', null, { login: 'chips_browser_owner', nick: 'ChipBrowserOwner', password: 'browser-chip-password' });
   const recipient = await post('/api/auth/register', null, { login: 'chips_browser_player', nick: 'ChipBrowserPlayer', password: 'browser-chip-password' });
@@ -41,6 +45,21 @@ try {
   browser = await puppeteer.launch({ executablePath, headless: true, args: ['--disable-dev-shm-usage', '--no-first-run'] });
   const ownerPage = await pageFor(owner.token);
   const billing = 'section[aria-label="Credite și servicii pentru organizatori"]';
+  const funding = 'section[aria-label="Finanțare manuală credite servicii"]';
+  await ownerPage.waitForSelector(funding);
+  assert.deepEqual(await ownerPage.evaluate(() => window.__externalCheckoutAttempts), [], 'Funding UI navigated before an explicit click.');
+  const fundingButtons = await ownerPage.$$(`${funding} button`);
+  assert.equal(fundingButtons.length, 2);
+  await fundingButtons[0].click();
+  const checkoutAttempt = await ownerPage.evaluate(() => window.__externalCheckoutAttempts[0]);
+  const checkoutUrl = new URL(checkoutAttempt.url);
+  assert.equal(checkoutUrl.origin + checkoutUrl.pathname, 'https://nervixpay.live/l/b0afce77-773a-48a0-9a73-72274791313d');
+  assert.equal(checkoutUrl.searchParams.get('ref'), `openpoker:user:${owner.user.id}`);
+  assert.equal(checkoutUrl.searchParams.has('reference'), false);
+  assert.equal(checkoutAttempt.target, '_blank');
+  assert.match(await ownerPage.$eval(funding, (node) => node.textContent), /verificată manual|verificării operatorului/);
+  assert.equal(new URL(ownerPage.url()).origin, srv.base);
+  assert.equal((await ownerPage.browser().pages()).some((page) => page.url().startsWith('https://nervixpay.live/')), false, 'Smoke must not open an external payment page.');
   await ownerPage.waitForFunction((scope) => [...document.querySelectorAll(`${scope} article`)].some((a) => a.querySelector('strong')?.textContent === 'Organizator' && a.querySelector('button') && !a.querySelector('button').disabled), {}, billing);
   const subscribe = await ownerPage.evaluateHandle((scope) => [...document.querySelectorAll(`${scope} article`)].find((a) => a.querySelector('strong')?.textContent === 'Organizator').querySelector('button'), billing);
   await subscribe.asElement().evaluate((button) => button.scrollIntoView({ block: 'center' }));

@@ -17,7 +17,9 @@ All service amounts are integer USD cents. Organizer and Contributor memberships
 
 Service credits, publisher commission credits, and player game balances are separate accounts. First-party membership and usage receipts do not incur an additional 20% publisher commission. The existing commission ledger remains separate; automatic third-party plugin publishing and checkout are not part of this release.
 
-The private finance operator can record independently verified service-credit funding with a unique receipt reference. Replaying the same receipt and amount is harmless; reuse for another payer or amount fails. This records an externally verified payment; it does not transfer funds, verify a provider transaction automatically, or initiate a refund. The provider merchant, website approval, receipts and refund/reconciliation process must be verified before accepting live credit funding.
+The private finance operator can record independently verified service-credit funding with a unique receipt reference. Replaying the same receipt and amount is harmless; reuse for another payer or amount fails. This records an externally verified payment; it does not transfer funds or verify a provider transaction automatically. `GGPOKER_NERVIXPAY_MANUAL_FUNDING=on` exposes the verified $9/$10 NervixPay links only with billing enforced. The signed-in account reference uses the provider's `ref` parameter; operator verification is still required.
+
+Unused service-credit refunds reserve available credits against the original top-up before any external payment. Private operators may record independently verified settlement or cancel an externally unpaid reservation; cancellation restores credits once. Paid/cancelled states and conflicting references cannot be reused. Refund recovery is available for closed or banned payers and while billing is off, but always requires an active private administrator. Memberships, consumed services and Cash Chip purchases are not automatically unwound. See the [first paid launch runbook](first-paid-launch-runbook.md) for verified merchant/link IDs, receipt matching, refund operations and rollout/rollback order.
 
 ## Lifecycle
 
@@ -33,7 +35,7 @@ Tournament and Spin fees cover setup of the resource, not every subsequent Spin 
 
 Active legacy paid access to the three management products blocks startup in `enforce` mode until the purchased promises are reconciled. Other commerce history is retained. Existing private cash tables have no retroactive setup charge but require a funded start when enforcement is activated. Existing private Spin tables without a launch schedule are grandfathered for setup and keep their existing lifecycle; their owners need membership for new management operations. Review these resources before activation.
 
-No new billing configuration has been deployed. The approved PR #210 production deployment keeps paid enforcement off and checkout disabled.
+No new billing configuration has been deployed. Production now includes PR #214's unrelated creator-news fix; paid enforcement and automated checkout remain off. The runbook records the read-only migration inventory and exact observed production commit.
 
 ## Organizer Cash Chips and tickets
 
@@ -56,7 +58,7 @@ Spin requires an explicit **20,000× stake** reserve before players join: 100 mi
 
 A buyback specifies chips plus separately negotiated payment amount/currency/details. The request locks payout escrow. The organizer pays externally and reports a unique receipt matching the agreement. Recipient confirmation returns chips to organizer inventory: **buybacks do not burn chips**. Unreported requests may be cancelled/rejected; reported payments stay locked until confirmation or audited resolution.
 
-No automated NervixPay customer payout is implemented or claimed. A receipt report is an assertion, not automatic provider verification. Provider approval and a supported merchant payout contract remain external gates.
+No automated NervixPay customer payout is implemented or claimed. A receipt report is an assertion, not automatic provider verification. A supported merchant payout contract remains necessary before any future automatic payout implementation.
 
 Recovery APIs require an authenticated administrator through the existing private-network boundary:
 
@@ -74,4 +76,4 @@ Diamonds are for future OpenPoker tournaments shared across organizers' players.
 
 Tests cover billing periods, hourly charges, receipt boundaries, setup rollback, organizer isolation, immutable burns, mint/rake conservation, tickets, exact entrant sets, bounties, buybacks and recovery. Real HTTP/WebSocket tests drive a raked hand with a pending top-up and prove exactly-once restart refunds without altering free USD. Browser CI exercises grants, packs, transfers, tickets and mobile rendering on a disposable enforced fixture.
 
-This paid revision is a draft and is undeployed. Activation requires provider approval and verified funding, review of legacy-resource migration and customer terms, passing current-head review/CI and separate authorization for an exact production rollout. Earlier approval covered only PR #210 with paid enforcement off.
+This paid revision is a draft and is undeployed. Activation requires verified funding, review of legacy-resource migration and customer notices, passing current-head review/CI and separate authorization for an exact production rollout. NervixPay's website-placement checklist is not external underwriting approval. Earlier production approval covered only PR #210 with paid enforcement off.

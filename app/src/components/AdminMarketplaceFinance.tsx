@@ -1,7 +1,7 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { marketplaceCommerceApi, type CommerceAdminData, type CommerceOrder, type PaymentProof, type PublisherStatus } from '../lib/marketplace-commerce-api';
 import { MANAGEMENT_PRODUCT_IDS, marketplacePrice, type MarketplaceProduct } from '../lib/marketplace-api';
-import { organizerBillingApi } from '../lib/organizer-billing-api';
+import { organizerBillingApi, type ServiceCreditRefund } from '../lib/organizer-billing-api';
 import '../marketplace-finance.css';
 
 const dollars = (cents: number) => new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'USD' }).format(cents / 100);
@@ -48,6 +48,10 @@ export function AdminMarketplaceFinance({ products, onDirtyChange, initialOrder 
   const [reviewReason, setReviewReason] = useState('');
   const [credits, setCredits] = useState({ amount: '', reference: '', kind: 'confirmed_topup' as 'confirmed_topup' | 'adjustment', verified: false });
   const [organizerCredit, setOrganizerCredit] = useState({ userId: '', amount: '', reference: '', verified: false });
+  const [serviceRefunds, setServiceRefunds] = useState<ServiceCreditRefund[]>([]);
+  const [serviceRefund, setServiceRefund] = useState({ userId: '', originalReference: '', amount: '', reason: '', verified: false });
+  const [serviceRefundKey, setServiceRefundKey] = useState(() => crypto.randomUUID());
+  const [refundActions, setRefundActions] = useState<Record<string, { externalReference: string; cancelReason: string; paidVerified: boolean; cancelVerified: boolean }>>({});
   const [offerProduct, setOfferProduct] = useState('');
   const [buyerId, setBuyerId] = useState(initialOrder ? String(initialOrder.buyerUserId) : '');
   const [orderProduct, setOrderProduct] = useState(initialOrder?.productId || '');
@@ -65,14 +69,15 @@ export function AdminMarketplaceFinance({ products, onDirtyChange, initialOrder 
   const saleProducts = eligibleProducts.filter((product) => data?.offers.some((offer) => offer.product_id === product.id && data.publishers.some((entry) => entry.id === offer.publisher_id && entry.status === 'approved')));
   const selectedProduct = products.find((product) => product.id === orderProduct);
   const productName = (id: string) => products.find((product) => product.id === id)?.name || id;
-  const isDirty = Boolean(publisherForm.ownerUserId || publisherForm.displayName || publisherForm.nervixpayMerchantId || credits.amount || credits.reference || organizerCredit.userId || organizerCredit.amount || organizerCredit.reference || reviewReason || offerProduct || buyerId || paymentId || paidAt || releaseReason || refundReference || (selectedOrder && !selectedOrder.payment_binding && proof.providerOrderId));
+  const isDirty = Boolean(publisherForm.ownerUserId || publisherForm.displayName || publisherForm.nervixpayMerchantId || credits.amount || credits.reference || organizerCredit.userId || organizerCredit.amount || organizerCredit.reference || serviceRefund.userId || serviceRefund.originalReference || serviceRefund.amount || serviceRefund.reason || Object.values(refundActions).some((value) => value.externalReference || value.cancelReason) || reviewReason || offerProduct || buyerId || paymentId || paidAt || releaseReason || refundReference || (selectedOrder && !selectedOrder.payment_binding && proof.providerOrderId));
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const next = await marketplaceCommerceApi.get();
+      const [next, refundData] = await Promise.all([marketplaceCommerceApi.get(), organizerBillingApi.refunds()]);
       if (!mounted.current) return;
       setData(next);
+      setServiceRefunds(refundData.refunds || []);
       setPublisherId((current) => next.publishers.some((entry) => entry.id === current) ? current : next.publishers[0]?.id || '');
     } finally { if (mounted.current) setLoading(false); }
   }, []);
@@ -97,6 +102,10 @@ export function AdminMarketplaceFinance({ products, onDirtyChange, initialOrder 
       }
     } catch (failure) { if (mounted.current) setError(failureText(failure)); }
     finally { busyRef.current = false; if (mounted.current) setBusy(''); }
+  };
+  const updateServiceRefund = (patch: Partial<typeof serviceRefund>) => {
+    setServiceRefund((value) => ({ ...value, ...patch, verified: false }));
+    setServiceRefundKey(crypto.randomUUID());
   };
 
   const selectOrder = (order: CommerceOrder) => {
@@ -136,7 +145,20 @@ export function AdminMarketplaceFinance({ products, onDirtyChange, initialOrder 
       <div className="mf-form-grid"><Field label="ID utilizator"><input type="number" min={1} step={1} required value={organizerCredit.userId} onChange={(event) => setOrganizerCredit((value) => ({ ...value, userId: event.target.value, verified: false }))} /></Field><Field label="Suma verificată în USD"><input required inputMode="decimal" placeholder="100.00" value={organizerCredit.amount} onChange={(event) => setOrganizerCredit((value) => ({ ...value, amount: event.target.value, verified: false }))} /></Field></div>
       <Field label="Referința unică a chitanței furnizorului"><input required maxLength={160} value={organizerCredit.reference} onChange={(event) => setOrganizerCredit((value) => ({ ...value, reference: event.target.value, verified: false }))} /></Field>
       <label className="mf-check"><input type="checkbox" required checked={organizerCredit.verified} onChange={(event) => setOrganizerCredit((value) => ({ ...value, verified: event.target.checked }))} /><span>Am verificat independent finanțarea USD, utilizatorul, suma și chitanța furnizorului.</span></label><button className="ma-button ma-button-primary" disabled={Boolean(busy)}>{busy === 'organizer-credit' ? 'Se înregistrează…' : 'Înregistrează creditele organizatorului'}</button>
-    </form></details>
+    </form>
+      <hr />
+      <h4>Rambursări manuale ale creditelor de servicii</h4>
+      <p className="mf-help">Rezervă rambursarea înainte de plata externă: suma este scoasă imediat din creditele disponibile. Confirmă „plătită” numai după verificarea independentă a plății externe. Anularea este permisă numai cât timp rambursarea externă nu a fost plătită și restabilește creditele rezervate. Acest flux nu rambursează automat servicii consumate, Cash Chips sau abonamente și nu transferă bani.</p>
+      <form onSubmit={(event) => { event.preventDefault(); if (!serviceRefund.verified) { setError('Confirmă verificarea cererii înainte de rezervare.'); return; } const amountCents = centsFromInput(serviceRefund.amount); if (!window.confirm(`Rezervi ${dollars(amountCents)} din creditele disponibile ale utilizatorului #${serviceRefund.userId}, înainte de orice rambursare externă?`)) return; void run('service-refund-reserve', async () => { await organizerBillingApi.reserveRefund({ userId: Number(serviceRefund.userId), originalReference: serviceRefund.originalReference.trim(), amountCents, requestId: serviceRefundKey, reason: serviceRefund.reason.trim() }); setServiceRefund({ userId: '', originalReference: '', amount: '', reason: '', verified: false }); setServiceRefundKey(crypto.randomUUID()); }, 'Rambursarea a fost rezervată. Efectuează separat plata externă și confirm-o numai după verificare.'); }}>
+        <div className="mf-form-grid"><Field label="ID utilizator"><input type="number" min={1} step={1} required value={serviceRefund.userId} onChange={(event) => updateServiceRefund({ userId: event.target.value })} /></Field><Field label="Suma de rezervat în USD"><input required inputMode="decimal" placeholder="9.00" value={serviceRefund.amount} onChange={(event) => updateServiceRefund({ amount: event.target.value })} /></Field></div>
+        <Field label="Chitanța originală a finanțării"><input required maxLength={160} value={serviceRefund.originalReference} onChange={(event) => updateServiceRefund({ originalReference: event.target.value })} /></Field>
+        <Field label="Motivul rambursării"><input required minLength={3} maxLength={1000} value={serviceRefund.reason} onChange={(event) => updateServiceRefund({ reason: event.target.value })} /></Field>
+        <label className="mf-check"><input type="checkbox" required checked={serviceRefund.verified} onChange={(event) => setServiceRefund((value) => ({ ...value, verified: event.target.checked }))} /><span>Am verificat utilizatorul, chitanța originală, suma și motivul. Înțeleg că rezervarea reduce creditele disponibile, dar nu trimite bani.</span></label>
+        <button className="ma-button ma-button-secondary" disabled={Boolean(busy)}>{busy === 'service-refund-reserve' ? 'Se rezervă…' : 'Rezervă rambursarea înainte de plata externă'}</button>
+      </form>
+      <h5>Rambursări recente</h5>
+      {!serviceRefunds.length ? <p className="mf-help">Nicio rambursare de credite servicii.</p> : <ul className="mp-account-list">{serviceRefunds.slice(0, 20).map((refund) => { const action = refundActions[refund.request_id] || { externalReference: '', cancelReason: '', paidVerified: false, cancelVerified: false }; const reserved = refund.status === 'reserved'; return <li key={refund.request_id}><div className="mp-account-row"><strong>{dollars(refund.amount_cents)} · utilizator #{refund.user_id}</strong><span>{refund.status}</span></div><p>Finanțare: <code>{refund.original_reference}</code> · cerere <code>{refund.request_id}</code><br />Motiv: {refund.reason}{refund.external_reference ? <><br />Plată externă: <code>{refund.external_reference}</code></> : null}</p>{reserved && <div className="mf-form-grid"><form onSubmit={(event) => { event.preventDefault(); if (!action.paidVerified) { setError('Confirmă verificarea plății externe.'); return; } if (!window.confirm(`Confirmi că rambursarea externă ${action.externalReference} a fost plătită și verificată independent? Această acțiune nu trimite bani.`)) return; void run(`service-refund-paid:${refund.request_id}`, async () => { await organizerBillingApi.markRefundPaid(refund.request_id, action.externalReference.trim()); setRefundActions((current) => { const next = { ...current }; delete next[refund.request_id]; return next; }); }, 'Rambursarea externă verificată a fost marcată ca plătită.'); }}><Field label="Referința plății externe"><input required maxLength={160} value={action.externalReference} onChange={(event) => setRefundActions((current) => ({ ...current, [refund.request_id]: { ...action, externalReference: event.target.value, paidVerified: false } }))} /></Field><label className="mf-check"><input type="checkbox" required checked={action.paidVerified} onChange={(event) => setRefundActions((current) => ({ ...current, [refund.request_id]: { ...action, paidVerified: event.target.checked } }))} /><span>Am verificat independent plata externă către utilizator. Formularul doar înregistrează dovada.</span></label><button className="ma-button ma-button-secondary" disabled={Boolean(busy)}>Marchează plata externă verificată</button></form><form onSubmit={(event) => { event.preventDefault(); if (!action.cancelVerified) { setError('Confirmă că rambursarea externă nu a fost plătită.'); return; } if (!window.confirm(`Anulezi cererea ${refund.request_id} și restabilești ${dollars(refund.amount_cents)} în creditele disponibile?`)) return; void run(`service-refund-cancel:${refund.request_id}`, async () => { await organizerBillingApi.cancelRefund(refund.request_id, action.cancelReason.trim()); setRefundActions((current) => { const next = { ...current }; delete next[refund.request_id]; return next; }); }, 'Rezervarea extern neplătită a fost anulată, iar creditele au fost restabilite.'); }}><Field label="Motivul anulării"><input required minLength={3} maxLength={1000} value={action.cancelReason} onChange={(event) => setRefundActions((current) => ({ ...current, [refund.request_id]: { ...action, cancelReason: event.target.value, cancelVerified: false } }))} /></Field><label className="mf-check"><input type="checkbox" required checked={action.cancelVerified} onChange={(event) => setRefundActions((current) => ({ ...current, [refund.request_id]: { ...action, cancelVerified: event.target.checked } }))} /><span>Confirm că nu a fost efectuată nicio rambursare externă și că motivul anulării este verificat.</span></label><button className="ma-button ma-button-secondary" disabled={Boolean(busy)}>Anulează rezervarea neplătită</button></form></div>}</li>; })}</ul>}
+    </details>
     {!data ? <p role="status">{loading ? 'Se încarcă registrele comerciale…' : 'Datele financiare nu sunt disponibile. Reîncearcă încărcarea.'}</p> : <>
       <div className="mf-steps" aria-label="Etapele administrării comerciale">{([['publishers', '1', 'Editori și credite'], ['offers', '2', 'Oferte'], ['orders', '3', 'Comenzi și activări']] as const).map(([id, number, title]) => <button type="button" key={id} disabled={Boolean(busy)} aria-pressed={step === id} className={step === id ? 'is-active' : ''} onClick={() => setStep(id)}><b>{number}</b>{title}</button>)}</div>
 

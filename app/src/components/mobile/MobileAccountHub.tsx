@@ -100,7 +100,7 @@ export function MobileAccountHub({ onOpen }: { onOpen: (tab: string) => void }) 
           </button>
         </div>
       </section>
-      <p className="p-legal">18+ · Play money only · No real-money gambling</p>
+      <p className="p-legal">18+ · Demo and organizer balances stay separate</p>
     </div>
   );
 }
