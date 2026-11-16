@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { organizerSpinOutcome } from './organizer-spin-prizes.js';
 import { ORGANIZER_TARIFFS } from './organizer-billing.js';
 import { cashRakeConfig, validateCashRake } from './cash-rake.js';
 
@@ -21,6 +22,7 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
     tables: db.prepare('SELECT id,name,game,private,owner_id,chip_economy,rake_percent,rake_cap,min_buyin,seats FROM tables WHERE private=1 AND play_money=0 AND owner_id=?').all(userId).map((row) => ({
       ...row, session: row.game === 'spingold' ? null : billing.cashSession(userId, row.id),
       ...cashRakeConfig(row, getSetting),
+      ...(row.game === 'spingold' && row.chip_economy ? { rakePercent: row.rake_percent ?? 5 } : {}),
       spinRound: row.game === 'spingold' ? db.prepare('SELECT id,state,max_reserve,outcome FROM organizer_chip_spin_rounds WHERE table_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1').get(row.id) || null : null,
       occupied: liveTables.get(row.id)?.table?.occupiedSeats().length || 0,
       schedule: db.prepare('SELECT start_at,started_at FROM organizer_spin_schedule WHERE table_id=?').get(row.id) || null,
@@ -77,16 +79,21 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
     if (!action) fail('Billing route not found.', 404);
     const [, kind, encodedId, operation] = action;
     const id = decodeURIComponent(encodedId);
-    const b = fields(await readBody(req), operation === 'rake' ? ['rakePercent', 'rakeCap'] : operation === 'reschedule' ? ['startAt', 'idempotencyKey'] : operation === 'start' ? ['idempotencyKey'] : []);
+    const b = fields(await readBody(req), operation === 'rake' ? (kind === 'spin' ? ['rakePercent'] : ['rakePercent', 'rakeCap']) : operation === 'reschedule' ? ['startAt', 'idempotencyKey'] : operation === 'start' ? ['idempotencyKey'] : []);
     const row = kind === 'tournament'
       ? db.prepare('SELECT * FROM tournaments WHERE id=? AND owner_id=? AND private=1').get(id, user.id)
       : db.prepare('SELECT * FROM tables WHERE id=? AND owner_id=? AND private=1').get(id, user.id);
     if (!row || (kind === 'spin' && row.game !== 'spingold') || (kind === 'cash' && row.game === 'spingold')) fail('Resource not found.', 404);
     if (row.play_money) fail('Play Money resources do not use service-credit billing.', 409);
     if (operation === 'rake') {
-      if (kind !== 'cash' || !row.chip_economy) fail('Organizer Cash Chip table required.', 404);
+      if (!['cash', 'spin'].includes(kind) || !row.chip_economy) fail('Organizer Cash Chip table required.', 404);
       billing.requireMembership(user.id, 'organizer');
-      const rake = validateCashRake(b), live = liveTables.get(id)?.table;
+      if (kind === 'spin' && b.rakePercent === undefined) fail('Select Spin rake: 2%, 3%, 4% or 5%.');
+      const rake = kind === 'spin' ? { rakePercent: organizerSpinOutcome(row.min_buyin, b.rakePercent).rakePercent, rakeCap: row.rake_cap } : validateCashRake(b), live = liveTables.get(id)?.table;
+      if (kind === 'spin' && (db.prepare("SELECT 1 FROM organizer_chip_spin_tickets WHERE table_id=? AND state='issued'").get(id)
+        || db.prepare("SELECT 1 FROM organizer_chip_spin_rounds WHERE table_id=? AND state IN ('waiting','committed','disputed')").get(id))) {
+        fail('Finish or cancel the round and refund unused tickets before changing Spin rake.', 409);
+      }
       if (billing.cashSession(user.id, id)?.active || live?.occupiedSeats().length || live?.handInProgress() || live?.reservations.size || live?.financialError
         || db.prepare("SELECT 1 FROM organizer_chip_sessions WHERE table_id=? AND status='open'").get(id)) {
         fail('Pause the table, cash out all players and clear seat reservations before changing rake.', 409);
@@ -95,11 +102,11 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
         db.exec('BEGIN IMMEDIATE');
         try {
           db.prepare('UPDATE tables SET rake_percent=?,rake_cap=? WHERE id=?').run(rake.rakePercent, rake.rakeCap, id);
-          db.prepare('INSERT INTO audit_log(actor,action,detail) VALUES (?,?,?)').run(user.login, 'organizer_cash_rake', JSON.stringify({ tableId: id, ...rake }));
+          db.prepare('INSERT INTO audit_log(actor,action,detail) VALUES (?,?,?)').run(user.login, kind === 'spin' ? 'organizer_spin_rake' : 'organizer_cash_rake', JSON.stringify({ tableId: id, ...rake }));
           db.exec('COMMIT');
         } catch (error) { db.exec('ROLLBACK'); throw error; }
       }
-      if (live) { Object.assign(live.cfg, rake); Object.assign(live, rake); broadcastState(live); }
+      if (live) { Object.assign(live.cfg, rake, { rake_percent: rake.rakePercent }); Object.assign(live, rake); broadcastState(live); }
       json(res, 200, { ok: true, ...rake }); return true;
     }
     if (kind === 'cash' && operation === 'start') {

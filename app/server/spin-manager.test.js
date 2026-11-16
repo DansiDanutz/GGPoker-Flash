@@ -20,6 +20,8 @@ test('Spin setup, scoped tickets, funded play and refunds conserve chips', async
     const before = (await srv.get(bill + '/me', { token: owner.token })).data.balance_cents;
     assert.equal((await srv.post('/api/tables/host', { token: owner.token, body: { ...body, min_buyin: 7, max_buyin: 7 } })).status, 400);
     assert.equal((await srv.get(bill + '/me', { token: owner.token })).data.balance_cents, before);
+    for (const rakePercent of [1, 6, 2.5, '3', null]) assert.equal((await srv.post('/api/tables/host', { token: owner.token, body: { ...body, rakePercent } })).status, 400);
+    assert.equal((await srv.get(bill + '/me', { token: owner.token })).data.balance_cents, before);
     const table = await post('/api/tables/host', owner.token, body);
     assert.equal((await post('/api/tables/host', owner.token, body)).id, table.id);
     const rakeRoute = bill + `/spin/${table.id}/rake`;
@@ -52,6 +54,7 @@ test('Spin setup, scoped tickets, funded play and refunds conserve chips', async
     db.prepare("INSERT INTO organizer_chip_sessions VALUES (?, 'recovered-seat', ?, ?, 5000, 'open', datetime('now'), NULL)").run(owner.user.id, players[0].user.id, table.id);
     assert.equal((await srv.del(`/api/tables/host/${table.id}`, { token: owner.token })).status, 409);
     db.prepare("DELETE FROM organizer_chip_sessions WHERE session_id='recovered-seat'").run();
+    const playMoneyBefore = db.prepare('SELECT id,balance FROM users ORDER BY id').all();
     const entryTickets = [];
     for (const [i, p] of players.slice(0, 3).entries()) {
       const t = await post(chips + '/spin-tickets', owner.token, { tableId: table.id, key: `entry-${i}` });
@@ -85,6 +88,7 @@ test('Spin setup, scoped tickets, funded play and refunds conserve chips', async
     for (const p of paid) assert.equal(db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key=?').get(owner.user.id, `wallet:${p.user_id}`).balance, p.payout + (p.user_id === players[0].user.id ? 5000 : 0), 'ticket entry does not debit the holder wallet');
     assert.equal(db.prepare('SELECT balance FROM organizer_chip_accounts WHERE account_key=?').get(`event:spin:${round.id}`).balance, 0);
     assert.equal(db.prepare('SELECT SUM(balance) n FROM organizer_chip_accounts WHERE organizer_id=?').get(owner.user.id).n, 100000);
+    assert.equal(db.prepare("SELECT SUM(balance) n FROM organizer_chip_accounts WHERE organizer_id=? AND account_key!='burn'").get(owner.user.id).n, 99550);
     assert.equal(db.prepare("SELECT count(*) n FROM organizer_chip_spin_tickets WHERE state='consumed'").get().n, 3);
     assert.equal(db.prepare('SELECT state FROM organizer_chip_spin_tickets WHERE id=?').get(spare.id).state, 'issued', 'rejoin cannot consume the next ticket');
     for (const id of entryTickets) {
@@ -103,12 +107,15 @@ test('Spin setup, scoped tickets, funded play and refunds conserve chips', async
     }
     assert.deepEqual(db.prepare('SELECT account_key,balance FROM organizer_chip_accounts WHERE organizer_id=? ORDER BY account_key').all(owner.user.id), settled);
     assert.equal(db.prepare('SELECT state FROM organizer_chip_spin_tickets WHERE id=?').get(spare.id).state, 'issued');
+    assert.equal(db.prepare("SELECT count(*) n FROM organizer_chip_journals WHERE kind='spin_payout'").get().n, 1);
+    assert.equal(db.prepare("SELECT count(*) n FROM organizer_chip_journals WHERE kind='spin_rake'").get().n, 1);
+    assert.deepEqual(db.prepare('SELECT id,balance FROM users ORDER BY id').all(), playMoneyBefore, 'paid Spin cannot alter Play Money wallets');
     for (const s of sockets) s.send({ type: 'leave_table', tableId: table.id });
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.equal((await srv.del(`/api/tables/host/${table.id}`, { token: owner.token })).status, 200);
     assert.equal(db.prepare('SELECT state FROM organizer_chip_spin_tickets WHERE id=?').get(spare.id).state, 'refunded');
     assert.equal(db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key=?').get(owner.user.id, `wallet:${players[0].user.id}`).balance, paid.find(p => p.user_id === players[0].user.id).payout + 10000);
     assert.equal(db.prepare('SELECT SUM(balance) n FROM organizer_chip_accounts WHERE organizer_id=?').get(owner.user.id).n, 100000);
-    t.diagnostic(JSON.stringify({ multiplier: outcome.multiplier, prizes: outcome.prizes, ticketsConsumed: entryTickets.length, unusedTicketRefunded: true, supplyIncludingBurn: 100000, reconciled: true }));
+    t.diagnostic(JSON.stringify({ rakePercent: outcome.rakePercent, rakeAmount: outcome.rakeAmount, entryTotal: outcome.entryTotal, prizes: outcome.prizes, ticketsConsumed: entryTickets.length, unusedTicketRefunded: true, supplyIncludingBurn: 100000, reconciled: true }));
   } finally { await Promise.all(sockets.map(s => s.close())); db?.close(); await srv.stop(); fs.rmSync(srv.dataDir, { recursive: true, force: true }); }
 });

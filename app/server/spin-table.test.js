@@ -33,17 +33,19 @@ function makeUser() {
 const balance = (id) => db.prepare('SELECT balance FROM users WHERE id = ?').get(id).balance;
 
 // Seats three humans the way index.js seatHuman does: buy-in debit on a session, then sit.
-function spinTable({ stake = STAKE, ticket = TICKET_100X, clock = null } = {}) {
+function spinTable({ stake = STAKE, ticket = TICKET_100X, clock = null, paidOutcome = null } = {}) {
   tableSeq += 1;
   const id = `spin-test-${tableSeq}`;
   const t = new PokerTable({
     id, name: `Spin Test ${tableSeq}`, game: 'spingold', category: 'Spin', sb: 10, bb: 20, ante: 0,
     min_buyin: stake, max_buyin: stake, seats: 3, speed: 'Fast',
   });
+  if (paidOutcome) Object.assign(t.cfg, { chip_economy: 1, rakePercent: paidOutcome.rakePercent });
   const tickets = [];
   t.spinTicket = () => { tickets.push(ticket); return ticket; };
   if (clock) t.spinClock = () => clock.now;
   t.hooks = { onSpinPayout: (table, p) => settleSpinPayout(table, p), onHandComplete: () => {} };
+  if (paidOutcome) t.hooks.spinOutcome = () => paidOutcome;
   const users = [makeUser(), makeUser(), makeUser()];
   const start = users.map(balance);
   t.holdStart = true;
@@ -317,4 +319,22 @@ test('non-spin tables keep their configured blinds and expose no spin schedule',
   assert.ok(t.handNo >= 20);
   assert.deepEqual([t.sb, t.bb], [25, 50]);
   assert.equal(t.snapshotFor().spin, null);
+});
+
+// Wallet settlement is covered by spin-manager and organizer-chip-spin tests.
+test('paid Spin bypasses the prize wheel and preserves its committed terms in snapshots', () => {
+  const plan = { payoutModel: 'pooled', multiplier: null, rakePercent: 4, rakeAmount: 1200, entryTotal: 30000, prizePool: 28800, prizes: [28800, 0, 0] };
+  const clock = { now: 0 };
+  const { t, tickets } = spinTable({ paidOutcome: plan, clock });
+  assert.deepEqual(tickets, [], 'paid game never draws a random multiplier');
+  assert.equal(t.spinPrize, 28800);
+  assert.deepEqual(t.spinPayouts, [28800, 0, 0]);
+  t.cfg.rakePercent = 5;
+  const snapshot = t.snapshotFor().spin;
+  assert.equal(snapshot.payoutModel, 'pooled');
+  assert.equal(snapshot.rakePercent, 4, 'display committed terms, not mutable config');
+  assert.equal(snapshot.rakeAmount, 1200);
+  assert.equal(snapshot.multiplier, null);
+  clock.now = 120000; t.applySpinBlinds();
+  assert.equal(t.spinLevel, 2, 'pooled game uses two-minute blind progression');
 });

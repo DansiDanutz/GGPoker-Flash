@@ -21,6 +21,7 @@ export function OrganizerBilling({ userId, role }: { userId?: number; role?: 'or
   const [notice, setNotice] = useState('');
   const [starts, setStarts] = useState<Record<string, string>>({});
   const [rakes, setRakes] = useState<Record<string, { rakePercent: number; rakeCap: string }>>({});
+  const [spinRakes, setSpinRakes] = useState<Record<string, number>>({});
   const keys = useRef(new Map<string, string>());
 
   const load = useCallback(async () => {
@@ -90,29 +91,38 @@ export function OrganizerBilling({ userId, role }: { userId?: number; role?: 'or
       </ul>}
       <section className="mp-tournament-manager" aria-label="Spin & Go Manager">
         <h3>Spin &amp; Go Manager</h3>
-        <p>Three players, one random prize pool. Setup costs {usd(tariffs?.spin_setup ?? 300)}; changing an unstarted schedule costs {usd(tariffs?.reschedule ?? 100)}. There is no hourly charge.</p>
-        <p>Before players can enter, reserve 20,000× the stake from your own Cash Chips to cover the maximum jackpot. For a 5,000-chip entry this is 100,000,000 Cash Chips. Unused reserve returns after settlement. Entry money above the drawn prize pool leaves circulation; larger prizes use your reserve.</p>
+        <p>Three players fund one winner-takes-all Cash Chip pool. Setup costs {usd(tariffs?.spin_setup ?? 300)}; changing an unstarted schedule costs {usd(tariffs?.reschedule ?? 100)}. There is no hourly charge or jackpot reserve.</p>
         <p>Buy and transfer prepaid entry tickets in this workspace. Each ticket works only at its named table and organiser. It does not reserve a seat. The oldest matching ticket is used before wallet chips; leaving before play refunds Cash Chips. Unused tickets can be refunded by their current holder.</p>
         {!account.tables.some(table => table.game === 'spingold') ? <p>No hosted Spin &amp; Go tables yet.</p> : <ul className="mp-account-list">{account.tables.filter(table => table.game === 'spingold').map(table => {
           const round = table.spinRound, active = round && ['waiting', 'committed', 'disputed'].includes(round.state);
           const start = starts[`spin:${table.id}`] || (table.schedule?.start_at ? localDateTime(table.schedule.start_at) : '');
           const canReschedule = enforced && !table.occupied && !table.schedule?.started_at && Date.parse(table.schedule?.start_at || '') > Date.now();
-          const outcome = round?.outcome ? JSON.parse(round.outcome) as { multiplier: number; prizePool: number; prizes: number[] } : null;
+          const outcome = round?.outcome ? JSON.parse(round.outcome) as { payoutModel?: string; multiplier?: number; prizePool: number; prizes: number[]; rakePercent?: number; rakeAmount?: number; entryTotal?: number } : null;
+          const savedRakePercent = table.rakePercent ?? 5, rakePercent = spinRakes[table.id] ?? savedRakePercent;
+          const entryTotal = table.min_buyin * 3, savedRakeAmount = entryTotal * savedRakePercent / 100, savedPrize = entryTotal - savedRakeAmount;
+          const draftRakeAmount = entryTotal * rakePercent / 100;
           const link = `#/table/${encodeURIComponent(table.id)}?observe=1`;
           return <li key={table.id} aria-label={`Manage ${table.name}`}>
             <div><strong>{table.name}</strong><p>{table.seats} seats · Entry {cashChips(table.min_buyin)} · {table.occupied} seated · Launch {when(table.schedule?.start_at)}</p></div>
-            <p>Latest round: <strong>{round?.state || 'not funded'}</strong>. Required reserve: {cashChips(table.min_buyin * 20000)}. Launch is the earliest start; play begins when all three funded seats are filled.</p>
-            {outcome && <p>Committed draw: {outcome.multiplier}× · Pool {cashChips(outcome.prizePool)} · Places 1–3: {outcome.prizes.map(cashChips).join(' / ')}.</p>}
+            <p>Latest round: <strong>{round?.state || 'entries closed'}</strong>. Current terms: Pool {cashChips(entryTotal)} · Rake {cashChips(savedRakeAmount)} ({savedRakePercent}%) · Winner prize {cashChips(savedPrize)}. Launch is the earliest start; play begins when all three funded seats are filled.</p>
+            {rakePercent !== savedRakePercent && <p>Draft preview: Rake {cashChips(draftRakeAmount)} ({rakePercent}%) · Winner prize {cashChips(entryTotal - draftRakeAmount)}.</p>}
+            {outcome && (outcome.payoutModel === 'pooled'
+              ? <p>Stored pooled outcome: Pool {cashChips(outcome.entryTotal ?? entryTotal)} · Rake {cashChips(outcome.rakeAmount ?? savedRakeAmount)} · Winner {cashChips(outcome.prizes?.[0] ?? outcome.prizePool)}.</p>
+              : <p>Stored legacy draw: {outcome.multiplier}× · Pool {cashChips(outcome.prizePool)} · Places 1–3: {outcome.prizes.map(cashChips).join(' / ')}.</p>)}
+            <form aria-label={`Spin rake for ${table.name}`} className="mp-rake-form" onSubmit={(event) => { event.preventDefault(); void run(`spin-rake:${table.id}:${rakePercent}`, `Save ${rakePercent}% rake for “${table.name}”?`, () => organizerBillingApi.setSpinRake(table.id, rakePercent), 'Spin rake saved.'); }}>
+              <label>Rake (%)<select className="admin-select" value={rakePercent} disabled={!enforced || Boolean(busy) || Boolean(active) || Boolean(table.occupied)} onChange={(event) => setSpinRakes((current) => ({ ...current, [table.id]: Number(event.target.value) }))}>{[2, 3, 4, 5].map((rate) => <option key={rate} value={rate}>{rate}%</option>)}</select></label>
+              <button className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy) || Boolean(active) || Boolean(table.occupied)}>Save rake</button>
+            </form>
             <a className="mp-button mp-button-secondary" href={link}>Open Spin table</a>
             <label>Invite link<input className="admin-input" aria-label={`Invite for ${table.name}`} readOnly value={`${location.origin}/${link}`} onFocus={event => event.target.select()} /></label>
             <form onSubmit={event => { event.preventDefault(); const time = Date.parse(start); if (!Number.isFinite(time) || time <= Date.now()) { setError('Choose a future Spin launch time.'); return; } const startAt = new Date(time).toISOString(); void run(`spin:${table.id}:${startAt}`, `Reschedule “${table.name}” for ${usd(tariffs?.reschedule ?? 100)}?`, key => organizerBillingApi.reschedule('spin', table.id, startAt, key), 'Spin launch rescheduled.'); }}>
               <input className="admin-input" type="datetime-local" aria-label={`New start for ${table.name}`} required value={start} disabled={!canReschedule || Boolean(busy)} onChange={event => setStarts(current => ({ ...current, [`spin:${table.id}`]: event.target.value }))} />
               <button className="mp-button mp-button-secondary" disabled={!canReschedule || Boolean(busy)}>Reschedule ({usd(tariffs?.reschedule ?? 100)})</button>
             </form>
-            <button className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy) || Boolean(active)} onClick={() => void run(`reserve:${table.id}`, `Reserve ${cashChips(table.min_buyin * 20000)} for “${table.name}”?`, () => organizerChipsApi.startSpin(table.id), 'Prize reserve funded. Refresh Cash Chips to see the balance.')}>Fund prize reserve</button>
-            <button className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy) || round?.state !== 'waiting' || Boolean(table.occupied)} onClick={() => void run(`cancel-spin:${table.id}`, 'Cancel the empty waiting round and return its reserve? Unused entry tickets remain refundable.', () => organizerChipsApi.cancelSpin(table.id), 'Waiting reserve returned.')}>Cancel waiting reserve</button>
+            <button className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy) || Boolean(active)} onClick={() => void run(`entries:${table.id}`, `Open entries for “${table.name}”?`, () => organizerChipsApi.startSpin(table.id), 'Entries opened.')}>Open entries</button>
+            <button className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy) || round?.state !== 'waiting' || Boolean(table.occupied)} onClick={() => void run(`cancel-spin:${table.id}`, 'Close the empty waiting round? Unused entry tickets remain refundable.', () => organizerChipsApi.cancelSpin(table.id), 'Waiting entries closed.')}>Close waiting entries</button>
             <button className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy)} onClick={() => void run(`spin-ticket:${table.id}`, `Buy one entry ticket for ${cashChips(table.min_buyin)}? It does not reserve a seat.`, key => organizerChipsApi.buySpinTicket(table.id, key), 'Ticket issued. Refresh Cash Chips below to transfer or use it.')}>Buy entry ticket</button>
-            <button className="mp-button mp-button-secondary" disabled={Boolean(busy) || Boolean(table.occupied) || Boolean(round && ['committed', 'disputed'].includes(round.state))} onClick={() => void run(`close-spin:${table.id}`, `Close “${table.name}”? Unused tickets refund to their current holders and any waiting reserve returns. Service fees are not refunded.`, () => api.deleteHostTable(table.id), 'Spin table closed; unused tickets refunded.')}>Close empty table</button>
+            <button className="mp-button mp-button-secondary" disabled={Boolean(busy) || Boolean(table.occupied) || Boolean(round && ['committed', 'disputed'].includes(round.state))} onClick={() => void run(`close-spin:${table.id}`, `Close “${table.name}”? Unused tickets refund to their current holders. Service fees are not refunded.`, () => api.deleteHostTable(table.id), 'Spin table closed; unused tickets refunded.')}>Close empty table</button>
           </li>;
         })}</ul>}
       </section>

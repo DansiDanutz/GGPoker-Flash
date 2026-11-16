@@ -86,8 +86,12 @@ type TableState = {
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
   walletKind?: 'organizer_chips' | 'play_money'; organizerId?: number | null; organizerBalance?: number; spinTicketValue?: number;
   spin?: {
+    payoutModel?: 'pooled';
     multiplier: number | null;
     prize: number;
+    rakePercent?: number;
+    rakeAmount?: number;
+    entryTotal?: number;
     buyIn?: number;
     /** Places 1-3 from the verified table; null until the first hand draws the Spin. */
     payouts?: number[] | null;
@@ -1203,7 +1207,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className="pill">Blinds {state ? (state.tournament ? `${state.sb}/${state.bb}` : `${money(state.sb)}/${money(state.bb)}`) : ''}</span>
         <span className="pill">Hand #{state?.handNo ?? '-'}</span>
         {state?.rakePercent != null && state.rakeCap != null && <span className="pill">Rake {state.rakePercent}% · Cap {cashChips(state.rakeCap)}/hand</span>}
-        {state?.spin?.multiplier && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {organizerChips ? cashChips(state.spin.prize) : money(state.spin.prize)}</span>}
+        {state?.spin && (state.spin.payoutModel === 'pooled' ? <span className="pill" style={{ color: '#ffd98a' }}>Pooled prize {cashChips(state.spin.prize || (state.spin.entryTotal || 0) - (state.spin.rakeAmount || 0))} · Rake {state.spin.rakePercent}%</span> : state.spin.multiplier ? <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {money(state.spin.prize)}</span> : null)}
         {state?.tournament && <span className="pill" style={{ color: '#ffd98a' }}>Level {state.tournament.level}{state.tournament.nextBlindAt ? ` · ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000 / 60))}m ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000) % 60).toString().padStart(2, '0')}s` : ''} · Prize {money(state.tournament.prizePool)}</span>}
         {state?.tournament && (state.tournament.tables || 1) > 1 && (
           <span className="pill" style={{ color: '#ffd98a' }}>
@@ -1852,16 +1856,18 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {spinShow && state?.spin && (
         <div className="spin-overlay">
-          <div className="spin-title">JACKPOT SNG</div>
-          <div className="spin-ring">
+          <div className="spin-title">{state.spin.payoutModel === 'pooled' ? 'POOLED SPIN & GO' : 'JACKPOT SNG'}</div>
+          {state.spin.payoutModel === 'pooled' ? <div className="spin-center" style={{ width: 150, height: 150, fontSize: 38 }}>🏆</div> : <div className="spin-ring">
             {SPIN_WHEEL_MULTIPLIERS.map((m, i) => (
               <span key={m} style={{ transform: `rotate(${i * (360 / SPIN_WHEEL_MULTIPLIERS.length)}deg) translateY(-118px)` }}>{m}x</span>
             ))}
             <div className="spin-center">{state.spin.multiplier}x</div>
-          </div>
-          <div className="spin-prize">Prize pool <b>{organizerChips ? cashChips(state.spin.prize) : money(state.spin.prize)}</b></div>
+          </div>}
+          <div className="spin-prize">Prize pool <b>{organizerChips ? cashChips(state.spin.prize || (state.spin.entryTotal || 0) - (state.spin.rakeAmount || 0)) : money(state.spin.prize)}</b></div>
           <div className="spin-sub">
-            {state.spin.payouts?.some((p, i) => i > 0 && p > 0)
+            {state.spin.payoutModel === 'pooled'
+              ? `${cashChips(state.spin.entryTotal || 0)} entries · ${cashChips(state.spin.rakeAmount || 0)} rake · winner takes all`
+              : state.spin.payouts?.some((p, i) => i > 0 && p > 0)
               ? state.spin.payouts.filter((p) => p > 0).map((p, i) => `${ordinal(i + 1)} ${organizerChips ? cashChips(p) : money(p)}`).join(' · ')
               : `Good luck — ${state.seats}-handed winner takes all`}
           </div>
@@ -1883,7 +1889,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       {spinWin && (
         <div className="spin-overlay win">
           <div className="spin-title">WINNER</div>
-          <div className="spin-center" style={{ width: 150, height: 150, fontSize: 38 }}>{spinWin.multiplier}x</div>
+          <div className="spin-center" style={{ width: 150, height: 150, fontSize: 38 }}>{organizerChips || spinWin.payoutModel === 'pooled' ? '🏆' : `${spinWin.multiplier}x`}</div>
           <div className="spin-prize">{spinWin.nick} wins <b>{organizerChips ? cashChips(spinWin.prize) : money(spinWin.prize)}</b></div>
           <button className="btn btn-gold" style={{ marginTop: 18 }} onClick={() => navigate('/')}>Back to lobby</button>
         </div>
