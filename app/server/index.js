@@ -73,7 +73,7 @@ import { createOrganizerChips } from './organizer-chips.js';
 import { createOrganizerChipEvents } from './organizer-chip-events.js';
 import { createOrganizerChipSpin } from './organizer-chip-spin.js';
 import { createOrganizerChipRoutes } from './organizer-chip-routes.js';
-import { chipEventRevision, canRestoreChipEvent } from './organizer-chip-checkpoint.js';
+import { chipEventRevision, canRestoreChipEvent, pauseChipEvent } from './organizer-chip-checkpoint.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
@@ -840,12 +840,12 @@ function getLiveTable(id) {
         if (table.tournament?.managed) {
           TOURNAMENT_ROOMS.get(table.cfg.tournamentId)?.onBust(table.cfg.id, p);
         }
-      } catch (e) { if (usesOrganizerChips(table)) { table.financialError = 'Tournament payout reconciliation required'; throw e; } console.error('tourney bust', e); }
+      } catch (e) { if (usesOrganizerChips(table)) { table.financialError = 'Tournament payout reconciliation required'; pauseChipEvent(db, table.cfg.tournamentId, LIVE_TABLES); throw e; } console.error('tourney bust', e); }
     },
     onFlightSettled: (table, winner) => {
       try {
         TOURNAMENT_ROOMS.get(table.cfg.tournamentId)?.onFlightSettled(table.cfg.id, winner);
-      } catch (e) { if (usesOrganizerChips(table)) { table.financialError = 'Tournament reconciliation required'; throw e; } console.error('tourney flight settled', e); }
+      } catch (e) { if (usesOrganizerChips(table)) { table.financialError = 'Tournament reconciliation required'; pauseChipEvent(db, table.cfg.tournamentId, LIVE_TABLES); throw e; } console.error('tourney flight settled', e); }
     },
     onTournamentEnd: (table, winner) => {
       if (usesOrganizerChips(table)) throw new Error('Organizer events require the managed tournament room.');
@@ -951,7 +951,7 @@ function getLiveTable(id) {
       } else {
         entry.emptySince = null;
       }
-    } catch (e) { if (usesOrganizerChips(table)) table.financialError = 'Chip reconciliation required'; console.error('tick', e); }
+    } catch (e) { if (usesOrganizerChips(table)) { table.financialError = 'Chip reconciliation required'; if (table.tournament) pauseChipEvent(db, table.cfg.tournamentId, LIVE_TABLES); } console.error('tick', e); }
   }, 260);
   LIVE_TABLES.set(id, entry);
   // Re-apply any seat holds an earlier instance of this table left on the wait list.
@@ -1363,7 +1363,7 @@ function makeTournamentRoom(t) {
             organizerChipEvents.burnRemainder({ organizerId: t.owner_id, tournamentId: t.id });
             db.prepare("UPDATE tournaments SET status='completed' WHERE id=?").run(t.id);
             db.exec('COMMIT');
-          } catch (error) { db.exec('ROLLBACK'); throw error; }
+          } catch (error) { db.exec('ROLLBACK'); pauseChipEvent(db, t.id, LIVE_TABLES); throw error; }
         }
         const table = LIVE_TABLES.get(tableId)?.table;
         if (table) {
@@ -1396,6 +1396,7 @@ const ROOM_OWNER = new TournamentRoomOwner({
   makeRoom: makeTournamentRoom,
   loadSnapshot: (id) => loadRoomSnapshot(db, id),
   saveSnapshot: (room) => {
+    if (db.prepare("SELECT 1 FROM tournaments WHERE id=? AND chip_economy=1 AND status='paused'").get(room.id)) return { ok: false, reason: 'financial reconciliation required' };
     const ownTransaction = !db.isTransaction;
     if (ownTransaction) db.exec('BEGIN IMMEDIATE');
     try {
