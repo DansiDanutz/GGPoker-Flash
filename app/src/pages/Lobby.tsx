@@ -317,16 +317,16 @@ export function Lobby() {
   const createHost = async () => {
     if (hostBusy || !hostCanManage) return;
     const payload = { economy: hostEconomy, ...hostForm, ...((hostPlayMoney || hostUsesChips) ? hostRake : {}), name: hostForm.name.trim() || `${user?.nick || 'My'} table` };
-    if (!hostPlayMoney && hostBilling?.mode === 'enforce' && !window.confirm(`Create “${payload.name}” paused and debit $${(hostBilling.tariffs.cash_setup / 100).toFixed(2)} setup credits? Active hours cost $5 down to $1, paid upfront, based on your lifetime paid table-hours. Check your next-hour price in Marketplace.`)) return;
+    if (!hostPlayMoney && hostBilling?.mode === 'enforce' && !window.confirm(`Create “${payload.name}” paused and debit $${(hostBilling.tariffs.cash_setup / 100).toFixed(2)} setup credits? Active hours cost $5 down to $1, paid upfront, based on your lifetime paid table-hours. Check your next-hour price in Organiser.`)) return;
     const replay = requestKey(payload);
     setHostBusy(true);
     try {
       const r = await api.hostTable({ ...payload, idempotencyKey: replay.key });
       hostKeys.current.delete(replay.identity);
-      toast({ kind: 'success', title: 'Private table created', body: !hostPlayMoney && hostBilling?.mode === 'enforce' ? 'The table is paused. Start and manage billing in Marketplace.' : 'Share the table link or take a seat now.' });
+      toast({ kind: 'success', title: 'Private table created', body: !hostPlayMoney && hostBilling?.mode === 'enforce' ? 'The table is paused. Start and manage billing in Organiser.' : 'Share the table link or take a seat now.' });
       setHostOpen(false);
       await load();
-      navigate(!hostPlayMoney && hostBilling?.mode === 'enforce' ? '/marketplace' : `/table/${r.id}?buyin=${hostForm.min_buyin}`);
+      navigate(!hostPlayMoney && hostBilling?.mode === 'enforce' ? '/organiser' : `/table/${r.id}?buyin=${hostForm.min_buyin}`);
     } catch (e: any) {
       toast({ kind: 'error', title: 'Could not host table', body: e.message });
     } finally { setHostBusy(false); }

@@ -4,6 +4,7 @@ import { useApp } from '../../lib/store';
 import { Avatar } from '../Avatar';
 import { ACCOUNT_ROWS, PROMO_ROWS, QUICK_TILES, vipProgress, type HubTarget } from '../../lib/accountHub';
 import { HubIcon } from './HubIcons';
+import { ProfileRoleGuide } from '../ProfileRoleGuide';
 
 /**
  * Phone My Page (mobile reference M01–M03): who you are, your wallet with a Cashier button,
@@ -46,6 +47,7 @@ export function MobileAccountHub({ onOpen }: { onOpen: (tab: string) => void }) 
         </div>
       </section>
 
+      <ProfileRoleGuide />
       <section className="ma-wallet" aria-label="My Wallet">
         <div className="ma-wallet-top">
           <span>My Wallet</span>

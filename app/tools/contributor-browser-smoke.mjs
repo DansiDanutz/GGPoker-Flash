@@ -30,6 +30,7 @@ async function pageFor(token, route) {
   return page;
 }
 async function button(page, scope, label) {
+  await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
   const handle = await page.evaluateHandle((scope, label) => [...document.querySelectorAll(`${scope} button`)].find((node) => node.textContent.trim() === label), scope, label);
   const element = handle.asElement(); assert.ok(element, `Missing button ${label}`);
   await element.evaluate((node) => node.scrollIntoView({ block: 'center' }));
@@ -46,6 +47,42 @@ try {
   checks.push('Guest Play Money session has no Contributor, Organiser or Marketplace tabs.');
   const member = await call('/api/auth/register', { login: 'contributor_browser', nick: 'Contributor Browser', password: 'browser-test-password' });
   const page = await pageFor(member.token, '/contributor');
+  await page.goto(sandbox.url + '/#/my-page?tab=overview');
+  await page.waitForSelector('section[aria-label="Choose how you use OpenPoker"]');
+  assert.deepEqual(await page.$$eval('.profile-role-guide h3', nodes => nodes.map(node => node.textContent)), ['Player for fun', 'Organiser', 'Contributor']);
+  await page.waitForSelector('.mpp input[type=file]');
+  const upload = await page.$('.mpp input[type=file]');
+  await upload.uploadFile(path.resolve('public/assets/avatars/gg-02.jpg'));
+  await page.waitForFunction(() => document.querySelector('.mpp-portrait img')?.getAttribute('src')?.startsWith('data:image/png;'));
+  await button(page, '.mpp-foot', 'Apply');
+  await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some(node => node.textContent.includes('Profile saved')));
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('.mpp-portrait img')?.getAttribute('src')?.startsWith('data:image/png;'));
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    await page.setViewport({ width, height: 1000 });
+    await page.waitForSelector('.profile-role-guide');
+    assert.ok(await page.$eval('.profile-role-guide', node => node.scrollWidth <= node.clientWidth + 1), `Profile guide overflow at ${width}`);
+    if ([390, 1440].includes(width)) await page.screenshot({ path: path.join(artifacts, `profile-${width}.png`), fullPage: true });
+  }
+  await page.setViewport({ width: 390, height: 1000 });
+  await page.goto(sandbox.url + '/#/my-page');
+  await page.reload();
+  await page.waitForSelector('.ma .profile-role-guide');
+  await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
+  await page.click('button[aria-label="Edit game profile"]');
+  await page.waitForSelector('.mpp-portrait');
+  await page.setViewport({ width: 1440, height: 1000 });
+  await button(page, '.profile-role-guide', 'Open Contributor');
+  await page.waitForSelector('section[aria-label="Contributor membership and credits"]');
+  assert.equal(await page.$('section[aria-label="Contributor membership and credits"] [aria-label="Tarif orar Cash"]'), null);
+  await page.goto(sandbox.url + '/#/organiser');
+  await page.waitForSelector('section[aria-label="Organiser management"]');
+  await button(page, 'section[aria-label="Organiser management"]', 'Create tournament');
+  await page.waitForSelector('#host-economy');
+  assert.equal(await page.$eval('#host-economy', node => node.value), 'organizer');
+  assert.match(await page.$eval('#host-dialog-title', node => node.textContent), /tournament/);
+  await page.goto(sandbox.url + '/#/contributor');
+  checks.push('Profile guides all three roles, uploaded avatar previews and persists, and management stays inside each workspace.');
   await page.waitForSelector('section[aria-label="Contributor workspace"] form');
   assert.deepEqual(await page.$$eval('.platform-tabs button', (nodes) => nodes.map((n) => n.textContent)), ['Contributor', 'Organiser', 'Marketplace']);
   assert.match(await page.$eval('.contributor-workspace', (node) => node.textContent), /pnpm sandbox/);
