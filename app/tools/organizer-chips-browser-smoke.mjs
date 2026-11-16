@@ -108,6 +108,8 @@ try {
   await click(ownerPage, billing, 'Oprește');
   await ownerPage.waitForFunction(() => document.querySelector('.mp-rake-form select')?.disabled === false);
   await ownerPage.setViewport({ width: 390, height: 844 });
+  await ownerPage.$eval('.mp-rake-form', (form) => form.scrollIntoView({ block: 'center' }));
+  assert.ok(await ownerPage.$$eval('.mp-rake-form input, .mp-rake-form select, .mp-rake-form button', (controls) => controls.every((control) => { const bounds = control.getBoundingClientRect(); return bounds.left >= 0 && bounds.right <= innerWidth; })), 'Rake inputs overflow mobile width');
   assert.ok(await ownerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Rake controls overflow mobile width');
   await ownerPage.screenshot({ path: path.join(artifacts, 'organizer-rake-mobile.png'), fullPage: true });
   await ownerPage.setViewport({ width: 1280, height: 1000 });
