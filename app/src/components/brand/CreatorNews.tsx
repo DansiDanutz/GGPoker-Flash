@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { CREATOR_AVATAR_LARGE, CREATOR_NEWS, PROJECT_NAME } from '../../lib/creator';
+import { SITE } from '../../lib/site';
 
 interface CreatorNewsProps {
   readonly onClose: () => void;
@@ -8,6 +9,11 @@ interface CreatorNewsProps {
 /** News card from the creator: DanGG is going open source. Closes on the button, backdrop or Escape. */
 export function CreatorNews({ onClose }: CreatorNewsProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const news = SITE.profile === 'portable' ? { ...CREATOR_NEWS, title: 'Built on OpenPoker', badge: 'Open source on GitHub', paragraphs: [
+    'This room runs OpenPoker, the community poker software developed from DanGG by Dan and its contributors.',
+    'Operators can install, study and improve the software under its license. The source link below identifies the code used for this build.',
+    'Play money only. Your room operator manages its own community and account support.',
+  ] } : CREATOR_NEWS;
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -28,16 +34,17 @@ export function CreatorNews({ onClose }: CreatorNewsProps) {
         <div className="cn-head">
           <img className="cn-avatar" src={CREATOR_AVATAR_LARGE} alt="Dan" width={88} height={88} />
           <div>
-            <small className="cn-kicker">{CREATOR_NEWS.kicker}</small>
-            <h2 id="cn-title">{CREATOR_NEWS.title}</h2>
-            <span className="cn-badge"><GitHubMark />{CREATOR_NEWS.badge}</span>
+            <small className="cn-kicker">{news.kicker}</small>
+            <h2 id="cn-title">{news.title}</h2>
+            <span className="cn-badge"><GitHubMark />{news.badge}</span>
           </div>
         </div>
         <div className="cn-body">
-          {CREATOR_NEWS.paragraphs.map((p) => <p key={p}>{p}</p>)}
-          <p className="cn-sign">{CREATOR_NEWS.signature} · {PROJECT_NAME}</p>
+          {SITE.profile === 'portable' && <p><a href={__APP_SOURCE_URL__} target="_blank" rel="noopener noreferrer">Source code for this build</a></p>}
+          {news.paragraphs.map((p) => <p key={p}>{p}</p>)}
+          <p className="cn-sign">{news.signature} · {SITE.profile === 'portable' ? 'OpenPoker' : PROJECT_NAME}</p>
         </div>
-        <button ref={closeRef} type="button" className="cn-close" onClick={onClose}>{CREATOR_NEWS.close}</button>
+        <button ref={closeRef} type="button" className="cn-close" onClick={onClose}>{news.close}</button>
       </article>
     </div>
   );

@@ -1,3 +1,4 @@
+import { avatarPresetPath } from '../../config/avatar-presets.js';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { seatFlag } from '../lib/seatFlag';
 import { useApp } from '../lib/store';
@@ -133,12 +134,12 @@ const BLIND_POSTS = new Set(['SB', 'BB']);
 const BOT_FACES = 20;
 const botFace = (nick?: string | null) => {
   const sum = [...(nick || 'bot')].reduce((a, c) => a + c.charCodeAt(0), 0);
-  return `/assets/avatars/gg-${String((sum % BOT_FACES) + 1).padStart(2, '0')}.jpg`;
+  return avatarPresetPath((sum % BOT_FACES) + 1);
 };
 
 export function TablePage({ tableId }: { tableId: string }) {
   useHoldTips();
-  const { user, navigate, toast, setOpeningTable, refreshUser } = useApp();
+  const { user, navigate, toast, setOpeningTable, refreshUser, brand } = useApp();
   const [state, setState] = useState<TableState | null>(null);
   const [connected, setConnected] = useState(false);
   const [mySeat, setMySeat] = useState<number | null>(null);
@@ -1288,7 +1289,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           {state?.straddle && <button disabled={!me} title="Post a straddle automatically whenever you are asked" onClick={() => send({ type: 'option', tableId, autoStraddle: !me?.autoStraddle })}>{me?.autoStraddle ? '✓ ' : ''}Auto-straddle</button>}
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
           {!!state?.runItOffered && <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItAsk: !(me?.runItAsk ?? true) })}>{(me?.runItAsk ?? true) ? '✓ ' : ''}Offer to run it more than once</button>}
-          {state?.spin && <button disabled title="Insurance is not available in DanGG yet">Insurance — not available</button>}
+          {state?.spin && <button disabled title={`Insurance is not available in ${brand.name} yet`}>Insurance — not available</button>}
           <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
           <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
           <button onClick={() => navigate('/hand-history')}>Hand history</button>
@@ -1345,7 +1346,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       </div>
       <div ref={stageRef} className={`table-stage stage-${stage.mode}${stage.short ? ' stage-short' : ''}`} style={{ left: stage.left, top: stage.top, width: stage.width, height: stage.height }}>
       <div className="felt" />
-      <div className="table-watermark stage-mark" aria-hidden="true"><b>DanGG</b><span>{state?.name || ''}</span></div>
+      <div className="table-watermark stage-mark" aria-hidden="true"><b>{brand.name}</b><span>{state?.name || ''}</span></div>
       <div className="table-center">
         <div className="pot-stack">
           {chipShuffle ? (

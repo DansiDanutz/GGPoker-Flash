@@ -59,7 +59,7 @@ export function Login() {
   const [phoneForm, setPhoneForm] = useState(false);
   // "Get the app" opens the install screen over the splash; hidden when already running as the app.
   const [showInstall, setShowInstall] = useState(false);
-  const appCaption = appOfferCaption(detectPlatform(), isStandalone());
+  const appCaption = appOfferCaption(detectPlatform(), isStandalone(), brand.name);
   const [loginId, setLoginId] = useState(() => {
     try { return localStorage.getItem('ggpoker.rememberLogin') || ''; } catch { return ''; }
   });
@@ -186,7 +186,7 @@ export function Login() {
       <h1 className="login2-sr">The table is waiting. Play money poker.</h1>
 
       <header className="login2-top">
-        <img className="login2-logo" src={brand.logo} alt="DanGG" />
+        <img className="login2-logo" src={brand.logo} alt={brand.name} />
         <div className="login2-top-actions">
           <button type="button" onClick={openHelp}><HelpIcon />Help</button>
           <div className="login2-lang-wrap">
@@ -208,9 +208,9 @@ export function Login() {
       </header>
 
       {splash ? (<>
-        <LoginHero variant="splash" />
+        <LoginHero variant="splash" name={brand.name} />
         <div className="login2-splash-body">
-          <img className="login2-splash-logo" src={brand.logo} alt="DanGG" />
+          <img className="login2-splash-logo" src={brand.logo} alt={brand.name} />
           <p className="login2-splash-tag">Play-money poker room</p>
           <div className="login2-splash-actions">
             <button type="button" className="login2-splash-join" onClick={() => openPhoneForm('register')}>Join</button>
@@ -227,7 +227,7 @@ export function Login() {
           <p className="login2-splash-legal">18+ · Play money only · No real-money gambling</p>
         </div>
       </>) : <>
-      <LoginHero />
+      <LoginHero name={brand.name} />
 
 
       <div className="login2-side">
@@ -249,7 +249,7 @@ export function Login() {
               <label htmlFor="login-id">Account ID or nickname</label>
               <div className="login2-input">
                 <UserIcon />
-                <input id="login-id" value={loginId} onChange={(e) => setLoginId(e.target.value)} autoFocus autoComplete="username" placeholder="Your DanGG.Live ID" required />
+                <input id="login-id" value={loginId} onChange={(e) => setLoginId(e.target.value)} autoFocus autoComplete="username" placeholder={brand.profile === 'dangg' && brand.name === 'DanGG' ? 'Your DanGG.Live ID' : `Your ${brand.name} ID`} required />
               </div>
             </div>
 
@@ -336,8 +336,8 @@ export function Login() {
         <div className="login2-modal" role="dialog" aria-modal="true" aria-label="Help" onClick={() => setHelpOpen(false)}>
           <div className="login2-modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>Need a hand?</h3>
-            <p>DanGG is a play-money poker room. If you are locked out or need a password reset, contact support and include your account ID or nickname.</p>
-            <p className="login2-modal-note">support@dangg.live</p>
+            <p>{brand.name} is a play-money poker room. If you are locked out or need a password reset, contact support and include your account ID or nickname.</p>
+            <p className="login2-modal-note">{brand.supportEmail || 'Contact the operator of this room for account support.'}</p>
             <button type="button" className="login2-modal-close" onClick={() => setHelpOpen(false)}>Close</button>
           </div>
         </div>
@@ -349,7 +349,7 @@ export function Login() {
             <h3>{legal === 'terms' ? 'Terms of play' : 'Privacy'}</h3>
             {legal === 'terms' ? (
               <>
-                <p>DanGG is a play-money poker room. No real money is wagered, won or lost, and chips or accounts have no cash value.</p>
+                <p>{brand.name} is a play-money poker room. No real money is wagered, won or lost, and chips or accounts have no cash value.</p>
                 <p>You must be 18 or older to play. The casino games are for adults and use the same play money.</p>
                 <p>Play is for entertainment. Abuse, collusion or automated play can end a session. Play responsibly.</p>
               </>

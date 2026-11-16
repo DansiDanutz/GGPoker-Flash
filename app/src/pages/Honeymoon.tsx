@@ -6,7 +6,7 @@ import { PageShell } from '../components/PageShell';
 import { PROMO_ART } from '../lib/promoArt';
 
 export function Honeymoon() {
-  const { user, refreshUser, toast, navigate } = useApp();
+  const { user, refreshUser, toast, navigate, brand } = useApp();
   const [data, setData] = useState<any>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -60,7 +60,7 @@ export function Honeymoon() {
           </div>
           <div className="card">
             <div className="panel-title">3 · Starter missions</div>
-            <p className="muted small">Complete the weekly mission path to unlock extra rewards and DanGG Pass points.</p>
+            <p className="muted small">Complete the weekly mission path to unlock extra rewards and {brand.name} Pass points.</p>
             <div className="kv"><span>Player</span><b>{user?.nick}</b></div>
             <button className="btn btn-ghost btn-block" onClick={() => navigate('/rewards')}>Open missions</button>
           </div>

@@ -14,13 +14,14 @@ const SPARK_HUES: readonly number[] = Object.freeze([40, 44, 48, 50, 46, 0, 340]
 
 interface LoadingScreenProps {
   readonly logo: string;
+  readonly name: string;
 }
 
 /**
  * The screen shown while the app connects, before the login page: the DanGG logo in a spinning
  * gold halo, the login chips orbiting it, rising sparks, a gold progress bar and status lines.
  */
-export function LoadingScreen({ logo }: LoadingScreenProps) {
+export function LoadingScreen({ logo, name }: LoadingScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [elapsed, setElapsed] = useState(0);
 
@@ -53,7 +54,7 @@ export function LoadingScreen({ logo }: LoadingScreenProps) {
           </span>
         ))}
         <div className="ls-logo" style={{ '--ls-logo': `url("${logo}")` } as React.CSSProperties}>
-          <img src={logo} alt="DanGG" />
+          <img src={logo} alt={name} />
         </div>
       </div>
       <p className="ls-tag">Play-money poker room</p>

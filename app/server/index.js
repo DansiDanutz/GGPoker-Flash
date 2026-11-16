@@ -4,6 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, randomInt } from 'node:crypto';
 import net from 'node:net';
+import { SITE_PROFILE } from './site-profile.js';
+import { resolveAvatarPreset } from '../config/avatar-presets.js';
 import { WebSocketServer } from 'ws';
 import {
   db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, newSession, userByToken,
@@ -1324,9 +1326,17 @@ function rewardHandPlayed(table, summary) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname;
-
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
+    // Existing selections/older cached clients retain their numbered avatar after the art replacement.
+    if (['GET', 'HEAD'].includes(req.method) && p.startsWith('/assets/avatars/gg-')) {
+      const replacement = resolveAvatarPreset(p);
+      if (replacement) {
+        res.writeHead(302, { ...SECURITY_HEADERS, location: replacement, 'cache-control': 'no-cache' });
+        res.end();
+        return;
+      }
+    }
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
     if (await handleMarketplaceRoute(req, res, url)) return;
     if (p === '/healthz') {
@@ -1429,9 +1439,9 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       try {
         // Preset portraits shipped with the client are stored as paths, not blobs.
-        const preset = /^\/assets\/avatars\/gg-\d{2}\.jpg$/.test(String(body.avatar || ''));
+        const preset = resolveAvatarPreset(body.avatar);
         if (preset) {
-          db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(String(body.avatar), u.id);
+          db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(preset, u.id);
           return json(res, 200, { ok: true, preset: true });
         }
         const avatar = normalizeAvatar(body.avatar);
@@ -1487,7 +1497,7 @@ const server = http.createServer(async (req, res) => {
           const demo = db.prepare('SELECT password FROM users WHERE login = ?').get('DansiDanutz');
           return !!(demo && checkPassword('ggpoker', demo.password));
         })(),
-        settings: { site_name: getSetting('site_name', 'DanGG'), maintenance: getSetting('maintenance', false) },
+        settings: { site_name: getSetting('site_name', SITE_PROFILE.name), club_name: getSetting('club_name', SITE_PROFILE.name), maintenance: getSetting('maintenance', false) },
       });
     }
 
@@ -2450,7 +2460,7 @@ const server = http.createServer(async (req, res) => {
     // ---------- brand assets ----------
     if (p === '/api/brand') {
       const rows = db.prepare('SELECT slot, updated_at FROM brand_assets').all();
-      const out = {};
+      const out = { name: getSetting('site_name', SITE_PROFILE.name), logo: SITE_PROFILE.logo, profile: SITE_PROFILE.profile, supportEmail: SITE_PROFILE.supportEmail };
       for (const r of rows) out[r.slot] = `/api/brand/${r.slot}?v=${encodeURIComponent(r.updated_at)}`;
       return json(res, 200, out);
     }

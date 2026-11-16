@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>OpenPoker Turtle avatar</title>
+  <defs>
+    <radialGradient id="bg" cx=".38" cy=".26" r=".85"><stop offset="0" stop-color="#30423f"/><stop offset="1" stop-color="#101b1b"/></radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2=".2" y2="1"><stop offset="0" stop-color="#8fb8a0"/><stop offset="1" stop-color="#8fb8a0" stop-opacity=".86"/></linearGradient>
+    <clipPath id="crop"><circle cx="128" cy="128" r="120"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="123" fill="#0b1415"/>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="#bd9b60" stroke-width="2"/>
+  <g clip-path="url(#crop)">
+    <circle cx="198" cy="50" r="64" fill="#d8b56c" opacity=".055"/>
+    <ellipse cx="128" cy="224" rx="80" ry="15" fill="#071011" opacity=".5"/>
+    <ellipse cx="75" cy="177" rx="27" ry="18" fill="#769c7a" /><ellipse cx="181" cy="177" rx="27" ry="18" fill="#769c7a" /><ellipse cx="128" cy="162" rx="74" ry="52" fill="#386558" /><path d="M128 122L156 140V173L128 191 100 173V140Z" fill="#769c7a" stroke="#aac69d" stroke-width="3"/><ellipse cx="128" cy="104" rx="46" ry="52" fill="url(#face)" /><ellipse cx="106" cy="103" rx="8" ry="11" fill="#162523" /><circle cx="104" cy="99" r="2.5" fill="#fff6de" /><ellipse cx="150" cy="103" rx="8" ry="11" fill="#162523" /><circle cx="148" cy="99" r="2.5" fill="#fff6de" /><path d="M112 126 Q128 139 144 126" fill="none" stroke="#25302f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

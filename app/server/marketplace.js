@@ -2,6 +2,7 @@
 // Marketplace catalog, interest requests and manually provisioned service access.
 // This module does not process payments or change any gameplay balance or feature.
 import { randomUUID } from 'node:crypto';
+import { SITE_PROFILE } from './site-profile.js';
 
 const PUBLIC_ROOT = '/api/marketplace';
 const ADMIN_ROOT = '/api/admin/marketplace';
@@ -183,11 +184,19 @@ export function ensureMarketplaceSchema(db) {
     CREATE INDEX IF NOT EXISTS marketplace_entitlement_user ON marketplace_entitlements(user_id);
   `);
   transaction(db, () => {
+    const defaults = SITE_PROFILE.profile === 'portable' ? {
+      title: `Servicii pentru comunitatea ${SITE_PROFILE.name}.`,
+      subtitle: 'Catalogul acestei comunități este administrat de operatorul local. Software-ul OpenPoker se poate instala independent.',
+      contact_note: 'Operatorul va publica aici ofertele și condițiile de acces. Nu sunt inițiate plăți și nu se cumpără jetoane de joc.',
+      requests_enabled: false,
+    } : DEFAULT_SETTINGS;
     db.prepare('INSERT OR IGNORE INTO marketplace_settings (id,title,subtitle,contact_note,requests_enabled) VALUES (1,?,?,?,?)')
-      .run(DEFAULT_SETTINGS.title, DEFAULT_SETTINGS.subtitle, DEFAULT_SETTINGS.contact_note, 1);
+      .run(defaults.title, defaults.subtitle, defaults.contact_note, defaults.requests_enabled ? 1 : 0);
     const insert = db.prepare(`INSERT OR IGNORE INTO marketplace_products (id,slug,name,summary,description,category,delivery,status,pricing,price_cents,currency,features_json,featured,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'coming_soon','quote',NULL,'EUR',?,?,?,?,?)`);
     const now = timestamp();
-    for (const [index, item] of SEEDS.entries()) insert.run(item.id, item.slug, item.name, item.summary, item.description, item.category, item.delivery, JSON.stringify(item.features), item.featured ? 1 : 0, index * 10, now, now);
+    if (SITE_PROFILE.profile !== 'portable') {
+      for (const [index, item] of SEEDS.entries()) insert.run(item.id, item.slug, item.name, item.summary, item.description, item.category, item.delivery, JSON.stringify(item.features), item.featured ? 1 : 0, index * 10, now, now);
+    }
   });
 }
 

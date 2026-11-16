@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">OpenPoker</title>
+  <rect width="512" height="512" rx="106" fill="#151713"/>
+  <rect x="70" y="60" width="372" height="392" rx="83" fill="none" stroke="#e8b84a" stroke-width="12"/>
+  <path d="M256 122c-46 53-102 87-102 133 0 55 70 75 102 29 32 46 102 26 102-29 0-46-56-80-102-133Z" fill="#e8b84a"/>
+  <path d="M256 267c0 56-17 83-48 106h96c-31-23-48-50-48-106Z" fill="#e8b84a"/>
+</svg>

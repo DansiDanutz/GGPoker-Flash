@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>OpenPoker Astronaut avatar</title>
+  <defs>
+    <radialGradient id="bg" cx=".38" cy=".26" r=".85"><stop offset="0" stop-color="#30423f"/><stop offset="1" stop-color="#101b1b"/></radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2=".2" y2="1"><stop offset="0" stop-color="#c8cfe0"/><stop offset="1" stop-color="#c8cfe0" stop-opacity=".86"/></linearGradient>
+    <clipPath id="crop"><circle cx="128" cy="128" r="120"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="123" fill="#0b1415"/>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="#bd9b60" stroke-width="2"/>
+  <g clip-path="url(#crop)">
+    <circle cx="198" cy="50" r="64" fill="#d8b56c" opacity=".055"/>
+    <ellipse cx="128" cy="224" rx="80" ry="15" fill="#071011" opacity=".5"/>
+    <circle cx="128" cy="126" r="83" fill="#d4d9df" /><rect x="43" y="111" width="20" height="39" rx="9" fill="#a8b9c5"/><rect x="193" y="111" width="20" height="39" rx="9" fill="#a8b9c5"/><ellipse cx="128" cy="129" rx="65" ry="66" fill="#223b43" /><ellipse cx="128" cy="140" rx="43" ry="47" fill="#d7ad88" /><ellipse cx="106" cy="135" rx="8" ry="11" fill="#162523" /><circle cx="104" cy="131" r="2.5" fill="#fff6de" /><ellipse cx="150" cy="135" rx="8" ry="11" fill="#162523" /><circle cx="148" cy="131" r="2.5" fill="#fff6de" /><path d="M112 158 Q128 171 144 158" fill="none" stroke="#25302f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M84 111Q94 81 126 80" fill="none" stroke="#8db9bc" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><rect x="93" y="198" width="70" height="15" rx="7" fill="#c2b079"/>
+  </g>
+</svg>

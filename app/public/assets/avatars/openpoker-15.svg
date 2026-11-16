@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>OpenPoker Rabbit avatar</title>
+  <defs>
+    <radialGradient id="bg" cx=".38" cy=".26" r=".85"><stop offset="0" stop-color="#30423f"/><stop offset="1" stop-color="#101b1b"/></radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2=".2" y2="1"><stop offset="0" stop-color="#d5b7bd"/><stop offset="1" stop-color="#d5b7bd" stop-opacity=".86"/></linearGradient>
+    <clipPath id="crop"><circle cx="128" cy="128" r="120"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="123" fill="#0b1415"/>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="#bd9b60" stroke-width="2"/>
+  <g clip-path="url(#crop)">
+    <circle cx="198" cy="50" r="64" fill="#d8b56c" opacity=".055"/>
+    <ellipse cx="128" cy="224" rx="80" ry="15" fill="#071011" opacity=".5"/>
+    <ellipse cx="91" cy="64" rx="21" ry="46" fill="url(#face)" transform="rotate(-13 91 64)"/><ellipse cx="165" cy="64" rx="21" ry="46" fill="url(#face)" transform="rotate(13 165 64)"/><ellipse cx="91" cy="63" rx="9" ry="31" fill="#b68092" transform="rotate(-13 91 63)"/><ellipse cx="165" cy="63" rx="9" ry="31" fill="#b68092" transform="rotate(13 165 63)"/><ellipse cx="128" cy="133" rx="73" ry="77" fill="url(#face)" /><ellipse cx="99" cy="131" rx="8" ry="11" fill="#162523" /><circle cx="97" cy="127" r="2.5" fill="#fff6de" /><ellipse cx="157" cy="131" rx="8" ry="11" fill="#162523" /><circle cx="155" cy="127" r="2.5" fill="#fff6de" /><ellipse cx="84" cy="154" rx="12" ry="6" fill="#f4b4a0" opacity=".4"/><ellipse cx="172" cy="154" rx="12" ry="6" fill="#f4b4a0" opacity=".4"/><path d="M120 151 Q128 146 136 151 L128 159 Z" fill="#25302f"/><path d="M112 171 Q128 184 144 171" fill="none" stroke="#25302f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

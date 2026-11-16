@@ -55,7 +55,7 @@ function InfoWindow({ id, onClose }: { id: number; onClose: () => void }) {
 }
 
 export function PropBetPage() {
-  const { user, navigate, toast, refreshUser } = useApp();
+  const { user, navigate, toast, refreshUser, brand } = useApp();
   const [board, setBoard] = useState<PropBetBoard | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
@@ -113,7 +113,7 @@ export function PropBetPage() {
         <div className="mp-wintabs" role="tablist" aria-label="Account windows">
           <button type="button" role="tab" onClick={() => navigate('/my-page')}>My Page</button>
           <button type="button" role="tab" aria-selected="true" className="on">Prop Bet</button>
-          <button type="button" role="tab" onClick={() => navigate('/ocean')}>DanGG Rewards</button>
+          <button type="button" role="tab" onClick={() => navigate('/ocean')}>{brand.name} Rewards</button>
           <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
           <button type="button" role="tab" onClick={() => navigate('/settings')}>Game Settings</button>
           <button type="button" className="mp-close" aria-label="Close Prop Bet" onClick={() => navigate('/')}>✕</button>

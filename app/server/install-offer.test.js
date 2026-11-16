@@ -13,3 +13,8 @@ test('no offer inside the installed app', () => {
   assert.equal(appOfferCaption('ios', true), null);
   assert.equal(appOfferCaption('android', true), null);
 });
+
+test('an independent room name appears literally in the install offer', () => {
+  assert.equal(appOfferCaption('ios', false, 'River $& Club'), 'Add River $& Club to your iPhone Home Screen');
+  assert.equal(appOfferCaption('android', false, 'OpenPoker'), 'Install OpenPoker on your Android phone');
+});

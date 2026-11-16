@@ -1,28 +1,45 @@
-# Client assets
+# Client assets and provenance
 
-This folder contains committed DanGG assets. The generators in `tools/original-assets/`
-draw or synthesize the categories below using committed inputs. Supplied artwork is
-also present; this inventory is not an independent proof of provenance for every file.
-See [`docs/LICENSING.md`](../../../docs/LICENSING.md) for scope and retained notices.
+This directory contains generated drawings/audio, supplied artwork and files whose
+source permissions still need evidence. A file being committed, AI-generated or
+covered by a brand policy is not proof of third-party clearance.
 
-| Folder | Generator | Contents |
-|---|---|---|
-| `sounds/` | `sounds.mjs` | Synthesised effects, voice lines in Dan's cloned voice (`voice/`), lobby music loop |
-| `cards/` | `cards.mjs` | Six face sheets (13×4 grid of 122×162 cells) and ten backs |
-| `squeeze/` | `squeeze.mjs` | Card-squeeze frames, inner sheets and JSON per format |
-| `table/`, `tables/`, `chips/`, `reserved/` | `table.mjs` | Felts, rooms, clock digits, dealer button, chips, chip-shuffle sheet, win animation |
-| `chrome/`, `login/`, `ocean/`, `ui/` | `lobby.mjs` | Header tabs and banners, login heroes, rank crests, promotion tiles, colour previews, home-feed and series art (`ui/creatives/`, 2x) |
-| `fx/` | `effects.mjs` | Animated WebP table effects (jackpot intro and win, mystery box, pot win, chip shuffle) |
+The current hashed inventory is
+[`tools/original-assets/inventory.json`](../../../tools/original-assets/inventory.json).
+Read [`docs/ASSET-PROVENANCE.md`](../../../docs/ASSET-PROVENANCE.md) for exact unresolved
+inputs, the retired reference-avatar record and the release gate. The software
+license is described in [`docs/LICENSING.md`](../../../docs/LICENSING.md).
 
-`chrome/logo.png` and supplied tab plates are retained artwork; `lobby.mjs` does not
-regenerate them. Other supplied artwork and recorded voice takes are committed inputs.
-The brand policy does not remove copyright permission needed for independent installs.
+| Family | Recorded source |
+|---|---|
+| `avatars/openpoker-*.svg` | Original geometric drawings in `avatars.mjs`; exact output verification with `--check` |
+| `cards/`, `squeeze/` | SVG/geometry recipes in `cards.mjs`, `squeeze.mjs` and their helpers |
+| Older `table/`, `tables/`, `chips/`, `reserved/` PNGs | `table.mjs` and its drawing helpers; this does **not** cover later table skins or `table/ui/` artwork |
+| Older `chrome/`, `ocean/`, `ui/` PNGs | `lobby.mjs` and its helpers; supplied logos/tab plates and later WebP art have separate records |
+| `slots/*.svg`, `fx/*.webp` | `tools/slot-art.mjs` and `effects.mjs` |
+| 32 non-voice `sounds/*.mp3` | Deterministic recipes in `sounds.mjs`, `sound-table.mjs` and `sound-fx.mjs` |
+| Six voice MP3s | Processed committed WAV takes; consent/model/source-rights evidence remains open |
+| `music/`, logos, tab plates, later 3D artwork | Supplied inputs; see the inventory rather than assuming a local generator exists |
 
-Regenerate with `bash tools/setup_assets.sh` (or one category, e.g. `bash tools/setup_assets.sh sounds`).
-`tools/original-assets/manifest.json` lists the expected path and size of every file; each
-generator checks its output against it.
+Normal application builds use committed files; they do not run the generators.
+Regenerate supported legacy categories with `bash tools/setup_assets.sh` (or a named
+category). Those tools require app development dependencies and platform tools such
+as Chrome, ffmpeg, cwebp/webpmux and, for some steps, macOS `sips`. System fonts can
+change rendered output. `tab-plates.py` edits supplied plates and does not originate
+their underlying art. Lobby music is not synthesized by `sounds.mjs`.
 
-Regeneration requires the app development dependencies, Chrome (`CHROME_PATH` override),
-ffmpeg/ffprobe, cwebp/webpmux and macOS tools such as sips; the tab-plate Python tool
-uses Pillow. System font availability can affect rendered output. The committed assets
-allow normal application builds without running these generators.
+`tools/original-assets/manifest.json` is a **legacy replacement-dimension manifest**,
+not a full inventory: it still contains retired sound/SWF targets and omits later
+assets. Its byte counts describe historical inputs, not a current integrity check.
+Do not regenerate missing legacy entries merely to make its path list complete.
+
+From the repository root:
+
+```sh
+node tools/original-assets/avatars.mjs --check
+node tools/original-assets/audit-inventory.mjs --check
+node tools/original-assets/audit-inventory.mjs --release
+```
+
+The last command deliberately fails while unresolved supplied/unknown assets remain.
+It checks provenance readiness, not whether the poker application builds or plays.

@@ -28,7 +28,7 @@ export function MobileTopBar({ title, showBrand = false }: { title?: string; sho
         </button>
       )}
       <div className="p-topbar-mid">
-        {title ? <b className="p-topbar-title">{title}</b> : showBrand ? <img src={brand.logo} alt="DanGG" className="p-topbar-logo" /> : <span />}
+        {title ? <b className="p-topbar-title">{title}</b> : showBrand ? <img src={brand.logo} alt={brand.name} className="p-topbar-logo" /> : <span />}
       </div>
       <button type="button" className="p-wallet" aria-label="Open cashier" onClick={() => navigate(user ? '/cashier' : '/login')}>
         {user ? <><b>{money(user.balance)}</b><NavGlyph name="wallet" size={19} /></> : <b>Log in</b>}

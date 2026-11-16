@@ -1,5 +1,10 @@
 # Production deployment (Dexter)
 
+**For a new independent OpenPoker room, use [docs/INSTALL.md](../docs/INSTALL.md)
+and the separate [`portable/compose.yml`](portable/compose.yml).** This runbook is
+specific to the existing DanGG implementation; its project name and data volume
+must remain stable during upgrades.
+
 This directory contains the production stack for the play-money room at
 **https://dangg.live**. It is separate from the Mac-local desktop shell; the same
 repository builds both.
@@ -45,9 +50,11 @@ Deploys copy changed source files from the Mac and rebuild the image:
   backups/        nightly SQLite snapshots (also pulled by Nano)
 ```
 
-The official extracted assets (`app/public/assets/*`) are intentionally gitignored.
-They must exist on the host for the real table art; otherwise the build falls back to
-CSS/brand placeholders.
+The current client assets in `app/public/assets/` are committed inputs. The source
+build does not require extracted proprietary client assets. The bounded provenance
+review and regeneration limitations are documented in
+[`docs/LICENSING.md`](../docs/LICENSING.md) and
+[`app/public/assets/README.md`](../app/public/assets/README.md).
 
 ## Deploying a change
 
@@ -64,7 +71,8 @@ The script:
 2. tags the running image `dangro-game:rollback-<stamp>`;
 3. exports exactly that commit with `git archive` (never the working copy) and mirrors
    `app/` and `tools/` to the host with `rsync --delete`, so files removed from Git also
-   leave the host. Extracted client assets, Ruffle and local data are protected;
+   leave the host. Only generated local data, dependency and build directories are
+   protected by the app mirror filters; untracked public assets are removed.
    `deploy/` is updated without deletes so `.env`, backups and logs stay;
 4. builds with `GIT_SHA=<sha>` and recreates only the `game` service;
 5. polls `https://dangg.live/healthz` until `commit` equals the deployed SHA (180 s

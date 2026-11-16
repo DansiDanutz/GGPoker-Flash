@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">OpenPoker</title><desc id="desc">Open source play-money poker</desc>
+  <rect width="1200" height="630" fill="#111610"/>
+  <rect x="40" y="40" width="1120" height="550" rx="48" fill="none" stroke="#e8b84a" stroke-width="3"/>
+  <path d="M237 193c-35 42-80 67-80 105 0 44 55 59 80 23 25 36 80 21 80-23 0-38-45-63-80-105Z" fill="#e8b84a"/>
+  <path d="M237 307c0 43-13 65-38 83h76c-25-18-38-40-38-83Z" fill="#e8b84a"/>
+  <text x="370" y="320" font-family="system-ui,sans-serif" font-size="112" font-weight="700" letter-spacing="-5" fill="#f5f2ea">Open<tspan fill="#e8b84a">Poker</tspan></text>
+  <text x="374" y="390" font-family="system-ui,sans-serif" font-size="32" letter-spacing="2" fill="#c6cbbb">OPEN SOURCE · PLAY MONEY</text>
+</svg>

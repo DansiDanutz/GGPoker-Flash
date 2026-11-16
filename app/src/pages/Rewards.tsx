@@ -14,7 +14,7 @@ const WHEEL = [
 ];
 
 export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {}) {
-  const { user, refreshUser, toast, navigate } = useApp();
+  const { user, refreshUser, toast, navigate, brand } = useApp();
   const [tab, setTab] = useState(initialTab);
   const [section, setSection] = useState<'level' | 'store' | 'about'>('level');
   const [missions, setMissions] = useState<any[]>([]);
@@ -94,24 +94,24 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
         <div className="mp-wintabs ocean-wintabs" role="tablist" aria-label="Account windows">
           <button type="button" role="tab" onClick={() => navigate('/my-page')}>My Page</button>
           <button type="button" role="tab" onClick={() => navigate('/propbet')}>Prop Bet</button>
-          <button type="button" role="tab" aria-selected="true" className="on" onClick={() => setSection('level')}>DanGG Rewards</button>
+          <button type="button" role="tab" aria-selected="true" className="on" onClick={() => setSection('level')}>{brand.name} Rewards</button>
           <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
           <button type="button" role="tab" onClick={() => navigate('/settings')}>Game Settings</button>
-          <button type="button" className="mp-close" aria-label="Close DanGG Rewards" onClick={() => navigate('/')}>✕</button>
+          <button type="button" className="mp-close" aria-label={`Close ${brand.name} Rewards`} onClick={() => navigate('/')}>✕</button>
         </div>
         <div className="mp-body">
-          <aside className="mp-menu" aria-label="DanGG Rewards menu">
-            {([['level', 'My Ocean Level'], ['store', 'GEM Store'], ['about', 'About DanGG Rewards']] as const).map(([key, label]) => (
+          <aside className="mp-menu" aria-label={`${brand.name} Rewards menu`}>
+            {([['level', 'My Ocean Level'], ['store', 'GEM Store'], ['about', `About ${brand.name} Rewards`]] as const).map(([key, label]) => (
               <button key={key} type="button" className={'mp-menu-item' + (section === key ? ' on' : '')} aria-current={section === key ? 'page' : undefined} onClick={() => setSection(key)}>{label}</button>
             ))}
           </aside>
           <div className="mp-pane ocean-pane">
-            {section === 'level' && <OceanLevel xp={user?.xp ?? 0} gems={user?.gems ?? 0} onAbout={() => setSection('about')} />}
+            {section === 'level' && <OceanLevel xp={user?.xp ?? 0} gems={user?.gems ?? 0} siteName={brand.name} onAbout={() => setSection('about')} />}
 
             {section === 'about' && (
               <div className="ocean-about">
-                <h2>About DanGG Rewards</h2>
-                <p>DanGG Rewards turns every hand into progress. Earn TP by playing, climb from Fish to Shark and unlock a higher GEM multiplier and cashback along the way.</p>
+                <h2>About {brand.name} Rewards</h2>
+                <p>{brand.name} Rewards turns every hand into progress. Earn TP by playing, climb from Fish to Shark and unlock a higher GEM multiplier and cashback along the way.</p>
                 <div className="ocean-about-grid">
                   <div><b>TP</b><span>Tournament points earned from raked hands and tournaments. The yearly reset keeps the reef competitive.</span></div>
                   <div><b>GEM multiplier</b><span>Multiplies the gems you collect in the GEM Store and from daily play.</span></div>
@@ -124,14 +124,14 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
             {section === 'store' && (
               <>
                 <h2 className="ocean-store-title">GEM Store</h2>
-                <SubNav items={[{ key: 'ggpass', label: 'DanGG Pass' }, { key: 'missions', label: 'Daily missions' }, { key: 'wheel', label: 'Prize Wheel' }, { key: 'ranks', label: 'Fish ranks' }, { key: 'fishhistory', label: 'Fish history' }, { key: 'leaders', label: 'Leaderboard' }]} active={tab} onChange={setTab} />
+                <SubNav items={[{ key: 'ggpass', label: `${brand.name} Pass` }, { key: 'missions', label: 'Daily missions' }, { key: 'wheel', label: 'Prize Wheel' }, { key: 'ranks', label: 'Fish ranks' }, { key: 'fishhistory', label: 'Fish history' }, { key: 'leaders', label: 'Leaderboard' }]} active={tab} onChange={setTab} />
 
         {tab === 'ggpass' && (
           <>
             <div className="card" style={{ background: 'linear-gradient(120deg,#2a2311,#1a1a1a 60%)', borderColor: '#5a4519' }}>
               <div className="between">
                 <div>
-                  <div className="muted small" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>DanGG Pass level</div>
+                  <div className="muted small" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>{brand.name} Pass level</div>
                   <div style={{ fontFamily: 'var(--head-font)', fontSize: 34, fontWeight: 900, color: '#ffe6a6' }}>Level {level}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>

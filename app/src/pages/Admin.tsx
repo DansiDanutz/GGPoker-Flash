@@ -49,7 +49,7 @@ const AREA_DESCRIPTIONS: Record<string, string> = {
   tournaments: 'Evenimente, structuri de blinduri și desfășurare.',
   waitlists: 'Cozi de așteptare, locuri rezervate și jucători în așteptare.',
   banners: 'Bannerele și promoțiile afișate în aplicație.',
-  branding: 'Logo, imagini și identitatea vizuală DanGG.',
+  branding: 'Logo, imagini și identitatea vizuală a comunității.',
   verifications: 'Revizuirea solicitărilor din conturile utilizatorilor.',
   reports: 'Sesizările jucătorilor și soluționarea lor.',
   chatmod: 'Moderarea conversațiilor de la mese.',
@@ -58,7 +58,7 @@ const AREA_DESCRIPTIONS: Record<string, string> = {
   snapshots: 'Copii de siguranță și restaurare controlată.',
   transactions: 'Istoricul operațiunilor cu solduri virtuale.',
   audit: 'Cine a făcut modificări și când.',
-  chat: 'Anunțuri către comunitatea DanGG.',
+  chat: 'Anunțuri către comunitate.',
 };
 
 function sectionFromRoute(route: string): string {
@@ -307,10 +307,10 @@ export function Admin() {
     return (
       <PageShell activeTop="poker">
         <div className="page">
-          <h1 className="page-title">Administrare DanGG</h1>
+          <h1 className="page-title">Administrare {brand.name}</h1>
           <p className="page-sub">Această zonă este rezervată administratorilor.</p>
           <div className="card" style={{ maxWidth: 560 }}>
-            <p style={{ color: '#ddd' }}>Folosește contul tău de administrator prin conexiunea privată configurată pentru DanGG.</p>
+            <p style={{ color: '#ddd' }}>Folosește contul tău de administrator prin conexiunea privată configurată pentru {brand.name}.</p>
             <button className="btn btn-red" style={{ marginTop: 12 }} onClick={() => navigate('/login')}>Autentificare</button>
             <button className="btn btn-ghost" style={{ marginTop: 12 }} onClick={() => navigate('/marketplace')}>Deschide Marketplace</button>
           </div>
@@ -323,7 +323,7 @@ export function Admin() {
     <PageShell activeTop="poker">
       <div className="admin-shell">
         <nav className="admin-nav">
-          <div className="brand">DanGG<small>ADMINISTRATION</small></div>
+          <div className="brand">{brand.name}<small>ADMINISTRATION</small></div>
           {SECTIONS.map((s) => (
             <button key={s.key} aria-current={section === s.key ? 'page' : undefined} className={section === s.key ? 'on' : ''} onClick={() => openSection(s.key)}>
               <span style={{ marginRight: 8 }}>{s.icon}</span>{s.label}

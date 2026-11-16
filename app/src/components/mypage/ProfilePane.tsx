@@ -2,31 +2,14 @@ import React, { useMemo, useRef, useState } from 'react';
 import { api, money } from '../../lib/api';
 import { useApp } from '../../lib/store';
 import { sound } from '../../lib/sound';
+import { AVATAR_NAMES, avatarPresetPath, normalizeAvatarSource } from '../../../config/avatar-presets.js';
 
 type Preset = { id: string; name: string; src: string; category: 'poker' | 'ocean' | 'lucky' };
 
-const PRESETS: Preset[] = [
-  { id: 'gg-01', name: 'Andrew', src: '/assets/avatars/gg-01.jpg', category: 'poker' },
-  { id: 'gg-02', name: 'Barry', src: '/assets/avatars/gg-02.jpg', category: 'poker' },
-  { id: 'gg-03', name: 'Billy', src: '/assets/avatars/gg-03.jpg', category: 'poker' },
-  { id: 'gg-04', name: 'Brian', src: '/assets/avatars/gg-04.jpg', category: 'poker' },
-  { id: 'gg-05', name: 'Danny', src: '/assets/avatars/gg-05.jpg', category: 'poker' },
-  { id: 'gg-06', name: 'Elizabeth', src: '/assets/avatars/gg-06.jpg', category: 'poker' },
-  { id: 'gg-07', name: 'Jackson', src: '/assets/avatars/gg-07.jpg', category: 'ocean' },
-  { id: 'gg-08', name: 'Jacky', src: '/assets/avatars/gg-08.jpg', category: 'ocean' },
-  { id: 'gg-09', name: 'Jake', src: '/assets/avatars/gg-09.jpg', category: 'ocean' },
-  { id: 'gg-10', name: 'John', src: '/assets/avatars/gg-10.jpg', category: 'ocean' },
-  { id: 'gg-11', name: 'Ken', src: '/assets/avatars/gg-11.jpg', category: 'ocean' },
-  { id: 'gg-12', name: 'Kitty', src: '/assets/avatars/gg-12.jpg', category: 'ocean' },
-  { id: 'gg-13', name: 'Max', src: '/assets/avatars/gg-13.jpg', category: 'ocean' },
-  { id: 'gg-14', name: 'Melissa', src: '/assets/avatars/gg-14.jpg', category: 'lucky' },
-  { id: 'gg-15', name: 'Oscar', src: '/assets/avatars/gg-15.jpg', category: 'lucky' },
-  { id: 'gg-16', name: 'Paul', src: '/assets/avatars/gg-16.jpg', category: 'lucky' },
-  { id: 'gg-17', name: 'Robert', src: '/assets/avatars/gg-17.jpg', category: 'lucky' },
-  { id: 'gg-18', name: 'Sean', src: '/assets/avatars/gg-18.jpg', category: 'lucky' },
-  { id: 'gg-19', name: 'Shana', src: '/assets/avatars/gg-19.jpg', category: 'lucky' },
-  { id: 'gg-20', name: 'Tina', src: '/assets/avatars/gg-20.jpg', category: 'lucky' },
-];
+const PRESETS: Preset[] = AVATAR_NAMES.map((name, index) => ({
+  id: `gg-${String(index + 1).padStart(2, '0')}`, name, src: avatarPresetPath(index + 1),
+  category: index < 6 ? 'poker' : index < 13 ? 'ocean' : 'lucky',
+}));
 
 const CATEGORIES = [
   { key: 'all', label: 'All' },
@@ -41,7 +24,7 @@ const CATEGORIES = [
 export function ProfilePane() {
   const { user, refreshUser, toast } = useApp();
   const [category, setCategory] = useState('all');
-  const [selected, setSelected] = useState<string>(user?.avatar || '');
+  const [selected, setSelected] = useState<string>(normalizeAvatarSource(user?.avatar));
   const [nick, setNick] = useState(user?.nick || '');
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
@@ -52,7 +35,7 @@ export function ProfilePane() {
     return PRESETS.filter((p) => p.category === category);
   }, [category]);
 
-  const dirty = (selected || '') !== (user?.avatar || '') || nick.trim() !== (user?.nick || '');
+  const dirty = (selected || '') !== normalizeAvatarSource(user?.avatar) || nick.trim() !== (user?.nick || '');
 
   const pickUpload = async (f: File | undefined) => {
     if (!f) return;
@@ -71,7 +54,7 @@ export function ProfilePane() {
     if (!dirty) return;
     setBusy(true);
     try {
-      if ((selected || '') !== (user?.avatar || '')) await api.setAvatar(selected);
+      if ((selected || '') !== normalizeAvatarSource(user?.avatar)) await api.setAvatar(selected);
       if (nick.trim() && nick.trim() !== user?.nick) await api.setNick(nick.trim());
       await refreshUser();
       sound.play('coin', { volume: .5 });
@@ -85,7 +68,7 @@ export function ProfilePane() {
     <div className="mpp">
       <div className="mpp-head">
         <div className="mpp-portrait">
-          <img src={selected && selected.startsWith('/assets/avatars') ? selected : (user?.avatar || '/assets/avatars/gg-05.jpg')} alt="" />
+          <img src={normalizeAvatarSource(selected || user?.avatar) || avatarPresetPath(5)} alt="" />
           <span className="mpp-vip">{user?.vip_level ?? 0}</span>
         </div>
         <div className="mpp-nick">

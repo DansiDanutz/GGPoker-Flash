@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { CREATOR_AVATAR, PROJECT_NAME, SWIPE_TAP_PX, creatorCredit, swipeOffset, swipeOpens } from '../../lib/creator';
 import { CreatorNews } from './CreatorNews';
 import '../../creator-credit.css';
+import { SITE } from '../../lib/site';
 
 interface CreatorCreditProps {
   readonly className?: string;
@@ -57,7 +58,7 @@ export function CreatorCredit({ className = '', withNews = false }: CreatorCredi
         style={offset ? { transform: `translateX(${offset}px)` } : undefined}
       />
       <span>
-        <b>{PROJECT_NAME}</b>
+        <b>{SITE.profile === 'portable' ? SITE.name : PROJECT_NAME}</b>
         <small>{creatorCredit()}</small>
       </span>
       {withNews && <i className="creator-credit-news" aria-hidden="true" style={offset ? { transform: `translateX(${offset}px)` } : undefined}>1</i>}
@@ -76,7 +77,7 @@ export function CreatorCredit({ className = '', withNews = false }: CreatorCredi
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); } }}
-        aria-label={`${PROJECT_NAME}: slide or tap to read news from Dan`}
+        aria-label={`${SITE.profile === 'portable' ? SITE.name : PROJECT_NAME}: slide or tap to read news from Dan`}
       >
         {content}
       </button>

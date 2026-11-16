@@ -26,6 +26,7 @@ type HeroVariant = 'panel' | 'splash';
 interface LoginHeroProps {
   /** `panel`: the art column beside the login card (with headline). `splash`: full-screen phone splash backdrop. */
   readonly variant?: HeroVariant;
+  readonly name: string;
 }
 
 function emitterFor(variant: HeroVariant, isPhone: boolean, w: number, h: number): Emitter {
@@ -37,7 +38,7 @@ function emitterFor(variant: HeroVariant, isPhone: boolean, w: number, h: number
  * Login hero: photo-real backdrop, drifting gold sparks, floating chips with pointer parallax and
  * the gold headline. Decorative only (the page has its own sr-only heading).
  */
-export function LoginHero({ variant = 'panel' }: LoginHeroProps) {
+export function LoginHero({ variant = 'panel', name }: LoginHeroProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -76,7 +77,7 @@ export function LoginHero({ variant = 'panel' }: LoginHeroProps) {
       ))}
       {variant === 'panel' && (
         <div className="lh-copy">
-          <p className="lh-kicker">DanGG · Play money poker</p>
+          <p className="lh-kicker">{name} · Play money poker</p>
           <p className="lh-title"><span>Pull up</span><span>a chair</span></p>
           <p className="lh-sub">Real tables · play chips · zero cash at stake</p>
         </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { normalizeAvatarSource } from '../../config/avatar-presets.js';
 
 const GRADS = [
   ['#5a3a1f', '#c79a3a'], ['#1f3f5a', '#3f9ad0'], ['#3a1f4f', '#9a4fd0'],
@@ -7,7 +8,7 @@ const GRADS = [
 ];
 
 export function Avatar({ name, src, size = 44 }: { name: string; src?: string; size?: number }) {
-  if (src) return <img src={src} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }} />;
+  if (src) return <img src={normalizeAvatarSource(src)} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }} />;
   const idx = [...(name || '?')].reduce((a, c) => a + c.charCodeAt(0), 0) % GRADS.length;
   const [a, b] = GRADS[idx];
   const initials = (name || '?').replace(/[^A-Za-z0-9]/g, ' ').trim().split(/\s+/).slice(0, 2).map((s) => s[0]).join('').toUpperCase() || '?';

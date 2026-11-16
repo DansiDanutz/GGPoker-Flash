@@ -10,7 +10,7 @@ const KIND_LABEL: Record<string, string> = { slots: 'Slots', roulette: 'Roulette
 
 /** Phone Casino tab, as on the GGPoker mobile lobby: hero, one row per game, then today's wins and the slots catalogue. */
 export function MobileCasino() {
-  const { navigate } = useApp();
+  const { navigate, brand } = useApp();
   const [winners, setWinners] = useState<WinnerRow[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +41,7 @@ export function MobileCasino() {
       <button type="button" className="mc-feature" onClick={() => navigate('/slots')}>
         <img src="/assets/slots/wild-jungle.svg" alt="" />
         <span>
-          <small>Only on DanGG</small>
+          <small>{brand.profile === 'portable' ? 'Play on' : 'Only on'} {brand.name}</small>
           <b>Six slots. One floor.</b>
           <em>Wilds, wheels and clover cash — all playable now.</em>
           <i>Browse slots →</i>
