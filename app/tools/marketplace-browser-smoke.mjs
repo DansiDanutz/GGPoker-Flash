@@ -426,11 +426,25 @@ async function run() {
   await owner.waitForFunction(() => !document.querySelector('.mf-fieldset')?.disabled);
   await fillField(owner, 'Suma în USD', '20.00', 'label.mf-field');
   await fillField(owner, 'Referința unică a încasării sau ajustării', 'ci-browser-credit-proof', 'label.mf-field');
-  await clickSelector(owner, '.mf-check input');
+  await clickSelector(owner, '.mf-main .mf-check input');
   await clickText(owner, '.mf-main button', 'Înregistrează creditele');
   await waitUntil(async () => (await api('/api/marketplace/publisher', { token: memberAuth.token })).balance.available_cents === 2000, 'UI credit recording did not persist.');
   await owner.waitForFunction(() => !document.querySelector('.mf-fieldset')?.disabled);
   completed.push('Owner plugin enforcement display and UI publisher approval/verified credit recording');
+
+  await clickSelector(owner, '.mf-organizer-credits summary');
+  await fillField(owner, 'ID utilizator', String(memberAuth.user.id), '.mf-organizer-credits label.mf-field');
+  await fillField(owner, 'Suma verificată în USD', '30.00', '.mf-organizer-credits label.mf-field');
+  await fillField(owner, 'Referința unică a chitanței furnizorului', 'ci-organizer-credit-proof', '.mf-organizer-credits label.mf-field');
+  await clickSelector(owner, '.mf-organizer-credits .mf-check input');
+  await clickText(owner, '.mf-organizer-credits button', 'Înregistrează creditele organizatorului');
+  await waitUntil(async () => (await api('/api/marketplace/billing/me', { token: memberAuth.token })).balance_cents === 3000, 'Organizer funding did not reach the separate service-credit account.');
+  const serviceAccount = await api('/api/marketplace/billing/me', { token: memberAuth.token });
+  assert.equal(serviceAccount.memberships.organizer.active, false, 'Funding must not silently buy membership.');
+  assert.equal((await api('/api/marketplace/publisher', { token: memberAuth.token })).balance.available_cents, 2000, 'Service funding changed publisher commission credits.');
+  await clickSelector(owner, '.mf-organizer-credits summary');
+  completed.push('Organizer funding UI persists service credits separately from publisher credits and membership');
+
 
   const spinProduct = initial.products.find((entry) => entry.id === 'spin-and-go-manager');
   await clickSelector(owner, '#ma-tab-catalog');
