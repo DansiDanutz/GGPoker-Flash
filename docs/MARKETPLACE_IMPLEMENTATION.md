@@ -4,6 +4,8 @@
 **Prepared for Dan Semenescu and OpenPoker contributors**  
 **16 November 2026**
 
+**Contributor workflow clarification (16 November):** local browser/server development and Play Money testing are free. Registered users have Contributor, Organiser and Marketplace workspaces. The $9 Contributor membership applies to official marketplace submission, not local development. Plugins are submitted as upstream source PRs with passing CI, reviewed and merged by OpenPoker, then separately activated for the contributor after the reviewed registration ships. See [Contributor sandbox and release workflow](CONTRIBUTOR_SANDBOX.md); this supersedes the future uploaded-artifact execution approach below. Production rollout remains a separate approval.
+
 ## 1 Purpose and outcome
 
 OpenPoker will provide an open-source poker foundation and a marketplace through which organizers obtain paid management capabilities, integrations and services. DanGG.live is the first operated service using that foundation. The first commercial products will package the capabilities already present in the application: cash-table management, tournament management and the supported variants around them. Jackpot Sit & Go, ordinary Sit & Go, fast-fold poker, engagement tools and other products must be listed according to their actual readiness.
