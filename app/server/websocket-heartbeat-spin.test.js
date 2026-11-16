@@ -14,7 +14,15 @@ test('three-player network black hole is detected and rejoined Spin settles once
   const relay = net.createServer(client => {
     const upstream = net.connect(srv.port, '127.0.0.1');
     const peer = { client, upstream, blocked: false, upstreamClosed: false, droppedUp: 0, droppedDown: 0 }; peers.push(peer);
-    client.on('data', chunk => { if (peer.blocked) peer.droppedUp += chunk.length; else upstream.write(chunk); });
+    let header = Buffer.alloc(0), upgraded = false;
+    client.on('data', chunk => {
+      if (peer.blocked) { peer.droppedUp += chunk.length; return; }
+      if (upgraded) { upstream.write(chunk); return; }
+      header = Buffer.concat([header, chunk]);
+      const end = header.indexOf('\r\n\r\n'); if (end < 0) return;
+      upstream.write(header.subarray(0, end + 4).toString().replace(/^Host:[^\r\n]*/im, `Host: 127.0.0.1:${srv.port}`));
+      upstream.write(header.subarray(end + 4)); header = Buffer.alloc(0); upgraded = true;
+    });
     upstream.on('data', chunk => { if (peer.blocked) peer.droppedDown += chunk.length; else client.write(chunk); });
     // Keep the client side blackholed even after the heartbeat closes the server side.
     upstream.on('close', () => { peer.upstreamClosed = true; if (!peer.blocked) client.destroy(); });
