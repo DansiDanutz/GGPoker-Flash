@@ -14,7 +14,7 @@
   --tchat-width: 300px;
 }
 
-.tchat-dock { position: absolute; left: 12px; bottom: 118px; z-index: 35; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: var(--tchat-width); pointer-events: none; }
+.tchat-dock { position: absolute; left: 12px; bottom: calc(var(--action-bar-height, 118px) + 8px); z-index: 35; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: var(--tchat-width); pointer-events: none; }
 .tchat-dock > * { pointer-events: auto; }
 
 .tchat-buttons { display: flex; gap: 6px; }
@@ -88,7 +88,7 @@
 }
 
 @media (max-width: 760px) {
-  .tchat-dock { left: 8px; right: 8px; width: auto; bottom: 150px; }
+  .tchat-dock { left: 8px; right: 8px; width: auto; bottom: calc(var(--action-bar-height, 150px) + 8px); }
   .tchat-panel { width: 100%; }
   .tchat-log.chat-log { max-height: 160px; }
 }

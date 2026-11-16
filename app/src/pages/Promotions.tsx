@@ -251,25 +251,25 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
           <div className="grid g2">
             <div className="card">
               <div className="panel-title">Language</div>
-              <select className="admin-select" style={{ width: '100%' }} value={shownLang} onChange={(e) => persist('ggpoker.language', e.target.value)}>
+              <select className="admin-select" aria-label="Language" style={{ width: '100%' }} value={shownLang} onChange={(e) => persist('ggpoker.language', e.target.value)}>
                 {languages.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
               </select>
               <div className="panel-title" style={{ marginTop: 18 }}>Animations</div>
               <label className="switch-row">
                 <span>Enable table & lobby animations</span>
-                <input type="checkbox" checked={shownAnimations} onChange={(e) => persist('ggpoker.animations', e.target.checked ? '1' : '0')} />
+                <input type="checkbox" aria-label="Enable table and lobby animations" checked={shownAnimations} onChange={(e) => persist('ggpoker.animations', e.target.checked ? '1' : '0')} />
               </label>
               <label className="switch-row">
                 <span>Run it twice when all-in</span>
-                <input type="checkbox" checked={runItTwice} onChange={(e) => { setRunItTwice(e.target.checked); persist('ggpoker.rit', e.target.checked ? '1' : '0'); }} />
+                <input type="checkbox" aria-label="Run it twice when all-in" checked={runItTwice} onChange={(e) => { setRunItTwice(e.target.checked); persist('ggpoker.rit', e.target.checked ? '1' : '0'); }} />
               </label>
               <label className="switch-row">
                 <span>Open tables in a new window (multi-table)</span>
-                <input type="checkbox" checked={newWindowTables} onChange={(e) => { setNewWindowTables(e.target.checked); persist('ggpoker.newWindowTables', e.target.checked ? '1' : '0'); }} />
+                <input type="checkbox" aria-label="Open tables in a new window" checked={newWindowTables} onChange={(e) => { setNewWindowTables(e.target.checked); persist('ggpoker.newWindowTables', e.target.checked ? '1' : '0'); }} />
               </label>
               <label className="switch-row">
                 <span>Auto-muck losing hands</span>
-                <input type="checkbox" checked={autoMuck} onChange={(e) => { setAutoMuck(e.target.checked); persist('ggpoker.automuck', e.target.checked ? '1' : '0'); }} />
+                <input type="checkbox" aria-label="Auto-muck losing hands" checked={autoMuck} onChange={(e) => { setAutoMuck(e.target.checked); persist('ggpoker.automuck', e.target.checked ? '1' : '0'); }} />
               </label>
             </div>
             <div className="card">
@@ -285,20 +285,20 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
             <div className="card" style={{ gridColumn: '1 / -1' }}>
               <div className="panel-title">Buy-in defaults</div>
               <div className="between"><span className="muted small">Default buy-in (0% = table minimum)</span><b>{buyinPct}% of maximum</b></div>
-              <input type="range" min={0} max={100} value={buyinPct} style={{ width: '100%' }}
+              <input type="range" aria-label="Default buy-in percentage" min={0} max={100} value={buyinPct} style={{ width: '100%' }}
                 onChange={(e) => { const v = Number(e.target.value); setBuyinPct(v); persist('ggpoker.buyinPct', String(v)); }} />
-              <label className="switch-row" style={{ marginTop: 8 }}><span>Auto buy-in from Join</span><input type="checkbox" checked={autoBuyin} onChange={(e) => { setAutoBuyin(e.target.checked); persist('ggpoker.autoBuyin', e.target.checked ? '1' : '0'); }} /></label>
-              <label className="switch-row"><span>Auto top-up after a hand</span><input type="checkbox" checked={autoTopup} onChange={(e) => { setAutoTopup(e.target.checked); persist('ggpoker.autoTopup', e.target.checked ? '1' : '0'); }} /></label>
+              <label className="switch-row" style={{ marginTop: 8 }}><span>Auto buy-in from Join</span><input type="checkbox" aria-label="Auto buy-in from Join" checked={autoBuyin} onChange={(e) => { setAutoBuyin(e.target.checked); persist('ggpoker.autoBuyin', e.target.checked ? '1' : '0'); }} /></label>
+              <label className="switch-row"><span>Auto top-up after a hand</span><input type="checkbox" aria-label="Auto top-up after a hand" checked={autoTopup} onChange={(e) => { setAutoTopup(e.target.checked); persist('ggpoker.autoTopup', e.target.checked ? '1' : '0'); }} /></label>
               <div className="grid g2" style={{ marginTop: 6 }}>
                 <div>
                   <div className="between muted small"><span>Refill below</span><b>{topupTrigger}%</b></div>
-                  <input type="range" min={5} max={80} value={topupTrigger} style={{ width: '100%' }} onChange={(e) => {
+                  <input type="range" aria-label="Auto top-up refill threshold" min={5} max={80} value={topupTrigger} style={{ width: '100%' }} onChange={(e) => {
                     const v = Math.min(Number(e.target.value), topupTarget); setTopupTrigger(v); persist('ggpoker.topupTrigger', String(v));
                   }} />
                 </div>
                 <div>
                   <div className="between muted small"><span>Refill to</span><b>{topupTarget}%</b></div>
-                  <input type="range" min={20} max={100} value={topupTarget} style={{ width: '100%' }} onChange={(e) => {
+                  <input type="range" aria-label="Auto top-up target percentage" min={20} max={100} value={topupTarget} style={{ width: '100%' }} onChange={(e) => {
                     const v = Math.max(Number(e.target.value), topupTrigger); setTopupTarget(v); persist('ggpoker.topupTarget', String(v));
                   }} />
                 </div>
@@ -312,9 +312,9 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
           <div className="grid g2">
             <div className="card">
               <div className="panel-title">Sound</div>
-              <label className="switch-row"><span>Master sound</span><input type="checkbox" checked={shownSoundOn} onChange={(e) => persist('ggpoker.sound', e.target.checked ? '1' : '0')} /></label>
+              <label className="switch-row"><span>Master sound</span><input type="checkbox" aria-label="Master sound" checked={shownSoundOn} onChange={(e) => persist('ggpoker.sound', e.target.checked ? '1' : '0')} /></label>
               <div className="admin-label">Master volume</div>
-              <input type="range" min={0} max={100} value={volume} style={{ width: '100%' }}
+              <input type="range" aria-label="Master volume" min={0} max={100} value={volume} style={{ width: '100%' }}
                 onChange={(e) => { const v = Number(e.target.value); setVolume(v); persist('ggpoker.volume', String(v)); preview('click', v / 100); }} />
               <div className="between muted small"><span>0</span><span>{volume}%</span><span>100</span></div>
               <div className="panel-title" style={{ marginTop: 18 }}>Test sounds</div>
@@ -328,7 +328,7 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
               <div className="panel-title">Audio channels</div>
               {SOUND_CHANNELS.map(([key, label]) => (
                 <div key={key} className="channel-row">
-                  <label className="switch-row"><span>{label}</span><input type="checkbox" checked={channels[key]} onChange={(e) => stageChannels({ ...channels, [key]: e.target.checked })} /></label>
+                  <label className="switch-row"><span>{label}</span><input type="checkbox" aria-label={label} checked={channels[key]} onChange={(e) => stageChannels({ ...channels, [key]: e.target.checked })} /></label>
                   <div className="row channel-volume">
                     <input type="range" min={0} max={100} aria-label={`${label} volume`} value={Math.round(channelVolumes[key] * 100)} disabled={!channels[key]}
                       onChange={(e) => stageChannelVolume(key, Number(e.target.value) / 100)} />
@@ -382,14 +382,14 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
             <div className="grid g2" style={{ marginTop: 18 }}>
               <div className="card">
                 <div className="panel-title">Cards</div>
-                <label className="switch-row"><span>Four-colour deck</span><input type="checkbox" checked={fourColor} onChange={(e) => { setFourColor(e.target.checked); persist('ggpoker.fourcolor', e.target.checked ? '1' : '0'); }} /></label>
-                <label className="switch-row"><span>Show hand strength</span><input type="checkbox" checked={showHand} onChange={(e) => { setShowHand(e.target.checked); persist('ggpoker.showHand', e.target.checked ? '1' : '0'); }} /></label>
-                <label className="switch-row"><span>Enable table hotkeys</span><input type="checkbox" checked={hotkeys} onChange={(e) => { setHotkeys(e.target.checked); persist('ggpoker.hotkeys', e.target.checked ? '1' : '0'); }} /></label>
-                <label className="switch-row"><span>Show keyboard hints</span><input type="checkbox" checked={hotkeyHints} onChange={(e) => { setHotkeyHints(e.target.checked); persist('ggpoker.hotkeyHints', e.target.checked ? '1' : '0'); }} /></label>
-                <label className="switch-row"><span>Card squeeze on a fresh deal</span><input type="checkbox" checked={squeeze} onChange={(e) => { setSqueeze(e.target.checked); persist('ggpoker.squeeze', e.target.checked ? '1' : '0'); }} /></label>
-                <label className="switch-row"><span>Show chat bubbles</span><input type="checkbox" checked={chatBubbles} onChange={(e) => { setChatBubbles(e.target.checked); persist(CHAT_BUBBLES_KEY, e.target.checked ? '1' : '0'); }} /></label>
-                <label className="switch-row"><span>Show reactions</span><input type="checkbox" checked={reactions} onChange={(e) => { setReactions(e.target.checked); persist(REACTIONS_KEY, e.target.checked ? '1' : '0'); }} /></label>
-                <label className="switch-row"><span>Chip shuffle effects</span><input type="checkbox" checked={chipShuffle} onChange={(e) => { setChipShuffle(e.target.checked); persist('ggpoker.chipShuffle', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Four-colour deck</span><input type="checkbox" aria-label="Four-colour deck" checked={fourColor} onChange={(e) => { setFourColor(e.target.checked); persist('ggpoker.fourcolor', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Show hand strength</span><input type="checkbox" aria-label="Show hand strength" checked={showHand} onChange={(e) => { setShowHand(e.target.checked); persist('ggpoker.showHand', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Enable table hotkeys</span><input type="checkbox" aria-label="Enable table hotkeys" checked={hotkeys} onChange={(e) => { setHotkeys(e.target.checked); persist('ggpoker.hotkeys', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Show keyboard hints</span><input type="checkbox" aria-label="Show keyboard hints" checked={hotkeyHints} onChange={(e) => { setHotkeyHints(e.target.checked); persist('ggpoker.hotkeyHints', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Card squeeze on a fresh deal</span><input type="checkbox" aria-label="Card squeeze on a fresh deal" checked={squeeze} onChange={(e) => { setSqueeze(e.target.checked); persist('ggpoker.squeeze', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Show chat bubbles</span><input type="checkbox" aria-label="Show chat bubbles" checked={chatBubbles} onChange={(e) => { setChatBubbles(e.target.checked); persist(CHAT_BUBBLES_KEY, e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Show reactions</span><input type="checkbox" aria-label="Show reactions" checked={reactions} onChange={(e) => { setReactions(e.target.checked); persist(REACTIONS_KEY, e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row"><span>Chip shuffle effects</span><input type="checkbox" aria-label="Chip shuffle effects" checked={chipShuffle} onChange={(e) => { setChipShuffle(e.target.checked); persist('ggpoker.chipShuffle', e.target.checked ? '1' : '0'); }} /></label>
                 <p className="muted small">Peel your hole cards with the mouse, the wheel or Open. Reconnects and hands already in progress skip the effect.</p>
                 <div className="admin-label" style={{ marginTop: 12 }}>Hotkey bindings</div>
                 {HOTKEY_GROUPS.map((group) => (
@@ -410,7 +410,7 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
                 {hotkeyNotice && <p className="muted small" role="status">{hotkeyNotice}</p>}
                 <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => { setHotkeyMap(DEFAULT_HOTKEYS); setHotkeyNotice(''); stage(HOTKEYS_KEY, null); }}>Reset defaults</button>
                 <div className="admin-label" style={{ marginTop: 14 }}>Dealer animation speed</div>
-                <input type="range" min={1} max={5} value={dealSpeed} style={{ width: '100%' }}
+                <input type="range" aria-label="Deal speed" min={1} max={5} value={dealSpeed} style={{ width: '100%' }}
                   onChange={(e) => { const v = Number(e.target.value); setDealSpeed(v); persist('ggpoker.dealSpeed', String(v)); }} />
                 <div className="between muted small"><span>Slow</span><span>{dealSpeed}</span><span>Fast</span></div>
               </div>

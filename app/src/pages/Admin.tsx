@@ -13,6 +13,10 @@ import { AdminTransactions } from '../components/AdminTransactions';
 import { AdminRestore } from '../components/AdminRestore';
 import { AdminSnapshots } from '../components/AdminSnapshots';
 import { AdminGrantDialog } from '../components/AdminGrantDialog';
+import { AdminSpinRules } from '../components/AdminSpinRules';
+import { AdminPushSeatGrant } from '../components/AdminPushSeatGrant';
+import { AdminCashInsuranceRules } from '../components/AdminCashInsuranceRules';
+import { AdminBattleEvents } from '../components/AdminBattleEvents';
 import {
   CASHDROP_AMOUNT_BB_KEY, CASHDROP_DEFAULT_AMOUNT_BB, CASHDROP_DEFAULT_RATE, CASHDROP_KEYS, CASHDROP_RATE_KEY,
   CASHDROP_RULE_LABEL, cashDropFieldErrors, cashDropRateLabel,
@@ -24,6 +28,7 @@ const SECTIONS = [
   { key: 'users', label: 'Users', icon: '👥' },
   { key: 'tables', label: 'Cash tables', icon: '🃏' },
   { key: 'tournaments', label: 'Tournaments', icon: '🏆' },
+  { key: 'battle', label: 'Battle Royale', icon: 'B' },
   { key: 'waitlists', label: 'Wait lists', icon: '⏳' },
   { key: 'banners', label: 'Promotions', icon: '🎁' },
   { key: 'branding', label: 'Branding', icon: '🎨' },
@@ -81,6 +86,8 @@ export function Admin() {
   const [notice, setNotice] = useState('');
 
   const isAdmin = !!user?.is_admin;
+  const canModerate = isAdmin || user?.role === 'moderator';
+  const visibleSections = isAdmin ? SECTIONS : SECTIONS.filter((item) => ['waitlists', 'reports', 'chatmod'].includes(item.key));
 
   const fmtUptime = (seconds?: number) => {
     if (seconds == null) return '—';
@@ -153,7 +160,13 @@ export function Admin() {
 
   const loadAll = async () => { await Promise.all([loadCore(), loadUsers()]); };
 
-  useEffect(() => { loadCore(); }, [isAdmin]);
+  useEffect(() => {
+    if (isAdmin) { loadCore(); return; }
+    if (user?.role === 'moderator') {
+      setSection('reports');
+      api.admin.reports().then((result: any) => setReports(result.reports || [])).catch((error: any) => toast({ kind: 'error', title: 'Reports', body: error.message }));
+    }
+  }, [isAdmin, user?.role]);
 
   useEffect(() => {
     if (section !== 'platform' || !isAdmin) return;
@@ -251,7 +264,7 @@ export function Admin() {
     toast({ kind: 'success', title: 'User updated' });
   };
 
-  if (!isAdmin) {
+  if (!canModerate) {
     return (
       <PageShell activeTop="poker">
         <div className="page">
@@ -273,7 +286,7 @@ export function Admin() {
       <div className="admin-shell">
         <nav className="admin-nav">
           <div className="brand">DANGG.RO<small>LOCAL ADMIN</small></div>
-          {SECTIONS.map((s) => (
+          {visibleSections.map((s) => (
             <button key={s.key} className={section === s.key ? 'on' : ''} onClick={() => { setSection(s.key); setEditing(null); setLocal({}); }}>
               <span style={{ marginRight: 8 }}>{s.icon}</span>{s.label}
             </button>
@@ -597,6 +610,7 @@ export function Admin() {
             </>
           )}
 
+          {section === 'battle' && <AdminBattleEvents />}
           {section === 'waitlists' && <AdminWaitlists />}
 
           {section === 'chatmod' && <AdminChatModeration />}
@@ -777,6 +791,9 @@ export function Admin() {
                 </div>
                 <button className="btn btn-red" style={{ marginTop: 14 }} onClick={saveSettings}>Save settings</button>
               </div>
+              <div style={{ marginTop: 18 }}><AdminSpinRules /></div>
+              <div style={{ marginTop: 18 }}><AdminPushSeatGrant /></div>
+              <div style={{ marginTop: 18 }}><AdminCashInsuranceRules /></div>
               <h3 className="admin-title" style={{ fontSize: 16, marginTop: 18 }}>
                 Fast Fold Cash Drop <span className="pill" title="Not yet confirmed by a native capture">{CASHDROP_RULE_LABEL}</span>
               </h3>

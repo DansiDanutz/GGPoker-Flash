@@ -97,7 +97,7 @@ export function Cashier() {
               </div>
               <label className="admin-label">Amount (USD)</label>
               <div className="row" style={{ marginBottom: 8 }}>
-                <input className="admin-input" style={{ flex: 1, height: 40, fontSize: 18 }} type="number" min={0} max={mode === 'deposit' && limits ? limits.max / 100 : undefined} value={amount / 100}
+                <input className="admin-input" aria-label="Amount in USD" style={{ flex: 1, height: 40, fontSize: 18 }} type="number" min={0} max={mode === 'deposit' && limits ? limits.max / 100 : undefined} value={amount / 100}
                   onChange={(e) => {
                     const cents = Math.max(0, Math.round(Number(e.target.value) * 100));
                     setAmount(mode === 'deposit' && limits ? Math.min(cents, limits.max) : cents);
@@ -115,7 +115,7 @@ export function Cashier() {
                 ))}
               </div>
               <label className="admin-label">Payment method</label>
-              <select className="admin-select" style={{ width: '100%' }} value={method} onChange={(e) => setMethod(e.target.value)}>
+              <select className="admin-select" aria-label="Payment method" style={{ width: '100%' }} value={method} onChange={(e) => setMethod(e.target.value)}>
                 {METHODS.map((m) => <option key={m}>{m}</option>)}
               </select>
               <button className="btn btn-red btn-block" style={{ marginTop: 14, height: 42 }} disabled={busy} onClick={submit}>
@@ -148,8 +148,8 @@ export function Cashier() {
         {tab === 'transactions' && (
           <>
             <div className="row" style={{ marginBottom: 10, flexWrap: 'wrap' }}>
-              <input className="admin-input" style={{ flex: '1 1 220px' }} placeholder="Search type, memo or currency…" value={txQuery} onChange={(e) => setTxQuery(e.target.value)} />
-              <select className="admin-select" value={txType} onChange={(e) => setTxType(e.target.value)}>
+              <input className="admin-input" aria-label="Search transactions" style={{ flex: '1 1 220px' }} placeholder="Search type, memo or currency…" value={txQuery} onChange={(e) => setTxQuery(e.target.value)} />
+              <select className="admin-select" aria-label="Transaction type" value={txType} onChange={(e) => setTxType(e.target.value)}>
                 <option value="all">All transactions</option>
                 <option value="deposits">Deposits</option>
                 <option value="withdrawals">Withdrawals</option>

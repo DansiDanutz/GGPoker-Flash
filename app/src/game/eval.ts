@@ -110,7 +110,7 @@ function focusInputValid(hole: string[], board: string[], omaha: boolean, shortD
   const all = [...hole, ...board];
   const pattern = shortDeck ? VALID_SHORT_CARD : VALID_CARD;
   const holeSizes = omaha ? [4, 5, 6] : [2];
-  return holeSizes.includes(hole.length) && board.length === 5
+  return holeSizes.includes(hole.length) && [3, 4, 5].includes(board.length)
     && new Set(all).size === all.length && all.every((c) => pattern.test(c));
 }
 
@@ -132,7 +132,14 @@ export function bestFiveFocus(hole: string[], board: string[], omaha = false, sh
     if (cmp > 0 || (cmp === 0 && ordinal > high!.ordinal)) high = { score, ordinal, focus: { hole: holes, board: boards } };
   };
   if (omaha) {
-    for (const pair of combos([...hole.keys()], 2)) for (const trio of combos([0, 1, 2, 3, 4], 3)) consider(pair, trio);
+    for (const pair of combos([...hole.keys()], 2)) for (const trio of combos([...board.keys()], 3)) consider(pair, trio);
+  } else if (board.length === 3) {
+    consider([0, 1], [0, 1, 2]);
+  } else if (board.length === 4) {
+    for (let q = 5; q >= 0; q--) {
+      const kept = [0, 1, 2, 3, 4, 5].filter((i) => i !== q);
+      consider(kept.filter((i) => i < 2), kept.filter((i) => i >= 2).map((i) => i - 2));
+    }
   } else {
     // Native exclusion order: drop cards (q, w) from the seven, highest indices first.
     for (let q = 6; q > 0; q--) for (let w = q - 1; w >= 0; w--) {
