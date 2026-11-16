@@ -72,6 +72,7 @@ try {
   await page.click('button[aria-label="Edit game profile"]');
   await page.waitForSelector('.mpp-portrait');
   await page.setViewport({ width: 1440, height: 1000 });
+  await page.waitForFunction(() => !document.querySelector('.pshell'));
   await button(page, '.profile-role-guide', 'Open Contributor');
   await page.waitForSelector('section[aria-label="Contributor membership and credits"]');
   assert.equal(await page.$('section[aria-label="Contributor membership and credits"] [aria-label="Tarif orar Cash"]'), null);
