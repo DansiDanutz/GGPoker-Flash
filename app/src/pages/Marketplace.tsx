@@ -9,6 +9,8 @@ import { ManagementPlugins } from '../components/ManagementPlugins';
 import { MarketplacePublisher } from '../components/MarketplacePublisher';
 import { OrganizerBilling } from '../components/OrganizerBilling';
 import { OrganizerChips } from '../components/OrganizerChips';
+import { PlatformTabs } from '../components/PlatformTabs';
+import { PlayMoneyPlugins } from '../components/PlayMoneyPlugins';
 
 type IconName = 'arrow' | 'code' | 'server' | 'layers' | 'check' | 'search' | 'close' | 'spark' | 'clock' | 'shield' | 'external' | 'grid';
 
@@ -215,6 +217,7 @@ export function Marketplace() {
           </div>
         </div>
       </header>
+      <PlatformTabs />
 
       <main>
         <section className="mp-hero mp-container" aria-labelledby="marketplace-title">
@@ -263,6 +266,7 @@ export function Marketplace() {
         </section>
 
         <section className="mp-section mp-container"><OrganizerBilling key={user?.id ?? "guest"} userId={user?.id} /></section>
+        <PlayMoneyPlugins />
         <section className="mp-section mp-container"><OrganizerChips key={`chips-${user?.id ?? 'guest'}`} userId={user?.id} /></section>
 
         <section id="marketplace-how" className="mp-explanation-band" aria-labelledby="marketplace-how-title"><div className="mp-container mp-section">

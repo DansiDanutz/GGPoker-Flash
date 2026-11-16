@@ -8,6 +8,7 @@ import {
 import '../admin-marketplace.css';
 import { ManagementPlugins } from './ManagementPlugins';
 import { AdminMarketplaceFinance } from './AdminMarketplaceFinance';
+import { ContributorWorkspace } from './ContributorWorkspace';
 
 type Tab = 'catalog' | 'requests' | 'access' | 'content' | 'plugins' | 'finance';
 type UserChoice = { id: number; nick: string; login?: string };
@@ -366,7 +367,7 @@ export function AdminMarketplace({ onDirtyChange }: { onDirtyChange?: (dirty: bo
         {tab === 'requests' && <RequestsPanel requests={data.requests} products={data.products} onRefresh={load} onGrant={prepareGrant} onDirtyChange={setDirty} onNotice={setNotice} />}
         {tab === 'access' && <AccessPanel products={data.products} entitlements={data.entitlements} seed={seed} onRefresh={load} onDirtyChange={setDirty} onNotice={setNotice} />}
         {tab === 'content' && <ContentPanel settings={data.settings} onSaved={(settings) => { setData((current) => current ? { ...current, settings } : current); setNotice('Conținutul public a fost salvat.'); }} onDirtyChange={setDirty} />}
-        {tab === 'plugins' && <ManagementPlugins admin />}
+        {tab === 'plugins' && <><ManagementPlugins admin /><ContributorWorkspace admin /></>}
         {tab === 'finance' && <AdminMarketplaceFinance products={data.products} onDirtyChange={setDirty} initialOrder={seed ? { buyerUserId: seed.user.id, productId: seed.productId } : undefined} />}
       </div>
       <footer className="ma-footer"><span>Modificările sunt păstrate în baza de date și în jurnalul de administrare.</span><span>Plăți online: neactivate</span></footer>

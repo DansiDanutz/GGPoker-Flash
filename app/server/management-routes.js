@@ -51,7 +51,7 @@ export function createManagementRoutes({ db, commerce, policy, billing, json, re
         if (req.method === 'GET') {
           const publisher = commerce.publisherForUser(user.id);
           json(res, 200, { publisher, balance: publisher ? commerce.balance(publisher.id) : null,
-            submission_enabled: false, checkout_enabled: false });
+            submission_enabled: true, checkout_enabled: false });
           return true;
         }
         method(req, 'POST');

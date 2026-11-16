@@ -102,13 +102,16 @@ export function Lobby() {
   const [seat, setSeat] = useState<number | null>(null);
   const [rushInfoOpen, setRushInfoOpen] = useState(false);
   const [gameInfoOpen, setGameInfoOpen] = useState(false);
-  const [hostOpen, setHostOpen] = useState(false);
+  const hostQuery = new URLSearchParams(route.split('?')[1] || '').get('host');
+  const [hostOpen, setHostOpen] = useState(Boolean(user && hostQuery));
+  const [hostEconomy, setHostEconomy] = useState<'play_money' | 'organizer'>(new URLSearchParams(route.split('?')[1] || '').get('economy') === 'organizer' ? 'organizer' : 'play_money');
+  const hostPlayMoney = hostEconomy === 'play_money';
   const [hostBusy, setHostBusy] = useState(false);
   const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000, bombPot: false });
   const [hostRake, setHostRake] = useState({ rakePercent: 5, rakeCap: 300 });
   const [myHosts, setMyHosts] = useState<any[]>([]);
   const [myTourneys, setMyTourneys] = useState<any[]>([]);
-  const [hostKind, setHostKind] = useState<'cash' | 'tournament' | 'spin'>('cash');
+  const [hostKind, setHostKind] = useState<'cash' | 'tournament' | 'spin'>(hostQuery === 'spin' || hostQuery === 'tournament' ? hostQuery : 'cash');
   const [hostSpinForm, setHostSpinForm] = useState({ name: '', stake: 5000, start_at: '' });
   const [hostBilling, setHostBilling] = useState<OrganizerBillingConfig | null>(null);
   const hostKeys = useRef(new Map<string, string>());
@@ -248,8 +251,8 @@ export function Lobby() {
   }, [hostOpen, user?.id, hostAccessRetry]);
   const hostProductId = hostKind === 'spin' ? 'spin-and-go-manager' : hostKind === 'tournament' ? 'tournaments-manager' : 'cash-games-manager';
   const hostAccess = hostManagement?.access.find((entry) => entry.product_id === hostProductId);
-  const hostCanManage = !hostAccessLoading && !hostAccessError && hostBilling !== null && Boolean(hostAccess?.can_manage);
-  const hostUsesChips = hostBilling?.chip_mode === 'enforce';
+  const hostCanManage = hostPlayMoney || !hostAccessLoading && !hostAccessError && hostBilling !== null && Boolean(hostAccess?.can_manage);
+  const hostUsesChips = !hostPlayMoney && hostBilling?.chip_mode === 'enforce';
 
   const requestKey = (payload: object) => {
     const identity = JSON.stringify(payload);
@@ -313,17 +316,17 @@ export function Lobby() {
 
   const createHost = async () => {
     if (hostBusy || !hostCanManage) return;
-    const payload = { ...hostForm, ...(hostUsesChips ? hostRake : {}), name: hostForm.name.trim() || `${user?.nick || 'My'} table` };
-    if (hostBilling?.mode === 'enforce' && !window.confirm(`Create “${payload.name}” paused and debit $${(hostBilling.tariffs.cash_setup / 100).toFixed(2)} setup credits? Active hours cost $5 down to $1, paid upfront, based on your lifetime paid table-hours. Check your next-hour price in Marketplace.`)) return;
+    const payload = { economy: hostEconomy, ...hostForm, ...((hostPlayMoney || hostUsesChips) ? hostRake : {}), name: hostForm.name.trim() || `${user?.nick || 'My'} table` };
+    if (!hostPlayMoney && hostBilling?.mode === 'enforce' && !window.confirm(`Create “${payload.name}” paused and debit $${(hostBilling.tariffs.cash_setup / 100).toFixed(2)} setup credits? Active hours cost $5 down to $1, paid upfront, based on your lifetime paid table-hours. Check your next-hour price in Marketplace.`)) return;
     const replay = requestKey(payload);
     setHostBusy(true);
     try {
       const r = await api.hostTable({ ...payload, idempotencyKey: replay.key });
       hostKeys.current.delete(replay.identity);
-      toast({ kind: 'success', title: 'Private table created', body: hostBilling?.mode === 'enforce' ? 'The table is paused. Start and manage billing in Marketplace.' : 'Share the table link or take a seat now.' });
+      toast({ kind: 'success', title: 'Private table created', body: !hostPlayMoney && hostBilling?.mode === 'enforce' ? 'The table is paused. Start and manage billing in Marketplace.' : 'Share the table link or take a seat now.' });
       setHostOpen(false);
       await load();
-      navigate(hostBilling?.mode === 'enforce' ? '/marketplace' : `/table/${r.id}?buyin=${hostForm.min_buyin}`);
+      navigate(!hostPlayMoney && hostBilling?.mode === 'enforce' ? '/marketplace' : `/table/${r.id}?buyin=${hostForm.min_buyin}`);
     } catch (e: any) {
       toast({ kind: 'error', title: 'Could not host table', body: e.message });
     } finally { setHostBusy(false); }
@@ -331,10 +334,10 @@ export function Lobby() {
 
   const createHostTournament = async () => {
     if (hostBusy || !hostCanManage) return;
-    if (hostBilling?.mode === 'enforce' && hostTourneyForm.mode === 'SATELLITE') { toast({ kind: 'error', title: 'Cash Chip satellites are not available', body: 'A satellite must first be bound to a target tournament.' }); return; }
+    if (!hostPlayMoney && hostBilling?.mode === 'enforce' && hostTourneyForm.mode === 'SATELLITE') { toast({ kind: 'error', title: 'Cash Chip satellites are not available', body: 'A satellite must first be bound to a target tournament.' }); return; }
     if (!Number.isFinite(Date.parse(hostTourneyForm.start_at))) { toast({ kind: 'error', title: 'Choose a valid tournament start time' }); return; }
-    const payload = { ...hostTourneyForm, start_at: new Date(hostTourneyForm.start_at).toISOString() };
-    if (hostBilling?.mode === 'enforce' && !window.confirm(`Create tournament “${payload.name || `${user?.nick || 'My'} tournament`}” and debit $${(hostBilling.tariffs.tournament_setup / 100).toFixed(2)} setup credits?`)) return;
+    const payload = { economy: hostEconomy, ...hostTourneyForm, start_at: new Date(hostTourneyForm.start_at).toISOString() };
+    if (!hostPlayMoney && hostBilling?.mode === 'enforce' && !window.confirm(`Create tournament “${payload.name || `${user?.nick || 'My'} tournament`}” and debit $${(hostBilling.tariffs.tournament_setup / 100).toFixed(2)} setup credits?`)) return;
     const replay = requestKey(payload);
     setHostBusy(true);
     try {
@@ -351,8 +354,8 @@ export function Lobby() {
   const createHostSpin = async () => {
     if (hostBusy || !hostCanManage) return;
     if (hostSpinForm.start_at && !Number.isFinite(Date.parse(hostSpinForm.start_at))) { toast({ kind: 'error', title: 'Choose a valid Spin start time' }); return; }
-    const payload = { name: hostSpinForm.name.trim() || `${user?.nick || 'My'} Spin & Go`, game: 'spingold', seats: 3, sb: 10, bb: 20, min_buyin: hostSpinForm.stake, max_buyin: hostSpinForm.stake, ...(hostSpinForm.start_at ? { start_at: new Date(hostSpinForm.start_at).toISOString() } : {}) };
-    if (hostBilling?.mode === 'enforce' && !window.confirm(`Create Spin & Go “${payload.name}” and debit $${(hostBilling.tariffs.spin_setup / 100).toFixed(2)} setup credits${hostSpinForm.start_at ? ` for ${new Date(hostSpinForm.start_at).toLocaleString()}` : ''}?`)) return;
+    const payload = { economy: hostEconomy, name: hostSpinForm.name.trim() || `${user?.nick || 'My'} Spin & Go`, game: 'spingold', seats: 3, sb: 10, bb: 20, min_buyin: hostSpinForm.stake, max_buyin: hostSpinForm.stake, ...(hostSpinForm.start_at ? { start_at: new Date(hostSpinForm.start_at).toISOString() } : {}) };
+    if (!hostPlayMoney && hostBilling?.mode === 'enforce' && !window.confirm(`Create Spin & Go “${payload.name}” and debit $${(hostBilling.tariffs.spin_setup / 100).toFixed(2)} setup credits${hostSpinForm.start_at ? ` for ${new Date(hostSpinForm.start_at).toLocaleString()}` : ''}?`)) return;
     const replay = requestKey(payload);
     setHostBusy(true);
     try {
@@ -709,8 +712,9 @@ export function Lobby() {
                 <button className={hostKind === 'tournament' ? 'on' : ''} onClick={() => setHostKind('tournament')}>Tournament</button>
                 <button className={hostKind === 'spin' ? 'on' : ''} onClick={() => setHostKind('spin')}>Spin & Go</button>
               </div>
-              <ManagementAccessNotice name={hostKind === 'cash' ? 'Cash Games Manager' : hostKind === 'spin' ? 'Spin & Go Manager' : 'Tournaments Manager'} access={hostAccess} mode={hostManagement?.mode} loading={hostAccessLoading} error={hostAccessError} onRetry={() => setHostAccessRetry((value) => value + 1)} onMarketplace={() => { setHostOpen(false); navigate('/marketplace'); }} />
-              {hostBilling?.mode === 'enforce' ? <p className="muted small">Service-credit setup fee: {hostKind === 'cash' ? `$${(hostBilling.tariffs.cash_setup / 100).toFixed(2)}; the table is created paused, then costs $5 down to $1 per active hour, paid upfront, based on your lifetime paid table-hours.` : hostKind === 'tournament' ? `$${(hostBilling.tariffs.tournament_setup / 100).toFixed(2)}; later rescheduling costs $${(hostBilling.tariffs.reschedule / 100).toFixed(2)}.` : `$${(hostBilling.tariffs.spin_setup / 100).toFixed(2)}; later rescheduling costs $${(hostBilling.tariffs.reschedule / 100).toFixed(2)}.`} Manage the resource and balance in Marketplace.</p> : <p className="muted small">Service-credit billing is inactive on this installation; legacy hosting remains available.</p>}
+              <label className="admin-label" htmlFor="host-economy">Game economy</label><select id="host-economy" className="admin-select" value={hostEconomy} onChange={(e) => setHostEconomy(e.target.value as 'play_money' | 'organizer')}><option value="play_money">Play Money · free testing</option><option value="organizer">Organiser · paid services</option></select>
+              {hostPlayMoney ? <p role="status">Free Play Money testing. No membership, service credits or organizer Cash Chips are used.</p> : <ManagementAccessNotice name={hostKind === 'cash' ? 'Cash Games Manager' : hostKind === 'spin' ? 'Spin & Go Manager' : 'Tournaments Manager'} access={hostAccess} mode={hostManagement?.mode} loading={hostAccessLoading} error={hostAccessError} onRetry={() => setHostAccessRetry((value) => value + 1)} onMarketplace={() => { setHostOpen(false); navigate('/marketplace'); }} />}
+              {!hostPlayMoney && (hostBilling?.mode === 'enforce' ? <p className="muted small">Service-credit setup fee: {hostKind === 'cash' ? `$${(hostBilling.tariffs.cash_setup / 100).toFixed(2)}; the table is created paused, then costs $5 down to $1 per active hour, paid upfront, based on your lifetime paid table-hours.` : hostKind === 'tournament' ? `$${(hostBilling.tariffs.tournament_setup / 100).toFixed(2)}; later rescheduling costs $${(hostBilling.tariffs.reschedule / 100).toFixed(2)}.` : `$${(hostBilling.tariffs.spin_setup / 100).toFixed(2)}; later rescheduling costs $${(hostBilling.tariffs.reschedule / 100).toFixed(2)}.`} Manage the resource and balance in Marketplace.</p> : <p className="muted small">Service-credit billing is inactive on this installation; legacy hosting remains available.</p>)}
               {hostListError && <p className="mg-error" role="alert">{hostListError} <button type="button" className="mg-link" onClick={() => setHostAccessRetry((value) => value + 1)}>Try again</button></p>}
               {hostKind === 'cash' && (<>
                 <p className="muted small" style={{ marginTop: 0 }}>{hostUsesChips ? 'Organizer Cash Chips only. Rake is deducted from eligible pots and burned; the cap is per hand.' : 'Local play-money table.'} Only you and players with the table link can see it.</p>
@@ -736,9 +740,9 @@ export function Lobby() {
                   <div><label className="admin-label">Big blind ({hostUsesChips ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={2} value={hostForm.bb} onChange={(e) => setHostForm({ ...hostForm, bb: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Min buy-in ({hostUsesChips ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={1} value={hostForm.min_buyin} onChange={(e) => setHostForm({ ...hostForm, min_buyin: Number(e.target.value) })} /></div>
                   <div><label className="admin-label">Max buy-in ({hostUsesChips ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={1} value={hostForm.max_buyin} onChange={(e) => setHostForm({ ...hostForm, max_buyin: Number(e.target.value) })} /></div>
-                  {hostUsesChips && <>
+                  {(hostPlayMoney || hostUsesChips) && <>
                     <div><label className="admin-label" htmlFor="host-rake-percent">Rake (%)</label><select id="host-rake-percent" className="admin-select" value={hostRake.rakePercent} onChange={(e) => setHostRake({ ...hostRake, rakePercent: Number(e.target.value) })}>{[2, 3, 4, 5].map((rate) => <option key={rate} value={rate}>{rate}%</option>)}</select></div>
-                    <div><label className="admin-label" htmlFor="host-rake-cap">Rake cap per hand (Cash Chips)</label><input id="host-rake-cap" className="admin-input" type="number" min={1} max={9000000000} step={1} required value={hostRake.rakeCap} onChange={(e) => setHostRake({ ...hostRake, rakeCap: Number(e.target.value) })} /></div>
+                    <div><label className="admin-label" htmlFor="host-rake-cap">Rake cap per hand ({hostPlayMoney ? 'Play Money cents' : 'Cash Chips'})</label><input id="host-rake-cap" className="admin-input" type="number" min={1} max={9000000000} step={1} required value={hostRake.rakeCap} onChange={(e) => setHostRake({ ...hostRake, rakeCap: Number(e.target.value) })} /></div>
                   </>}
                   <label className="switch-row" style={{ gridColumn: '1 / -1' }}><span>Bomb pot — everyone antes, action starts on the flop</span><input type="checkbox" checked={hostForm.bombPot} onChange={(e) => setHostForm({ ...hostForm, bombPot: e.target.checked })} /></label>
                 </div>

@@ -76,6 +76,8 @@ try {
   await click(ownerPage, panel, 'Actualizează'); await text(ownerPage, '100,000 Cash Chips');
   await ownerPage.goto(`${srv.base}/#/?game=holdem`);
   await ownerPage.waitForSelector('.host-table-btn'); await ownerPage.click('.host-table-btn');
+  await ownerPage.waitForSelector('#host-economy');
+  await ownerPage.select('#host-economy', 'organizer');
   await ownerPage.waitForSelector('#host-rake-percent');
   assert.deepEqual(await ownerPage.$$eval('#host-rake-percent option', (options) => options.map((option) => option.value)), ['2', '3', '4', '5']);
   await input(ownerPage, '.modal input[maxlength="40"]', 'Browser Rake Cash');
