@@ -26,7 +26,7 @@ for (const row of rows) {
   const actual = bestHoldem(cards.slice(0, 2), cards.slice(2)).score;
   if (JSON.stringify(actual) !== JSON.stringify(row.score)) throw new Error(`Representative mismatch at ${row.rank}`);
 }
-const output = path.resolve(import.meta.dirname, '../server/data/bet-muck-ranks.json');
+const output = path.resolve(import.meta.dirname, '../server/bet-muck-ranks.json');
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, `${JSON.stringify(rows)}\n`);
 console.log(`Wrote ${rows.length} classes to ${output}`);

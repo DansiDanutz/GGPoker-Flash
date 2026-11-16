@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { bestHoldem, compareScores } from './poker.js';
 import { betMuckRank } from './bet-and-muck.js';
 
-const rows = JSON.parse(fs.readFileSync(new URL('./data/bet-muck-ranks.json', import.meta.url), 'utf8'));
+const rows = JSON.parse(fs.readFileSync(new URL('./bet-muck-ranks.json', import.meta.url), 'utf8'));
 const C = (text) => ({ r: text[0], s: text[1], v: '23456789TJQKA'.indexOf(text[0]) + 2 });
 
 test('all 7,462 equivalence classes are ordered and have an exact evaluator representative', () => {

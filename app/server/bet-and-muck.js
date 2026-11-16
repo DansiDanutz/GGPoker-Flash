@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { bestHoldem } from './poker.js';
 import { activeGameCheckpoint, quarantineGameCheckpoint, saveGameCheckpoint } from './game-checkpoints.js';
 
-const rows = JSON.parse(fs.readFileSync(new URL('./data/bet-muck-ranks.json', import.meta.url), 'utf8'));
+const rows = JSON.parse(fs.readFileSync(new URL('./bet-muck-ranks.json', import.meta.url), 'utf8'));
 const ranks = new Map(rows.map((row) => [JSON.stringify(row.score), row.rank]));
 
 export function betMuckRank(score) {
