@@ -27,10 +27,9 @@ test('expiring an old socket never disconnects or charges its replacement seat',
       old.once('close', c => { clearTimeout(timer); resolve(c); });
     });
     assert.equal(code, 1006);
-    const state = new Promise(resolve => replacement.ws.once('message', raw => resolve(JSON.parse(String(raw)))));
+    const expiredAt = Date.now();
     replacement.send({ type: 'join_table', tableId: table.id, rejoin: true });
-    await state;
-    const { state: fresh } = await replacement.next(m => m.type === 'state' && m.state.now > Date.now() - 1000);
+    const { state: fresh } = await replacement.next(m => m.type === 'state' && m.state.now > expiredAt);
     const me = fresh.players.find(p => p.isMe);
     assert.equal(me.seat, originalSeat); assert.equal(me.stack, 5000); assert.equal(me.disconnected, false);
     db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'), { readOnly: true });
