@@ -44,7 +44,7 @@ export async function startSandbox() {
       probe.listen(0, '127.0.0.1', () => { const port = probe.address().port; probe.close(() => resolve(port)); });
     });
     const url = `http://127.0.0.1:${webPort}`;
-    child = spawn(process.execPath, ['server/index.js'], { cwd: app, env: { ...sandboxEnvironment(path.join(directory, 'data'), password), GGPOKER_PUBLIC_ORIGIN: url }, stdio: ['ignore', 'pipe', 'pipe'] });
+    child = spawn(process.execPath, ['server/index.js'], { cwd: app, env: { ...sandboxEnvironment(path.join(directory, 'data'), password), GGPOKER_PUBLIC_ORIGIN: url }, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
     const port = await new Promise((resolve, reject) => {
       let output = '';
       const timer = setTimeout(() => reject(new Error('Sandbox startup timed out.')), 20000);
