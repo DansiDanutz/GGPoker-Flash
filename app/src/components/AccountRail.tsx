@@ -9,7 +9,7 @@ import { sound } from '../lib/sound';
  * screen, so wallet, Cashier and the product shortcuts never disappear.
  */
 export function AccountRail() {
-  const { user, navigate } = useApp();
+  const { user, navigate, brand } = useApp();
   return (
     <div className="lobby-rail" aria-label="Account">
       <div className="rail-wallet">
@@ -31,7 +31,7 @@ export function AccountRail() {
       <button className="rail-btn tone-green" onClick={() => navigate('/missions')}><span className="ico">📋</span>Missions</button>
       <button className="rail-btn tone-gold" onClick={() => navigate('/leaderboard')}><span className="ico">🏆</span>Leaders</button>
       <div style={{ flex: 1 }} />
-      <button className="rail-btn gold tone-gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>DanGG Pass</button>
+      <button className="rail-btn gold tone-gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>{brand.name} Pass</button>
     </div>
   );
 }

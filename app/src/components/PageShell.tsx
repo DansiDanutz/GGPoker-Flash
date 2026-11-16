@@ -11,7 +11,7 @@ export function PageShell({ activeTop, children, subnav }: {
   children: React.ReactNode;
   subnav?: React.ReactNode;
 }) {
-  const { user, meta, dmUnread, route } = useApp();
+  const { user, meta, dmUnread, route, brand } = useApp();
   const isPhone = useIsPhone();
   if (isPhone) {
     const [path] = route.split('?');
@@ -19,7 +19,7 @@ export function PageShell({ activeTop, children, subnav }: {
       '/cashier': 'Cashier', '/missions': 'Missions', '/leaderboard': 'Leaderboard',
       '/tournaments': 'Tournaments', '/slots': 'Slots', '/settings': 'Settings', '/promotions': 'Promotions',
       '/elo': 'ELO', '/support': 'Support', '/profile': 'Profile', '/hand-history': 'Hand history',
-      '/propbet': 'Prop bet', '/ocean': 'DanGG Rewards', '/ggcare': 'Player Care', '/honeymoon': 'Honeymoon', '/admin': 'Admin',
+      '/propbet': 'Prop bet', '/ocean': `${brand.name} Rewards`, '/ggcare': 'Player Care', '/honeymoon': 'Honeymoon', '/admin': 'Admin',
     };
     const title = path.startsWith('/slots/') ? 'Slots' : titles[path];
     return <MobileShell title={title} showBrand={!title}>{subnav}{children}</MobileShell>;

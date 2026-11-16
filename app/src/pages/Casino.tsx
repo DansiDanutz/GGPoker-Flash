@@ -384,7 +384,7 @@ const HUB_SLIDES = [
 const KIND_LABEL: Record<string, string> = { slots: 'Slots', roulette: 'Roulette', crash_win: 'Crash', blackjack: 'Blackjack' };
 
 export function Casino() {
-  const { navigate, route } = useApp();
+  const { navigate, route, brand } = useApp();
   const isPhone = useIsPhone();
   const [tab, setTab] = useState(() => casinoTabFromRoute(route));
   const [category, setCategory] = useState('all');
@@ -423,7 +423,7 @@ export function Casino() {
             <div key={s.key} className={'casino-hero-slide' + (i === slide ? ' on' : '')} style={{ ['--accent' as any]: s.accent }} aria-hidden={i !== slide}>
               <img className="casino-hero-art" src={s.art} alt="" />
               <div className="casino-hero-copy">
-                <small>{s.kicker}</small>
+                <small>{s.key === 'slots' ? `${brand.profile === 'portable' ? 'Play on' : 'Only on'} ${brand.name}` : s.kicker}</small>
                 <b>{s.title}</b>
                 <span>{s.sub}</span>
               </div>
@@ -466,7 +466,7 @@ export function Casino() {
           );
         }) : (
           <>
-            <div className="casino-hub-head"><h2>Only on DanGG</h2><span className="muted small">{shown.length} games</span></div>
+            <div className="casino-hub-head"><h2>{brand.profile === 'portable' ? 'Play on' : 'Only on'} {brand.name}</h2><span className="muted small">{shown.length} games</span></div>
             <div className="grid g3">
               {shown.map((g) => (
                 <div key={g.key} className="casino-card" onClick={() => go(g.key === 'slots' ? '/slots' : undefined, g.key)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(g.key === 'slots' ? '/slots' : undefined, g.key); } }}>

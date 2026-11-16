@@ -11,7 +11,7 @@ import { HubIcon } from './HubIcons';
  * or another page; the hub itself holds no state.
  */
 export function MobileAccountHub({ onOpen }: { onOpen: (tab: string) => void }) {
-  const { user, navigate, dmUnread, logout } = useApp();
+  const { user, navigate, dmUnread, logout, brand } = useApp();
   const go = (target: HubTarget) => ('tab' in target ? onOpen(target.tab) : navigate(target.route));
 
   if (!user) {
@@ -37,7 +37,7 @@ export function MobileAccountHub({ onOpen }: { onOpen: (tab: string) => void }) 
         </button>
         <div className="ma-who">
           <b>{user.nick}</b>
-          <span className="ma-chip">DanGG Account</span>
+          <span className="ma-chip">{brand.name} Account</span>
           <div className="ma-vip" aria-label={`VIP level ${vip.level}, ${vip.pct}% to the next level`}>
             <small>VIP {vip.level}</small>
             <span className="ma-bar"><i style={{ width: `${vip.pct}%` }} /></span>

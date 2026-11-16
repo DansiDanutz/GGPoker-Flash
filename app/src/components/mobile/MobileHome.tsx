@@ -62,7 +62,7 @@ function PhoneHero({ onTarget }: { onTarget: (target: HomeTarget) => void }) {
 }
 
 export function MobileHome({ tables, online, jackpot, jumpBackIn, gameLabel, onJoin, onTarget }: Props) {
-  const { navigate } = useApp();
+  const { navigate, brand } = useApp();
   const live = liveTables(tables);
   return (
     <MobileShell showBrand>
@@ -98,7 +98,7 @@ export function MobileHome({ tables, online, jackpot, jumpBackIn, gameLabel, onJ
               {PROMO_CARDS.map((c) => (
                 <button key={c.key} type="button" role="listitem" className="p-rail-card" onClick={() => onTarget(c.target)}>
                   <span className="p-rail-art" style={{ backgroundImage: `url(${c.art})` }} aria-hidden="true" />
-                  <span className="p-rail-copy"><b>{c.title}</b><small>{c.sub}</small></span>
+                  <span className="p-rail-copy"><b>{c.key === 'ocean' ? `${brand.name} Rewards` : c.title}</b><small>{c.sub}</small></span>
                 </button>
               ))}
             </div>

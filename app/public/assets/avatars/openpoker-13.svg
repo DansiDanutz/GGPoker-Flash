@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>OpenPoker Lion avatar</title>
+  <defs>
+    <radialGradient id="bg" cx=".38" cy=".26" r=".85"><stop offset="0" stop-color="#30423f"/><stop offset="1" stop-color="#101b1b"/></radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2=".2" y2="1"><stop offset="0" stop-color="#dbb56b"/><stop offset="1" stop-color="#dbb56b" stop-opacity=".86"/></linearGradient>
+    <clipPath id="crop"><circle cx="128" cy="128" r="120"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="123" fill="#0b1415"/>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="#bd9b60" stroke-width="2"/>
+  <g clip-path="url(#crop)">
+    <circle cx="198" cy="50" r="64" fill="#d8b56c" opacity=".055"/>
+    <ellipse cx="128" cy="224" rx="80" ry="15" fill="#071011" opacity=".5"/>
+    <circle cx="128" cy="133" r="84" fill="#906446" /><circle cx="189" cy="133" r="25" fill="#a97748" /><circle cx="171" cy="176" r="25" fill="#a97748" /><circle cx="128" cy="194" r="25" fill="#a97748" /><circle cx="85" cy="176" r="25" fill="#a97748" /><circle cx="67" cy="133" r="25" fill="#a97748" /><circle cx="85" cy="90" r="25" fill="#a97748" /><circle cx="128" cy="72" r="25" fill="#a97748" /><circle cx="171" cy="90" r="25" fill="#a97748" /><ellipse cx="128" cy="134" rx="61" ry="66" fill="url(#face)" /><ellipse cx="128" cy="164" rx="35" ry="24" fill="#f1dba9" /><ellipse cx="102" cy="125" rx="8" ry="11" fill="#162523" /><circle cx="100" cy="121" r="2.5" fill="#fff6de" /><ellipse cx="154" cy="125" rx="8" ry="11" fill="#162523" /><circle cx="152" cy="121" r="2.5" fill="#fff6de" /><path d="M120 148 Q128 143 136 148 L128 156 Z" fill="#25302f"/><path d="M112 168 Q128 181 144 168" fill="none" stroke="#25302f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

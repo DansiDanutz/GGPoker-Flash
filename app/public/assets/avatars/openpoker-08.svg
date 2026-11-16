@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>OpenPoker Penguin avatar</title>
+  <defs>
+    <radialGradient id="bg" cx=".38" cy=".26" r=".85"><stop offset="0" stop-color="#30423f"/><stop offset="1" stop-color="#101b1b"/></radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2=".2" y2="1"><stop offset="0" stop-color="#7f9faf"/><stop offset="1" stop-color="#7f9faf" stop-opacity=".86"/></linearGradient>
+    <clipPath id="crop"><circle cx="128" cy="128" r="120"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="123" fill="#0b1415"/>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="#bd9b60" stroke-width="2"/>
+  <g clip-path="url(#crop)">
+    <circle cx="198" cy="50" r="64" fill="#d8b56c" opacity=".055"/>
+    <ellipse cx="128" cy="224" rx="80" ry="15" fill="#071011" opacity=".5"/>
+    <ellipse cx="128" cy="138" rx="73" ry="80" fill="#34505c" /><path d="M128 104Q99 67 77 117Q60 168 95 196Q128 216 161 196Q196 168 179 117Q157 67 128 104" fill="#e9ede4"/><ellipse cx="101" cy="129" rx="8" ry="11" fill="#162523" /><circle cx="99" cy="125" r="2.5" fill="#fff6de" /><ellipse cx="155" cy="129" rx="8" ry="11" fill="#162523" /><circle cx="153" cy="125" r="2.5" fill="#fff6de" /><path d="M116 149Q128 139 140 149L128 162Z" fill="#dfad59"/><ellipse cx="91" cy="207" rx="23" ry="9" fill="#dfad59" /><ellipse cx="165" cy="207" rx="23" ry="9" fill="#dfad59" />
+  </g>
+</svg>

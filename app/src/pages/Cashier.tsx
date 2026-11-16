@@ -9,7 +9,7 @@ const DEPOSIT_PRESETS = [1000, 5000, 10000, 50000];
 type DepositLimits = { max: number; dailyMax: number; today: number };
 
 export function Cashier() {
-  const { user, refreshUser, toast, navigate } = useApp();
+  const { user, refreshUser, toast, navigate, brand } = useApp();
   const [data, setData] = useState<any>(null);
   const [tab, setTab] = useState('deposit');
   const [amount, setAmount] = useState(5000);
@@ -73,7 +73,7 @@ export function Cashier() {
       <div className="cashier-page">
         <div className="cashier-win">
           <div className="cashier-top">
-            <div className="cashier-brand"><b>DanGG</b><span>Cashier</span></div>
+            <div className="cashier-brand"><b>{brand.name}</b><span>Cashier</span></div>
             <div className="cashier-balances">
               {[
                 ['Balance', money(user?.balance ?? 0)],
@@ -119,7 +119,7 @@ export function Cashier() {
                   <div className="cashier-ewallet">aircash</div>
                 </section>
 
-                <p className="cashier-note">DanGG is play money only — “deposit” credits practice chips to this account and has no cash value.</p>
+                <p className="cashier-note">{brand.name} is play money only — “deposit” credits practice chips to this account and has no cash value.</p>
               </>
             )}
 
@@ -146,7 +146,7 @@ export function Cashier() {
             {tab === 'withdraw' && (
               <section className="cashier-card">
                 <header><b>Withdraw</b><span aria-hidden="true">⌃</span></header>
-                <p className="cashier-withdraw-note">Withdrawals are unavailable while DanGG is a play-money room. Your balance has no cash value and cannot be cashed out.</p>
+                <p className="cashier-withdraw-note">Withdrawals are unavailable while {brand.name} is a play-money room. Your balance has no cash value and cannot be cashed out.</p>
                 <div className="cashier-row">
                   <button type="button" className="cashier-next" disabled>Withdraw</button>
                 </div>
@@ -179,7 +179,7 @@ export function Cashier() {
           </div>
 
           <div className="cashier-foot">
-            DanGG is a play-money practice room. No real-money deposits, withdrawals or cash value. © 2026 DanGG.
+            {brand.name} is a play-money practice room. No real-money deposits, withdrawals or cash value. © 2026 DanGG.
           </div>
         </div>
       </div>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>OpenPoker Hedgehog avatar</title>
+  <defs>
+    <radialGradient id="bg" cx=".38" cy=".26" r=".85"><stop offset="0" stop-color="#30423f"/><stop offset="1" stop-color="#101b1b"/></radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2=".2" y2="1"><stop offset="0" stop-color="#bc967c"/><stop offset="1" stop-color="#bc967c" stop-opacity=".86"/></linearGradient>
+    <clipPath id="crop"><circle cx="128" cy="128" r="120"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="123" fill="#0b1415"/>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="#bd9b60" stroke-width="2"/>
+  <g clip-path="url(#crop)">
+    <circle cx="198" cy="50" r="64" fill="#d8b56c" opacity=".055"/>
+    <ellipse cx="128" cy="224" rx="80" ry="15" fill="#071011" opacity=".5"/>
+    <path d="M48 139L39 116 61 109 50 83 77 85 78 57 100 71 115 43 132 65 155 49 163 76 191 67 187 97 211 101 196 125 211 146 189 160Q128 217 66 169Z" fill="#725747"/><ellipse cx="128" cy="148" rx="65" ry="61" fill="url(#face)" /><ellipse cx="102" cy="143" rx="8" ry="11" fill="#162523" /><circle cx="100" cy="139" r="2.5" fill="#fff6de" /><ellipse cx="154" cy="143" rx="8" ry="11" fill="#162523" /><circle cx="152" cy="139" r="2.5" fill="#fff6de" /><ellipse cx="128" cy="174" rx="26" ry="21" fill="#e0c09b" /><path d="M120 164 Q128 159 136 164 L128 172 Z" fill="#25302f"/><path d="M112 184 Q128 197 144 184" fill="none" stroke="#25302f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

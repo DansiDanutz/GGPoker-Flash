@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>OpenPoker Dog avatar</title>
+  <defs>
+    <radialGradient id="bg" cx=".38" cy=".26" r=".85"><stop offset="0" stop-color="#30423f"/><stop offset="1" stop-color="#101b1b"/></radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2=".2" y2="1"><stop offset="0" stop-color="#c79d75"/><stop offset="1" stop-color="#c79d75" stop-opacity=".86"/></linearGradient>
+    <clipPath id="crop"><circle cx="128" cy="128" r="120"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="123" fill="#0b1415"/>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="#bd9b60" stroke-width="2"/>
+  <g clip-path="url(#crop)">
+    <circle cx="198" cy="50" r="64" fill="#d8b56c" opacity=".055"/>
+    <ellipse cx="128" cy="224" rx="80" ry="15" fill="#071011" opacity=".5"/>
+    <ellipse cx="66" cy="124" rx="24" ry="65" fill="#7f5c45" transform="rotate(13 66 124)"/><ellipse cx="190" cy="124" rx="24" ry="65" fill="#7f5c45" transform="rotate(-13 190 124)"/><ellipse cx="128" cy="133" rx="73" ry="77" fill="url(#face)" /><path d="M119 60H139L145 143H110Z" fill="#edd8ba"/><ellipse cx="100" cy="125" rx="8" ry="11" fill="#162523" /><circle cx="98" cy="121" r="2.5" fill="#fff6de" /><ellipse cx="156" cy="125" rx="8" ry="11" fill="#162523" /><circle cx="154" cy="121" r="2.5" fill="#fff6de" /><ellipse cx="128" cy="165" rx="37" ry="29" fill="#e9cfac" /><path d="M120 151 Q128 146 136 151 L128 159 Z" fill="#25302f"/><path d="M112 171 Q128 184 144 171" fill="none" stroke="#25302f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

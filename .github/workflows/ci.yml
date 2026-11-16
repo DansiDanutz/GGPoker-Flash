@@ -68,6 +68,11 @@ jobs:
       - name: Type-check
         run: pnpm exec tsc --noEmit -p tsconfig.json
 
+      - name: Verify asset inventory and original avatars
+        run: |
+          node ../tools/original-assets/avatars.mjs --check
+          node ../tools/original-assets/audit-inventory.mjs --check
+
       - name: Build web client
         run: pnpm run build
 
@@ -86,3 +91,103 @@ jobs:
           path: app/artifacts/marketplace-browser/
           if-no-files-found: ignore
           retention-days: 7
+
+  portable:
+    name: Portable Docker installation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      E2E_BASE_URL: http://localhost:55198
+      E2E_EXPECT_NAME: CI Poker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install browser harness dependencies
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - name: Select isolated CI paths and source revision
+        run: |
+          printf 'OPENPOKER_ENV_FILE=%s/openpoker-ci.env\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'OPENPOKER_BACKUP_DIR=%s/openpoker-ci-backups\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'E2E_STATE_FILE=%s/openpoker-ci-state.json\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'OPENPOKER_CI_PROJECT=openpoker-ci-%s-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+          printf 'E2E_EXPECT_COMMIT=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Initialize private portable installation
+        run: |
+          ./tools/openpoker-install.sh init \
+            --name "$E2E_EXPECT_NAME" \
+            --origin "$E2E_BASE_URL" \
+            --port 55198 \
+            --project "$OPENPOKER_CI_PROJECT"
+
+      - name: Build and start the real Docker installation
+        timeout-minutes: 15
+        run: ./tools/openpoker-install.sh up
+
+      - name: Register players and play a hand in Chrome
+        timeout-minutes: 5
+        working-directory: app
+        run: node tools/portable-browser-smoke.mjs seed
+
+      - name: Restart without resetting the database
+        run: ./tools/openpoker-install.sh restart
+
+      - name: Verify persisted accounts and hand history in Chrome
+        timeout-minutes: 5
+        working-directory: app
+        run: node tools/portable-browser-smoke.mjs verify
+
+      - name: Back up and inspect the SQLite snapshot
+        run: |
+          ./tools/openpoker-install.sh backup
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { DatabaseSync } from 'node:sqlite';
+          const directory = process.env.OPENPOKER_BACKUP_DIR;
+          const files = fs.readdirSync(directory).filter((name) => /^openpoker-.*\.db$/.test(name));
+          assert.ok(files.length > 0, 'Expected a database snapshot');
+          for (const name of files) {
+            const file = path.join(directory, name);
+            assert.ok(fs.statSync(file).size > 0, 'Snapshot must not be empty');
+            assert.equal(fs.statSync(file).mode & 0o777, 0o600, 'Snapshot must be private');
+            const db = new DatabaseSync(file, { readOnly: true });
+            assert.equal(db.prepare('PRAGMA quick_check').get().quick_check, 'ok');
+            assert.ok(db.prepare('SELECT count(*) AS count FROM users').get().count >= 3,
+              'Snapshot should contain the administrator and registered players');
+            db.close();
+          }
+          console.log('Private SQLite snapshot is nonempty and passes quick_check');
+          NODE
+
+      - name: Upload portable browser screenshots only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-browser-${{ github.run_id }}
+          path: app/artifacts/portable-browser/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Remove this run's disposable CI installation
+        if: always()
+        run: |
+          expected_project="openpoker-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if [[ -f "${OPENPOKER_ENV_FILE:-}" && "${OPENPOKER_CI_PROJECT:-}" == "$expected_project" ]]; then
+            docker compose --project-name "$expected_project" \
+              --env-file "$OPENPOKER_ENV_FILE" \
+              -f deploy/portable/compose.yml down --volumes --remove-orphans
+          fi

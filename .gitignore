@@ -10,7 +10,7 @@ research/fonts/
 research/screens/
 research/*.png
 research/strings_en.json
-# app/public/assets holds original DanGG art and sounds (tools/original-assets) and is committed.
+# app/public/assets is committed; per-file origin evidence is in tools/original-assets/inventory.json.
 
 # local reverse-engineering toolchains
 tools/jdk-*/
@@ -31,4 +31,5 @@ deploy/backups/
 # Local mobile/QA artifacts (screenshots, probes, dev cache)
 .mobile-audit/
 app/.audit/
+app/artifacts/
 app/server/data-dev/

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>OpenPoker Robot avatar</title>
+  <defs>
+    <radialGradient id="bg" cx=".38" cy=".26" r=".85"><stop offset="0" stop-color="#30423f"/><stop offset="1" stop-color="#101b1b"/></radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2=".2" y2="1"><stop offset="0" stop-color="#68b8c3"/><stop offset="1" stop-color="#68b8c3" stop-opacity=".86"/></linearGradient>
+    <clipPath id="crop"><circle cx="128" cy="128" r="120"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="123" fill="#0b1415"/>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="#bd9b60" stroke-width="2"/>
+  <g clip-path="url(#crop)">
+    <circle cx="198" cy="50" r="64" fill="#d8b56c" opacity=".055"/>
+    <ellipse cx="128" cy="224" rx="80" ry="15" fill="#071011" opacity=".5"/>
+    <path d="M128 68V43" fill="none" stroke="#cdb572" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="128" cy="38" r="9" fill="#e7c574" /><rect x="44" y="108" width="17" height="48" rx="8" fill="#497e88"/><rect x="195" y="108" width="17" height="48" rx="8" fill="#497e88"/>
+      <rect x="57" y="68" width="142" height="137" rx="38" fill="url(#face)"/>
+      <rect x="73" y="95" width="110" height="59" rx="23" fill="#1c363c"/><circle cx="100" cy="124" r="11" fill="#e8d490" /><circle cx="156" cy="124" r="11" fill="#e8d490" /><path d="M107 174H149" fill="none" stroke="#24444a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="83" cy="181" r="5" fill="#e4b4a0" /><circle cx="173" cy="181" r="5" fill="#e4b4a0" />
+  </g>
+</svg>

@@ -15,7 +15,7 @@ import { TB_CARD_SECONDS, TB_CARDS_PER_ACTION, TB_MAX_CARDS, TB_REFILL_HANDS, TB
 import { PROMO_ART } from '../lib/promoArt';
 
 export function Promotions() {
-  const { toast, navigate } = useApp();
+  const { toast, navigate, brand } = useApp();
   const [banners, setBanners] = useState<any[]>([]);
   const [detail, setDetail] = useState<any>(null);
 
@@ -24,10 +24,10 @@ export function Promotions() {
   }, []);
 
   const promos = [
-    { title: 'Daily Chip Flipout', sub: '#ThanksDanGG · every day', img: PROMO_ART.flipout, tag: 'All-in' },
+    { title: 'Daily Chip Flipout', sub: brand.name === 'DanGG' ? '#ThanksDanGG · every day' : `Daily chips from ${brand.name}`, img: PROMO_ART.flipout, tag: 'All-in' },
     { title: 'Prize Wheel', sub: 'Spin the wheel, win up to 100,000x', img: PROMO_ART.wheel, tag: 'Rewards', link: '/rewards' },
     { title: 'Player Care', sub: 'Bad beat protection & daily prizes', img: PROMO_ART.care, tag: 'Cashback', link: '/ggcare' },
-    { title: 'DanGG Rewards', sub: 'Collect gems, climb the reef', img: PROMO_ART.ocean, tag: 'Rewards', link: '/ocean' },
+    { title: `${brand.name} Rewards`, sub: 'Collect gems, climb the reef', img: PROMO_ART.ocean, tag: 'Rewards', link: '/ocean' },
     { title: 'Hold’em Leaderboards', sub: '$50,000 weekly race', img: PROMO_ART.leaderboard, tag: 'Leaderboard' },
     { title: 'Battle Royale', sub: 'Bounty tournaments with hidden prizes', img: PROMO_ART.battle, tag: 'Tournament' },
     { title: 'Welcome Bonus', sub: 'New player welcome package', img: PROMO_ART.welcome, tag: 'Bonus' },
@@ -104,7 +104,7 @@ const SOUND_CHANNELS: ReadonlyArray<readonly [Channel, string]> = [['sfx', 'Card
  * windows and the account); Cancel/Escape throws it away and the form re-reads the saved values.
  */
 export function Settings() {
-  const { toast, navigate } = useApp();
+  const { toast, navigate, brand } = useApp();
   const [tab, setTab] = useState(() => {
     const wanted = sessionStorage.getItem('ggpoker.settingsTab');
     sessionStorage.removeItem('ggpoker.settingsTab');
@@ -167,7 +167,7 @@ export function Settings() {
         <div className="mp-wintabs" role="tablist" aria-label="Account windows">
           <button type="button" role="tab" onClick={() => navigate('/my-page')}>My Page</button>
           <button type="button" role="tab" onClick={() => navigate('/propbet')}>Prop Bet</button>
-          <button type="button" role="tab" onClick={() => navigate('/rewards')}>DanGG Rewards</button>
+          <button type="button" role="tab" onClick={() => navigate('/rewards')}>{brand.name} Rewards</button>
           <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
           <button type="button" role="tab" aria-selected="true" className="on">Game Settings</button>
           <button type="button" className="mp-close" aria-label="Close settings" onClick={() => navigate('/')}>✕</button>

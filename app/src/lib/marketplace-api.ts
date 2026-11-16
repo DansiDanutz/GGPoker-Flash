@@ -121,7 +121,7 @@ export const MARKETPLACE_CATEGORY_LABELS: Record<MarketplaceCategory, string> = 
 };
 
 export const MARKETPLACE_DELIVERY_LABELS: Record<MarketplaceDelivery, string> = {
-  hosted_service: 'Serviciu DanGG', open_source_extension: 'Extensie open-source', commercial_module: 'Modul comercial',
+  hosted_service: 'Serviciu găzduit', open_source_extension: 'Extensie open-source', commercial_module: 'Modul comercial',
 };
 
 export function marketplacePrice(product: Pick<MarketplaceProduct, 'pricing' | 'price_cents' | 'currency'>): string {

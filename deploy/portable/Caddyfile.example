@@ -1,0 +1,16 @@
+# Optional host-installed Caddy, directly facing the internet (no CDN in front).
+# Replace this example hostname with your own, point its DNS to this host, and
+# set OPENPOKER_SITE_ORIGIN=https://your-hostname plus GGPOKER_TRUST_PROXY=1.
+# Rebuild the app after changing its identity. See docs/INSTALL.md.
+poker.example.org {
+    @admin path /api/admin*
+    handle @admin {
+        respond "Use the private admin connection." 403
+    }
+    handle {
+        reverse_proxy 127.0.0.1:5198 {
+            # Discard any client-supplied chain; this example is the public edge.
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+}

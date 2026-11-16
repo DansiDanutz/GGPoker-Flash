@@ -8,6 +8,7 @@ import { restoreAccountSettings } from './settingsStore';
 import { landingRoute } from './phoneNav';
 import { marketplaceAuthDestination, resolveEntryRoute } from './entryRoute';
 import { isPhoneLayout } from './useIsPhone';
+import { SITE } from './site';
 import { completeInstall, installPending, isPhone, isStandalone, markInstallPending, skipInstall, subscribeInstall } from './install';
 
 type Toast = {
@@ -23,8 +24,9 @@ type Toast = {
 type TournamentStarted = { type: 'tournament_started'; id: string; name?: string; tableId: string; index?: number };
 
 const TOAST_MS = 4200;
-/** Dan's animated DanGG wordmark (a light sheen across it, 4 s loop); an admin brand upload still overrides it. */
-const BRAND_LOGO = '/assets/brand/logo-animated.gif';
+/** The selected deployment profile; an existing admin brand upload still overrides it. */
+const BRAND_LOGO = SITE.logo;
+const DEFAULT_BRAND = { logo: BRAND_LOGO, promo: '/assets/chrome/promo.png', name: SITE.name, supportEmail: SITE.supportEmail, profile: SITE.profile };
 const LINK_TOAST_MS = 15000;
 
 function isTournamentStarted(detail: unknown): detail is TournamentStarted {
@@ -74,7 +76,7 @@ type AppState = {
   authOffline: boolean;
   firstLaunch: boolean;
   dismissFirstLaunch: () => void;
-  brand: { logo: string; promo: string };
+  brand: typeof DEFAULT_BRAND;
   dmUnread: number;
   refreshBrand: () => Promise<void>;
 };
@@ -122,7 +124,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [animations, setAnimations] = useState(() => localStorage.getItem('ggpoker.animations') !== '0');
   const [openingTable, setOpeningTable] = useState<string | null>(null);
   const [meta, setMeta] = useState({ online: 192203, jackpot: 199026635 });
-  const [brand, setBrand] = useState({ logo: BRAND_LOGO, promo: '/assets/chrome/promo.png' });
+  const [brand, setBrand] = useState(DEFAULT_BRAND);
   const [dmUnread, setDmUnread] = useState(0);
   const toastId = useRef(1);
 
@@ -231,8 +233,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const b = await api.brand();
       setBrand({
+        ...DEFAULT_BRAND,
         logo: b.logo || BRAND_LOGO,
         promo: b.promo || '/assets/chrome/promo.png',
+        name: b.name || SITE.name,
       });
     } catch { /* keep defaults */ }
   }, []);

@@ -20,9 +20,10 @@ test('every new card uses its webp art and the file exists', () => {
 
 test('For You and Casino cards draw their names as live text', () => {
   const feed = read('src/components/home/HomeFeed.tsx');
-  for (const title of ['Daily Freebie', 'DanGG Rewards', 'Live Series', 'Olympus Gold', 'Disco Cat', 'Robo Rush', 'Clover Cash']) {
+  for (const title of ['Daily Freebie', 'Live Series', 'Olympus Gold', 'Disco Cat', 'Robo Rush', 'Clover Cash']) {
     assert.ok(feed.includes(title), title);
   }
+  assert.match(feed, /label: `\$\{brand\.name\} Rewards`/, 'the rewards card uses the configured room name as live text');
   assert.match(feed, /hf-casino-label/);
 });
 

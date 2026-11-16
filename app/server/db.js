@@ -3,6 +3,8 @@ import { randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'node:crypt
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { migrateIdentity } from './identity-migrations.js';
+import { SITE_PROFILE } from './site-profile.js';
+import { normalizeAvatarSource } from '../config/avatar-presets.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = process.env.GGPOKER_DATA || path.join(__dirname, 'data');
@@ -347,6 +349,8 @@ function init() {
   migrateIdentity(db);
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
+  // Repair the one missing historical banner asset without changing its identity or copy.
+  db.prepare("UPDATE banners SET image = '/assets/slots/olympus-gold.svg' WHERE image = '/assets/chrome/spin.png'").run();
   ensurePloVariants();
   ensureRushLadder();
   ensureSpinTables();
@@ -611,11 +615,12 @@ function seed() {
     ('home','DAILY $100,000 FLIPOUT','#ThanksDanGG · DanGG Cheers','/assets/chrome/promo.png','/promotions',1),
     ('home','After The Fold','$40,000 Daily','/assets/chrome/tab_aof.png','/game/aof',2),
     ('tournaments','LIVE SERIES','Win your seat to the Main Event','/assets/chrome/promo.png','/tournaments',1),
-    ('slots','GATES OF OLYMPUS','1000x max win','/assets/chrome/spin.png','/slots',1),
+    ('slots','GATES OF OLYMPUS','1000x max win','/assets/slots/olympus-gold.svg','/slots',1),
     ('casino','LIVE CASINO','Roulette · Blackjack · Baccarat','/assets/chrome/jackpot.png','/casino',1)`).run();
 
   const settings = {
-    site_name: 'DanGG',
+    site_name: SITE_PROFILE.name,
+    club_name: SITE_PROFILE.name,
     online_base: 192000,
     jackpot: 199026635,
     rake_percent: 5,
@@ -787,7 +792,7 @@ export function userByToken(token) {
 export function publicUser(u) {
   if (!u) return null;
   return {
-    id: u.id, login: u.login, nick: u.nick, email: u.email, avatar: u.avatar,
+    id: u.id, login: u.login, nick: u.nick, email: u.email, avatar: normalizeAvatarSource(u.avatar),
     balance: u.balance, play_chips: u.play_chips, tickets: u.tickets, gems: u.gems,
     xp: u.xp, vip_level: u.vip_level, vip_points: u.vip_points, elo: u.elo ?? 1000, is_admin: !!u.is_admin,
     banned: !!u.banned, chat_muted: !!u.chat_muted, country: u.country, created_at: u.created_at,

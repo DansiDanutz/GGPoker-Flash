@@ -42,7 +42,7 @@ function ScaleStage({ children }: { children: React.ReactNode }) {
 
 function Splash() {
   const { brand } = useApp();
-  return <LoadingScreen logo={brand.logo} />;
+  return <LoadingScreen logo={brand.logo} name={brand.name} />;
 }
 
 function ComingSoon({ title }: { title: string }) {

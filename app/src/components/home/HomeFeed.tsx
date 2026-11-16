@@ -30,7 +30,7 @@ const CASINO_GAMES = [
 
 /** The reference Poker Home: hero, For You, TV, Tournaments For You, Special Features, Casino. */
 export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
-  const { navigate } = useApp();
+  const { navigate, brand } = useApp();
   const feedRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const root = feedRef.current;
@@ -71,7 +71,7 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
       <button type="button" className="hf-hero tilt" onClick={() => onTarget({ route: '/tournaments' })} aria-label="November Chip Rush — open tournaments">
         <img src={`${CREATIVE}/hero-november.webp`} alt="" />
         <span className="hf-hero-copy">
-          <small>DanGG · Play money</small>
+          <small>{brand.name} · Play money</small>
           <strong>November<br />Chip Rush</strong>
           <em>Freerolls &amp; guarantees all month</em>
         </span>
@@ -85,7 +85,7 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
           {[
             { art: 'foryou-recent.webp', label: 'Recent game', sub: 'Jump back to a live table', cta: 'Join', target: null },
             { art: 'foryou-freebie.webp', label: 'Daily Freebie', sub: 'A free gift every day', cta: 'Claim', target: { route: '/rewards' } as HomeTarget },
-            { art: 'foryou-ocean.webp', label: 'DanGG Rewards', sub: 'Level up for bigger hauls', cta: 'Open', target: { route: '/ocean' } as HomeTarget },
+            { art: 'foryou-ocean.webp', label: `${brand.name} Rewards`, sub: 'Level up for bigger hauls', cta: 'Open', target: { route: '/ocean' } as HomeTarget },
             { art: 'foryou-live-series.webp', label: 'Live Series', sub: 'Big stages, big guarantees', cta: 'View', target: { route: '/tournaments' } as HomeTarget },
           ].map((c, i) => (
             <button
@@ -105,14 +105,14 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
       </section>
 
       <section className="hf-section" aria-labelledby="hf-tv">
-        <div className="hf-head"><h2 id="hf-tv">DanGG.TV</h2></div>
+        <div className="hf-head"><h2 id="hf-tv">{brand.name}.TV</h2></div>
         <div className="hf-row hf-tv-row">
           {tv.map(({ art, table }, i) => (
             <button key={i} type="button" className="hf-tv tilt" onClick={() => (table ? navigate(`/table/${table.id}?observe=1`) : navigate('/?play=1'))} aria-label={table ? `Watch ${table.name}` : 'Browse tables'}>
               <img className="hf-tv-thumb" src={`${CREATIVE}/${art}`} alt="" />
               <span className="hf-tv-body">
                 <b>{table ? `${table.name} — ${money(table.sb)}/${money(table.bb)}` : 'Open a table'}</b>
-                <small><i className={`hf-flag f${i}`} aria-hidden="true" />DanGG Studio</small>
+                <small><i className={`hf-flag f${i}`} aria-hidden="true" />{brand.name} Studio</small>
                 <em>{table ? `${table.players} seated · ${table.seats}-max` : 'Live from the floor'}</em>
               </span>
             </button>
@@ -165,7 +165,7 @@ export function HomeFeed({ tables, online, onTarget, onJoin }: Props) {
         <span>{online.toLocaleString()} online</span>
         <span>Play money only · no cash value</span>
         <button type="button" onClick={() => navigate('/support')}>Security and Ecology Policy</button>
-        <button type="button" onClick={() => navigate('/support')}>help@dangg.live</button>
+        <button type="button" onClick={() => navigate('/support')}>{brand.supportEmail || 'Contact this room'}</button>
       </footer>
     </div>
   );

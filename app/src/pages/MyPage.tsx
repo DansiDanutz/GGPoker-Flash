@@ -44,7 +44,7 @@ const PANE_TITLES: Record<string, string> = {
 };
 
 export function MyPage() {
-  const { user, refreshUser, toast, navigate, logout } = useApp();
+  const { user, refreshUser, toast, navigate, logout, brand } = useApp();
   const [tab, setTab] = useState('overview');
   const isPhone = useIsPhone();
   // Phones open on the account hub; a deep link with ?tab= goes straight to that pane.
@@ -154,7 +154,7 @@ export function MyPage() {
         <div className="mp-wintabs" role="tablist" aria-label="Account windows">
           <button type="button" role="tab" aria-selected="true" className="on">My Page</button>
           <button type="button" role="tab" onClick={() => navigate('/propbet')}>Prop Bet</button>
-          <button type="button" role="tab" onClick={() => navigate('/ocean')}>DanGG Rewards</button>
+          <button type="button" role="tab" onClick={() => navigate('/ocean')}>{brand.name} Rewards</button>
           <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
           <button type="button" role="tab" onClick={() => navigate('/settings')}>Game Settings</button>
           <button type="button" className="mp-close" aria-label="Close My Page" onClick={() => navigate('/')}>✕</button>
@@ -209,7 +209,7 @@ export function MyPage() {
             {PROMOS.map(([title, sub, img]) => (
               <div key={title} className="promo-card" onClick={() => navigate('/promotions')}>
                 <img src={img} alt="" onError={(e) => { (e.target as HTMLImageElement).src = '/assets/chrome/promo.png'; }} />
-                <div className="overlay"><h3>{title}</h3><p>{sub}</p></div>
+                <div className="overlay"><h3>{title}</h3><p>{sub === '#ThanksDanGG' && brand.name !== 'DanGG' ? `Daily chips from ${brand.name}` : sub}</p></div>
               </div>
             ))}
           </div>

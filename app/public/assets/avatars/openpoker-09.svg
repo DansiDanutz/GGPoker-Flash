@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>OpenPoker Jellyfish avatar</title>
+  <defs>
+    <radialGradient id="bg" cx=".38" cy=".26" r=".85"><stop offset="0" stop-color="#30423f"/><stop offset="1" stop-color="#101b1b"/></radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2=".2" y2="1"><stop offset="0" stop-color="#b79bdf"/><stop offset="1" stop-color="#b79bdf" stop-opacity=".86"/></linearGradient>
+    <clipPath id="crop"><circle cx="128" cy="128" r="120"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="123" fill="#0b1415"/>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="#bd9b60" stroke-width="2"/>
+  <g clip-path="url(#crop)">
+    <circle cx="198" cy="50" r="64" fill="#d8b56c" opacity=".055"/>
+    <ellipse cx="128" cy="224" rx="80" ry="15" fill="#071011" opacity=".5"/>
+    <path d="M75 149Q60 174 75 191Q89 208 73 219" fill="none" stroke="#83739e" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M102 149Q87 174 102 191Q116 208 100 219" fill="none" stroke="#b49bcd" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M128 149Q113 174 128 191Q142 208 126 219" fill="none" stroke="#83739e" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M154 149Q139 174 154 191Q168 208 152 219" fill="none" stroke="#b49bcd" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M181 149Q166 174 181 191Q195 208 179 219" fill="none" stroke="#83739e" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M52 145Q52 58 128 57Q204 58 204 145Q192 159 179 146Q166 160 153 147Q140 161 127 148Q114 160 101 147Q88 159 75 146Q63 158 52 145Z" fill="url(#face)"/><ellipse cx="102" cy="114" rx="8" ry="11" fill="#162523" /><circle cx="100" cy="110" r="2.5" fill="#fff6de" /><ellipse cx="154" cy="114" rx="8" ry="11" fill="#162523" /><circle cx="152" cy="110" r="2.5" fill="#fff6de" /><path d="M112 136 Q128 149 144 136" fill="none" stroke="#25302f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="102" cy="84" rx="21" ry="9" fill="#eadbfa" opacity=".4"/>
+  </g>
+</svg>

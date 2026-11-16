@@ -69,8 +69,8 @@ const OFFER_CAPTION: Readonly<Record<Platform, string>> = {
 };
 
 /** Caption under the login page's "Get the app" button, or null when already running as the app. */
-export function appOfferCaption(platform: Platform, standalone: boolean): string | null {
-  return standalone ? null : OFFER_CAPTION[platform];
+export function appOfferCaption(platform: Platform, standalone: boolean, siteName = 'DanGG'): string | null {
+  return standalone ? null : OFFER_CAPTION[platform].replace('DanGG', () => siteName);
 }
 
 export function isPhone(): boolean {

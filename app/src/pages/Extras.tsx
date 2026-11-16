@@ -8,7 +8,7 @@ import { HandDetailModal } from '../components/HandDetailModal';
 import { avatarChoices, fileToAvatar } from '../lib/avatar';
 
 export function Profile() {
-  const { user, refreshUser, logout, toast, navigate } = useApp();
+  const { user, refreshUser, logout, toast, navigate, brand } = useApp();
   const [nick, setNick] = useState(user?.nick || '');
   const [stats, setStats] = useState({ hands: 0, won: 0, biggest: 0 });
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -117,7 +117,7 @@ export function Profile() {
             <div className="kv"><span>XP</span><b>{(user?.xp ?? 0).toLocaleString()}</b></div>
             <div className="kv"><span>VIP points</span><b>{(user?.vip_points ?? 0).toLocaleString()}</b></div>
             <div className="progress" style={{ marginTop: 10 }}><i style={{ width: `${Math.min(100, ((user?.xp ?? 0) % 6000) / 60)}%` }} /></div>
-            <p className="muted small">Earn XP by playing raked hands. Every 1,000 XP unlocks new DanGG Pass rewards.</p>
+            <p className="muted small">Earn XP by playing raked hands. Every 1,000 XP unlocks new {brand.name} Pass rewards.</p>
           </div>
         </div>
       </div>
@@ -219,14 +219,14 @@ export function HandHistory() {
 }
 
 export function Support() {
-  const { toast } = useApp();
+  const { toast, brand } = useApp();
   const [open, setOpen] = useState(0);
   const faq = [
-    ['Is this real money?', 'No. DanGG is a play-money poker site built for demonstration. No real money, deposits or cash value are involved.'],
+    ['Is this real money?', `No. ${brand.name} is a play-money poker site built for demonstration. No real money, deposits or cash value are involved.`],
     ['How do I get chips?', 'Open the Cashier and deposit play money instantly, or claim your daily missions in My Rewards.'],
     ['Where are my hand histories?', 'Every hand you play is stored locally and can be replayed from Hand History.'],
     ['Can I play with friends?', 'Yes — open the same table in two browser windows or on two devices on your local network. Bots fill empty seats.'],
-    ['How do I become an admin?', 'Log in with the admin account (admin / admin123) and open the Admin Console from Settings or by visiting #/admin.'],
+    ['How do I become an admin?', 'Ask the operator of this room for administrator access. Administrators use the private access configured for this installation.'],
   ];
   return (
     <PageShell activeTop="poker">

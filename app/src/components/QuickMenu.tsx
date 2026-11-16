@@ -17,7 +17,7 @@ const LINKS = [
 ];
 
 export function QuickMenu() {
-  const { user, navigate } = useApp();
+  const { user, navigate, brand } = useApp();
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const onOpen = () => setOpen(true);
@@ -51,9 +51,9 @@ export function QuickMenu() {
           {LINKS.map((l) => (
             <button key={l.to} onClick={() => go(l.to)}><span>{l.icon}</span>{l.label}</button>
           ))}
-          {user?.is_admin && <button onClick={() => go('/admin')}><span>⚙</span>Admin DanGG</button>}
+          {user?.is_admin && <button onClick={() => go('/admin')}><span>⚙</span>Admin {brand.name}</button>}
         </div>
-        <button className="quick-ggpass" onClick={() => go('/rewards')}>★ DanGG Pass</button>
+        <button className="quick-ggpass" onClick={() => go('/rewards')}>★ {brand.name} Pass</button>
       </aside>
     </div>
   );

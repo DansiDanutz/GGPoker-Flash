@@ -624,7 +624,7 @@ test('admin tournament level endpoint is admin-only and 404s without a room', as
   }
 });
 
-test('preset avatar paths are stored as-is and arbitrary paths are rejected', async () => {
+test('legacy avatar selections resolve to original presets and arbitrary paths are rejected', async () => {
   const { child, port, data } = await startServer();
   try {
     const login = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
@@ -634,12 +634,21 @@ test('preset avatar paths are stored as-is and arbitrary paths are rejected', as
     assert.ok(login.token);
     const auth = { 'content-type': 'application/json', authorization: `Bearer ${login.token}` };
 
+    const oldAsset = await fetch(`http://127.0.0.1:${port}/assets/avatars/gg-03.jpg`, { redirect: 'manual' });
+    assert.equal(oldAsset.status, 302);
+    assert.equal(oldAsset.headers.get('location'), '/assets/avatars/openpoker-03.svg');
+
     const save = await fetch(`http://127.0.0.1:${port}/api/me/avatar`, {
       method: 'POST', headers: auth, body: JSON.stringify({ avatar: '/assets/avatars/gg-03.jpg' }),
     });
     assert.equal(save.status, 200);
     const me = await fetch(`http://127.0.0.1:${port}/api/me`, { headers: { authorization: `Bearer ${login.token}` } }).then((r) => r.json());
-    assert.equal(me.user.avatar, '/assets/avatars/gg-03.jpg');
+    assert.equal(me.user.avatar, '/assets/avatars/openpoker-03.svg');
+
+    const unavailable = await fetch(`http://127.0.0.1:${port}/api/me/avatar`, {
+      method: 'POST', headers: auth, body: JSON.stringify({ avatar: '/assets/avatars/gg-99.jpg' }),
+    });
+    assert.equal(unavailable.status, 400);
 
     const hostile = await fetch(`http://127.0.0.1:${port}/api/me/avatar`, {
       method: 'POST', headers: auth, body: JSON.stringify({ avatar: '/etc/passwd' }),

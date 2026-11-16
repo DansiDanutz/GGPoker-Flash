@@ -13,6 +13,8 @@ shell, and an installable phone app (PWA) for Android and iPhone.
 
 Independent operators can build on OpenPoker under its [software license](docs/LICENSING.md)
 and use their own service identity; see the [brand policy](TRADEMARKS.md).
+Start with the [portable installation guide](docs/INSTALL.md) for a separate web,
+server and PWA deployment using your own configuration and persistent database.
 
 [![CI](https://github.com/OpenPoker4all/OpenPoker/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenPoker4all/OpenPoker/actions/workflows/ci.yml)
 
@@ -67,6 +69,29 @@ voice takes are committed inputs. Proprietary client extraction is not required.
 ---
 
 ## Quick start
+
+### Independent OpenPoker installation (web + server + PWA)
+
+With Git, Bash, Docker and Docker Compose v2 installed:
+
+```bash
+git clone https://github.com/OpenPoker4all/OpenPoker.git
+cd OpenPoker
+./tools/openpoker-install.sh init
+./tools/openpoker-install.sh up
+```
+
+Open **http://localhost:5198**. Initialization generates a private admin password in
+`deploy/portable/.env`; it never prints that password or overwrites an existing file.
+The portable profile uses a separate persistent volume, a loopback-only host port
+and the exact source commit from a clean checkout. It needs no DanGG account,
+Dexter host, external Docker network or production database.
+
+See [installation, identity, HTTPS, updates and backups](docs/INSTALL.md).
+The portable release covers web/server/PWA; the desktop instructions below describe
+the existing DanGG reference client. Asset provenance limitations still apply.
+
+### Source development
 
 Requirements: **Node 26**, **pnpm 10.32+**. Everything else is installed by pnpm.
 
@@ -367,6 +392,7 @@ Every push to `main` and every pull request runs the **CI** workflow
 |---|---|
 | **Server tests** | `node --test server/*.test.js` (155 tests) |
 | **Typecheck and build** | `tsc --noEmit`, then `vite build` |
+| **Portable Docker installation** | Fresh container build, browser registration/hand flow, restart persistence and SQLite backup verification |
 
 The required `protect-main` policy for `main` requires both checks and blocks
 force-pushes and branch deletion. Verify this policy after transferring repository
@@ -381,13 +407,14 @@ Recent history is recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Deployment and operations
 
-Production is the Docker Compose stack in [`deploy/`](deploy/):
+For a new installation, use [`deploy/portable/`](deploy/portable/) and
+[the installation guide](docs/INSTALL.md). The existing DanGG production stack
+remains in [`deploy/`](deploy/):
 
 ```bash
-# on Dexter, from ~/dangro/deploy
-cp .env.example .env       # DOMAIN, GGPOKER_PUBLIC_ORIGIN, admin allowlist/password
-docker compose build game
-docker compose up -d game
+# from the operator's Git checkout, after main CI is green
+deploy/deploy.sh --dry-run
+deploy/deploy.sh          # archives and stamps the exact committed source
 curl -fsS https://dangg.live/healthz
 ```
 
@@ -449,6 +476,7 @@ DanGG assets with `bash tools/setup_assets.sh`; this does not extract the old cl
 
 | Document | What it covers |
 |---|---|
+| [`docs/INSTALL.md`](docs/INSTALL.md) | Independent portable installation, identity, HTTPS, updates and recovery |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Components, request flow, data model, table protocol |
 | [`docs/MARKETPLACE.md`](docs/MARKETPLACE.md) | Public marketplace, catalog, access requests and private owner administration |
 | [`docs/CI.md`](docs/CI.md) | CI workflow, required checks, branch protection, PR flow |

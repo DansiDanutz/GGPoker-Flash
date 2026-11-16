@@ -1,5 +1,5 @@
-# Production image for the DanGG implementation of OpenPoker.
-# Build context: repository root (see deploy/compose.yml).
+# Production image for OpenPoker. Existing deployments default to the DanGG profile.
+# Build context: repository root (see deploy/compose.yml and deploy/portable/compose.yml).
 FROM node:26-bookworm-slim AS build
 
 RUN npm install -g pnpm@10.32.1
@@ -14,7 +14,21 @@ COPY app/ ./
 # The commit being deployed; written to dist/version.json and reported by /healthz.
 ARG GIT_SHA=""
 ARG SOURCE_REPOSITORY="https://github.com/OpenPoker4all/OpenPoker"
-ENV SOURCE_REPOSITORY=$SOURCE_REPOSITORY
+ARG OPENPOKER_PROFILE="dangg"
+ARG OPENPOKER_SITE_NAME=""
+ARG OPENPOKER_SITE_ORIGIN=""
+ARG OPENPOKER_SITE_LOGO=""
+ARG OPENPOKER_SITE_ICON=""
+ARG OPENPOKER_SITE_IMAGE=""
+ARG OPENPOKER_SUPPORT_EMAIL=""
+ENV SOURCE_REPOSITORY=$SOURCE_REPOSITORY \
+    OPENPOKER_PROFILE=$OPENPOKER_PROFILE \
+    OPENPOKER_SITE_NAME=$OPENPOKER_SITE_NAME \
+    OPENPOKER_SITE_ORIGIN=$OPENPOKER_SITE_ORIGIN \
+    OPENPOKER_SITE_LOGO=$OPENPOKER_SITE_LOGO \
+    OPENPOKER_SITE_ICON=$OPENPOKER_SITE_ICON \
+    OPENPOKER_SITE_IMAGE=$OPENPOKER_SITE_IMAGE \
+    OPENPOKER_SUPPORT_EMAIL=$OPENPOKER_SUPPORT_EMAIL
 RUN GIT_SHA="$GIT_SHA" pnpm build
 
 FROM node:26-bookworm-slim AS runtime
@@ -28,6 +42,7 @@ WORKDIR /app
 COPY app/package.json app/pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 COPY --from=build /src/app/server ./server
+COPY --from=build /src/app/config ./config
 COPY --from=build /src/app/dist ./dist
 COPY --from=build /src/app/public ./public
 

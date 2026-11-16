@@ -8,12 +8,12 @@ import { PROMO_ART } from '../lib/promoArt';
 const RANKS = ['Clownfish', 'Shrimp', 'Crab', 'Octopus', 'Turtle', 'Dolphin', 'Shark', 'Whale'];
 
 export function Ocean() {
-  const { user, refreshUser, toast, navigate } = useApp();
+  const { user, refreshUser, toast, navigate, brand } = useApp();
   const [data, setData] = useState<any>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
-    try { setData(await api.ocean()); } catch (e: any) { toast({ kind: 'error', title: 'DanGG Rewards', body: e.message }); }
+    try { setData(await api.ocean()); } catch (e: any) { toast({ kind: 'error', title: `${brand.name} Rewards`, body: e.message }); }
   };
   useEffect(() => { load(); }, []);
 
