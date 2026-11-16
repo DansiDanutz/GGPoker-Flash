@@ -37,9 +37,17 @@ test('does not mutate its inputs', () => {
   assert.equal(JSON.stringify([hole, board]), saved);
 });
 
+test('selects a best five on flop and turn for the current HandRank panel', () => {
+  for (const board of [royal.slice(0, 3), royal.slice(0, 4)]) {
+    const focus = bestFiveFocus(['2c', '3d'], board);
+    assert.ok(focus);
+    assert.equal(focus.hole.length + focus.board.length, 5);
+  }
+});
+
 test('returns null for incomplete, hidden or duplicate cards', () => {
   for (const [hole, board] of [
-    [[], royal], [['As'], royal], [['As', 'Ad', 'Ac'], royal], [['As', 'Ad'], royal.slice(0, 4)],
+    [[], royal], [['As'], royal], [['As', 'Ad', 'Ac'], royal],
     [['As', 'Ad'], ['As', ...royal.slice(1)]], [['??', '??'], royal],
   ]) assert.equal(bestFiveFocus(hole, board), null);
   assert.equal(bestFiveFocus(['2c', '3c'], royal, false, true), null, 'deuces are not in a short deck');

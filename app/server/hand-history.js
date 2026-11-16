@@ -64,22 +64,40 @@ function storedTableMeta(text) {
  * the showdown winners, whose cards were always turned over, so only they are revealed.
  */
 function isRevealed(player, result) {
+  if (Array.isArray(player.shownIndices) && player.shownIndices.length) return true;
   if (player.folded) return false;
   if (typeof player.showed === 'boolean') return player.showed;
   const winners = Array.isArray(result.winners) ? result.winners : [];
   return result.reason === 'showdown' && winners.some((w) => w.seat === player.seat || (w.id != null && w.id === player.id));
 }
 
+export function publicHandCards(player, result) {
+  if (Array.isArray(player.shownIndices)) {
+    const selected = new Set(player.shownIndices.filter((index) => Number.isInteger(index) && index >= 0));
+    return (player.cards || []).filter((_, index) => selected.has(index));
+  }
+  return isRevealed(player, result) ? player.cards || [] : [];
+}
+
 /** Drops the cards of any showdown entry (winner or hand) whose seat is not revealed to this viewer. */
-function projectResult(result, visibleSeats) {
-  const withCards = (entry) => (Array.isArray(entry.cards) && !visibleSeats.has(entry.seat)
-    ? { ...entry, cards: [] }
-    : entry);
+function projectResult(result, visibleSeats, players, viewerId) {
+  const withCards = (entry) => {
+    if (!Array.isArray(entry.cards)) return entry;
+    const owner = players.find((player) => player.seat === entry.seat);
+    if (owner?.id === viewerId) return entry;
+    if (owner && Array.isArray(owner.shownIndices)) return { ...entry, cards: publicHandCards(owner, result) };
+    return visibleSeats.has(entry.seat) ? entry : { ...entry, cards: [] };
+  };
   return {
     ...result,
     ...(Array.isArray(result.winners) ? { winners: result.winners.map(withCards) } : {}),
     ...(Array.isArray(result.hands) ? { hands: result.hands.map(withCards) } : {}),
   };
+}
+
+export function publicHandResult(result, players) {
+  const visibleSeats = new Set(players.filter((player) => isRevealed(player, result)).map((player) => player.seat));
+  return projectResult(result, visibleSeats, players, null);
 }
 
 /**
@@ -97,12 +115,12 @@ export function handForViewer(row, viewerId) {
   const { button, blinds } = storedTableMeta(row.meta);
   const positions = seatPositions(players, button);
   return {
-    id: row.id, handNo: row.hand_no, tableId: row.table_id, tableName: row.table_name, game: row.game,
-    board: row.board, pot: row.pot, result: projectResult(result, visibleSeats),
+    id: row.id, handId: row.hand_id || String(row.id), handNo: row.hand_no, tableId: row.table_id, tableName: row.table_name, game: row.game,
+    board: row.board, pot: row.pot, result: projectResult(result, visibleSeats, players, viewerId),
     button, blinds,
     players: players.map((p, i) => ({
       ...p,
-      cards: visible[i] ? p.cards : [],
+      cards: p.id === viewerId ? p.cards : visible[i] ? publicHandCards(p, result) : [],
       position: positions.get(p.seat) ?? null,
     })),
     heroCards: (me.cards || []).join(' '),

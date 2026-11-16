@@ -8,6 +8,7 @@ import { cardOrdinal, squeezeDragFrame, squeezeWheelFrame } from '../src/game/sq
 import { showdownComplete, showdownPlan } from '../src/game/showdown.ts';
 import { buildLabel } from '../src/lib/version.ts';
 import { bestHand } from '../src/game/eval.ts';
+import { SPIN_WHEEL_MULTIPLIERS, spinRenderedMultipliers, spinTargetIndex, spinWheelRotation } from '../src/game/spinPresentation.ts';
 import {
   WAITLIST_TABLE_CAP, waitlistActionFor, waitCount,
   offerSecondsLeft, formatCountdown, isOfferUrgent, offerProgress, chipCount, waitlistChipLabel,
@@ -811,4 +812,18 @@ test('the chip shuffle scrubs with the wheel inside its frame range', () => {
   assert.equal(shuffleScrubFrame(245, 1), 245);
   assert.equal(shuffleScrubFrame(143, 1), 149);
   assert.equal(shuffleScrubFrame(60, 0), 60);
+});
+
+
+test('every default and custom Spin wheel result finishes under the pointer', () => {
+  for (const custom of [undefined, [4, 50, 2], [2, 4, 12, 50, 100, 200]]) {
+    const labels = spinRenderedMultipliers(custom);
+    for (const multiplier of labels) {
+      const index = spinTargetIndex(multiplier, custom);
+      const finalAngle = (index * (360 / labels.length) + spinWheelRotation(multiplier, custom)) % 360;
+      assert.equal(finalAngle, 0, `${multiplier} must align to the pointer`);
+    }
+  }
+  assert.deepEqual([...spinRenderedMultipliers()], [100, 4, 10, 2, 3, 50, 5, 20000]);
+  assert.equal(SPIN_WHEEL_MULTIPLIERS.length, 8);
 });

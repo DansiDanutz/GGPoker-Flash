@@ -12,7 +12,8 @@ process.env.GGPOKER_DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'dangg-spin-tab
 const { db, addTransactionEx } = await import('./db.js');
 const { PokerTable } = await import('./table.js');
 const { settleSpinPayout, closeSpinSession } = await import('./spin-ledger.js');
-const { isSpinStake, spinOutcome } = await import('./spin.js');
+const { isSpinStake, spinOutcome, spinPayouts } = await import('./spin.js');
+const { registerSpin, spinQueueState, settleSpinEntrant, fundHouse, houseAccount, ensureSpinStore } = await import('./spin-queue.js');
 
 const STAKE = 10000;
 const TICKET_100X = 5; // first ticket of the 100x row (60/30/10)
@@ -103,6 +104,58 @@ test('a full spin draws once from the verified table and pays 1st/2nd/3rd exactl
   assert.equal(paidTotal(users, start), t.spinPrize);
   const outs = db.prepare("SELECT COUNT(*) c FROM transactions WHERE session_id LIKE ? AND reference LIKE 'out:%'").get(`${t.cfg.id}:%`).c;
   assert.equal(outs, 3, 'one closing transaction per seat');
+});
+
+test('a registered cohort pays real table finishers and conserves the funded house account', () => {
+  ensureSpinStore(db);
+  const config = { rows: spinPayouts(STAKE).map((row) => ({ ...row, startingChips: 500, timeBankCards: 3, actionSeconds: 15, secondsPerCard: 10, maxCardsPerAction: 3 })) };
+  db.prepare("UPDATE spin_rules SET config_json = ? WHERE mode = '3max' AND stake = ?").run(JSON.stringify(config), STAKE);
+  fundHouse(db, { scope: 'spin3:10000', actorId: 0, operationId: `fund-registered-${tableSeq}`, amount: 200000000 });
+  const users = [makeUser(), makeUser(), makeUser()];
+  const starting = users.map(balance);
+  let eventId;
+  users.forEach((uid, index) => {
+    const result = registerSpin(db, {
+      actorId: uid, operationId: `registered-table-${tableSeq}-${index}`, mode: '3max', stake: STAKE,
+      expectedRevision: index, ruleRevision: 1, insurance: false,
+    }, { drawTicket: TICKET_100X });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    eventId = result.body.state.eventId;
+  });
+  const cfg = db.prepare('SELECT * FROM tables WHERE id = ?').get(`spin:${eventId}`);
+  const t = new PokerTable(cfg);
+  const event = db.prepare('SELECT * FROM spin_events WHERE event_id = ?').get(eventId);
+  t.spinTicket = () => event.draw_ticket;
+  t.hooks = {
+    onSpinPayout: (table, finish) => {
+      const result = settleSpinEntrant(db, table, finish, () => settleSpinPayout(table, finish, { database: db, joinTransaction: true }));
+      if (result.status !== 200) throw new Error(result.body.message);
+    },
+    onHandComplete: () => {},
+  };
+  const entrants = db.prepare(`SELECT r.actor_id,r.registration_id,e.entrant_order FROM spin_registrations r
+    JOIN spin_event_entrants e ON e.registration_id = r.registration_id WHERE e.event_id = ? ORDER BY e.entrant_order`).all(eventId);
+  t.holdStart = true;
+  for (const entrant of entrants) {
+    t.sit({ id: entrant.actor_id, nick: `Spinner${entrant.actor_id}` }, entrant.entrant_order, STAKE, `${cfg.id}:${entrant.registration_id}`);
+  }
+  t.holdStart = false;
+  t.maybeStart();
+  const [first, second, third] = users;
+  settleHand(t, [[third, 0], [first, 20000], [second, 10000]]);
+  settleHand(t, [[second, 0], [first, 30000]]);
+  assert.deepEqual(users.map(balance), [
+    starting[0] - STAKE + 600000,
+    starting[1] - STAKE + 300000,
+    starting[2] - STAKE + 100000,
+  ]);
+  assert.equal(db.prepare('SELECT status FROM spin_events WHERE event_id = ?').get(eventId).status, 'finished');
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM spin_registrations WHERE event_id = ? AND status = 'settled'").get(eventId).count, 3);
+  assert.equal(houseAccount(db, 'spin3:10000').reserved, 0);
+  assert.equal(houseAccount(db, 'spin3:10000').settled_net, -970000);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM house_reservations WHERE reservation_id = ? AND status = 'active'").get(event.reservation_id).count, 0);
+  t.awardSpinWinner();
+  assert.deepEqual(users.map(balance), [starting[0] + 590000, starting[1] + 290000, starting[2] + 90000]);
 });
 
 test('two players busting in one hand take 2nd and 3rd and the winner is crowned', () => {
@@ -317,4 +370,213 @@ test('non-spin tables keep their configured blinds and expose no spin schedule',
   assert.ok(t.handNo >= 20);
   assert.deepEqual([t.sb, t.bb], [25, 50]);
   assert.equal(t.snapshotFor().spin, null);
+});
+
+
+test('a failed place payout does not mark the finisher and can be retried once', () => {
+  const { t, users, start } = spinTable();
+  const [first, second, third] = users;
+  let failures = 0;
+  t.hooks.onSpinPayout = (table, finish) => {
+    if (!failures++) throw new Error('injected wallet failure');
+    return settleSpinPayout(table, finish);
+  };
+  settleHand(t, [[third, 0], [first, 20000], [second, 10000]]);
+  assert.equal(t.finished.length, 0);
+  assert.equal(balance(third), start[2] - STAKE);
+  settleHand(t, [[third, 0], [first, 20000], [second, 10000]]);
+  assert.equal(t.finished.length, 1);
+  assert.equal(balance(third), start[2] - STAKE + 100000);
+  settleHand(t, [[third, 0], [first, 20000], [second, 10000]]);
+  assert.equal(balance(third), start[2] - STAKE + 100000);
+});
+
+test('restart preserves the per-action time-card count and actor deadline', () => {
+  const { t } = spinTable();
+  assert.equal(t.useTimeBank(t.actor).ok, true);
+  const actor = t.actor;
+  const endsAt = t.actionEndsAt;
+  const restored = new PokerTable(t.cfg);
+  restored.restoreRecoveryState(t.recoveryState());
+  assert.deepEqual(restored.timeBankAction, { playerId: actor, used: 1 });
+  assert.equal(restored.actionEndsAt, endsAt);
+  assert.equal(restored.useTimeBank(actor).ok, true);
+  assert.equal(restored.useTimeBank(actor).ok, false);
+});
+
+
+function registeredCohort(ticket = TICKET_100X) {
+  ensureSpinStore(db);
+  const config = { rows: spinPayouts(STAKE).map((row) => ({ ...row, startingChips: 500, timeBankCards: 3, actionSeconds: 15, secondsPerCard: 10, maxCardsPerAction: 3 })) };
+  db.prepare("UPDATE spin_rules SET config_json = ? WHERE mode = '3max' AND stake = ?").run(JSON.stringify(config), STAKE);
+  fundHouse(db, { scope: 'spin3:10000', actorId: 0, operationId: `fund-cohort-failure-${tableSeq}`, amount: 200000000 });
+  const users = [makeUser(), makeUser(), makeUser()];
+  const starting = users.map(balance);
+  let eventId;
+  users.forEach((uid, index) => {
+    const result = registerSpin(db, { actorId: uid, operationId: `failure-cohort-${tableSeq}-${ticket}-${index}`, mode: '3max', stake: STAKE, expectedRevision: spinQueueState(db, { actorId: uid, mode: '3max', stake: STAKE }).revision, ruleRevision: 1, insurance: false }, { drawTicket: ticket });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    eventId = result.body.state.eventId;
+  });
+  const cfg = db.prepare('SELECT * FROM tables WHERE id = ?').get(`spin:${eventId}`);
+  const t = new PokerTable(cfg);
+  t.spinTicket = () => ticket;
+  const entrants = db.prepare(`SELECT r.actor_id,r.registration_id,e.entrant_order FROM spin_registrations r JOIN spin_event_entrants e ON e.registration_id = r.registration_id WHERE e.event_id = ? ORDER BY e.entrant_order`).all(eventId);
+  t.holdStart = true;
+  for (const entrant of entrants) t.sit({ id: entrant.actor_id, nick: `Spinner${entrant.actor_id}` }, entrant.entrant_order, STAKE, `${cfg.id}:${entrant.registration_id}`);
+  t.holdStart = false;
+  t.maybeStart();
+  return { t, users, starting, eventId };
+}
+
+function registeredLedger(t, eventId, failOnce = null) {
+  const failures = new Set();
+  t.hooks.onSpinPayout = (table, finish) => {
+    if (failOnce === finish.id && !failures.has(finish.id)) {
+      failures.add(finish.id);
+      throw new Error('injected place payout failure');
+    }
+    const result = settleSpinEntrant(db, table, finish, () => settleSpinPayout(table, finish, { database: db, joinTransaction: true }));
+    if (result.status !== 200) throw new Error(`${result.body.message}: ${JSON.stringify({ finish, house: houseAccount(db, 'spin3:10000') })}`);
+  };
+}
+
+test('simultaneous bust retries preserve unique places and the exact prize pool', () => {
+  const { t, users, starting, eventId } = registeredCohort();
+  const [first, second, third] = users;
+  registeredLedger(t, eventId, third);
+  settleHand(t, [[third, 0], [second, 0], [first, 30000]]);
+  const secondPlace = t.finished.find((finish) => finish.id === second).place;
+  assert.equal(balance(second), starting[1] - STAKE + t.spinPayouts[secondPlace - 1]);
+  assert.equal(balance(third), starting[2] - STAKE);
+  assert.ok(t.seatOf(third));
+  t.tick(300);
+  const thirdPlace = 5 - secondPlace;
+  assert.equal(balance(third), starting[2] - STAKE + t.spinPayouts[thirdPlace - 1]);
+  assert.deepEqual(users.map(balance), [starting[0] - STAKE + 600000, starting[1] - STAKE + t.spinPayouts[secondPlace - 1], starting[2] - STAKE + t.spinPayouts[thirdPlace - 1]]);
+  assert.deepEqual(t.finished.map((finish) => [finish.id, finish.place]).sort((a, b) => a[0] - b[0]), [[first, 1], [second, secondPlace], [third, thirdPlace]]);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM transactions WHERE kind = 'spin_payout' AND user_id = ?").get(third).count, 1);
+  assert.equal(houseAccount(db, 'spin3:10000').reserved, 0);
+});
+
+test('a failed leave payout keeps the seat and permits a successful retry', () => {
+  const { t, users, starting, eventId } = registeredCohort();
+  const third = users[2];
+  registeredLedger(t, eventId, third);
+  const sessionId = `${t.cfg.id}:${db.prepare('SELECT registration_id FROM spin_registrations WHERE actor_id = ? AND event_id = ?').get(third, eventId).registration_id}`;
+  const left = t.leaveSpin(third);
+  assert.equal(left.ok, false);
+  assert.ok(t.seatOf(third));
+  assert.equal(balance(third), starting[2] - STAKE);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM transactions WHERE user_id = ? AND reference = ?').get(third, `out:${sessionId}`).count, 0);
+  const retried = t.leaveSpin(third);
+  assert.equal(retried.ok, true);
+  assert.equal(balance(third), starting[2] - STAKE + 100000);
+  assert.equal(t.seatOf(third), undefined);
+});
+
+
+test('a failed leave releases its unsettled reservation and retries in finish order', () => {
+  const { t, users, starting, eventId } = registeredCohort();
+  const [first, second, third] = users;
+  registeredLedger(t, eventId, third);
+  assert.equal(t.leaveSpin(third).ok, false);
+  settleHand(t, [[second, 0], [first, 30000]]);
+  assert.equal(t.finished.find((finish) => finish.id === second).place, 3);
+  assert.equal(balance(second), starting[1] - STAKE + 100000);
+  assert.equal(t.leaveSpin(third).ok, true);
+  assert.equal(balance(third), starting[2] - STAKE + 300000);
+  settleHand(t, [[first, 30000]]);
+  assert.ok(t.spinWinner);
+  assert.deepEqual(t.finished.map((finish) => [finish.id, finish.place]), [[second, 3], [third, 2], [first, 1]]);
+  assert.equal(new Set(t.finished.map((finish) => finish.place)).size, 3);
+  assert.deepEqual(users.map(balance), [starting[0] + 590000, starting[1] + 90000, starting[2] + 290000]);
+});
+
+test('continued play after a failed leave pays the actual winner first prize', () => {
+  const { t, users, starting, eventId } = registeredCohort();
+  const [first, second, third] = users;
+  registeredLedger(t, eventId, third);
+  assert.equal(t.leaveSpin(third).ok, false);
+  settleHand(t, [[second, 0]]);
+  settleHand(t, [[first, 0]]);
+  assert.equal(t.spinWinner.id, third);
+  assert.equal(t.spinWinner.prize, 600000);
+  assert.deepEqual(t.finished.map((finish) => [finish.id, finish.place]), [[second, 3], [first, 2], [third, 1]]);
+  assert.deepEqual(users.map(balance), [starting[0] + 290000, starting[1] + 90000, starting[2] + 590000]);
+});
+
+
+test('a committed payout retries before later places when checkpoint persistence fails', () => {
+  const { t, users, starting, eventId } = registeredCohort();
+  const [first, second, third] = users;
+  let checkpointFailures = 0;
+  t.hooks.onSpinPayout = (table, finish) => {
+    const result = settleSpinEntrant(db, table, finish, () => settleSpinPayout(table, finish, { database: db, joinTransaction: true }));
+    if (result.status !== 200) throw new Error(result.body.message);
+    if (finish.id === third && checkpointFailures++ === 0) {
+      const error = new Error('injected post-commit checkpoint failure');
+      error.spinPayoutCommitted = true;
+      throw error;
+    }
+  };
+  assert.equal(t.leaveSpin(third).ok, false);
+  assert.equal(t.spinPlaceAssignments.get(third), 3);
+  assert.equal(balance(third), starting[2] - STAKE + 100000);
+  settleHand(t, [[second, 0]]);
+  assert.equal(t.seatOf(third), undefined);
+  assert.equal(t.finished.find((finish) => finish.id === third).place, 3);
+  assert.equal(t.finished.find((finish) => finish.id === second).place, 2);
+  assert.equal(t.spinWinner.id, first);
+  assert.deepEqual(t.finished.map((finish) => [finish.id, finish.place]), [[third, 3], [second, 2], [first, 1]]);
+  assert.deepEqual(users.map(balance), [starting[0] + 590000, starting[1] + 290000, starting[2] + 90000]);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM transactions WHERE kind = 'spin_payout' AND user_id = ?").get(third).count, 1);
+});
+
+test('a committed winner payout replay crowns the winner without a duplicate payout', () => {
+  const { t, users, start } = spinTable();
+  const [first, second, third] = users;
+  playerOf(t, second).stack = 0;
+  playerOf(t, third).stack = 0;
+  t.street = 'ended';
+  t.nextHandAt = 0;
+  let checkpointFailures = 0;
+  t.hooks.onSpinPayout = (table, finish) => {
+    const result = settleSpinPayout(table, finish);
+    if (finish.id === first && checkpointFailures++ === 0) {
+      const error = new Error('injected committed winner checkpoint failure');
+      error.spinPayoutCommitted = true;
+      throw error;
+    }
+    return result;
+  };
+  t.awardSpinWinner();
+  assert.equal(t.spinWinner, null);
+  t.tick(Date.now() + 300);
+  assert.equal(t.spinWinner.id, first);
+  assert.equal(t.spinWinner.prize, 600000);
+  assert.equal(balance(first), start[0] - STAKE + 600000);
+  assert.equal(t.finished.filter((finish) => finish.id === first).length, 1);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM transactions WHERE kind = 'spin_payout' AND user_id = ?").get(first).count, 1);
+});
+
+test('a failed winner payout schedules and completes its retry', () => {
+  const { t, users, start } = spinTable();
+  const [first, second, third] = users;
+  playerOf(t, second).stack = 0;
+  playerOf(t, third).stack = 0;
+  t.street = 'ended';
+  t.nextHandAt = 0;
+  let calls = 0;
+  t.hooks.onSpinPayout = (table, finish) => {
+    if (finish.id === first && ++calls === 1) throw new Error('injected winner failure');
+    return settleSpinPayout(table, finish);
+  };
+  t.awardSpinWinner();
+  assert.equal(t.spinWinner, null);
+  assert.ok(t.nextHandAt > 0);
+  t.tick(Date.now() + 300);
+  assert.ok(t.spinWinner);
+  assert.equal(balance(first), start[0] - STAKE + 600000);
+  assert.equal(calls, 2);
 });

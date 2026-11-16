@@ -9,6 +9,7 @@
 // ledger write is keyed by hand id, so a retried hand save cannot pay twice.
 import { randomInt } from 'node:crypto';
 import { isRushGame } from './validate.js';
+import { consumeHouseReservation, requireHouseResult, reserveHouse } from './house-bank.js';
 
 export const CASHDROP_RULE_LABEL = 'DanGG rule';
 export const CASHDROP_KIND = 'cashdrop';
@@ -104,14 +105,18 @@ export function rollCashDrop({ bb, candidates, config, rng = cryptoRng }) {
  * → boolean (true when a new row was written). A hand without an id never drops, so
  * every paid drop is idempotent on hand-save retry.
  */
-export function settleCashDrop({ handId, bb, candidates, config, ledger, rng = cryptoRng }) {
+export function settleCashDrop({ handId, bb, candidates, config, ledger, rng = cryptoRng, prepared = null, recipient = null }) {
   if (!handId) return null;
   const reference = cashDropReference(handId);
-  if (ledger.hasDrop(reference)) return null;
-  const drop = rollCashDrop({ bb, candidates, config, rng });
-  if (!drop) return null;
-  const written = ledger.credit(drop.userId, drop.amount, CASHDROP_MEMO, reference);
-  return written ? Object.freeze({ ...drop, reference, rule: CASHDROP_RULE_LABEL }) : null;
+  const settle = () => {
+    if (ledger.hasDrop(reference)) return null;
+    const drop = prepared || rollCashDrop({ bb, candidates, config, rng });
+    if (!drop) return null;
+    if (ledger.reserve && !ledger.reserve(drop.amount, reference)) return null;
+    const written = ledger.credit(recipient?.id || drop.userId, drop.amount, CASHDROP_MEMO, reference);
+    return written ? Object.freeze({ ...drop, reference, rule: CASHDROP_RULE_LABEL }) : null;
+  };
+  return ledger.transaction ? ledger.transaction(settle) : settle();
 }
 
 /**
@@ -122,8 +127,20 @@ export function createCashDropLedger(db, addTransactionEx) {
   const findDrop = db.prepare('SELECT 1 FROM transactions WHERE kind = ? AND reference = ?');
   return Object.freeze({
     hasDrop: (reference) => !!findDrop.get(CASHDROP_KIND, reference),
-    credit: (userId, amount, memo, reference) =>
-      addTransactionEx(userId, CASHDROP_KIND, amount, memo, 'USD', { reference, onDuplicate: 'skip' }).applied,
+    reserve: (amount, reference) => {
+      try { requireHouseResult(reserveHouse(db, { scope: 'cash-drop', actorId: 0, operationId: `cashdrop:reserve:${reference}`, reservationId: reference, amount })); return true; }
+      catch { return false; }
+    },
+    credit: (userId, amount, memo, reference) => {
+      requireHouseResult(consumeHouseReservation(db, { scope: 'cash-drop', actorId: 0, operationId: `cashdrop:consume:${reference}`, reservationId: reference, amount }));
+      return addTransactionEx(userId, CASHDROP_KIND, amount, memo, 'USD', { reference, joinTransaction: true, database: db, onDuplicate: 'skip' }).applied;
+    },
+    transaction: (callback) => {
+      if (db.isTransaction) return callback();
+      db.exec('BEGIN IMMEDIATE');
+      try { const result = callback(); db.exec('COMMIT'); return result; }
+      catch (error) { db.exec('ROLLBACK'); throw error; }
+    },
   });
 }
 
@@ -363,12 +380,14 @@ export function createRushPool(deps) {
     for (const key of [...queues.keys()]) servePool(key);
   }
 
-  /** Cash Drop for a saved Rush hand; emits the felt event when a drop is paid. */
+/** Cash Drop for a saved Rush hand; emits the felt event when a drop is paid. */
   function settleHand(hand, table) {
     if (!isRushGame(hand.game)) return null;
     const candidates = (hand.players || []).filter((p) => p && p.id && !p.isBot && deps.isRealUser(p.id));
     const drop = settleCashDrop({
       handId: hand.handId, bb: table.cfg.bb, candidates, config: readCashDropConfig(deps.getSetting), ledger: deps.ledger,
+      prepared: table.cashDrop?.handId === hand.handId ? table.cashDrop : null,
+      recipient: hand.result?.winners?.[0] ? { id: hand.result.winners[0].id, nick: hand.result.winners[0].nick } : null,
     });
     if (drop) table.emit({ type: 'cashdrop', nick: drop.nick, amount: drop.amount, rule: drop.rule });
     return drop;
@@ -389,4 +408,13 @@ export function createRushPool(deps) {
   }
 
   return Object.freeze({ moveQueued, foldOut, flush, settleHand, waitingList, poolQueue });
+}
+
+export function prepareCashDrop(table, { getSetting, isRealUser }) {
+  if (!table?.rush || table.cashDrop?.handId === table.handId) return table?.cashDrop || null;
+  const candidates = table.humans().filter((player) => isRealUser(player.id));
+  const drop = rollCashDrop({ bb: table.cfg.bb, candidates, config: readCashDropConfig(getSetting) });
+  table.cashDrop = drop ? { ...drop, handId: table.handId } : null;
+  if (drop) table.pot += drop.amount;
+  return table.cashDrop;
 }

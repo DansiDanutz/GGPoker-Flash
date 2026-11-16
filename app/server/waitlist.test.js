@@ -159,3 +159,27 @@ test('queueSize, queuesOf and changedQueues describe queue state for the API', (
   assert.deepEqual(changedQueues(s2, s2), []);
   assert.deepEqual(changedQueues(s2, leave(s2, 'a', Q).state), [Q]);
 });
+
+import { decline, offerIdOf } from './waitlist.js';
+
+test('decline releases exactly the identified offer and passes the seat to the next player', () => {
+  const state = offer(joinAll(createWaitlist(), ['a', 'b', 'c'], { tableId: T }), T, 4, 1000).state;
+  const held = state.offers[0];
+  const id = offerIdOf(held);
+  assert.equal(id, offerIdOf({ ...held }));
+  assert.equal(decline(state, 'a', T, id, 1001).status, 'declined');
+  const result = decline(state, 'a', T, id, 1001);
+  assert.equal(result.state.offers.length, 0);
+  assert.deepEqual(result.released.map((o) => [o.userId, o.seat]), [['a', 4]]);
+  const next = offer(result.state, T, 4, 1002);
+  assert.equal(next.offer.userId, 'b');
+});
+
+test('decline rejects a foreign, stale or expired offer without changing queue state', () => {
+  const state = offer(joinAll(createWaitlist(), ['a', 'b'], { tableId: T }), T, 4, 1000).state;
+  const id = offerIdOf(state.offers[0]);
+  assert.equal(decline(state, 'b', T, id, 1001).status, 'none');
+  assert.equal(decline(state, 'a', T, 'wrong', 1001).status, 'none');
+  assert.equal(decline(state, 'a', T, id, 1000 + HOLD_MS).status, 'expired');
+  assert.equal(state.offers.length, 1);
+});

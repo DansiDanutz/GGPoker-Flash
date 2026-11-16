@@ -15,6 +15,8 @@ import { startServer } from './test-helpers.js';
 // Isolate the database before db.js is imported (it opens on import).
 process.env.GGPOKER_DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'dangro-rushpool-'));
 const { db, addTransactionEx } = await import('./db.js');
+const { fundHouse } = await import('./house-bank.js');
+fundHouse(db, { scope: 'cash-drop', actorId: 0, operationId: 'test-fund-cash-drop', amount: 1000000000 });
 
 /** Deterministic mulberry32 RNG so the rate test is reproducible. */
 function seededRng(seed) {

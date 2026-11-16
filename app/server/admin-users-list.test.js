@@ -9,7 +9,7 @@ import { usersQuery } from '../src/lib/api.ts';
 
 const PUBLIC_USER_KEYS = [
   'avatar', 'balance', 'banned', 'chat_muted', 'country', 'created_at', 'elo', 'email', 'gems', 'id',
-  'is_admin', 'login', 'nick', 'play_chips', 'tickets', 'vip_level', 'vip_points', 'xp',
+  'is_admin', 'login', 'nick', 'play_chips', 'role', 'tickets', 'vip_level', 'vip_points', 'xp',
 ].sort();
 const BULK_USERS = 230;
 

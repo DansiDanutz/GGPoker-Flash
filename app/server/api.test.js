@@ -134,6 +134,7 @@ test('validation helpers', () => {
   assert.equal(cleanNick('<script>'), null);
   assert.equal(cleanNick('a'), null);
   assert.equal(parseTableConfig({ game: 'bingo' }).ok, false);
+  assert.equal(parseTableConfig({ game: 'omaha6' }).ok, true);
   assert.equal(parseTableConfig({ min_buyin: 50, bb: 100, sb: 50 }).ok, false);
 });
 

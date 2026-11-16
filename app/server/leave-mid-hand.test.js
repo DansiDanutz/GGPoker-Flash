@@ -27,6 +27,10 @@ test('a leaver takes back the unmatched part of their bet with their stack', () 
 test('the short all-in only wins the pot it covered; chips are conserved', () => {
   const t = threeHanded();
   const { stack: leaverStack } = t.stand('A');
+  if (t.cashInsuranceOffer?.status === 'awaiting-quote') {
+    t.cashInsuranceOffer.status = 'declined';
+    t.runout();
+  }
   // B and C have nobody left to bet against, so the board runs out to a showdown.
   assert.equal(t.street, 'ended');
   const b = t.seats[1].player.stack, c = t.seats[2].player.stack;

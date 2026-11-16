@@ -9,6 +9,9 @@
  * and this module both use the last 20 hands.
  */
 
+import { continuationHud } from './continuation-stats.js';
+import { sessionStats } from './session-stats.js';
+
 export const STATS_WINDOW = 20;
 
 const VOLUNTARY = new Set(['call', 'bet', 'raise', 'all-in', 'allin']);
@@ -150,9 +153,12 @@ export function createTableStats(db, now = () => Date.now()) {
   }
 
   const hudHands = db.prepare(
-    `SELECT hand_no, pot, board, players, actions FROM hands WHERE table_id = ? ORDER BY id DESC LIMIT ${HUD_WINDOW}`,
+    `SELECT id, hand_id, hand_no, game, pot, board, players, actions, result FROM hands WHERE table_id = ? ORDER BY id DESC LIMIT ${HUD_WINDOW}`,
   );
-  statsFor.hud = (tableId, who) => playerHud(hudHands.all(tableId), who);
+  statsFor.hud = (tableId, who) => {
+    const rows = hudHands.all(tableId);
+    return { ...playerHud(rows, who), continuation: continuationHud(rows, who), session: sessionStats(rows, who) };
+  };
   statsFor.vpips = (tableId, players) => seatVpips(hudHands.all(tableId), players);
 
   /** Drop a table's cached stats after a new hand is recorded. */

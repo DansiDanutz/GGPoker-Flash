@@ -17,6 +17,14 @@ export function ensureWaitlistTable(db) {
     id INTEGER PRIMARY KEY CHECK (id = 1),
     state TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS seat_offer_receipts (
+    actor_id INTEGER NOT NULL,
+    operation_id TEXT NOT NULL,
+    request_json TEXT NOT NULL,
+    response_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY(actor_id, operation_id)
   )`);
 }
 

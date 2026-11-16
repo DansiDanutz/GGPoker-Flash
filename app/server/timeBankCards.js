@@ -17,6 +17,6 @@ export function refillAfterHand({ cards, hands }) {
 }
 
 /** Whether one more card may be spent on the current action. */
-export function canSpendCard({ cards, usedThisAction }) {
-  return cards > 0 && usedThisAction < TB_CARDS_PER_ACTION;
+export function canSpendCard({ cards, usedThisAction, limit = TB_CARDS_PER_ACTION }) {
+  return cards > 0 && usedThisAction < limit;
 }

@@ -12,18 +12,36 @@ import {
 import { PokerTable, botName } from './table.js';
 import { normalizeAvatar } from './avatar.js';
 import { makeDeck, shuffle, cardStr } from './poker.js';
+import { rabbitEligible, rabbitRunout } from './rabbit-hunt.js';
+import { withGameReceipt } from './game-receipts.js';
 import {
   resolveInside, SECURITY_HEADERS, HTML_CSP, createRateLimiter,
 } from './security.js';
 import { toInt, cleanNick, cleanGrantReason, GRANT_REASON, parseTableConfig, parseTableId, parseGroupKey, isRushGame, ACTION_SECONDS } from './validate.js';
 import { createHandHistoryStore } from './hand-history-store.js';
+import { createHandShare, revokeHandShare, sharedHand } from './share-hand.js';
 import { spinSlots, slotGame, slotCatalog } from './slots.js';
 import { closeSpinSession, settleSpinPayout } from './spin-ledger.js';
+import { registerSpin, cancelSpinRegistration, cancelQuarantinedSpin, spinQueueState, spinRegistration, acknowledgeSpin, settleSpinEntrant, fundHouse, ensureSpinStore } from './spin-queue.js';
+import { saveSpinRules, spinRulesComplete } from './spin-config.js';
+import { spinSixDraft } from './spin-six.js';
+import { activeGameCheckpoints, ensureGameCheckpoints, saveGameCheckpoint } from './game-checkpoints.js';
+import { persistSpinCheckpoint, quarantineSpinCheckpoint, restoreSpinCheckpoint } from './spin-recovery.js';
+import { applyLegacyElo, applyNumericElo } from './elo.js';
+import { persistRimtCheckpoint, quarantineRimtCheckpoint, restoreRimtCheckpoint } from './rimt-recovery.js';
+import { executeBetAndMuck, persistBetMuckCheckpoint, quarantineBetMuckCheckpoint, restoreBetMuckCheckpoint } from './bet-and-muck.js';
+import { configureCashInsurance, decideCashInsurance, ensureCashInsuranceRules, expireCashInsurance, persistCashInsuranceCheckpoint, quarantineCashInsuranceCheckpoint, quoteCashInsurance, restoreCashInsuranceCheckpoint, saveCashInsuranceRules, settleCashInsurance } from './cash-insurance.js';
+import { abortBattle, battleEventState, createBattleEvent, ensureBattleStore, registerBattle, cancelBattle, reopenBattle } from './battle-event.js';
+import { BattleCoordinator } from './battle-coordinator.js';
+import { quarantineGameCheckpoint } from './game-checkpoints.js';
+import { activateSpinTable, matchedSpinRegistration, seatMatchedSpinEntrant, spinEvent, syncSpinPresentation } from './spin-runtime.js';
 import {
   addChipsLimits, cancelPendingTopUp, inLiveHand, refundPendingTopUp, removeChips, setAutoReduce,
   setPendingTopUp, settleBeforeDeal, noteTopUpApplied, topUpRequestError,
 } from './chip-moves.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
+import { activateTournamentEntries, disqualifyTournamentEntrant, eliminateTournamentEntrant, ensureTournamentFormatStore, offlineTournamentEntry, rebuyTournament, reenterTournament, recordInitialTournamentEntry, saveTournamentFormats } from './tournament-formats.js';
+import { addonTournament, applyTournamentControls, cancelTournament, pauseTournament, resumeTournament } from './tournament-controls.js';
 import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tournamentTableIds } from './tournament.js';
 import * as waitlist from './waitlist.js';
 import { ensureWaitlistTable, loadWaitlist, saveWaitlist } from './waitlist-store.js';
@@ -58,10 +76,14 @@ import { createAdminUsersListRoute } from './admin-users-list.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
-import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
+import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, prepareCashDrop, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
+import { autoFoldPreferences, autoFoldTick, saveAutoFoldPreferences } from './auto-fold.js';
 import { JACKPOT_SEED, jackpotAccrual } from './badBeat.js';
 import { countOnline, createPresence } from './online-count.js';
 import { parseByteRange } from './byte-range.js';
+import { applyPushSeatReservations, cancelPushSeat, ensurePushSeatStore, grantPushSeat, pushSeatState, reservePushSeat } from './push-seat.js';
+
+configureCashInsurance({ addTransaction: addTransactionEx });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 5198);
@@ -260,6 +282,13 @@ function requireUser(req, res) {
   return u;
 }
 
+function requireModerator(req, res) {
+  const u = requireUser(req, res);
+  if (!u) return null;
+  if (!u.is_admin && u.role !== 'moderator') { json(res, 403, { error: 'moderator only' }); return null; }
+  return u;
+}
+
 function requireAdmin(req, res) {
   const u = requireUser(req, res);
   if (!u) return null;
@@ -366,6 +395,7 @@ ensureWaitlistTable(db);
 let waitState = loadWaitlist(db);
 let waitSince = Object.freeze({}); // `queueKey|userId` -> join time, for the admin monitor
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
+const AUTO_FOLD_PENDING = new Map();
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
 const CRASH_ROUNDS = new Map(); // roundId -> crash round
 
@@ -492,6 +522,29 @@ function heldSeatFor(tableId, userId, now = Date.now()) {
   return res.status === 'accepted' ? { seat: res.seat, state: res.state } : null;
 }
 
+function declineSeatOffer(tableId, userId, body) {
+  const { offerId, expectedRevision, operationId } = body;
+  const request = { tableId, offerId, expectedRevision, operationId };
+  const prior = db.prepare('SELECT request_json,response_json FROM seat_offer_receipts WHERE actor_id = ? AND operation_id = ?').get(userId, operationId);
+  if (prior) {
+    if (prior.request_json !== JSON.stringify(request)) return { status: 409, body: { ok: false, errorCode: 'operation_conflict', message: 'Operation ID was already used for another request' } };
+    return { status: 200, body: JSON.parse(prior.response_json) };
+  }
+  const held = waitState.offers.find((offer) => offer.userId === userId && offer.tableId === tableId && waitlist.offerIdOf(offer) === offerId);
+  if (!held || held.deadline !== expectedRevision) return { status: 409, body: { ok: false, errorCode: 'stale_offer', message: 'This seat offer is no longer available' } };
+  const result = waitlist.decline(waitState, userId, tableId, offerId, Date.now());
+  if (result.status !== 'declined') return { status: 409, body: { ok: false, errorCode: 'stale_offer', message: 'This seat offer is no longer available' } };
+  setWaitlist(result.state);
+  for (const old of result.released) {
+    announceExpired(old, 'declined');
+    offerSeat(old.tableId, old.seat);
+  }
+  const response = { ok: true, operationId, revision: expectedRevision, state: { offerId, status: 'declined' } };
+  db.prepare('INSERT INTO seat_offer_receipts (actor_id,operation_id,request_json,response_json) VALUES (?,?,?,?)')
+    .run(userId, operationId, JSON.stringify(request), JSON.stringify(response));
+  return { status: 200, body: response };
+}
+
 function sweepWaitlists(now = Date.now()) {
   const res = waitlist.expire(waitState, now);
   if (!res.expired.length) return;
@@ -524,7 +577,7 @@ function clearWaitlistQueue(queueKey, admin) {
 }
 
 const handleAdminWaitlistRoute = adminWaitlist.createAdminWaitlistRoutes({
-  json, requireAdmin, readBody,
+  json, requireAdmin: (req, res) => req.method === 'GET' ? requireModerator(req, res) : requireAdmin(req, res), readBody,
   isActive: (queueKey) => adminWaitlist.activeQueueKeys(waitState).includes(queueKey),
   clear: clearWaitlistQueue,
   summarize: () => adminWaitlist.summarizeQueues(waitState, {
@@ -537,7 +590,7 @@ const handleAdminWaitlistRoute = adminWaitlist.createAdminWaitlistRoutes({
 const tableNameOf = (id) => LIVE_TABLES.get(id)?.table.cfg.name || db.prepare('SELECT name FROM tables WHERE id = ?').get(id)?.name || id;
 
 const handleAdminChatRoute = createAdminChatRoutes({
-  db, json, requireAdmin, tableNameOf,
+  db, json, requireAdmin: requireModerator, tableNameOf,
   onDeleted: ({ channel }) => { if (channel.startsWith('table:')) chatStore.forget(channel.slice('table:'.length)); },
 });
 
@@ -568,6 +621,7 @@ const LEADERBOARD = createLeaderboard(db);
 // Rush pools (rush-pool.js): fold-and-move queue per pool (game + sb + bb) and the Cash Drop.
 // Rush pool lobby (rush-lobby.js): real hands/hr per pool table and today's Rush leaderboard.
 const RUSH_LOBBY = createRushLobby(db);
+ensureTournamentFormatStore(db);
 const TABLE_STATS = createTableStats(db);
 const DAILY_LEADERBOARD = createDailyLeaderboard(db, {
   pay: (userId, amount, memo, reference) =>
@@ -617,6 +671,12 @@ const RUSH_POOL = createRushPool({
 });
 
 const CUSTOM_CFG = new Map(); // tournament tables not stored in the cash-game table list
+const SPIN_QUARANTINED = new Set();
+const RIMT_QUARANTINED = new Set();
+const BET_MUCK_QUARANTINED = new Set();
+const CASH_INSURANCE_QUARANTINED = new Set();
+const BATTLE_COORDINATORS = new Map();
+const BATTLE_QUARANTINED = new Set();
 
 // C4 dealer log (DanGG extra). Only tables someone is watching get lines, so
 // unattended bot tables do not grow chat_messages on every hand.
@@ -643,6 +703,7 @@ function getLiveTable(id) {
   };
   const table = new PokerTable(cfg, {
     onEvent: (t, evt) => {
+      if (evt.type === 'hand_start') prepareCashDrop(t, { getSetting, isRealUser: (id) => !!db.prepare('SELECT 1 FROM users WHERE id = ?').get(id) });
       broadcastTable(t, evt);
       // C4 dealer log (DanGG extra): one line per hand start.
       if (evt.type === 'hand_start') {
@@ -659,31 +720,9 @@ function getLiveTable(id) {
         );
         TABLE_STATS.invalidate(h.tableId);
         const winners = h.result?.winners || [];
-        for (const p of (h.players || [])) {
-          if (!p || !p.id || p.inHand === false) continue;
-          const u = db.prepare('SELECT id, elo FROM users WHERE id = ? AND deleted_at IS NULL').get(p.id);
-          if (!u) continue;
-          const won = winners.some((w) => Number(w.id) === Number(p.id));
-          const game = eloGame(h.game);
-          const rating = db.prepare('SELECT elo FROM elo_ratings WHERE user_id = ? AND game = ?').get(u.id, game);
-          const before = Number(rating?.elo ?? u.elo ?? 1000);
-          let oppSum = 0, oppCount = 0;
-          for (const other of (h.players || [])) {
-            if (!other || other.id === p.id || other.inHand === false) continue;
-            const ou = db.prepare('SELECT elo FROM users WHERE id = ? AND deleted_at IS NULL').get(other.id);
-            if (!ou) continue;
-            const orating = db.prepare('SELECT elo FROM elo_ratings WHERE user_id = ? AND game = ?').get(other.id, game);
-            oppSum += Number(orating?.elo ?? ou.elo ?? 1000); oppCount++;
-          }
-          const oppAvg = oppCount ? oppSum / oppCount : 1000;
-          const expected = 1 / (1 + Math.pow(10, (oppAvg - before) / 400));
-          const delta = Math.max(-30, Math.min(30, Math.round(24 * ((won ? 1 : 0) - expected))));
-          const next = Math.max(0, before + delta);
-          const overall = Math.max(0, Number(u.elo ?? 1000) + delta);
-          db.prepare('INSERT INTO elo_ratings (user_id,game,elo) VALUES (?,?,?) ON CONFLICT(user_id,game) DO UPDATE SET elo = excluded.elo').run(u.id, game, next);
-          db.prepare('UPDATE users SET elo = ? WHERE id = ?').run(overall, u.id);
-          db.prepare('INSERT INTO elo_history (user_id,hand_id,delta,before,after,game) VALUES (?,?,?,?,?,?)').run(u.id, h.handId || null, next - before, before, next, game);
-        }
+        const game = eloGame(h.game);
+        if (h.result?.rimt || h.result?.runItMultipleTimes || h.result?.runItTwice) applyNumericElo(db, { handId: h.handId, game, players: h.players || [] });
+        else applyLegacyElo(db, { handId: h.handId, game, players: (h.players || []).filter((p) => p?.id && p.inHand !== false), winners });
         RUSH_POOL.settleHand(h, table);
       } catch (e) { console.error('hand save', e); }
       const resultText = dealerResultText(h.result);
@@ -697,13 +736,26 @@ function getLiveTable(id) {
       } catch (e) { console.error('tourney payout', e); }
     },
     onSpinPayout: (table, p) => {
+      let committed = false;
       try {
-        const res = settleSpinPayout(table, p);
-        if (res.reason === 'no session') console.error('spin payout without session', table.cfg.id, p.id);
-      } catch (e) { console.error('spin payout', e); }
+        const result = settleSpinEntrant(db, table, p, () => settleSpinPayout(table, p, { database: db, joinTransaction: true }));
+        if (result.applied === false && result.reason === 'no entrant') {
+          const res = settleSpinPayout(table, p);
+          if (res.reason === 'no session') console.error('spin payout without session', table.cfg.id, p.id);
+        } else if (result.status !== 200) {
+          throw new Error(result.body.message);
+        }
+        committed = true;
+        if (table.spinEventId) persistSpinCheckpoint(db, table, 'payout');
+      } catch (e) {
+        e.spinPayoutCommitted = committed;
+        console.error('spin payout', e);
+        throw e;
+      }
     },
     onTournamentBust: (table, p) => {
       try {
+        if (table.cfg.tournamentId) eliminateTournamentEntrant(db, table.cfg.tournamentId, p.id);
         consumeTournamentEntry(table, p.id);
         // Multi-table events rank the whole field, not the seat's own table.
         if (table.tournament?.managed) {
@@ -745,12 +797,20 @@ function getLiveTable(id) {
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bounty',
         `${table.cfg.name} ${info.winnerNick} ${info.amount} (${info.bustedNick})`);
     },
-    beforeDeal: (table) => settleChipMoves(table),
+    onCashInsuranceSettlement: (table, summary) => settleCashInsurance(db, table, summary)?.body.state || null,
+    onCashInsuranceExpire: (table, now) => expireCashInsurance(db, table, now),
+    beforeDeal: (table) => {
+      settleChipMoves(table);
+      applyPushSeatReservations(db, table);
+    },
     onSeatBusted: (table, player) => {
       if (!table.spin) return;
       const seat = table.seatOf(player.id);
       const sessionId = seat?.player?.sessionId;
-      // Normally a no-op: the place payout (onSpinPayout) already closed this session.
+      if (table.spinEventId && !table.finished.some((finish) => finish.id === player.id)) {
+        console.error('spin bust close deferred until payout settles', table.cfg.id, player.id);
+        return;
+      }
       closeSpinSession(player.id, sessionId, 'Spin bust');
     },
     jackpotPool: () => Number(getSetting('jackpot', JACKPOT_SEED)) || 0,
@@ -765,7 +825,7 @@ function getLiveTable(id) {
       const who = badBeat.shares.map((s) => `${s.nick}:${s.role}:${s.amount}`).join(' ');
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bad_beat_jackpot', `${table.cfg.name} ${badBeat.total} ${who}`);
     },
-    onHandComplete: ({ table, winner, summary }) => {
+    onHandComplete: ({ table, winner, winnerIds = [], summary }) => {
       if (table.badBeatEligible()) {
         const add = jackpotAccrual(summary?.rake);
         if (add > 0) setSetting('jackpot', (Number(getSetting('jackpot', JACKPOT_SEED)) || 0) + add);
@@ -778,15 +838,18 @@ function getLiveTable(id) {
         saveTimeBank(db, table, s.player);
         if (!s.player.inHand) continue;
         bumpMission(s.player.id, 'daily-hands');
-        if (winner && winner.id === s.player.id) bumpMission(s.player.id, 'daily-win');
+        if (winnerIds.includes(s.player.id) || (winner && winner.id === s.player.id)) bumpMission(s.player.id, 'daily-win');
         if (table.board.length >= 3) bumpMission(s.player.id, 'daily-flop');
       }
       if (table.cfg.tournamentId) {
         const room = TOURNAMENT_ROOMS.get(table.cfg.tournamentId);
-        if (room) scheduleTournamentRoomSave(room);
+        const transition = applyTournamentControls(db, { room, actor: 'system' });
+        if (transition.cancelled) disposeTournamentRoom(table.cfg.tournamentId, { force: true });
+        else if (room) scheduleTournamentRoomSave(room);
       }
     },
   });
+  table.cashInsuranceRuleRevision = ensureCashInsuranceRules(db).revision;
   const entry = { table, clients: new Set(), timer: null, lastBroadcast: 0 };
   entry.emptySince = null;
   entry.timer = setInterval(() => {
@@ -795,6 +858,12 @@ function getLiveTable(id) {
       if (table.expireReservations()) notifyWaitlist(id);
       releaseSeatsToWaitlist(table);
       table.tick();
+      autoFoldTick(table, {
+        preferences: (id) => autoFoldPreferences(db, id),
+        get: (key) => AUTO_FOLD_PENDING.get(key),
+        set: (key, due) => AUTO_FOLD_PENDING.set(key, due),
+        delete: (key) => AUTO_FOLD_PENDING.delete(key),
+      });
       if (Date.now() - entry.lastBroadcast > 450) broadcastState(table);
       sweepDisconnected(entry);
       sweepExpiredSitOuts(entry);
@@ -804,8 +873,8 @@ function getLiveTable(id) {
         else if (Date.now() - entry.emptySince > Math.max(45000, DISCONNECT_GRACE_MS)) {
           // A tournament flight outlives its viewers while players are still
           // seated (a moved player reconnects to the new table); an empty one goes.
-          if (!table.tournament) closeLiveTable(id, 'Table idle close');
-          else if (!table.humans().length) clearTable(id);
+          if (!table.tournament && !table.spin) closeLiveTable(id, 'Table idle close');
+          else if (table.tournament && !table.humans().length) clearTable(id);
         }
       } else {
         entry.emptySince = null;
@@ -817,6 +886,27 @@ function getLiveTable(id) {
   table.setHolds(holdsFor(id));
   // Players still queued (e.g. restored after a restart) get the free seats before anyone else.
   notifyWaitlist(id);
+  return table;
+}
+
+function activateSpinEvent(eventId) {
+  if (SPIN_QUARANTINED.has(`spin:${eventId}`)) throw new Error('Spin recovery is quarantined');
+  const event = spinEvent(db, eventId);
+  if (!event) throw new Error('Spin event not found');
+  if (event.status !== 'presentation') throw Object.assign(new Error('Spin event is terminal'), { status: 409 });
+  const table = getLiveTable(`spin:${eventId}`);
+  if (table.spinEventId === eventId && table.occupiedSeats().length === table.cfg.seats) {
+    syncSpinPresentation(table, event);
+    return table;
+  }
+  const entrants = db.prepare(`SELECT u.*,e.entrant_order,r.registration_id FROM spin_event_entrants e
+    JOIN spin_registrations r ON r.registration_id = e.registration_id
+    JOIN users u ON u.id = r.actor_id WHERE e.event_id = ? ORDER BY e.entrant_order`).all(eventId);
+  activateSpinTable(table, event, entrants.map((user) => ({
+    ...user,
+    registration: { registration_id: user.registration_id, entrant_order: user.entrant_order },
+  })));
+  persistSpinCheckpoint(db, table, 'activate');
   return table;
 }
 
@@ -840,6 +930,10 @@ function flushRushQueue() { RUSH_POOL.flush(); }
 function broadcastTable(table, evt) {
   const entry = LIVE_TABLES.get(table.cfg.id);
   if (!entry) return;
+  if (table.spinEventId) persistSpinCheckpoint(db, table, evt.type);
+  if (table.cfg.rimt_mode === 'negotiated') persistRimtCheckpoint(db, table, evt.type);
+  if (table.cfg.bet_and_muck) persistBetMuckCheckpoint(db, table, evt.type);
+  if (table.cashInsuranceOffer) persistCashInsuranceCheckpoint(db, table, evt.type);
   for (const client of entry.clients) {
     if (client.readyState === 1) {
       client.send(JSON.stringify({ type: 'event', event: evt }));
@@ -865,7 +959,9 @@ function broadcastState(table) {
   for (const client of entry.clients) {
     if (client.readyState !== 1) continue;
     try {
-      client.send(JSON.stringify({ type: 'state', state: table.snapshotFor(client.userId) }));
+      const state = table.snapshotFor(client.userId);
+      if (client.userId && !table.tournament && !table.spin) state.pushSeat = pushSeatState(db, table.cfg.id, client.userId);
+      client.send(JSON.stringify({ type: 'state', state }));
     } catch { /* noop */ }
   }
 }
@@ -873,11 +969,7 @@ function broadcastState(table) {
 function seatHuman(table, user, buyin, seatIndex = null) {
   const existing = table.seatOf(user.id);
   if (existing) return { ok: true, seat: existing.index };
-  if (table.spin) {
-    table.resetSpinIfIdle();
-    if (!table.spinStakeValid()) return { ok: false, error: 'This Jackpot SNG stake is not available' };
-    if (table.spinStarted()) return { ok: false, error: 'This Jackpot SNG has already started' };
-  }
+  if (table.spin) return { ok: false, error: 'Spin & Gold requires a matched registration' };
   const stack = toInt(buyin) ?? table.cfg.min_buyin;
   if (stack < table.cfg.min_buyin || stack > table.cfg.max_buyin) return { ok: false, error: 'invalid buy-in' };
   if (user.balance < stack) return { ok: false, error: 'not enough balance' };
@@ -962,7 +1054,8 @@ function cashOutSeat(table, userId, reason, opts = {}) {
   if (table.spinStarted()) {
     // Spin chips are not cash: leaving takes the lowest open place (paid by onSpinPayout),
     // and this close is skipped when that payout already closed the session.
-    table.leaveSpin(userId);
+    const left = table.leaveSpin(userId);
+    if (!left.ok) return;
     closeSpinSession(userId, sessionId, reason);
     return;
   }
@@ -1228,6 +1321,7 @@ function startTournament(t) {
   room.syncLevel();
   const registrants = db.prepare(`SELECT u.id, u.nick, u.avatar FROM tourney_regs r JOIN users u ON u.id = r.user_id
     WHERE r.tournament_id = ? ORDER BY r.created_at, r.rowid`).all(t.id);
+  activateTournamentEntries(db, t.id);
   const { seated, failed } = room.seatRegistrants(registrants, { stack: t.starting_stack });
   scheduleTournamentRoomSave(room);
   for (const seat of seated) notifyTournamentStarted(t, seat.id, seat.tableId, seat.index);
@@ -1597,6 +1691,7 @@ const server = http.createServer(async (req, res) => {
       if (u.balance < total) return json(res, 400, { error: 'Insufficient balance' });
       if (total > 0) addTransaction(u.id, 'tourney_buyin', -total, `Registration ${t.name}`);
       db.prepare('INSERT INTO tourney_regs (tournament_id,user_id) VALUES (?,?)').run(id, u.id);
+      recordInitialTournamentEntry(db, id, u.id);
       db.prepare('UPDATE tournaments SET entrants = entrants + 1 WHERE id = ?').run(id);
       setMissionDone(u.id, 'daily-tourney');
       return json(res, 200, { ok: true });
@@ -1654,6 +1749,45 @@ const server = http.createServer(async (req, res) => {
       db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').run(id, u.id);
       db.prepare('UPDATE tournaments SET entrants = MAX(0, entrants - 1) WHERE id = ?').run(id);
       return json(res, 200, { ok: true });
+    }
+
+    if (p.startsWith('/api/tournaments/') && p.endsWith('/rebuy') && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      try {
+        const id = p.split('/')[3];
+        const body = await readBody(req);
+        if (!body || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 || typeof body.operationId !== 'string' || !body.operationId.trim()) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'expectedRevision and operationId are required' });
+        const result = rebuyTournament(db, { actorId: u.id, tournamentId: id, expectedRevision: body.expectedRevision, operationId: body.operationId, seat: ({ stack }) => ensureTournamentRoom(db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id)).seat({ id: u.id, nick: u.nick, avatar: u.avatar }, { stack }) });
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
+
+    if (p.startsWith('/api/tournaments/') && p.endsWith('/reentry') && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      try {
+        const id = p.split('/')[3];
+        const body = await readBody(req);
+        if (!body || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 || typeof body.operationId !== 'string' || !body.operationId.trim()) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'expectedRevision and operationId are required' });
+        const result = reenterTournament(db, { actorId: u.id, tournamentId: id, expectedRevision: body.expectedRevision, operationId: body.operationId, seat: ({ stack }) => ensureTournamentRoom(db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id)).seat({ id: u.id, nick: u.nick, avatar: u.avatar }, { stack }) });
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
+
+    if (p.startsWith('/api/tournaments/') && p.endsWith('/addon') && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      try {
+        const id = p.split('/')[3];
+        const body = await readBody(req);
+        if (!body || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 || typeof body.operationId !== 'string' || !body.operationId.trim()) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'expectedRevision and operationId are required' });
+        const result = addonTournament(db, { actorId: u.id, tournamentId: id, expectedRevision: body.expectedRevision, operationId: body.operationId, room: ensureTournamentRoom(db.prepare('SELECT * FROM tournaments WHERE id = ?').get(id)) });
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
     }
 
     // ---------- cashier ----------
@@ -1743,6 +1877,26 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---------- hand history ----------
+    const sharedMatch = p.match(/^\/api\/shared-hands\/([\w-]{1,80})$/);
+    if (sharedMatch && req.method === 'GET') {
+      try { return json(res, 200, { ok: true, hand: sharedHand(db, sharedMatch[1]) }); }
+      catch (error) { return json(res, error.status || 500, { ok: false, errorCode: 'share_unavailable', message: error.message }); }
+    }
+    const shareMatch = p.match(/^\/api\/hands\/([^/]+)\/share(?:\/(revoke))?$/);
+    if (shareMatch && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      try {
+        const body = await readBody(req);
+        const pathId = decodeURIComponent(shareMatch[1]);
+        if (!body || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 || typeof body.operationId !== 'string' || !body.operationId.trim()) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'expectedRevision and operationId are required' });
+        const result = shareMatch[2]
+          ? revokeHandShare(db, { actorId: u.id, admin: !!u.is_admin, pathId, shareId: body.shareId, expectedRevision: body.expectedRevision, operationId: body.operationId })
+          : createHandShare(db, { actorId: u.id, pathId, expectedRevision: body.expectedRevision, operationId: body.operationId });
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
     if (p === '/api/hands') {
       const u = requireUser(req, res); if (!u) return;
       // Only hands the player sat in, and only the cards they were entitled to see.
@@ -1755,6 +1909,21 @@ const server = http.createServer(async (req, res) => {
       if (typeof body.hidden !== 'boolean') return json(res, 400, { error: 'hidden must be true or false' });
       if (!handHistory.setHidden(u.id, Number(hiddenMatch[1]), body.hidden)) return json(res, 404, { error: 'Hand not found' });
       return json(res, 200, { ok: true, hidden: body.hidden });
+    }
+
+    if (p === '/api/auto-fold') {
+      const u = requireUser(req, res); if (!u) return;
+      if (req.method === 'GET') return json(res, 200, { ok: true, preferences: autoFoldPreferences(db, u.id) });
+      if (req.method === 'POST') {
+        try {
+          const body = await readBody(req);
+          if (!body || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 || typeof body.operationId !== 'string' || !body.operationId.trim() || !body.config) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'config, expectedRevision and operationId are required' });
+          const result = saveAutoFoldPreferences(db, { actorId: u.id, expectedRevision: body.expectedRevision, operationId: body.operationId, config: body.config });
+          return json(res, result.status, result.body);
+        } catch (error) {
+          return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+        }
+      }
     }
 
     // ---------- missions / rewards ----------
@@ -2365,6 +2534,343 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    if (p === '/api/battle' && req.method === 'GET') {
+      ensureBattleStore(db);
+      const events = db.prepare("SELECT event_id,status FROM battle_events WHERE status != 'aborted' ORDER BY created_at DESC").all()
+        .map((row) => battleEventState(db, row.event_id, userByToken(tokenFrom(req))?.id || null));
+      return json(res, 200, { ok: true, events });
+    }
+    if (p === '/api/admin/battle' && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      try {
+        const body = await readBody(req);
+        if (!body || typeof body.operationId !== 'string' || !body.operationId.trim() || !body.config) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'operationId and config are required' });
+        const result = createBattleEvent(db, { actorId: a.id, operationId: body.operationId, config: body.config });
+        if (result.status === 200 && !result.replayed) db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'battle_create', result.body.state.eventId);
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
+    {
+      const match = /^\/api\/battle\/([\w-]{1,64})\/action$/.exec(p);
+      if (match && req.method === 'POST') {
+        const u = requireUser(req, res); if (!u) return;
+        try {
+          const body = await readBody(req);
+          const fields = 'action,amount,eventId,expectedRevision,handId,operationId,roomId,stage';
+          if (!body || Object.keys(body).sort().join(',') !== fields || body.eventId !== match[1] || !['rush', 'shootout', 'final'].includes(body.stage) || typeof body.roomId !== 'string' || !body.roomId.startsWith(`${match[1]}:${body.stage}:`) || typeof body.handId !== 'string' || !body.handId || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 || !['fold', 'check', 'call', 'raise', 'allin'].includes(body.action) || !Number.isSafeInteger(body.amount) || body.amount < 0 || typeof body.operationId !== 'string' || !body.operationId.trim()) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'A complete Battle action is required' });
+          const result = getBattleCoordinator(match[1]).action(u.id, body);
+          return json(res, result.status, result.body);
+        } catch (error) {
+          return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+        }
+      }
+    }
+    {
+      const match = /^\/api\/battle\/([\w-]{1,64})(?:\/(register|cancel|reopen|abort))?$/.exec(p);
+      if (match) {
+        const eventId = match[1];
+        const action = match[2];
+        if (!action && req.method === 'GET') {
+          try {
+            const actorId = userByToken(tokenFrom(req))?.id || null;
+            const coordinator = getBattleCoordinator(eventId);
+            return json(res, 200, { ok: true, state: coordinator.state(actorId) });
+          }
+          catch (error) { return json(res, error.status || 500, { ok: false, errorCode: error.status === 404 ? 'not_found' : 'recovery_failed', message: error.message }); }
+        }
+        if (action && req.method === 'POST') {
+          const u = action === 'abort' ? requireAdmin(req, res) : requireUser(req, res); if (!u) return;
+          try {
+            const body = await readBody(req);
+            if (!body || body.eventId !== eventId || !Number.isSafeInteger(body.expectedRevision) || typeof body.operationId !== 'string' || !body.operationId.trim()) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'eventId, expectedRevision and operationId are required' });
+            const command = { actorId: u.id, eventId, expectedRevision: body.expectedRevision, operationId: body.operationId };
+            const result = action === 'register' ? registerBattle(db, command) : action === 'cancel' ? cancelBattle(db, command) : action === 'reopen' ? reopenBattle(db, command) : abortBattle(db, command);
+            if (result.status === 200 && action === 'register' && !result.replayed && result.body.state.status === 'rush') getBattleCoordinator(eventId).start();
+            if (result.status === 200 && action === 'abort' && !result.replayed) db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'battle_abort', eventId);
+            return json(res, result.status, result.body);
+          } catch (error) {
+            return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+          }
+        }
+      }
+    }
+    if (p === '/api/admin/cash-insurance-rules' && ['GET', 'POST'].includes(req.method)) {
+      const a = requireAdmin(req, res); if (!a) return;
+      if (req.method === 'GET') {
+        const rules = ensureCashInsuranceRules(db);
+        return json(res, 200, { ok: true, state: { insuranceFeeBasisPoints: rules.insurance_fee_basis_points, ruleRevision: rules.revision } });
+      }
+      try {
+        const body = await readBody(req);
+        const result = saveCashInsuranceRules(db, { ...body, actorId: a.id });
+        if (result.status === 200 && !result.replayed) db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'cash_insurance_rules', `revision ${result.body.revision}`);
+        if (result.status === 200) for (const entry of LIVE_TABLES.values()) entry.table.cashInsuranceRuleRevision = result.body.state.ruleRevision;
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
+    {
+      const match = /^\/api\/rooms\/([\w-]{1,64})\/push-seat(\/cancel)?$/.exec(p);
+      if (match && (req.method === 'GET' || req.method === 'POST')) {
+        const u = requireUser(req, res); if (!u) return;
+        const table = LIVE_TABLES.get(match[1])?.table;
+        if (!table) return json(res, 404, { ok: false, errorCode: 'room_not_found', message: 'Room not found' });
+        if (req.method === 'GET' && !match[2]) return json(res, 200, { ok: true, state: pushSeatState(db, table.cfg.id, u.id) });
+        if (req.method !== 'POST') return json(res, 405, { ok: false, errorCode: 'method_not_allowed', message: 'Method not allowed' });
+        try {
+          const body = await readBody(req);
+          const keys = match[2] ? ['expectedRevision', 'operationId'] : ['destinationSeat', 'expectedRevision', 'operationId'];
+          if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join(',') !== keys.sort().join(',')) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: `Required fields: ${keys.join(', ')}` });
+          const result = match[2] ? cancelPushSeat(db, table, { ...body, actorId: u.id }) : reservePushSeat(db, table, { ...body, actorId: u.id });
+          if (result.status === 200) broadcastState(table);
+          return json(res, result.status, result.body);
+        } catch (error) {
+          return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+        }
+      }
+    }
+    {
+      const match = /^\/api\/admin\/rooms\/([\w-]{1,64})\/push-seat-grant$/.exec(p);
+      if (match && (req.method === 'GET' || req.method === 'POST')) {
+        const a = requireAdmin(req, res); if (!a) return;
+        if ((a.role || (a.is_admin ? 'owner' : 'player')) !== 'owner') return json(res, 403, { ok: false, errorCode: 'owner_required', message: 'Owner role required' });
+        const table = getLiveTable(match[1]);
+        if (!table) return json(res, 404, { ok: false, errorCode: 'room_not_found', message: 'Room not found' });
+        if (req.method === 'GET') {
+          const accountId = Number(url.searchParams.get('accountId'));
+          if (!Number.isSafeInteger(accountId) || accountId < 1) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'A valid accountId is required' });
+          return json(res, 200, { ok: true, state: pushSeatState(db, table.cfg.id, accountId) });
+        }
+        try {
+          const body = await readBody(req);
+          if (!body || Object.keys(body).sort().join(',') !== 'accountId,expectedRevision,operationId,uses') return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'accountId, uses, expectedRevision and operationId are required' });
+          if (!db.prepare('SELECT 1 FROM users WHERE id = ? AND deleted_at IS NULL').get(body.accountId)) return json(res, 404, { ok: false, errorCode: 'not_found', message: 'Player not found' });
+          const result = grantPushSeat(db, { ...body, actorId: a.id, roomId: table.cfg.id });
+          if (result.status === 200 && !result.replayed) db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'push_seat_grant', `${table.cfg.id} account ${body.accountId} uses ${body.uses}`);
+          if (result.status === 200) broadcastState(table);
+          return json(res, result.status, result.body);
+        } catch (error) {
+          return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+        }
+      }
+    }
+    {
+      const match = /^\/api\/rooms\/([\w-]{1,64})\/insurance\/quote$/.exec(p);
+      if (match && req.method === 'POST') {
+        const u = requireUser(req, res); if (!u) return;
+        try {
+          const body = await readBody(req);
+          if (!body || Object.keys(body).sort().join(',') !== 'coverage,expectedRevision,handId,operationId,ruleRevision' || !Number.isSafeInteger(body.coverage) || typeof body.handId !== 'string' || !body.handId || !Number.isSafeInteger(body.expectedRevision) || !Number.isSafeInteger(body.ruleRevision) || typeof body.operationId !== 'string' || !body.operationId.trim()) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'coverage, handId, expectedRevision, ruleRevision and operationId are required' });
+          const table = LIVE_TABLES.get(match[1])?.table;
+          if (!table) return json(res, 404, { ok: false, errorCode: 'room_not_found', message: 'Room not found' });
+          const result = quoteCashInsurance(db, table, { ...body, actorId: u.id });
+          if (result.status === 200) broadcastState(table);
+          return json(res, result.status, result.body);
+        } catch (error) {
+          return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+        }
+      }
+    }
+    {
+      const match = /^\/api\/rooms\/([\w-]{1,64})\/insurance\/decision$/.exec(p);
+      if (match && req.method === 'POST') {
+        const u = requireUser(req, res); if (!u) return;
+        try {
+          const body = await readBody(req);
+          if (!body || Object.keys(body).sort().join(',') !== 'decision,expectedRevision,handId,operationId,quoteId' || !['accept', 'decline'].includes(body.decision) || typeof body.handId !== 'string' || !body.handId || typeof body.quoteId !== 'string' || !body.quoteId || !Number.isSafeInteger(body.expectedRevision) || typeof body.operationId !== 'string' || !body.operationId.trim()) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'quoteId, handId, expectedRevision, decision and operationId are required' });
+          const table = LIVE_TABLES.get(match[1])?.table;
+          if (!table) return json(res, 404, { ok: false, errorCode: 'room_not_found', message: 'Room not found' });
+          const result = decideCashInsurance(db, table, { ...body, actorId: u.id });
+          if (result.status === 200) broadcastState(table);
+          return json(res, result.status, result.body);
+        } catch (error) {
+          return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+        }
+      }
+    }
+    {
+      const match = /^\/api\/rooms\/([\w-]{1,64})\/bet-and-muck$/.exec(p);
+      if (match && req.method === 'POST') {
+        const u = requireUser(req, res); if (!u) return;
+        const body = await readBody(req);
+        if (!body || Object.keys(body).sort().join(',') !== 'action,amount,betAndMuck,expectedRevision,handId,operationId' || body.betAndMuck !== true || !['bet', 'raise'].includes(body.action) || !Number.isSafeInteger(body.amount) || body.amount <= 0 || typeof body.handId !== 'string' || !body.handId || !Number.isSafeInteger(body.expectedRevision) || typeof body.operationId !== 'string' || !body.operationId.trim()) {
+          return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'A flagged bet/raise, amount, handId, expectedRevision and operationId are required' });
+        }
+        const entry = LIVE_TABLES.get(match[1]);
+        if (!entry) return json(res, 404, { ok: false, errorCode: 'room_not_found', message: 'Room not found' });
+        const table = entry.table;
+        const result = withGameReceipt(db, { actorId: u.id, operationId: body.operationId, scope: `bet-muck:${table.cfg.id}:${body.handId}`, request: { roomId: table.cfg.id, handId: body.handId, expectedRevision: body.expectedRevision, action: body.action, amount: body.amount, betAndMuck: true } }, () => {
+          if (table.handId !== body.handId || (entry.betMuckRevision || 0) !== body.expectedRevision) throw Object.assign(Error('Bet-and-Muck hand or revision changed'), { status: 409 });
+          const outcome = executeBetAndMuck(table, u.id, { action: body.action, amount: body.amount });
+          if (!outcome.ok) throw Object.assign(Error(outcome.error), { status: 400 });
+          entry.betMuckRevision = (entry.betMuckRevision || 0) + 1;
+          table.betMuckRevision = entry.betMuckRevision;
+          persistBetMuckCheckpoint(db, table, 'command');
+          return { revision: entry.betMuckRevision, state: table.snapshotFor(u.id) };
+        });
+        if (result.status === 200) broadcastState(table);
+        return json(res, result.status, result.body);
+      }
+    }
+    {
+      const match = /^\/api\/rooms\/([\w-]{1,64})\/rimt$/.exec(p);
+      if (match && req.method === 'POST') {
+        const u = requireUser(req, res); if (!u) return;
+        const body = await readBody(req);
+        if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some((key) => !['handId', 'expectedRevision', 'operationId', 'choice'].includes(key))) {
+          return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'Unknown RIMT fields' });
+        }
+        const choice = body.choice;
+        if (typeof body.handId !== 'string' || !body.handId || typeof body.operationId !== 'string' || !body.operationId.trim() || body.operationId.length > 100 || !Number.isSafeInteger(body.expectedRevision) || !([1, 2, 3].includes(choice) || ['accept', 'decline'].includes(choice))) {
+          return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'A valid handId, expectedRevision, operationId and choice are required' });
+        }
+        const entry = LIVE_TABLES.get(match[1]);
+        if (!entry) return json(res, 404, { ok: false, errorCode: 'room_not_found', message: 'Room not found' });
+        const table = entry.table;
+        const result = withGameReceipt(db, { actorId: u.id, operationId: body.operationId, scope: `rimt:${table.cfg.id}:${body.handId}`, request: { roomId: table.cfg.id, handId: body.handId, expectedRevision: body.expectedRevision, choice } }, () => {
+          if (table.handId !== body.handId || (entry.rimtRevision || 0) !== body.expectedRevision) throw Object.assign(Error('RIMT hand or revision changed'), { status: 409 });
+          const command = table.rimtCommand(u.id, choice);
+          if (!command.ok) throw Object.assign(Error(command.error), { status: 409 });
+          entry.rimtRevision = (entry.rimtRevision || 0) + 1;
+          table.rimtRevision = entry.rimtRevision;
+          persistRimtCheckpoint(db, table, 'command');
+          return { revision: entry.rimtRevision, state: table.snapshotFor(u.id) };
+        });
+        return json(res, result.status, result.body);
+      }
+    }
+    {
+      const match = /^\/api\/rooms\/([\w-]{1,64})\/seat-offer\/decline$/.exec(p);
+      if (match && req.method === 'POST') {
+        const u = requireUser(req, res); if (!u) return;
+        const body = await readBody(req);
+        if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some((key) => !['offerId', 'expectedRevision', 'operationId'].includes(key))) {
+          return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'Unknown seat-offer fields' });
+        }
+        if (typeof body.offerId !== 'string' || !body.offerId || typeof body.operationId !== 'string' || !body.operationId.trim() || body.operationId.length > 100 || !Number.isSafeInteger(body.expectedRevision)) {
+          return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'A valid offerId, expectedRevision and operationId are required' });
+        }
+        const result = declineSeatOffer(match[1], u.id, body);
+        return json(res, result.status, result.body);
+      }
+    }
+    {
+      const match = /^\/api\/admin\/spin\/([\w-]+)\/cancel$/.exec(p);
+      if (match && req.method === 'POST') {
+        const a = requireAdmin(req, res); if (!a) return;
+        if ((a.role || (a.is_admin ? 'owner' : 'player')) !== 'owner') return json(res, 403, { ok: false, errorCode: 'owner_required', message: 'Owner role required' });
+        try {
+          const body = await readBody(req);
+          if (!body || Object.keys(body).sort().join(',') !== 'expectedRevision,operationId' || !Number.isSafeInteger(body.expectedRevision)) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'expectedRevision and operationId are required' });
+          const result = cancelQuarantinedSpin(db, { ...body, actorId: a.id, eventId: match[1] });
+          if (result.status === 200 && !result.replayed) db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'spin_quarantine_cancel', `${match[1]} entries ${result.body.state.refundedEntries} premiums ${result.body.state.refundedPremiums}`);
+          if (result.status === 200) {
+            const roomId = `spin:${match[1]}`;
+            SPIN_QUARANTINED.delete(roomId);
+            clearTable(roomId);
+          }
+          return json(res, result.status, result.body);
+        } catch (error) {
+          return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+        }
+      }
+    }
+    if (p === '/api/admin/spin/rules' && (req.method === 'GET' || req.method === 'PUT')) {
+      const a = requireAdmin(req, res); if (!a) return;
+      ensureSpinStore(db);
+      if (req.method === 'GET') {
+        const mode = url.searchParams.get('mode') || '3max';
+        const stake = Number(url.searchParams.get('stake'));
+        if (!['3max', '6max'].includes(mode) || ![5000, 10000].includes(stake)) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'Unknown Spin mode or stake' });
+        const rules = db.prepare('SELECT * FROM spin_rules WHERE mode = ? AND stake = ?').get(mode, stake);
+        if (!rules && mode === '6max') return json(res, 200, { ok: true, state: { mode, stake, ruleRevision: 0, config: spinSixDraft(stake), insurance: null, complete: false, draft: true } });
+        if (!rules) return json(res, 404, { ok: false, errorCode: 'not_found', message: 'Spin rules not found' });
+        const config = JSON.parse(rules.config_json);
+        return json(res, 200, { ok: true, state: { mode, stake, ruleRevision: rules.revision, config, insurance: rules.insurance_json ? JSON.parse(rules.insurance_json) : null, complete: spinRulesComplete(config) } });
+      }
+      try {
+        const body = await readBody(req);
+        if (JSON.stringify(body).length > 8192) return json(res, 413, { ok: false, errorCode: 'payload_too_large', message: 'Spin configuration is limited to 8 KiB' });
+        if (!body || Object.keys(body).some((key) => !['mode', 'stake', 'expectedRevision', 'operationId', 'config', 'insurance'].includes(key))) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'Unknown Spin configuration fields' });
+        const result = saveSpinRules(db, { ...body, actorId: a.id });
+        if (result.status === 200 && !result.replayed) db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'spin_rules_update', `${body.mode}:${body.stake} revision ${result.body.revision}`);
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
+    if (p === '/api/spin/queue' && req.method === 'GET') {
+      const u = requireUser(req, res); if (!u) return;
+      const state = spinQueueState(db, { actorId: u.id, mode: url.searchParams.get('mode') || '3max', stake: Number(url.searchParams.get('stake')) });
+      if (!state) return json(res, 404, { ok: false, errorCode: 'not_found', message: 'Spin queue not found' });
+      return json(res, 200, { ok: true, state });
+    }
+    {
+      const match = /^\/api\/spin\/([\w-]+)\/presentation$/.exec(p);
+      if (match && req.method === 'GET') {
+        const u = requireUser(req, res); if (!u) return;
+        const event = spinEvent(db, match[1]);
+        if (!event) return json(res, 404, { ok: false, errorCode: 'not_found', message: 'Spin event not found' });
+        if (!matchedSpinRegistration(db, event.event_id, u.id)) return json(res, 403, { ok: false, errorCode: 'not_entrant', message: 'Not a Spin entrant' });
+        const presentation = JSON.parse(event.presentation_json);
+        return json(res, 200, { ok: true, state: { eventId: event.event_id, revision: event.presentation_revision ?? event.revision, acknowledgements: presentation.acknowledgements?.[u.id] || [] } });
+      }
+    }
+    if (p === '/api/spin/register' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      try {
+        const body = await readBody(req);
+        const result = registerSpin(db, { ...body, actorId: u.id });
+        if (result.status === 200 && result.body.state.eventId && !result.replayed) activateSpinEvent(result.body.state.eventId);
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
+    {
+      const match = /^\/api\/spin\/registrations\/([\w-]+)(\/cancel)?$/.exec(p);
+      if (match && req.method === 'GET') {
+        const u = requireUser(req, res); if (!u) return;
+        const registration = spinRegistration(db, u.id, match[1]);
+        if (!registration) return json(res, 404, { ok: false, errorCode: 'not_found', message: 'Registration not found' });
+        return json(res, 200, { ok: true, registration });
+      }
+      if (match && req.method === 'POST' && p.endsWith('/cancel')) {
+        const u = requireUser(req, res); if (!u) return;
+        try {
+          const body = await readBody(req);
+          if (!Number.isSafeInteger(body.expectedRevision) || typeof body.operationId !== 'string' || !body.operationId.trim()) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'expectedRevision and operationId are required' });
+          const result = cancelSpinRegistration(db, { actorId: u.id, registrationId: match[1], expectedRevision: body.expectedRevision, operationId: body.operationId });
+          return json(res, result.status, result.body);
+        } catch (error) {
+          return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+        }
+      }
+    }
+    if (p.startsWith('/api/spin/') && p.endsWith('/presented') && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      try {
+        const eventId = decodeURIComponent(p.split('/')[3]);
+        const body = await readBody(req);
+        if (!Number.isSafeInteger(body.expectedRevision) || typeof body.operationId !== 'string' || !body.operationId.trim() || typeof body.stage !== 'string') return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'expectedRevision, operationId and stage are required' });
+        const result = acknowledgeSpin(db, { actorId: u.id, eventId, expectedRevision: body.expectedRevision, operationId: body.operationId, stage: body.stage });
+        if (result.status === 200) {
+          const table = LIVE_TABLES.get(`spin:${eventId}`)?.table;
+          if (table) {
+            syncSpinPresentation(table, spinEvent(db, eventId));
+            persistSpinCheckpoint(db, table, 'presented');
+            table.maybeStart();
+            broadcastState(table);
+          }
+        }
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
     if (p === '/api/spin/info' && req.method === 'GET') {
       const buyIn = Number(url.searchParams.get('buyin'));
       try { return json(res, 200, { info: spinInfo(buyIn) }); } catch { return json(res, 400, { error: 'unknown Jackpot SNG stake' }); }
@@ -2535,6 +3041,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     /* ---------------- admin ---------------- */
+    if (p.startsWith('/api/admin/house/') && p.endsWith('/fund') && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      try {
+        const scope = decodeURIComponent(p.split('/')[4]);
+        const body = await readBody(req);
+        if (!Number.isSafeInteger(body.amount) || body.amount < 1 || body.amount > 1000000000 || typeof body.reason !== 'string' || !body.reason.trim() || body.reason.length > 500 || typeof body.operationId !== 'string' || !body.operationId.trim()) {
+          return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'A positive amount, reason and operationId are required' });
+        }
+        const result = fundHouse(db, { scope, actorId: a.id, operationId: body.operationId, amount: body.amount });
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
     if (await handleAdminWaitlistRoute(req, res, p)) return;
     if (await handleAdminBackupRoute(req, res, url)) return;
     if (await handleAdminRestoreRoute(req, res, url)) return;
@@ -2664,14 +3184,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/admin/reports' && req.method === 'GET') {
-      const a = requireAdmin(req, res); if (!a) return;
+      const a = requireModerator(req, res); if (!a) return;
       const rows = db.prepare(`SELECT r.*, ur.nick AS reporter_nick, ut.nick AS target_nick
         FROM reports r JOIN users ur ON ur.id = r.reporter_id JOIN users ut ON ut.id = r.target_id
         ORDER BY CASE r.status WHEN 'open' THEN 0 ELSE 1 END, r.id DESC LIMIT 200`).all();
       return json(res, 200, { reports: rows });
     }
     if (p.startsWith('/api/admin/reports/') && req.method === 'POST') {
-      const a = requireAdmin(req, res); if (!a) return;
+      const a = requireModerator(req, res); if (!a) return;
       const id = Number(p.split('/')[4]);
       const b = await readBody(req);
       const status = b.action === 'resolve' ? 'resolved' : b.action === 'dismiss' ? 'dismissed' : null;
@@ -2684,11 +3204,11 @@ const server = http.createServer(async (req, res) => {
     if (handleAdminUsersListRoute(req, res, url)) return;
 
     if (p.startsWith('/api/admin/users/') && req.method === 'POST') {
-      const a = requireAdmin(req, res); if (!a) return;
-      const id = Number(p.split('/')[4]);
       const body = await readBody(req);
+      const a = ['mute', 'unmute'].includes(body.action) ? requireModerator(req, res) : requireAdmin(req, res); if (!a) return;
+      const id = Number(p.split('/')[4]);
       if (body.action === 'set_admin') {
-        const result = setAdminRole(a, id, body.admin);
+        const result = setAdminRole(a, id, body.role ?? body.admin);
         return json(res, result.status, result.body);
       }
       const target = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
@@ -2784,12 +3304,18 @@ const server = http.createServer(async (req, res) => {
       if (!parsed.ok) return json(res, 400, { error: parsed.error });
       const t = parsed.value;
       const id = String(b.id || `custom-${Date.now()}`).slice(0, 60);
-      db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      const previous = tableRow(id);
+      const liveTable = LIVE_TABLES.get(id)?.table;
+      if (liveTable && previous && (previous.bet_and_muck !== t.bet_and_muck || previous.bet_muck_condition_rank !== t.bet_muck_condition_rank) && liveTable.occupiedSeats().length) {
+        return json(res, 409, { error: 'Bet-and-Muck settings can change only while the table is unoccupied' });
+      }
+      db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,rimt_mode,bet_and_muck,bet_muck_condition_rank)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET name=excluded.name, game=excluded.game, category=excluded.category,
         sb=excluded.sb, bb=excluded.bb, ante=excluded.ante, min_buyin=excluded.min_buyin, max_buyin=excluded.max_buyin,
-        seats=excluded.seats, speed=excluded.speed, featured=excluded.featured, enabled=excluded.enabled`)
-        .run(id, t.name, t.game, t.category, t.sb, t.bb, t.ante, t.min_buyin, t.max_buyin, t.seats, t.speed, t.featured, t.enabled, t.sort);
+        seats=excluded.seats, speed=excluded.speed, featured=excluded.featured, enabled=excluded.enabled, rimt_mode=excluded.rimt_mode,
+        bet_and_muck=excluded.bet_and_muck, bet_muck_condition_rank=excluded.bet_muck_condition_rank`)
+        .run(id, t.name, t.game, t.category, t.sb, t.bb, t.ante, t.min_buyin, t.max_buyin, t.seats, t.speed, t.featured, t.enabled, t.sort, t.rimt_mode, t.bet_and_muck, t.bet_muck_condition_rank);
       db.prepare('UPDATE tables SET action_seconds = ? WHERE id = ?').run(t.action_seconds, id);
       // A running table picks the new action length up from its next decision.
       const live = LIVE_TABLES.get(id)?.table;
@@ -2801,6 +3327,53 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/admin/tables') {
       const a = requireAdmin(req, res); if (!a) return;
       return json(res, 200, { tables: db.prepare('SELECT * FROM tables ORDER BY sort').all() });
+    }
+
+    const offlineEntryMatch = p.match(/^\/api\/admin\/tournaments\/([\w-]{1,80})\/(entries|disqualify)$/);
+    if (offlineEntryMatch && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      try {
+        const body = await readBody(req);
+        if (!body || !Number.isSafeInteger(body.accountId) || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 || typeof body.operationId !== 'string' || !body.operationId.trim()) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'accountId, expectedRevision and operationId are required' });
+        const command = { actorId: a.id, actorLogin: a.login, accountId: body.accountId, tournamentId: offlineEntryMatch[1], expectedRevision: body.expectedRevision, operationId: body.operationId };
+        const result = offlineEntryMatch[2] === 'entries'
+          ? offlineTournamentEntry(db, command)
+          : disqualifyTournamentEntrant(db, { ...command, reason: String(body.reason || '').slice(0, 200), room: TOURNAMENT_ROOMS.get(offlineEntryMatch[1]) });
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
+
+    const tournamentControlMatch = p.match(/^\/api\/admin\/tournaments\/([\w-]{1,80})\/(pause|resume|cancel)$/);
+    if (tournamentControlMatch && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      try {
+        const body = await readBody(req);
+        if (!body || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 || typeof body.operationId !== 'string' || !body.operationId.trim() || typeof body.reason !== 'string' || body.reason.length > 200) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'expectedRevision, operationId and an optional reason are required' });
+        const command = { actorId: a.id, actorLogin: a.login, tournamentId: tournamentControlMatch[1], expectedRevision: body.expectedRevision, operationId: body.operationId, reason: body.reason };
+        const result = tournamentControlMatch[2] === 'pause' ? pauseTournament(db, command) : tournamentControlMatch[2] === 'resume' ? resumeTournament(db, { ...command, room: TOURNAMENT_ROOMS.get(tournamentControlMatch[1]) }) : cancelTournament(db, command);
+        if (tournamentControlMatch[2] === 'cancel' && result.status === 200 && !result.replayed) {
+          const transition = applyTournamentControls(db, { room: ensureTournamentRoom(db.prepare('SELECT * FROM tournaments WHERE id = ?').get(tournamentControlMatch[1])), actor: a.login });
+          if (transition.cancelled) disposeTournamentRoom(tournamentControlMatch[1], { force: true });
+        }
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
+    }
+
+    const tournamentFormatMatch = p.match(/^\/api\/admin\/tournaments\/([\w-]{1,80})\/formats$/);
+    if (tournamentFormatMatch && req.method === 'POST') {
+      const a = requireAdmin(req, res); if (!a) return;
+      try {
+        const body = await readBody(req);
+        if (!body || !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 || typeof body.operationId !== 'string' || !body.operationId.trim() || !body.config) return json(res, 400, { ok: false, errorCode: 'invalid_request', message: 'config, expectedRevision and operationId are required' });
+        const result = saveTournamentFormats(db, { actorId: a.id, tournamentId: tournamentFormatMatch[1], expectedRevision: body.expectedRevision, operationId: body.operationId, config: body.config });
+        return json(res, result.status, result.body);
+      } catch (error) {
+        return json(res, error.status || 500, { ok: false, errorCode: 'command_rejected', message: error.message });
+      }
     }
 
     if (p === '/api/admin/tournaments' && req.method === 'POST') {
@@ -3011,6 +3584,10 @@ wss.on('connection', (ws, req) => {
       return;
     }
     if (msg.type === 'join_table') {
+      if (SPIN_QUARANTINED.has(msg.tableId)) return ws.send(JSON.stringify({ type: 'error', errorCode: 'spin_recovery_unavailable', error: 'This Spin is unavailable for recovery review' }));
+      if (RIMT_QUARANTINED.has(msg.tableId)) return ws.send(JSON.stringify({ type: 'error', errorCode: 'rimt_recovery_unavailable', error: 'This table is unavailable for recovery review' }));
+      if (BET_MUCK_QUARANTINED.has(msg.tableId)) return ws.send(JSON.stringify({ type: 'error', errorCode: 'bet_muck_recovery_unavailable', error: 'This table is unavailable for recovery review' }));
+      if (CASH_INSURANCE_QUARANTINED.has(msg.tableId)) return ws.send(JSON.stringify({ type: 'error', errorCode: 'cash_insurance_recovery_unavailable', error: 'This table is unavailable for recovery review' }));
       if (isBattleRoyale(tableRow(msg.tableId)?.game)) {
         return ws.send(JSON.stringify({ type: 'error', error: BATTLE_ROYALE_UNAVAILABLE }));
       }
@@ -3020,7 +3597,10 @@ wss.on('connection', (ws, req) => {
       // ensure there is a seat for the human
       const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
       if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
-      if (msg.observe) {
+      const spinEventId = table.spin ? (table.spinEventId || table.cfg.id.replace(/^spin:/, '')) : null;
+      const matched = table.spin ? matchedSpinRegistration(db, spinEventId, u.id) : null;
+      if (table.spin && !matched) return ws.send(JSON.stringify({ type: 'error', errorCode: 'spin_not_matched', error: 'A matched Spin registration is required' }));
+      if (msg.observe && !table.spin) {
         // Watching is read-only: never seed bots, start a hand or take a seat.
         entry.clients.add(ws);
         ws.tables.add(msg.tableId);
@@ -3041,7 +3621,10 @@ wss.on('connection', (ws, req) => {
           table.requestSitOut(u.id, false);
         }
       } else {
-        if (table.tournament) {
+        if (table.spin) {
+          const res = seatMatchedSpinEntrant(table, u, matched);
+          if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+        } else if (table.tournament) {
           // Tournament seats are only handed out by /play, which checks the registration.
           // A flight can move a player between tables; a stale link follows them.
           const room = TOURNAMENT_ROOMS.get(table.cfg.tournamentId);
@@ -3060,6 +3643,7 @@ wss.on('connection', (ws, req) => {
           broadcastState(table);
           return;
         }
+        if (!table.spin) {
         if (getSetting('maintenance', false) && !u.is_admin) {
           return ws.send(JSON.stringify({ type: 'error', error: 'Tables are closed for maintenance' }));
         }
@@ -3086,10 +3670,11 @@ wss.on('connection', (ws, req) => {
         // Taking the held seat consumes the offer; any other seat just leaves the queue.
         if (held) setWaitlist(held.state);
         waitlistLeave(msg.tableId, u.id);
+        }
       }
       // Fill part of the table with bots, always leaving the choice of seats to humans; no
       // bot sits down while anyone is waiting for this table or its group.
-      const bots = botFillCount(table, waitingFor(waitState, table.cfg));
+      const bots = table.spin ? 0 : botFillCount(table, waitingFor(waitState, table.cfg));
       if (bots) table.fillBots(bots);
       entry.clients.add(ws);
       ws.tables.add(msg.tableId);
@@ -3272,21 +3857,34 @@ wss.on('connection', (ws, req) => {
       if (!entry) return;
       const res = entry.table.showCards(ws.userId, msg.cards);
       if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      try {
+        const row = db.prepare('SELECT id,players FROM hands WHERE hand_id = ? AND table_id = ? ORDER BY id DESC LIMIT 1').get(entry.table.handId, msg.tableId);
+        if (row) {
+          const players = JSON.parse(row.players || '[]');
+          for (const player of players) {
+            if (String(player.id) !== String(ws.userId)) continue;
+            player.shownIndices = [...res.shown];
+            player.showed = true;
+          }
+          db.prepare('UPDATE hands SET players = ? WHERE id = ?').run(JSON.stringify(players), row.id);
+        }
+      } catch (error) {
+        console.error('show cards save', error);
+      }
       return;
     }
     if (msg.type === 'rabbit') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
       const t = entry.table;
-      // Revealing the undealt board is a player action, not a spectator one.
-      if (!t.seatOf(ws.userId)) return;
-      if (t.street === 'ended' && t.board.length < 5) {
-        const deck = [...t.deck];
-        const cards = [];
-        while (cards.length < 5 - t.board.length && deck.length) cards.push(cardStr(deck.pop()));
-        const evt = { type: 'rabbit', cards, at: Date.now() };
-        for (const client of entry.clients) if (client.readyState === 1) client.send(JSON.stringify({ type: 'event', event: evt }));
+      const players = t.seats.map((seat) => seat.player).filter(Boolean);
+      const rabbitState = { ...t, board: t.board.map(cardStr), deck: t.deck.map(cardStr) };
+      if (!t.seatOf(ws.userId) || !rabbitEligible(rabbitState, ws.userId, players)) {
+        ws.send(JSON.stringify({ type: 'error', error: 'Rabbit Hunt is unavailable for this viewer or hand' }));
+        return;
       }
+      const cards = rabbitRunout(rabbitState);
+      ws.send(JSON.stringify({ type: 'event', event: { type: 'rabbit', cards, at: Date.now() } }));
       return;
     }
     if (msg.type === 'chat' || msg.type === 'reaction' || msg.type === 'emote') {
@@ -3337,7 +3935,13 @@ setInterval(() => {
 
 // Multi-table tournaments rebalance and break short tables between hands.
 setInterval(() => {
-  try { ROOM_OWNER.sweepAll(); } catch (err) { console.error('tournament sweep', err); }
+  try {
+    for (const room of TOURNAMENT_ROOMS.values()) {
+      const transition = applyTournamentControls(db, { room, actor: 'system' });
+      if (transition.cancelled) disposeTournamentRoom(room.id, { force: true });
+    }
+    ROOM_OWNER.sweepAll();
+  } catch (err) { console.error('tournament sweep', err); }
 }, 2000).unref();
 
 // Stacks change every hand; this also captures a blind level that changed between hands.
@@ -3369,7 +3973,16 @@ function shutdown(signal) {
   // Snapshot tournament rooms before the live tables are closed underneath them.
   try { ROOM_OWNER.flushAll(); } catch { /* best effort */ }
   try {
-    for (const id of [...LIVE_TABLES.keys()]) closeLiveTable(id, 'Client closed');
+    for (const id of [...LIVE_TABLES.keys()]) {
+      const table = LIVE_TABLES.get(id)?.table;
+      if (table?.spinEventId || table?.cfg.rimt_mode === 'negotiated' || table?.cfg.bet_and_muck || table?.cashInsuranceOffer) {
+        if (table.spinEventId) persistSpinCheckpoint(db, table, 'shutdown');
+        else if (table.cfg.rimt_mode === 'negotiated') persistRimtCheckpoint(db, table, 'shutdown');
+        else if (table.cashInsuranceOffer) persistCashInsuranceCheckpoint(db, table, 'shutdown');
+        else persistBetMuckCheckpoint(db, table, 'shutdown');
+        clearTable(id);
+      } else closeLiveTable(id, 'Client closed');
+    }
   } catch (e) {
     console.error('shutdown cash-out failed', e);
   }
@@ -3383,13 +3996,140 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 function restoreRunningTournamentRooms() {
   try {
-    const rows = db.prepare("SELECT * FROM tournaments WHERE status = 'running' AND enabled = 1").all();
+    const rows = db.prepare("SELECT * FROM tournaments WHERE enabled = 1 AND (status IN ('running','paused') OR pause_requested = 1 OR cancel_requested = 1)").all();
     const restored = ROOM_OWNER.restoreRunning(rows);
     if (restored) console.log(`tournament rooms restored: ${restored}`);
   } catch (err) { console.error('tournament boot restore', err); }
 }
 
-const refunded = refundOpenSessions();
+function getBattleCoordinator(eventId) {
+  if (BATTLE_COORDINATORS.has(eventId)) return BATTLE_COORDINATORS.get(eventId);
+  if (BATTLE_QUARANTINED.has(eventId)) throw Object.assign(new Error('Battle recovery is quarantined'), { status: 503 });
+  const coordinator = new BattleCoordinator(db, eventId);
+  BATTLE_COORDINATORS.set(eventId, coordinator);
+  try {
+    const checkpoints = activeGameCheckpoints(db, 'battle').filter((checkpoint) => JSON.parse(checkpoint.rules_json).eventId === eventId);
+    for (const checkpoint of checkpoints) coordinator.restore(checkpoint.room_id);
+    if (!coordinator.tables.size && coordinator.event.status === 'rush') coordinator.start();
+    else if (!coordinator.tables.size && ['draining', 'shootout', 'final'].includes(coordinator.event.status)) throw new Error('Active Battle checkpoint is missing');
+    return coordinator;
+  } catch (error) {
+    BATTLE_COORDINATORS.delete(eventId);
+    BATTLE_QUARANTINED.add(eventId);
+    for (const checkpoint of activeGameCheckpoints(db, 'battle').filter((entry) => entry.room_id.startsWith(`${eventId}:`))) quarantineGameCheckpoint(db, checkpoint.room_id, 'battle', error.message);
+    throw error;
+  }
+}
+
+setInterval(() => {
+  for (const coordinator of BATTLE_COORDINATORS.values()) {
+    try { coordinator.tick(); } catch (error) { console.error('battle tick', coordinator.eventId, error.message); }
+  }
+}, 250).unref();
+
+function restoreActiveBattleEvents() {
+  ensureBattleStore(db);
+  for (const row of db.prepare("SELECT event_id,status FROM battle_events WHERE status NOT IN ('registering','finished','aborted')").all()) {
+    try { getBattleCoordinator(row.event_id); }
+    catch (error) { console.error('battle recovery quarantined', row.event_id, error.message); }
+  }
+}
+
+function restoreActiveSpinEvents() {
+  ensureSpinStore(db);
+  ensurePushSeatStore(db);
+  ensureGameCheckpoints(db);
+  const checkpoints = activeGameCheckpoints(db, 'spin');
+  const recovered = new Set();
+  for (const checkpoint of checkpoints) {
+    const roomId = checkpoint.room_id;
+    const eventId = roomId.replace(/^spin:/, '');
+    try {
+      const event = spinEvent(db, eventId);
+      if (!event || event.status === 'finished') throw new Error('Spin checkpoint event is unavailable');
+      const table = getLiveTable(roomId);
+      restoreSpinCheckpoint(db, table, event);
+      recovered.add(roomId);
+    } catch (error) {
+      clearTable(roomId);
+      SPIN_QUARANTINED.add(roomId);
+      quarantineSpinCheckpoint(db, roomId, error.message);
+      console.error('spin recovery quarantined', roomId, error.message);
+    }
+  }
+  for (const event of db.prepare("SELECT * FROM spin_events WHERE status = 'presentation'").all()) {
+    const roomId = `spin:${event.event_id}`;
+    if (recovered.has(roomId) || SPIN_QUARANTINED.has(roomId)) continue;
+    SPIN_QUARANTINED.add(roomId);
+    saveGameCheckpoint(db, { roomId, kind: 'spin', operationId: `server:spin:${event.event_id}:missing`, rules: { eventId: event.event_id, config: JSON.parse(event.config_json) }, state: { missing: true } });
+    quarantineSpinCheckpoint(db, roomId, 'Active Spin checkpoint is missing');
+  }
+  if (recovered.size) console.log(`spin events restored: ${recovered.size}`);
+}
+
+function restoreActiveRimtTables() {
+  for (const checkpoint of activeGameCheckpoints(db, 'rimt')) {
+    const roomId = checkpoint.room_id;
+    try {
+      const table = getLiveTable(roomId);
+      restoreRimtCheckpoint(db, table);
+      const entry = LIVE_TABLES.get(roomId);
+      if (entry) entry.rimtRevision = table.rimtRevision || 0;
+    } catch (error) {
+      clearTable(roomId);
+      RIMT_QUARANTINED.add(roomId);
+      quarantineRimtCheckpoint(db, roomId, error.message);
+      console.error('rimt recovery quarantined', roomId, error.message);
+    }
+  }
+}
+
+function restoreActiveBetMuckTables() {
+  for (const checkpoint of activeGameCheckpoints(db, 'bet-muck')) {
+    const roomId = checkpoint.room_id;
+    try {
+      const table = getLiveTable(roomId);
+      restoreBetMuckCheckpoint(db, table);
+      const entry = LIVE_TABLES.get(roomId);
+      if (entry) entry.betMuckRevision = table.betMuckRevision || 0;
+    } catch (error) {
+      clearTable(roomId);
+      BET_MUCK_QUARANTINED.add(roomId);
+      quarantineBetMuckCheckpoint(db, roomId, error.message);
+      console.error('bet-muck recovery quarantined', roomId, error.message);
+    }
+  }
+}
+
+function restoreActiveCashInsuranceTables() {
+  for (const checkpoint of activeGameCheckpoints(db, 'cash-insurance')) {
+    const roomId = checkpoint.room_id;
+    try {
+      const table = getLiveTable(roomId);
+      restoreCashInsuranceCheckpoint(db, table);
+      const entry = LIVE_TABLES.get(roomId);
+      if (entry) entry.cashInsuranceRevision = table.cashInsuranceRevision || 0;
+    } catch (error) {
+      clearTable(roomId);
+      CASH_INSURANCE_QUARANTINED.add(roomId);
+      quarantineCashInsuranceCheckpoint(db, roomId, error.message);
+      console.error('cash-insurance recovery quarantined', roomId, error.message);
+    }
+  }
+}
+
+function hasActiveRecoveryLinkage(sessionId) {
+  if (String(sessionId).startsWith('battle:')) return true;
+  const roomId = String(sessionId).split(':')[0];
+  return ['spin', 'rimt', 'bet-muck', 'cash-insurance', 'battle'].some((kind) => !!db.prepare("SELECT 1 FROM game_checkpoints WHERE room_id = ? AND kind = ? AND status IN ('active','quarantined')").get(roomId, kind));
+}
+
+restoreActiveBattleEvents();
+restoreActiveSpinEvents();
+restoreActiveRimtTables();
+restoreActiveBetMuckTables();
+restoreActiveCashInsuranceTables();
+const refunded = refundOpenSessions({ skipSession: hasActiveRecoveryLinkage });
 if (refunded) console.log(`refunded ${refunded} open table session(s)`);
 restoreRunningTournamentRooms();
 server.listen(PORT, process.env.GGPOKER_BIND || '127.0.0.1', () => {

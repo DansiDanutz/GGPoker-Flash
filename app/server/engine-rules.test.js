@@ -49,6 +49,10 @@ test('an all-in below the current bet is a call and never lowers the bet', () =>
   ok(t.act(1, 'raise', 400));
   ok(t.act(2, 'fold'));
   ok(t.act(3, 'allin'));
+  if (t.cashInsuranceOffer?.status === 'awaiting-quote') {
+    t.cashInsuranceOffer.status = 'declined';
+    t.runout();
+  }
   assert.equal(t.street, 'ended', 'nobody is left to act, so the board runs out');
   assert.equal(t.board.length, 5);
   // Seat 0 only risked the 150 the short stack could cover.
@@ -155,6 +159,10 @@ test('a player with chips left is not asked to act against all-in opponents', ()
   const { t } = deal([START, 300]);
   ok(t.act(1, 'raise', 300));
   ok(t.act(2, 'call'));
+  if (t.cashInsuranceOffer?.status === 'awaiting-quote') {
+    t.cashInsuranceOffer.status = 'declined';
+    t.runout();
+  }
   assert.equal(t.street, 'ended');
   assert.equal(t.board.length, 5);
   assert.equal(t.actor, null);

@@ -8,12 +8,12 @@ import { ordinal } from './tournament.js';
 const outReference = (sessionId) => `out:${sessionId}`;
 
 /** Credit a finished place (onSpinPayout hook). Bots and session-less seats are not paid. */
-export function settleSpinPayout(table, finish) {
+export function settleSpinPayout(table, finish, options = {}) {
   if (finish.isBot) return { applied: false, reason: 'bot' };
   if (!finish.sessionId) return { applied: false, reason: 'no session' };
   const memo = `${table.cfg.name} — Spin ${table.spinMultiplier}x, finished ${ordinal(finish.place)}`;
   const res = addTransactionEx(finish.id, finish.payout > 0 ? 'spin_payout' : 'session_close', finish.payout, memo, 'USD', {
-    sessionId: finish.sessionId, reference: outReference(finish.sessionId), onDuplicate: 'skip',
+    sessionId: finish.sessionId, reference: outReference(finish.sessionId), onDuplicate: 'skip', ...options,
   });
   return { applied: res.applied, balance: res.balance };
 }
