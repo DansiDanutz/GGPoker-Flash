@@ -94,7 +94,60 @@ test('restart pauses an expired session without debit and missed whole hours are
 });
 
 test('published tariffs retain the contracted cent values', () => {
-  assert.deepEqual(ORGANIZER_TARIFFS, { membership: 900, cash_setup: 1000, tournament_setup: 500, spin_setup: 300, reschedule: 100, cash_hour: 500, cash_start: 500 });
+  const { cash_hour_tiers, ...fixed } = ORGANIZER_TARIFFS;
+  assert.deepEqual(fixed, { membership: 900, cash_setup: 1000, tournament_setup: 500, spin_setup: 300, reschedule: 100, cash_hour: 500, cash_start: 500 });
+  assert.deepEqual(cash_hour_tiers, [
+    { through: 50, cents: 500 }, { through: 100, cents: 400 }, { through: 200, cents: 300 },
+    { through: 500, cents: 200 }, { through: null, cents: 100 },
+  ]);
+});
+
+test('lifetime paid cash hours cross every price boundary without retroactive discounts or duplicate renewal', () => {
+  const f = fixture(), billing = createOrganizerBilling({ db: f.db, now: f.now, mode: 'enforce' });
+  fund(billing, 200000, 'tier-funds'); grantOrganizer(f);
+  billing.startCash({ userId: 2, tableId: 'tier-table', idempotencyKey: 'tier-start' });
+  let spent = 0;
+  for (let hour = 1; hour <= 501; hour++) {
+    if (hour > 1) { f.advance(HOUR); billing.tickCash(); }
+    assert.equal(billing.canDeal('tier-table'), true);
+    const cents = hour <= 50 ? 500 : hour <= 100 ? 400 : hour <= 200 ? 300 : hour <= 500 ? 200 : 100;
+    spent += cents;
+    const entry = billing.history(2).find((row) => row.kind === 'cash_hour');
+    assert.equal(entry.amount_cents, -cents, `hour ${hour}`);
+    assert.deepEqual(JSON.parse(entry.metadata), { paid_hour: hour, rate_cents: cents });
+    assert.equal(billing.account(2).cash_usage.paid_hours, hour);
+    assert.equal(billing.account(2).balance_cents, 200000 - spent);
+  }
+  assert.equal(spent, 135100);
+  assert.deepEqual(billing.account(2).cash_usage, { paid_hours: 501, next_hour: 502, next_hour_cents: 100 });
+  assert.equal(createOrganizerBilling({ db: f.db, now: f.now, mode: 'enforce' }).account(2).cash_usage.paid_hours, 501, 'restart keeps the lifetime count');
+  assert.equal(billing.account(3).cash_usage.next_hour_cents, 500, 'other organizers do not inherit a discount');
+  f.db.close();
+});
+
+test('multiple cash tables share one hour count; failed charges, free resumes and retries do not advance it', () => {
+  const f = fixture(), billing = createOrganizerBilling({ db: f.db, now: f.now, mode: 'enforce' });
+  fund(billing, 49 * 500 + 900 + 400, 'shared-tier-funds'); grantOrganizer(f);
+  for (let i = 1; i <= 49; i++) {
+    billing.startCash({ userId: 2, tableId: `old-${i}`, idempotencyKey: `old-${i}` });
+    billing.stopCash({ userId: 2, tableId: `old-${i}` });
+  }
+  const a = { userId: 2, tableId: 'a', idempotencyKey: 'start-a' };
+  const b = { userId: 2, tableId: 'b', idempotencyKey: 'start-b' };
+  billing.startCash(a); billing.startCash(b); billing.startCash(a);
+  assert.equal(billing.account(2).cash_usage.paid_hours, 51);
+  assert.equal(billing.account(2).balance_cents, 400);
+  f.advance(HOUR); billing.tickCash();
+  assert.equal(billing.cashSession(2, 'a').active, 1);
+  assert.equal(billing.cashSession(2, 'b').active, 0);
+  assert.equal(billing.account(2).cash_usage.paid_hours, 52);
+  billing.stopCash({ userId: 2, tableId: 'a' });
+  billing.startCash({ ...a, idempotencyKey: 'resume-a' });
+  assert.equal(billing.account(2).cash_usage.paid_hours, 52);
+  assert.throws(() => billing.startCash({ ...b, idempotencyKey: 'unfunded-b' }), /Insufficient/);
+  assert.equal(billing.account(2).cash_usage.paid_hours, 52);
+  assert.equal(billing.account(2).balance_cents, 0);
+  f.db.close();
 });
 
 test('service-credit topup refunds reserve available balance and settle externally without another transfer', () => {

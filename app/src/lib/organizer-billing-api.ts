@@ -5,10 +5,11 @@ export type ManualFundingConfig = {
   enabled: boolean; links: Array<{ amount_cents: 900 | 1000; url: string }>;
   merchant_display?: string; settlement_account_display?: string; assets?: string[];
 };
-export type OrganizerBillingConfig = { mode: BillingMode; tariffs: OrganizerTariffs; checkout_enabled: false; manual_funding: ManualFundingConfig };
+export type OrganizerBillingConfig = { mode: BillingMode; chip_mode: BillingMode; tariffs: OrganizerTariffs; checkout_enabled: false; manual_funding: ManualFundingConfig };
 export type OrganizerTariffs = {
   membership: number; cash_setup: number; cash_hour: number; cash_start?: number;
   tournament_setup: number; spin_setup: number; reschedule: number;
+  cash_hour_tiers: Array<{ through: number | null; cents: number }>;
 };
 export type BillingMembership = { active: boolean; expires_at: string | null };
 export type BillingLedgerEntry = {
@@ -17,12 +18,14 @@ export type BillingLedgerEntry = {
 };
 export type BillingTable = {
   id: string; name: string; game: string;
+  chip_economy: number; rakePercent: number; rakeCap: number;
   session?: { active: number | boolean; paid_until: string } | null;
   schedule?: { start_at: string; started_at: string | null } | null;
 };
 export type BillingTournament = { id: string; name: string; start_at: string; status: string };
 export type OrganizerBillingAccount = {
   mode: BillingMode; balance_cents: number;
+  cash_usage: { paid_hours: number; next_hour: number; next_hour_cents: number };
   memberships: { organizer: BillingMembership; contributor: BillingMembership };
   ledger: BillingLedgerEntry[]; tables: BillingTable[]; tournaments: BillingTournament[];
 };
@@ -49,6 +52,7 @@ export const organizerBillingApi = {
   subscribe: (role: 'organizer' | 'contributor', idempotencyKey: string) => request('/subscribe', { role, idempotencyKey }),
   startCash: (id: string, idempotencyKey: string) => request(`/cash/${encodeURIComponent(id)}/start`, { idempotencyKey }),
   stopCash: (id: string) => request(`/cash/${encodeURIComponent(id)}/stop`, {}),
+  setCashRake: (id: string, rakePercent: number, rakeCap: number) => request(`/cash/${encodeURIComponent(id)}/rake`, { rakePercent, rakeCap }),
   reschedule: (kind: 'spin' | 'tournament', id: string, startAt: string, idempotencyKey: string) => request(`/${kind}/${encodeURIComponent(id)}/reschedule`, { startAt, idempotencyKey }),
   credit: (userId: number, amountCents: number, reference: string) => request('', { userId, amountCents, reference }, '/api/admin/marketplace/billing/credits'),
   refunds: () => request<{ refunds: ServiceCreditRefund[] }>('', undefined, '/api/admin/marketplace/billing/refunds'),

@@ -1,6 +1,6 @@
 # Organizer service-credit billing
 
-Status: draft implementation, disabled by default. This is separate from the already deployed PR #210. Do not enable commercial billing until the remaining launch decisions below are resolved.
+Status: core paid services launched at 56cd98b. The per-table rake controls and lifetime hourly tiers described below are a new revision awaiting a separately approved deployment.
 
 ## Tariffs and boundaries
 
@@ -9,7 +9,7 @@ All service amounts are integer USD cents. Organizer and Contributor memberships
 | Service | Charge |
 | --- | --- |
 | Private cash table setup | $10 once per table |
-| Active cash table | $5 for each hour, charged in advance |
+| Active cash table | $5 down to $1 per paid table-hour, charged in advance; lifetime count per organizer |
 | Private tournament setup | $5 once |
 | Tournament reschedule | $1 per successful schedule change |
 | Private Spin & Go setup | $3 once per table |
@@ -21,11 +21,31 @@ The private finance operator can record independently verified service-credit fu
 
 Unused service-credit refunds reserve available credits against the original top-up before any external payment. Private operators may record independently verified settlement or cancel an externally unpaid reservation; cancellation restores credits once. Paid/cancelled states and conflicting references cannot be reused. Refund recovery is available for closed or banned payers and while billing is off, but always requires an active private administrator. Memberships, consumed services and Cash Chip purchases are not automatically unwound. See the [first paid launch runbook](first-paid-launch-runbook.md) for verified merchant/link IDs, receipt matching, refund operations and rollout/rollback order.
 
+## Lifetime hourly pricing
+
+User-confirmed scope: lifetime paid table-hours summed across every cash table owned by the organizer. There is no monthly reset. Two active tables for one hour consume two table-hours. Billing follows activation, including an empty active table, rather than counting only dealt hands.
+
+| Paid hour number | Price for that hour |
+| --- | --- |
+| 1–50 | $5 |
+| 51–100 | $4 |
+| 101–200 | $3 |
+| 201–500 | $2 |
+| 501 onward | $1 |
+
+The immutable `cash_hour` debit journal is the source of the count, including historical charges made before this revision. Each successful new charge records its lifetime hour number and rate. Failed charges, idempotent retries, free resumes, setup fees and memberships do not advance the count. Rates apply prospectively; earlier hours are not repriced. The quote and debit are calculated within the same transaction, including when several tables renew together. Marketplace shows the paid total and next-hour price.
+
+## Organizer cash-table rake
+
+Organizers choose exactly 2%, 3%, 4% or 5% and a positive whole Cash Chip cap per hand (maximum 9,000,000,000). New organizer-chip cash tables default to 5% and 300 chips. Existing tables retain their effective global settings until explicitly configured; public tables, Spin and tournaments keep their existing rules.
+
+Creation validates rake before taking the setup fee. Owners can edit settings without another fee only while the table is paused, empty, free of seat reservations and without unreconciled seat sessions. Changes are audited, persisted and broadcast to spectators. Players see the percentage and cap in the table header. The engine floors percentage rake to whole chips, applies the cap once per hand and preserves the existing no-flop/no-drop rule. Exact rake is burned from organizer-scoped table escrow; it is not minted back into the organizer chip wallet.
+
 ## Lifecycle
 
 `GGPOKER_USAGE_BILLING=off` preserves legacy creation and does not debit setup, membership or usage charges. `enforce` selects the new model independently of the old `GGPOKER_MARKETPLACE_ENFORCEMENT` flag. An invalid mode fails startup.
 
-An organizer creates a cash table paused. Starting charges $5 immediately. The next charge occurs at the previous paid-through timestamp, before a new hand can start. An active table remains billable even when empty. Stopping prevents renewal; resuming within its already-paid period is free. No partial-hour rebate is issued automatically. Insufficient credits, an inactive owner or expired membership pauses further deals; an existing hand can finish normally. A restart pauses expired sessions without billing downtime. Missing an entire unpaid hour also pauses rather than collecting missed charges.
+An organizer creates a cash table paused. Starting charges the next lifetime-hour rate immediately. The next charge occurs at the previous paid-through timestamp, before a new hand can start. An active table remains billable even when empty. Stopping prevents renewal; resuming within its already-paid period is free. No partial-hour rebate is issued automatically. Insufficient credits, an inactive owner or expired membership pauses further deals; an existing hand can finish normally. A restart pauses expired sessions without billing downtime. Missing an entire unpaid hour also pauses rather than collecting missed charges.
 
 Setup, debit, ledger and idempotency record share one SQLite transaction. Creation failure rolls everything back. Idempotency keys belong to the authenticated user and a specific request; changing the action or payload under an existing key fails. Monetary journals reject updates and deletes. Public requests cannot credit accounts or charge another organizer's resources.
 
@@ -35,7 +55,7 @@ Tournament and Spin fees cover setup of the resource, not every subsequent Spin 
 
 Active legacy paid access to the three management products blocks startup in `enforce` mode until the purchased promises are reconciled. Other commerce history is retained. Existing private cash tables have no retroactive setup charge but require a funded start when enforcement is activated. Existing private Spin tables without a launch schedule are grandfathered for setup and keep their existing lifecycle; their owners need membership for new management operations. Review these resources before activation.
 
-No new billing configuration has been deployed. Production now includes PR #214's unrelated creator-news fix; paid enforcement and automated checkout remain off. The runbook records the read-only migration inventory and exact observed production commit.
+The hourly tiers and rake controls are not deployed by this implementation; production rollout requires current-head verification and explicit authorization. The runbook records the read-only migration inventory and exact observed production commit.
 
 ## Organizer Cash Chips and tickets
 
@@ -76,4 +96,4 @@ Diamonds are for future OpenPoker tournaments shared across organizers' players.
 
 Tests cover billing periods, hourly charges, receipt boundaries, setup rollback, organizer isolation, immutable burns, mint/rake conservation, tickets, exact entrant sets, bounties, buybacks and recovery. Real HTTP/WebSocket tests drive a raked hand with a pending top-up and prove exactly-once restart refunds without altering free USD. Browser CI exercises grants, packs, transfers, tickets and mobile rendering on a disposable enforced fixture.
 
-This paid revision is a draft and is undeployed. Activation requires verified funding, review of legacy-resource migration and customer notices, passing current-head review/CI and separate authorization for an exact production rollout. NervixPay's website-placement checklist is not external underwriting approval. Earlier production approval covered only PR #210 with paid enforcement off.
+This pricing and rake revision is undeployed. Activation requires verified funding, review of legacy-resource migration and customer notices, passing current-head review/CI and separate authorization for an exact production rollout. NervixPay's website-placement checklist is not external underwriting approval. Earlier production approval covered the core paid rollout at 56cd98b, not this pricing revision.

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { ORGANIZER_TARIFFS } from './organizer-billing.js';
+import { cashRakeConfig, validateCashRake } from './cash-rake.js';
 
 const MANUAL_FUNDING_LINKS = Object.freeze([
   { amount_cents: 900, url: 'https://nervixpay.live/l/b0afce77-773a-48a0-9a73-72274791313d' },
@@ -12,13 +13,14 @@ function fields(body, allowed) {
   return body;
 }
 
-export function createOrganizerBillingRoutes({ db, billing, json, requireUser, requireAdmin, readBody, liveTables }) {
+export function createOrganizerBillingRoutes({ db, billing, json, requireUser, requireAdmin, readBody, liveTables, getSetting, broadcastState }) {
   db.exec(`CREATE TABLE IF NOT EXISTS organizer_spin_schedule (
     table_id TEXT PRIMARY KEY REFERENCES tables(id), start_at TEXT NOT NULL, started_at TEXT
   )`);
   const resources = (userId) => ({
-    tables: db.prepare('SELECT id,name,game FROM tables WHERE private=1 AND owner_id=?').all(userId).map((row) => ({
+    tables: db.prepare('SELECT id,name,game,private,owner_id,chip_economy,rake_percent,rake_cap FROM tables WHERE private=1 AND owner_id=?').all(userId).map((row) => ({
       ...row, session: row.game === 'spingold' ? null : billing.cashSession(userId, row.id),
+      ...cashRakeConfig(row, getSetting),
       schedule: db.prepare('SELECT start_at,started_at FROM organizer_spin_schedule WHERE table_id=?').get(row.id) || null,
     })),
     tournaments: db.prepare('SELECT id,name,start_at,status FROM tournaments WHERE private=1 AND owner_id=?').all(userId),
@@ -29,7 +31,7 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
     if (p === '/api/marketplace/billing' && req.method === 'GET') {
       const manualFunding = billing.mode === 'enforce' && process.env.GGPOKER_NERVIXPAY_MANUAL_FUNDING === 'on';
       json(res, 200, {
-        mode: billing.mode, tariffs: ORGANIZER_TARIFFS, checkout_enabled: false,
+        mode: billing.mode, chip_mode: process.env.GGPOKER_ORGANIZER_CHIPS === 'enforce' ? 'enforce' : 'off', tariffs: ORGANIZER_TARIFFS, checkout_enabled: false,
         manual_funding: manualFunding ? {
           enabled: true, merchant_display: 'Fake or Real', settlement_account_display: 'Seme',
           assets: ['USDC on Polygon', 'USDT on BNB Chain'], links: MANUAL_FUNDING_LINKS,
@@ -69,15 +71,34 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
       const b = fields(await readBody(req), ['role', 'idempotencyKey']);
       json(res, 200, billing.subscribe({ ...b, userId: user.id })); return true;
     }
-    const action = p.match(/^\/api\/marketplace\/billing\/(cash|spin|tournament)\/([^/]+)\/(start|stop|reschedule)$/);
+    const action = p.match(/^\/api\/marketplace\/billing\/(cash|spin|tournament)\/([^/]+)\/(start|stop|reschedule|rake)$/);
     if (!action) fail('Billing route not found.', 404);
     const [, kind, encodedId, operation] = action;
     const id = decodeURIComponent(encodedId);
+    const b = fields(await readBody(req), operation === 'rake' ? ['rakePercent', 'rakeCap'] : operation === 'reschedule' ? ['startAt', 'idempotencyKey'] : operation === 'start' ? ['idempotencyKey'] : []);
     const row = kind === 'tournament'
       ? db.prepare('SELECT * FROM tournaments WHERE id=? AND owner_id=? AND private=1').get(id, user.id)
       : db.prepare('SELECT * FROM tables WHERE id=? AND owner_id=? AND private=1').get(id, user.id);
     if (!row || (kind === 'spin' && row.game !== 'spingold') || (kind === 'cash' && row.game === 'spingold')) fail('Resource not found.', 404);
-    const b = fields(await readBody(req), operation === 'reschedule' ? ['startAt', 'idempotencyKey'] : operation === 'start' ? ['idempotencyKey'] : []);
+    if (operation === 'rake') {
+      if (kind !== 'cash' || !row.chip_economy) fail('Organizer Cash Chip table required.', 404);
+      billing.requireMembership(user.id, 'organizer');
+      const rake = validateCashRake(b), live = liveTables.get(id)?.table;
+      if (billing.cashSession(user.id, id)?.active || live?.occupiedSeats().length || live?.handInProgress() || live?.reservations.size || live?.financialError
+        || db.prepare("SELECT 1 FROM organizer_chip_sessions WHERE table_id=? AND status='open'").get(id)) {
+        fail('Pause the table, cash out all players and clear seat reservations before changing rake.', 409);
+      }
+      if (row.rake_percent !== rake.rakePercent || row.rake_cap !== rake.rakeCap) {
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          db.prepare('UPDATE tables SET rake_percent=?,rake_cap=? WHERE id=?').run(rake.rakePercent, rake.rakeCap, id);
+          db.prepare('INSERT INTO audit_log(actor,action,detail) VALUES (?,?,?)').run(user.login, 'organizer_cash_rake', JSON.stringify({ tableId: id, ...rake }));
+          db.exec('COMMIT');
+        } catch (error) { db.exec('ROLLBACK'); throw error; }
+      }
+      if (live) { Object.assign(live.cfg, rake); Object.assign(live, rake); broadcastState(live); }
+      json(res, 200, { ok: true, ...rake }); return true;
+    }
     if (kind === 'cash' && operation === 'start') {
       json(res, 200, billing.startCash({ userId: user.id, tableId: id, idempotencyKey: b.idempotencyKey })); return true;
     }

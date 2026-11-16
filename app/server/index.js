@@ -69,6 +69,7 @@ import { createManagementPolicy, privateSpinConfig, tableManagementProduct } fro
 import { createManagementRoutes } from './management-routes.js';
 import { createOrganizerBilling } from './organizer-billing.js';
 import { createOrganizerBillingRoutes } from './organizer-billing-routes.js';
+import { cashRakeConfig, validateCashRake } from './cash-rake.js';
 import { createOrganizerChips } from './organizer-chips.js';
 import { createOrganizerChipEvents } from './organizer-chip-events.js';
 import { createOrganizerChipSpin } from './organizer-chip-spin.js';
@@ -604,7 +605,7 @@ const managementPolicy = usageBilling ? {
   },
 } : legacyManagementPolicy;
 const handleManagementRoute = createManagementRoutes({ db, commerce: marketplaceCommerce, policy: managementPolicy, billing: organizerBilling, json, requireUser, requireAdmin, readBody });
-const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES });
+const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES, getSetting, broadcastState });
 const handleOrganizerChipRoute = createOrganizerChipRoutes({ db, chips: organizerChips, events: organizerChipEvents,
   spin: organizerChipSpin, billing: organizerBilling, json, requireUser, requireAdmin, readBody, mode: organizerChipMode,
   onEventResolved: (id) => {
@@ -749,8 +750,7 @@ function getLiveTable(id) {
     ...row,
     botSpeed: getSetting('bot_speed_ms', 900),
     seats: row.seats,
-    rakePercent: getSetting('rake_percent', 5),
-    rakeCap: getSetting('rake_cap', 300),
+    ...cashRakeConfig(row, getSetting),
   };
   const table = new PokerTable(cfg, {
     canStartHand: (table) => serviceCanDeal(table, true),
@@ -1757,6 +1757,7 @@ const server = http.createServer(async (req, res) => {
       const maxBuyin = Math.max(minBuyin, Math.round(Number(b.max_buyin) || minBuyin));
       if (chipEconomyEnabled && ![sb, bb, minBuyin, maxBuyin].every((n) => Number.isSafeInteger(n) && n > 0 && n <= 9_000_000_000)) return json(res, 400, { error: 'Use bounded whole Cash Chips for stakes and buy-ins.' });
       const seats = Math.max(2, Math.min(9, Math.round(Number(b.seats) || 6)));
+      const rake = chipEconomyEnabled ? validateCashRake({ rakePercent: b.rakePercent === undefined ? 5 : b.rakePercent, rakeCap: b.rakeCap === undefined ? 300 : b.rakeCap }) : null;
       const name = String(b.name || `${u.nick}'s table`).trim().slice(0, 40) || `${u.nick}'s table`;
       const id = `home-${u.id}-${randomUUID().slice(0, 8)}`;
       const created = organizerBilling.setup({ userId: u.id, kind: 'cash', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
@@ -1764,7 +1765,7 @@ const server = http.createServer(async (req, res) => {
       db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
         VALUES (?,?,?,?,?,?,0,?,?,?, 'Normal',0,1,0,?,1,?)`)
         .run(id, name, game, 'Private', sb, bb, minBuyin, maxBuyin, seats, u.id, b.bombPot ? 1 : 0);
-      if (chipEconomyEnabled) db.prepare('UPDATE tables SET chip_economy=1 WHERE id=?').run(id);
+      if (rake) db.prepare('UPDATE tables SET chip_economy=1,rake_percent=?,rake_cap=? WHERE id=?').run(rake.rakePercent, rake.rakeCap, id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_table', id);
       return { id }; } });
       return json(res, 200, { ok: true, ...created });

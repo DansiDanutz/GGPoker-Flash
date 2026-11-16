@@ -104,6 +104,7 @@ type TableState = {
   runItOffered?: boolean;
   boards?: string[][] | null;
   potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; raiseLocked?: boolean; actionTimeMs?: number; rake?: number;
+  rakePercent?: number; rakeCap?: number;
   /** Rush only: whether this viewer may Fast Fold now (server PokerTable.quickFoldState). */
   quickFold?: QuickFoldState | null;
 };
@@ -1199,6 +1200,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>
         <span className="pill">Blinds {state ? (state.tournament ? `${state.sb}/${state.bb}` : `${money(state.sb)}/${money(state.bb)}`) : ''}</span>
         <span className="pill">Hand #{state?.handNo ?? '-'}</span>
+        {state?.rakePercent != null && state.rakeCap != null && <span className="pill">Rake {state.rakePercent}% · Cap {cashChips(state.rakeCap)}/hand</span>}
         {state?.spin?.multiplier && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {money(state.spin.prize)}</span>}
         {state?.tournament && <span className="pill" style={{ color: '#ffd98a' }}>Level {state.tournament.level}{state.tournament.nextBlindAt ? ` · ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000 / 60))}m ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000) % 60).toString().padStart(2, '0')}s` : ''} · Prize {money(state.tournament.prizePool)}</span>}
         {state?.tournament && (state.tournament.tables || 1) > 1 && (
