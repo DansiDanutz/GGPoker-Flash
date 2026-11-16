@@ -3,6 +3,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const { URL: NodeURL } = require('node:url');
+const { LIVE_URL, readLocalVersion, isOutdated, readMode, writeMode, fetchLiveVersion } = require('./update.cjs');
 
 
 const ROOT = path.join(__dirname, '..');
@@ -23,7 +24,10 @@ app.setPath('userData', process.env.GGPOKER_USER_DATA || path.join(app.getPath('
 try { require('node:fs').mkdirSync(app.getPath('userData'), { recursive: true }); } catch {}
 
 const DEV = process.env.GGPOKER_DEV === '1';
-const REMOTE_SERVER = String(process.env.GGPOKER_SERVER_URL || '').replace(/\/$/, '');
+// Once the player presses Update, the app plays on dangg.live instead of its built-in copy.
+const MODE_FILE = path.join(app.getPath('userData'), 'desktop.json');
+const ON_LIVE = !DEV && !process.env.GGPOKER_SERVER_URL && readMode(MODE_FILE) === 'live';
+const REMOTE_SERVER = String(process.env.GGPOKER_SERVER_URL || (ON_LIVE ? LIVE_URL : '')).replace(/\/$/, '');
 const REMOTE = !DEV && !!REMOTE_SERVER;
 if (REMOTE && !/^https?:\/\//.test(REMOTE_SERVER)) {
   throw new Error('GGPOKER_SERVER_URL must start with https:// (or http:// for local testing)');
@@ -174,6 +178,20 @@ ipcMain.handle('win:maximize', (event) => {
   if (!target) return;
   if (target.isMaximized()) target.unmaximize();
   else target.maximize();
+});
+// Update: the built-in copy offers an update when dangg.live runs a different build.
+ipcMain.handle('update:status', async () => {
+  if (DEV || REMOTE) return { outdated: false };
+  const local = readLocalVersion(path.join(ROOT, 'dist', 'version.json'));
+  const live = await fetchLiveVersion();
+  return { outdated: isOutdated(local, live), local, live };
+});
+ipcMain.handle('update:apply', () => {
+  if (DEV || REMOTE) return false;
+  writeMode(MODE_FILE, 'live');
+  app.relaunch();
+  app.quit();
+  return true;
 });
 ipcMain.handle('win:isMaximized', (event) => senderWindow(event)?.isMaximized() ?? false);
 

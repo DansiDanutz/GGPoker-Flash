@@ -41,10 +41,12 @@ function combinations(arr, k) {
   return out;
 }
 
-// Short Deck (6+) ranks a flush above a full house because flushes are rarer
-// with nine cards per suit, and its lowest straight is A-6-7-8-9.
+// Short Deck (6+), GGPoker rules: a flush beats a full house and three of a kind
+// beats a straight (both are rarer with 36 cards). The lowest straight is A-6-7-8-9.
 const SHORT_DECK_FLUSH = 6;
 const SHORT_DECK_FULL_HOUSE = 5;
+const SHORT_DECK_TRIPS = 4;
+const SHORT_DECK_STRAIGHT = 3;
 const SHORT_DECK_WHEEL_HIGH = 9;
 
 // Returns a comparable array: [category, ...kickers]
@@ -67,8 +69,8 @@ export function score5(cards, shortDeck = false) {
   if (g0[1] === 4) return [7, g0[0], g1[0]];
   if (g0[1] === 3 && g1[1] === 2) return [shortDeck ? SHORT_DECK_FULL_HOUSE : 6, g0[0], g1[0]];
   if (flush) return [shortDeck ? SHORT_DECK_FLUSH : 5, ...vs];
-  if (straightHigh) return [4, straightHigh];
-  if (g0[1] === 3) return [3, g0[0], ...groups.filter((g) => g[1] === 1).map((g) => g[0])];
+  if (straightHigh) return [shortDeck ? SHORT_DECK_STRAIGHT : 4, straightHigh];
+  if (g0[1] === 3) return [shortDeck ? SHORT_DECK_TRIPS : 3, g0[0], ...groups.filter((g) => g[1] === 1).map((g) => g[0])];
   if (g0[1] === 2 && g1[1] === 2) {
     const pairs = [g0[0], g1[0]].sort((a, b) => b - a);
     const kicker = groups.find((g) => g[1] === 1)[0];
@@ -94,6 +96,8 @@ export function handName(score, shortDeck = false) {
   if (cat === 8 && score[1] === 14) return 'Royal Flush';
   if (shortDeck && cat === SHORT_DECK_FLUSH) return 'Flush';
   if (shortDeck && cat === SHORT_DECK_FULL_HOUSE) return 'Full House';
+  if (shortDeck && cat === SHORT_DECK_TRIPS) return 'Three of a Kind';
+  if (shortDeck && cat === SHORT_DECK_STRAIGHT) return 'Straight';
   return CAT_NAMES[cat] || 'High Card';
 }
 

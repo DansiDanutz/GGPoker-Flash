@@ -568,13 +568,17 @@ export class TournamentRoom {
       disconnected: player.disconnected,
       disconnectedAt: player.disconnectedAt,
       sittingOut: player.sittingOut,
+      sitOutNextHand: player.sitOutNextHand,
       away: player.away,
+      awayChoice: player.awayChoice,
     };
     source.stand(player.id);
     const result = target.sit(profile, null, stack);
     if (!result.ok) {
       // Put the player back where they came from; nothing changed.
       source.sit(profile, seat.index, stack);
+      const back = source.seatOf(player.id)?.player;
+      if (back) Object.assign(back, flags);
       return null;
     }
     const moved = target.seatOf(player.id)?.player;

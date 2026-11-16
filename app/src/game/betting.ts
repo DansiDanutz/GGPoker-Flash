@@ -11,6 +11,8 @@ export type BetContext = {
   /** Server-computed ceiling (pot-limit games); 0 when the server did not send one. */
   maxRaiseTo: number;
   street: string;
+  /** Server flag: a short all-in has not reopened the betting for this player. */
+  raiseLocked?: boolean;
 };
 
 export type BetLimits = {
@@ -33,7 +35,7 @@ export function betLimits(ctx: BetContext): BetLimits {
   const toCall = Math.min(ctx.myStack, Math.max(0, ctx.currentBet - ctx.myBet));
   const maxTo = ctx.maxRaiseTo > 0 ? Math.min(allInTo, ctx.maxRaiseTo) : allInTo;
   const minTo = Math.min(maxTo, Math.max(ctx.currentBet + ctx.minRaise, ctx.bb));
-  return { toCall, minTo, maxTo, allInTo, canRaise: maxTo > ctx.currentBet };
+  return { toCall, minTo, maxTo, allInTo, canRaise: !ctx.raiseLocked && maxTo > ctx.currentBet };
 }
 
 function clamp(target: number, limits: BetLimits): number {
@@ -68,4 +70,10 @@ export function sizingPresets(ctx: BetContext, step = 1): SizingPreset[] {
 export function potOdds(pot: number, toCall: number): PotOdds | null {
   if (toCall <= 0 || pot <= 0) return null;
   return { ratio: pot / toCall, equityNeeded: toCall / (pot + toCall) };
+}
+
+/** Slider value to bet target: when a whole step no longer fits under the ceiling, the target is all-in. */
+export function sliderTarget(value: number, step: number, maxTo: number): number {
+  if (step > 0 && value + step > maxTo) return maxTo;
+  return Math.min(value, maxTo);
 }

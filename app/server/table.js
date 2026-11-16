@@ -1,5 +1,6 @@
 import { buildPots, collectedPots, oddChipOrder } from './pots.js';
 import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
+import { MAX_RUNS, RUN_ASK_MS, agreedRuns, boardsFor, splitAmount } from './runItMulti.js';
 import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
 import { badBeatPayout } from './badBeat.js';
 import { activeReservations, reserve, withoutPlayer } from './seatReserve.js';
@@ -9,6 +10,7 @@ import {
   makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
 } from './poker.js';
 import { randomInt } from 'node:crypto';
+import { FOLD_WIN_BOT_MS, FOLD_WIN_MS, SHOWDOWN_CLEAR_MS, runPresentationMs } from './handPacing.js';
 import { payoutFor, payoutTable } from './tournament.js';
 import { SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
 import { spinSixBlindLevel } from './spin-six.js';
@@ -30,14 +32,16 @@ const RECOVERY_PROPERTIES = [
   'button', 'sbSeat', 'bbSeat', 'handNo', 'street', 'board', 'deck', 'pot', 'currentBet', 'minRaise',
   'actor', 'actionEndsAt', 'botActAt', 'nextHandAt', 'rebuyHoldUntil', 'streetStartedAt', 'lastAggressor',
   'history', 'log', 'result', 'lastResult', 'handId', 'actionTimeMs', 'timeBankAction', 'handStartStack', 'lastAction', 'paused',
-  'runItTwice', 'rimt', 'rimtRevision', 'betAndMuck', 'betMuckRevision', 'cashInsuranceOffer', 'cashInsuranceRevision', 'cashInsuranceRuleRevision', 'battleClock', 'boards', 'dealtIds', 'handBlinds', 'grossContributions', 'uncalledReturns', 'straddleRound', 'pendingDeal', 'showdownDelay', 'spinMultiplier', 'spinPrize', 'spinPayouts', 'spinWinner',
+  'rimt', 'rimtRevision', 'betAndMuck', 'betMuckRevision', 'cashInsuranceOffer', 'cashInsuranceRevision', 'cashInsuranceRuleRevision', 'battleClock', 'boards', 'dealtIds', 'handBlinds', 'grossContributions', 'uncalledReturns', 'straddleRound', 'pendingDeal', 'showdownDelay', 'spinMultiplier', 'spinPrize', 'spinPayouts', 'spinWinner',
   'spinStartedAt', 'spinCompletedHands', 'spinLevel', 'sb', 'bb', 'ante', 'straddle', 'spinEventId',
   'spinPresentation', 'spinBarrierOpensAt', 'spinStartingChips', 'spinTimeBankCards', 'spinInsuranceTerms',
   'spinSixConfig', 'spinTimeBankSeconds', 'spinMaxTimeBankCards', 'spinMultipliers',
   'finished', 'rake', 'ghosts', 'messageSeq', 'tableEpoch', 'tableVersion',
 ];
 
-const MAX_MISSED_TURNS = 2;
+// One timeout folds the hand and sits the player out, so an absent player is not dealt in again
+// until they press "I'm back".
+const MAX_MISSED_TURNS = 1;
 // A cash-table player who busts gets this long to reload before the next deal.
 const REBUY_WINDOW_MS = 10_000;
 const BETTING_STREETS = Object.freeze(['preflop', 'flop', 'turn', 'river']);
@@ -62,17 +66,20 @@ export class PokerTable {
     this.sbSeat = -1;
     this.bbSeat = -1;
     this.handNo = 0;
+    this.turnNo = 0;
     this.street = 'idle'; // idle | preflop | flop | turn | river | showdown | ended
     this.board = [];
     this.deck = [];
     this.pot = 0;
     this.currentBet = 0;
     this.minRaise = cfg.bb;
+    this.betLevels = []; // this street's bet levels: { to, minRaise, by, full }
     this.actor = null;
     this.actionEndsAt = 0;
     this.timeBankUsed = new Set();
     this.botActAt = 0;
     this.nextHandAt = 0;
+    this.handClearAt = 0;
     this.rebuyHoldUntil = 0;
     this.streetStartedAt = 0;
     this.lastAggressor = null;
@@ -87,7 +94,7 @@ export class PokerTable {
     this.listeners = new Set();
     this.lastAction = null;
     this.paused = false;
-    this.runItTwice = false;
+    this.runRound = null;
     this.rimt = null;
     this.betAndMuck = null;
     this.cashInsuranceOffer = null;
@@ -99,7 +106,7 @@ export class PokerTable {
     this.shortDeck = cfg.game === 'shortdeck';
     this.bomb = !!cfg.bomb_pot;
     if (this.bomb && !this.ante) this.ante = this.bb;
-    this.showdownDelay = 5000;
+    this.showdownDelay = SHOWDOWN_CLEAR_MS;
     this.botSpeed = Number(cfg.botSpeed || 900);
     this.botIterations = Number(cfg.botIterations || 0);
     this.aof = cfg.game === 'aof';
@@ -147,7 +154,7 @@ export class PokerTable {
     this.rake = 0;
     this.finished = [];
     this.omahaHole = cfg.game === 'omaha5' ? 5 : cfg.game === 'omaha6' ? 6 : 4;
-    // `rushplo` is Rush & Cash PLO: four-card pot-limit Omaha with the Rush quick fold.
+    // `rushplo` is Fast Fold PLO: four-card pot-limit Omaha with the Rush quick fold.
     this.omaha = ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(cfg.game);
     this.potLimit = this.omaha;
     this.holeCount = this.omaha ? this.omahaHole : 2;
@@ -236,6 +243,7 @@ export class PokerTable {
       id: player.id,
       nick: player.nick,
       avatar: player.avatar || '',
+      country: /^[A-Za-z]{2}$/.test(String(player.country || '')) ? String(player.country).toUpperCase() : '',
       stack,
       isBot: !!player.isBot,
       sittingOut: false,
@@ -259,12 +267,19 @@ export class PokerTable {
       handsPlayed: 0,
       won: 0,
       autoMuck: true,
+      // Chosen before sitting (Table options), so a newcomer can wait for the big blind from hand one.
+      waitForBlinds: player.waitForBlinds === true,
+      runItAsk: true,
+      runPref: null,
       sitOutNextHand: false,
       leaveAfterHand: false,
       sitOutNextBigBlind: false,
       sitOutAll: false,
       insurance: false,
       sessionId,
+      // Joining a running cash table owes a big blind (posted on the next deal, or waited for with
+      // Wait for BB): no free hand. Automatic moves (Rush, balancing) and the first hand owe nothing.
+      missedBlinds: this.handNo > 0 && this.owesSitInBlind() && !this.rush && !player.isBot,
     };
     this.emit({ type: 'sit', seat: seat.index, nick: player.nick });
     this.maybeStart();
@@ -291,17 +306,20 @@ export class PokerTable {
         p.folded = true;
         this.log.push({ seat: p.seat, nick: p.nick, action: 'fold', canRaise: this.actor === p.id && this.maxRaiseToFor(p.id) > this.currentBet, street: this.street });
       }
-      // The part of the leaver's bet that nobody matched goes back with their stack (native
-      // splitPots: only matched chips can be won), so nobody has to answer a departed bet.
-      if (!isForfeit) this.returnLeaverExcess(p);
+      // Leaving folds: every chip the leaver bet stays in the pot as dead money (settlement keeps
+      // a departed seat's unmatched layer in the top pot), but nobody has to answer that bet.
+      if (!isForfeit) this.retireLeaverBet(p);
       // Keep the departed player's matched chips in the pot instead of losing them with the seat.
       this.ghosts.push({
         id: p.id, nick: p.nick, bet: p.bet, totalBet: p.totalBet, isBot: !!p.isBot,
+        // The part of the bet still to be answered: a retired bet stands only up to the new price.
+        standing: Math.min(p.bet, this.currentBet),
         ...(isForfeit ? { history: { seat: seat.index, stack: p.stack, cards: p.cards, sessionId: p.sessionId, sessionStartedAt: p.joinedAt } } : {}),
       });
     }
     seat.player = null;
     this.emit({ type: 'stand', seat: seat.index });
+    if (wasLive && this.runRound && this.leaveRunRound(p.id)) return { ok: true, stack: p.stack };
     if (this.straddleRound) {
       this.straddleRound.asked.delete(p.id);
       if (!this.straddleRound.asked.size) this.closeStraddleRound();
@@ -350,7 +368,19 @@ export class PokerTable {
     }
     if (this.nextHandAt && Date.now() < this.nextHandAt) return;
     this.prepareDeal();
+    this.releaseWaitersIfShort();
     if (this.readySeats().length >= 2) this.startHand();
+  }
+
+  /**
+   * Waiting for the big blind needs a game to wait in. When the waiters are all that keeps the
+   * table from dealing, they stop waiting and post like any returning player.
+   */
+  releaseWaitersIfShort() {
+    const waiters = this.occupiedSeats().filter((s) => this.waitsForBigBlind(s.player));
+    if (!waiters.length || this.readySeats().length >= 2) return;
+    if (this.readySeats().length + waiters.length < 2) return;
+    for (const s of waiters) s.player.waitForBlinds = false;
   }
 
   /** Between hands, before who is dealt in is decided: pending top-ups and stack trims land. */
@@ -411,7 +441,7 @@ export class PokerTable {
     return this.occupiedSeats().filter((s) => this.isDealtIn(s.player));
   }
 
-  /** Spin & Gold runs only at an observed play-money stake (5,000 / 10,000, fixed buy-in). */
+  /** Jackpot SNG runs only at an observed play-money stake (5,000 / 10,000, fixed buy-in). */
   spinStakeValid() {
     return this.spin && isSpinStake(Number(this.cfg.min_buyin), Number(this.cfg.max_buyin));
   }
@@ -620,6 +650,8 @@ export class PokerTable {
       if (p?.leaveAfterHand) p.sittingOut = true;
     }
     applyBigBlindSitOuts(this);
+    // Sit-outs land just above: re-check that a waiter is not all that stops this deal.
+    this.releaseWaitersIfShort();
     const ready = this.readySeats();
     if (this.spin && this.handNo > 0 && ready.length === 1) { this.awardSpinWinner(); return; }
     if (this.tournament && this.handNo > 0 && ready.length === 1) { this.awardTournamentWinner(); return; }
@@ -633,18 +665,21 @@ export class PokerTable {
     if (this.spinStarted()) this.applySpinBlinds();
 
     this.handNo++;
+    this.handReturns = new Map();
     this.markMissedBlinds();
     this.deck = shuffle(makeDeck(this.shortDeck));
     this.board = [];
     this.pot = 0;
     this.currentBet = 0;
     this.minRaise = this.bb;
+    this.betLevels = [];
     this.lastAggressor = null;
     this.result = null;
     this.showdown = false;
     this.boards = [];
     this.betAndMuck = null;
     this.cashInsuranceOffer = null;
+    this.runRound = null;
     this.street = 'preflop';
     this.streetStartedAt = Date.now();
     this.history = [];
@@ -667,8 +702,10 @@ export class PokerTable {
       p.bet = 0;
       p.totalBet = 0;
       p.acted = false;
+      p.actedAtBet = null;
       p.reveal = false;
       p.shown = [];
+      p.showAtEnd = [];
       p.cards = [];
       p.lastAction = null;
       p.winAmount = 0;
@@ -762,6 +799,7 @@ export class PokerTable {
     if (p.bet > this.currentBet) {
       this.currentBet = p.bet;
       this.minRaise = p.bet;
+      this.betLevels = [...this.betLevels, { to: p.bet, minRaise: p.bet, by: p.id, full: true }];
       this.pendingDeal.straddleSeat = seat;
     }
   }
@@ -891,25 +929,25 @@ export class PokerTable {
 
   /**
    * Show one, several or all hole cards to the table after the hand ended.
-   * Only a player who was dealt in and did not fold can reveal this way.
+   * Anyone dealt in, folded or not, can reveal this way; later calls add more cards.
    */
   showCards(playerId, indices) {
     if (this.street !== 'ended') return { ok: false, error: 'Show cards at the end of the hand' };
     const seat = this.seatOf(playerId);
     const p = seat?.player;
     if (!p) return { ok: false, error: 'not seated' };
-    // Native ShowMuck: anyone dealt into the hand may show, folded or not, once per hand.
+    // Native ShowMuck: anyone dealt into the hand may show, folded or not. Showing more later
+    // adds to what is already shown; a shown card never goes back face down.
     if (!p.inHand || !p.cards.length) return { ok: false, error: 'Only a player dealt into the hand can show cards' };
     if (!Array.isArray(indices) || !indices.length) return { ok: false, error: 'Pick a card first' };
     const picked = [...new Set(indices.map(Number))]
       .filter((i) => Number.isInteger(i) && i >= 0 && i < p.cards.length)
       .sort((a, b) => a - b);
     if (!picked.length) return { ok: false, error: 'Pick a card first' };
-    if (p.shown?.length) {
-      const same = p.shown.length === picked.length && p.shown.every((i, k) => i === picked[k]);
-      return same ? { ok: true, shown: p.shown } : { ok: false, error: 'Cards already selected' };
-    }
-    p.shown = picked;
+    const before = p.shown || [];
+    const added = picked.filter((i) => !before.includes(i));
+    if (!added.length) return { ok: true, shown: before };
+    p.shown = [...before, ...added].sort((a, b) => a - b);
     if (p.shown.length >= p.cards.length) p.reveal = true;
     this.emit({
       type: 'cards_shown',
@@ -917,9 +955,35 @@ export class PokerTable {
       playerId: p.id,
       nick: p.nick,
       indices: p.shown,
-      cards: p.shown.map((i) => cardStr(p.cards[i])),
+      cards: added.map((i) => cardStr(p.cards[i])),
     });
     return { ok: true, shown: p.shown };
+  }
+
+  /**
+   * Mark hole cards during a live hand to show them when it ends (DanGG: the eye on the card).
+   * The list replaces the last one, so an empty list takes every mark back.
+   */
+  markShowAtEnd(playerId, indices) {
+    if (this.street === 'ended' || this.street === 'idle') return { ok: false, error: 'Show cards directly after the hand' };
+    const p = this.seatOf(playerId)?.player;
+    if (!p || !p.inHand || !p.cards.length) return { ok: false, error: 'Only a player dealt into the hand can mark cards' };
+    if (!Array.isArray(indices)) return { ok: false, error: 'Pick a card first' };
+    p.showAtEnd = [...new Set(indices.map(Number))]
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < p.cards.length)
+      .sort((a, b) => a - b);
+    return { ok: true, showAtEnd: p.showAtEnd };
+  }
+
+  /** The hand just ended: turn up every card a player marked during it. */
+  revealMarkedCards() {
+    for (const s of this.seats) {
+      const p = s.player;
+      if (!p?.showAtEnd?.length) continue;
+      const marked = p.showAtEnd;
+      p.showAtEnd = [];
+      this.showCards(p.id, marked);
+    }
   }
 
   /**
@@ -1026,9 +1090,20 @@ export class PokerTable {
     return { ok: true };
   }
 
-  setRunItTwice(value) {
-    if (this.street !== 'idle' && this.street !== 'ended') return { ok: false, error: 'between hands only' };
-    this.runItTwice = !!value;
+  /** Per-player: whether to be offered running it more than once when all-in. Off means "once". */
+  /** Remembered run-it choice: null asks each time, 1-3 answers for the player. */
+  setRunPref(userId, value) {
+    const seat = this.seatOf(userId);
+    if (!seat?.player) return { ok: false, error: 'Take a seat first' };
+    if (value !== null && !(Number.isInteger(value) && value >= 1 && value <= MAX_RUNS)) return { ok: false, error: 'Choose ask, or 1 to 3 runs' };
+    seat.player.runPref = value;
+    return { ok: true };
+  }
+
+  setRunItAsk(userId, value) {
+    const seat = this.seatOf(userId);
+    if (!seat?.player) return { ok: false, error: 'Take a seat first' };
+    seat.player.runItAsk = !!value;
     return { ok: true };
   }
 
@@ -1041,6 +1116,8 @@ export class PokerTable {
   setActor(playerId) {
     this.actor = playerId;
     if (!playerId) return;
+    // Every turn gets its own number; an action stamped with an older one is refused.
+    this.turnNo += 1;
     const seat = this.seatOf(playerId);
     this.actionEndsAt = Date.now() + this.actionTimeMs;
     if (seat && seat.player && seat.player.isBot) {
@@ -1114,7 +1191,8 @@ export class PokerTable {
 
     if (!opts.auto) p.missedTurns = 0;
     const call = this.toCall(p);
-    if (this.aof && action === 'call' && !this.lastAggressor) return { ok: false, error: 'all-in or fold only' };
+    // A short stack's all-in that cannot beat the bet arrives here as a call (opts.allInCall): it stays legal.
+    if (this.aof && action === 'call' && !this.lastAggressor && !opts.allInCall) return { ok: false, error: 'all-in or fold only' };
     if (action === 'fold') {
       this.markFolded(seat);
     } else if (action === 'check') {
@@ -1140,15 +1218,14 @@ export class PokerTable {
       if (this.potLimit) target = Math.min(target, this.potLimitMax(p));
       if (target <= this.currentBet) {
         // An all-in that does not exceed the current bet is a call, never a "raise" that lowers the bet.
-        if (action === 'allin' || target >= maxTarget) return this.act(playerId, 'call', 0, opts);
+        if (action === 'allin' || target >= maxTarget) return this.act(playerId, 'call', 0, { ...opts, allInCall: true });
         return { ok: false, error: 'raise too small' };
       }
       const isAllIn = target === maxTarget;
       const raiseSize = target - this.currentBet;
       // A player who already acted may only raise again once the bet has grown by a full raise
       // since their last action; several short all-ins can add up to that.
-      const isRaiseLocked = p.acted && this.currentBet - (p.actedAtBet ?? 0) < this.minRaise;
-      if (isRaiseLocked) {
+      if (this.isRaiseLocked(p)) {
         if (action === 'allin') return this.act(playerId, 'call', 0, opts);
         return { ok: false, error: 'raise not allowed after a short all-in' };
       }
@@ -1159,6 +1236,7 @@ export class PokerTable {
       const previousBet = this.currentBet;
       this.currentBet = p.bet;
       if (isFullRaise) this.minRaise = raiseSize;
+      this.betLevels = [...this.betLevels, { to: this.currentBet, minRaise: this.minRaise, by: p.id, full: isFullRaise }];
       if (p.stack === 0) p.allIn = true;
       for (const s of this.seats) {
         const other = s.player;
@@ -1273,21 +1351,31 @@ export class PokerTable {
     }
   }
 
-  /** Return a departing player's bet above everyone else's, and lower the bet to match. */
-  returnLeaverExcess(p) {
+  /**
+   * A leaver's bet stays in the pot, but nobody has to answer it: the bet to call falls to the
+   * highest bet anyone else made (folded and departed raises still stand), the minimum raise and
+   * the levels go back to that point, and a player owes a new decision only if a full raise was
+   * made after their last action (so a short all-in still does not reopen the betting).
+   */
+  retireLeaverBet(p) {
     const others = [
       ...this.seats.filter((s) => s.player && s.player !== p && s.player.inHand).map((s) => s.player.bet),
-      ...this.ghosts.map((g) => g.bet),
+      ...this.ghosts.filter((g) => g.id !== p.id).map((g) => g.standing ?? g.bet),
     ];
-    const highest = others.length ? Math.max(...others) : 0;
-    const excess = Math.max(0, p.bet - highest);
-    if (excess > 0) {
-      p.bet -= excess;
-      p.totalBet -= excess;
-      p.stack += excess;
-      this.emit({ type: 'uncalled', seat: p.seat, playerId: p.id, amount: excess });
+    // Preflop the big blind is owed even when the blind itself has gone.
+    const floor = this.street === 'preflop' ? this.bb : 0;
+    const highest = Math.max(floor, ...others);
+    if (this.currentBet <= highest) return;
+    this.currentBet = highest;
+    this.betLevels = this.betLevels.filter((l) => l.by !== p.id && l.to <= highest);
+    const last = this.betLevels.at(-1);
+    this.minRaise = last ? last.minRaise : this.bb;
+    for (const s of this.seats) {
+      const o = s.player;
+      if (!o || o === p || !o.inHand || o.folded || o.allIn) continue;
+      const reopened = this.betLevels.some((l) => l.full && l.by !== o.id && l.to > (o.actedAtBet ?? -1));
+      o.acted = o.actedAtBet != null && !reopened;
     }
-    this.currentBet = Math.min(this.currentBet, Math.max(highest, p.bet));
   }
 
   /**
@@ -1302,6 +1390,7 @@ export class PokerTable {
       ...this.ghosts.filter((g) => g.totalBet > 0).map((g) => ({ key: g, amount: g.totalBet, folded: true })),
     ];
     const { pots, returns } = buildPots(contributions);
+    this.handReturns = new Map();
     // Dead money rule: chips a player folded are never returned, whether the folder is still
     // seated (a Rush quick fold) or has left; their unmatched layer joins the top pot. Only a
     // live player's unmatched layer goes back to them.
@@ -1311,10 +1400,16 @@ export class PokerTable {
         p.stack += r.amount;
         this.pot -= r.amount;
         this.uncalledReturns[p.id] = (this.uncalledReturns[p.id] || 0) + r.amount;
+        this.handReturns.set(p.id, (this.handReturns.get(p.id) || 0) + r.amount);
       }
       else if (pots.length) pots[pots.length - 1].amount += r.amount;
     }
     return pots;
+  }
+
+  /** What a player really put into this hand's pots: their bets less any unmatched layer handed back. */
+  investedBy(p) {
+    return p.totalBet - (this.handReturns?.get(p.id) || 0);
   }
 
   // Give back the part of the largest bet that nobody matched, so it is never raked or contested.
@@ -1338,24 +1433,114 @@ export class PokerTable {
     return excess;
   }
 
-  runout() {
+  /** @param {{ singleBoard?: boolean }} [opts] singleBoard: an insured hand runs one board, never a run-it vote. */
+  runout(opts = {}) {
     if (this.beginRimt()) return;
+    // The underdog of a heads-up cash all-in may insure first (only once the operator funded insurance).
     if (beginCashInsurance(this)) return;
     this.collectBets();
-    if (this.runItTwice && this.activePlayers().filter((s) => !s.player.folded).length >= 2) {
-      this.runoutTwice();
-      return;
-    }
     this.street = 'showdown';
     this.actor = null;
-    while (this.board.length < 5) {
-      if (this.board.length === 0) this.board.push(this.deck.pop(), this.deck.pop(), this.deck.pop());
-      else this.board.push(this.deck.pop());
+    if (!opts.singleBoard && this.openRunRound()) return;
+    this.runBoards(1);
+  }
+
+  /** Whether a run-it choice can ever be offered here: cash tables, not Rush, AoF, Spin or tournaments. */
+  offersRunIt() {
+    return !this.tournament && !this.spin && !this.aof && !this.rush;
+  }
+
+  /** Cash all-ins with cards to come: the all-in players choose to run it 1-3 times. */
+  openRunRound() {
+    // Cash tables only: not tournaments, Spin, All-in or Fold, fast-fold Rush or the first-hand flip.
+    if (!this.offersRunIt() || this.flip || this.board.length >= 5) return false;
+    const alive = this.activePlayers().filter((s) => !s.player.folded);
+    if (alive.length < 2) return false;
+    const humans = alive.filter((s) => !s.player.isBot);
+    if (!humans.length || humans.some((s) => s.player.runItAsk === false || s.player.runPref === 1)) return false;
+    const asked = humans.filter((s) => !s.player.disconnected && !s.player.sittingOut);
+    // "All must agree": an absent player with no saved choice counts as once, so the board runs once.
+    const absent = humans.filter((s) => !asked.includes(s));
+    if (!asked.length || absent.some((s) => !s.player.runPref)) return false;
+    const absentChoices = new Map(absent.map((s) => [s.player.id, s.player.runPref]));
+    // All-in hands are tabled before the players decide.
+    for (const s of alive) s.player.reveal = true;
+    const remembered = new Map(asked.filter((s) => s.player.runPref).map((s) => [s.player.id, s.player.runPref]));
+    if (remembered.size === asked.length) {
+      this.runBoards(agreedRuns([...remembered.values(), ...absentChoices.values()]));
+      return true;
     }
-    this.emit({ type: 'runout', board: this.board.map(cardStr) });
-    this.showdownDelay = 4200;
-    this.nextHandAt = Date.now() + this.showdownDelay;
-    this.doShowdown();
+    this.runRound = { asked: new Set(asked.map((s) => s.player.id)), choices: remembered, absentChoices, endsAt: Date.now() + RUN_ASK_MS };
+    this.emit({ type: 'run_ask', endsAt: this.runRound.endsAt, maxRuns: MAX_RUNS });
+    return true;
+  }
+
+  /** Rabbit hunt: the undealt cards, only for players who were dealt into the hand that just ended. */
+  rabbitCardsFor(viewerId) {
+    if (this.street !== 'ended' || this.board.length >= 5) return null;
+    const p = viewerId ? this.seatOf(viewerId)?.player : null;
+    if (!p || !p.inHand) return null;
+    const deck = [...this.deck];
+    const cards = [];
+    while (cards.length < 5 - this.board.length && deck.length) cards.push(cardStr(deck.pop()));
+    return cards;
+  }
+
+  runAskFor(viewerId) {
+    const round = this.runRound;
+    if (!round || !viewerId || !round.asked.has(viewerId)) return null;
+    return { endsAt: round.endsAt, maxRuns: MAX_RUNS, chosen: round.choices.get(viewerId) ?? null };
+  }
+
+  decideRuns(playerId, runs) {
+    const round = this.runRound;
+    if (!round || this.street !== 'showdown' || !round.asked.has(playerId)) return { ok: false, error: 'Nothing to decide' };
+    if (round.choices.has(playerId)) return { ok: false, error: 'Already chosen' };
+    if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) return { ok: false, error: 'Choose 1 to 3 runs' };
+    round.choices.set(playerId, runs);
+    // Once anyone picks a single run, nothing anyone else says can change it.
+    if (runs === 1 || round.choices.size === round.asked.size) this.closeRunRound();
+    return { ok: true };
+  }
+
+  /**
+   * A player leaves while the run-it choice is open: the others keep their answers and the clock,
+   * and the board runs at once if nobody still has to answer. False when the leaver was the last
+   * opponent, so the hand ends by fold instead.
+   */
+  leaveRunRound(playerId) {
+    if (this.activePlayers().length < 2) return false;
+    const round = this.runRound;
+    round.asked.delete(playerId);
+    round.choices.delete(playerId);
+    round.absentChoices.delete(playerId);
+    if (round.choices.size === round.asked.size) this.closeRunRound();
+    return true;
+  }
+
+  closeRunRound() {
+    const round = this.runRound;
+    if (!round) return;
+    this.runRound = null;
+    if (this.street !== 'showdown') return; // the hand already ended (a leaver folded): never pay twice
+    // A player who did not answer in time counts as "once".
+    const choices = [...round.asked].map((id) => round.choices.get(id) ?? 1);
+    this.runBoards(agreedRuns([...choices, ...round.absentChoices.values()]));
+  }
+
+  /** Deal the rest of the board once, or several boards that all keep the cards already dealt. */
+  runBoards(runs) {
+    if (runs <= 1) {
+      while (this.board.length < 5) {
+        if (this.board.length === 0) this.board.push(this.deck.pop(), this.deck.pop(), this.deck.pop());
+        else this.board.push(this.deck.pop());
+      }
+      this.emit({ type: 'runout', board: this.board.map(cardStr) });
+      this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay;
+      this.doShowdown();
+      return;
+    }
+    this.runoutMulti(runs);
   }
 
   beginRimt() {
@@ -1517,23 +1702,22 @@ export class PokerTable {
     this.updateMissionProgress(results[0] || null);
   }
 
-  runoutTwice() {
+  runoutMulti(runs) {
     this.street = 'showdown';
     this.actor = null;
     this.collectBets();
     const alive = this.activePlayers().filter((s) => !s.player.folded);
     if (alive.length < 2) { this.doShowdown(); return; }
-    const board1 = [];
-    const board2 = [];
-    while (board1.length < 5) board1.push(this.deck.pop());
-    while (board2.length < 5) board2.push(this.deck.pop());
+    const shared = this.board.length;
+    const dealt = boardsFor(this.board, this.deck, runs);
+    this.deck = dealt.deck;
+    const boards = dealt.boards;
     const evaluate = (board) => alive.map((s) => {
       const p = s.player;
-      const best = this.omaha ? bestOmaha(p.cards, board) : bestHoldem(p.cards, board);
+      const best = this.omaha ? bestOmaha(p.cards, board) : bestHoldem(p.cards, board, this.shortDeck);
       return { seat: s.index, player: p, score: best.score, name: best.name, cards: best.cards };
     });
-    const scored = [evaluate(board1), evaluate(board2)];
-
+    const scored = boards.map(evaluate);
     // Same native settlement as a single board, including chips left by departed seats.
     const pots = this.settlementPots().map((pot) => ({ amount: pot.amount, ids: pot.eligible }));
     const rake = this.computeRake(this.pot);
@@ -1547,6 +1731,8 @@ export class PokerTable {
     }
 
     const results = [];
+    // Each board's own winners, so the table can name them board by board.
+    const byBoard = boards.map(() => []);
     const award = (scoredBoard, amount, boardIndex, eligible) => {
       if (amount <= 0 || !eligible.length) return;
       const candidates = scoredBoard.filter((sc) => eligible.includes(sc.player.id));
@@ -1563,41 +1749,44 @@ export class PokerTable {
         if (remainder > 0) { amt++; remainder--; }
         w.player.stack += amt;
         w.player.winAmount += amt;
+        const onBoard = byBoard[boardIndex].find((r) => r.id === w.player.id);
+        if (onBoard) onBoard.amount += amt;
+        else byBoard[boardIndex].push({ id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt, hand: w.name });
         const prior = results.find((r) => r.id === w.player.id);
         if (prior) {
           prior.amount += amt;
+          prior.contested = prior.contested || eligible.length > 1;
           prior.boards = [...new Set([...(prior.boards || []), boardIndex])];
         } else {
           results.push({
             id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt,
             hand: w.name, cards: w.cards.map(cardStr), board: boardIndex, boards: [boardIndex],
+            contested: eligible.length > 1, invested: this.investedBy(w.player),
           });
         }
       }
     };
 
     for (const pot of pots) {
-      const half = Math.floor(pot.amount / 2);
-      award(scored[0], half, 0, pot.ids);
-      award(scored[1], pot.amount - half, 1, pot.ids);
+      splitAmount(pot.amount, runs).forEach((amount, run) => award(scored[run], amount, run, pot.ids));
     }
 
-    const doubleWinnerIds = new Set(results.map((r) => r.id));
-    for (const sc of alive) {
-      const p = sc.player;
-      if (doubleWinnerIds.has(p.id) || !p.autoMuck) p.reveal = true;
-    }
-    this.board = board1;
-    this.boards = [board1, board2];
+    // Every hand was tabled when the players chose how many times to run it.
+    for (const sc of alive) sc.player.reveal = true;
+    this.board = boards[0];
+    this.boards = boards;
     const summary = {
-      pot: this.pot, rake, board: board1.map(cardStr), boards: [board1.map(cardStr), board2.map(cardStr)],
-      winners: results, runItTwice: true, reason: 'showdown',
+      pot: this.pot, rake, board: boards[0].map(cardStr), boards: boards.map((b) => b.map(cardStr)), runs,
+      winners: results, byBoard, shared, runItTwice: true, reason: 'showdown',
+      showFirst: this.showdownFirstSeat(alive.map((sc) => sc.index)),
       hands: alive.map((s) => ({ seat: s.index, nick: s.player.nick, cards: s.player.cards.map(cardStr) })),
     };
     this.result = this.publicShowdown(summary);
     this.street = 'ended';
-    this.nextHandAt = Date.now() + this.showdownDelay;
+    // The boards come out one by one and each winner is named in turn before the usual clear.
+    this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay + runPresentationMs(runs, shared);
     this.emit({ type: 'win', ...this.result });
+    this.revealMarkedCards();
     this.saveHand(summary);
     this.updateMissionProgress(results[0] || null);
   }
@@ -1613,6 +1802,7 @@ export class PokerTable {
     for (const g of this.ghosts) {
       this.pot += g.bet;
       g.bet = 0;
+      g.standing = 0;
     }
     this.currentBet = 0;
   }
@@ -1626,10 +1816,11 @@ export class PokerTable {
     else if (this.street === 'turn') this.street = 'river';
     this.board.push(...this.dealStreet(this.street));
     for (const s of this.seats) {
-      if (s.player) { s.player.acted = false; s.player.lastAction = null; }
+      if (s.player) { s.player.acted = false; s.player.actedAtBet = null; s.player.lastAction = null; }
     }
     this.currentBet = 0;
     this.minRaise = this.bb;
+    this.betLevels = [];
     this.lastAggressor = null;
     this.emit({ type: 'street', street: this.street, board: this.board.map(cardStr), pot: this.pot });
     this.progress(this.button);
@@ -1654,6 +1845,7 @@ export class PokerTable {
   }
 
   finishByFold(winnerSeat) {
+    this.runRound = null; // a pending run-it choice dies with the hand: it must never settle again
     if (!this.handInProgress()) return;
     this.collectBets();
     const winner = winnerSeat ? winnerSeat.player : null;
@@ -1667,7 +1859,7 @@ export class PokerTable {
     const summary = {
       pot: this.pot,
       rake,
-      winners: winner ? [{ id: winner.id, nick: winner.nick, amount: award, hand: null }] : [],
+      winners: winner ? [{ id: winner.id, nick: winner.nick, amount: award, hand: null, contested: false, invested: this.investedBy(winner) }] : [],
       board: this.board.map(cardStr),
       reason: 'fold',
     };
@@ -1675,8 +1867,9 @@ export class PokerTable {
     this.result = summary;
     this.street = 'ended';
     this.actor = null;
-    this.nextHandAt = Date.now() + (winner && winner.isBot ? 1800 : 3000);
+    this.nextHandAt = this.handClearAt = Date.now() + (winner && winner.isBot ? FOLD_WIN_BOT_MS : FOLD_WIN_MS);
     this.emit({ type: 'win', ...summary });
+    this.revealMarkedCards();
     this.saveHand(summary);
     this.updateMissionProgress(winner);
   }
@@ -1726,15 +1919,19 @@ export class PokerTable {
         results.push({
           id: w.player.id, nick: w.player.nick, seat: w.seat, amount: amt,
           hand: w.name, cards: w.cards.map(cardStr), pot: pot.amount, potIndex,
+          contested: pot.eligible.length > 1, invested: this.investedBy(w.player),
         });
       }
     }
     // Winners show at showdown; losing hands muck unless the player turned
     // auto-muck off.
     const winnerIds = new Set(results.map((r) => r.id));
+    const showFirst = this.showdownFirstSeat(scored.map((sc) => sc.seat));
     for (const sc of scored) {
       const p = sc.player;
-      if (winnerIds.has(p.id) || !p.autoMuck) p.reveal = true;
+      // The first seat to show (a called last aggressor, or on a check-down the first live seat
+      // left of the button) must table the hand: nobody has shown yet, so it cannot muck.
+      if (winnerIds.has(p.id) || !p.autoMuck || p.id === this.lastAggressor || sc.seat === showFirst) p.reveal = true;
     }
     const summary = {
       pot: this.pot,
@@ -1745,6 +1942,7 @@ export class PokerTable {
         seat: s.seat, nick: s.player.nick, cards: s.player.cards.map(cardStr), hand: s.name,
       })),
       reason: 'showdown',
+      showFirst,
     };
     const badBeat = this.payBadBeatJackpot(scored, pots, results);
     if (badBeat) summary.badBeat = badBeat;
@@ -1755,8 +1953,9 @@ export class PokerTable {
     this.result = this.publicShowdown(summary);
     this.street = 'ended';
     this.actor = null;
-    this.nextHandAt = Date.now() + this.showdownDelay;
+    this.nextHandAt = this.handClearAt = Date.now() + this.showdownDelay;
     this.emit({ type: 'win', ...this.result });
+    this.revealMarkedCards();
     this.saveHand(summary);
     this.updateMissionProgress(results[0]);
   }
@@ -1821,6 +2020,18 @@ export class PokerTable {
    * seat (for the reveal order) but lose their cards. The full summary is only saved
    * to hand history, which filters per viewer on read.
    */
+  /** Seat that turns its cards first: the last aggressor, else the first live seat left of the button. */
+  showdownFirstSeat(seats) {
+    const aggressor = this.lastAggressor != null ? this.seatOf(this.lastAggressor) : null;
+    if (aggressor && seats.includes(aggressor.index)) return aggressor.index;
+    const n = this.seats.length;
+    for (let i = 1; i <= n; i++) {
+      const seat = (this.button + i) % n;
+      if (seats.includes(seat)) return seat;
+    }
+    return null;
+  }
+
   publicShowdown(summary) {
     const revealed = (seat) => !!this.seats[seat]?.player?.reveal;
     return {
@@ -1899,7 +2110,8 @@ export class PokerTable {
     const stillWaiting = this.humans().some((p) => p.stack <= 0 && p.rebuyPrompted);
     if (stillWaiting) return;
     if (this.nextHandAt && (this.street === 'ended' || this.street === 'idle')) {
-      this.nextHandAt = Math.min(this.nextHandAt, Date.now() + 1500);
+      // Sooner, but never before the last hand has cleared off the table.
+      this.nextHandAt = Math.min(this.nextHandAt, Math.max(Date.now() + 1500, this.handClearAt || 0));
     }
   }
 
@@ -1932,6 +2144,7 @@ export class PokerTable {
     if (this.paused && this.street !== 'ended' && this.street !== 'idle') return;
     this.expireReservations(now);
     if (this.hooks.onCashInsuranceExpire) this.hooks.onCashInsuranceExpire(this, now);
+    if (this.runRound && now >= this.runRound.endsAt) this.closeRunRound();
     if (this.tournament) {
       // Flights share one level clock; the first table to tick advances it and
       // every other flight picks the new level up on its own next tick.
@@ -2023,6 +2236,7 @@ export class PokerTable {
         }
         this.prepareDeal();
         const alive = this.occupiedSeats().filter((s) => s.player && s.player.stack > 0);
+        this.releaseWaitersIfShort();
         if (this.readySeats().length >= 2 && !this.paused) this.startHand();
         else if (this.tournament && alive.length === 1 && this.handNo > 0) this.awardTournamentWinner();
         else if (this.spin && alive.length === 1 && this.handNo > 0) this.awardSpinWinner();
@@ -2049,7 +2263,10 @@ export class PokerTable {
       return;
     }
     if (now >= this.actionEndsAt) {
-      // Two timeouts in a row sit the player out so an absent player cannot stall the table.
+      // Facing a bet, the clock spends one Time Bank Card before folding (GGPoker auto time bank),
+      // once per turn.
+      if (this.toCall(p) > 0 && !this.timeBankAction && this.useTimeBank(p.id).ok) return;
+      // A timeout sits the player out so an absent player cannot stall the table.
       p.missedTurns = (p.missedTurns || 0) + 1;
       if (p.missedTurns >= MAX_MISSED_TURNS && !p.sittingOut) {
         p.sittingOut = true;
@@ -2197,6 +2414,7 @@ export class PokerTable {
       sbSeat: this.sbSeat,
       bbSeat: this.bbSeat,
       handNo: this.handNo,
+      turnNo: this.turnNo,
       street: this.street,
       board: this.board.map(cardStr),
       pot: this.pot + this.totalBets(),
@@ -2206,6 +2424,7 @@ export class PokerTable {
       potLimit: this.potLimit,
       allInOrFold: this.aof,
       maxRaiseTo: this.maxRaiseToFor(viewerId),
+      raiseLocked: this.raiseLockedFor(viewerId),
       rake: this.rake,
       actionTimeMs: this.actionTimeMs,
       actor: this.actor,
@@ -2241,13 +2460,18 @@ export class PokerTable {
           shown: p.reveal ? p.cards.map((_, i) => i) : (p.shown || []),
           cards: (p.reveal || mine)
             ? p.cards.map(cardStr)
-            : (p.inHand && !p.folded
+            // A live hand, or a folded one with a card shown after the hand: only shown cards go out.
+            : ((p.inHand && !p.folded) || (p.shown || []).length
               ? p.cards.map((c, i) => ((p.shown || []).includes(i) ? cardStr(c) : '??'))
               : []),
           lastAction: p.lastAction,
           winAmount: p.winAmount,
           disconnected: p.disconnected,
+          country: p.country || '',
           sitOutNext: !!p.sitOutNextHand,
+          showAtEnd: mine ? (p.showAtEnd || []) : undefined,
+          runItAsk: mine ? p.runItAsk !== false : undefined,
+          runPref: mine ? (p.runPref ?? null) : undefined,
           timeBank: p.timeBank,
           timeBankCards: p.timeBankCards ?? 0,
           ...(mine ? { autoStraddle: !!p.autoStraddle, sitOutEndsAt: p.kickOutAt || 0, waitForBlinds: !!p.waitForBlinds, waitingForBigBlind: this.waitsForBigBlind(p), leaveAfterHand: !!p.leaveAfterHand, sitOutNextBigBlind: !!p.sitOutNextBigBlind, sitOutAll: !!p.sitOutAll, pendingTopUp: p.pendingTopUp || 0, topUpVersion: p.topUpVersion || 0, autoReduceBB: p.autoReduceBB || 0 } : {}),
@@ -2277,7 +2501,6 @@ export class PokerTable {
       straddle: this.straddle,
       straddleAsk: this.straddleAskFor(viewerId),
       quickFold: this.rush && viewerId != null ? this.quickFoldState(viewerId) : null,
-      runItTwice: this.runItTwice,
       rimt: this.rimtPublic() || this.result?.rimt || null,
       betAndMuck: this.betAndMuck || null,
       cashInsurance: this.cashInsuranceOffer || null,
@@ -2286,6 +2509,9 @@ export class PokerTable {
       cashDrop: this.cashDrop ? { handId: this.cashDrop.handId, nick: this.cashDrop.nick, amount: this.cashDrop.amount, rule: this.cashDrop.rule } : null,
       betMuckRevision: this.betMuckRevision || 0,
       betAndMuckEligible: viewerId != null ? betMuckEligibility(this, viewerId).ok : false,
+      runAsk: this.runAskFor(viewerId),
+      runRoundEndsAt: this.runRound?.endsAt ?? null,
+      runItOffered: this.offersRunIt(),
       boards: this.boards?.length ? this.boards.map((b) => b.map(cardStr)) : null,
       tournament: this.tournament ? {
         id: this.cfg.tournamentId || null,
@@ -2304,6 +2530,17 @@ export class PokerTable {
         payouts: this.tournamentPayouts(),
       } : null,
     };
+  }
+
+  /** True once the bet has not grown by a full raise since this player last acted (short all-in rule). */
+  isRaiseLocked(p) {
+    return !!p.acted && this.currentBet - (p.actedAtBet ?? 0) < this.minRaise;
+  }
+
+  raiseLockedFor(viewerId) {
+    const seat = viewerId != null ? this.seatOf(viewerId) : null;
+    if (!seat || !seat.player.inHand || seat.player.folded || seat.player.allIn) return false;
+    return this.isRaiseLocked(seat.player);
   }
 
   maxRaiseToFor(viewerId) {

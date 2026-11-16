@@ -5,6 +5,17 @@ import { useI18n } from '../lib/i18n';
 import { APP_BUILD, APP_VERSION, buildLabel } from '../lib/version';
 import { ensureCurrentVersion } from '../lib/versionCheck';
 import { useIsPhone } from '../lib/useIsPhone';
+import { LoginHero } from '../components/login/LoginHero';
+import { landingRoute } from '../lib/phoneNav';
+import { appOfferCaption, detectPlatform, isStandalone } from '../lib/install';
+import { InstallApp } from './InstallApp';
+import { CreatorCredit } from '../components/brand/CreatorCredit';
+
+const PhoneIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+    <rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 5.3h3" /><path d="M12 12.2v4.6m0 0-2-2m2 2 2-2" />
+  </svg>
+);
 
 const UserIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
@@ -46,6 +57,9 @@ export function Login() {
   // Phones open on a splash (logo, Join, Log in); the form shows after a choice.
   const isPhone = useIsPhone();
   const [phoneForm, setPhoneForm] = useState(false);
+  // "Get the app" opens the install screen over the splash; hidden when already running as the app.
+  const [showInstall, setShowInstall] = useState(false);
+  const appCaption = appOfferCaption(detectPlatform(), isStandalone());
   const [loginId, setLoginId] = useState(() => {
     try { return localStorage.getItem('ggpoker.rememberLogin') || ''; } catch { return ''; }
   });
@@ -165,6 +179,8 @@ export function Login() {
   const splash = isPhone && !phoneForm;
   const openPhoneForm = (next: 'login' | 'register') => { switchMode(next); setPhoneForm(true); sound.play('click', { volume: .4 }); };
 
+  if (showInstall) return <InstallApp onClose={() => setShowInstall(false)} />;
+
   return (
     <div className={'login2' + (splash ? ' login2-splash' : '')}>
       <h1 className="login2-sr">The table is waiting. Play money poker.</h1>
@@ -191,19 +207,27 @@ export function Login() {
         </div>
       </header>
 
-      {splash ? (
+      {splash ? (<>
+        <LoginHero variant="splash" />
         <div className="login2-splash-body">
           <img className="login2-splash-logo" src={brand.logo} alt="DanGG" />
           <p className="login2-splash-tag">Play-money poker room</p>
           <div className="login2-splash-actions">
             <button type="button" className="login2-splash-join" onClick={() => openPhoneForm('register')}>Join</button>
             <button type="button" className="login2-splash-login" onClick={() => openPhoneForm('login')}>Log in</button>
-            <button type="button" className="login2-splash-guest" onClick={() => { enterGuest(); navigate('/'); }}>Play as guest</button>
+            <button type="button" className="login2-splash-guest" onClick={async () => { await enterGuest(); navigate(landingRoute(isPhone)); }}>Play as guest</button>
           </div>
+          {appCaption && (
+            <button type="button" className="login2-splash-app" onClick={() => setShowInstall(true)}>
+              <PhoneIcon />
+              <span><b>Get the app</b><small>{appCaption}</small></span>
+            </button>
+          )}
+          <CreatorCredit className="login2-splash-credit" withNews />
           <p className="login2-splash-legal">18+ · Play money only · No real-money gambling</p>
         </div>
-      ) : <>
-      <div className="login2-hero" aria-hidden="true" />
+      </>) : <>
+      <LoginHero />
 
 
       <div className="login2-side">
@@ -287,12 +311,13 @@ export function Login() {
 
           <div className="login2-sep"><span>or</span></div>
 
-          <button type="button" className="login2-guest" onClick={() => { enterGuest(); navigate('/'); }}>Play as guest</button>
+          <button type="button" className="login2-guest" onClick={async () => { await enterGuest(); navigate(landingRoute(isPhone)); }}>Play as guest</button>
 
           {demoAccount && (
             <button type="button" className="login2-demo" onClick={seed}>Use demo account (DansiDanutz)</button>
           )}
 
+          <CreatorCredit className="login2-card-credit" withNews />
           <p className="login2-foot-note">18+ only. Play money only. No real money, deposits or cash value.</p>
           <p className="login2-version">v{APP_VERSION} · build {buildLabel(APP_BUILD)}</p>
         </div>
@@ -300,6 +325,9 @@ export function Login() {
       </>}
 
       <footer className="login2-foot">
+        <a href="/marketplace">Marketplace</a>
+        <a href={__APP_SOURCE_URL__} target="_blank" rel="noopener noreferrer">Source code</a>
+        <a href="/legal/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 license</a>
         <button type="button" onClick={() => setLegal('terms')}>Terms</button>
         <span className="divider" aria-hidden="true">|</span>
         <button type="button" onClick={() => setLegal('privacy')}>Privacy</button>

@@ -36,7 +36,7 @@ import { BattleCoordinator } from './battle-coordinator.js';
 import { quarantineGameCheckpoint } from './game-checkpoints.js';
 import { activateSpinTable, matchedSpinRegistration, seatMatchedSpinEntrant, spinEvent, syncSpinPresentation } from './spin-runtime.js';
 import {
-  addChipsLimits, cancelPendingTopUp, inLiveHand, refundPendingTopUp, removeChips, setAutoReduce,
+  addChipsLimits, cancelPendingTopUp, refundPendingTopUp, topUpWaitsForDeal, removeChips, setAutoReduce,
   setPendingTopUp, settleBeforeDeal, noteTopUpApplied, topUpRequestError,
 } from './chip-moves.js';
 import { TournamentRoom, MAX_FLIGHTS } from './tournament-room.js';
@@ -46,7 +46,11 @@ import { bubblePlace, flightTableId, ordinal, payoutTable, prizePoolOf, tourname
 import * as waitlist from './waitlist.js';
 import { ensureWaitlistTable, loadWaitlist, saveWaitlist } from './waitlist-store.js';
 import { botFillCount, evictableBotSeat, holdsLiveCards, releaseBotsForWaiting, waitingFor } from './bot-seats.js';
-import { staleHandError } from './action-version.js';
+import { staleHandError, staleTurnError } from './action-version.js';
+import { clockLowEnough } from './timeBankCards.js';
+import { canCloseIdleTable } from './idle-close.js';
+import { invalidOptionFlag } from './option-flags.js';
+import { awayChanges, shouldSitBackIn } from './away.js';
 import { waitingForTable } from './sitOut.js';
 import { RESERVATION_KINDS, pendingLeaves, sitOutEverywhere } from './reservations.js';
 import { buildRushPools, createRushLobby } from './rush-lobby.js';
@@ -54,13 +58,15 @@ import { createTableStats } from './table-stats.js';
 import { createDailyLeaderboard, leaderboardStake, pointEarners } from './dailyLeaderboard.js';
 import { createPlayerLabels, normalizeNoteColor } from './player-labels.js';
 import { createPlayerNotes } from './player-notes.js';
+import { createPropBets, PropBetError, PROP_BET_RULES } from './prop-bets.js';
 import { lobbyOccupancy } from './lobby-occupancy.js';
 import { checkDeposit, depositedToday, depositLimits, rebuyReference } from './play-money.js';
 import { loadTimeBank, saveTimeBank } from './time-bank-store.js';
 import { spinInfo } from './spin.js';
 import { createLeaderboard, parseMetric, LEADERBOARD_METRICS } from './leaderboard.js';
 import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
-import { createChatService, createChatStore, dealerResultText, dealerStartText } from './chat.js';
+import { createChatService, createChatStore, dealerActionText, dealerBoardTexts, dealerResultText, dealerStartText } from './chat.js';
+import { runResultAt } from './handPacing.js';
 import { createAdminChatRoutes } from './admin-chat.js';
 import { createAdminAuditRoute } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
@@ -71,12 +77,18 @@ import { buildHealthSummary, buildPlatformReport } from './admin-platform.js';
 import { advanceRoomLevel } from './tournament-controls.js';
 import { TournamentRoomOwner } from './tournament-room-owner.js';
 import { deleteRoomSnapshot, loadRoomSnapshot, saveRoomSnapshot } from './tournament-state.js';
+import { tournamentGame, tournamentLobby } from './tournament-lobby.js';
+
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
+import { createMarketplaceRoutes } from './marketplace.js';
+import { createMarketplaceCommerce } from './marketplace-commerce.js';
+import { createManagementPolicy, privateSpinConfig, tableManagementProduct } from './management-plugins.js';
+import { createManagementRoutes } from './management-routes.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
-import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, prepareCashDrop, readCashDropConfig, validateCashDropSettings } from './rush-pool.js';
+import { CASHDROP_SETTING_KEYS, createCashDropLedger, createRushPool, prepareCashDrop, readCashDropConfig, rushSeatElsewhere, validateCashDropSettings } from './rush-pool.js';
 import { autoFoldPreferences, autoFoldTick, saveAutoFoldPreferences } from './auto-fold.js';
 import { JACKPOT_SEED, jackpotAccrual } from './badBeat.js';
 import { countOnline, createPresence } from './online-count.js';
@@ -301,7 +313,7 @@ const MIME = {
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
   '.png': 'image/png', '.gif': 'image/gif', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
   '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
-  '.ico': 'image/x-icon', '.wasm': 'application/wasm',
+  '.ico': 'image/x-icon', '.wasm': 'application/wasm', '.txt': 'text/plain; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
 
@@ -311,7 +323,8 @@ function serveFile(req, res, file) {
   const headers = {
     ...SECURITY_HEADERS,
     ...(ext === '.html' ? { 'content-security-policy': HTML_CSP } : {}),
-    'content-type': MIME[ext] || 'application/octet-stream',
+    // Extensionless static files are the legal texts (LICENSE): show them, do not download them.
+    'content-type': MIME[ext] || (ext === '' ? 'text/plain; charset=utf-8' : 'application/octet-stream'),
     'accept-ranges': 'bytes',
     // The service worker must be revalidated so a deploy can replace it.
     'cache-control': ext === '.html' || path.basename(file) === 'sw.js' ? 'no-store' : 'public, max-age=3600',
@@ -597,6 +610,11 @@ const handleAdminChatRoute = createAdminChatRoutes({
 const handleAdminAuditRoute = createAdminAuditRoute({ db, json, requireAdmin });
 const handleAdminTransactionsRoute = createAdminTransactionsRoute({ db, json, requireAdmin });
 const handleAdminUsersListRoute = createAdminUsersListRoute({ db, json, requireAdmin, publicUser });
+const handleMarketplaceRoute = createMarketplaceRoutes({ db, json, requireUser, requireAdmin, readBody });
+const marketplaceCommerce = createMarketplaceCommerce({ db });
+const managementPolicy = createManagementPolicy({ db, commerce: marketplaceCommerce });
+const handleManagementRoute = createManagementRoutes({ db, commerce: marketplaceCommerce, policy: managementPolicy, json, requireUser, requireAdmin, readBody });
+const requireManagement = (actor, productId, action, res) => managementPolicy.requireAccess(actor, productId, action, res, json);
 // Snapshots go to the OS temp dir (override with GGPOKER_BACKUP_TMP); never inside DATA_DIR.
 const handleAdminBackupRoute = createAdminBackupRoute({
   db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
@@ -610,7 +628,8 @@ const handleAdminRestoreRoute = createAdminRestoreRoute({
 const handleAdminSnapshotRoutes = createAdminSnapshotRoutes({
   db, json, requireAdmin, readBody, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined, getSetting,
 });
-const handleAdminTableDuplicateRoute = createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody });
+const handleAdminTableDuplicateRoute = createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody,
+  authorizeCopy: (actor, source, res) => requireManagement(actor, tableManagementProduct(source.game), 'admin_table_duplicate', res) });
 
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
@@ -638,6 +657,14 @@ function findSeatedByNick(nick, tableId = null) {
   return null;
 }
 const PLAYER_NOTES = createPlayerNotes(db, { findSeated: findSeatedByNick });
+
+const PROP_BETS = createPropBets({
+  db,
+  ledger: (userId, kind, amount, memo, reference) => addTransactionEx(userId, kind, amount, memo, 'USD', { reference, onDuplicate: 'skip' }),
+});
+PROP_BETS.ensureSchema();
+const PROP_BET_SWEEP_MS = 15_000;
+setInterval(() => PROP_BETS.sweep(), PROP_BET_SWEEP_MS).unref();
 // HUD subject: an explicit id, else the player seated at this table under that nick, else
 // the account currently holding it; a nick with no account (an old bot) stays a nick.
 function hudIdentity(tableId, { id, nick }) {
@@ -709,6 +736,11 @@ function getLiveTable(id) {
       if (evt.type === 'hand_start') {
         postDealerLine(t.cfg.id, dealerStartText(evt.handNo), `start:${t.handId || evt.handNo}`);
       }
+      // Every bet, call, check and fold goes to the chat log (the "All" filter), not on the table.
+      if (evt.type === 'action') {
+        const text = dealerActionText(t.seats[evt.seat]?.player?.nick, evt);
+        if (text) postDealerLine(t.cfg.id, text);
+      }
     },
     onHandSave: (h) => {
       try {
@@ -725,8 +757,17 @@ function getLiveTable(id) {
         else applyLegacyElo(db, { handId: h.handId, game, players: (h.players || []).filter((p) => p?.id && p.inHand !== false), winners });
         RUSH_POOL.settleHand(h, table);
       } catch (e) { console.error('hand save', e); }
-      const resultText = dealerResultText(h.result);
-      if (resultText) postDealerLine(h.tableId, resultText, `result:${h.handId || h.handNo}`);
+      // Run it 2-3 times: one line per board, each when the table reaches that board's result.
+      const boardTexts = dealerBoardTexts(h.result);
+      if (boardTexts.length) {
+        const at = runResultAt(boardTexts.length, h.result.shared ?? 0);
+        boardTexts.forEach((text, b) => setTimeout(
+          () => postDealerLine(h.tableId, text, `result:${h.handId || h.handNo}:${b + 1}`), at[b] ?? 0,
+        ));
+      } else {
+        const resultText = dealerResultText(h.result);
+        if (resultText) postDealerLine(h.tableId, resultText, `result:${h.handId || h.handNo}`);
+      }
     },
     onTournamentPayout: (table, p) => {
       try {
@@ -757,6 +798,7 @@ function getLiveTable(id) {
       try {
         if (table.cfg.tournamentId) eliminateTournamentEntrant(db, table.cfg.tournamentId, p.id);
         consumeTournamentEntry(table, p.id);
+        if (table.cfg.tournamentId) PROP_BETS.recordBust(table.cfg.tournamentId, p.id);
         // Multi-table events rank the whole field, not the seat's own table.
         if (table.tournament?.managed) {
           TOURNAMENT_ROOMS.get(table.cfg.tournamentId)?.onBust(table.cfg.id, p);
@@ -792,13 +834,17 @@ function getLiveTable(id) {
       const winner = db.prepare('SELECT * FROM users WHERE id = ?').get(info.winnerId);
       if (winner) {
         addTransaction(winner.id, info.mystery ? 'mystery_bounty' : 'bounty', info.amount,
-          `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`);
+          `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`, 'USD',
+          { tournamentId: table.cfg.tournamentId || null });
       }
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bounty',
         `${table.cfg.name} ${info.winnerNick} ${info.amount} (${info.bustedNick})`);
     },
     onCashInsuranceSettlement: (table, summary) => settleCashInsurance(db, table, summary)?.body.state || null,
     onCashInsuranceExpire: (table, now) => expireCashInsurance(db, table, now),
+    cashInsuranceEnabled: () => {
+      try { return !!db.prepare("SELECT 1 FROM house_accounts WHERE scope = 'cash-insurance'").get(); } catch { return false; }
+    },
     beforeDeal: (table) => {
       settleChipMoves(table);
       applyPushSeatReservations(db, table);
@@ -873,7 +919,9 @@ function getLiveTable(id) {
         else if (Date.now() - entry.emptySince > Math.max(45000, DISCONNECT_GRACE_MS)) {
           // A tournament flight outlives its viewers while players are still
           // seated (a moved player reconnects to the new table); an empty one goes.
-          if (!table.tournament && !table.spin) closeLiveTable(id, 'Table idle close');
+          if (!table.tournament && !table.spin) {
+            if (canCloseIdleTable(table)) closeLiveTable(id, 'Table idle close');
+          }
           else if (table.tournament && !table.humans().length) clearTable(id);
         }
       } else {
@@ -966,7 +1014,7 @@ function broadcastState(table) {
   }
 }
 
-function seatHuman(table, user, buyin, seatIndex = null) {
+function seatHuman(table, user, buyin, seatIndex = null, waitForBlinds = false) {
   const existing = table.seatOf(user.id);
   if (existing) return { ok: true, seat: existing.index };
   if (table.spin) return { ok: false, error: 'Spin & Gold requires a matched registration' };
@@ -981,7 +1029,8 @@ function seatHuman(table, user, buyin, seatIndex = null) {
     sessionId, reference: `in:${sessionId}:1`, onDuplicate: 'skip',
   });
   const res = table.sit({
-    id: user.id, nick: user.nick, avatar: user.avatar, ...loadTimeBank(table, user),
+    id: user.id, nick: user.nick, avatar: user.avatar, country: user.country, ...loadTimeBank(table, user),
+    waitForBlinds: waitForBlinds === true,
   }, wantedSeat, stack, sessionId);
   if (!res.ok) {
     addTransactionEx(user.id, 'refund', stack, 'Buy-in refund', 'USD', {
@@ -1144,10 +1193,18 @@ function sweepDisconnected(entry) {
     if (!p.disconnectedAt) continue;
     if (hasLiveSocket(entry, p.id)) { p.disconnectedAt = 0; p.disconnected = false; continue; }
     if (now - p.disconnectedAt < DISCONNECT_GRACE_MS) continue;
+    const live = table.handInProgress();
     if (table.tournament || table.spinStarted()) {
-      // A tournament or running Spin seat is never forfeited by a dropped connection: the
-      // player is blinded out (auto-fold / auto-check) until they come back.
-      Object.assign(p, { away: true, sittingOut: true, disconnectedAt: 0 });
+      // A tournament or running Spin seat is never forfeited by a dropped connection: a live hand
+      // runs on the clock and time bank, then the player is blinded out until they come back.
+      if (!p.away) Object.assign(p, awayChanges(p, { live }), { disconnectedAt: 0 });
+      continue;
+    }
+    if (live && p.inHand && !p.folded) {
+      // Never forfeit a live hand to a dropped connection: an all-in player keeps their equity, and
+      // their turns run on the normal clock with the time bank. Not dealt the next hand; the seat
+      // cashes out once this hand is over.
+      if (!p.away) Object.assign(p, awayChanges(p, { live }));
       continue;
     }
     cashOutSeat(table, p.id, `Disconnected from ${table.cfg.name}`);
@@ -1172,6 +1229,9 @@ function clearTable(id) {
   }
   CUSTOM_CFG.delete(id);
 }
+
+/** The tournament lobby lists at most this many players (the field can be thousands). */
+const LOBBY_PLAYER_LIMIT = 500;
 
 /** The shared descriptor every flight of one tournament hands to its table. */
 function tournamentDescriptor(t) {
@@ -1198,7 +1258,7 @@ function tournamentTableConfig(t, tournament, index, seats) {
   return {
     id: flightTableId(t.id, index),
     name: t.name,
-    game: 'holdem',
+    game: tournamentGame(t),
     category: 'Tournament',
     sb: bb,
     bb: bb * 2,
@@ -1373,6 +1433,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
+    if (await handleManagementRoute(req, res, url)) return;
+    if (await handleMarketplaceRoute(req, res, url)) return;
     if (p === '/healthz') {
       return json(res, 200, buildHealthSummary({
         versionInfo: appVersionInfo(),
@@ -1423,19 +1485,24 @@ const server = http.createServer(async (req, res) => {
       if (!nick) return json(res, 400, { error: 'Nickname must be 2-20 letters, digits, spaces, dots, dashes or underscores' });
       if (String(body.password || '').length < 6) return json(res, 400, { error: 'Password must be at least 6 characters' });
       if (identityTaken(login) || identityTaken(nick)) return json(res, 400, { error: 'That account ID or nickname is already taken' });
-      const welcome = getSetting('welcome_bonus', 100000);
-      const start = getSetting('default_balance', 5000) + welcome;
-      db.prepare(`INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)`)
-        .run(login, nick, hashPassword(String(body.password)), String(body.email || '').slice(0, 120), 0, 5);
-      const created = db.prepare('SELECT id FROM users WHERE login = ?').get(login);
-      // The account starts at zero and the ledger entry carries the whole opening balance,
-      // so the balance and the ledger agree (it used to be credited twice).
-      addTransaction(created.id, 'welcome', start, 'Welcome bonus');
-      // The opening credit is the welcome bonus: record the claim so the Cashier cannot pay it again.
-      db.prepare("INSERT OR IGNORE INTO bonus_claims (user_id,claim_key,amount) VALUES (?,'welcome',?)").run(created.id, welcome);
+      const user = createAccount(login, nick, String(body.password), String(body.email || '').slice(0, 120));
       // Count only accounts actually created, so typos in the form do not use up the allowance.
       if (clientKey) registerLimiter.record(clientKey);
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
+      const token = newSession(user.id, req.headers['user-agent'] || '');
+      return json(res, 200, { token, user: publicUser(user) });
+    }
+
+    // Play as guest: a throwaway play-money account so a guest can sit, spin and register
+    // like everyone else. It shares the per-network account allowance with registration.
+    if (p === '/api/auth/guest' && req.method === 'POST') {
+      const clientKey = abuseClientKey(req);
+      if (clientKey && registerLimiter.isBlocked(clientKey)) {
+        return json(res, 429, { error: 'Too many new accounts from your network. Try again in an hour.' });
+      }
+      const nick = freeGuestNick();
+      if (!nick) return json(res, 503, { error: 'Guest seats are busy right now. Try again in a moment.' });
+      if (clientKey) registerLimiter.record(clientKey);
+      const user = createAccount(`guest_${randomUUID().slice(0, 12)}`, nick, randomUUID(), '');
       const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
     }
@@ -1467,6 +1534,12 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
       try {
+        // Preset portraits shipped with the client are stored as paths, not blobs.
+        const preset = /^\/assets\/avatars\/gg-\d{2}\.jpg$/.test(String(body.avatar || ''));
+        if (preset) {
+          db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(String(body.avatar), u.id);
+          return json(res, 200, { ok: true, preset: true });
+        }
         const avatar = normalizeAvatar(body.avatar);
         db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar ? avatar.dataUrl : '', u.id);
         return json(res, 200, { ok: true, hash: avatar ? avatar.hash : null });
@@ -1574,9 +1647,22 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/tables/host' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const b = await readBody(req);
+      // Preserve the host API's Hold'em fallback and authorize the actual format.
+      const game = ['holdem', 'omaha', 'omaha5', 'omaha6', 'shortdeck', 'spingold'].includes(b.game) ? b.game : 'holdem';
+      if (!requireManagement(u, tableManagementProduct(game), 'host_table_create', res)) return;
       const count = db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id = ? AND private = 1').get(u.id).n;
       if (count >= 8) return json(res, 400, { error: 'You already have 8 private tables' });
-      const game = ['holdem', 'omaha', 'omaha5', 'omaha6', 'shortdeck'].includes(b.game) ? b.game : 'holdem';
+      if (game === 'spingold') {
+        let spin;
+        try { spin = privateSpinConfig(b); } catch (error) { return json(res, 400, { error: error.message }); }
+        const id = `home-spin-${u.id}-${randomUUID().slice(0, 8)}`;
+        const name = String(b.name || `${u.nick}'s Jackpot SNG`).trim().slice(0, 40) || 'Private Jackpot SNG';
+        db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
+          VALUES (?,?,?,'Private',?,?,0,?,?,?, ?,0,1,0,?,1,0)`)
+          .run(id, name, spin.game, spin.sb, spin.bb, spin.min_buyin, spin.max_buyin, spin.seats, spin.speed, u.id);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_spin_table', id);
+        return json(res, 200, { ok: true, id });
+      }
       const sb = Math.max(1, Math.round(Number(b.sb) || 100));
       const bb = Math.max(sb, Math.round(Number(b.bb) || sb * 2));
       const minBuyin = Math.max(bb, Math.round(Number(b.min_buyin) || bb * 20));
@@ -1619,6 +1705,7 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/tournaments/host' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
+      if (!requireManagement(u, 'tournaments-manager', 'host_tournament_create', res)) return;
       const b = await readBody(req);
       const count = db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id = ? AND private = 1').get(u.id).n;
       if (count >= 8) return json(res, 400, { error: 'You already have 8 private tournaments' });
@@ -1664,6 +1751,12 @@ const server = http.createServer(async (req, res) => {
       if (!t) return json(res, 404, { error: 'not found' });
       const room = t.status === 'running' ? TOURNAMENT_ROOMS.get(id) : null;
       const payouts = room ? room.payouts() : payoutTable(t.entrants, prizePoolOf(t), { mode: t.mode, ticket: t.ticket });
+      const registrants = t.status === 'registering'
+        ? db.prepare(`SELECT u.id, u.nick, u.country FROM tourney_regs r JOIN users u ON u.id = r.user_id
+            WHERE r.tournament_id = ? ORDER BY r.created_at, r.rowid LIMIT ?`).all(id, LOBBY_PLAYER_LIMIT)
+        : [];
+      const countryOf = db.prepare('SELECT country FROM users WHERE id = ?');
+      const lobby = tournamentLobby({ t, room, registrants, countryOf: (uid) => countryOf.get(uid)?.country || '' });
       return json(res, 200, {
         tournament: t,
         prizePool: prizePoolOf(t),
@@ -1671,6 +1764,8 @@ const server = http.createServer(async (req, res) => {
         placesPaid: payouts.length,
         bubble: bubblePlace(payouts),
         playersLeft: room ? room.stats().playersLeft : null,
+        ...lobby,
+        players: lobby.players.slice(0, LOBBY_PLAYER_LIMIT),
       });
     }
 
@@ -2097,6 +2192,19 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { winners: rows, mine });
     }
 
+    if (p === '/api/mystery/feed' && req.method === 'GET') {
+      const limit = Math.min(30, Math.max(1, Number(url.searchParams.get('limit')) || 20));
+      const items = db.prepare(`
+        SELECT t.amount, t.memo, t.created_at, t.tournament_id, u.nick,
+               tr.name AS tournament, tr.buyin, tr.fee
+        FROM transactions t JOIN users u ON u.id = t.user_id
+        LEFT JOIN tournaments tr ON tr.id = t.tournament_id
+        WHERE t.kind = 'mystery_bounty'
+        ORDER BY t.id DESC LIMIT ?`).all(limit);
+      const total = db.prepare("SELECT COALESCE(SUM(amount), 0) AS n FROM transactions WHERE kind = 'mystery_bounty'").get().n;
+      return json(res, 200, { total, items });
+    }
+
     if (p === '/api/games/slot' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
@@ -2254,6 +2362,43 @@ const server = http.createServer(async (req, res) => {
       payout = Math.round(payout);
       const after = addTransaction(u.id, game, payout - bet, `${game} ${pick} ${payout ? 'won' : 'lost'}`, 'USD');
       return json(res, 200, { result, payout, bet, balance: after });
+    }
+
+    // ---------- player prop bets (Last Longer, Bankroll, ELO) ----------
+    if (p === '/api/propbets' && req.method === 'GET') {
+      const viewer = userByToken(tokenFrom(req) || '');
+      return json(res, 200, {
+        bets: PROP_BETS.list({ type: url.searchParams.get('type') || '', includeClosed: url.searchParams.get('closed') === '1' }),
+        rules: PROP_BET_RULES,
+        eligibleTournaments: viewer ? PROP_BETS.eligibleTournaments(viewer.id) : [],
+        elo: viewer ? Number(viewer.elo ?? 1000) : null,
+      });
+    }
+    if (p === '/api/propbets' && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const body = await readBody(req);
+      try {
+        return json(res, 200, { bet: PROP_BETS.create(u.id, body), balance: db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id).balance });
+      } catch (e) {
+        if (e instanceof PropBetError) return json(res, 400, { error: e.message });
+        throw e;
+      }
+    }
+    {
+      const m = p.match(/^\/api\/propbets\/(\d+)(\/join)?$/);
+      if (m && req.method === 'GET' && !m[2]) {
+        const bet = PROP_BETS.detail(m[1]);
+        return bet ? json(res, 200, { bet }) : json(res, 404, { error: 'Prop bet not found' });
+      }
+      if (m && req.method === 'POST' && m[2]) {
+        const u = requireUser(req, res); if (!u) return;
+        try {
+          return json(res, 200, { bet: PROP_BETS.join(u.id, m[1]), balance: db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id).balance });
+        } catch (e) {
+          if (e instanceof PropBetError) return json(res, 400, { error: e.message });
+          throw e;
+        }
+      }
     }
 
     if (p === '/api/games/propbet' && req.method === 'POST') {
@@ -2419,7 +2564,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
-    // ---------- ocean rewards ----------
+    // ---------- DanGG rewards ----------
     const OCEAN_LEVELS = [
       { name: 'Clownfish', min: 0, rank: 0 }, { name: 'Shrimp', min: 500, rank: 1 },
       { name: 'Crab', min: 1500, rank: 2 }, { name: 'Octopus', min: 3000, rank: 3 },
@@ -2482,7 +2627,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, amount, balance: award.balance });
     }
 
-    // ---------- gg care ----------
+    // ---------- player care ----------
     if (p === '/api/ggcare' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
       const day = new Date().toISOString().slice(0, 10);
@@ -2968,20 +3113,22 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/notifications' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
-      const requests = db.prepare(`SELECT r.from_id AS id, u.nick FROM friend_requests r JOIN users u ON u.id = r.from_id WHERE r.to_id = ? AND r.status = 'pending' ORDER BY r.created_at DESC`).all(u.id);
+      const requests = db.prepare(`SELECT r.from_id AS id, u.nick, r.created_at FROM friend_requests r JOIN users u ON u.id = r.from_id WHERE r.to_id = ? AND r.status = 'pending' ORDER BY r.created_at DESC`).all(u.id);
       const dm = db.prepare('SELECT COUNT(*) AS n FROM direct_messages WHERE to_id = ? AND read_at IS NULL').get(u.id).n;
-      const upcoming = db.prepare(`SELECT t.id, t.name, t.start_at FROM tourney_regs r JOIN tournaments t ON t.id = r.tournament_id
+      const dmLatest = db.prepare('SELECT id, created_at FROM direct_messages WHERE to_id = ? AND read_at IS NULL ORDER BY id DESC LIMIT 1').get(u.id);
+      const upcoming = db.prepare(`SELECT t.id, t.name, t.start_at, r.created_at FROM tourney_regs r JOIN tournaments t ON t.id = r.tournament_id
         WHERE r.user_id = ? AND t.status = 'registering' AND t.start_at > datetime('now') ORDER BY t.start_at LIMIT 5`).all(u.id);
       const dailyClaimed = db.prepare("SELECT 1 FROM bonus_claims WHERE user_id = ? AND claim_key = ?").get(u.id, `daily:${new Date().toISOString().slice(0, 10)}`);
       const items = [];
-      for (const r of requests) items.push({ key: `friend:${r.id}`, kind: 'friend', icon: '👥', title: `${r.nick} sent a friend request`, body: 'Open Friends to accept or decline.', link: '/my-page?tab=friends' });
-      const latestDm = db.prepare('SELECT MAX(id) AS id FROM direct_messages WHERE to_id = ? AND read_at IS NULL').get(u.id);
-      if (dm > 0) items.push({ key: `dm:${latestDm?.id || 0}`, kind: 'dm', icon: '💬', title: `${dm} unread direct message${dm === 1 ? '' : 's'}`, body: 'Open Messages to reply.', link: '/my-page?tab=messages' });
-      for (const t of upcoming) items.push({ key: `tournament:${t.id}`, kind: 'tournament', icon: '🏆', title: t.name, body: `Starts ${new Date(t.start_at).toLocaleString('en-GB')}`, link: `/tournaments?id=${encodeURIComponent(t.id)}` });
-      if (!dailyClaimed) items.push({ key: `bonus:daily:${new Date().toISOString().slice(0, 10)}`, kind: 'bonus', icon: '🎁', title: 'Daily freebie is ready', body: 'Claim it in the Cashier.', link: '/cashier' });
+      for (const r of requests) items.push({ key: `friend:${r.id}`, kind: 'friend', icon: '👥', title: `${r.nick} sent a friend request`, body: 'Open Friends to accept or decline.', link: '/my-page?tab=friends', created_at: r.created_at });
+      if (dm > 0) items.push({ key: `dm:${dmLatest?.id || 0}`, kind: 'dm', icon: '💬', title: `${dm} unread direct message${dm === 1 ? '' : 's'}`, body: 'Open Messages to reply.', link: '/my-page?tab=messages', created_at: dmLatest?.created_at });
+      for (const t of upcoming) items.push({ key: `tournament:${t.id}`, kind: 'tournament', icon: '🏆', title: t.name, body: `Starts ${new Date(t.start_at).toLocaleString('en-GB')}`, link: `/tournaments?id=${encodeURIComponent(t.id)}`, created_at: t.created_at });
+      if (!dailyClaimed) items.push({ key: `bonus:daily:${new Date().toISOString().slice(0, 10)}`, kind: 'bonus', icon: '🎁', title: 'Daily freebie is ready', body: 'Claim it in the Cashier.', link: '/cashier', created_at: new Date().toISOString() });
       const read = new Set(db.prepare('SELECT item_key FROM notification_reads WHERE user_id = ?').all(u.id).map((r) => r.item_key));
-      const visible = items.filter((i) => !read.has(i.key));
-      return json(res, 200, { items: visible, unread: visible.length });
+      const withRead = items.map((i) => ({ ...i, read: read.has(i.key) }));
+      const visible = withRead.filter((i) => !i.read);
+      const all = new URL(req.url, 'http://x').searchParams.get('all') === '1';
+      return json(res, 200, { items: all ? withRead : visible, unread: visible.length });
     }
 
     if (p === '/api/notifications/read' && req.method === 'POST') {
@@ -3150,6 +3297,7 @@ const server = http.createServer(async (req, res) => {
       const id = decodeURIComponent(p.split('/')[4]);
       const room = TOURNAMENT_ROOMS.get(id);
       if (!room) return json(res, 404, { error: 'room not running' });
+      if (!requireManagement(a, 'tournaments-manager', 'admin_tournament_level', res)) return;
       const body = await readBody(req);
       const result = advanceRoomLevel(room, { delta: body.delta ?? 1, liveTables: LIVE_TABLES });
       if (result.ok) {
@@ -3304,6 +3452,11 @@ const server = http.createServer(async (req, res) => {
       if (!parsed.ok) return json(res, 400, { error: parsed.error });
       const t = parsed.value;
       const id = String(b.id || `custom-${Date.now()}`).slice(0, 60);
+      // Authorize the canonical values used by the upsert. Raw request coercion
+      // or a truncated ID must not select a cheaper, unrelated capability.
+      const previousTable = db.prepare('SELECT game FROM tables WHERE id = ?').get(id);
+      const tableProducts = new Set([tableManagementProduct(t.game), ...(previousTable ? [tableManagementProduct(previousTable.game)] : [])]);
+      for (const productId of tableProducts) if (!requireManagement(a, productId, 'admin_table_configure', res)) return;
       const previous = tableRow(id);
       const liveTable = LIVE_TABLES.get(id)?.table;
       if (liveTable && previous && (previous.bet_and_muck !== t.bet_and_muck || previous.bet_muck_condition_rank !== t.bet_muck_condition_rank) && liveTable.occupiedSeats().length) {
@@ -3384,6 +3537,7 @@ const server = http.createServer(async (req, res) => {
         db.prepare('DELETE FROM tournaments WHERE id = ?').run(b.id);
         return json(res, 200, { ok: true });
       }
+      if (!requireManagement(a, 'tournaments-manager', 'admin_tournament_configure', res)) return;
       const id = b.id || `t${Date.now()}`;
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -3600,7 +3754,20 @@ wss.on('connection', (ws, req) => {
       const spinEventId = table.spin ? (table.spinEventId || table.cfg.id.replace(/^spin:/, '')) : null;
       const matched = table.spin ? matchedSpinRegistration(db, spinEventId, u.id) : null;
       if (table.spin && !matched) return ws.send(JSON.stringify({ type: 'error', errorCode: 'spin_not_matched', error: 'A matched Spin registration is required' }));
-      if (msg.observe && !table.spin) {
+      // A matched Spin entrant always takes their own seat: Spin tables are never watched.
+      if (table.spin) { msg.observe = false; msg.rejoin = false; }
+      // A cash reconnect whose seat is gone (cashed out while away) watches; it never buys in again
+      // unasked. A tournament seat may have moved: that reconnect goes on to the redirect below.
+      const rejoinedEmpty = !msg.observe && msg.rejoin === true && !table.tournament && !table.seatOf(ws.userId);
+      // A Rush move may have seated the player at another table of the pool before this tab
+      // heard of it: follow them there instead of watching the old table.
+      const movedTo = rejoinedEmpty ? rushSeatElsewhere([...LIVE_TABLES.values()].map((e) => e.table), table, ws.userId) : null;
+      if (movedTo) {
+        const stack = movedTo.seatOf(ws.userId).player.stack;
+        return ws.send(JSON.stringify({ type: 'rush_move', tableId: movedTo.cfg.id, stack }));
+      }
+      const watchOnly = msg.observe || rejoinedEmpty;
+      if (watchOnly) {
         // Watching is read-only: never seed bots, start a hand or take a seat.
         entry.clients.add(ws);
         ws.tables.add(msg.tableId);
@@ -3615,10 +3782,13 @@ wss.on('connection', (ws, req) => {
         seated.player.disconnected = false;
         seated.player.disconnectedAt = 0;
         if (seated.player.away) {
-          // Seated in absence at the tournament start: opening the table sits them back in.
+          // Back from a dropped connection (or seated in absence at a tournament start): sit back
+          // in, unless the player had chosen to sit out before dropping.
+          const choice = seated.player.awayChoice;
           seated.player.away = false;
+          seated.player.awayChoice = undefined;
           seated.player.missedTurns = 0;
-          table.requestSitOut(u.id, false);
+          if (shouldSitBackIn(choice)) table.requestSitOut(u.id, false);
         }
       } else {
         if (table.spin) {
@@ -3664,8 +3834,8 @@ wss.on('connection', (ws, req) => {
           return;
         }
         const buyin = toInt(msg.buyin) || table.cfg.min_buyin;
-        let res = seatHuman(table, u, buyin, held ? held.seat : msg.seat);
-        if (!res.ok && msg.seat != null && !held) res = seatHuman(table, u, buyin, null);
+        let res = seatHuman(table, u, buyin, held ? held.seat : msg.seat, msg.waitForBlinds === true);
+        if (!res.ok && msg.seat != null && !held) res = seatHuman(table, u, buyin, null, msg.waitForBlinds === true);
         if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
         // Taking the held seat consumes the offer; any other seat just leaves the queue.
         if (held) setWaitlist(held.state);
@@ -3691,7 +3861,18 @@ wss.on('connection', (ws, req) => {
       if (!entry.table.seatOf(ws.userId)) {
         return ws.send(JSON.stringify({ type: 'error', error: 'Take a seat to change table options' }));
       }
+      const badFlag = invalidOptionFlag(msg);
+      if (badFlag) return ws.send(JSON.stringify({ type: 'error', error: `Invalid value for ${badFlag}` }));
       if (msg.straddle != null) {
+        // A table-wide rule: only the table's host may change it, never any seated player.
+        const ownerId = entry.table.cfg.owner_id;
+        if (!ownerId || Number(ownerId) !== Number(ws.userId)) {
+          return ws.send(JSON.stringify({ type: 'error', error: 'Only the table host can change straddles' }));
+        }
+        const productId = tableManagementProduct(entry.table.cfg.game);
+        if (!managementPolicy.check({ id: ws.userId }, productId, 'host_straddle_configure').can_manage) {
+          return ws.send(JSON.stringify({ type: 'error', ...managementPolicy.error(productId) }));
+        }
         const res = entry.table.setStraddle(!!msg.straddle);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
@@ -3711,8 +3892,12 @@ wss.on('connection', (ws, req) => {
         const res = entry.table.setInsurance(ws.userId, !!msg.insurance);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
-      if (msg.runItTwice != null) {
-        const res = entry.table.setRunItTwice(!!msg.runItTwice);
+      if (msg.runItAsk != null) {
+        const res = entry.table.setRunItAsk(ws.userId, !!msg.runItAsk);
+        if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      }
+      if (Object.prototype.hasOwnProperty.call(msg, 'runPref')) {
+        const res = entry.table.setRunPref(ws.userId, msg.runPref);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       }
       broadcastState(entry.table);
@@ -3739,7 +3924,10 @@ wss.on('connection', (ws, req) => {
     if (msg.type === 'timebank') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
-      const res = entry.table.useTimeBank(ws.userId);
+      const table = entry.table;
+      const res = table.actor === ws.userId && !clockLowEnough({ endsAt: table.actionEndsAt, now: Date.now() })
+        ? { ok: false, error: 'The time bank opens when your clock is low' }
+        : table.useTimeBank(ws.userId);
       if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));
       else broadcastState(entry.table);
       return;
@@ -3748,7 +3936,7 @@ wss.on('connection', (ws, req) => {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
       const table = entry.table;
-      const stale = staleHandError(table, msg);
+      const stale = staleHandError(table, msg) || staleTurnError(table, msg);
       if (stale) return ws.send(JSON.stringify({ type: 'error', error: stale, stale: true, handNo: table.handNo }));
       // `quickfold` (Rush Fast Fold) is the one action valid before the player's turn.
       const isQuickFold = msg.action === 'quickfold';
@@ -3772,8 +3960,8 @@ wss.on('connection', (ws, req) => {
       // saw. The version never resets, so a request replayed after its top-up settled is refused.
       const stale = topUpRequestError(seat.player, { basePending: msg.basePending, topUpVersion: msg.topUpVersion });
       if (stale) return ws.send(JSON.stringify({ type: 'error', error: stale }));
-      // In a live hand (or with chips already pending) the request becomes the pending top-up.
-      if (inLiveHand(table, seat.player) || seat.player.pendingTopUp > 0) return queueTopUp(ws, table, seat.player, msg.amount, msg.idempotencyKey);
+      // During a hand the seat was dealt into (or with chips already pending) it becomes the pending top-up.
+      if (topUpWaitsForDeal(table, seat.player) || seat.player.pendingTopUp > 0) return queueTopUp(ws, table, seat.player, msg.amount, msg.idempotencyKey);
       if (toInt(msg.amount) === 0) return;
       const amount = toInt(msg.amount, { min: 1 });
       const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
@@ -3873,6 +4061,13 @@ wss.on('connection', (ws, req) => {
       }
       return;
     }
+    if (msg.type === 'show_at_end') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const res = entry.table.markShowAtEnd(ws.userId, msg.cards);
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      return broadcastState(entry.table);
+    }
     if (msg.type === 'rabbit') {
       const entry = LIVE_TABLES.get(msg.tableId);
       if (!entry) return;
@@ -3885,6 +4080,14 @@ wss.on('connection', (ws, req) => {
       }
       const cards = rabbitRunout(rabbitState);
       ws.send(JSON.stringify({ type: 'event', event: { type: 'rabbit', cards, at: Date.now() } }));
+      return;
+    }
+    if (msg.type === 'run_decide') {
+      const entry = LIVE_TABLES.get(msg.tableId);
+      if (!entry) return;
+      const res = entry.table.decideRuns(ws.userId, Number(msg.runs));
+      if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
+      broadcastState(entry.table);
       return;
     }
     if (msg.type === 'chat' || msg.type === 'reaction' || msg.type === 'emote') {
@@ -3948,6 +4151,33 @@ setInterval(() => {
 setInterval(() => {
   try { ROOM_OWNER.scheduleAll(); } catch (err) { console.error('tournament snapshot schedule', err); }
 }, 15000).unref();
+
+const GUEST_NICK_ATTEMPTS = 20;
+
+/** A free "Guest1234" nickname, or null when every attempt collided. */
+function freeGuestNick() {
+  for (let i = 0; i < GUEST_NICK_ATTEMPTS; i++) {
+    const nick = `Guest${randomInt(1000, 1000000)}`;
+    if (!identityTaken(nick)) return nick;
+  }
+  return null;
+}
+
+/**
+ * Create an account with the opening play balance. The row starts at zero and the
+ * ledger entry carries the whole opening balance, so balance and ledger agree; the
+ * welcome claim is recorded so the Cashier cannot pay it again.
+ */
+function createAccount(login, nick, password, email) {
+  const welcome = getSetting('welcome_bonus', 100000);
+  const start = getSetting('default_balance', 5000) + welcome;
+  db.prepare('INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)')
+    .run(login, nick, hashPassword(password), email, 0, 5);
+  const created = db.prepare('SELECT id FROM users WHERE login = ?').get(login);
+  addTransaction(created.id, 'welcome', start, 'Welcome bonus');
+  db.prepare("INSERT OR IGNORE INTO bonus_claims (user_id,claim_key,amount) VALUES (?,'welcome',?)").run(created.id, welcome);
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
+}
 
 function identityTaken(name, exceptUserId = 0) {
   return !!db.prepare('SELECT 1 FROM users WHERE (lower(login) = lower(?) OR lower(nick) = lower(?)) AND id != ?').get(name, name, exceptUserId);

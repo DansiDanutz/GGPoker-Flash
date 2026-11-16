@@ -320,6 +320,7 @@ function init() {
   db.exec("UPDATE users SET role = CASE WHEN is_admin = 1 THEN 'owner' ELSE 'player' END WHERE role = '' OR role IS NULL");
   try { db.exec('ALTER TABLE transactions ADD COLUMN session_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE transactions ADD COLUMN reference TEXT'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE transactions ADD COLUMN tournament_id TEXT'); } catch { /* already exists */ }
   const refIndex = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_transactions_reference'").get();
   if (refIndex && /WHERE/i.test(refIndex.sql || '')) db.exec('DROP INDEX idx_transactions_reference');
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_reference ON transactions(user_id, reference)");
@@ -377,6 +378,8 @@ export const BRAND_RENAMES = Object.freeze([
   ['WSOP Express', 'Live Series'],
   ['WSOP EXPRESS', 'LIVE SERIES'],
   ['WSOP', 'Live Series'],
+  ['GGMillion$', 'Millions'],
+  ['PokerCraft', 'Hand History'],
 ].map(Object.freeze));
 const BRAND_RENAME_COLUMNS = Object.freeze([
   ['tables', 'name'], ['tournaments', 'name'], ['banners', 'title'], ['banners', 'subtitle'],
@@ -407,7 +410,7 @@ function ensurePloVariants() {
   }
 }
 
-// Spin & Gold tables (P0 slice S1b): only the observed 3-max play-money stakes. Ids are
+// Jackpot SNG tables (P0 slice S1b): only the observed 3-max play-money stakes. Ids are
 // deterministic so each boot inserts only missing rows; level-1 blinds come from the
 // verified ladder. Starting chips and time-bank cards are unobserved and not configured.
 const SPIN_TABLES_PER_STAKE = 4;
@@ -435,7 +438,7 @@ export function ensureSpinTables() {
   return { inserted, disabled: Number(disabled) };
 }
 
-// Rush & Cash stake ladder (P0 slice R2, plan § 4). One pool = game + sb/bb; table ids are
+// Fast Fold stake ladder (P0 slice R2, plan § 4). One pool = game + sb/bb; table ids are
 // deterministic, so each boot inserts only the rows that are missing. The Hold'em 500/1000
 // pool keeps the original `rush-platinum-N` tables created by seed().
 export const RUSH_LADDER = Object.freeze([
@@ -491,9 +494,36 @@ function ensureSeries() {
       db.prepare("UPDATE tournaments SET mode='SATELLITE', ticket='Sunday Major $250K' WHERE id=?").run(id);
     }
   }
+  // Battle Royale tiers (reference 11): seeded once, then left alone.
+  for (const [id, name, buyin, gtd, hours, entrants] of [
+    ['mbr-1', 'Battle Royale $5K', 25, 5000, 1.5, 1841],
+    ['mbr-2', 'Battle Royale $10K', 100, 10000, 3, 1622],
+    ['mbr-3', 'Battle Royale $30K', 300, 30000, 5, 1408],
+    ['mbr-4', 'Battle Royale $100K', 1000, 100000, 8, 977],
+    ['mbr-5', 'Battle Royale $250K', 2500, 250000, 12, 412],
+  ]) {
+    if (!db.prepare('SELECT 1 FROM tournaments WHERE id = ?').get(id)) {
+      tins.run(id, name, buyin, 0, gtd * 100, new Date(Date.now() + hours * 3600_000).toISOString(), entrants, 'NLH');
+    }
+  }
+  db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=MAX(1, buyin/2), blind_speed=3 WHERE id LIKE 'mbr-%'");
+  // The tiers seed up to 1,841 entrants, so the field cap must hold them (the default is 1,000).
+  db.prepare("UPDATE tournaments SET max_players = ? WHERE id LIKE 'mbr-%' AND max_players < ?")
+    .run(BATTLE_ROYALE_MAX_PLAYERS, BATTLE_ROYALE_MAX_PLAYERS);
+  fixSeedFormats();
   db.exec("UPDATE tournaments SET mode='FLIP' WHERE name LIKE 'Quick Flip%' AND mode='STANDARD'");
   db.exec("UPDATE tournaments SET mode='BOUNTY', bounty=500 WHERE name LIKE 'Bounty Hunters%' AND mode='STANDARD'");
   db.exec("UPDATE tournaments SET mode='MYSTERY', bounty=1000 WHERE name LIKE 'Mystery Bounty%' AND mode='STANDARD'");
+}
+
+const BATTLE_ROYALE_MAX_PLAYERS = 2000;
+// Seeded tournaments whose name names a game are dealt in that game (older seeds stored them as NLH).
+const SEED_FORMAT_FIXES = Object.freeze([['t6', 'Omaha Weekly%', 'PLO'], ['t7', 'Short Deck%', 'Short Deck']]);
+
+/** Aligns the seeded game-named tournaments with their format while nobody can be seated in them yet. */
+function fixSeedFormats() {
+  const update = db.prepare("UPDATE tournaments SET format = ? WHERE id = ? AND name LIKE ? AND format != ? AND status = 'registering'");
+  for (const [id, pattern, format] of SEED_FORMAT_FIXES) update.run(format, id, pattern, format);
 }
 
 function seed() {
@@ -547,24 +577,24 @@ function seed() {
 
   const now = Date.now();
   const tourneys = [
-    ['Daily Chip Flipout', 2500, 250, 100000, 0.5],
-    ['Live Series $50K', 5000, 500, 50000, 1.5],
-    ['Bounty Hunters $30K', 1500, 150, 30000, 2.5],
-    ['Masters $150K', 11000, 1000, 150000, 4],
-    ['Mystery Bounty $200K', 5250, 500, 200000, 6],
-    ['Omaha Weekly $25K', 3000, 300, 25000, 9],
-    ['Short Deck $10K', 1000, 100, 10000, 12],
-    ['Jackpot SNG Challenge', 1000, 0, 5000, 15],
-    ['Sunday Major $250K', 22000, 2000, 250000, 20],
-    ['Turbo $15K', 750, 75, 15000, 24],
-    ['Freeroll $2,000', 0, 0, 2000, 30],
-    ['After The Fold $40K', 2000, 200, 40000, 36],
+    ['Daily Chip Flipout', 2500, 250, 100000, 0.5, 'NLH'],
+    ['Live Series $50K', 5000, 500, 50000, 1.5, 'NLH'],
+    ['Bounty Hunters $30K', 1500, 150, 30000, 2.5, 'NLH'],
+    ['Masters $150K', 11000, 1000, 150000, 4, 'NLH'],
+    ['Mystery Bounty $200K', 5250, 500, 200000, 6, 'NLH'],
+    ['Omaha Weekly $25K', 3000, 300, 25000, 9, 'PLO'],
+    ['Short Deck $10K', 1000, 100, 10000, 12, 'Short Deck'],
+    ['Jackpot SNG Challenge', 1000, 0, 5000, 15, 'NLH'],
+    ['Sunday Major $250K', 22000, 2000, 250000, 20, 'NLH'],
+    ['Turbo $15K', 750, 75, 15000, 24, 'NLH'],
+    ['Freeroll $2,000', 0, 0, 2000, 30, 'NLH'],
+    ['After The Fold $40K', 2000, 200, 40000, 36, 'NLH'],
   ];
   const tins = db.prepare(`INSERT INTO tournaments (id,name,buyin,fee,gtd,start_at,entrants,format) VALUES (?,?,?,?,?,?,?,?)`);
   let ti = 0;
-  for (const [name, buyin, fee, gtd, hours] of tourneys) {
+  for (const [name, buyin, fee, gtd, hours, format] of tourneys) {
     ti++;
-    tins.run(`t${ti}`, name, buyin, fee, gtd * 100, new Date(now + hours * 3600_000).toISOString(), 120 + ((ti * 337) % 800), ti % 4 === 0 ? 'PLO' : 'NLH');
+    tins.run(`t${ti}`, name, buyin, fee, gtd * 100, new Date(now + hours * 3600_000).toISOString(), 120 + ((ti * 337) % 800), format);
   }
 
   for (const [id, name, buyin, fee, gtd, hours, fmt] of [
@@ -627,7 +657,7 @@ export function setSetting(key, value) {
 }
 
 export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', opts = {}) {
-  const { sessionId = null, reference = null, onDuplicate = 'throw', joinTransaction = false, database = db } = opts;
+  const { sessionId = null, reference = null, onDuplicate = 'throw', joinTransaction = false, database = db, tournamentId = null } = opts;
   const col = currency === 'PLAY' ? 'play_chips' : currency === 'TICKET' ? 'tickets' : currency === 'GEM' ? 'gems' : 'balance';
   if (!joinTransaction) database.exec('BEGIN IMMEDIATE');
   try {
@@ -636,9 +666,9 @@ export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', o
     if (reference) {
       const predicted = row.v + amount;
       const sql = onDuplicate === 'skip'
-        ? `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(user_id,reference) DO NOTHING`
-        : `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference) VALUES (?,?,?,?,?,?,?,?)`;
-      const info = database.prepare(sql).run(userId, kind, currency, amount, predicted, memo || '', sessionId, reference);
+        ? `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,reference) DO NOTHING`
+        : `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id) VALUES (?,?,?,?,?,?,?,?,?)`;
+      const info = database.prepare(sql).run(userId, kind, currency, amount, predicted, memo || '', sessionId, reference, tournamentId);
       if (info.changes === 0) {
         if (!joinTransaction) database.exec('COMMIT');
         return { applied: false, balance: row.v };
@@ -649,8 +679,8 @@ export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', o
     }
     database.prepare(`UPDATE users SET ${col} = ${col} + ? WHERE id = ?`).run(amount, userId);
     const after = database.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId).v;
-    database.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id) VALUES (?,?,?,?,?,?,?)')
-      .run(userId, kind, currency, amount, after, memo || '', sessionId);
+    database.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,tournament_id) VALUES (?,?,?,?,?,?,?,?)')
+      .run(userId, kind, currency, amount, after, memo || '', sessionId, tournamentId);
     if (!joinTransaction) database.exec('COMMIT');
     return { applied: true, balance: after };
   } catch (err) {
@@ -659,8 +689,8 @@ export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', o
   }
 }
 
-export function addTransaction(userId, kind, amount, memo, currency = 'USD') {
-  return addTransactionEx(userId, kind, amount, memo, currency).balance;
+export function addTransaction(userId, kind, amount, memo, currency = 'USD', opts = {}) {
+  return addTransactionEx(userId, kind, amount, memo, currency, opts).balance;
 }
 
 export function openSessions() {

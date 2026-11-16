@@ -3,7 +3,9 @@ import { money, type LobbyTable } from '../../lib/api';
 import { useApp } from '../../lib/store';
 import { HERO_INTERVAL_MS, HERO_SLIDES, PROMO_CARDS, stepSlide, type HomeTarget } from '../../lib/homeContent';
 import { MobileShell } from './MobileShell';
-import { GameBadge, NavGlyph, type BadgeName } from './PhoneIcons';
+import { HeroSparks } from './HeroSparks';
+import { menuIconSrc } from '../../lib/menuIcons';
+import { PHONE_MENU_EMBLEM } from '../../lib/menuArt';
 import { CASINO_GAMES } from './casinoGames';
 
 const LIVE_ROW_SIZE = 5;
@@ -22,7 +24,7 @@ function liveTables(tables: readonly LobbyTable[]): LobbyTable[] {
   return [...tables].filter((t) => t.players > 0 && !t.private).sort((a, b) => b.players - a.players).slice(0, LIVE_ROW_SIZE);
 }
 
-/** One message, one CTA: a short tile banner, not the desktop key art. */
+/** One message, one CTA: photo-real banner art with a live spark layer in the slide's colours. */
 function PhoneHero({ onTarget }: { onTarget: (target: HomeTarget) => void }) {
   const { navigate } = useApp();
   const [idx, setIdx] = useState(0);
@@ -42,8 +44,9 @@ function PhoneHero({ onTarget }: { onTarget: (target: HomeTarget) => void }) {
   return (
     <section className="p-hero" aria-roledescription="carousel" aria-label="Featured" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {HERO_SLIDES.map((s, i) => (
-        <div key={s.key} className={'p-hero-bg' + (i === idx ? ' on' : '')} style={{ backgroundImage: `url(${s.artPhone || s.artWide || s.art})` }} aria-hidden={i !== idx} />
+        <div key={s.key} className={'p-hero-bg' + (i === idx ? ' on' : '')} style={{ backgroundImage: `url(${s.artPhone})` }} aria-hidden={i !== idx} />
       ))}
+      <HeroSparks hues={slide.sparkHues} />
       <span className="p-hero-scrim" aria-hidden="true" />
       <div className="p-hero-copy">
         <small>{slide.kicker}</small>
@@ -72,10 +75,10 @@ export function MobileHome({ tables, online, jackpot, jumpBackIn, gameLabel, onJ
         </button>
 
         <nav className="p-actions" aria-label="Quick actions">
-          <button type="button" onClick={() => navigate('/?play=1')}><span className="p-action-ico"><NavGlyph name="tables" size={24} /></span>Play</button>
-          <button type="button" onClick={() => navigate('/tournaments')}><span className="p-action-ico"><NavGlyph name="events" size={24} /></span>Tournaments</button>
-          <button type="button" onClick={() => navigate('/casino')}><span className="p-action-ico"><NavGlyph name="casino" size={24} /></span>Casino</button>
-          <button type="button" onClick={() => navigate('/rewards')}><span className="p-action-ico"><NavGlyph name="rewards" size={24} /></span>Rewards</button>
+          <button type="button" onClick={() => navigate('/?play=1')}><img className="p-action-ico" src={PHONE_MENU_EMBLEM.poker} alt="" />Play</button>
+          <button type="button" onClick={() => navigate('/tournaments')}><img className="p-action-ico" src={PHONE_MENU_EMBLEM.events} alt="" />Tournaments</button>
+          <button type="button" onClick={() => navigate('/casino')}><img className="p-action-ico" src={PHONE_MENU_EMBLEM.casino} alt="" />Casino</button>
+          <button type="button" onClick={() => navigate('/rewards')}><img className="p-action-ico" src={PHONE_MENU_EMBLEM.rewards} alt="" />Rewards</button>
         </nav>
 
         <section className="p-section" aria-labelledby="p-foryou">
@@ -92,7 +95,7 @@ export function MobileHome({ tables, online, jackpot, jumpBackIn, gameLabel, onJ
               </button>
             )}
             <div className="p-rail" role="list" aria-label="Promotions">
-              {PROMO_CARDS.slice(0, 4).map((c) => (
+              {PROMO_CARDS.map((c) => (
                 <button key={c.key} type="button" role="listitem" className="p-rail-card" onClick={() => onTarget(c.target)}>
                   <span className="p-rail-art" style={{ backgroundImage: `url(${c.art})` }} aria-hidden="true" />
                   <span className="p-rail-copy"><b>{c.title}</b><small>{c.sub}</small></span>
@@ -123,7 +126,7 @@ export function MobileHome({ tables, online, jackpot, jumpBackIn, gameLabel, onJ
           <div className="p-list">
             {CASINO_GAMES.slice(0, 3).map((g) => (
               <button key={g.key} type="button" className="p-casino-row" onClick={() => navigate(g.route)}>
-                <GameBadge name={g.badge as BadgeName} size={40} />
+                <img className="p-casino-icon" src={menuIconSrc(g.badge)} alt="" width={44} height={44} />
                 <span><b>{g.name}</b><small>{g.desc}</small></span>
                 <i aria-hidden="true">›</i>
               </button>

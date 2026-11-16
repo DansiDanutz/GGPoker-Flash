@@ -12,7 +12,7 @@ function setup() {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, balance INTEGER NOT NULL);
     CREATE TABLE tables (id TEXT PRIMARY KEY, name TEXT, game TEXT, category TEXT, sb INTEGER, bb INTEGER, ante INTEGER, min_buyin INTEGER, max_buyin INTEGER, seats INTEGER, speed TEXT, featured INTEGER, enabled INTEGER, sort INTEGER, rimt_mode TEXT);
-    CREATE TABLE transactions (id INTEGER PRIMARY KEY, user_id INTEGER, kind TEXT, currency TEXT, amount INTEGER, balance_after INTEGER, memo TEXT, session_id TEXT, reference TEXT, created_at TEXT DEFAULT (datetime('now')));
+    CREATE TABLE transactions (id INTEGER PRIMARY KEY, user_id INTEGER, kind TEXT, currency TEXT, amount INTEGER, balance_after INTEGER, memo TEXT, session_id TEXT, reference TEXT, tournament_id TEXT, created_at TEXT DEFAULT (datetime('now')));
     CREATE UNIQUE INDEX idx_transactions_reference ON transactions(user_id, reference);`);
   ensureSpinStore(db);
   for (let id = 1; id <= 4; id++) db.prepare('INSERT INTO users (id,balance) VALUES (?,1000000)').run(id);

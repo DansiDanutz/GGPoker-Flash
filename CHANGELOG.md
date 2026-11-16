@@ -1,9 +1,162 @@
-## 2026-11-14 — Tournaments 020 ported from the reference
+## 2026-11-14 — granular settings pages
 
-- Reference series tab strip (eight cropped tabs), filter chips, dense
-  Start/Event/Buy-in/Players/Prize table with search, mode-coloured rows and the
-  right-hand buy-in filter + summary + Lobby/Register panel.
-- Desktop only; the phone keeps MobileEvents. 112px account column reserved.
+- Settings menu now lists the twelve reference pages and jumps each to its section with
+  a gold flash; page title follows the granular page.
+- Adds Smart Focus; anchors Switch Chip Display, Table Theme, Time Bank, Device access,
+  Language, Buy-in, Card Squeeze, Chip Shuffle, Hotkey, Sound and Betting.
+- Phone swatch grids are paint-contained with 44px rows.
+
+## 2026-11-14 — tournament table HUD
+
+- Tournament tables show a HUD card: mode/event, level, blinds, next-level countdown,
+  players left, prize pool and bounty, all from the live table state.
+- Hidden under 600px; 0px overflow at 1200/1440.
+
+## 2026-11-14 — live mystery bounty feed
+
+- GET /api/mystery/feed returns recent mystery-bounty payouts + all-time total from the
+  real ledger; Battle Royale right rail shows “Epic Mystery Jackpot Bounties”.
+- Prize-pool schedule stays below the feed; empty state never invents winners.
+- New HTTP test covers the endpoint.
+
+## 2026-11-14 — CI stability + table seat flags
+
+- Quick-fold socket test polls for up to 60s (was 20s) with a 150s timeout, removing the
+  recurring required-check flake; assertions unchanged.
+- Table seats show a deterministic country flag beside the nickname.
+
+## 2026-11-14 — Mystery Battle Royale lobby
+
+- Dedicated MBR lobby: stage-note hero, 3x2 buy-in tiles (up to prize, entrants),
+  Join Now and a live Mystery prize-pool rail.
+- Seed adds five idempotent MBR tiers ($0.25 -> $25, $5K -> $250K guarantees).
+- Generic cash list, carousel and side panel are skipped on this tab.
+
+## 2026-11-14 — Spin & Gold stone-tile lobby
+
+- Spin & Gold tab gets a dedicated stake lobby: octagonal stone tiles (seats, buy-in,
+  win-up-to, players), prize-wheel ladder from the real payouts, and a Play Now bar.
+- Generic table filters/list are skipped on this tab; the side panel keeps info/blinds/
+  payout tabs.
+
+## 2026-11-14 — tournament selected-event details
+
+- Selecting a tournament opens a Details dock: hashtags, start phase, buy-in, guarantee,
+  prize pool, overlay, players, starting chips, blind interval and late-reg end.
+- Register/Play, Full lobby and Back to filters wired; Filters tab restores the old panel.
+
+## 2026-11-14 — slots catalogue layout
+
+- The six originals now sit in an even 4-up landscape grid (3-up on tablet, 2-up on
+  phones) under “DanGG Originals”, matching the reference shelf shape.
+- Ticker, daily-freebie cards and the 18+ notice unchanged.
+
+## 2026-11-14 — casino sections
+
+- Casino “All” is now sectioned like the reference: Table games, Slots, Arcade, Poker,
+  each with its own heading and horizontal filmstrip; category chips still filter.
+- Eight originals remain real playable games; live-dealer catalogue is out of scope.
+
+## 2026-11-14 — cash lobby promo carousel
+
+- Every cash game tab opens with the reference-style campaign hero: three creatives,
+  6s crossfade, expanding gold dot pagination, hover pause and reduced-motion fallback.
+- Rush keeps its Rush hero; Home keeps the feed.
+
+## 2026-11-14 — PokerCraft Timeline ported
+
+- /hand-history is a PokerCraft timeline: left rail with game filters, range pills,
+  search, day-grouped expandable hand cards with board/pot/result/winner.
+- Wins and losses are derived from the hand record; folded hands read “Folded”.
+
+## 2026-11-14 — Game Settings 050 ported from the reference
+
+- Settings is the reference account window: window tabs with Game Settings active red,
+  six-group left menu, titled pane and sticky Cancel/Apply/OK bar.
+- All draft/apply/cancel, sound preview and hotkey-capture behaviour preserved.
+
+## 2026-11-14 — table chrome pass
+
+- Deterministic bot faces, richer felt (sheen, vignette, rim), larger seat pods with
+  gold-hairline plates, refined card backs and hero cards, gold pot pill and 48px
+  green/red action buttons.
+- Tablet portrait shows a rotate prompt instead of a squeezed table.
+- Hand-end celebration (rings, banner pop, gold sparks), chip trails and an 18px hero-pod lift.
+- Gameplay and payout motion untouched.
+
+## 2026-11-14 — motion + material across the app
+
+- View Transitions on every non-table route: outgoing page lifts/blurs out, incoming
+  page rises from blur on the house spring; skipped for the live table and reduced motion.
+- Cards, page titles, buttons, account windows, tournament rows and data tables now
+  share Home's gold-hairline material, hover depth and foil sweep.
+
+## 2026-11-14 — premium motion + depth pass
+
+- Jackpot count-up, hero ken-burns with motes/foil, staggered blur-to-focus section
+  reveals, 3D tilt + specular glare on cards, hover lift, ambient bokeh and a cursor
+  spotlight on Home.
+- Layered gold-hairline surfaces, gradient section titles, breathing jackpot edge,
+  global focus ring and press feedback; everything disabled under reduced motion.
+
+## 2026-11-14 — Cashier 070 ported from the reference
+
+- Light payment window with balance strip, Deposit/Withdraw/History tabs, Card and
+  E-Wallet methods, green Next and amount step; deposits post to the real ledger.
+- Transaction history is newest-first, currency-aware and exportable.
+- Withdraw is disabled with a play-money explanation (real cash-out is out of scope).
+
+## 2026-11-14 — Ocean Rewards 048 ported from the reference
+
+- /rewards is the Ocean Rewards account window: window tabs, left menu, underwater
+  hero with rank art, live TP bar and the eight-tier Fish→Shark parchment with GEM
+  multipliers and cashback.
+- GEM Store keeps DanGG Pass, missions, Prize Wheel, fish ranks and leaderboard.
+- Responsive to 320px; parchment scrolls inside its card.
+
+## 2026-11-14 — Message 043 ported from the reference
+
+- Message centre: Mark All as Read, range counter and pager, dated notice rows,
+  retention note; read history survives via /api/notifications?all=1.
+- Notices carry timestamps; DM/lobby remain under a collapsed Direct messages section.
+- Phones wrap the toolbar and use 40px pager targets.
+
+## 2026-11-14 — Poker Home ported from reference 001–003
+
+- Home is now the reference feed: 800x250 campaign hero, four 226x234 For You
+  creatives, DanGG.TV cards with real table captions, Tournaments For You, Special
+  Features and Casino rows, in reference order and metrics.
+- Creatives cropped from the captured client screens and served from
+  `app/public/assets/gg-creatives/`; section chrome is live HTML.
+- Table browser removed from Home (it belongs to the game tabs); account rail fixed
+  at 112px.
+## 2026-11-14 — Transaction History 042 ported from the reference
+
+- Ledger with currency tabs, Date & Time / Description / Amount / Available / Category,
+  signed amounts and a 10-row pager.
+- Phones get a stacked ledger instead of a horizontally scrolling table; 44px pager.
+- Rows sorted by timestamp, category labels derived from ledger kinds.
+
+## 2026-11-14 — My Wallet 040 ported from the reference
+
+- Wallet pane inside the My Page window: Refresh, four balance cards, Ticket row,
+  receive-chips/get-more links and the play-money note.
+- Responsive two-column cards on tablet/phone, stacked actions, 44px controls.
+
+## 2026-11-14 — My Page 038 ported from the reference
+
+- Account window: top tabs, 240px left menu, My Game Profile pane with nickname and a
+  seven-column avatar picker (20 reference portraits), Apply.
+- Preset avatar paths are stored as paths; the endpoint whitelists them and still
+  rejects arbitrary paths. New HTTP test covers both.
+- Responsive: 240/200px menu, 7/5/4-column grid, horizontal menu on phones.
+
+## 2026-11-14 — global account rail
+
+- The 112px account rail is now a shared component rendered by PageShell on every
+  desktop screen (wallet, Cashier, guest login, product shortcuts), not just the lobby.
+- Hidden below 1100px so tablet widths keep the full content area.
+- Verified at 320/390/768/1024/1440/1920 with 0px overflow.
 
 ## 2026-11-14 — phone checklist pass (round 4b)
 

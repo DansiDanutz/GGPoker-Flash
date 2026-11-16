@@ -1,0 +1,86 @@
+/* Tournaments (reference 020): series tab strip, chips, dense list, right filter panel. */
+.tref { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: #0a0a0c; padding: 0 0 18px; overflow: hidden; }
+
+.tref-series { flex: 0 0 auto; display: flex; gap: 2px; padding: 0 2px; background: #08080a; border-bottom: 1px solid #1b1b1f; overflow-x: auto; scrollbar-width: none; }
+.tref-series::-webkit-scrollbar { display: none; }
+.tref-series-tab { flex: 0 0 auto; padding: 0; border: 0; background: #101013; height: 46px; overflow: hidden; opacity: .85; }
+.tref-series-tab img { display: block; height: 46px; width: auto; }
+.tref-series-tab.on { opacity: 1; box-shadow: inset 0 -3px 0 #c3272f; }
+.tref-series-tab:hover { opacity: 1; }
+
+.tref-chips { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 8px 12px; overflow-x: auto; border-bottom: 1px solid #1b1b1f; scrollbar-width: none; }
+.tref-chips::-webkit-scrollbar { display: none; }
+.tref-chip { flex: 0 0 auto; height: 26px; padding: 0 14px; border-radius: 13px; border: 1px solid #2a2a2f; background: #131316; color: #b6b2aa; font-size: 11.5px; font-weight: 600; }
+.tref-chip:hover { color: #fff; border-color: #4a4a52; }
+.tref-chip.on { background: #f2f2f2; color: #111; border-color: #f2f2f2; font-weight: 700; }
+.tref-chip-more { padding: 0 10px; font-size: 15px; }
+
+.tref-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 0; }
+.tref-main { min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+
+.tref-head {
+  flex: 0 0 auto; display: grid; grid-template-columns: 118px minmax(0, 1fr) 86px 84px 100px 250px; align-items: center;
+  height: 34px; padding-right: 12px; background: #121214; border-bottom: 1px solid #232327;
+  color: #9d9a93; font-size: 11.5px; font-weight: 600;
+}
+.tref-head > span { padding-left: 12px; }
+.tref-head i { color: #cfcbc2; font-style: normal; font-size: 9px; vertical-align: 1px; }
+.tref-search { display: flex; align-items: center; gap: 6px; margin: 0 8px 0 12px; padding: 0 10px; width: calc(100% - 20px); height: 26px; border: 1px solid #2c2c32; border-radius: 4px; background: #0c0c0e; color: #77747e; }
+.tref-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: #e8e4da; font-size: 11.5px; outline: none; }
+.tref-search input::placeholder { color: #6f6c75; }
+
+.tref-rows { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+.tref-row {
+  display: grid; grid-template-columns: 118px minmax(0, 1fr) 86px 84px 100px; align-items: center;
+  min-height: 34px; padding-right: 12px; border-bottom: 1px solid #131316; cursor: pointer;
+  background: #0e0e10; color: #d9d5cc;
+}
+.tref-row:nth-child(even) { background: #111114; }
+.tref-row:hover { background: #1a1a1f; }
+.tref-row.on { background: #26262d; box-shadow: inset 3px 0 0 #c3272f; }
+.tref-row.phase-running { background: #1a0d0f; }
+.tref-row.mode-bounty .tref-name b { color: #f0c46a; }
+.tref-row.mode-mystery .tref-name b { color: #c9a6f0; }
+.tref-start { display: flex; flex-direction: column; gap: 1px; padding-left: 12px; line-height: 1.15; }
+.tref-start b { font-size: 11px; font-weight: 700; color: #e8b65c; }
+.tref-row.phase-running .tref-start b { color: #ff8c8c; }
+.tref-start small { font-size: 10px; color: #8f8b84; }
+.tref-name { display: flex; align-items: center; gap: 8px; min-width: 0; padding-left: 12px; }
+.tref-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: #56c26a; box-shadow: 0 0 6px rgba(86,194,106,.5); }
+.tref-dot.gold { background: #f2c45c; box-shadow: 0 0 6px rgba(242,196,92,.5); }
+.tref-dot.purple { background: #c9a6f0; box-shadow: 0 0 6px rgba(201,166,240,.5); }
+.tref-name b { font-size: 12px; font-weight: 600; color: #e6e2d9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tref-name em { flex: 0 0 auto; padding: 1px 6px; border-radius: 3px; background: #1f3a25; color: #7fe09a; font-size: 9.5px; font-style: normal; font-weight: 700; }
+.tref-buyin { padding-left: 12px; font-size: 12px; color: #e6e2d9; }
+.tref-players { padding-left: 12px; font-size: 12px; color: #d8d4cb; }
+.tref-prize { padding-left: 12px; font-size: 12px; color: #f2c45c; }
+.tref-empty { padding: 30px 16px; color: #9a968f; font-size: 13px; }
+.tref-empty button { color: #f2c45c; text-decoration: underline; }
+
+.tref-side { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-left: 1px solid #1b1b1f; background: #0c0c0e; overflow-y: auto; }
+.tref-side-card { border: 1px solid #232327; border-radius: 6px; background: #111114; padding: 12px; }
+.tref-side-title { color: #e8e4da; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.tref-side-sub { display: flex; align-items: center; justify-content: space-between; color: #9d9a93; font-size: 11.5px; margin-bottom: 8px; }
+.tref-side-sub button { color: #b6b2aa; font-size: 11px; text-decoration: underline; }
+.tref-band-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tref-band-grid button { height: 28px; border-radius: 4px; border: 1px solid #2c2c32; background: #16161a; color: #c9c5bc; font-size: 11.5px; }
+.tref-band-grid button.on { background: #f2f2f2; color: #111; border-color: #f2f2f2; font-weight: 700; }
+.tref-kv { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; color: #9d9a93; font-size: 11.5px; }
+.tref-kv b { color: #e8e4da; font-size: 12px; }
+.tref-kv b.gold { color: #f2c45c; }
+.tref-side-actions { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+.tref-btn { height: 40px; border-radius: 5px; border: 1px solid #2e2e34; background: #17171b; color: #e8e4da; font-size: 12.5px; font-weight: 700; }
+.tref-btn.primary { background: linear-gradient(180deg, #c23340, #8e1622); border-color: #d24b56; color: #fff; }
+.tref-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+@media (max-width: 1180px) {
+  .tref-body { grid-template-columns: minmax(0, 1fr) 260px; }
+  .tref-head { grid-template-columns: 104px minmax(0, 1fr) 78px 70px 88px 210px; }
+  .tref-row { grid-template-columns: 104px minmax(0, 1fr) 78px 70px 88px; }
+}
+
+/* The reference keeps a 112px account column; our rail lives on the lobby, so reserve
+   the same width here and keep the floating account name off the tab strip. */
+.tref { padding-right: 112px; }
+.app-window:has(.tref) .account-name { display: none; }
+@media (max-width: 1180px) { .tref { padding-right: 0; } }

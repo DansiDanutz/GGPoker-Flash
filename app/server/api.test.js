@@ -251,16 +251,24 @@ test('the seat is cashed out after the disconnect grace period', async () => {
   try {
     const token = await quick.login('DansiDanutz', 'ggpoker');
     const start = await quick.balance(token);
+    // The shortest clock (5 s): a dropped player's live hand now plays out on the normal clock.
+    const tableId = (await quick.post('/api/tables/host', {
+      token, body: { name: 'Grace Room', sb: 100, bb: 200, min_buyin: 4000, max_buyin: 20000, seats: 6, action_seconds: 5 },
+    })).data.id;
     const s = quick.socket(token);
     await s.opened;
-    s.send({ type: 'join_table', tableId: TABLE, buyin: MIN_BUYIN });
+    s.send({ type: 'join_table', tableId, buyin: 4000 });
     await s.nextType('joined');
     await s.close();
-    await sleep(1200);
-    const tx = (await quick.get('/api/cashier', { token })).data.transactions;
-    const out = tx.find((t) => String(t.reference).startsWith('out:'));
+    // A seat still in a live hand waits for that hand to end before it is cashed out.
+    let out;
+    for (let i = 0; i < 240 && !out; i++) {
+      await sleep(250);
+      const tx = (await quick.get('/api/cashier', { token })).data.transactions;
+      out = tx.find((t) => String(t.reference).startsWith('out:'));
+    }
     assert.ok(out, 'cash-out was written');
-    assert.equal(await quick.balance(token), start - MIN_BUYIN + out.amount);
+    assert.equal(await quick.balance(token), start - 4000 + out.amount);
   } finally { await quick.stop(); }
 });
 

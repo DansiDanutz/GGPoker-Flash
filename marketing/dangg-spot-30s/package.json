@@ -7,5 +7,6 @@
     "check": "npx --yes hyperframes@0.9.25 check",
     "render": "npx --yes hyperframes@0.9.25 render",
     "publish": "npx --yes hyperframes@0.9.25 publish"
-  }
+  },
+  "license": "AGPL-3.0-only"
 }

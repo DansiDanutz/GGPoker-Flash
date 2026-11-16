@@ -1,12 +1,14 @@
 // Pre-actions: a decision queued while waiting for the action to come round.
 // "foldany" (Fold to any bet) persists across the streets of the hand: it folds to a bet,
-// and when checking is free it checks and stays armed. The others fire once.
+// and when checking is free it checks and stays armed. "callany" (Call Any) calls whatever the bet is,
+// or checks when nobody bet. The others fire once.
 
 export type PreAction =
   | { kind: 'checkfold' }
   | { kind: 'check' }
   | { kind: 'call'; amount: number }
-  | { kind: 'foldany' };
+  | { kind: 'foldany' }
+  | { kind: 'callany' };
 
 export type PreActionMove = 'fold' | 'check' | 'call';
 
@@ -22,6 +24,8 @@ export function resolvePreAction(pre: PreAction | null, toCall: number): PreActi
   switch (pre.kind) {
     case 'foldany':
       return facingBet ? { action: 'fold', next: null } : { action: 'check', next: pre };
+    case 'callany':
+      return { action: facingBet ? 'call' : 'check', next: null };
     case 'checkfold':
       return { action: facingBet ? 'fold' : 'check', next: null };
     case 'check':

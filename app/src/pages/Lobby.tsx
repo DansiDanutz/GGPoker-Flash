@@ -23,7 +23,20 @@ import { useIsPhone } from '../lib/useIsPhone';
 import { MOBILE_GAMES } from '../lib/mobileLobby';
 import { MobileHome } from '../components/mobile/MobileHome';
 import { MobileBackBar, MobileGameList } from '../components/mobile/MobileGameList';
+import { MobileTableRows } from '../components/mobile/MobileTableRows';
+import { buyinStep, stepBuyin } from '../lib/phoneTables';
 import { MobileShell } from '../components/mobile/MobileShell';
+import { HomeFeed } from '../components/home/HomeFeed';
+import { CashHero } from '../components/CashHero';
+import { SpinLobby } from '../components/SpinLobby';
+import { BattleLobby } from '../components/BattleLobby';
+import { AccountRail } from '../components/AccountRail';
+import { GameInfoDrawer } from '../components/GameInfoDrawer';
+import { SeatedPlayersList } from '../components/SeatedPlayersList';
+import { gameRules } from '../lib/gameRules';
+import { PROMO_ART } from '../lib/promoArt';
+import { marketplaceApi, type ManagementAccount } from '../lib/marketplace-api';
+import { ManagementAccessNotice } from '../components/ManagementPlugins';
 
 const PREVIEW_SEATS = [
   { x: 50, y: 8 }, { x: 10, y: 30 }, { x: 90, y: 30 },
@@ -83,12 +96,20 @@ export function Lobby() {
   const [buyin, setBuyin] = useState(0);
   const [seat, setSeat] = useState<number | null>(null);
   const [rushInfoOpen, setRushInfoOpen] = useState(false);
+  const [gameInfoOpen, setGameInfoOpen] = useState(false);
   const [hostOpen, setHostOpen] = useState(false);
   const [hostBusy, setHostBusy] = useState(false);
   const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000, bombPot: false });
   const [myHosts, setMyHosts] = useState<any[]>([]);
   const [myTourneys, setMyTourneys] = useState<any[]>([]);
-  const [hostKind, setHostKind] = useState<'cash' | 'tournament'>('cash');
+  const [hostKind, setHostKind] = useState<'cash' | 'tournament' | 'spin'>('cash');
+  const [hostSpinForm, setHostSpinForm] = useState({ name: '', stake: 5000 });
+  const [hostManagement, setHostManagement] = useState<ManagementAccount | null>(null);
+  const [hostAccessLoading, setHostAccessLoading] = useState(false);
+  const [hostAccessError, setHostAccessError] = useState('');
+  const [hostAccessRetry, setHostAccessRetry] = useState(0);
+  const [hostListError, setHostListError] = useState('');
+  const hostDialogRef = useRef<HTMLDivElement>(null);
   const [hostTourneyForm, setHostTourneyForm] = useState({ name: '', format: 'NLH', buyin: 1000, fee: 100, gtd: 0, starting_stack: 10000, blind_speed: 8, late_reg: 90, mode: 'STANDARD', bounty: 0, ticket: '', start_at: new Date(Date.now() + 3600000).toISOString().slice(0, 16) });
   const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
   const [promoIdx, setPromoIdx] = useState(0);
@@ -165,6 +186,7 @@ export function Lobby() {
   // A capture-gated tab (Battle Royale) shows an honest empty state: no rows, no Join.
   const unavailable = UNAVAILABLE_TABS[gameTab];
   const table = unavailable ? null : data?.tables.find((t: LobbyTable) => t.id === selected) || null;
+  const hasRules = !['home', 'spin', 'battle'].includes(gameTab) && !unavailable;
   // Real seated players from the live table (empty chairs when nobody sits there).
   const previewPlayers = useMemo(() => (table ? previewSeats(table.seated, PREVIEW_SEATS.length) : []), [table]);
 
@@ -184,10 +206,41 @@ export function Lobby() {
     else navigate(target.route);
   };
 
-  const openHost = async () => {
-    setHostOpen(true);
-    try { const [r, t] = await Promise.all([api.hostTables(), api.hostTournaments()]); setMyHosts(r.tables || []); setMyTourneys(t.tournaments || []); } catch { setMyHosts([]); setMyTourneys([]); }
-  };
+  const openHost = () => { setHostManagement(null); setHostAccessLoading(true); setHostAccessError(''); setHostOpen(true); };
+  useEffect(() => {
+    if (!hostOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const frame = window.requestAnimationFrame(() => hostDialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setHostOpen(false); return; }
+      if (event.key !== 'Tab' || !hostDialogRef.current) return;
+      const fields = Array.from(hostDialogRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'));
+      const first = fields[0]; const last = fields[fields.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { window.cancelAnimationFrame(frame); document.removeEventListener('keydown', onKeyDown); if (previous?.isConnected) previous.focus(); };
+  }, [hostOpen]);
+  useEffect(() => {
+    if (!hostOpen) return;
+    let cancelled = false;
+    setHostAccessLoading(true); setHostManagement(null); setHostAccessError(''); setHostListError('');
+    setMyHosts([]); setMyTourneys([]);
+    marketplaceApi.managementMine().then((result) => { if (!cancelled) setHostManagement(result); })
+      .catch((error: unknown) => { if (!cancelled) setHostAccessError(error instanceof Error ? error.message : 'Cannot check management access.'); })
+      .finally(() => { if (!cancelled) setHostAccessLoading(false); });
+    Promise.allSettled([api.hostTables(), api.hostTournaments()]).then(([tablesResult, eventsResult]) => {
+      if (cancelled) return;
+      if (tablesResult.status === 'fulfilled') setMyHosts(tablesResult.value.tables || []);
+      if (eventsResult.status === 'fulfilled') setMyTourneys(eventsResult.value.tournaments || []);
+      if (tablesResult.status === 'rejected' || eventsResult.status === 'rejected') setHostListError('Some of your existing games could not be loaded. Try again to refresh the list.');
+    });
+    return () => { cancelled = true; };
+  }, [hostOpen, user?.id, hostAccessRetry]);
+  const hostProductId = hostKind === 'spin' ? 'spin-and-go-manager' : hostKind === 'tournament' ? 'tournaments-manager' : 'cash-games-manager';
+  const hostAccess = hostManagement?.access.find((entry) => entry.product_id === hostProductId);
+  const hostCanManage = !hostAccessLoading && !hostAccessError && Boolean(hostAccess?.can_manage);
 
   const copyHostLink = async (id: string) => {
     const link = `${location.origin}/#/table/${id}?observe=1`;
@@ -250,7 +303,7 @@ export function Lobby() {
   };
 
   const createHost = async () => {
-    if (hostBusy) return;
+    if (hostBusy || !hostCanManage) return;
     setHostBusy(true);
     try {
       const r = await api.hostTable({ ...hostForm, name: hostForm.name.trim() || `${user?.nick || 'My'} table` });
@@ -264,7 +317,7 @@ export function Lobby() {
   };
 
   const createHostTournament = async () => {
-    if (hostBusy) return;
+    if (hostBusy || !hostCanManage) return;
     setHostBusy(true);
     try {
       const r = await api.hostTournament({ ...hostTourneyForm, start_at: new Date(hostTourneyForm.start_at).toISOString() });
@@ -273,6 +326,20 @@ export function Lobby() {
       navigate(`/tournaments?id=${r.id}`);
     } catch (e: any) {
       toast({ kind: 'error', title: 'Could not host tournament', body: e.message });
+    } finally { setHostBusy(false); }
+  };
+
+  const createHostSpin = async () => {
+    if (hostBusy || !hostCanManage) return;
+    setHostBusy(true);
+    try {
+      const result = await api.hostTable({ name: hostSpinForm.name.trim() || `${user?.nick || 'My'} Spin & Go`, game: 'spingold', seats: 3, sb: 10, bb: 20, min_buyin: hostSpinForm.stake, max_buyin: hostSpinForm.stake });
+      toast({ kind: 'success', title: 'Private Spin & Go created', body: 'Invite three players to start the play-money game.' });
+      setHostOpen(false);
+      await load();
+      navigate(`/table/${result.id}?buyin=${hostSpinForm.stake}`);
+    } catch (error: unknown) {
+      toast({ kind: 'error', title: 'Could not host Spin & Go', body: error instanceof Error ? error.message : 'Please try again.' });
     } finally { setHostBusy(false); }
   };
 
@@ -352,14 +419,8 @@ export function Lobby() {
           onTarget={(target) => ('tab' in target ? pickGame(target.tab) : openHomeTarget(target))}
         />
       )}
-      {phoneView === 'games' && <MobileShell title="Poker"><MobileGameList tables={data?.tables || []} onPick={pickGame} /></MobileShell>}
+      {phoneView === 'games' && <MobileShell showBrand><MobileGameList tables={data?.tables || []} onPick={pickGame} /></MobileShell>}
       {phoneView === 'tables' && <MobileBackBar title={phoneGameTitle} onBack={() => navigate('/?play=1')} />}
-      {(!user) && (!phoneView || phoneView === 'tables') && (
-        <div style={{ background: '#141414', borderBottom: '1px solid #2a2a2a', padding: '6px 14px', fontSize: 12.5, color: '#e6e6e6', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <b>You are browsing as guest.</b> Log in to keep your balance, rewards and hand history.
-          <button className="btn btn-red btn-sm" style={{ marginLeft: 'auto' }} onClick={() => navigate('/login')}>Log in / Sign up</button>
-        </div>
-      )}
       {(!phoneView || phoneView === 'tables') && <div className={'lobby-content' + (gameTab === 'home' ? ' is-home' : '')}>
         <aside className="lobby-left" aria-label="Poker navigation">
           <div className="ll-label">POKER</div>
@@ -373,9 +434,10 @@ export function Lobby() {
           <button className="ll-item ll-play" onClick={() => setGameTab('holdem')}><span className="ll-mark" />Play Money</button>
         </aside>
         <div className="lobby-main">
+          {gameInfoOpen && hasRules && <GameInfoDrawer game={gameTab} table={table} onClose={() => setGameInfoOpen(false)} />}
           {gameTab === 'rush' && (
             <div className="rush-hero">
-              <div className="rush-hero-bg" style={{ backgroundImage: "url('/assets/ui/discover/Bg_Discover_RushNCash_Holdem.png')" }} />
+              <div className="rush-hero-bg" style={{ backgroundImage: `url('${PROMO_ART.fastfold}')` }} />
               <div className="rush-hero-copy">
                 <small>FAST FOLD</small>
                 <b>Fold. Move. Play again.</b>
@@ -388,133 +450,84 @@ export function Lobby() {
               </div>
             </div>
           )}
-          {gameTab === 'home' && <>
-            <div
-              className={'promo-wrap' + (promoPaused ? ' paused' : '')}
-              role="button"
-              tabIndex={0}
-              aria-label={`${HERO_SLIDES[promoIdx].title}: ${HERO_SLIDES[promoIdx].cta}`}
-              onMouseEnter={() => setPromoPaused(true)}
-              onMouseLeave={() => setPromoPaused(false)}
-              onFocusCapture={() => setPromoPaused(true)}
-              onBlurCapture={() => setPromoPaused(false)}
-              onClick={() => openHomeTarget(HERO_SLIDES[promoIdx].target)}
-              onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openHomeTarget(HERO_SLIDES[promoIdx].target); } }}
-            >
-              {HERO_SLIDES.map((slide, i) => (
-                <div key={slide.key} className={'promo-art-bg' + (i === promoIdx ? ' on' : '')} style={{ background: slide.bg }}>
-                  <img className="promo-art-wide" src={slide.artWide} alt="" />
-                </div>
-              ))}
-              <span className="promo-badge">FEATURED</span>
-              <div className="promo-copy">
-                <small>{HERO_SLIDES[promoIdx].kicker}</small>
-                <b>{HERO_SLIDES[promoIdx].title}</b>
-                <span>{HERO_SLIDES[promoIdx].sub}</span>
-              </div>
-              <span className="promo-cta">{HERO_SLIDES[promoIdx].cta} <span>→</span></span>
-              <button className="promo-arrow prev" aria-label="Previous promotion" onClick={(e) => { e.stopPropagation(); setPromoIdx((i) => stepSlide(i, -1, HERO_SLIDES.length)); }}>‹</button>
-              <button className="promo-arrow next" aria-label="Next promotion" onClick={(e) => { e.stopPropagation(); setPromoIdx((i) => stepSlide(i, 1, HERO_SLIDES.length)); }}>›</button>
-              <div className="promo-dots">
-                {HERO_SLIDES.map((slide, i) => (
-                  <button key={slide.key} className={i === promoIdx ? 'on' : ''} aria-label={`Show ${slide.title}`} onClick={(e) => { e.stopPropagation(); setPromoIdx(i); }} />
-                ))}
-              </div>
+          {gameTab === 'home' && (
+            <HomeFeed tables={tables} online={online} onTarget={openHomeTarget} onJoin={openJoin} />
+          )}
+          {gameTab !== 'home' && gameTab !== 'rush' && gameTab !== 'spin' && gameTab !== 'battle' && <CashHero jackpot={data?.jackpot || 199026635} onGame={setGameTab} />}
+          {gameTab === 'battle' ? (
+            <BattleLobby />
+          ) : gameTab === 'spin' ? (
+            <SpinLobby tables={tables} onJoin={openJoin} />
+          ) : (
+            <>
+            <div className="filter-bar" hidden={gameTab === 'home'}>
+              {!pillsFor(gameTab).length && <span className="filter-label">Tables</span>}
+              <LobbyPills tab={gameTab} value={filters.pill} onChange={(pill) => setFilter({ pill })} />
+              <span className="filter-spacer" />
+              <button className="host-table-btn" onClick={openHost}>+ Host</button>
+              <LobbyFiltersPopover filters={filters} tableCount={tables.length} onChange={setFilter} onReset={() => setFilter(resetExtraFilters(filters))} />
             </div>
-            <section className="home-promos" aria-labelledby="home-promos-title">
-              <div className="home-promos-head"><b id="home-promos-title">For You</b><button onClick={() => navigate('/promotions')}>View all</button></div>
-              <div className="home-promo-row">
-                {jumpBackIn && (
-                  <button className="home-promo-card home-jump" onClick={() => openJoin(jumpBackIn)}>
-                    <span><small className="home-jump-kicker">Jump back in</small><b>{jumpBackIn.name}</b><small>{GAME_LABEL[jumpBackIn.game]} · {fmtStakes(jumpBackIn)} · {jumpBackIn.players}/{jumpBackIn.seats} seated</small></span>
-                  </button>
-                )}
-                {PROMO_CARDS.map((card) => (
-                  <button key={card.key} className="home-promo-card" onClick={() => openHomeTarget(card.target)}>
-                    <img src={card.art} alt="" />
-                    <span><b>{card.title}</b><small>{card.sub}</small></span>
-                  </button>
-                ))}
-              </div>
-            </section>
-            <section className="home-tv" aria-labelledby="home-tv-title">
-              <div className="home-promos-head"><b id="home-tv-title">DanGG.TV</b><button onClick={() => navigate('/tournaments')}>Watch live</button></div>
-              <div className="home-tv-row">
-                {liveStreams.map((t) => (
-                  <button key={t.id} className="tv-card" onClick={() => navigate(`/table/${t.id}?observe=1`)} aria-label={`Watch ${t.name} live`}>
-                    <img src={`/assets/tables/${t.seats <= 6 ? 'table_5ring.png' : 'featured_6ring.png'}`} alt="" />
-                    <i className="tv-live"><span /> LIVE</i>
-                    <i className="tv-play" aria-hidden="true">▶</i>
-                    <span className="tv-copy"><b>{t.name}</b><small>{GAME_LABEL[t.game]} · {fmtStakes(t)} · {t.players}/{t.seats}</small></span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          </>}
           {gameTab === 'spin' && <SpinRegistration stake={table?.game === 'spingold' ? table.min_buyin : 5000} />}
-          <div className="filter-bar">
-            {!pillsFor(gameTab).length && <span className="filter-label">Tables</span>}
-            <LobbyPills tab={gameTab} value={filters.pill} onChange={(pill) => setFilter({ pill })} />
-            <span className="filter-spacer" />
-            <button className="host-table-btn" onClick={openHost}>+ Host</button>
-            <LobbyFiltersPopover filters={filters} tableCount={tables.length} onChange={setFilter} onReset={() => setFilter(resetExtraFilters(filters))} />
-          </div>
-          <div className="table-list" key={gameTab}>
-            {viewMode === 'table' && !isRushTab && !unavailable && <div className="list-head">
-              <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
-              <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
-              <div>Buy-in</div>
-              <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Seated players now, bots included">Players</span></div>
-              <div>Wait</div>
-              <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Average pot over the last 20 hands">AvgPot</span></div>
-              <div title="Voluntarily put chips in preflop, last 20 hands">VPIP%</div><div title="Hands dealt in the last hour">H/hr</div>
-            </div>}
-            <div className="list-scroll">
-              {unavailable ? (
-                <div className="list-empty" role="status">
-                  <strong>{unavailable.title}</strong>
-                  <div>{unavailable.detail}</div>
-                </div>
-              ) : isRushTab ? (
-                <RushPoolRows pools={rushPools} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
-              ) : viewMode === 'group' ? (
-                <LobbyGroupRows tab={gameTab} tables={tables} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
-              ) : tables.map((t) => (
-                <div
-                  key={t.id}
-                  className={'table-row game-' + t.game + (selected === t.id ? ' selected' : '')}
-                  onClick={() => { setSelected(t.id); if (coarsePointer()) openJoin(t); }}
-                  onDoubleClick={() => openJoin(t)}
-                >
-                  <div className="name">
-                    <button className={'fav-star' + (favs.includes(t.id) ? ' on' : '')} onClick={(e) => { e.stopPropagation(); toggleFav(t.id); }} title="Favourite">★</button>
-                    <span className={'chip-dot ' + t.category.toLowerCase()} />
-                    <span>{t.name}</span>
-                    {t.pro && <span className="tag pro">PRO</span>}
+            <div className="table-list" key={gameTab}>
+              {viewMode === 'table' && !isRushTab && !unavailable && phoneView !== 'tables' && <div className="list-head">
+                <div onClick={() => { setSortKey('name'); setSortDir(sortKey === 'name' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Table Name</div>
+                <div onClick={() => { setSortKey('bb'); setSortDir(sortKey === 'bb' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}>Stakes</div>
+                <div>Buy-in</div>
+                <div onClick={() => { setSortKey('players'); setSortDir(sortKey === 'players' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Seated players now, bots included">Players</span></div>
+                <div>Wait</div>
+                <div onClick={() => { setSortKey('avgPot'); setSortDir(sortKey === 'avgPot' ? (sortDir === 1 ? -1 : 1) : 1); }} style={{ cursor: 'pointer' }}><span title="Average pot over the last 20 hands">AvgPot</span></div>
+                <div title="Voluntarily put chips in preflop, last 20 hands">VPIP%</div><div title="Hands dealt in the last hour">H/hr</div>
+              </div>}
+              <div className="list-scroll">
+                {unavailable ? (
+                  <div className="list-empty" role="status">
+                    <strong>{unavailable.title}</strong>
+                    <div>{unavailable.detail}</div>
                   </div>
-                  <div className="c-stakes">{fmtStakes(t)}</div>
-                  <div className="c-buyin">{money(t.min_buyin, true)}</div>
-                  <div className="player-bars">
-                    {Array.from({ length: t.seats }).map((_, i) => (
-                      <i key={i} className={i < t.players ? 'on' : ''} />
-                    ))}
+                ) : isRushTab ? (
+                  <RushPoolRows pools={rushPools} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
+                ) : phoneView === 'tables' ? (
+                  <MobileTableRows tables={tables} onJoin={openJoin} />
+                ) : viewMode === 'group' ? (
+                  <LobbyGroupRows tab={gameTab} tables={tables} allTables={data?.tables || []} selectedId={selected} onSelect={setSelected} onJoin={openJoin} onChanged={load} />
+                ) : tables.map((t) => (
+                  <div
+                    key={t.id}
+                    className={'table-row game-' + t.game + (selected === t.id ? ' selected' : '')}
+                    onClick={() => { setSelected(t.id); if (coarsePointer()) openJoin(t); }}
+                    onDoubleClick={() => openJoin(t)}
+                  >
+                    <div className="name">
+                      <button className={'fav-star' + (favs.includes(t.id) ? ' on' : '')} onClick={(e) => { e.stopPropagation(); toggleFav(t.id); }} title="Favourite">★</button>
+                      <span className={'chip-dot ' + t.category.toLowerCase()} />
+                      <span>{t.name}</span>
+                      {t.pro && <span className="tag pro">PRO</span>}
+                    </div>
+                    <div className="c-stakes">{fmtStakes(t)}</div>
+                    <div className="c-buyin">{money(t.min_buyin, true)}</div>
+                    <div className="player-bars">
+                      {Array.from({ length: t.seats }).map((_, i) => (
+                        <i key={i} className={i < t.players ? 'on' : ''} />
+                      ))}
+                    </div>
+                    <div className={'wait-cell' + (waitCount(t) ? ' has-wait' : '')}>{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
+                    <div className={t.avgPot ? 'c-pot' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
+                    <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
+                    <div className={t.handsPerHour ? '' : 'zero'}>{t.handsPerHour || '-'}</div>
                   </div>
-                  <div className={'wait-cell' + (waitCount(t) ? ' has-wait' : '')}>{t.myWait ? <i className="queued-dot" title={`You are #${t.myWait}`} aria-label={`You are #${t.myWait} on the waiting list`} /> : null}{waitCount(t)}</div>
-                  <div className={t.avgPot ? 'c-pot' : 'zero'}>{t.avgPot ? money(t.avgPot, true) : '-'}</div>
-                  <div className={t.vpip ? '' : 'zero'}>{t.vpip ? t.vpip + '%' : '-'}</div>
-                  <div className={t.handsPerHour ? '' : 'zero'}>{t.handsPerHour || '-'}</div>
-                </div>
-              ))}
-              {!tables.length && !unavailable && (
-                <div className="list-empty">No tables match these filters.{' '}
-                  <button type="button" className="lob-link" onClick={() => setFilter(DEFAULT_TAB_FILTERS)}>Reset filters</button>
-                </div>
-              )}
+                ))}
+                {!tables.length && !unavailable && (
+                  <div className="list-empty">No tables match these filters.{' '}
+                    <button type="button" className="lob-link" onClick={() => setFilter(DEFAULT_TAB_FILTERS)}>Reset filters</button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+            </>
+          )}
         </div>
 
-        <div className="lobby-side">
+        {gameTab !== 'battle' && <div className="lobby-side">
           {!unavailable && (
             <>
               <div className="view-toggle">
@@ -525,6 +538,12 @@ export function Lobby() {
                 <MiniTable table={table} players={previewPlayers} />
               </div>
               {gameTab !== 'spin' && <WaitlistSideActions table={table} onJoin={openJoin} onWatch={(t) => navigate(`/table/${t.id}?observe=1`)} onChanged={load} />}
+              {!isRushTab && gameTab !== 'spin' && <SeatedPlayersList table={table} />}
+              {hasRules && (
+                <button type="button" className="gi-link" aria-expanded={gameInfoOpen} onClick={() => setGameInfoOpen((v) => !v)}>
+                  {gameRules(gameTab, table).title} <span aria-hidden="true">ⓘ</span>
+                </button>
+              )}
             </>
           )}
           {isRushTab && <RushSidePanel leaderboard={data?.rushLeaderboard} myId={user?.id} onShowInfo={() => setRushInfoOpen(true)} />}
@@ -539,27 +558,9 @@ export function Lobby() {
           <div style={{ padding: '6px 8px', fontSize: 11, color: '#777', borderTop: '1px solid #222' }}>
             {table ? GAME_LABEL[table.game] : ''} · {table ? table.speed : ''}
           </div>
-        </div>
+        </div>}
 
-        <div className="lobby-rail">
-          <div className="rail-wallet">
-            <div className="currency-row"><span>USD</span><b>{money(user?.balance ?? 0)}</b></div>
-            <div className="currency-row"><span>P$</span><b>P${(user?.play_chips ?? 0).toLocaleString()}</b></div>
-            <div className="currency-row"><span>T$</span><b>T${(user?.tickets ?? 0).toLocaleString()}</b></div>
-            <div className="currency-row coin"><span>XP</span><b>{((user?.xp ?? 0) / 1000).toFixed(1)}K</b></div>
-          </div>
-          <button className="cashier-btn" onClick={() => { sound.play('coin'); navigate('/cashier'); }}><span>Cashier</span></button>
-          <div className="rail-sep" />
-          <button className="rail-btn tone-red" onClick={() => navigate('/propbet')}><span className="ico">🎯</span>Prop Bet</button>
-          <button className="rail-btn tone-blue" onClick={() => navigate('/rewards')}><span className="ico">🐟</span>Rewards</button>
-          <button className="rail-btn tone-pink" onClick={() => navigate('/promotions')}><span className="ico">🎁</span>My Promo</button>
-          <div className="rail-sep" />
-          <button className="rail-btn tone-teal" onClick={() => navigate('/my-page')}><span className="ico">👤</span>My Page</button>
-          <button className="rail-btn tone-green" onClick={() => navigate('/missions')}><span className="ico">📋</span>Missions</button>
-          <button className="rail-btn tone-gold" onClick={() => navigate('/leaderboard')}><span className="ico">🏆</span>Leaders</button>
-          <div style={{ flex: 1 }} />
-          <button className="rail-btn gold tone-gold" onClick={() => navigate('/rewards')}><span className="ico">⭐</span>DanGG Pass</button>
-        </div>
+        <AccountRail />
       </div>}
 
       {rushInfoOpen && <RushInfoDialog cashDrop={data?.rushCashDrop} onClose={() => setRushInfoOpen(false)} />}
@@ -607,8 +608,9 @@ export function Lobby() {
       )}
 
       {buyinTable && (
-        <div className="modal-backdrop" onClick={() => setBuyinTable(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop buyin-backdrop" onClick={() => setBuyinTable(null)}>
+          <div className="modal buyin-sheet" role="dialog" aria-modal="true" aria-label={`Buy-in, ${buyinTable.name}`} onClick={(e) => e.stopPropagation()}>
+            <span className="sheet-grip" aria-hidden="true" />
             <div className="modal-head">
               <h3>Buy-in · {buyinTable.name}</h3>
               <button className="title-icon" onClick={() => setBuyinTable(null)}>✕</button>
@@ -637,15 +639,19 @@ export function Lobby() {
                   type="range"
                   min={buyinTable.min_buyin}
                   max={Math.min(buyinTable.max_buyin, Math.max(user?.balance ?? buyinTable.min_buyin, buyinTable.min_buyin))}
-                  step={Math.max(100, Math.round(buyinTable.bb / 2))}
+                  step={buyinStep(buyinTable)}
                   value={buyin}
                   onChange={(e) => setBuyin(Number(e.target.value))}
                   style={{ width: '100%' }}
                 />
               </div>
-              <div className="between" style={{ margin: '10px 0 4px' }}>
+              <div className="between buyin-amount" style={{ margin: '10px 0 4px' }}>
                 <span className="muted">Min {money(buyinTable.min_buyin)}</span>
-                <b style={{ color: '#ffd98a', fontSize: 18 }}>{money(buyin)}</b>
+                <span className="buyin-stepper">
+                  <button type="button" aria-label="Lower buy-in" onClick={() => setBuyin(stepBuyin(buyinTable, buyin, -1, user?.balance))}>−</button>
+                  <b style={{ color: '#ffd98a', fontSize: 18 }}>{money(buyin)}</b>
+                  <button type="button" aria-label="Raise buy-in" onClick={() => setBuyin(stepBuyin(buyinTable, buyin, 1, user?.balance))}>+</button>
+                </span>
                 <span className="muted">Max {money(buyinTable.max_buyin)}</span>
               </div>
               <div className="row" style={{ marginTop: 10 }}>
@@ -658,7 +664,7 @@ export function Lobby() {
             </div>
             <div className="modal-foot">
               <button className="btn btn-dark" onClick={() => setBuyinTable(null)}>Cancel</button>
-              <button className="btn btn-dark" onClick={() => {
+              <button className="btn btn-dark buyin-newwin" onClick={() => {
                 if (!buyinTable) return;
                 const url = `${location.origin}/#/table/${buyinTable.id}?buyin=${buyin}${seat != null ? `&seat=${seat}` : ''}`;
                 window.open(url, '_blank', 'width=1200,height=961');
@@ -672,19 +678,22 @@ export function Lobby() {
 
       {hostOpen && (
         <div className="modal-backdrop" onClick={() => setHostOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 540 }}>
-            <div className="modal-head"><h3>{hostKind === 'cash' ? 'Host a private table' : 'Host a private tournament'}</h3><button className="title-icon" onClick={() => setHostOpen(false)}>✕</button></div>
+          <div ref={hostDialogRef} className="modal" role="dialog" aria-modal="true" aria-labelledby="host-dialog-title" onClick={(e) => e.stopPropagation()} style={{ width: 560, maxWidth: 'calc(100vw - 24px)' }}>
+            <div className="modal-head"><h3 id="host-dialog-title">{hostKind === 'cash' ? 'Host a private table' : hostKind === 'spin' ? 'Host a private Spin & Go' : 'Host a private tournament'}</h3><button className="title-icon" aria-label="Close host dialog" onClick={() => setHostOpen(false)}>✕</button></div>
             <div className="modal-body">
               <div className="tabs-line" style={{ marginBottom: 12 }}>
                 <button className={hostKind === 'cash' ? 'on' : ''} onClick={() => setHostKind('cash')}>Cash table</button>
                 <button className={hostKind === 'tournament' ? 'on' : ''} onClick={() => setHostKind('tournament')}>Tournament</button>
+                <button className={hostKind === 'spin' ? 'on' : ''} onClick={() => setHostKind('spin')}>Spin & Go</button>
               </div>
+              <ManagementAccessNotice name={hostKind === 'cash' ? 'Cash Games Manager' : hostKind === 'spin' ? 'Spin & Go Manager' : 'Tournaments Manager'} access={hostAccess} mode={hostManagement?.mode} loading={hostAccessLoading} error={hostAccessError} onRetry={() => setHostAccessRetry((value) => value + 1)} onMarketplace={() => { setHostOpen(false); navigate('/marketplace'); }} />
+              {hostListError && <p className="mg-error" role="alert">{hostListError} <button type="button" className="mg-link" onClick={() => setHostAccessRetry((value) => value + 1)}>Try again</button></p>}
               {hostKind === 'cash' && (<>
                 <p className="muted small" style={{ marginTop: 0 }}>Local play-money table. Only you and players with the table link can see it.</p>
-                {myHosts.length > 0 && (
+                {myHosts.some((entry) => entry.game !== 'spingold') && (
                   <div className="host-list">
                     <div className="panel-title" style={{ marginBottom: 4 }}>Your private tables</div>
-                    {myHosts.map((t) => (
+                    {myHosts.filter((entry) => entry.game !== 'spingold').map((t) => (
                       <div key={t.id} className="host-row">
                         <div><b>{t.name}</b><span>{t.game} · {t.seats}-max · {money(t.sb)}/{money(t.bb)}</span></div>
                         <button className="btn btn-ghost btn-sm" onClick={() => copyHostLink(t.id)}>Copy invite</button>
@@ -739,8 +748,26 @@ export function Lobby() {
                 </div>
                 <p className="muted small">Freezeout starts when at least two players register at the start time.</p>
               </>)}
+
+              {hostKind === 'spin' && <>
+                <p className="muted small" style={{ marginTop: 0 }}>A private Jackpot Sit & Go using virtual play chips. The existing engine starts the game when three seats are filled.</p>
+                {myHosts.some((entry) => entry.game === 'spingold') && <div className="host-list">
+                  <div className="panel-title" style={{ marginBottom: 4 }}>Your private Spin & Go tables</div>
+                  {myHosts.filter((entry) => entry.game === 'spingold').map((table) => <div key={table.id} className="host-row">
+                    <div><b>{table.name}</b><span>3 players · {Number(table.min_buyin).toLocaleString('en-GB')} play chips</span></div>
+                    <button className="btn btn-ghost btn-sm" onClick={() => copyHostLink(table.id)}>Copy invite</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => deleteHost(table.id)}>Delete</button>
+                  </div>)}
+                </div>}
+                <div className="mg-host-spin-details"><div><strong>3</strong><span>players per game</span></div><div><strong>Fixed</strong><span>play-chip buy-in</span></div><div><strong>Auto</strong><span>start when full</span></div></div>
+                <label className="admin-label" htmlFor="host-spin-name">Table name</label>
+                <input id="host-spin-name" className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} Spin & Go`} value={hostSpinForm.name} onChange={(event) => setHostSpinForm((current) => ({ ...current, name: event.target.value }))} maxLength={40} />
+                <label className="admin-label" htmlFor="host-spin-stake" style={{ marginTop: 12 }}>Buy-in in play chips</label>
+                <select id="host-spin-stake" className="admin-select" style={{ width: '100%' }} value={hostSpinForm.stake} onChange={(event) => setHostSpinForm((current) => ({ ...current, stake: Number(event.target.value) }))}><option value={5000}>5,000 play chips</option><option value={10000}>10,000 play chips</option></select>
+                <p className="muted small">Seat count, blind structure and prize rules come from the game engine. Buying the management plugin does not buy game chips or change these rules.</p>
+              </>}
             </div>
-            <div className="modal-foot"><button className="btn btn-dark" onClick={() => setHostOpen(false)}>Cancel</button>{hostKind === 'cash' ? <button className="btn btn-gold" disabled={hostBusy || hostForm.max_buyin < hostForm.min_buyin} onClick={createHost}>{hostBusy ? 'Creating…' : 'Create table'}</button> : <button className="btn btn-gold" disabled={hostBusy} onClick={createHostTournament}>{hostBusy ? 'Creating…' : 'Create tournament'}</button>}</div>
+            <div className="modal-foot"><button className="btn btn-dark" onClick={() => setHostOpen(false)}>Cancel</button>{hostKind === 'cash' ? <button className="btn btn-gold" disabled={hostBusy || !hostCanManage || hostForm.max_buyin < hostForm.min_buyin} onClick={createHost}>{hostBusy ? 'Creating…' : 'Create table'}</button> : hostKind === 'spin' ? <button className="btn btn-gold" disabled={hostBusy || !hostCanManage} onClick={createHostSpin}>{hostBusy ? 'Creating…' : 'Create Spin & Go'}</button> : <button className="btn btn-gold" disabled={hostBusy || !hostCanManage} onClick={createHostTournament}>{hostBusy ? 'Creating…' : 'Create tournament'}</button>}</div>
           </div>
         </div>
       )}

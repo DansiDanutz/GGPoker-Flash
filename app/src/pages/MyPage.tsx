@@ -5,8 +5,16 @@ import { NoteLabelEditor } from '../components/NoteLabelEditor';
 import { api, money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
-import { PageShell, SubNav } from '../components/PageShell';
+import { PageShell } from '../components/PageShell';
+import { ProfilePane } from '../components/mypage/ProfilePane';
+import { WalletPane } from '../components/mypage/WalletPane';
+import { TransactionsPane } from '../components/mypage/TransactionsPane';
+import { MessagesPane } from '../components/mypage/MessagesPane';
 import { Avatar } from '../components/Avatar';
+import { useIsPhone } from '../lib/useIsPhone';
+import { MobileAccountHub } from '../components/mobile/MobileAccountHub';
+import { MobileBackBar } from '../components/mobile/MobileGameList';
+import { PROMO_ART } from '../lib/promoArt';
 
 const TABS = [
   { key: 'overview', label: 'Overview' },
@@ -23,15 +31,25 @@ const TABS = [
 ];
 
 const PROMOS = [
-  ['Daily Chip Flipout', '#ThanksDanGG', '/assets/chrome/promo.png'],
-  ['Prize Wheel', 'Spin the wheel', '/assets/ui/discover/Bg_Discover_Fishbuffet.png'],
-  ['Player Care', 'Bad beat protection', '/assets/ui/discover/Bg_Discover_GGcare.png'],
-  ['Welcome Bonus', 'New player package', '/assets/ui/discover/Bg_Discover_Honeymoon.png'],
+  ['Daily Chip Flipout', '#ThanksDanGG', PROMO_ART.flipout],
+  ['Prize Wheel', 'Spin the wheel', PROMO_ART.wheel],
+  ['Player Care', 'Bad beat protection', PROMO_ART.care],
+  ['Welcome Bonus', 'New player package', PROMO_ART.welcome],
 ];
 
+const PANE_TITLES: Record<string, string> = {
+  overview: 'My Game Profile', wallet: 'My Wallet', transactions: 'Transaction History', missions: 'Weekly Mission',
+  messages: 'Messages', notes: 'Player Notes', friends: 'Friends', verify: 'Verify ID', security: 'Security',
+  promo: 'My Promo', tickets: 'Tickets', leaders: 'Leaderboard', stakers: 'Current Stakers', sellers: 'Sellers you follow',
+};
+
 export function MyPage() {
-  const { user, refreshUser, toast, navigate } = useApp();
+  const { user, refreshUser, toast, navigate, logout } = useApp();
   const [tab, setTab] = useState('overview');
+  const isPhone = useIsPhone();
+  // Phones open on the account hub; a deep link with ?tab= goes straight to that pane.
+  const [hub, setHub] = useState(() => !new URLSearchParams(location.hash.split('?')[1] || '').get('tab'));
+  const openPane = (key: string) => { setTab(key); setHub(false); };
   const [missions, setMissions] = useState<any[]>([]);
   const [tx, setTx] = useState<any[]>([]);
   const [leaders, setLeaders] = useState<any[]>([]);
@@ -125,56 +143,65 @@ export function MyPage() {
   const levelXp = level * level * 1200;
   const pct = Math.min(100, Math.round(((xp % levelXp) / levelXp) * 100));
 
+  if (isPhone && hub) {
+    return <PageShell activeTop="poker"><MobileAccountHub onOpen={openPane} /></PageShell>;
+  }
+
   return (
-    <PageShell activeTop="poker" subnav={<SubNav items={TABS} active={tab} onChange={setTab} />}>
-      <div className="page">
-        {tab === 'overview' && (
-          <>
-            <div className="profile-head">
-              <div className="avatar-ring" style={{ width: 80, height: 80 }}>
-                <div className="inner"><Avatar name={user?.nick || '?'} src={user?.avatar} size={74} /></div>
-                <span className="vip-badge" style={{ width: 24, height: 24, fontSize: 11 }}>{level}</span>
-              </div>
-              <div style={{ flex: 1 }}>
-                <h1 className="page-title" style={{ marginBottom: 2 }}>My Page</h1>
-                <div className="muted small">{user?.nick} · ID {user?.login} · {user?.country}</div>
-                <div className="progress" style={{ marginTop: 10, maxWidth: 380 }}><i style={{ width: `${pct}%` }} /></div>
-                <div className="muted small" style={{ marginTop: 4 }}>VIP {level} · {(xp % levelXp).toLocaleString()} / {levelXp.toLocaleString()} XP</div>
-              </div>
-              <div className="row">
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/settings')}>Settings</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/profile')}>Public profile</button>
-              </div>
+    <PageShell activeTop="poker">
+      {isPhone && <MobileBackBar title={PANE_TITLES[tab] || 'My Page'} onBack={() => setHub(true)} />}
+      <div className="mp">
+        <div className="mp-wintabs" role="tablist" aria-label="Account windows">
+          <button type="button" role="tab" aria-selected="true" className="on">My Page</button>
+          <button type="button" role="tab" onClick={() => navigate('/propbet')}>Prop Bet</button>
+          <button type="button" role="tab" onClick={() => navigate('/ocean')}>DanGG Rewards</button>
+          <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
+          <button type="button" role="tab" onClick={() => navigate('/settings')}>Game Settings</button>
+          <button type="button" className="mp-close" aria-label="Close My Page" onClick={() => navigate('/')}>✕</button>
+        </div>
+        <div className="mp-body">
+          <aside className="mp-menu" aria-label="Account menu">
+            {[
+              { key: 'rewards', label: 'GGPass Account', go: () => navigate('/rewards'), ext: true },
+              { key: 'voice', label: 'My Action Voice', go: () => navigate('/settings'), ext: true },
+              { key: 'overview', label: 'My Game Profile', go: () => setTab('overview') },
+              { key: 'wallet', label: 'My Wallet', go: () => setTab('wallet') },
+              { key: 'verify', label: 'Verify ID', go: () => setTab('verify') },
+              { key: 'transactions', label: 'Transaction History', go: () => setTab('transactions') },
+              { key: 'messages', label: 'Message', go: () => setTab('messages') },
+              { key: 'coupons', label: 'Redeem Coupons', go: () => navigate('/promotions'), ext: true },
+              { key: 'stakers', label: 'Current Stakers', go: () => setTab('stakers') },
+              { key: 'sellers', label: 'Sellers you follow', go: () => setTab('sellers') },
+              { key: 'pokercraft', label: 'Hand History', go: () => navigate('/hand-history'), ext: true },
+              { key: 'security', label: 'Responsible Gaming', go: () => setTab('security') },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={'mp-menu-item' + (tab === item.key ? ' on' : '')}
+                aria-current={tab === item.key ? 'page' : undefined}
+                onClick={item.go}
+              >
+                {item.label}
+                {item.ext && <span className="mp-ext" aria-hidden="true">↗</span>}
+              </button>
+            ))}
+            <button type="button" className="mp-menu-signout" onClick={async () => { await logout(); navigate('/login'); }}>Sign out</button>
+            <div className="mp-menu-tiles">
+              <button type="button" onClick={() => navigate('/hand-history')}><i aria-hidden="true">📊</i>Hand History</button>
+              <button type="button" onClick={() => setTab('messages')}><i aria-hidden="true">✉️</i>Message</button>
             </div>
-            <div className="grid g4" style={{ marginTop: 16 }}>
-              {[
-                ['USD balance', money(user?.balance ?? 0)], ['Play chips', `P$ ${(user?.play_chips ?? 0).toLocaleString()}`],
-                ['Tickets', `T$ ${user?.tickets ?? 0}`], ['Gems', (user?.gems ?? 0).toLocaleString()],
-              ].map(([l, v]) => (
-                <div key={l} className="card"><div className="muted small">{l}</div><div className="stat-big">{v}</div></div>
-              ))}
-            </div>
-            <div className="grid g3" style={{ marginTop: 16 }}>
-              <div className="card" onClick={() => setTab('missions')} style={{ cursor: 'pointer' }}>
-                <div className="panel-title">Weekly missions</div>
-                {missions.slice(0, 3).map((m) => (
-                  <div key={m.id} className="kv"><span>{m.title}</span><b>{m.progress}/{m.goal}</b></div>
-                ))}
-              </div>
-              <div className="card" onClick={() => navigate('/rewards')} style={{ cursor: 'pointer' }}>
-                <div className="panel-title">DanGG Pass</div>
-                <div className="kv"><span>Level</span><b>{level}</b></div>
-                <div className="kv"><span>VIP points</span><b>{(user?.vip_points ?? 0).toLocaleString()}</b></div>
-                <div className="kv"><span>Next reward</span><b className="gold">T$5 ticket</b></div>
-              </div>
-              <div className="card" onClick={() => navigate('/hand-history')} style={{ cursor: 'pointer' }}>
-                <div className="panel-title">Hand history</div>
-                <div className="kv"><span>Stored hands</span><b>local</b></div>
-                <div className="kv"><span>Replay</span><b>available</b></div>
-                <div className="kv"><span>Export</span><b>copy board</b></div>
-              </div>
-            </div>
-          </>
+          </aside>
+          <div className="mp-pane">
+        {tab === 'overview' && <ProfilePane />}
+        {tab === 'wallet' && <WalletPane />}
+
+        {(tab === 'stakers' || tab === 'sellers') && (
+          <div className="mpp-empty-pane">
+            <h3>{tab === 'stakers' ? 'Current Stakers' : 'Sellers you follow'}</h3>
+            <p className="muted">Nothing here yet. Staking and seller lists appear once you join a staking offer.</p>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/leaderboard')}>Browse the leaderboard</button>
+          </div>
         )}
 
         {tab === 'promo' && (
@@ -206,23 +233,7 @@ export function MyPage() {
           </div>
         )}
 
-        {tab === 'transactions' && (
-          <div className="card" style={{ padding: 0 }}>
-            <table className="admin-table">
-              <thead><tr><th>#</th><th>Type</th><th>Amount</th><th>Balance after</th><th>Memo</th><th>Date</th></tr></thead>
-              <tbody>
-                {tx.map((t) => (
-                  <tr key={t.id}>
-                    <td>{t.id}</td><td style={{ textTransform: 'capitalize' }}>{t.kind.replace(/_/g, ' ')}</td>
-                    <td style={{ color: t.amount >= 0 ? '#7fe0a0' : '#ff9a9a' }}>{t.amount >= 0 ? '+' : ''}{money(t.amount)}</td>
-                    <td>{money(t.balance_after)}</td><td className="muted">{t.memo}</td><td className="muted">{t.created_at}</td>
-                  </tr>
-                ))}
-                {!tx.length && <tr><td colSpan={6} className="empty-state">No transactions yet.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {tab === 'transactions' && <TransactionsPane />}
 
         {tab === 'tickets' && (
           <div className="grid g3">
@@ -248,7 +259,11 @@ export function MyPage() {
         )}
 
         {tab === 'messages' && (
-          <div className="grid g2" style={{ alignItems: 'start' }}>
+          <>
+            <MessagesPane />
+            <details className="msgs-dms">
+              <summary>Direct messages</summary>
+              <div className="grid g2" style={{ alignItems: 'start' }}>
             <div className="card" style={{ padding: 0 }}>
               <div className="panel-title" style={{ padding: '12px 12px 6px' }}>Direct messages</div>
               {dms.map((d) => (
@@ -287,6 +302,8 @@ export function MyPage() {
               )}
             </div>
           </div>
+            </details>
+          </>
         )}
 
         {tab === 'friends' && (
@@ -505,6 +522,8 @@ export function MyPage() {
             </div>
           </div>
         )}
+          </div>
+        </div>
       </div>
     </PageShell>
   );

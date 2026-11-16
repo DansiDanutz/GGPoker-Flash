@@ -10,7 +10,7 @@ test('the installable app shell is wired up for phones', () => {
   const manifest = JSON.parse(read('public/manifest.webmanifest'));
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.start_url, '/#/');
-  assert.equal(manifest.theme_color, '#0a0f0c');
+  assert.equal(manifest.theme_color, '#070507');
   assert.ok(manifest.name && manifest.short_name);
 
   const sizes = manifest.icons.map((icon) => icon.sizes);
@@ -34,4 +34,17 @@ test('the installable app shell is wired up for phones', () => {
   assert.match(html, /rel="apple-touch-icon" href="\/pwa\/apple-touch-icon\.png"/);
   assert.match(html, /name="apple-mobile-web-app-capable" content="yes"/);
   assert.match(html, /name="theme-color"/);
+});
+
+test('legal texts open as readable text on phones instead of a download', () => {
+  const server = read('server/index.js');
+  assert.match(server, /'\.txt': 'text\/plain; charset=utf-8'/);
+  // LICENSE has no extension: it must still be shown as text.
+  assert.match(server, /MIME\[ext\] \|\| \(ext === '' \? 'text\/plain; charset=utf-8' : 'application\/octet-stream'\)/);
+});
+
+test('the service worker only keeps the real app page as its offline shell', () => {
+  const sw = read('public/sw.js');
+  assert.match(sw, /url\.pathname\.startsWith\('\/legal\/'\)/, 'legal files are left to the browser');
+  assert.match(sw, /response\.ok && \(response\.headers\.get\('content-type'\) \|\| ''\)\.includes\('text\/html'\)/, 'only an HTML page replaces the shell');
 });

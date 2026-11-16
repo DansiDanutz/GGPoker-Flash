@@ -1,0 +1,59 @@
+/* Game tabs: rounded gold-rimmed tiles instead of square plates.
+   Loaded last so it owns the tab shape at every breakpoint. */
+.game-tabs {
+  height: 58px; flex: 0 0 58px; gap: 8px; padding: 6px 10px;
+  background: linear-gradient(180deg, #0d1311, #070a09);
+  border-bottom: 1px solid rgba(216, 177, 95, .16);
+  overflow-x: auto; scrollbar-width: none;
+  align-items: center;
+}
+.game-tabs::-webkit-scrollbar { display: none; }
+.game-tabs .spacer { flex: 1 1 0; min-width: 0; }
+
+/* Game modes (art 10): a 3D emblem beside a live label; the selected mode glows red like the top nav. */
+.game-tabs .mode-tab {
+  position: relative; flex: 1 1 0; min-width: 120px; height: 46px;
+  display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px 0 8px;
+  border-radius: 13px; border: 1px solid rgba(216, 177, 95, .2); overflow: hidden; isolation: isolate;
+  background: linear-gradient(180deg, #1c1c20, #0e0e10);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .45), inset 0 1px rgba(255, 255, 255, .06);
+  color: #d9d4ca; font: 800 13.5px/1.05 var(--head-font, system-ui), sans-serif; letter-spacing: .01em;
+  cursor: pointer; transition: transform .18s ease, border-color .18s ease, box-shadow .2s ease, background .25s ease, color .18s ease;
+}
+.mode-tab-emblem {
+  flex: 0 0 auto; width: 36px; height: 36px; object-fit: contain;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .6)); transition: transform .25s ease;
+}
+.mode-tab-label { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; text-align: left; }
+.game-tabs .mode-tab:hover {
+  transform: translateY(-2px); color: #fff; border-color: rgba(242, 196, 92, .6);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .5), 0 0 16px rgba(216, 177, 95, .16), inset 0 1px rgba(255, 255, 255, .1);
+}
+.game-tabs .mode-tab:hover .mode-tab-emblem { transform: scale(1.1) rotate(-4deg); }
+.game-tabs .mode-tab.active {
+  color: #fff; border-color: #f2c45c;
+  background: radial-gradient(120% 140% at 30% 0%, #ef4a57, #b0202d 55%, #6e0f18);
+  box-shadow: 0 0 0 1px rgba(242, 196, 92, .5), 0 8px 20px rgba(0, 0, 0, .5), 0 0 22px rgba(224, 48, 60, .35), inset 0 1px rgba(255, 255, 255, .25);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .5);
+}
+.game-tabs .mode-tab.active .mode-tab-emblem { transform: scale(1.08); }
+/* A slow gold sheen across the tab on hover. */
+.game-tabs .mode-tab::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(112deg, transparent 40%, rgba(255, 235, 190, .14) 50%, transparent 60%);
+  transform: translateX(-130%); transition: transform .55s ease;
+}
+.game-tabs .mode-tab:hover::before { transform: translateX(130%); }
+
+@media (max-width: 1100px) {
+  .game-tabs { height: 54px; flex-basis: 54px; gap: 6px; padding: 5px 8px; }
+  .game-tabs .mode-tab { height: 42px; min-width: 112px; font-size: 12.5px; }
+  .mode-tab-emblem { width: 32px; height: 32px; }
+}
+@media (max-width: 760px) {
+  .game-tabs { height: 50px; flex-basis: 50px; gap: 5px; padding: 4px 6px; }
+  .game-tabs .mode-tab { height: 40px; min-width: 104px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-tabs .mode-tab, .mode-tab-emblem, .game-tabs .mode-tab::before { transition: none; }
+}

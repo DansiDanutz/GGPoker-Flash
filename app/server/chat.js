@@ -9,19 +9,24 @@ export const CHAT_SENDER_INTERVAL_MS = 1000;
 export const DEALER_NICK = 'Dealer';
 export const DEALER_KEYS_LIMIT = 500;
 
-// Reaction allowlist (Codex: three shipped client emoticons, integer IDs 1–3).
-// `glyph` keeps the current client's emoji rendering working until the artwork lands (C2/C3).
-export const REACTIONS = Object.freeze({
-  1: Object.freeze({ id: 1, label: 'Angry', glyph: '😠' }),
-  2: Object.freeze({ id: 2, label: 'Listening', glyph: '👂' }),
-  3: Object.freeze({ id: 3, label: 'Laughing', glyph: '😂' }),
-});
+// Reaction allowlist: integer IDs 1-12 in sticker-sheet order (IDs 1-3 are the Codex originals).
+// `glyph` keeps older clients' emoji rendering working; new clients show the sticker art.
+const REACTION_LIST = [
+  [1, 'Angry', '😠'], [2, 'Thinking', '🤔'], [3, 'Laughing', '😂'], [4, 'Nice hand', '👍'],
+  [5, 'Clap', '👏'], [6, 'Crying', '😢'], [7, 'Shocked', '😱'], [8, 'Cool', '😎'],
+  [9, 'Fish', '🐟'], [10, 'Shark', '🦈'], [11, 'On fire', '🔥'], [12, 'Ship it', '💰'],
+];
+export const REACTIONS = Object.freeze(Object.fromEntries(
+  REACTION_LIST.map(([id, label, glyph]) => [id, Object.freeze({ id, label, glyph })]),
+));
 
 // Legacy `emote` frames carry a glyph; map the ones that match a reaction, drop the rest.
 const LEGACY_EMOTES = Object.freeze({
   '😠': 1, '😡': 1, '🤬': 1, '😤': 1,
   '👂': 2, '🎧': 2, '🤔': 2,
   '😂': 3, '🤣': 3, '😆': 3, '😄': 3,
+  '👍': 4, '👏': 5, '😢': 6, '😭': 6, '😱': 7, '😮': 7, '😎': 8,
+  '🐟': 9, '🐠': 9, '🦈': 10, '🔥': 11, '💰': 12, '🚢': 12,
 });
 
 // C0 (Cc) controls, plus bidi overrides/isolates that can visually reorder a line.
@@ -124,6 +129,35 @@ export function dealerStartText(handNo) {
  * (run it twice, side pots) summed per player. Null when nobody won.
  * @param {{ winners?: Array<{ id: unknown, nick?: string, amount?: number, hand?: string | null }> } | null | undefined} result
  */
+/** Chip amounts are cents; the chat names them in dollars like the table does. */
+function dollars(cents) {
+  const n = (Number(cents) || 0) / 100;
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+const ACTION_TEXT = {
+  check: () => 'checks',
+  fold: () => 'folds',
+  call: (a) => `calls ${dollars(a)}`,
+  bet: (a) => `bets ${dollars(a)}`,
+  raise: (a) => `raises to ${dollars(a)}`,
+};
+
+/** Dealer line for one bet or fold, or null for anything that is not a betting action. */
+export function dealerActionText(nick, evt) {
+  const say = ACTION_TEXT[evt?.action];
+  if (!say) return null;
+  return `${String(nick || 'Player')} ${say(evt.amount)}${evt.allIn ? ' and is all in' : ''}`;
+}
+
+/** Run it 2-3 times: one dealer line per board, naming that board's winners. */
+export function dealerBoardTexts(result) {
+  if (!Array.isArray(result?.byBoard) || result.byBoard.length < 2) return [];
+  return result.byBoard.map((winners, b) => `Board ${b + 1}: ${winners
+    .map((w) => `${String(w.nick || 'Player')} wins ${dollars(w.amount)}${w.hand ? ` with ${w.hand}` : ''}`)
+    .join('; ')}`);
+}
+
 export function dealerResultText(result) {
   const totals = new Map();
   for (const w of result?.winners || []) {
@@ -133,7 +167,7 @@ export function dealerResultText(result) {
   }
   if (!totals.size) return null;
   return [...totals.values()]
-    .map((w) => `${w.nick} wins ${w.amount}${w.hands.length ? ` with ${w.hands.join(' / ')}` : ''}`)
+    .map((w) => `${w.nick} wins ${dollars(w.amount)}${w.hands.length ? ` with ${w.hands.join(' / ')}` : ''}`)
     .join('; ');
 }
 

@@ -265,8 +265,9 @@ Traefik in front). This is sufficient for the play-money load but has a single
 failure/scale unit:
 
 - **Disk headroom** — every deploy adds a `dangro-game:rollback-*` image and the build cache
-  grows; `deploy/prune-docker.sh` keeps the newest three rollbacks and prunes the cache on a
-  weekly Monday cron, and the Platform section shows disk free/used %. A full disk makes
+  grows; `deploy/prune-docker.sh` bounds unused cache hourly (4 GB cache / 20 GB free
+  targets, preserving recent/in-use cache and all rollback images). The Platform section
+  shows disk free/used %. These are best-effort targets; a full disk makes
   `docker compose build` fail while the previous container keeps serving.
 - **Vertical first** — the container can use the droplet's CPU/RAM; the keepalive script
   restarts a hung process; nightly backups and off-host pulls cover data loss.

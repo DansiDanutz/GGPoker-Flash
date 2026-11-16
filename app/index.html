@@ -5,22 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>DanGG</title>
   <meta name="description" content="DanGG — play-money poker with full-screen tables, tournaments and rewards." />
-  <meta name="theme-color" content="#0a0f0c" />
+  <meta name="theme-color" content="#070507" />
   <meta name="color-scheme" content="dark" />
+
+  <!-- Link preview card (WhatsApp, Telegram, Facebook, X) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://dangg.live/" />
+  <meta property="og:site_name" content="DanGG" />
+  <meta property="og:title" content="DanGG — Free play-money poker" />
+  <meta property="og:description" content="Cash games, tournaments and daily rewards. Real table feel, no real money." />
+  <meta property="og:image" content="https://dangg.live/assets/brand/og-card.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:alt" content="DanGG logo beside a gold poker trophy, chips and cards" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="DanGG — Free play-money poker" />
+  <meta name="twitter:description" content="Cash games, tournaments and daily rewards. Real table feel, no real money." />
+  <meta name="twitter:image" content="https://dangg.live/assets/brand/og-card.jpg" />
 
   <!-- Installable web app (Android/Chrome install prompt) -->
   <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="icon" href="/assets/brand/logo.png?v=20261113" />
+  <link rel="icon" type="image/png" href="/assets/brand/favicon.png?v=20261114" />
 
   <!-- iOS home-screen app -->
   <link rel="apple-touch-icon" href="/pwa/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="DanGG" />
+  <meta name="apple-mobile-web-app-title" content="No Middleman" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 </head>
-<body>
-  <div id="root"></div>
+<body style="margin:0;background:#070507">
+  <!-- Shown until the app's code loads; React replaces it with the live loading screen. -->
+  <!-- The first frame of the animated loading screen (same background, layout and logo), so the swap is invisible. -->
+  <div id="root"><div style="min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px calc(24px + env(safe-area-inset-bottom,0px));background:radial-gradient(120% 80% at 50% 42%,#3a1420 0%,#1a0b12 42%,#070507 78%,#040304 100%)"><div id="boot-stage" style="height:300px;width:100%;display:grid;place-items:center"><img src="/assets/brand/logo.png?v=20261113" alt="DanGG" style="display:block;width:min(72vw,320px);height:auto;filter:drop-shadow(0 8px 18px rgba(0,0,0,.8)) drop-shadow(0 0 30px rgba(255,186,84,.45))" /></div><div id="boot-rest" style="height:197px"></div></div></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

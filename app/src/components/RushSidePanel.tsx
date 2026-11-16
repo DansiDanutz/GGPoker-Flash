@@ -12,7 +12,7 @@ type Props = {
 
 /**
  * Rush tab right panel (P0 slice R3): today's Rush leaderboard (Cash Drops + Rush pot wins,
- * play money) and the "Rush & Cash Information" dialog.
+ * play money) and the "Fast Fold Information" dialog.
  */
 export function RushSidePanel({ leaderboard, myId, onShowInfo }: Props) {
   const rows = leaderboardRows(leaderboard, myId);
@@ -40,7 +40,7 @@ export function RushSidePanel({ leaderboard, myId, onShowInfo }: Props) {
   );
 }
 
-/** Rush & Cash Information: quick fold, a new table each hand, and the DanGG Cash Drop rule. */
+/** Fast Fold Information: quick fold, a new table each hand, and the DanGG Cash Drop rule. */
 export function RushInfoDialog({ cashDrop, onClose }: { cashDrop: CashDropConfig | undefined; onClose: () => void }) {
   const amountBb = cashDrop?.amountBb ?? CASHDROP_DEFAULT_AMOUNT_BB;
   return (

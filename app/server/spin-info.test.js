@@ -1,4 +1,4 @@
-// Spin & Gold lobby information (Info / Blind Structure / Payout), from the verified table.
+// Jackpot SNG lobby information (Info / Blind Structure / Payout), from the verified table.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spinInfo, SPIN_TICKET_TOTAL } from './spin.js';

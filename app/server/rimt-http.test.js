@@ -34,7 +34,7 @@ test('RIMT HTTP negotiates two runs with durable operation receipts', { timeout:
       const msg = JSON.parse(String(raw));
       if (msg.type !== 'state') return;
       const me = msg.state.players.find((seat) => seat?.isMe);
-      if (me && msg.state.actor === me.id) player.socket.send({ type: 'action', tableId, action: 'allin', amount: 0 });
+      if (me && msg.state.actor === me.id) player.socket.send({ type: 'action', tableId, action: 'allin', amount: 0, handNo: msg.state.handNo, turnNo: msg.state.turnNo });
     });
   }
   const negotiation = await Promise.any(players.map((player) => player.socket.next((msg) => msg.type === 'state' && msg.state.rimt, 15000)));

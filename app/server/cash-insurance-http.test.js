@@ -45,7 +45,7 @@ test('quote survives hard restart and accepted settlement is exactly once', { ti
       const msg = JSON.parse(String(raw));
       if (msg.type !== 'state' || msg.state.cashInsurance) return;
       const me = msg.state.players.find((seat) => seat?.isMe);
-      if (me && msg.state.actor === me.id) player.socket.send({ type: 'action', tableId, action: 'allin', amount: 0 });
+      if (me && msg.state.actor === me.id) player.socket.send({ type: 'action', tableId, action: 'allin', amount: 0, handNo: msg.state.handNo, turnNo: msg.state.turnNo });
     });
   }
   const available = await Promise.any(players.map((player) => player.socket.next((msg) => msg.type === 'state' && msg.state.cashInsurance?.status === 'awaiting-quote', 15000)));

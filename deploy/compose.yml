@@ -7,6 +7,7 @@ services:
       dockerfile: deploy/Dockerfile
       args:
         GIT_SHA: ${GIT_SHA:-}
+        SOURCE_REPOSITORY: ${SOURCE_REPOSITORY:-https://github.com/OpenPoker4all/OpenPoker}
     restart: unless-stopped
     env_file:
       - .env

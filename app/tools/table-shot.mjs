@@ -1,0 +1,16 @@
+import puppeteer from 'puppeteer-core';
+import fs from 'node:fs';
+const BASE='http://127.0.0.1:5198';
+const OUT='/Users/davidai/Desktop/DavidAi/GGPoker-flash/.r4/docs/screenshots/table-shots';
+fs.mkdirSync(OUT,{recursive:true});
+const {token}=await fetch(`${BASE}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'DansiDanutz',password:'ggpoker'})}).then(r=>r.json());
+const lobby=await fetch(`${BASE}/api/lobby`).then(r=>r.json());
+const t=lobby.tables.find(x=>!x.private)||lobby.tables[0];
+const b=await puppeteer.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:'new',args:['--no-sandbox']});
+const p=await b.newPage(); await p.setViewport({width:1200,height:900});
+await p.evaluateOnNewDocument(t=>{localStorage.setItem('ggpoker.token',t);localStorage.setItem('ggpoker.welcomeSeen','1');sessionStorage.setItem('ggpoker.entered','1')},token);
+await p.goto(`${BASE}/#/table/${t.id}?observe=1`,{waitUntil:'networkidle2'});
+await new Promise(r=>setTimeout(r,2500));
+await p.screenshot({path:`${OUT}/1200-table.png`});
+console.log(JSON.stringify({table:t.id, name:t.name, players:t.players}));
+await b.close();

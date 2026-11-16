@@ -56,8 +56,8 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
   const [draft, setDraft] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeLine, setActiveLine] = useState<string | null>(null);
-  // Panel-local so switching never re-renders the table. Dealer is opt-in (C4, DanGG extra).
-  const [view, setView] = useState<ChatView>('chat');
+  // Panel-local so switching never re-renders the table. All shows bets and winnings with the chat.
+  const [view, setView] = useState<ChatView>('all');
   const shown = useMemo(() => linesForView(lines, view), [lines, view]);
   const logRef = useRef<HTMLOListElement>(null);
   const pinned = useRef(true);
@@ -94,13 +94,14 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
         <section className="tchat-panel" aria-label="Table chat">
           <header className="tchat-head">
             <span className="tchat-tabs" role="tablist" aria-label="Chat view">
-              <button type="button" role="tab" aria-selected={view === 'chat'}
-                className={'tchat-tab' + (view === 'chat' ? ' active' : '')}
-                onClick={() => { setView('chat'); pinned.current = true; }}>Chat</button>
-              <button type="button" role="tab" aria-selected={view === 'dealer'}
-                className={'tchat-tab' + (view === 'dealer' ? ' active' : '')}
-                title="Dealer log (DanGG extra)"
-                onClick={() => { setView('dealer'); pinned.current = true; }}>Dealer</button>
+              <button type="button" role="tab" aria-selected={view === 'all'}
+                className={'tchat-tab' + (view === 'all' ? ' active' : '')}
+                title="Chat, bets and winnings"
+                onClick={() => { setView('all'); pinned.current = true; }}>All</button>
+              <button type="button" role="tab" aria-selected={view === 'players'}
+                className={'tchat-tab' + (view === 'players' ? ' active' : '')}
+                title="Only what players wrote"
+                onClick={() => { setView('players'); pinned.current = true; }}>Players</button>
             </span>
             <button type="button" className="tchat-close" onClick={store.close} aria-label="Close chat">✕</button>
           </header>
@@ -109,7 +110,7 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
               <ChatLogLine key={line.id} line={line} role={senderRole(line, selfId)}
                 active={activeLine === line.id} onToggle={toggleLine} onMute={onMute} onReport={onReport} />
             ))}
-            {!shown.length && <li className="tchat-empty">{view === 'dealer' ? 'No dealer lines yet.' : 'No messages yet.'}</li>}
+            {!shown.length && <li className="tchat-empty">{view === 'all' ? 'Nothing yet.' : 'No messages yet.'}</li>}
           </ol>
           <form className="tchat-form" onSubmit={submit}>
             <input value={draft} maxLength={CHAT_MAX_CHARS} disabled={readOnly}
@@ -126,16 +127,25 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
         </section>
       )}
       <div className="tchat-buttons">
-        <button type="button" className="tchat-toggle" aria-expanded={open}
+        <button type="button" className="tchat-toggle" aria-expanded={open} data-tip="Chat"
           aria-label={unread ? `Chat, ${unread} unread` : 'Chat'}
           onClick={open ? store.close : store.open}>
-          Chat
+          <svg className="tchat-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5v-8Z" fill="currentColor" />
+            <circle cx="8.5" cy="9.5" r="1.3" fill="#fbefcc" /><circle cx="12" cy="9.5" r="1.3" fill="#fbefcc" /><circle cx="15.5" cy="9.5" r="1.3" fill="#fbefcc" />
+          </svg>
           {unread > 0 && !open && <span className="tchat-badge" aria-hidden="true">{unreadLabel}</span>}
         </button>
         <span className="tchat-react-wrap">
           <button type="button" className="tchat-toggle" disabled={readOnly} aria-haspopup="menu" aria-expanded={pickerOpen}
-            title={readOnly ? 'Spectators cannot react' : 'Send a reaction'}
-            onClick={() => setPickerOpen((v) => !v)}>React</button>
+            aria-label="React" data-tip={readOnly ? 'Spectators cannot react' : 'Reaction'}
+            onClick={() => setPickerOpen((v) => !v)}>
+            <svg className="tchat-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.5" fill="currentColor" />
+              <circle cx="8.8" cy="10" r="1.4" fill="#fbefcc" /><circle cx="15.2" cy="10" r="1.4" fill="#fbefcc" />
+              <path d="M7.6 13.6a4.8 4.8 0 0 0 8.8 0" fill="none" stroke="#fbefcc" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
           {pickerOpen && <ReactionPicker onPick={onReact} onClose={closePicker} />}
         </span>
       </div>

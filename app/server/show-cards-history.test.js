@@ -25,7 +25,7 @@ test('a folded player’s partial reveal is persisted for the opponent’s histo
     const msg = JSON.parse(String(raw));
     if (msg.type !== 'state') return;
     const me = msg.state.players.find((player) => player?.isMe);
-    if (me && msg.state.actor === me.id) folder.send({ type: 'action', tableId, action: 'fold', amount: 0 });
+    if (me && msg.state.actor === me.id) folder.send({ type: 'action', tableId, action: 'fold', amount: 0, handNo: msg.state.handNo, turnNo: msg.state.turnNo });
   });
   const ended = await folder.next((msg) => msg.type === 'state' && msg.state.street === 'ended');
   const selected = ended.state.players.find((player) => player?.isMe).cards[0];

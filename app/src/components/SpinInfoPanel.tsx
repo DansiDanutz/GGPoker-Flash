@@ -6,7 +6,7 @@ type Tab = 'info' | 'blinds' | 'payout';
 
 type Props = { buyIn: number | null; formatChips: (n: number) => string };
 
-/** Spin & Gold side panel: Info / Blind Structure / Payout for the selected stake. */
+/** Jackpot SNG side panel: Info / Blind Structure / Payout for the selected stake. */
 export function SpinInfoPanel({ buyIn, formatChips }: Props) {
   const [tab, setTab] = useState<Tab>('info');
   const [info, setInfo] = useState<SpinInfo | null>(null);

@@ -1,4 +1,4 @@
-// Rush & Cash pool rules (P0 slice R4): the Cash Drop.
+// Fast Fold pool rules (P0 slice R4): the Cash Drop.
 //
 // DanGG rule, not native evidence: neither the native client capture nor the Codex replica
 // shows Cash Drop mechanics (see docs/designs/p0-design-plan.md § 4). Until slice R0
@@ -157,6 +157,20 @@ export function poolKeyOf({ game, sb, bb }) {
 export function poolOf(table) {
   const { game, sb, bb } = table.cfg;
   return Object.freeze({ game, sb, bb, key: poolKeyOf({ game, sb, bb }) });
+}
+
+/**
+ * Where a Rush player is seated now, when it is not the table they rejoined: a move closes the
+ * old seat before the client hears of it, so a reload can land on the old table (spec 9.1).
+ * Null when the table is not Rush or the player holds no other seat in the same pool.
+ */
+export function rushSeatElsewhere(tables, table, userId) {
+  if (!table.rush) return null;
+  const key = poolOf(table).key;
+  for (const t of tables) {
+    if (t !== table && t.rush && poolOf(t).key === key && t.seatOf(userId)) return t;
+  }
+  return null;
 }
 
 function notifyClient(entry, userId, payload) {

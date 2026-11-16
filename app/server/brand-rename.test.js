@@ -71,3 +71,31 @@ test('brand rename leaves an admin-chosen site name alone', () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test('seed repair renames Battle Royale tiers, caps them above their entrants and deals game-named events in their game', () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dangg-brand-rename-'));
+  try {
+    // An older seed: tier names with the old product name, the default 1,000 cap and NLH for every event.
+    runOnDb(dataDir, `
+      db.prepare("UPDATE tournaments SET name = replace(name, 'Battle Royale', 'Mystery Battle Royale'), max_players = 1000 WHERE id LIKE 'mbr-%'").run();
+      db.prepare("UPDATE tournaments SET format = 'NLH' WHERE id IN ('t6', 't7')").run();
+      process.stdout.write('{}');`);
+    const read = `
+      const tiers = db.prepare("SELECT name, entrants, max_players FROM tournaments WHERE id LIKE 'mbr-%' ORDER BY id").all();
+      const formats = db.prepare("SELECT id, name, format FROM tournaments WHERE id IN ('t6', 't7') ORDER BY id").all();`;
+    const booted = runOnDb(dataDir, `${read} process.stdout.write(JSON.stringify({ tiers, formats }));`);
+    assert.equal(booted.tiers.length, 5);
+    for (const tier of booted.tiers) {
+      assert.match(tier.name, /^Battle Royale \$/);
+      assert.ok(tier.entrants <= tier.max_players, `${tier.name}: ${tier.entrants} entrants fit a ${tier.max_players} cap`);
+    }
+    assert.deepEqual(booted.formats, [
+      { id: 't6', name: 'Omaha Weekly $25K', format: 'PLO' },
+      { id: 't7', name: 'Short Deck $10K', format: 'Short Deck' },
+    ]);
+    const rebooted = runOnDb(dataDir, `${read} process.stdout.write(JSON.stringify({ tiers, formats }));`);
+    assert.deepEqual(rebooted, booted, 'a second boot changes nothing');
+  } finally {
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});

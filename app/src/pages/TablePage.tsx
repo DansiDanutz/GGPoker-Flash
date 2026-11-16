@@ -1,18 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { seatFlag } from '../lib/seatFlag';
 import { useApp } from '../lib/store';
 import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { FxEffect, type FxName } from '../components/FxEffect';
-import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, type BetPrefs, BETTING_OPTIONS_KEY, withConfirmBets, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
 import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval';
-import { betLimits, potOdds, sizingPresets, type BetContext } from '../game/betting';
+import { betLimits, potOdds, sizingPresets, sliderTarget, type BetContext } from '../game/betting';
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
+import { runSchedule } from '../game/runItPacing';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
-import { showdownComplete, showdownPlan } from '../game/showdown';
+import { WIN_BANNER_MS, heroHoldsHand, heroWon, showdownComplete, showdownPlan } from '../game/showdown';
+import { ALLIN_SPARKS } from '../game/allinFx';
+import { readJoinWaitForBlinds, saveJoinWaitForBlinds } from '../game/tableOptions';
+import { clearSeatedHere, markSeatedHere, wasSeatedHere } from '../lib/seatSession';
 import { turnUrgencyClass, timeBankOffered } from '../game/turnClock';
 import { seatNick, isAllInStatus } from '../game/seatLabel';
 import { autoTopUpAmount } from '../lib/autoTopUp';
@@ -41,13 +46,21 @@ import { SpinPresentation } from '../components/spin/SpinPresentation';
 import { PushSeatPanel } from '../components/table/PushSeatPanel';
 import { BetAndMuckPanel } from '../components/table/BetAndMuckPanel';
 import { CashInsurancePanel } from '../components/table/CashInsurancePanel';
+import { TournamentHud } from '../components/table/TournamentHud';
 import type { CashDropEvent } from '../lib/cashDrop';
 import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
+import { runChoice, runsLabel, runsShort, type RunAsk } from '../game/runChoice';
+import { inward, seatLayout, type Spot } from '../game/tableStage';
+import { TableOptionsSheet } from '../components/table/TableOptionsSheet';
+import { useHoldTips } from '../lib/holdTips';
+import { SeatDock } from '../components/table/SeatDock';
+import { dockItems, seatStatusArt, type DockKey } from '../game/tableArt';
+import { useTableStage } from '../components/table/useTableStage';
 import { BAD_BEAT_BANNER_MS, badBeatRows, type BadBeatHit } from '../game/badBeat';
 import { TB_CARD_SECONDS } from '../game/timeBankRules';
-import { canShowHand, showOptions } from '../game/showOptions';
+import { canMarkShowAtEnd, canShowHand, showOptions, toggleShowMark } from '../game/showOptions';
 import { COLLECT_EASING, COLLECT_MS, collectedWagers } from '../game/chipCollect';
 import { vpipOf } from '../game/seatVpip';
 import type { QuickFoldState } from '../game/fastFold';
@@ -57,18 +70,22 @@ import { NATIVE_TABLE_WIDTH, PAYOUT_EASING, PAYOUT_FADE_MS, PAYOUT_HOLD_MS, PAYO
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
 
 type PlayerState = {
-  seat: number; id?: string; nick?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
+  seat: number; id?: string; nick?: string; country?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
   folded?: boolean; allIn?: boolean; inHand?: boolean; sittingOut?: boolean; isBot?: boolean; isMe?: boolean;
-  reveal?: boolean; shown?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
+  reveal?: boolean; shown?: number[]; showAtEnd?: number[]; cards?: string[]; sitOutNext?: boolean; timeBankCards?: number; lastAction?: { action: string; amount: number } | null;
   winAmount?: number; empty?: boolean; reserved?: boolean; mine?: boolean; disconnected?: boolean; autoStraddle?: boolean; sitOutEndsAt?: number; waitForBlinds?: boolean; waitingForBigBlind?: boolean;
   leaveAfterHand?: boolean; sitOutNextBigBlind?: boolean; sitOutAll?: boolean;
+  /** Own seat only: whether to be asked to run it more than once when all-in. */
+  runItAsk?: boolean;
+  /** Own seat only: remembered run-it choice (null asks each time). */
+  runPref?: number | null;
   /** Own seat only: chips paid for the next deal, and the auto-reduce target in BB (0 = off). */
   pendingTopUp?: number; topUpVersion?: number; autoReduceBB?: number;
 };
 
 type TableState = {
   id: string; tableEpoch?: string; tableVersion?: number; name: string; game: string; sb: number; bb: number; ante: number; seats: number;
-  button: number; sbSeat?: number; bbSeat?: number; handNo: number; street: string; board: string[]; pot: number; currentBet: number;
+  button: number; sbSeat?: number; bbSeat?: number; handNo: number; turnNo?: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
   pots?: number[];
@@ -92,7 +109,6 @@ type TableState = {
   pushSeat?: { remaining: number; revision: number; reservation: { destinationSeat: number; status: string } | null };
   straddle?: boolean;
   straddleAsk?: StraddleAsk | null;
-  runItTwice?: boolean;
   rimt?: { handId: string; revision: number; phase: 'propose' | 'decide' | 'complete'; proposer: number; decider: number; proposal: 1 | 2 | 3 | null; runs: 1 | 2 | 3 | null; reason: string | null; suggestUntil: number; decisionEndsAt: number | null } | null;
   betAndMuck?: { bettorId: number; action: 'bet' | 'raise'; amount: number; status: 'awaiting-response' | 'consumed' } | null;
   cashInsurance?: any;
@@ -100,43 +116,24 @@ type TableState = {
   cashInsuranceRuleRevision?: number;
   betMuckRevision?: number;
   betAndMuckEligible?: boolean;
+  /** Set only for an all-in player being asked how many times to run it. */
+  runAsk?: RunAsk | null;
+  runRoundEndsAt?: number | null;
+  /** False where a run-it choice never applies (Rush, AoF, Spin, tournaments). */
+  runItOffered?: boolean;
   boards?: string[][] | null;
-  potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; actionTimeMs?: number; rake?: number;
+  potLimit?: boolean; allInOrFold?: boolean; maxRaiseTo?: number; raiseLocked?: boolean; actionTimeMs?: number; rake?: number;
   /** Rush only: whether this viewer may Fast Fold now (server PokerTable.quickFoldState). */
   quickFold?: QuickFoldState | null;
 };
 
 
-// Observed Spin & Gold multipliers (server/spin.js), shown on the intro wheel.
+// Observed Jackpot SNG multipliers (server/spin.js), shown on the intro wheel.
 const SPIN_WHEEL_MULTIPLIERS = [2, 3, 4, 5, 10, 50, 100, 20000];
 const DEFAULT_ACTION_TIME_MS = 15000;
 const HOTKEY_HINT_KEYS = ['ggpoker.hotkeyHints'];
 const HOTKEY_MAP_KEYS = [HOTKEYS_KEY];
 const STACK_MODE_KEYS = ['ggpoker.stackMode'];
-
-const POS6 = [[50, 76], [12, 68], [16, 32], [50, 17], [84, 32], [88, 68]];
-const POS9 = [[50, 80], [26, 77], [10, 62], [11, 40], [29, 22], [50, 17], [71, 22], [89, 40], [90, 62]];
-// Portrait phones lose the bottom of the screen to the action bar, so the two
-// lowest seats move up to keep the hero's avatar, cards and stack visible.
-const POS6_PHONE = [[50, 60], [12, 58], [16, 31], [50, 17], [84, 31], [88, 58]];
-const POS9_PHONE = [[50, 60], [26, 59], [10, 53], [11, 38], [29, 21], [50, 16], [71, 21], [89, 38], [90, 53]];
-// Landscape phones are short: pull the top seat clear of the bar and drop the
-// hero above the action bar while leaving the pot and board room.
-const POS6_LANDSCAPE = [[50, 76], [13, 66], [17, 30], [50, 20], [83, 30], [87, 66]];
-const POS9_LANDSCAPE = [[50, 74], [26, 70], [10, 56], [11, 34], [29, 23], [50, 20], [71, 23], [89, 34], [90, 56]];
-
-function useLandscapePhone() {
-  const query = '(max-height: 520px) and (orientation: landscape)';
-  const [on, setOn] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const onChange = () => setOn(mq.matches);
-    onChange();
-    mq.addEventListener?.('change', onChange);
-    return () => mq.removeEventListener?.('change', onChange);
-  }, []);
-  return on;
-}
 
 function useNarrowScreen(maxWidth = 760) {
   // Also compact the ring on phones held sideways (short viewport, wide width).
@@ -152,7 +149,16 @@ function useNarrowScreen(maxWidth = 760) {
   return narrow;
 }
 
+/** Blind posts already show as the seat's SB/BB marker and its bet, so they get no action label. */
+const BLIND_POSTS = new Set(['SB', 'BB']);
+const BOT_FACES = 20;
+const botFace = (nick?: string | null) => {
+  const sum = [...(nick || 'bot')].reduce((a, c) => a + c.charCodeAt(0), 0);
+  return `/assets/avatars/gg-${String((sum % BOT_FACES) + 1).padStart(2, '0')}.jpg`;
+};
+
 export function TablePage({ tableId }: { tableId: string }) {
+  useHoldTips();
   const { user, navigate, toast, setOpeningTable, refreshUser } = useApp();
   const [state, setState] = useState<TableState | null>(null);
   const [connected, setConnected] = useState(false);
@@ -173,6 +179,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [spinWin, setSpinWin] = useState<any>(null);
   const [tourneyWin, setTourneyWin] = useState<any>(null);
   const [allInFx, setAllInFx] = useState(false);
+  // Cards shown to the table this hand (cards_shown), drawn with the fade-up.
+  const [shownFx, setShownFx] = useState<{ hand: number; seats: Record<number, number[]> }>({ hand: -1, seats: {} });
   const [menuOpen, setMenuOpen] = useState(false);
   const [handPanelOpen, setHandPanelOpen] = useState(false);
   const [autoFoldOpen, setAutoFoldOpen] = useState(false);
@@ -233,6 +241,10 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [cardFront] = useState(() => localStorage.getItem('ggpoker.cardFront') || 'official');
   const [globalRoomBg] = useState(() => localStorage.getItem('ggpoker.roomBg') || 'featured');
   const [showHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
+  const [joinWaitForBlinds, setJoinWaitForBlinds] = useState(readJoinWaitForBlinds);
+  const joinWaitRef = useRef(joinWaitForBlinds);
+  joinWaitRef.current = joinWaitForBlinds;
+  const changeJoinWait = (wait: boolean) => { setJoinWaitForBlinds(wait); saveJoinWaitForBlinds(wait); };
   // Hotkey preferences are live: Settings → Apply (or the table menu) in any window updates them.
   const hotkeyHints = usePref(() => localStorage.getItem('ggpoker.hotkeyHints') !== '0', HOTKEY_HINT_KEYS);
   const hotkeyPrefs = usePref(readHotkeyPrefs, HOTKEY_PREF_KEYS);
@@ -242,7 +254,12 @@ export function TablePage({ tableId }: { tableId: string }) {
   const hotkeyAnyTimeRef = useRef<Partial<Record<HotkeyAction, () => void>>>({});
   const hotkeyPresetRef = useRef<(index: number) => void>(() => {});
   const [dealSpeed] = useState(readDealSpeed);
-  const [bettingOptions] = useState(readBettingOptions);
+  const [bettingOptions, setBettingOptions] = useState(readBettingOptions);
+  const setConfirmBets = (on: boolean) => {
+    const next = withConfirmBets(bettingOptions, on);
+    setBettingOptions(next);
+    try { localStorage.setItem(BETTING_OPTIONS_KEY, JSON.stringify(next)); } catch { /* private mode: keep for this session */ }
+  };
   const confirmBets = bettingOptions.confirm === 'always';
   const [pendingBet, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number } | null>(null);
   const [betMuckSelected, setBetMuckSelected] = useState(false);
@@ -253,7 +270,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const squeezeHostRef = useRef<HTMLDivElement | null>(null);
   const squeezeHandRef = useRef<number | null>(null);
   const firstStateRef = useRef(true);
-  const [betPrefs] = useState(readBetPrefs);
+  const [betPrefs, setBetPrefs] = useState(readBetPrefs);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const saveBetPrefs = (next: BetPrefs) => { setBetPrefs(next); try { localStorage.setItem('ggpoker.betPrefs', JSON.stringify(next)); } catch { /* private mode: keep for this session */ } };
   const stackMode = usePref<StackMode>(readStackMode, STACK_MODE_KEYS);
   const [cardAnim, setCardAnim] = useState<'deal' | 'flip' | 'slide' | 'off'>(() => {
     const saved = localStorage.getItem('ggpoker.cardAnim');
@@ -283,9 +302,24 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [showdownReveals, setShowdownReveals] = useState<Record<number, number>>({});
   // Best-five winner focus starts when the reveal sequence completes (native WIN timing).
   const [focusReady, setFocusReady] = useState(false);
+  // Run it 2-3 times: deal the boards one by one, then name each board's winner; seats show their
+  // winnings only once that show is over (runHeld).
+  const runPlan = useMemo(() => ((state?.boards?.length ?? 0) > 1 ? runSchedule(state!.boards!) : null), [state?.handNo, state?.boards]);
+  const [runReleasedHand, setRunReleasedHand] = useState<number | null>(null);
+  const runHeld = !!runPlan && state?.street === 'ended' && runReleasedHand !== state?.handNo;
+  useEffect(() => {
+    if (!runPlan || state?.street !== 'ended') return;
+    const hand = state.handNo;
+    const id = window.setTimeout(() => setRunReleasedHand(hand), runPlan.done);
+    return () => window.clearTimeout(id);
+  }, [runPlan, state?.street, state?.handNo]);
   const chipShuffleTimer = useRef<number | null>(null);
   const chipShuffleIdle = useRef<number | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  /** The rail box: seats, felt, pot and every table animation are laid out in its percentages. */
+  const stageRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef<Spot[]>(seatLayout(6, 'wide'));
+  const stageModeRef = useRef<'wide' | 'portrait'>('wide');
   const wsRef = useRef<WebSocket | null>(null);
   const stateRef = useRef<TableState | null>(null);
   const mySeatRef = useRef<number | null>(null);
@@ -319,14 +353,17 @@ export function TablePage({ tableId }: { tableId: string }) {
     if (!user) { navigate('/login'); }
   }, [user]);
 
+  // The socket belongs to the account, not to one copy of its profile: refreshing the balance
+  // (Add Chips, the cashier) hands back a new user object and must not leave and rejoin the table.
+  const userKey = user ? String(user.id) : '';
   const connect = useCallback(() => {
-    if (!user) return;
+    if (!userKey) return;
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(getToken() || '')}`);
     wsRef.current = ws;
     ws.onopen = () => {
       setConnected(true);
-      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe, seat: seatParam != null ? Number(seatParam) : null }));
+      ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe, rejoin: everJoined.current || wasSeatedHere(tableId), seat: seatParam != null ? Number(seatParam) : null, waitForBlinds: joinWaitRef.current }));
     };
     ws.onmessage = (ev) => {
       let msg: any;
@@ -360,6 +397,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         setReservation({ seat: msg.seat, until: msg.until });
       } else if (msg.type === 'joined') {
         everJoined.current = true;
+        if (!msg.observe) markSeatedHere(tableId);
         setMySeat(msg.seat);
         if (msg.observe) setObserving(true); else {
           setObserving(false);
@@ -378,6 +416,9 @@ export function TablePage({ tableId }: { tableId: string }) {
         toast({ kind: 'info', title: 'Rush queue', body: 'Waiting for the next open Rush seat — you are sitting out meanwhile.' });
       } else if (msg.type === 'rush_move') {
         toast({ kind: 'info', title: 'Fast Fold', body: 'New table, same stack.' });
+        // The seat moved: the next join is a rejoin there (never a fresh buy-in), not here.
+        clearSeatedHere(tableId);
+        markSeatedHere(msg.tableId);
         navigate(`/table/${msg.tableId}?buyin=${msg.stack || 0}`);
       } else if (msg.type === 'table_move') {
         // A tournament flight balanced or broke: the stack travels, the view follows.
@@ -422,10 +463,10 @@ export function TablePage({ tableId }: { tableId: string }) {
       retry.current = window.setTimeout(() => { if (wsRef.current === ws) connect(); }, 1600);
     };
     ws.onerror = () => { /* handled by close */ };
-  }, [tableId, user]);
+  }, [tableId, userKey]);
 
   const pushStack = (to: [number, number]) => {
-    const el = tableRef.current;
+    const el = stageRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     const stack = document.createElement('div');
@@ -447,11 +488,10 @@ export function TablePage({ tableId }: { tableId: string }) {
 
   // Street end: each wager slides from its seat anchor into the pot (native 400 ms, ease-out cubic).
   const collectWager = (seat: number) => {
-    const el = tableRef.current;
+    const el = stageRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const [x, y] = seatPosOf(seat);
-    const from: [number, number] = [x + (50 - x) * 0.2, y + (45 - y) * 0.2];
+    const from = inward(seatPosOf(seat), r, stageModeRef.current === 'portrait' ? 74 : r.height < 300 ? 54 : 120);
     const chipEl = document.createElement('div');
     chipEl.className = 'collect-chip';
     chipEl.style.left = `${(r.width * from[0]) / 100}px`;
@@ -467,7 +507,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const awardPot = (share: PayoutShare) => {
-    const el = tableRef.current;
+    const el = stageRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     const [ox, oy] = potOffset(share.potIndex, r.width);
@@ -497,7 +537,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const flyChips = (from: [number, number], to: [number, number], count = 3, color = '#d9a83c') => {
-    const el = tableRef.current;
+    const el = stageRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     for (let i = 0; i < count; i++) {
@@ -544,8 +584,10 @@ export function TablePage({ tableId }: { tableId: string }) {
       // Showdowns turn the cards in seat order before the badge and pot move.
       const isShowdown = evt.reason === 'showdown';
       const revealSeats = isShowdown ? (evt.hands || []).filter((h: any) => h.cards).map((h: any) => h.seat) : [];
-      const plan = isShowdown ? showdownPlan(revealSeats) : [];
-      const fxAt = isShowdown ? showdownComplete(revealSeats) : 0;
+      const plan = isShowdown ? showdownPlan(revealSeats, evt.showFirst) : [];
+      const revealDone = isShowdown ? showdownComplete(revealSeats) : 0;
+      // Several boards: the chips move only after every board and every board's winner is shown.
+      const fxAt = (evt.runs ?? 1) > 1 && Array.isArray(evt.boards) ? Math.max(revealDone, runSchedule(evt.boards).done) : revealDone;
       setFocusReady(false);
       if (isShowdown) window.setTimeout(() => setFocusReady(true), fxAt);
       if (plan.length) {
@@ -562,11 +604,11 @@ export function TablePage({ tableId }: { tableId: string }) {
       window.setTimeout(() => sound.play('gather', { volume: .6 }), fxAt + 450);
       const heroId = stateRef.current?.players.find((p) => p.isMe)?.id;
       const mine = (evt.winners || []).filter((x: any) => x.id === heroId);
-      if (mine.length) {
+      if (heroWon(mine)) {
         const total = mine.reduce((a: number, x: any) => a + (x.amount || 0), 0);
         window.setTimeout(() => {
           setWinFx({ id: fxId.current++, amount: total, nick: mine[0].nick });
-          window.setTimeout(() => setWinFx(null), 2600);
+          window.setTimeout(() => setWinFx(null), WIN_BANNER_MS);
         }, fxAt);
       }
       if (Array.isArray(evt.cards)) sound.play('show', { volume: .5 });
@@ -611,6 +653,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         toast({ kind: 'info', title: 'Out of chips', body: `Reload within ~${Math.round((Number(evt.until) - Date.now()) / 1000)}s to join the next hand.` });
       }
     } else if (evt.type === 'cards_shown') {
+      const hand = stateRef.current?.handNo ?? -1;
+      setShownFx((prev) => ({ hand, seats: { ...(prev.hand === hand ? prev.seats : {}), [evt.seat]: evt.indices || [] } }));
       const meNow = stateRef.current?.players.find((p) => p && !p.empty && p.isMe);
       if (!meNow || Number(evt.playerId) !== Number(meNow.id)) {
         toast({ kind: 'info', title: `${evt.nick} shows`, body: (evt.cards || []).join(' ') });
@@ -628,7 +672,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       sound.play('timebank', { volume: .6 });
       toast({ kind: 'info', title: 'Time Bank Card', body: `+${evt.seconds} seconds` });
     } else if (evt.type === 'sit_out') {
-      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: 'You ran out of time twice. Press "Deal Me In" to rejoin.' });
+      if (evt.playerId === user?.id) toast({ kind: 'info', title: 'Sitting out', body: `You ran out of time, so you are sitting out. Press "I'm back" to play again.` });
     } else if (evt.type === 'bad_beat_jackpot') {
       sound.play('fireworks', { volume: .8 });
       setBadBeat({ total: evt.total, shares: evt.shares || [] });
@@ -651,7 +695,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!userKey) return;
     connect();
     return () => {
       if (retry.current) window.clearTimeout(retry.current);
@@ -661,8 +705,10 @@ export function TablePage({ tableId }: { tableId: string }) {
         window.setTimeout(() => ws.close(), 100);
       } else if (ws) ws.close();
       wsRef.current = null;
+      // Leaving the page in the app (not a reload, which runs no cleanup) ends this tab's seat.
+      clearSeatedHere(tableId);
     };
-  }, [connect, tableId, user]);
+  }, [connect, tableId, userKey]);
 
   useEffect(() => {
     // Guests have no account, so there are no notes to load (the request would only return 401).
@@ -685,6 +731,13 @@ export function TablePage({ tableId }: { tableId: string }) {
 
 
   const me = state?.players.find((p) => p.isMe) || null;
+  // While seated the seat's Wait for BB is the truth (the switch, Post now, or a server release):
+  // the saved join choice follows it, so the next join sends what the switch shows.
+  const seatWait = { known: !!me && !observing, wait: !!me?.waitForBlinds };
+  useEffect(() => {
+    if (!seatWait.known) return;
+    if (seatWait.wait !== joinWaitRef.current) changeJoinWait(seatWait.wait);
+  }, [seatWait.known, seatWait.wait]);
   // Native Take Seat: only an unseated viewer at a cash table can reserve an empty seat.
   const canTakeSeat = !me && !!state && !state.tournament && !state.spin;
   // A successful reload makes the bust offer stale.
@@ -695,7 +748,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const tbOfferedRef = useRef(false);
   const betCtx: BetContext = {
     pot: state?.pot || 0, currentBet: state?.currentBet || 0, minRaise: state?.minRaise || 0, bb: state?.bb || 0,
-    myBet: me?.bet || 0, myStack: me?.stack || 0, maxRaiseTo: state?.maxRaiseTo || 0, street: state?.street || 'idle',
+    myBet: me?.bet || 0, myStack: me?.stack || 0, maxRaiseTo: state?.maxRaiseTo || 0, raiseLocked: !!state?.raiseLocked, street: state?.street || 'idle',
   };
   const { toCall, minTo, maxTo, allInTo, canRaise } = betLimits(betCtx);
   // Cash tables are stored in cents and shown in dollars; tournaments use whole chips.
@@ -751,7 +804,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const odds = myTurn ? potOdds(state?.pot || 0, toCall) : null;
   const sittingOut = !!me?.sittingOut;
   const sitOutNext = !!me?.sitOutNext;
-  const canRabbit = !!me && state?.street === 'ended' && (state?.board?.length || 0) < 5;
+  const canRabbit = !!me?.inHand && state?.street === 'ended' && (state?.board?.length || 0) < 5;
   const facingShove = !!state?.players.some((p) => !p.empty && !p.isMe && p.allIn && !p.folded);
   const canPreAct = !!(state && me && !myTurn && me.inHand && !me.folded && !me.allIn
     && ['preflop', 'flop', 'turn', 'river'].includes(state.street) && !state.allInOrFold);
@@ -827,7 +880,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     const voice = voices[action];
     if (voice) setTimeout(() => sound.play(voice as any, { volume: .6 }), 120);
     // The hand number lets the server refuse a click that arrives after this hand ended.
-    send({ type: 'action', action, amount, handNo: stateRef.current?.handNo });
+    send({ type: 'action', action, amount, handNo: stateRef.current?.handNo, turnNo: stateRef.current?.turnNo });
   };
 
   // "Always confirm" turns every bet into a two-step action; off, it fires at once.
@@ -839,7 +892,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
 
   const sitIn = () => {
-    send({ type: 'join_table', buyin: state?.minBuyin || buyin || 0, observe: false });
+    send({ type: 'join_table', buyin: state?.minBuyin || buyin || 0, observe: false, waitForBlinds: joinWaitRef.current });
   };
 
   const doRebuy = () => {
@@ -857,6 +910,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const leave = () => {
     send({ type: 'leave_table' });
     everJoined.current = false;
+    clearSeatedHere(tableId);
     sound.play('click');
     navigate('/');
   };
@@ -874,7 +928,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         // Enter is the native bet key, including while the amount field has focus.
         const request = pendingBet
           ? { action: pendingBet.action, amount: pendingBet.amount, confirm: false }
-          : enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm: confirmBets });
+          : enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm: confirmBets, allInOrFold: !!state?.allInOrFold });
         if (!request) return;
         e.preventDefault();
         if (request.confirm) setPendingBet({ action: request.action, amount: request.amount });
@@ -891,22 +945,21 @@ export function TablePage({ tableId }: { tableId: string }) {
       if (action === 'fold') act('fold');
       else if (action === 'check') { if (!state?.allInOrFold) act(toCall > 0 ? 'call' : 'check'); }
       else if (action === 'raise') { if (!state?.allInOrFold && canRaise) requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo); }
-      else if (action === 'allin') { if (state?.allInOrFold) act('allin'); else requestBet('allin', allInTo); }
+      else if (action === 'allin') requestBet('allin', allInTo);
       else if (action.startsWith('preset')) hotkeyPresetRef.current(Number(action.slice(6)) - 1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [hotkeyPrefs, hotkeyMap, myTurn, toCall, raiseTo, maxTo, canRaise, allInTo, pendingBet, confirmBets, squeezing, state?.allInOrFold, act, requestBet]);
 
+  // Keep the chat dock above the action bar however tall it grows (sit-out row, run-it choice, straddle).
   useEffect(() => {
-    const bar = actionBarRef.current;
-    const root = tableRef.current;
-    if (!bar || !root) return;
-    const update = () => root.style.setProperty('--action-bar-height', `${bar.getBoundingClientRect().height}px`);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(bar);
-    return () => observer.disconnect();
+    const el = actionBarRef.current;
+    const host = el?.parentElement;
+    if (!el || !host || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => host.style.setProperty('--action-bar-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => { ro.disconnect(); host.style.removeProperty('--action-bar-h'); };
   }, [observing]);
 
   // Mouse wheel changes the bet by the chosen unit, in the chosen direction.
@@ -930,7 +983,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     const n = stateRef.current?.seats || 6;
     const base = mySeatRef.current ?? 0;
     const rel = (seat - base + n) % n;
-    const lay = n >= 7 ? POS9 : POS6;
+    const lay = layoutRef.current;
     const p = lay[rel % lay.length] || [50, 50];
     return [p[0], p[1]];
   };
@@ -948,13 +1001,21 @@ export function TablePage({ tableId }: { tableId: string }) {
     return () => controller.abort();
   }, [tableId, vpipHand]);
 
-  const narrowScreen = useNarrowScreen(1024);
-  const landscapePhone = useLandscapePhone();
-  const layout = state
-    ? state.seats >= 7
-      ? (narrowScreen ? (landscapePhone ? POS9_LANDSCAPE : POS9_PHONE) : POS9)
-      : (narrowScreen ? (landscapePhone ? POS6_LANDSCAPE : POS6_PHONE) : POS6)
-    : POS6;
+  const narrowScreen = useNarrowScreen();
+  const stage = useTableStage(tableRef, observing);
+  const layout = seatLayout(state?.seats || 6, stage.mode);
+  layoutRef.current = layout;
+  stageModeRef.current = stage.mode;
+  /** Px from a seat toward the felt centre for its bet, dealer disc and blind marker. On a phone
+   *  your bet and dealer disc go further out, past the cards held over your portrait in the corner,
+   *  and your blind marker steps right of the cards. */
+  const reach = stage.mode === 'portrait'
+    ? { bet: 74, heroBet: 128, dealer: 48, dealerSide: 40, blind: 50, blindSide: -34, heroDealer: 100, heroDealerSide: -40, heroBlindSide: 86 }
+    : stage.short
+      ? { bet: 54, heroBet: 54, dealer: 40, heroDealer: 40, dealerSide: 34, blind: 34, blindSide: -30, heroDealerSide: 34, heroBlindSide: -30 }
+      : { bet: 120, heroBet: 120, dealer: 92, heroDealer: 92, dealerSide: 46, blind: 72, blindSide: -42, heroDealerSide: 46, heroBlindSide: -42 };
+  /** Your cards are large on a phone, so markers at your seat step out to either side of them. */
+  const markerSide = (seat: number, side: number, heroSide: number) => (me?.seat === seat ? heroSide : side);
   const seatPos = (seat: number) => {
     const n = state?.seats || 6;
     const base = mySeatRef.current ?? 0;
@@ -979,10 +1040,13 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
   const myCards = me?.cards?.filter((c) => c !== '??') || [];
   const winnerFocus = state && state.street === 'ended' && focusReady ? showdownFocus(state.result, state.board, state.game) : null;
-  const handInfo = state && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(state.game), state.game === 'shortdeck') : null;
+  const handInfo = state && heroHoldsHand(me) && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(state.game), state.game === 'shortdeck') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
   // After the hand (native ShowMuck) anyone dealt in, folded or not, picks cards to show once.
+  const isHost = !!user && state?.ownerId != null && state.ownerId === user.id;
   const canShowCards = canShowHand(me, state?.street, observing);
+  const canMarkCards = canMarkShowAtEnd(me, state?.street, observing);
+  const marks = me?.showAtEnd || [];
   const showCards = (indices: number[]) => {
     if (!indices.length) return;
     send({ type: 'show_cards', cards: indices });
@@ -1103,6 +1167,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   // Compare against the server's clock so a skewed local clock cannot distort the timer.
   const serverNow = now + clockOffset.current;
   const straddleModel = straddlePrompt(state?.straddleAsk, serverNow);
+  const runModel = runChoice(state?.runAsk, serverNow);
+  const othersChoosingRuns = !runModel && !!state?.runRoundEndsAt;
   const sitOutText = me?.sittingOut ? sitOutClock(me.sitOutEndsAt, serverNow) : null;
   const timerPct = state && state.actor ? Math.max(0, Math.min(1, (state.actionEndsAt - serverNow) / (state.actionTimeMs || DEFAULT_ACTION_TIME_MS))) : 0;
   const clockSeconds = state?.actor ? Math.max(0, Math.ceil((state.actionEndsAt - serverNow) / 1000)) : null;
@@ -1189,10 +1255,12 @@ export function TablePage({ tableId }: { tableId: string }) {
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
         <div className="spacer" />
         <button data-hand-rank-open disabled={squeezing || !me?.cards?.some((card: string) => card !== '??')} onClick={() => setHandPanelOpen(true)}>Hand Rank</button>
-        <button aria-label={sound.enabled ? 'Mute sound' : 'Enable sound'} onClick={() => sound.setEnabled(!sound.enabled)}>🔊</button>
+        <button type="button" className="table-sound-btn" aria-label="Sound" aria-pressed={sound.enabled} data-tip="Sound" onClick={() => sound.setEnabled(!sound.enabled)}>{sound.enabled ? '🔊' : '🔇'}</button>
+        <button type="button" className="table-history-btn" aria-label="Hand history" data-tip="Hand history" onClick={() => navigate('/hand-history')}><img src="/assets/table/ui/ic-history.webp" alt="" /></button>
         <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
-        <button ref={pushSeatTrigger} onClick={() => setMenuOpen((v) => !v)}>Menu</button>
-        <button onClick={() => setConfirmLeave(true)}>Leave table</button>
+        <button type="button" className="table-gear" aria-label="Table options" data-tip="Table options" onClick={() => { setOptionsOpen(true); setMenuOpen(false); }}>⚙</button>
+        <button ref={pushSeatTrigger} type="button" className="table-menu-btn" aria-label="Table menu" data-tip="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}><span className="menu-text">Menu</span></button>
+        <button className="table-leave-btn" onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
 
       {autoFoldOpen && <AutoFoldEditor onClose={() => setAutoFoldOpen(false)} />}
@@ -1202,9 +1270,22 @@ export function TablePage({ tableId }: { tableId: string }) {
         <DailyLeaderboardRibbon tableId={tableId} stake={`${money(state.sb)}/${money(state.bb)}`} refreshKey={vpipHand} />
       )}
 
+      {state?.tournament && <TournamentHud tournament={state.tournament} sb={state.sb} bb={state.bb} ante={state.ante} />}
+
       {cashDrop && <CashDropBanner drop={cashDrop} />}
 
-      {allInFx && <div className="allin-flash"><span>ALL IN</span></div>}
+      {allInFx && (
+        <div className="allin-flash" role="status" aria-label="All in">
+          <div className="allin-plaque">
+            <img className="allin-flare allin-flare-l" src="/assets/table/ui/fx-flare-left.webp" alt="" />
+            <img className="allin-line" src="/assets/table/ui/fx-divider.webp" alt="" />
+            <span className="allin-word">All in</span>
+            <img className="allin-line" src="/assets/table/ui/fx-divider.webp" alt="" />
+            <img className="allin-flare allin-flare-r" src="/assets/table/ui/fx-flare-right.webp" alt="" />
+          </div>
+          {ALLIN_SPARKS.map((s, i) => <i key={i} className="allin-spark" style={{ '--a': `${s.a}deg`, '--r': `${s.r}px`, '--d': `${s.d}s` } as React.CSSProperties} />)}
+        </div>
+      )}
 
       {menuOpen && (
         <div className="table-menu" onClick={() => setMenuOpen(false)}>
@@ -1254,10 +1335,10 @@ export function TablePage({ tableId }: { tableId: string }) {
               <button key={key} className={buttonLayout === key ? 'on' : ''} aria-pressed={buttonLayout === key} onClick={() => chooseLayout(key)}>{label}</button>
             ))}
           </div>
-          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Allow straddles at this table</button>
+          {isHost && <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, straddle: !state?.straddle })}>{state?.straddle ? '✓ ' : ''}Allow straddles at this table</button>}
           {state?.straddle && <button disabled={!me} title="Post a straddle automatically whenever you are asked" onClick={() => send({ type: 'option', tableId, autoStraddle: !me?.autoStraddle })}>{me?.autoStraddle ? '✓ ' : ''}Auto-straddle</button>}
           <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => { const v = !autoMuck; setAutoMuck(v); localStorage.setItem('ggpoker.automuck', v ? '1' : '0'); send({ type: 'option', tableId, autoMuck: v }); }}>{autoMuck ? '✓ ' : ''}Auto-muck losing hand</button>
-          <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItTwice: !state?.runItTwice })}>{state?.runItTwice ? '✓ ' : ''}Run it twice</button>
+          {!!state?.runItOffered && <button disabled={!me} title={me ? '' : 'Take a seat first'} onClick={() => send({ type: 'option', tableId, runItAsk: !(me?.runItAsk ?? true) })}>{(me?.runItAsk ?? true) ? '✓ ' : ''}Offer to run it more than once</button>}
           {state?.spin && <button disabled title="Insurance terms are selected during registration">{state.spin.presentation?.insured ? 'Insurance selected at registration' : 'No insurance selected'}</button>}
           <button onClick={() => { const v = !fourColor; setFourColor(v); localStorage.setItem('ggpoker.fourcolor', v ? '1' : '0'); }}>{fourColor ? '✓ ' : ''}Four-colour deck</button>
           <button onClick={() => { const v = !animOff; setAnimOff(v); localStorage.setItem('ggpoker.animations', v ? '0' : '1'); }}>{animOff ? 'Enable animations' : 'Disable animations'}</button>
@@ -1267,6 +1348,36 @@ export function TablePage({ tableId }: { tableId: string }) {
           <div className="menu-version">v{APP_VERSION} · build {buildLabel(APP_BUILD)}</div>
         </div>
       )}
+
+      <TableOptionsSheet
+        open={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+        me={me ?? undefined}
+        tableStraddle={!!state?.straddle}
+        runItOffered={!!state?.runItOffered}
+        onOption={(msg) => send({ type: 'option', tableId, ...msg })}
+        betPrefs={betPrefs}
+        onBetPrefs={saveBetPrefs}
+        confirmBets={confirmBets}
+        onConfirmBets={setConfirmBets}
+        joinWaitForBlinds={joinWaitForBlinds}
+        onJoinWaitForBlinds={changeJoinWait}
+      />
+
+      <SeatDock
+        items={dockItems({ seated: !!me && !observing, cash: !state?.tournament && !state?.spin, straddleAllowed: !!state?.straddle })}
+        active={{ straddle: !!me?.autoStraddle, sitoutHand: sittingOut || sitOutNext, sitoutBB: !!me?.sitOutNextBigBlind }}
+        disabled={{ addChips: !canAddChips }}
+        onPick={(key: DockKey) => {
+          if (key === 'straddle') send({ type: 'option', tableId, autoStraddle: !me?.autoStraddle });
+          else if (key === 'sitoutHand') {
+            const value = !(sittingOut || sitOutNext);
+            send({ type: 'sit_out', value });
+            toast({ kind: 'info', title: value ? 'Sitting out next hand' : sittingOut ? 'Sitting back in' : 'Sit out cancelled' });
+          } else if (key === 'sitoutBB') send({ type: 'option', tableId, sitOutNextBigBlind: !me?.sitOutNextBigBlind });
+          else if (key === 'addChips') openAddChips();
+        }}
+      />
 
       <div className="room-mark" />
       <div className="room-ambient" aria-hidden="true">
@@ -1278,8 +1389,14 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       </div>
       <div className="room-floor" />
+      <div className="table-rotate" role="note">
+        <div className="table-rotate-icon" aria-hidden="true">⟳</div>
+        <b>Rotate your device</b>
+        <span>The table plays in landscape on tablets.</span>
+      </div>
+      <div ref={stageRef} className={`table-stage stage-${stage.mode}${stage.short ? ' stage-short' : ''}`} style={{ left: stage.left, top: stage.top, width: stage.width, height: stage.height }}>
       <div className="felt" />
-      <div className="table-watermark" style={{ top: '34%', fontSize: 20, letterSpacing: 5 }}>{state?.name || ''}</div>
+      <div className="table-watermark stage-mark" aria-hidden="true"><b>DanGG</b><span>{state?.name || ''}</span></div>
       <div className="table-center">
         <div className="pot-stack">
           {chipShuffle ? (
@@ -1300,7 +1417,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           {!winFx && <div className="pot-label">Total Pot : {amt(state?.pot)}</div>}
         </div>
         {!winFx && livePots.length > 1 && <div className="live-pots">{livePots.map((amount, i) => {
-            const [x, y] = potOffset(i, tableRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);
+            const [x, y] = potOffset(i, stageRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);
             return (
               <div key={i} className={'live-pot' + (i === 0 ? ' main' : '')} style={{ transform: `translate(calc(-50% + ${x}px), ${y}px)` }}>
                 {i > 0 && <div className="pot-chips live" aria-hidden="true">
@@ -1321,8 +1438,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="bbj-row" key={row.label}><span>{row.label}</span><b>{row.names}</b><em>{money(row.amount)}</em></div>
           ))}
         </div>}
-        {sitOutText && <div className="sit-out-clock" role="timer" aria-label="Sit-out time left">{sitOutText}</div>}
-        {state?.boards && state.boards.length > 1 ? (
+        {state?.result?.rimt && state.boards && state.boards.length > 1 ? (
           <div className="rimt-boards">
             {(state.result?.rimt?.sharedCount || 0) > 0 && (
               <div className="board rimt-shared-board">
@@ -1341,8 +1457,23 @@ export function TablePage({ tableId }: { tableId: string }) {
               const [dxp, dyp] = state && state.button >= 0 ? seatPos(state.button) : [50, 12];
               const fromX = Math.round((50 - dxp) * 4);
               const fromY = Math.round((45 - dyp) * 3);
-              return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt className={focusClass(winnerFocus?.board, i)} style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: `${(i < 3 ? i : 0) * 0.07}s` } as React.CSSProperties} />;
+              const runDelay = runPlan?.delays[0]?.[i];
+              const delay = runDelay != null ? `${runDelay}ms` : `${(i < 3 ? i : 0) * 0.07}s`;
+              return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt className={focusClass(winnerFocus?.board, i)} style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: delay } as React.CSSProperties} />;
             })}
+            {((state?.boards?.length ?? 0) > 1 || othersChoosingRuns) && (
+              <div className="extra-boards">
+                {(state?.boards ?? []).slice(1).map((run, r) => (
+                  <div className="board second-board" key={`run-${r + 2}`} aria-label={`Board ${r + 2}`}>
+                    {run.map((c, i) => {
+                      const delay = runPlan?.delays[r + 1]?.[i] ?? null;
+                      return <PlayingCard key={`run${r + 2}-${state?.handNo}-${i}-${c}`} card={c} size="mini" dealt={delay !== null} style={delay !== null ? { animationDelay: `${delay}ms` } : undefined} />;
+                    })}
+                  </div>
+                ))}
+                {othersChoosingRuns && <div className="run-wait-note">Players are choosing how many times to run it</div>}
+              </div>
+            )}
             {state && state.board.length === 0 && state.street !== 'idle' && (
               <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 12, letterSpacing: 2 }}>PRE-FLOP</div>
             )}
@@ -1357,16 +1488,6 @@ export function TablePage({ tableId }: { tableId: string }) {
             {rabbit.map((c, i) => <PlayingCard key={i} card={c} size="mini" />)}
           </div>
         )}
-        {state && state.street === 'ended' && state.result?.winners?.length ? (
-          <div style={{ color: '#ffe0a0', fontSize: 12.5, background: 'rgba(0,0,0,.45)', padding: '3px 10px', borderRadius: 10 }}>
-            {Object.values(state.result.winners.reduce((acc: any, w: any) => {
-              const key = String(w.id ?? w.nick);
-              if (!acc[key]) acc[key] = { ...w, amount: 0 };
-              acc[key].amount += w.amount || 0;
-              return acc;
-            }, {})).map((w: any) => `${w.nick} wins ${chip(w.amount)}${w.hand ? ` · ${w.hand}` : ''}`).join('   ·   ')}
-          </div>
-        ) : null}
       </div>
 
       {(state?.players || []).map((p) => {
@@ -1388,65 +1509,88 @@ export function TablePage({ tableId }: { tableId: string }) {
         }
         const [x, y] = seatPos(p.seat);
         const isActor = state?.actor === p.id;
+        const winAmount = runHeld ? 0 : p.winAmount || 0;
         return (
           <div
             key={p.seat}
-            className={'seat' + (p.isMe ? ' me' : '') + (landscapePhone && (y < 25 || y > 70) ? ' seat-row' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' + turnUrgencyClass(clockSeconds, !!p.isMe) : '') + ((p.winAmount || 0) > 0 ? ' winner' : '')}
-            style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default' }}
+            className={'seat' + (p.isMe ? ' me' : '') + (p.isMe && squeeze ? ' squeeze' : '') + (p.folded ? ' folded' : '') + (isActor ? ' active' + turnUrgencyClass(clockSeconds, !!p.isMe) : '') + (winAmount > 0 ? ' winner' : '')}
+            style={{ left: `${x}%`, top: `${y}%`, cursor: p.nick ? 'pointer' : 'default', ...(isActor ? { '--turn': timerPct } : {}) } as React.CSSProperties}
             onClick={() => { if (p.nick) openNote(p); }}
             title={p.nick ? 'Player note' : ''}
           >
+            {isActor && p.isMe && !p.folded && clockSeconds != null && (
+              <div className={'turn-badge' + (clockSeconds <= 5 ? ' hot' : '')} role="timer" data-tip="Timer" aria-label={`${clockSeconds} seconds left`}>
+                <span>{clockSeconds}</span>
+              </div>
+            )}
             {isActor && clockSeconds != null && (
-              <div className={`native-clock${clockSeconds <= 5 ? ' hot' : ''}${x < 30 ? ' clock-right' : ''}`} aria-hidden="true">
+              <div className={`native-clock${clockSeconds <= 5 ? ' hot' : ''}${x < 30 ? ' clock-right' : ''}`} data-tip="Timer" aria-hidden="true">
                 {String(Math.min(99, clockSeconds)).split('').map((d, i) => (
                   <img key={i} className="clock-digit" src={`/assets/table/clock/${d}${clockSeconds <= 5 ? '-hot' : ''}.png`} alt="" />
                 ))}
               </div>
             )}
-            {p.winAmount ? <div className="win-amount">+{chip(p.winAmount)}</div> : null}
-            {p.winAmount ? <img className="native-win" src={animOff ? '/assets/table/native-win-final.png' : '/assets/table/native-win-effect.png'} alt="" /> : null}
-            {isActor && !p.folded ? <div className="timer" style={{ animationDuration: '1.4s' }} /> : null}
+            {winAmount ? <div className="win-amount">+{chip(winAmount)}</div> : null}
+            {winAmount ? <img className="native-win" src={animOff ? '/assets/table/native-win-final.png' : '/assets/table/native-win-effect.png'} alt="" /> : null}
+            {isActor && !p.folded ? <div className="timer" style={{ '--turn': timerPct } as React.CSSProperties} /> : null}
             {!(p.isMe && squeezing) && <div
               className={'cards' + (showdownReveals[p.seat] != null && p.reveal ? ' showdown-reveal' : '')}
               style={{ '--reveal-delay': `${showdownReveals[p.seat] || 0}ms` } as React.CSSProperties}
             >
               {(p.cards || []).map((c, i) => {
                 const [px, py] = seatPosOf(p.seat!);
-                const pickable = p.isMe && canShowCards && c !== '??';
                 const shown = (p.shown || []).includes(i);
+                const pickable = p.isMe && canShowCards && c !== '??' && !shown;
+                const markable = p.isMe && canMarkCards && c !== '??';
+                const willShow = markable && marks.includes(i);
+                const fadeUp = shown && shownFx.hand === state?.handNo && !!shownFx.seats[p.seat!]?.includes(i);
+                const onCard = pickable ? () => showCards([i])
+                  : markable ? () => send({ type: 'show_at_end', tableId, cards: toggleShowMark(marks, i) })
+                  : null;
+                // Your own cards land face down and you turn them over (the squeeze does its own reveal).
+                const heroPeel = p.isMe && !squeezeEnabled && c !== '??';
                 return (
                   <span
                     key={`${state?.handNo}-${p.seat}-${i}`}
-                    className={'card-slot' + (pickable ? ' pickable' : '') + (shown ? ' shown' : '')}
-                    onClick={pickable ? (ev) => { ev.stopPropagation(); showCards([i]); } : undefined}
-                    title={pickable ? 'Show this card' : undefined}
+                    className={'card-slot' + (pickable ? ' pickable' : '') + (markable ? ' markable' : '') + (willShow ? ' will-show' : '') + (shown ? ' shown' : '') + (fadeUp ? ' fade-up' : '')}
+                    onClick={onCard ? (ev) => { ev.stopPropagation(); onCard(); } : undefined}
+                    data-tip={pickable ? 'Show this card' : willShow ? 'Shown when the hand ends · tap to cancel' : markable ? 'Show this card when the hand ends' : undefined}
                   >
-                    <PlayingCard card={c} size="mini" dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
-                      style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
+                    {willShow && <img className="show-mark" src="/assets/table/ui/ic-show-card.webp" alt="" />}
+                    {heroPeel ? (
+                      <span className="hero-peel" style={{ '--i': i, '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px` } as React.CSSProperties}>
+                        <PlayingCard card={c} size="mini" className={'peel-face ' + focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)} />
+                        <PlayingCard card="??" size="mini" className="peel-back" />
+                      </span>
+                    ) : (
+                      <PlayingCard card={c} size="mini" dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
+                        style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
+                    )}
                   </span>
                 );
               })}
             </div>}
             <div className="avatar-wrap">
-              <img className="seat-ring" src={(p.winAmount || 0) > 0 ? '/assets/table/ring_gold.png' : isActor ? '/assets/table/ring_gold.png' : '/assets/table/ring_silver.png'} alt="" />
+              <img className="seat-ring" src={winAmount > 0 ? '/assets/table/ring_gold.png' : isActor ? '/assets/table/ring_gold.png' : '/assets/table/ring_silver.png'} alt="" />
               <div className="face">
-                <Avatar name={p.nick || '?'} src={p.avatar} size={54} />
+                <Avatar name={p.nick || '?'} src={p.avatar || (p.isBot ? botFace(p.nick) : undefined)} size={54} />
               </div>
-              {p.nick && <span className="vpip-badge" title="VPIP at this table">{vpipOf(seatVpip, p.nick)}</span>}
+              {p.nick && !p.isMe && <span className="vpip-badge" data-tip="VPIP: how often they put money in">{vpipOf(seatVpip, p.nick)}</span>}
+              {(() => { const art = seatStatusArt(p); return art ? <img className="seat-status" src={art} alt="" aria-hidden="true" /> : null; })()}
             </div>
             <div className="plate">
               <div className="nm" title={p.nick || undefined}>
                 {p.isBot && <span className="bot-badge" title="Computer player" aria-label="Bot">BOT</span>}
-                {seatNick(p.nick)}
+                <span className="nm-text">{seatNick(p.nick)}</span>{p.nick ? <span className="seat-flag" aria-hidden="true">{seatFlag(p.nick, p.country)}</span> : null}
               </div>
               <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
-                {isAllInStatus(p) ? 'All-In' : stackLabel(p.stack)}
+                {isAllInStatus(p) ? 'All-In' : stackLabel(runHeld ? (p.stack ?? 0) - (p.winAmount || 0) : p.stack)}
                 {p.isMe && (p.pendingTopUp || 0) > 0 ? <span className="seat-pending" style={{ color: '#ffd98a', fontSize: '0.85em' }}> +{stackLabel(p.pendingTopUp)} pending</span> : null}
                 {narrowScreen && (p.bet || 0) > 0 ? <span className="seat-bet-inline"> · {amt(p.bet).replace(/\.00$/, '')}</span> : null}
               </div>
             </div>
             {p.nick && notes[p.nick] && <span className="note-dot" title={`${noteColorTitle(notes[p.nick].color, noteLabels)}: ${notes[p.nick].note}`} style={{ '--note-color': noteColorHex(notes[p.nick].color) } as React.CSSProperties}>📝</span>}
-            {p.lastAction && !p.folded && (
+            {p.lastAction && !p.folded && !BLIND_POSTS.has(p.lastAction.action) && (
               <div className={'action-badge ' + (p.lastAction.action || '').toLowerCase()}>
                 {p.lastAction.action}{p.lastAction.amount ? ` ${money(p.lastAction.amount)}` : ''}
               </div>
@@ -1461,27 +1605,19 @@ export function TablePage({ tableId }: { tableId: string }) {
       })}
 
       {state && state.button >= 0 && (() => {
-        const [x, y] = seatPos(state.button);
-        const rowSeat = landscapePhone && (y < 25 || y > 70);
-        const dx = rowSeat ? x + 13 : x + (x <= 50 ? 6.2 : -6.2);
-        const dy = rowSeat ? y : y + (y < 45 ? 4.5 : -4.5);
-        return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }} />;
+        const [dx, dy] = inward(seatPos(state.button), stage, me?.seat === state.button ? reach.heroDealer : reach.dealer, markerSide(state.button, reach.dealerSide, reach.heroDealerSide));
+        return <div className="dealer-btn" style={{ left: `${dx}%`, top: `${dy}%` }} data-tip="Dealer button" />;
       })()}
 
       {state && state.street !== 'idle' && ([['SB', state.sbSeat], ['BB', state.bbSeat]] as const).map(([label, seat]) => {
         if (seat == null || seat < 0) return null;
-        const [x, y] = seatPos(seat);
-        // Toward the felt centre from the seat, clear of the dealer disc.
-        const dx = x + (50 - x) * 0.2;
-        const dy = y + (45 - y) * 0.32;
+        // Toward the felt centre from the seat, on the other side from the dealer disc.
+        const [dx, dy] = inward(seatPos(seat), stage, reach.blind, markerSide(seat, reach.blindSide, reach.heroBlindSide));
         return <div key={label} className={`blind-marker ${label.toLowerCase()}`} style={{ left: `${dx}%`, top: `${dy}%` }} aria-label={label === 'SB' ? 'Small blind' : 'Big blind'}>{label}</div>;
       })}
 
       {(state?.players || []).filter((p) => p && !p.empty && (p.bet || 0) > 0).map((p) => {
-        const [x, y] = seatPos(p.seat!);
-        const pull = narrowScreen ? 0.42 : 0.2;
-        const bx = x + (50 - x) * pull;
-        const by = y + (45 - y) * pull;
+        const [bx, by] = inward(seatPos(p.seat!), stage, p.seat === me?.seat ? reach.heroBet : reach.bet);
         const betCols = potChipLayout(p.bet || 0, state?.bb || 1, 4);
         return (
           <div key={'bet' + p.seat} className="table-bet" style={{ left: `${bx}%`, top: `${by}%` }}>
@@ -1501,6 +1637,8 @@ export function TablePage({ tableId }: { tableId: string }) {
         const [x, y] = seatPos(f.seat);
         return <div key={f.id} className="float-chip" style={{ left: `${x}%`, top: `${y - 9}%` }}>{chip(f.amount)}</div>;
       })}
+
+      </div>
 
       <div className="squeeze-host" ref={squeezeHostRef} />
 
@@ -1525,7 +1663,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         </div>
       ) : (
-      <div className={'action-bar' + (squeezing ? ' squeeze-lock' : '')} ref={actionBarRef}>
+      <div className={'action-bar' + (squeezing ? ' squeeze-lock' : '') + (sittingOut ? ' sitting-out' : '')} ref={actionBarRef}>
         {state?.rimt && state.handId && (
           <RimtPanel
             tableId={tableId}
@@ -1553,24 +1691,44 @@ export function TablePage({ tableId }: { tableId: string }) {
             </div>
           </div>
         )}
+        {runModel && (
+          <div className="straddle-ask run-ask" role="dialog" aria-label="Run it">
+            <div className="straddle-ask-head">
+              <b>All in. How many times to run it?</b>
+              <span className="straddle-time">TIME {runModel.secondsLeft}</span>
+            </div>
+            <div className="straddle-ask-note">{runModel.chosen ? `You chose: ${runsLabel(runModel.chosen)}. Waiting for the other player.` : 'Every all-in player must agree. The lowest choice is used.'}</div>
+            {!runModel.chosen && (
+              <div className="action-row">
+                {runModel.options.map((runs) => (
+                  <button key={runs} className={'btn run-choice' + (runs === 1 ? ' run-once' : '')} aria-label={runsLabel(runs)} onClick={() => send({ type: 'run_decide', tableId, runs })}>
+                    <b className="run-n">{runs}×</b>
+                    <span className="run-word">{runsShort(runs)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {myTurn && (
           <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
         )}
         {pendingBet && (
-          <div className="action-row" style={{ background: 'rgba(217,168,60,.12)', borderTop: '1px solid #d9a83c', padding: '8px 10px' }}>
-            <span style={{ flex: 1, color: '#ffd98a', fontSize: 13 }}>
+          <div className="action-row confirm-row" role="alertdialog" aria-label="Confirm bet">
+            <span className="confirm-text">
               Confirm {pendingBet.action === 'allin' ? 'all in for' : (state?.currentBet || 0) > 0 ? 'raise to' : 'bet'}{' '}
               {amt(pendingBet.amount)}?
             </span>
-            <button className="btn btn-gold btn-sm" onClick={() => { const b = pendingBet; setPendingBet(null); act(b.action, b.amount); }}>Confirm</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setPendingBet(null)}>Cancel</button>
+            <button className="btn confirm-ok" onClick={() => { const b = pendingBet; setPendingBet(null); act(b.action, b.amount); }}>Confirm</button>
+            <button className="btn confirm-cancel" onClick={() => setPendingBet(null)}>Cancel</button>
+            <button className="btn confirm-skip" title="Bet now and stop asking; turn it back on in Table options" onClick={() => { const b = pendingBet; setPendingBet(null); setConfirmBets(false); act(b.action, b.amount); toast({ kind: 'info', title: 'Bet confirmation off', body: 'Turn it back on in Table options (gear).' }); }}>Don't ask again</button>
           </div>
         )}
         {canShowCards && (
           <div className="action-row show-row">
             <span style={{ color: '#ffd98a', fontSize: 12.5 }}>Show your cards?</span>
             <div className="grow" />
-            {showOptions(me?.cards || []).map((o) => (
+            {showOptions(me?.cards || [], me?.shown || []).map((o) => (
               <button key={o.indices.join('-')} className={'btn btn-sm show-opt' + (o.indices.length > 1 ? ' btn-gold' : ' btn-ghost')} onClick={() => showCards(o.indices)}>
                 Show <b>{o.label}</b>
               </button>
@@ -1585,14 +1743,14 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {sittingOut && (
           <div className="action-row sitout-row">
-            <span>You are sitting out and will not be dealt in.</span>
+            <span>You are sitting out and will not be dealt in.{sitOutText && <> <b className="sit-out-clock-inline" role="timer" aria-label="Sit-out time left">{sitOutText}</b></>}</span>
             <div className="grow" />
             {!state?.tournament && (
               <label className="wait-blinds" title="Come back on your big blind instead of posting now">
                 <input type="checkbox" aria-label="Wait for Blinds" checked={!!me?.waitForBlinds} onChange={(e) => send({ type: 'option', tableId, waitForBlinds: e.target.checked })} /> Wait for Blinds
               </label>
             )}
-            <button className="btn btn-red" onClick={() => send({ type: 'sit_out', value: false })}>Deal Me In</button>
+            <button className="btn btn-back" onClick={() => send({ type: 'sit_out', value: false })}>I'm back</button>
           </div>
         )}
         {!sittingOut && me?.waitingForBigBlind && (
@@ -1622,7 +1780,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               type="button"
               aria-pressed={preAction?.kind === 'checkfold'}
               onClick={() => setPreAction(preAction?.kind === 'checkfold' ? null : { kind: 'checkfold' })}
-            ><span className="reserve-text">{toCall > 0 ? 'Fold' : 'Check/Fold'}</span></button>
+            ><span className="reserve-text">{toCall > 0 ? 'Fold' : 'Check / Fold'}</span></button>
             <button
               type="button"
               aria-pressed={preAction?.kind === 'foldany'}
@@ -1643,25 +1801,33 @@ export function TablePage({ tableId }: { tableId: string }) {
                 onClick={() => setPreAction(preAction?.kind === 'call' && preAction.amount === toCall ? null : { kind: 'call', amount: toCall })}
               ><span className="reserve-text">Call {amt(toCall)}</span></button>
             )}
+            <button
+              type="button"
+              aria-pressed={preAction?.kind === 'callany'}
+              title="Call any bet on your next turn; check when nobody bets"
+              onClick={() => setPreAction(preAction?.kind === 'callany' ? null : { kind: 'callany' })}
+            ><span className="reserve-text">Call Any</span></button>
           </div>
         )}
-        {state?.allInOrFold ? (
+        {/* Betting buttons only while it is your decision (GGPoker mobile): pre-actions cover
+            the wait, and nothing shows once you are all in, folded or out of the hand. */}
+        {!myTurn ? null : state?.allInOrFold ? (
           <div className="action-row aof-row">
-            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} title={`Spend a Time Bank Card: +${TB_CARD_SECONDS} seconds`}>⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'} <b className="tb-cards">×{tbCards}</b></button>
+            <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank +${TB_CARD_SECONDS}s`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
             <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
-            <button className="act-btn act-allin" disabled={!myTurn} onClick={() => act('allin')}>All-in{me?.stack ? ` ${amt(me.stack)}` : ''}</button>
+            <button className="act-btn act-allin" disabled={!myTurn} onClick={() => requestBet('allin', allInTo)}>All-in{me?.stack ? ` ${amt(me.stack)}` : ''}</button>
             <div className="grow" />
             <span className="aof-note">All-in or fold only</span>
           </div>
         ) : (
-        <div className="action-row">
-          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} title={`Spend a Time Bank Card: +${TB_CARD_SECONDS} seconds`}>⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'} <b className="tb-cards">×{tbCards}</b></button>
+        <div className="action-row main-actions">
+          <button className={'tb-btn' + (tbUsed ? ' used' : '')} disabled={!tbOffered} style={tbOffered || tbUsed ? undefined : { visibility: 'hidden' }} onClick={() => send({ type: 'timebank' })} data-tip={`Time bank +${TB_CARD_SECONDS}s`} aria-label={`Time bank, +${TB_CARD_SECONDS} seconds`}><span className="tb-label">⏱ {tbUsed && !tbCards ? 'No cards' : tbUsed ? 'Used' : 'Time bank'}</span> <b className="tb-cards">×{tbCards}</b></button>
           <button className="act-btn act-fold" disabled={!myTurn} onClick={() => act('fold')}>Fold</button>
           {toCall === 0 ? (
             <button className="act-btn act-check" disabled={!myTurn || !!state?.allInOrFold} onClick={() => act('check')}>Check</button>
           ) : (
             <button className="act-btn act-call" disabled={!myTurn || (!!state?.allInOrFold && !facingShove)} onClick={() => act('call')}>
-              Call {amt(toCall)}
+              <span className="act-word">Call</span> <b className="act-amt">{amt(toCall)}</b>
             </button>
           )}
           {odds && (
@@ -1674,7 +1840,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             {(state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0) ? betPrefs.opening : betPrefs.normal).map((value, i) => {
               const opening = state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0);
               const target = state ? betTarget(value, opening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo, roundUnit) : minTo;
-              return <button key={`${value}-${i}`} disabled={!myTurn || !canRaise} onClick={() => setRaiseTo(target)}>{betLabel(value, opening)}</button>;
+              return <button key={`${value}-${i}`} disabled={!myTurn || !canRaise} onClick={() => setRaiseTo(target)}><span className="qb-tag">{betLabel(value, opening)}</span> <b className="qb-amt">{amt(target)}</b></button>;
             })}
           </div>
           <input
@@ -1682,19 +1848,20 @@ export function TablePage({ tableId }: { tableId: string }) {
             type="range"
             min={minTo}
             max={Math.max(minTo, maxTo)}
-            step={Math.max(100, state?.bb || 100)}
+            step={betStep}
             value={raiseTo}
             aria-label="Bet amount"
             aria-valuetext={amt(raiseTo)}
             title={`${amt(minTo)} – ${amt(Math.max(minTo, maxTo))}`}
             disabled={!myTurn || !canRaise}
-            onChange={(e) => setRaiseTo(Number(e.target.value))}
+            onChange={(e) => setRaiseTo(sliderTarget(Number(e.target.value), betStep, maxTo))}
           />
           <div className="bet-stepper">
             <button
               type="button"
               className="bet-step"
               aria-label="Bet less"
+              data-tip="Bet less"
               disabled={!myTurn || !canRaise || raiseTo <= minTo}
               onClick={() => nudgeBet(-1)}
             >−</button>
@@ -1718,16 +1885,17 @@ export function TablePage({ tableId }: { tableId: string }) {
               type="button"
               className="bet-step"
               aria-label="Bet more"
+              data-tip="Bet more"
               disabled={!myTurn || !canRaise || raiseTo >= maxTo}
               onClick={() => nudgeBet(1)}
             >+</button>
           </div>
           <button
             className={'act-btn ' + (raiseTo >= allInTo ? 'act-allin' : 'act-raise')}
-            disabled={!myTurn || maxTo <= (state?.currentBet || 0)}
+            disabled={!myTurn || !canRaise}
             onClick={() => requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo)}
           >
-            {raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')} {amt(raiseTo)}
+            <span className="act-word">{raiseTo >= allInTo ? 'All in' : (state && state.currentBet > 0 ? 'Raise' : 'Bet')}</span> <b className="act-amt">{amt(raiseTo)}</b>
           </button>
         </div>
         )}
@@ -1870,7 +2038,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           balance={user?.balance} scale={state.tournament ? 1 : 100}
           min={state.minBuyin || state.bb * 20} max={state.maxBuyin || state.bb * 100} step={Math.max(chipStep, state.bb || chipStep)}
           onCancel={() => { send({ type: 'cancel_reservation' }); setReservation(null); }}
-          onBuyIn={(amount) => { send({ type: 'join_table', buyin: amount, seat: reservation.seat, observe: false }); setReservation(null); }} />
+          onBuyIn={(amount) => { send({ type: 'join_table', buyin: amount, seat: reservation.seat, observe: false, waitForBlinds: joinWaitRef.current }); setReservation(null); }} />
       )}
       {rebuyOpen && (
         <div className="modal-backdrop" onClick={() => { setRebuyOpen(false); setRebuyOffer(null); }}>

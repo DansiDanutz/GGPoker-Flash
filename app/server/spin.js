@@ -1,4 +1,4 @@
-// Spin & Gold verified play-money table (P0 § 5, slice S1a: the table only).
+// Jackpot SNG verified play-money table (P0 § 5, slice S1a: the table only).
 //
 // Port of the Codex replica `engine/spin.mjs` (+ `prizeAmounts` from `engine/prizes.mjs`),
 // itself built from the native 3-Max play-money dialogs captured in

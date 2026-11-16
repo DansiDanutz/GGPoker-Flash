@@ -16,16 +16,20 @@ import { Elo } from './pages/Elo';
 import { Promotions, Settings } from './pages/Promotions';
 import { Slots } from './pages/Slots';
 import { Casino } from './pages/Casino';
-import { Profile, HandHistory, PropBet, Support } from './pages/Extras';
+import { Profile, Support } from './pages/Extras';
+import { PropBetPage } from './pages/PropBet';
+import { PokerCraft } from './pages/PokerCraft';
 import { Admin } from './pages/Admin';
 import { MyPage } from './pages/MyPage';
 import { Ocean, GGCare } from './pages/Ocean';
 import { Honeymoon } from './pages/Honeymoon';
 import { MobileNav } from './components/MobileNav';
 import { InstallApp } from './pages/InstallApp';
+import { LoadingScreen } from './components/splash/LoadingScreen';
 import { Reconnect } from './pages/Reconnect';
 import { FirstLaunch } from './components/FirstLaunch';
 import { QuickMenu } from './components/QuickMenu';
+import { Marketplace } from './pages/Marketplace';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
   const desktop = typeof window !== 'undefined' && !!(window as any).ggDesktop;
@@ -41,17 +45,7 @@ function ScaleStage({ children }: { children: React.ReactNode }) {
 
 function Splash() {
   const { brand } = useApp();
-  return (
-    <div className="splash">
-      <div className="splash-inner">
-        <img className="splash-logo" src={brand.logo} alt="DanGG" />
-        <div className="splash-tagline">PLAY-MONEY POKER ROOM</div>
-        <div className="splash-bar"><i /></div>
-        <div className="splash-status">Connecting to DanGG…</div>
-        <div className="splash-legal">Play money · 18+ · no real-money gambling</div>
-      </div>
-    </div>
-  );
+  return <LoadingScreen logo={brand.logo} />;
 }
 
 function ComingSoon({ title }: { title: string }) {
@@ -98,12 +92,16 @@ export default function App() {
       case 'ggcare': return <GGCare />;
       case 'honeymoon': return <Honeymoon />;
       case 'support': return <Support />;
-      case 'hand-history': return <HandHistory />;
-      case 'propbet': return <PropBet />;
+      case 'hand-history': return <PokerCraft />;
+      case 'propbet': return <PropBetPage />;
       case 'admin': return <Admin />;
       default: return <ComingSoon title="Not found" />;
     }
   }, [route, loading]);
+
+  // The catalog is public and has its own layout, loading state and account controls.
+  // Viewing it never creates a guest player or requires installation of the poker app.
+  if (route.split('?')[0] === '/marketplace') return <Marketplace />;
 
   if (!splashDone || loading) {
     return (

@@ -31,7 +31,7 @@ test('Rabbit Hunt reaches only the requesting participant and never the spectato
     const msg = JSON.parse(String(raw));
     if (msg.type !== 'state') return;
     const me = msg.state.players.find((seat) => seat?.isMe);
-    if (me && msg.state.actor === me.id) player.send({ type: 'action', tableId, action: 'fold', amount: 0 });
+    if (me && msg.state.actor === me.id) player.send({ type: 'action', tableId, action: 'fold', amount: 0, handNo: msg.state.handNo, turnNo: msg.state.turnNo });
   });
   const ended = await player.next((msg) => msg.type === 'state' && msg.state.street === 'ended', 30000);
   assert.ok(ended.state.board.length < 5);

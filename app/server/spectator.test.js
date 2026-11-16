@@ -65,7 +65,7 @@ test('a live hand hides hole cards from a watcher and refuses their action', asy
   }
   assert.equal(state.state.players.some((p) => p.isMe), false, 'the watcher holds no seat');
 
-  ws.send({ type: 'action', tableId: PUBLIC_TABLE, action: 'fold', amount: 0 });
+  ws.send({ type: 'action', tableId: PUBLIC_TABLE, action: 'fold', amount: 0, handNo: state.state.handNo, turnNo: state.state.turnNo });
   const error = await ws.nextType('error', 3000);
   assert.match(error.error, /seat|turn|not/i);
   await ws.close();
@@ -78,14 +78,13 @@ test('a watcher cannot change table-wide options', async () => {
   const { ws, joined } = await watch(tableId);
   assert.equal(joined.observe, true);
 
-  ws.send({ type: 'option', tableId, straddle: true, runItTwice: true });
+  ws.send({ type: 'option', tableId, straddle: true, runItAsk: false });
   await sleep(700);
 
   // Ask a fresh socket so the answer cannot be a snapshot queued before the send.
   const probe = await watch(tableId);
   const state = await probe.ws.nextType('state');
   assert.equal(state.state.straddle, false, 'a watcher cannot turn the straddle on');
-  assert.equal(state.state.runItTwice, false, 'a watcher cannot turn run-it-twice on');
   await probe.ws.close();
   await ws.close();
 });
@@ -157,8 +156,8 @@ test('chat history reaches a late joiner and markup is stored verbatim', async (
   const { ws } = await watch(tableId);
   const history = await ws.nextType('chat_history');
   assert.equal(history.tableId, tableId);
-  assert.deepEqual(history.lines.map((l) => l.message), ['first line', markup]);
-  assert.equal(history.lines[1].nick, 'Spect Host');
+  assert.deepEqual(history.lines.filter((l) => l.kind !== 'dealer').map((l) => l.message), ['first line', markup]);
+  assert.equal(history.lines.filter((l) => l.kind !== 'dealer')[1].nick, 'Spect Host');
   await ws.close();
   await player.close();
 });
@@ -198,7 +197,7 @@ test('a muted player\'s chat is dropped', async () => {
 
   const { ws } = await watch(tableId);
   const history = await ws.nextType('chat_history');
-  assert.deepEqual(history.lines.map((l) => l.message), ['still here']);
+  assert.deepEqual(history.lines.filter((l) => l.kind !== 'dealer').map((l) => l.message), ['still here'], 'dealer lines (bets) aside');
   await ws.close();
   await loud.close();
   await player.close();

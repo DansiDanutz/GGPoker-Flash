@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 test('mobile navigation keeps five top-level destinations', () => {
-  const source = fs.readFileSync(path.resolve(import.meta.dirname, '../src/components/MobileNav.tsx'), 'utf8');
+  const source = fs.readFileSync(path.resolve(import.meta.dirname, '../src/lib/phoneNav.ts'), 'utf8');
   const labels = [...source.matchAll(/label: '([^']+)'/g)].map((match) => match[1]);
-  assert.deepEqual(labels, ['Home', 'Casino', 'Tables', 'Rewards', 'My Page']);
+  assert.deepEqual(labels, ['Poker', 'Tournaments', 'Home', 'Casino', 'My Page']);
 });

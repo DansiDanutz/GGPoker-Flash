@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 720" preserveAspectRatio="none">
+  <!-- Mask for the felt tint: the felt of phone-table-3d.svg. -->
+  <path d="M200 44 C278 44 318 60 323 114 L364 546 C369 600 314 676 200 676 C86 676 31 600 36 546 L77 114 C82 60 122 44 200 44 Z" fill="#000"/>
+</svg>

@@ -26,7 +26,7 @@ function fixture({ strong = false, funded = true } = {}) {
   const underdogId = weakId;
   const opponentId = strongId;
   const table = new PokerTable({ id: `insurance-${underdogId}-${sequence}`, name: 'Insurance', game: 'holdem', seats: 2, sb: 50, bb: 100, min_buyin: 100, max_buyin: 2000, rakePercent: 0 });
-  const player = (id, cards) => ({ id, nick: `P${id}`, avatar: '', stack: 0, isBot: false, sittingOut: false, disconnected: false, inHand: true, folded: false, allIn: true, bet: 0, totalBet: 1000, cards: cards.map(C), acted: true, reveal: false, lastAction: null, winAmount: 0, seat: id === underdogId ? 0 : 1, timeBank: 30, autoMuck: true });
+  const player = (id, cards) => ({ id, nick: `P${id}`, avatar: '', stack: 0, isBot: false, runItAsk: false, sittingOut: false, disconnected: false, inHand: true, folded: false, allIn: true, bet: 0, totalBet: 1000, cards: cards.map(C), acted: true, reveal: false, lastAction: null, winAmount: 0, seat: id === underdogId ? 0 : 1, timeBank: 30, autoMuck: true });
   table.seats[0].player = player(underdogId, ['7c', '5s']);
   table.seats[1].player = player(opponentId, ['Ah', 'Kd']);
   table.board = ['2h', '4d', '8c'].map(C);
@@ -39,6 +39,7 @@ function fixture({ strong = false, funded = true } = {}) {
   table.handNo = 1;
   table.handId = `insurance-hand-${sequence}`;
   table.pot = 2000;
+  table.hooks.cashInsuranceEnabled = () => true;
   table.hooks.onCashInsuranceSettlement = (room, summary) => settleCashInsurance(db, room, summary)?.body.state || null;
   if (funded) fundHouse(db, { scope: 'cash-insurance', actorId: 0, operationId: `fund-${sequence}`, amount: 1000000 });
   else {

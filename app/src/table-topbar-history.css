@@ -1,0 +1,18 @@
+/* Hand history lives in the top bar beside Sound: a dark disc with a gold ring, like the gear.
+   Its label opens below, like the other top-bar controls. */
+.table-topbar .table-sound-btn,
+.table-topbar .table-history-btn {
+  display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; flex: none; border-radius: 50%;
+  border: 2px solid #c9952f; background: radial-gradient(circle at 50% 35%, #2b2a26, #0d0c0a 70%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 230, 160, .25); cursor: pointer;
+}
+.table-topbar .table-history-btn img { width: 70%; height: 70%; object-fit: contain; pointer-events: none; }
+.table-screen .table-topbar .table-history-btn[data-tip]::after { bottom: auto; top: calc(100% + 8px); }
+@media (max-width: 760px) and (orientation: portrait) {
+  .table-screen .table-topbar .table-history-btn { order: 9; width: 36px; height: 36px; }
+  .table-screen .table-topbar .table-sound-btn { width: 36px; height: 36px; }
+}
+
+/* Sound shares the gold-ring disc; its icon says whether sound is on. */
+.table-topbar .table-sound-btn { font-size: 16px; line-height: 1; color: #f4ead2; }
+.table-topbar .table-sound-btn[aria-pressed="false"] { opacity: .75; }

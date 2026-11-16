@@ -1,4 +1,4 @@
-// Rush & Cash Drop display + admin-form helpers (P0 slice R4). The rule itself lives in
+// Fast Fold Drop display + admin-form helpers (P0 slice R4). The rule itself lives in
 // server/rush-pool.js; this mirrors its keys, defaults and limits for the client.
 
 export const CASHDROP_RULE_LABEL = 'DanGG rule';

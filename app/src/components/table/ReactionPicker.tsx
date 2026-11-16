@@ -1,38 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
 import { REACTIONS, type ReactionId } from '../../lib/tableChat';
 
-// Artwork comes from the C2 asset pipeline (`/assets/reactions/<id>.png`, not committed).
-// Until it is extracted, every reaction renders as a labelled CSS chip, never an emoji.
-const artUrl = (id: ReactionId) => `/assets/reactions/${id}.png`;
+// Sticker art lives at `/assets/reactions/<id>.webp`. Each reaction is probed on its own, so a
+// partly delivered set still shows what exists; a missing one renders as a labelled chip.
+const artUrl = (id: ReactionId) => `/assets/reactions/${id}.webp`;
 
-let artProbe: Promise<boolean> | null = null;
-function probeArtwork(): Promise<boolean> {
-  if (!artProbe) {
-    artProbe = new Promise((resolve) => {
+const probes = new Map<ReactionId, Promise<boolean>>();
+function probeArtwork(id: ReactionId): Promise<boolean> {
+  let probe = probes.get(id);
+  if (!probe) {
+    probe = new Promise((resolve) => {
       const img = new Image();
       img.onload = () => resolve(true);
       img.onerror = () => resolve(false);
-      img.src = artUrl(1);
+      img.src = artUrl(id);
     });
+    probes.set(id, probe);
   }
-  return artProbe;
+  return probe;
 }
 
-/** True once the reaction artwork is known to be present; checked once per session. */
-export function useReactionArtwork(): boolean {
+/** True once this reaction's artwork is known to be present; checked once per session. */
+export function useReactionArtwork(id: ReactionId): boolean {
   const [hasArt, setHasArt] = useState(false);
   useEffect(() => {
     let live = true;
-    probeArtwork().then((ok) => { if (live) setHasArt(ok); });
+    probeArtwork(id).then((ok) => { if (live) setHasArt(ok); });
     return () => { live = false; };
-  }, []);
+  }, [id]);
   return hasArt;
 }
 
 type ArtProps = { id: ReactionId; label: string; size?: 'seat' | 'grid' | 'inline' };
 
 export function ReactionArt({ id, label, size = 'grid' }: ArtProps) {
-  const hasArt = useReactionArtwork();
+  const hasArt = useReactionArtwork(id);
   if (hasArt) return <img className={`reaction-art reaction-art-${size}`} src={artUrl(id)} alt={label} draggable={false} />;
   return <span className={`reaction-chip reaction-chip-${id} reaction-art-${size}`}>{label}</span>;
 }

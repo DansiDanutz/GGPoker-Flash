@@ -3,16 +3,16 @@ import { money } from '../../lib/api';
 import { eventClock } from '../../lib/mobileLobby';
 import { tournamentFilterCount, TOURNAMENT_SEARCH_MAX, type TournamentFilters } from '../../lib/tournamentFilters';
 import { TournamentCategoryRail, TournamentFilterBar } from '../TournamentFilterBar';
-import { GameBadge, NavGlyph, type BadgeName } from './PhoneIcons';
+import { NavGlyph } from './PhoneIcons';
 
 const CLOCK_TICK_MS = 1000;
 
 /** The four format shortcuts under the hero; each one selects a category of the rail. */
-const FORMAT_TILES: readonly { key: string; label: string; badge: BadgeName; tone: string }[] = [
-  { key: 'flip', label: 'Quick Flip', badge: 'aof', tone: 'red' },
-  { key: 'spin', label: 'Jackpot SNG', badge: 'spin', tone: 'gold' },
-  { key: 'mystery', label: 'Mystery Bounty', badge: 'mystery', tone: 'violet' },
-  { key: 'bounty', label: 'Bounty Hunters', badge: 'rush', tone: 'amber' },
+const FORMAT_TILES: readonly { key: string; label: string; emblem: string; tone: string }[] = [
+  { key: 'flip', label: 'Quick Flip', emblem: 'bolt', tone: 'red' },
+  { key: 'spin', label: 'Jackpot SNG', emblem: 'wheel', tone: 'gold' },
+  { key: 'mystery', label: 'Mystery Bounty', emblem: 'mystery', tone: 'violet' },
+  { key: 'bounty', label: 'Bounty Hunters', emblem: 'target', tone: 'amber' },
 ];
 
 type Props = {
@@ -99,7 +99,7 @@ export function MobileEvents({ list, featured, heroArt, filters, onFilters, onRe
         {FORMAT_TILES.map((tile) => (
           <button key={tile.key} type="button" className={'me-tile tone-' + tile.tone + (filters.category === tile.key ? ' on' : '')} onClick={() => onFilters({ category: filters.category === tile.key ? 'all' : tile.key })}>
             <b>{tile.label}</b>
-            <GameBadge name={tile.badge} size={52} />
+            <img className="me-tile-emblem" src={`/assets/ui/emblems/emblem-${tile.emblem}.webp`} alt="" />
           </button>
         ))}
       </div>

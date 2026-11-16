@@ -1,0 +1,23 @@
+import puppeteer from 'puppeteer-core';
+const BASE='http://127.0.0.1:5198';
+const login=await fetch(`${BASE}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'DansiDanutz',password:'ggpoker'})}).then(r=>r.json());
+const before=await fetch(`${BASE}/api/me`,{headers:{authorization:`Bearer ${login.token}`}}).then(r=>r.json());
+const b=await puppeteer.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:'new',args:['--no-sandbox']});
+const p=await b.newPage(); await p.setViewport({width:1200,height:958});
+await p.evaluateOnNewDocument(t=>{localStorage.setItem('ggpoker.token',t);localStorage.setItem('ggpoker.welcomeSeen','1');sessionStorage.setItem('ggpoker.entered','1')},login.token);
+await p.goto(BASE+'/#/cashier',{waitUntil:'networkidle2'});
+await p.waitForFunction(()=>document.querySelector('.cashier-next'),{timeout:20000});
+await p.click('.cashier-next');
+await p.waitForFunction(()=>document.querySelector('.cashier-amounts'),{timeout:5000});
+await p.screenshot({path:'/Users/davidai/Desktop/DavidAi/GGPoker-flash/.r4/docs/screenshots/cashier-final/1200-amount.png'});
+await p.evaluate(()=>document.querySelectorAll('.cashier-amounts button')[0].click());
+await p.evaluate(()=>document.querySelector('.cashier-row .cashier-next').click());
+await new Promise(r=>setTimeout(r,1800));
+const after=await fetch(`${BASE}/api/me`,{headers:{authorization:`Bearer ${login.token}`}}).then(r=>r.json());
+// history tab
+await p.evaluate(()=>{const x=[...document.querySelectorAll('.cashier-tabs button')].find(b=>b.textContent.includes('Transaction History')); x?.click();});
+await new Promise(r=>setTimeout(r,500));
+const hist=await p.evaluate(()=>document.querySelectorAll('.cashier-hist-row').length);
+await p.screenshot({path:'/Users/davidai/Desktop/DavidAi/GGPoker-flash/.r4/docs/screenshots/cashier-final/1200-history.png'});
+console.log(JSON.stringify({before:before.user.balance, after:after.user.balance, delta:after.user.balance-before.user.balance, histRows:hist}));
+await b.close();

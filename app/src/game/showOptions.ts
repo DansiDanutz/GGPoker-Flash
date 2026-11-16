@@ -8,17 +8,34 @@ export function cardGlyph(card: string): string {
 
 export type ShowOption = { label: string; indices: number[] };
 
-export function showOptions(cards: string[]): ShowOption[] {
+/** Cards still face down get a button each; with two or more left there is one for the whole hand. */
+export function showOptions(cards: string[], shown: readonly number[] = []): ShowOption[] {
   if (!cards.length || cards.some((c) => !c || c === '??')) return [];
-  const single = cards.map((c, i) => ({ label: cardGlyph(c), indices: [i] }));
-  return [...single, { label: cards.map(cardGlyph).join(' '), indices: cards.map((_, i) => i) }];
+  const single = cards
+    .map((c, i) => ({ label: cardGlyph(c), indices: [i] }))
+    .filter((o) => !shown.includes(o.indices[0]));
+  if (single.length < 2) return single;
+  const label = shown.length ? 'All' : cards.map(cardGlyph).join(' ');
+  return [...single, { label, indices: cards.map((_, i) => i) }];
 }
 
 type ShowSeat = { inHand?: boolean; cards?: string[]; shown?: number[] } | null | undefined;
 
-/** After the hand, a dealt-in player who has not shown yet may show (folded or not). */
+/** After the hand, a dealt-in player with a card still face down may show it (folded or not). */
 export function canShowHand(me: ShowSeat, street: string | undefined, observing: boolean): boolean {
   if (!me || observing || street !== 'ended' || !me.inHand) return false;
   const cards = me.cards || [];
-  return cards.length > 0 && !cards.includes('??') && !(me.shown?.length);
+  return cards.length > 0 && !cards.includes('??') && (me.shown?.length || 0) < cards.length;
+}
+
+/** During a live hand a dealt-in player may mark known hole cards to show when it ends (the eye). */
+export function canMarkShowAtEnd(me: ShowSeat, street: string | undefined, observing: boolean): boolean {
+  if (!me || observing || !street || street === 'ended' || street === 'idle' || !me.inHand) return false;
+  const cards = me.cards || [];
+  return cards.length > 0 && !cards.includes('??');
+}
+
+/** Tapping a marked card takes the mark back; tapping an unmarked one adds it. */
+export function toggleShowMark(marks: readonly number[], index: number): number[] {
+  return marks.includes(index) ? marks.filter((i) => i !== index) : [...marks, index].sort((a, b) => a - b);
 }

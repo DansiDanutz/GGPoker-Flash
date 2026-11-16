@@ -154,16 +154,36 @@ assessment in `deploy/README.md` for the dedicated-host recommendation.
 
 ## Disk headroom (Docker)
 
-The 96 GB droplet can fill with Docker build cache and one `dangro-game:rollback-*` tag per
-deploy. A full disk stops `docker compose build` with `no space left on device` and leaves
-the previous container running. `deploy/prune-docker.sh` keeps the newest three rollback
-tags, prunes the build cache and dangling images, and prints the resulting filesystem line.
+The 96 GB droplet can fill with repeated build cache. `deploy/prune-docker.sh`
+uses Docker Buildx's native least-recently-used cache pruning: target at most 4 GB
+of cache, target at least 20 GB free, and reserve 1 GB of cache. Only unused cache
+not accessed for at least one hour is eligible. Recent/in-use records and layers
+shared with retained images may prevent reaching the targets; this is not a hard
+filesystem quota. Builds may take longer when discarded cache must be regenerated.
 
-Run it weekly (and after any `no space left on device` build):
+The script never removes images (including all rollback tags), containers, volumes,
+databases or backups. Rollback-image retention is a separate reviewed operation;
+this job will not silently sacrifice recovery points to meet a space target.
+Docker failures remain visible and return nonzero, rather than being suppressed.
+
+Replace the existing weekly entry in Dexter1981's crontab with this single hourly
+entry (do not add a second cleanup scheduler). `flock` prevents overlapping scheduled
+runs; output goes to the host's rotated system logs instead of an unbounded prune.log.
+No Docker daemon restart or application deployment is required.
 
 ```cron
-17 4 * * 1 /home/Dexter1981/dangro/deploy/prune-docker.sh >> /home/Dexter1981/dangro/deploy/prune.log 2>&1
+17 * * * * /usr/bin/flock -n /home/Dexter1981/dangro/deploy/prune-docker.lock /home/Dexter1981/dangro/deploy/prune-docker.sh 2>&1 | /usr/bin/logger -t dangg-docker-cache
 ```
+
+Before installation, back up the current script and crontab. Verify a manual run as
+Dexter1981, inspect `journalctl -t dangg-docker-cache`, compare running container IDs,
+volume names, rollback tags and backup checksums, and check `/healthz` afterward.
+A cron pipeline's logger status does not prove cleanup succeeded: inspect its output
+for Docker errors. Persistent low space requires reviewing other storage consumers;
+never add volume/image pruning to this cache job.
+
+Requires the installed Buildx options `--max-used-space`, `--min-free-space` and
+`--reserved-space`; see [Docker's reference](https://docs.docker.com/reference/cli/docker/buildx/prune/).
 
 The admin **Platform** section shows `Disk free` / used percent (the container overlay is
 backed by the host root filesystem), so pressure is visible before a deploy fails.

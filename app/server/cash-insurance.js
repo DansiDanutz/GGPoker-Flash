@@ -56,7 +56,9 @@ function probabilities(table) {
 }
 
 export function beginCashInsurance(table) {
-  if (table.cashInsuranceOffer || table.rimt || table.runItTwice || table.cfg.rimt_mode === 'negotiated' || table.cfg.game !== 'holdem' || table.tournament || table.spin || table.rush || table.aof || table.board.length >= 5) return false;
+  // Off until the operator funds the cash-insurance bankroll (hooks.cashInsuranceEnabled).
+  if (!table.hooks?.cashInsuranceEnabled?.()) return false;
+  if (table.cashInsuranceOffer || table.rimt || table.cfg.rimt_mode === 'negotiated' || table.cfg.game !== 'holdem' || table.tournament || table.spin || table.rush || table.aof || table.board.length >= 5) return false;
   const active = table.activePlayers();
   if (active.length !== 2 || !active.some((seat) => seat.player.allIn)) return false;
   const chances = probabilities(table);
@@ -99,7 +101,8 @@ export function quoteCashInsurance(db, table, { actorId, handId, expectedRevisio
 
 function continueRunout(table) {
   table.actor = null;
-  table.runout();
+  // An accepted policy is priced on one board, so it never goes to a run-it vote.
+  table.runout({ singleBoard: table.cashInsuranceOffer?.status === 'accepted' });
 }
 
 export function decideCashInsurance(db, table, { actorId, handId, quoteId, expectedRevision, operationId, decision }) {

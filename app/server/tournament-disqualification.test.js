@@ -27,7 +27,7 @@ async function allIn(token) {
     socket.send({ type: 'join_table', tableId: `tourney-${tournamentId}` });
     await socket.next((message) => {
       if (message.type === 'state' && message.state.street === 'ended') return true;
-      if (message.type === 'state' && message.state.actor === players.find((player) => player.token === token).id) socket.send({ type: 'action', tableId: `tourney-${tournamentId}`, action: 'allin', amount: 0 });
+      if (message.type === 'state' && message.state.actor === players.find((player) => player.token === token).id) socket.send({ type: 'action', tableId: `tourney-${tournamentId}`, action: 'allin', amount: 0, handNo: message.state.handNo, turnNo: message.state.turnNo });
       return false;
     }, 15000);
   } finally { await socket.close(); }

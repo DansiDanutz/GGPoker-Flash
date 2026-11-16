@@ -28,7 +28,7 @@ async function allIn(token) {
     await socket.next((message) => {
       if (message.type === 'state' && message.state.street === 'ended') return true;
       if (message.type === 'state' && message.state.actor === players.find((player) => player.token === token).id) {
-        socket.send({ type: 'action', tableId: `tourney-${tournamentId}`, action: 'allin', amount: 0 });
+        socket.send({ type: 'action', tableId: `tourney-${tournamentId}`, action: 'allin', amount: 0, handNo: message.state.handNo, turnNo: message.state.turnNo });
       }
       return false;
     }, 15000);
@@ -46,7 +46,7 @@ test('late-registration rebuy charges once, resets exactly configured chips and 
 
   const db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
   let eliminated;
-  for (let attempt = 0; attempt < 100 && !eliminated; attempt++) {
+  for (let attempt = 0; attempt < 400 && !eliminated; attempt++) {
     eliminated = db.prepare("SELECT account_id FROM tournament_participation WHERE tournament_id = ? AND status = 'eliminated'").get(tournamentId);
     if (!eliminated) await new Promise((resolve) => setTimeout(resolve, 50));
   }

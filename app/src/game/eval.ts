@@ -29,8 +29,9 @@ function score5(cards: Card[], shortDeck = false): number[] {
   if (g0[1] === 4) return [7, g0[0], g1[0]];
   if (g0[1] === 3 && g1[1] === 2) return [shortDeck ? 5 : 6, g0[0], g1[0]];
   if (flush) return [shortDeck ? 6 : 5, ...vs];
-  if (straightHigh) return [4, straightHigh];
-  if (g0[1] === 3) return [3, g0[0], ...groups.filter((g) => g[1] === 1).map((g) => g[0])];
+  // Short Deck (GGPoker rules): three of a kind beats a straight.
+  if (straightHigh) return [shortDeck ? 3 : 4, straightHigh];
+  if (g0[1] === 3) return [shortDeck ? 4 : 3, g0[0], ...groups.filter((g) => g[1] === 1).map((g) => g[0])];
   if (g0[1] === 2 && g1[1] === 2) {
     const pairs = [g0[0], g1[0]].sort((a, b) => b - a);
     return [2, ...pairs, groups.find((g) => g[1] === 1)![0]];
@@ -87,6 +88,8 @@ export function bestHand(hole: string[], board: string[], omaha = false, shortDe
   let name = NAMES[best[0]];
   if (shortDeck && best[0] === 6) name = 'Flush';
   if (shortDeck && best[0] === 5) name = 'Full House';
+  if (shortDeck && best[0] === 4) name = 'Three of a Kind';
+  if (shortDeck && best[0] === 3) name = 'Straight';
   if (best[0] === 8 && best[1] === 14) name = 'Royal Flush';
   return { name, cat: best[0], best: bestCards.map((c) => c.r + c.s) };
 }

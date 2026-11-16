@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "DanGG Poker",
-  "short_name": "DanGG",
-  "description": "Play-money poker at DanGG — full-screen tables, tournaments and rewards.",
+  "name": "No More Middleman",
+  "short_name": "No Middleman",
+  "description": "Free play-money poker by Dan, built for the community. DanGG — full-screen tables, tournaments and rewards.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "/#/",
@@ -10,8 +10,8 @@
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "any",
-  "background_color": "#0a0f0c",
-  "theme_color": "#0a0f0c",
+  "background_color": "#070507",
+  "theme_color": "#070507",
   "categories": ["games", "entertainment"],
   "icons": [
     {

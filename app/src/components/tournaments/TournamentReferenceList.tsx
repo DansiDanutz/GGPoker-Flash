@@ -3,26 +3,27 @@ import { money } from '../../lib/api';
 import { Countdown } from '../PageShell';
 import { phaseOf, PHASE_LABEL, type TournamentFilters } from '../../lib/tournamentFilters';
 
-const CREATIVE = '/assets/gg-creatives';
+const EMBLEM = '/assets/ui/emblems';
 
+/** Series tabs: a 3D emblem (art 5) with a live label. */
 const SERIES_TABS = [
-  { key: 'all', label: 'Tournaments', art: 'series-tab-tournaments.jpg' },
-  { key: 'all', label: 'GGMillion$ Festival', art: 'series-tab-0.jpg' },
-  { key: 'all', label: 'PLO Series', art: 'series-tab-1.jpg' },
-  { key: 'ggmasters', label: 'GGMasters', art: 'series-tab-2.jpg' },
-  { key: 'wsop', label: 'WSOP Express', art: 'series-tab-3.jpg' },
-  { key: 'spin', label: 'Spin & Gold', art: 'series-tab-4.jpg' },
-  { key: 'mystery', label: 'Mystery Battle Royale', art: 'series-tab-5.jpg' },
-  { key: 'quickflip', label: 'Flip & Go', art: 'series-tab-6.jpg' },
+  { key: 'all', label: 'Tournaments', emblem: 'trophy' },
+  { key: 'all', label: 'Millions Festival', emblem: 'crown-coin' },
+  { key: 'all', label: 'PLO Series', emblem: 'cards' },
+  { key: 'ggmasters', label: 'Masters', emblem: 'crown' },
+  { key: 'wsop', label: 'Live Series', emblem: 'target' },
+  { key: 'spin', label: 'Jackpot SNG', emblem: 'wheel' },
+  { key: 'mystery', label: 'Battle Royale', emblem: 'mystery' },
+  { key: 'quickflip', label: 'Quick Flip', emblem: 'bolt' },
 ];
 
 const CHIPS = [
   { key: 'all', label: 'All' },
-  { key: 'ggmasters', label: 'GGMasters' },
+  { key: 'ggmasters', label: 'Masters' },
   { key: 'bounty', label: 'Bounty Hunters' },
-  { key: 'mystery', label: 'Mystery Battle Royale' },
-  { key: 'spin', label: 'Spin & Gold' },
-  { key: 'quickflip', label: 'Flip & Go' },
+  { key: 'mystery', label: 'Battle Royale' },
+  { key: 'spin', label: 'Jackpot SNG' },
+  { key: 'quickflip', label: 'Quick Flip' },
   { key: 'satellites', label: 'Satellites' },
   { key: 'live', label: 'Live Series' },
 ];
@@ -59,6 +60,7 @@ type Props = {
 
 export function TournamentReferenceList({ list, registered, busy, filters, onChange, onReset, onLobby, onRegister, onPlay, balance }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [panel, setPanel] = useState<'filters' | 'details'>('filters');
   const now = Date.now();
   const selected = useMemo(() => list.find((t) => t.id === selectedId) || list[0] || null, [list, selectedId]);
   const isReg = selected ? registered.includes(selected.id) : false;
@@ -69,14 +71,13 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
       <nav className="tref-series" aria-label="Tournament series">
         {SERIES_TABS.map((tab, i) => (
           <button
-            key={tab.art}
+            key={tab.emblem}
             type="button"
             className={'tref-series-tab' + (i === 0 ? ' on' : '')}
-            title={tab.label}
-            aria-label={tab.label}
             onClick={() => onChange({ category: tab.key })}
           >
-            <img src={`${CREATIVE}/${tab.art}`} alt="" />
+            <img src={`${EMBLEM}/emblem-${tab.emblem}.webp`} alt="" />
+            <span className="tref-series-label">{tab.label}</span>
           </button>
         ))}
       </nav>
@@ -125,7 +126,7 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
                 <div
                   key={t.id}
                   className={'tref-row phase-' + phase + (rowSelected ? ' on' : '') + ' mode-' + String(t.mode || 'standard').toLowerCase()}
-                  onClick={() => setSelectedId(t.id)}
+                  onClick={() => { setSelectedId(t.id); setPanel('details'); }}
                   onDoubleClick={() => onLobby(t)}
                 >
                   <div className="tref-start">
@@ -148,6 +149,12 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
         </div>
 
         <aside className="tref-side">
+          <div className="tref-side-tabs" role="tablist" aria-label="Tournament panel">
+            <button type="button" role="tab" aria-selected={panel === 'filters'} className={panel === 'filters' ? 'on' : ''} onClick={() => setPanel('filters')}>Filters</button>
+            <button type="button" role="tab" aria-selected={panel === 'details'} className={panel === 'details' ? 'on' : ''} onClick={() => { if (!selected && list[0]) setSelectedId(list[0].id); setPanel('details'); }}>Details</button>
+          </div>
+
+          {panel === 'filters' && (<>
           <div className="tref-side-card">
             <div className="tref-side-title">Filter</div>
             <div className="tref-side-sub"><span>Buy-in</span><button type="button" onClick={onReset}>Reset</button></div>
@@ -173,6 +180,44 @@ export function TournamentReferenceList({ list, registered, busy, filters, onCha
               <button type="button" className="tref-btn primary" disabled={!selected || busy === selected?.id} onClick={() => selected && onRegister(selected)}>Register</button>
             )}
           </div>
+          </>)}
+
+          {panel === 'details' && (
+            selected ? (
+              <div className="tref-detail">
+                <div className="tref-detail-kicker">{String(selected.mode || 'STANDARD').replace(/_/g, ' ')} · {selected.format}</div>
+                <h3>{selected.name}</h3>
+                <div className="tref-detail-tags">
+                  <span>#{String(selected.mode || 'standard').toLowerCase()}</span>
+                  <span>#{String(selected.format || 'nlh').toLowerCase()}</span>
+                  {selected.buyin === 0 && <span>#freeroll</span>}
+                  {(selected.late_reg || 0) > 45 && <span>#late-reg</span>}
+                </div>
+                <div className="tref-detail-status">{statusText(selected, now)} · starts {new Date(selected.start_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                <div className="tref-side-card">
+                  <div className="tref-kv"><span>Buy-in</span><b>{selected.buyin === 0 ? 'Freeroll' : money(selected.buyin + selected.fee)}</b></div>
+                  <div className="tref-kv"><span>Guarantee</span><b className="gold">{money(selected.gtd || 0, true)}</b></div>
+                  <div className="tref-kv"><span>Prize pool</span><b>{money((selected.entrants || 0) * (selected.buyin || 0), true)}</b></div>
+                  <div className="tref-kv"><span>Overlay</span><b>{money(Math.max(0, (selected.gtd || 0) - (selected.entrants || 0) * (selected.buyin || 0)), true)}</b></div>
+                  <div className="tref-kv"><span>Players</span><b>{(selected.entrants || 0).toLocaleString()}</b></div>
+                  <div className="tref-kv"><span>Starting chips</span><b>{(selected.starting_stack || 0).toLocaleString()}</b></div>
+                  <div className="tref-kv"><span>Blind interval</span><b>{selected.blind_speed || 0} min</b></div>
+                  <div className="tref-kv"><span>Late reg ends</span><b>{new Date(new Date(selected.start_at).getTime() + (selected.late_reg || 0) * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b></div>
+                </div>
+                <div className="tref-side-actions">
+                  {isReg ? (
+                    <button type="button" className="tref-btn primary" disabled={busy === selected.id} onClick={() => onPlay(selected)}>Play</button>
+                  ) : (
+                    <button type="button" className="tref-btn primary" disabled={busy === selected.id} onClick={() => onRegister(selected)}>Register</button>
+                  )}
+                  <button type="button" className="tref-btn" onClick={() => onLobby(selected)}>Full lobby</button>
+                  <button type="button" className="tref-detail-back" onClick={() => setPanel('filters')}>← Back to filters</button>
+                </div>
+              </div>
+            ) : (
+              <div className="tref-side-card"><div className="tref-side-sub"><span>Pick an event to see its details.</span></div></div>
+            )
+          )}
         </aside>
       </div>
     </div>

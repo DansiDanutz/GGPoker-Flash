@@ -1,18 +1,24 @@
-# DanGG
+# OpenPoker
 
-**Play-money poker room — live at [dangg.live](https://dangg.live).**
+**Open source play-money poker software — first official implementation at [DanGG.live](https://dangg.live).**
 
-DanGG is a working, server-authoritative poker room rebuilt from the GGPoker desktop
-client's artwork, fonts, sounds and interaction design: a React 19 + TypeScript client,
+OpenPoker is the public upstream software project developed from DanGG. DanGG.live
+is its first official implementation, with its own service name and visual identity.
+The existing Git history, authorship and license notices remain part of the project.
+
+The current codebase includes the DanGG-branded reference client, committed DanGG
+assets and local graphics/audio generators: a React 19 + TypeScript client,
 a Node.js/SQLite game server, real-time WebSocket tables, a signed Electron desktop
 shell, and an installable phone app (PWA) for Android and iPhone.
 
-[![CI](https://github.com/DansiDanutz/GGPoker-Flash/actions/workflows/ci.yml/badge.svg)](https://github.com/DansiDanutz/GGPoker-Flash/actions/workflows/ci.yml)
+Independent operators can build on OpenPoker under its [software license](docs/LICENSING.md)
+and use their own service identity; see the [brand policy](TRADEMARKS.md).
+
+[![CI](https://github.com/OpenPoker4all/OpenPoker/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenPoker4all/OpenPoker/actions/workflows/ci.yml)
 
 > **Play money only.** No real-money deposits, withdrawals or cash value. Not affiliated
-> with GGPoker. Original artwork/audio remain the property of their owners and were
-> extracted from a locally installed client for reverse-engineering and interoperability
-> purposes; they are not redistributed in this repository.
+> with GGPoker. See [licensing](docs/LICENSING.md) for AGPL-3.0-only, retained MIT
+> rights, third-party notices and the limits of the asset provenance review.
 
 ---
 
@@ -36,6 +42,9 @@ shell, and an installable phone app (PWA) for Android and iPhone.
 
 ## Live service
 
+This section documents the existing DanGG.live deployment of OpenPoker. Its domain,
+branding, desktop app name and operational identifiers belong to that implementation.
+
 | | |
 |---|---|
 | **Site** | https://dangg.live (and https://www.dangg.live) |
@@ -51,8 +60,9 @@ Operational detail lives in [`deploy/README.md`](deploy/README.md),
 [`deploy/ALWAYS-ON.md`](deploy/ALWAYS-ON.md), [`deploy/DNS.md`](deploy/DNS.md) and
 [`deploy/MONITORING.md`](deploy/MONITORING.md).
 
-The public repository ships **source code and tooling only**. Extracted GGPoker art,
-sounds and fonts are generated locally with `tools/setup_assets.sh` and are not published.
+The public repository ships source, committed DanGG assets and generation tools.
+`tools/setup_assets.sh` regenerates supported asset categories; supplied artwork and
+voice takes are committed inputs. Proprietary client extraction is not required.
 
 ---
 
@@ -358,8 +368,10 @@ Every push to `main` and every pull request runs the **CI** workflow
 | **Server tests** | `node --test server/*.test.js` (155 tests) |
 | **Typecheck and build** | `tsc --noEmit`, then `vite build` |
 
-`main` is protected by the `protect-main` ruleset: both checks are required, force-pushes
-and branch deletion are refused. Changes land through a pull request
+The required `protect-main` policy for `main` requires both checks and blocks
+force-pushes and branch deletion. Verify this policy after transferring repository
+ownership; source-only imports and standalone copies need their own repository settings.
+Changes land through a pull request
 (`git switch -c …`, push, `gh pr create`, `gh pr checks --watch`, `gh pr merge --squash`).
 Full detail: [`docs/CI.md`](docs/CI.md).
 
@@ -381,8 +393,8 @@ curl -fsS https://dangg.live/healthz
 
 - `game` runs the production image (Node 26, pnpm build → `dist`, server + SQLite) bound
   to `127.0.0.1:5198`; Traefik owns 80/443 and routes the domain.
-- The official extracted assets are gitignored; sync `app/public/` from the Mac before a
-  fresh build (or the app falls back to CSS/brand placeholders).
+- `deploy/deploy.sh` ships the committed assets and exact source revision; never sync
+  private extracted resources into a public build. See [licensing](docs/LICENSING.md).
 - Backups: nightly `VACUUM INTO` via `deploy/backup.sh`, pulled off-host to Nano.
 - Always-on: restart policy + boot-time Docker, `/healthz` watchdog every 2 minutes with
   a 5-minute cooldown, external uptime checks from Nano, Let's Encrypt auto-renewal.
@@ -412,6 +424,9 @@ Scale planning lives in [`deploy/SCALE-PLAN.md`](deploy/SCALE-PLAN.md).
 
 ## Reverse engineering
 
+Historical research context follows; this is not the current asset setup workflow.
+The current app uses committed assets and `tools/original-assets/` generators.
+
 The installed client is an **Adobe AIR/Flash application**:
 
 - `/Applications/GGPoker.app` is a thin NCF launcher; the real client lives in
@@ -425,8 +440,8 @@ The installed client is an **Adobe AIR/Flash application**:
 - The client's Roboto / Roboto Condensed fonts and 73 table/lobby sounds were exported.
 
 The evidence trail, file inventory and commands are in
-[`research/REVERSE_ENGINEERING.md`](research/REVERSE_ENGINEERING.md). Reproduce assets
-locally with `bash tools/setup_assets.sh`.
+[`research/REVERSE_ENGINEERING.md`](research/REVERSE_ENGINEERING.md). Generate current
+DanGG assets with `bash tools/setup_assets.sh`; this does not extract the old client.
 
 ---
 
@@ -435,6 +450,8 @@ locally with `bash tools/setup_assets.sh`.
 | Document | What it covers |
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Components, request flow, data model, table protocol |
+| [`docs/MARKETPLACE.md`](docs/MARKETPLACE.md) | Public marketplace, catalog, access requests and private owner administration |
+| [`docs/MARKETPLACE_IMPLEMENTATION.md`](docs/MARKETPLACE_IMPLEMENTATION.md) | Organizer plugins, publisher economics, payment ledger, implementation and rollout |
 | [`docs/CI.md`](docs/CI.md) | CI workflow, required checks, branch protection, PR flow |
 | [`docs/RELEASE.md`](docs/RELEASE.md) | Release checklist, verified surfaces, known gaps |
 | [`CHANGELOG.md`](CHANGELOG.md) | Dated history of shipped work |
@@ -451,8 +468,8 @@ locally with `bash tools/setup_assets.sh`.
 
 ## Scope and limitations
 
-- Faithful **functional** clone: layout, art, audio, tab structure, game flow and
-  interactions are reconstructed from the shipped client; server-driven content (player
+- Independent play-money implementation with DanGG assets; historical client research
+  informed interaction design. Server-driven content (player
   counts, promotion copy, schedules) is seeded and editable in the admin console.
 - Bots are intentionally imperfect and play for play chips only.
 - No real-money payments, KYC or account connectivity; play money has no cash value.
@@ -466,5 +483,7 @@ locally with `bash tools/setup_assets.sh`.
 
 ## License
 
-[MIT](LICENSE). Third-party artwork, audio and trademarks remain the property of their
-owners and are not included in this repository.
+[AGPL-3.0-only](LICENSE) for versions containing this transition, with retained
+[historical MIT rights](LICENSES/MIT-legacy.txt) and [third-party notices](THIRD-PARTY-NOTICES.txt).
+Read [licensing and source access](docs/LICENSING.md), [contribution/DCO rules](CONTRIBUTING.md)
+and the [brand policy](TRADEMARKS.md). The login footer links the source of the running build.

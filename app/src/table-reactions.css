@@ -1,0 +1,132 @@
+/* Reaction motion at the seat. The outer .seat-reaction pops in and fades out over 4s
+   (table-chat.css); the inner .reaction-fx gives each sticker its own move once it lands. */
+.seat-reaction .reaction-fx {
+  display: inline-block; transform-origin: 50% 60%;
+  animation-duration: 3.4s; animation-delay: .25s; animation-fill-mode: both; animation-timing-function: ease-in-out;
+}
+
+/* 1 Angry: shakes with a red flush */
+.reaction-fx-angry { animation-name: rxAngry; }
+@keyframes rxAngry {
+  0%, 100% { transform: none; filter: none; }
+  4%, 12%, 20%, 28% { transform: translateX(-4px) rotate(-5deg); filter: drop-shadow(0 0 10px rgba(255, 40, 30, .85)); }
+  8%, 16%, 24% { transform: translateX(4px) rotate(5deg); }
+  36% { transform: none; filter: drop-shadow(0 0 4px rgba(255, 40, 30, .4)); }
+  60%, 68% { transform: translateX(-2px) rotate(-2deg); filter: drop-shadow(0 0 10px rgba(255, 40, 30, .7)); }
+  64%, 72% { transform: translateX(2px) rotate(2deg); }
+  80% { transform: none; filter: none; }
+}
+
+/* 2 Thinking: slow tilt side to side */
+.reaction-fx-thinking { animation-name: rxThinking; animation-timing-function: ease-in-out; }
+@keyframes rxThinking {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-10deg) translateY(-2px); }
+  50% { transform: rotate(4deg); }
+  75% { transform: rotate(-8deg) translateY(-2px); }
+}
+
+/* 3 Laughing: bounces */
+.reaction-fx-laughing { animation-name: rxLaughing; }
+@keyframes rxLaughing {
+  0%, 100% { transform: none; }
+  8%, 24%, 40%, 56%, 72% { transform: translateY(-9px) rotate(-4deg) scale(1.04, .97); }
+  16%, 32%, 48%, 64%, 80% { transform: translateY(0) rotate(4deg) scale(.98, 1.03); }
+}
+
+/* 4 Nice hand: a firm nod with a gold glint */
+.reaction-fx-nicehand { animation-name: rxNiceHand; transform-origin: 50% 90%; }
+@keyframes rxNiceHand {
+  0%, 100% { transform: none; filter: none; }
+  12% { transform: rotate(-8deg) scale(1.08); filter: drop-shadow(0 0 12px rgba(255, 210, 90, .95)) brightness(1.15); }
+  24% { transform: rotate(0) scale(1); filter: drop-shadow(0 0 6px rgba(255, 210, 90, .6)); }
+  44% { transform: rotate(-6deg) scale(1.06); filter: drop-shadow(0 0 12px rgba(255, 210, 90, .9)) brightness(1.12); }
+  56% { transform: none; filter: none; }
+}
+
+/* 5 Clap: quick squash pulses */
+.reaction-fx-clap { animation-name: rxClap; animation-timing-function: linear; }
+@keyframes rxClap {
+  0%, 100% { transform: none; }
+  5%, 15%, 25%, 35%, 45%, 55% { transform: scale(1.12, .9); }
+  10%, 20%, 30%, 40%, 50%, 60% { transform: scale(.96, 1.04); }
+  66% { transform: none; }
+}
+
+/* 6 Crying: droops and sways, slightly cooler tone */
+.reaction-fx-crying { animation-name: rxCrying; transform-origin: 50% 0; }
+@keyframes rxCrying {
+  0%, 100% { transform: none; filter: none; }
+  20% { transform: translateY(4px) rotate(-5deg); filter: saturate(.85) drop-shadow(0 4px 8px rgba(70, 150, 255, .55)); }
+  45% { transform: translateY(6px) rotate(5deg); filter: saturate(.85) drop-shadow(0 4px 8px rgba(70, 150, 255, .55)); }
+  70% { transform: translateY(4px) rotate(-4deg); filter: saturate(.85) drop-shadow(0 4px 8px rgba(70, 150, 255, .55)); }
+  90% { transform: translateY(1px); }
+}
+
+/* 7 Shocked: jolts up big, then settles with a tremble */
+.reaction-fx-shocked { animation-name: rxShocked; animation-timing-function: cubic-bezier(.2, .9, .3, 1.3); }
+@keyframes rxShocked {
+  0%, 100% { transform: none; }
+  8% { transform: translateY(-12px) scale(1.28); }
+  20% { transform: translateY(-4px) scale(1.12); }
+  24%, 32%, 40% { transform: translateY(-4px) scale(1.12) translateX(-2px); }
+  28%, 36%, 44% { transform: translateY(-4px) scale(1.12) translateX(2px); }
+  60% { transform: none; }
+}
+
+/* 8 Cool: slides in from the side with a smug tilt */
+.reaction-fx-cool { animation-name: rxCool; animation-timing-function: cubic-bezier(.2, .8, .3, 1); }
+@keyframes rxCool {
+  0% { transform: translateX(-18px) rotate(-14deg); opacity: .4; }
+  18% { transform: translateX(3px) rotate(6deg); opacity: 1; }
+  28%, 70% { transform: rotate(-6deg); }
+  85%, 100% { transform: none; }
+}
+
+/* 9 Fish: swims side to side */
+.reaction-fx-fish { animation-name: rxFish; }
+@keyframes rxFish {
+  0%, 100% { transform: none; }
+  15% { transform: translate(-6px, -3px) rotate(-7deg); }
+  35% { transform: translate(6px, 2px) rotate(7deg); }
+  55% { transform: translate(-5px, -2px) rotate(-6deg); }
+  75% { transform: translate(5px, 2px) rotate(5deg); }
+}
+
+/* 10 Shark: rises from below, holds, then circles once */
+.reaction-fx-shark { animation-name: rxShark; animation-timing-function: cubic-bezier(.25, .8, .3, 1); }
+@keyframes rxShark {
+  0% { transform: translateY(26px) scale(.85); clip-path: inset(0 0 60% 0); }
+  25% { transform: translateY(-3px) scale(1.04); clip-path: inset(0 0 -20% 0); }
+  35% { transform: none; clip-path: inset(0 0 -20% 0); }
+  55% { transform: translateX(-5px) rotate(-6deg); clip-path: inset(0 0 -20% 0); }
+  75% { transform: translateX(5px) rotate(6deg); clip-path: inset(0 0 -20% 0); }
+  100% { transform: none; clip-path: inset(0 0 -20% 0); }
+}
+
+/* 11 On fire: flickers with heat glow */
+.reaction-fx-onfire { animation-name: rxOnFire; animation-timing-function: steps(1, end); }
+@keyframes rxOnFire {
+  0%, 100% { transform: none; filter: drop-shadow(0 0 6px rgba(255, 120, 20, .7)); }
+  6%, 26%, 46%, 66% { transform: scale(1.05) translateY(-2px); filter: drop-shadow(0 -4px 14px rgba(255, 90, 0, .95)) brightness(1.15); }
+  12%, 32%, 52%, 72% { transform: scale(.99); filter: drop-shadow(0 0 8px rgba(255, 170, 40, .8)); }
+  18%, 38%, 58%, 78% { transform: scale(1.03) translateY(-1px); filter: drop-shadow(0 -2px 12px rgba(255, 60, 0, .9)) brightness(1.08); }
+  86% { transform: none; filter: drop-shadow(0 0 6px rgba(255, 120, 20, .6)); }
+}
+
+/* 12 Ship it: a coin-flip spin with a gold flash */
+.reaction-fx-shipit { animation-name: rxShipIt; animation-timing-function: cubic-bezier(.3, .7, .4, 1); }
+@keyframes rxShipIt {
+  0% { transform: perspective(300px) rotateY(0); filter: none; }
+  30% { transform: perspective(300px) rotateY(720deg) scale(1.12); filter: drop-shadow(0 0 16px rgba(255, 205, 60, 1)) brightness(1.25); }
+  42% { transform: perspective(300px) rotateY(720deg) scale(1); filter: drop-shadow(0 0 8px rgba(255, 205, 60, .7)); }
+  60% { transform: perspective(300px) rotateY(720deg) translateY(-5px); filter: drop-shadow(0 0 12px rgba(255, 205, 60, .9)); }
+  75%, 100% { transform: perspective(300px) rotateY(720deg); filter: none; }
+}
+
+/* Unknown id: the plain pop from table-chat.css is enough. */
+.reaction-fx-pop { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .seat-reaction .reaction-fx { animation: none; }
+}

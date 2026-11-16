@@ -8,6 +8,15 @@ export const TB_START_CARDS = 3;
 export const TB_MAX_CARDS = 5;
 export const TB_REFILL_HANDS = 20;
 export const TB_CARDS_PER_ACTION = 2;
+/** The card is offered once this many seconds are left (client: TIME_BANK_SECONDS in turnClock.ts). */
+export const TB_OFFER_SECONDS = 10;
+const NETWORK_SLACK_MS = 1000;
+
+/** Whether the running clock is low enough for the player to ask for a card. */
+export function clockLowEnough({ endsAt, now }) {
+  if (!Number.isFinite(endsAt)) return false;
+  return endsAt - now <= TB_OFFER_SECONDS * 1000 + NETWORK_SLACK_MS;
+}
 
 /** One more hand dealt in: every TB_REFILL_HANDS hands a card is added, up to TB_MAX_CARDS. */
 export function refillAfterHand({ cards, hands }) {

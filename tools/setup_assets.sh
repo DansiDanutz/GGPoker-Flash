@@ -1,7 +1,8 @@
 #!/bin/bash
 # Regenerate app/public/assets from the original DanGG generators in tools/original-assets.
-# Every file is drawn or synthesised locally (headless Chrome, ffmpeg, cwebp; voice lines are recorded takes in Dan's cloned voice);
-# nothing is extracted from a third-party client. Output is deterministic and committed.
+# Generated categories are drawn or synthesised locally (headless Chrome, ffmpeg, cwebp; voice lines are recorded takes in Dan's cloned voice);
+# No third-party client extraction is performed. Supplied art and voice inputs are retained;
+# rendered output can vary with installed fonts/tools. Assets are committed.
 #
 #   bash tools/setup_assets.sh            # everything (about 8 minutes)
 #   bash tools/setup_assets.sh sounds     # one category: sounds | cards | squeeze | table | lobby | effects

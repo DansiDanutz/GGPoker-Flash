@@ -12,6 +12,7 @@ import { Avatar } from '../components/Avatar';
 import { useI18n } from '../lib/i18n';
 import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, betLabel, readBetPrefs, readBettingOptions, readCardBack, readStackMode, readShowChatBubbles, readShowReactions, CHAT_BUBBLES_KEY, REACTIONS_KEY, type BetPrefs, type BettingOptions, type StackMode } from '../lib/tablePrefs';
 import { TB_CARD_SECONDS, TB_CARDS_PER_ACTION, TB_MAX_CARDS, TB_REFILL_HANDS, TB_START_CARDS } from '../game/timeBankRules';
+import { PROMO_ART } from '../lib/promoArt';
 
 export function Promotions() {
   const { toast, navigate } = useApp();
@@ -23,21 +24,21 @@ export function Promotions() {
   }, []);
 
   const promos = [
-    { title: 'Daily Chip Flipout', sub: '#ThanksDanGG · every day', img: '/assets/ui/discover/Bg_Discover_Leaderboard_FlipNGo.png', tag: 'All-in' },
-    { title: 'Prize Wheel', sub: 'Spin the wheel, win up to 100,000x', img: '/assets/ui/discover/Bg_Discover_Fishbuffet.png', tag: 'Rewards', link: '/rewards' },
-    { title: 'Player Care', sub: 'Bad beat protection & daily prizes', img: '/assets/ui/discover/Bg_Discover_GGcare.png', tag: 'Cashback', link: '/ggcare' },
-    { title: 'DanGG Rewards', sub: 'Collect gems, climb the reef', img: '/assets/ui/discover/D_Discover_OceanRewards_Whale.png', tag: 'Rewards', link: '/ocean' },
-    { title: 'Hold’em Leaderboards', sub: '$50,000 weekly race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_Holdem.png', tag: 'Leaderboard' },
-    { title: 'Battle Royale', sub: 'Bounty tournaments with hidden prizes', img: '/assets/ui/discover/Bg_Discover_Leaderboard_MysterBattleRoyal.png', tag: 'Tournament' },
-    { title: 'Welcome Bonus', sub: 'New player welcome package', img: '/assets/ui/discover/Bg_Discover_Honeymoon.png', tag: 'Bonus' },
-    { title: 'Weekly Freeroll', sub: 'Free entry, real prizes', img: '/assets/ui/discover/Bg_Discove_WeeklyFreeroll_EN.png', tag: 'Freeroll' },
-    { title: 'After The Fold', sub: 'Win your share of $40,000 daily', img: '/assets/ui/discover/Bg_Discover_AoF.png', tag: 'All-in or Fold' },
-    { title: 'Daily Freebie', sub: 'A free gift every day', img: '/assets/ui/discover/Bg_Discover_DailyFreebie.png', tag: 'Gift' },
-    { title: 'Casino Bonus', sub: 'Weekly casino free spins', img: '/assets/ui/discover/Bg_Discover_CasinoBonus_EN.png', tag: 'Casino' },
-    { title: 'Prize Wheel Platinum', sub: 'Higher ranks, bigger wheels', img: '/assets/ui/discover/Bg_Discover_Fishbuffet_Platinum.png', tag: 'Rewards' },
-    { title: 'Jackpot SNG Leaderboard', sub: 'Weekly SNG race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_SpinNGold.png', tag: 'Leaderboard' },
-    { title: 'Fast Fold Leaderboard', sub: 'Fast-fold race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_RushNCash_Holdem.png', tag: 'Leaderboard' },
-    { title: 'Short Deck Leaderboard', sub: 'Six-plus race', img: '/assets/ui/discover/Bg_Discover_Leaderboard_ShortDeck.png', tag: 'Leaderboard' },
+    { title: 'Daily Chip Flipout', sub: '#ThanksDanGG · every day', img: PROMO_ART.flipout, tag: 'All-in' },
+    { title: 'Prize Wheel', sub: 'Spin the wheel, win up to 100,000x', img: PROMO_ART.wheel, tag: 'Rewards', link: '/rewards' },
+    { title: 'Player Care', sub: 'Bad beat protection & daily prizes', img: PROMO_ART.care, tag: 'Cashback', link: '/ggcare' },
+    { title: 'DanGG Rewards', sub: 'Collect gems, climb the reef', img: PROMO_ART.ocean, tag: 'Rewards', link: '/ocean' },
+    { title: 'Hold’em Leaderboards', sub: '$50,000 weekly race', img: PROMO_ART.leaderboard, tag: 'Leaderboard' },
+    { title: 'Battle Royale', sub: 'Bounty tournaments with hidden prizes', img: PROMO_ART.battle, tag: 'Tournament' },
+    { title: 'Welcome Bonus', sub: 'New player welcome package', img: PROMO_ART.welcome, tag: 'Bonus' },
+    { title: 'Weekly Freeroll', sub: 'Free entry, real prizes', img: PROMO_ART.freeroll, tag: 'Freeroll' },
+    { title: 'After The Fold', sub: 'Win your share of $40,000 daily', img: PROMO_ART.allin, tag: 'All-in or Fold' },
+    { title: 'Daily Freebie', sub: 'A free gift every day', img: PROMO_ART.freebie, tag: 'Gift' },
+    { title: 'Casino Bonus', sub: 'Weekly casino free spins', img: PROMO_ART.casino, tag: 'Casino' },
+    { title: 'Prize Wheel Platinum', sub: 'Higher ranks, bigger wheels', img: PROMO_ART.wheelPlatinum, tag: 'Rewards' },
+    { title: 'Jackpot SNG Leaderboard', sub: 'Weekly SNG race', img: PROMO_ART.leaderboard, tag: 'Leaderboard' },
+    { title: 'Fast Fold Leaderboard', sub: 'Fast-fold race', img: PROMO_ART.fastfold, tag: 'Leaderboard' },
+    { title: 'Short Deck Leaderboard', sub: 'Six-plus race', img: PROMO_ART.leaderboard, tag: 'Leaderboard' },
   ];
 
   return (
@@ -81,6 +82,21 @@ const LANGS = ['English', 'Romanian', 'German', 'French', 'Spanish', 'Portuguese
 const THEMES = TABLE_THEMES;
 
 const SETTINGS_TABS = [{ key: 'general', label: 'General' }, { key: 'sound', label: 'Sound' }, { key: 'table', label: 'Table & cards' }, { key: 'betting', label: 'Betting' }, { key: 'account', label: 'Account' }, { key: 'responsible', label: 'Responsible gaming' }];
+/** Reference settings pages: each jumps to its section inside the parent group. */
+const SETTINGS_PAGES = [
+  { key: 'betting', label: 'Betting options', tab: 'betting', anchor: null },
+  { key: 'buyin', label: 'Buy-in settings', tab: 'general', anchor: 'buyin' },
+  { key: 'squeeze', label: 'Card Squeeze', tab: 'table', anchor: 'squeeze' },
+  { key: 'chipshuffle', label: 'Chip Shuffle', tab: 'table', anchor: 'chipshuffle' },
+  { key: 'devices', label: 'Device access', tab: 'account', anchor: 'devices' },
+  { key: 'hotkey', label: 'Hotkey', tab: 'table', anchor: 'hotkey' },
+  { key: 'language', label: 'Language', tab: 'general', anchor: 'language' },
+  { key: 'smartfocus', label: 'Smart Focus', tab: 'table', anchor: 'smartfocus' },
+  { key: 'sound', label: 'Sound', tab: 'sound', anchor: null },
+  { key: 'chipdisplay', label: 'Switch Chip Display', tab: 'table', anchor: 'chipdisplay' },
+  { key: 'theme', label: 'Table Theme', tab: 'table', anchor: 'theme' },
+  { key: 'timebank', label: 'Time Bank Card', tab: 'table', anchor: 'timebank' },
+];
 const SOUND_CHANNELS: ReadonlyArray<readonly [Channel, string]> = [['sfx', 'Card & chip sounds'], ['voice', 'Action voices'], ['alerts', 'Notification alerts'], ['music', 'Lobby music'], ['ambience', 'Table ambience']];
 
 /**
@@ -96,6 +112,7 @@ export function Settings() {
   });
   const [draftState, dispatch] = useReducer(draftReducer, EMPTY_DRAFT);
   const [formKey, setFormKey] = useState(0);
+  const [page, setPage] = useState('language');
   const dirty = isDirty(draftState.draft, readSetting);
   const stage = useCallback((key: string, value: string | null) => dispatch({ type: 'stage', key, value }), []);
 
@@ -128,19 +145,57 @@ export function Settings() {
     return () => window.removeEventListener('keydown', onKey);
   }, [dirty, cancel]);
   useEffect(() => () => sound.stopPreview(), []);
+  // Granular pages scroll their section into view inside the parent group.
+  useEffect(() => {
+    const p = SETTINGS_PAGES.find((x) => x.key === page);
+    if (!p?.anchor) return;
+    const t = setTimeout(() => {
+      const el = document.querySelector(`[data-settings-anchor="${p.anchor}"]`) as HTMLElement | null;
+      if (!el) return;
+      el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      el.classList.remove('settings-flash');
+      void el.offsetWidth;
+      el.classList.add('settings-flash');
+      setTimeout(() => el.classList.remove('settings-flash'), 1400);
+    }, 60);
+    return () => clearTimeout(t);
+  }, [page, tab]);
 
   return (
-    <PageShell activeTop="poker" subnav={<SubNav items={SETTINGS_TABS} active={tab} onChange={setTab} />}>
-      <div className="page">
-        <h1 className="page-title">Settings</h1>
-        <p className="page-sub">Changes take effect when you press Apply or OK. Cancel or Escape discards them.</p>
-        <SettingsForm key={formKey} tab={tab} draft={draftState.draft} stage={stage} />
-        <div className="settings-actions" role="group" aria-label="Save settings">
-          <span className="muted small">{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
-          <div className="grow" />
-          <button className="btn btn-ghost btn-sm" disabled={!dirty} onClick={cancel}>Cancel</button>
-          <button className="btn btn-ghost btn-sm" disabled={!dirty} onClick={() => { void apply(false); }}>Apply</button>
-          <button className="btn btn-gold btn-sm" onClick={() => { void apply(true); }}>OK</button>
+    <PageShell activeTop="poker">
+      <div className="mp settings-window">
+        <div className="mp-wintabs" role="tablist" aria-label="Account windows">
+          <button type="button" role="tab" onClick={() => navigate('/my-page')}>My Page</button>
+          <button type="button" role="tab" onClick={() => navigate('/propbet')}>Prop Bet</button>
+          <button type="button" role="tab" onClick={() => navigate('/rewards')}>DanGG Rewards</button>
+          <button type="button" role="tab" onClick={() => navigate('/promotions')}>My Promo</button>
+          <button type="button" role="tab" aria-selected="true" className="on">Game Settings</button>
+          <button type="button" className="mp-close" aria-label="Close settings" onClick={() => navigate('/')}>✕</button>
+        </div>
+        <div className="mp-body">
+          <aside className="mp-menu" aria-label="Settings sections">
+            {SETTINGS_PAGES.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className={'mp-menu-item' + (page === p.key ? ' on' : '')}
+                aria-current={page === p.key ? 'page' : undefined}
+                onClick={() => { setPage(p.key); setTab(p.tab); }}
+              >{p.label}</button>
+            ))}
+          </aside>
+          <div className="mp-pane settings-pane">
+            <h1 className="settings-title">{SETTINGS_PAGES.find((p) => p.key === page)?.label || SETTINGS_TABS.find((t) => t.key === tab)?.label}</h1>
+            <p className="settings-hint">Changes take effect when you press Apply or OK. Cancel or Escape discards them.</p>
+            <SettingsForm key={formKey} tab={tab} draft={draftState.draft} stage={stage} />
+            <div className="settings-actions" role="group" aria-label="Save settings">
+              <span className="muted small">{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
+              <div className="grow" />
+              <button className="btn btn-ghost btn-sm" disabled={!dirty} onClick={cancel}>Cancel</button>
+              <button className="btn btn-ghost btn-sm" disabled={!dirty} onClick={() => { void apply(false); }}>Apply</button>
+              <button className="btn btn-gold btn-sm" onClick={() => { void apply(true); }}>OK</button>
+            </div>
+          </div>
         </div>
       </div>
     </PageShell>
@@ -150,6 +205,7 @@ export function Settings() {
 type SettingsFormProps = { tab: string; draft: SettingsValues; stage: (key: string, value: string | null) => void };
 
 function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
+  const [smartFocus, setSmartFocus] = useState(() => localStorage.getItem('ggpoker.smartFocus') === '1');
   const { user, refreshUser, toast, soundOn, animations } = useApp();
   const { lang, languages } = useI18n();
   const staged = (key: string): string | null | undefined => (Object.prototype.hasOwnProperty.call(draft, key) ? draft[key] : undefined);
@@ -249,7 +305,7 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
     <>
         {tab === 'general' && (
           <div className="grid g2">
-            <div className="card">
+            <div className="card" data-settings-anchor="language">
               <div className="panel-title">Language</div>
               <select className="admin-select" aria-label="Language" style={{ width: '100%' }} value={shownLang} onChange={(e) => persist('ggpoker.language', e.target.value)}>
                 {languages.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
@@ -282,7 +338,7 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
               <div className="kv"><span>Streamer mode</span><b>Off</b></div>
               <div className="kv"><span>Theme</span><b>{theme}</b></div>
             </div>
-            <div className="card" style={{ gridColumn: '1 / -1' }}>
+            <div className="card" data-settings-anchor="buyin" style={{ gridColumn: '1 / -1' }}>
               <div className="panel-title">Buy-in defaults</div>
               <div className="between"><span className="muted small">Default buy-in (0% = table minimum)</span><b>{buyinPct}% of maximum</b></div>
               <input type="range" aria-label="Default buy-in percentage" min={0} max={100} value={buyinPct} style={{ width: '100%' }}
@@ -344,7 +400,7 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
 
         {tab === 'table' && (
           <>
-            <div className="panel-title">Table colour</div>
+            <div className="panel-title" data-settings-anchor="theme">Table colour</div>
             <div className="theme-grid">
               {THEMES.map((t) => (
                 <button key={t} className={'theme-swatch' + (theme === t ? ' on' : '')} onClick={() => { setTheme(t); persist('ggpoker.theme', t); sound.play('click'); }}>
@@ -386,12 +442,13 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
                 <label className="switch-row"><span>Show hand strength</span><input type="checkbox" aria-label="Show hand strength" checked={showHand} onChange={(e) => { setShowHand(e.target.checked); persist('ggpoker.showHand', e.target.checked ? '1' : '0'); }} /></label>
                 <label className="switch-row"><span>Enable table hotkeys</span><input type="checkbox" aria-label="Enable table hotkeys" checked={hotkeys} onChange={(e) => { setHotkeys(e.target.checked); persist('ggpoker.hotkeys', e.target.checked ? '1' : '0'); }} /></label>
                 <label className="switch-row"><span>Show keyboard hints</span><input type="checkbox" aria-label="Show keyboard hints" checked={hotkeyHints} onChange={(e) => { setHotkeyHints(e.target.checked); persist('ggpoker.hotkeyHints', e.target.checked ? '1' : '0'); }} /></label>
-                <label className="switch-row"><span>Card squeeze on a fresh deal</span><input type="checkbox" aria-label="Card squeeze on a fresh deal" checked={squeeze} onChange={(e) => { setSqueeze(e.target.checked); persist('ggpoker.squeeze', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row" data-settings-anchor="squeeze"><span>Card squeeze on a fresh deal</span><input type="checkbox" aria-label="Card squeeze on a fresh deal" checked={squeeze} onChange={(e) => { setSqueeze(e.target.checked); persist('ggpoker.squeeze', e.target.checked ? '1' : '0'); }} /></label>
                 <label className="switch-row"><span>Show chat bubbles</span><input type="checkbox" aria-label="Show chat bubbles" checked={chatBubbles} onChange={(e) => { setChatBubbles(e.target.checked); persist(CHAT_BUBBLES_KEY, e.target.checked ? '1' : '0'); }} /></label>
                 <label className="switch-row"><span>Show reactions</span><input type="checkbox" aria-label="Show reactions" checked={reactions} onChange={(e) => { setReactions(e.target.checked); persist(REACTIONS_KEY, e.target.checked ? '1' : '0'); }} /></label>
-                <label className="switch-row"><span>Chip shuffle effects</span><input type="checkbox" aria-label="Chip shuffle effects" checked={chipShuffle} onChange={(e) => { setChipShuffle(e.target.checked); persist('ggpoker.chipShuffle', e.target.checked ? '1' : '0'); }} /></label>
+                <label className="switch-row" data-settings-anchor="chipshuffle"><span>Chip shuffle effects</span><input type="checkbox" aria-label="Chip shuffle effects" checked={chipShuffle} onChange={(e) => { setChipShuffle(e.target.checked); persist('ggpoker.chipShuffle', e.target.checked ? '1' : '0'); }} /></label>
                 <p className="muted small">Peel your hole cards with the mouse, the wheel or Open. Reconnects and hands already in progress skip the effect.</p>
-                <div className="admin-label" style={{ marginTop: 12 }}>Hotkey bindings</div>
+                <label className="switch-row" data-settings-anchor="smartfocus"><span>Smart focus — jump to the table that needs you</span><input type="checkbox" checked={smartFocus} onChange={(e) => { setSmartFocus(e.target.checked); persist('ggpoker.smartFocus', e.target.checked ? '1' : '0'); }} /></label>
+                <div className="admin-label" style={{ marginTop: 12 }} data-settings-anchor="hotkey">Hotkey bindings</div>
                 {HOTKEY_GROUPS.map((group) => (
                   <div key={group} className="hotkey-group">
                     <label className="switch-row hotkey-group-title"><span className="muted small">{group}</span>
@@ -414,14 +471,14 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
                   onChange={(e) => { const v = Number(e.target.value); setDealSpeed(v); persist('ggpoker.dealSpeed', String(v)); }} />
                 <div className="between muted small"><span>Slow</span><span>{dealSpeed}</span><span>Fast</span></div>
               </div>
-              <div className="card">
+              <div className="card" data-settings-anchor="timebank">
                 <div className="panel-title">Time bank</div>
                 <div className="kv"><span>Time Bank Card</span><b>+{TB_CARD_SECONDS}s</b></div>
                 <p className="muted small">You start with {TB_START_CARDS} cards. One card is added every {TB_REFILL_HANDS} hands, up to {TB_MAX_CARDS} held. Up to {TB_CARDS_PER_ACTION} cards can be used per action.</p>
                 <div className="panel-title" style={{ marginTop: 18 }}>Deck</div>
                 <div className="kv"><span>Card fronts</span><b>{fourColor ? 'Four colour' : 'Two colour'}</b></div>
                 <div className="kv"><span>Card back</span><b>{CARD_BACKS.find((b) => b.id === cardBack)?.label}</b></div>
-                <label className="admin-label" style={{ marginTop: 14 }}>Stack display</label>
+                <label className="admin-label" style={{ marginTop: 14 }} data-settings-anchor="chipdisplay">Stack display</label>
                 <select className="admin-select" value={stackMode} onChange={(e) => { const v = e.target.value as StackMode; setStackMode(v); persist('ggpoker.stackMode', v); }}>
                   <option value="chips">Chips</option>
                   <option value="bb">Big blinds</option>
@@ -533,7 +590,7 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
               <div className="field"><label>Current password</label><input type="password" placeholder="••••••••" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} autoComplete="current-password" /></div>
               <div className="field"><label>New password</label><input type="password" placeholder="At least 4 characters" value={nextPw} onChange={(e) => setNextPw(e.target.value)} autoComplete="new-password" /></div>
               <button className="btn btn-red btn-sm" disabled={!currentPw || nextPw.length < 4} onClick={changePassword}>Change password</button>
-              <div className="panel-title" style={{ marginTop: 20 }}>Sessions</div>
+              <div className="panel-title" style={{ marginTop: 20 }} data-settings-anchor="devices">Sessions</div>
               <div className="kv"><span>This device</span><b>macOS · active now</b></div>
               <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={async () => {
                 try { await api.revokeOtherSessions(); toast({ kind: 'success', title: 'Other sessions signed out' }); }

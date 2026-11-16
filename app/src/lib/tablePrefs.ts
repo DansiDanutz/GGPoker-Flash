@@ -2,7 +2,9 @@ export type BetValue = number | 'pot' | 'max';
 export type BetPrefs = { opening: BetValue[]; normal: BetValue[] };
 export const OPENING_CHOICES: BetValue[] = [2, 2.5, 3, 3.5, 4, 4.5, 5, 'pot'];
 export const NORMAL_CHOICES: BetValue[] = [33, 50, 66, 75, 80, 90, 100, 'max'];
-export const DEFAULT_BETS: BetPrefs = { opening: [2, 3, 4, 'pot'], normal: [33, 50, 75, 100] };
+/** The table shows three bet presets per row. */
+export const PRESET_COUNT = 3;
+export const DEFAULT_BETS: BetPrefs = { opening: [2, 3, 'pot'], normal: [50, 75, 100] };
 export const CARD_BACKS = [
   { id: 'red-pattern', label: 'Red pattern' },
   { id: 'blue-pattern', label: 'Blue pattern' },
@@ -19,11 +21,21 @@ export type CardBack = (typeof CARD_BACKS)[number]['id'];
 export function readBetPrefs(): BetPrefs {
   try {
     const p = JSON.parse(localStorage.getItem('ggpoker.betPrefs') || '');
-    if (Array.isArray(p?.opening) && p.opening.length === 4 && Array.isArray(p?.normal) && p.normal.length === 4) {
+    if (Array.isArray(p?.opening) && p.opening.length === PRESET_COUNT && Array.isArray(p?.normal) && p.normal.length === PRESET_COUNT) {
       if (p.opening.every((v: any) => OPENING_CHOICES.includes(v)) && p.normal.every((v: any) => NORMAL_CHOICES.includes(v))) return p;
     }
   } catch { /* use defaults */ }
   return { opening: [...DEFAULT_BETS.opening], normal: [...DEFAULT_BETS.normal] };
+}
+
+export type PresetRow = keyof BetPrefs;
+export const PRESET_CHOICES: Record<PresetRow, readonly BetValue[]> = { opening: OPENING_CHOICES, normal: NORMAL_CHOICES };
+
+/** A copy of the presets with one chip changed; the same object back when the change is not allowed. */
+export function withPreset(prefs: BetPrefs, row: PresetRow, index: number, value: BetValue): BetPrefs {
+  if (!Number.isInteger(index) || index < 0 || index >= prefs[row].length) return prefs;
+  if (!PRESET_CHOICES[row].includes(value)) return prefs;
+  return { ...prefs, [row]: prefs[row].map((v, i) => (i === index ? value : v)) };
 }
 
 export function readCardBack(): CardBack {
@@ -111,9 +123,16 @@ export function normalizeBettingOptions(raw: unknown): BettingOptions {
   };
 }
 
+export const BETTING_OPTIONS_KEY = 'ggpoker.bettingOptions';
+
+/** A copy of the betting options with bet confirmation switched on or off. */
+export function withConfirmBets(opts: BettingOptions, on: boolean): BettingOptions {
+  return { ...opts, confirm: on ? 'always' : 'never' };
+}
+
 export function readBettingOptions(): BettingOptions {
   try {
-    const raw = localStorage.getItem('ggpoker.bettingOptions');
+    const raw = localStorage.getItem(BETTING_OPTIONS_KEY);
     if (raw != null) return normalizeBettingOptions(JSON.parse(raw));
     // Migration from the earlier single switch; only an explicit '0' turns
     // confirmation off, otherwise follow the native Always-confirm default.
@@ -147,14 +166,18 @@ export type BetRequest = { action: 'raise' | 'allin'; amount: number; confirm: b
  * Enter-to-bet plus an "Always confirm" option, so this returns the action and
  * whether the caller must ask first. Null when there is nothing to bet.
  */
-export function enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm = false }: {
+export function enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm = false, allInOrFold = false }: {
   myTurn: boolean;
   canRaise: boolean;
   raiseTo: number;
   allInTo: number;
   confirm?: boolean;
+  /** All-in or Fold tables: the only bet is the shove. */
+  allInOrFold?: boolean;
 }): BetRequest | null {
-  if (!myTurn || !canRaise) return null;
+  if (!myTurn) return null;
+  if (allInOrFold) return allInTo > 0 ? { action: 'allin', amount: allInTo, confirm: !!confirm } : null;
+  if (!canRaise) return null;
   if (!Number.isFinite(raiseTo) || raiseTo <= 0) return null;
   const amount = Math.round(raiseTo);
   return { action: amount >= allInTo ? 'allin' : 'raise', amount, confirm: !!confirm };

@@ -11,8 +11,10 @@ export type HeroSlide = {
   sub: string;
   cta: string;
   art: string;
-  artWide: string;
+  /** Phone hero banner: photo-real key art, focal motif on the right (see docs/designs/home-hero-art-prompts.md). */
   artPhone: string;
+  /** Spark hues for the banner's live layer. */
+  sparkHues: readonly number[];
   bg: string;
   target: HomeTarget;
 };
@@ -21,6 +23,7 @@ export type PromoCard = {
   key: string;
   title: string;
   sub: string;
+  /** Wide 2.8:1 photo-real strip (see docs/designs/promo-card-art-prompts.md). */
   art: string;
   target: HomeTarget;
 };
@@ -30,45 +33,45 @@ const DISCOVER = '/assets/ui/discover/';
 export const HERO_SLIDES: readonly HeroSlide[] = Object.freeze([
   {
     key: 'flipout', kicker: 'Every day · Play chips', title: 'Daily Chip Flipout', sub: '100,000 play chips up for grabs, every single day.',
-    cta: 'Join now', art: `${DISCOVER}Bg_Discover_Leaderboard_FlipNGo.png`, artWide: '/assets/hero/flipout.svg', artPhone: '/assets/hero/phone-flipout.svg', bg: 'linear-gradient(110deg, #3a1d05 0%, #1a0d03 55%, #090502 100%)',
+    cta: 'Join now', art: `${DISCOVER}Bg_Discover_Leaderboard_FlipNGo.png`, artPhone: '/assets/hero/flipout.webp', sparkHues: [30, 42], bg: 'linear-gradient(110deg, #3a1d05 0%, #1a0d03 55%, #090502 100%)',
     target: { route: '/tournaments' },
   },
   {
     key: 'aof', kicker: 'All-in or Fold', title: 'One decision. Fast action.', sub: 'Shove or fold, nothing in between. Hands fly by.',
-    cta: 'Play now', art: `${DISCOVER}Bg_Discover_AoF.png`, artWide: '/assets/hero/aof.svg', artPhone: '/assets/hero/phone-aof.svg', bg: 'linear-gradient(110deg, #4a0f14 0%, #1f070a 55%, #0b0304 100%)',
+    cta: 'Play now', art: `${DISCOVER}Bg_Discover_AoF.png`, artPhone: '/assets/hero/aof.webp', sparkHues: [355, 8], bg: 'linear-gradient(110deg, #4a0f14 0%, #1f070a 55%, #0b0304 100%)',
     target: { tab: 'aof' },
   },
   {
-    key: 'rush', kicker: 'Rush & Cash', title: 'Fold. Move. Play again.', sub: 'Quick-fold to a fresh table and watch for Cash Drops.',
-    cta: 'Play now', art: `${DISCOVER}Bg_Discover_RushNCash_Holdem.png`, artWide: '/assets/hero/rush.svg', artPhone: '/assets/hero/phone-rush.svg', bg: 'linear-gradient(110deg, #06343a 0%, #04191c 55%, #020a0b 100%)',
+    key: 'rush', kicker: 'Fast Fold', title: 'Fold. Move. Play again.', sub: 'Quick-fold to a fresh table and watch for Cash Drops.',
+    cta: 'Play now', art: `${DISCOVER}Bg_Discover_RushNCash_Holdem.png`, artPhone: '/assets/hero/rush.webp', sparkHues: [180, 190], bg: 'linear-gradient(110deg, #06343a 0%, #04191c 55%, #020a0b 100%)',
     target: { tab: 'rush' },
   },
   {
     key: 'plo', kicker: 'PLO Series', title: 'PLO6 is live', sub: 'Six cards. Six-max. More outs than ever.',
-    cta: 'Play now', art: `${DISCOVER}Bg_Discover_Leaderboard_PLO6.png`, artWide: '/assets/hero/plo.svg', artPhone: '/assets/hero/phone-plo.svg', bg: 'linear-gradient(110deg, #0c2550 0%, #071429 55%, #03080f 100%)',
+    cta: 'Play now', art: `${DISCOVER}Bg_Discover_Leaderboard_PLO6.png`, artPhone: '/assets/hero/plo.webp', sparkHues: [215, 228], bg: 'linear-gradient(110deg, #0c2550 0%, #071429 55%, #03080f 100%)',
     target: { tab: 'plo' },
   },
   {
-    key: 'spin', kicker: 'Spin & Gold', title: 'Spin for the jackpot', sub: 'Three players, one wheel, prizes up to 12,000x.',
-    cta: 'Spin now', art: `${DISCOVER}Bg_Discover_SpinNGold.png`, artWide: '/assets/hero/spin.svg', artPhone: '/assets/hero/phone-spin.svg', bg: 'linear-gradient(110deg, #47330a 0%, #1f1604 55%, #0b0802 100%)',
+    key: 'spin', kicker: 'Jackpot SNG', title: 'Spin for the jackpot', sub: 'Three players, one wheel, prizes up to 12,000x.',
+    cta: 'Spin now', art: `${DISCOVER}Bg_Discover_SpinNGold.png`, artPhone: '/assets/hero/spin.webp', sparkHues: [42, 48, 330], bg: 'linear-gradient(110deg, #47330a 0%, #1f1604 55%, #0b0802 100%)',
     target: { tab: 'spin' },
   },
   {
-    key: 'battle', kicker: 'Mystery Battle Royale', title: 'Last one standing', sub: 'Bounty tournaments with hidden prizes on every head.',
-    cta: 'Register', art: `${DISCOVER}Bg_Discover_MysteryBattleRoyal.png`, artWide: '/assets/hero/battle.svg', artPhone: '/assets/hero/phone-battle.svg', bg: 'linear-gradient(110deg, #2c0f4a 0%, #150725 55%, #07030c 100%)',
+    key: 'battle', kicker: 'Battle Royale', title: 'Last one standing', sub: 'Bounty tournaments with hidden prizes on every head.',
+    cta: 'Register', art: `${DISCOVER}Bg_Discover_MysteryBattleRoyal.png`, artPhone: '/assets/hero/battle.webp', sparkHues: [275, 290], bg: 'linear-gradient(110deg, #2c0f4a 0%, #150725 55%, #07030c 100%)',
     target: { tab: 'battle' },
   },
 ]);
 
 export const PROMO_CARDS: readonly PromoCard[] = Object.freeze([
-  { key: 'freebie', title: 'Daily Freebie', sub: 'A free gift every day', art: `${DISCOVER}Bg_Discover_DailyFreebie.png`, target: { route: '/rewards' } },
-  { key: 'freeroll', title: 'Weekly Freeroll', sub: 'Free entry, real prizes', art: `${DISCOVER}Bg_Discove_WeeklyFreeroll_EN.png`, target: { route: '/tournaments' } },
-  { key: 'welcome', title: 'Welcome Bonus', sub: 'New player welcome package', art: `${DISCOVER}Bg_Discover_Honeymoon.png`, target: { route: '/promotions' } },
-  { key: 'wheel', title: 'Prize Wheel', sub: 'Spin to win up to 100,000x', art: `${DISCOVER}Bg_Discover_Fishbuffet.png`, target: { route: '/rewards' } },
-  { key: 'ocean', title: 'DanGG Rewards', sub: 'Collect gems, climb the reef', art: `${DISCOVER}D_Discover_OceanRewards_Whale.png`, target: { route: '/ocean' } },
-  { key: 'holdem-lb', title: "Hold'em Leaderboard", sub: 'Weekly race for the top', art: `${DISCOVER}Bg_Discover_Leaderboard_Holdem.png`, target: { route: '/leaderboard' } },
-  { key: 'care', title: 'Player Care', sub: 'Bad beat protection & daily prizes', art: `${DISCOVER}Bg_Discover_GGcare.png`, target: { route: '/promotions' } },
-  { key: 'casino', title: 'Casino Bonus', sub: 'Weekly free spins', art: `${DISCOVER}Bg_Discover_CasinoBonus_EN.png`, target: { route: '/casino' } },
+  { key: 'freebie', title: 'Daily Freebie', sub: 'A free gift every day', art: '/assets/promo/freebie.webp', target: { route: '/rewards' } },
+  { key: 'freeroll', title: 'Weekly Freeroll', sub: 'Free entry, real prizes', art: '/assets/promo/freeroll.webp', target: { route: '/tournaments' } },
+  { key: 'welcome', title: 'Welcome Bonus', sub: 'New player welcome package', art: '/assets/promo/welcome.webp', target: { route: '/promotions' } },
+  { key: 'wheel', title: 'Prize Wheel', sub: 'Spin to win up to 100,000x', art: '/assets/promo/wheel.webp', target: { route: '/rewards' } },
+  { key: 'ocean', title: 'DanGG Rewards', sub: 'Collect gems, climb the reef', art: '/assets/promo/rewards.webp', target: { route: '/ocean' } },
+  { key: 'holdem-lb', title: "Hold'em Leaderboard", sub: 'Weekly race for the top', art: '/assets/promo/leaderboard.webp', target: { route: '/leaderboard' } },
+  { key: 'care', title: 'Player Care', sub: 'Bad beat protection & daily prizes', art: '/assets/promo/care.webp', target: { route: '/promotions' } },
+  { key: 'casino', title: 'Casino Bonus', sub: 'Weekly free spins', art: '/assets/promo/casino.webp', target: { route: '/casino' } },
 ]);
 
 /** How often the hero carousel advances on its own. */

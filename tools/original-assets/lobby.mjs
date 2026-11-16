@@ -1,15 +1,15 @@
-// Lobby, promo and chrome art generator (chrome/*, login/*, ocean/*, ui/*).
+// Lobby, promo and chrome art generator (chrome/*, ocean/*, ui/*).
 // Run from the repo root: node tools/original-assets/lobby.mjs
 // chrome/logo.png and the chrome/tab_*.png plates are DanGG's own artwork and are intentionally left untouched.
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { OUT, closeRenderer, manifestEntries } from './render.mjs';
 import { renderChrome } from './lobby/chrome.mjs';
-import { renderLogin } from './lobby/login.mjs';
 import { renderOcean } from './lobby/ocean.mjs';
 import { renderDiscover } from './lobby/discover.mjs';
+import { renderCreatives } from './lobby/creatives.mjs';
 
-const OWNED = ['chrome/', 'login/', 'ocean/', 'ui/'];
+const OWNED = ['chrome/', 'ocean/', 'ui/'];
 // Dan's own artwork, not generated: the logo and every game tab plate (330x100, see AppHeader).
 const isDanArt = (p) => p === 'chrome/logo.png' || /^chrome\/tab_[a-z]+\.png$/.test(p);
 
@@ -34,7 +34,7 @@ function verify() {
 }
 
 try {
-  const written = [...await renderChrome(), ...await renderLogin(), ...await renderOcean(), ...await renderDiscover()];
+  const written = [...await renderChrome(), ...await renderOcean(), ...await renderDiscover(), ...await renderCreatives()];
   const { count, problems } = verify();
   console.log(`wrote ${written.length} files; verified ${count} manifest entries`);
   if (problems.length) {

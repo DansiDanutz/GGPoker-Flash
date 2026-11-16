@@ -1,0 +1,46 @@
+/* Icon names: a small gold-rimmed label above any [data-tip] control after a short moment of
+   hover (desktop) or press-and-hold (phones, via lib/holdTips). Live text, never baked art. */
+.table-screen [data-tip] { position: relative; }
+.table-screen [data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; left: 50%; bottom: calc(100% + 8px);
+  transform: translate(-50%, 4px);
+  padding: 4px 9px; border-radius: 8px;
+  background: linear-gradient(#2a2416, #15120b); border: 1px solid #c9a24a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .55);
+  color: #ffe3a1; font: 600 11px/1.2 system-ui, sans-serif; letter-spacing: .02em;
+  white-space: nowrap; pointer-events: none; z-index: 60;
+  opacity: 0; visibility: hidden;
+  transition: opacity .15s ease 0s, transform .15s ease 0s, visibility 0s linear .15s;
+}
+.table-screen [data-tip]:hover::after,
+.table-screen [data-tip]:focus-visible::after {
+  opacity: 1; visibility: visible; transform: translate(-50%, 0);
+  transition-delay: .3s;
+}
+.table-screen [data-tip].tip-hold::after {
+  opacity: 1; visibility: visible; transform: translate(-50%, 0); transition-delay: 0s;
+}
+/* Controls on the top bar open their label below so it is never cut off. */
+.table-screen .table-topbar [data-tip]::after,
+.table-screen .table-gear[data-tip]::after,
+.table-screen .table-menu-btn[data-tip]::after { bottom: auto; top: calc(100% + 8px); }
+@media (hover: none) {
+  .table-screen [data-tip]:hover::after { opacity: 0; visibility: hidden; }
+  .table-screen [data-tip].tip-hold::after { opacity: 1; visibility: visible; }
+}
+/* Chat / React sit on the left edge: their label opens to the right of the chip. */
+.table-screen .tchat-toggle[data-tip]::after {
+  left: calc(100% + 8px); bottom: 50%; transform: translate(-4px, 50%);
+}
+.table-screen .tchat-toggle[data-tip]:hover::after,
+.table-screen .tchat-toggle[data-tip]:focus-visible::after,
+.table-screen .tchat-toggle[data-tip].tip-hold::after { transform: translate(0, 50%); }
+/* The seat icons sit near the right edge: their label grows leftwards from the icon. */
+.table-screen .dock-btn[data-tip]::after { left: auto; right: 0; transform: translate(0, 4px); }
+.table-screen .dock-btn[data-tip]:hover::after,
+.table-screen .dock-btn[data-tip]:focus-visible::after,
+.table-screen .dock-btn[data-tip].tip-hold::after { transform: translate(0, 0); }
+/* The seat clocks keep their own placement and take the pointer so "Timer" can show. */
+.table-screen .native-clock[data-tip] { position: absolute; pointer-events: auto; }
+.table-screen .native-clock[data-tip]::after { font-family: system-ui, sans-serif; }

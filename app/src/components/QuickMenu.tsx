@@ -13,6 +13,7 @@ const LINKS = [
   { icon: '👤', label: 'My Page', to: '/my-page' },
   { icon: '📋', label: 'Missions', to: '/missions' },
   { icon: '🏆', label: 'Leaders', to: '/leaderboard' },
+  { icon: '◈', label: 'Marketplace', to: '/marketplace' },
 ];
 
 export function QuickMenu() {
@@ -50,6 +51,7 @@ export function QuickMenu() {
           {LINKS.map((l) => (
             <button key={l.to} onClick={() => go(l.to)}><span>{l.icon}</span>{l.label}</button>
           ))}
+          {user?.is_admin && <button onClick={() => go('/admin')}><span>⚙</span>Admin DanGG</button>}
         </div>
         <button className="quick-ggpass" onClick={() => go('/rewards')}>★ DanGG Pass</button>
       </aside>

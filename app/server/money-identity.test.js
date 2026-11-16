@@ -128,7 +128,9 @@ test('a spent Time Bank Card stays spent after leaving and rejoining', async () 
     await ws.opened;
     ws.send({ type: 'join_table', tableId, buyin: 4000 });
     await ws.nextType('joined');
-    await stateWith(ws, (s) => s.actor === id, 30000);
+    const turn = await stateWith(ws, (s) => s.actor === id, 30000);
+    // The card is offered only once the clock is low (TB_OFFER_SECONDS), so wait for that.
+    await new Promise((r) => setTimeout(r, Math.max(0, turn.state.actionEndsAt - Date.now() - 9000)));
     ws.send({ type: 'timebank', tableId });
     await stateWith(ws, (s) => s.players.some((p) => p.id === id && p.timeBankCards === 2));
     ws.send({ type: 'leave_table', tableId });
@@ -165,7 +167,7 @@ test('an Add Chips retry with the same key debits once', async () => {
       await stateWith(ws, (s) => {
         const me = s.players.find((p) => p.id === id);
         return me && (!me.inHand || me.folded || s.street === 'ended' || s.street === 'idle');
-      }, 30000);
+      }, 60000); // an idle seat now spends one Time Bank card before it folds
       ws.send({ type: 'rebuy', tableId, amount: 1000, idempotencyKey: 'dialog-1' });
       await new Promise((r) => setTimeout(r, 300));
     }

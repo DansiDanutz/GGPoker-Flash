@@ -1,0 +1,172 @@
+/* Phone table laid out like GGPoker mobile (David's Samsung capture, 15 Nov 2026): the oval fills
+   the screen, the hero sits in the bottom-left corner with the cards over the portrait, one row of
+   dark buttons runs along the bottom and the raise presets stack on the right above Raise. Only the
+   layout follows GG; the art, colours and marks stay DanGG's own. Loaded last, so it wins over the
+   older phone rules (table-phone.css, table-phone-look.css and the short-phone variants). */
+/* Outside phones the preset chips keep showing only their size. */
+.table-screen .action-bar .quick-bets .qb-amt { display: none; }
+
+@media (max-width: 760px) and (orientation: portrait) {
+  /* ---- Table: drawn in 3D perspective like GG mobile (narrow far end, wide rounded near end, thick
+     dark rail whose side shows at the bottom), stretched to the stage TablePage sizes
+     (tableStage.ts portraitBox) on every room. Original DanGG drawing. ---- */
+  .table-screen[class] .table-stage.stage-portrait::before {
+    left: 0; top: 0; width: 100%; height: 100%; aspect-ratio: auto; transform: none;
+    background: url('/assets/tables/skins/portrait/phone-table-3d.svg') center / 100% 100% no-repeat;
+    -webkit-mask-image: none; mask-image: none;
+  }
+  /* The theme tint is cut to the drawing's felt. */
+  .table-screen .table-stage.stage-portrait .felt {
+    width: 100%; height: 100%; transform: translate(-50%, -50%); border-radius: 0;
+    -webkit-mask: url('/assets/tables/skins/portrait/phone-table-3d-felt.svg') center / 100% 100% no-repeat;
+    mask-image: url('/assets/tables/skins/portrait/phone-table-3d-felt.svg'); mask-size: 100% 100%; mask-repeat: no-repeat;
+  }
+
+  /* ---- Board and pot in the middle of the oval, the pot pill right above the cards ---- */
+  .table-screen .table-stage.stage-portrait .table-center { top: 45%; width: 94%; gap: 6px; }
+  .table-screen .table-stage.stage-portrait .board > .pcard { width: 60px; height: 84px; }
+  .table-screen .table-stage.stage-portrait .hand-strength {
+    padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    background: rgba(8, 8, 7, .78); border: 1px solid rgba(214, 170, 82, .55);
+  }
+  .table-stage.stage-portrait .stage-mark { top: 62%; }
+
+  /* ---- Hero in the bottom-left corner: cards over the portrait (66x92, up 13% from
+     58x81 at David's ask), the plate right under it ---- */
+  .table-screen .table-stage.stage-portrait .seat.me { width: 124px; margin-top: 0; }
+  .table-screen .table-stage.stage-portrait .seat.me .cards { margin-bottom: -34px; }
+  .table-screen .table-stage.stage-portrait .seat.me .cards .pcard.mini { width: 66px; height: 92px; }
+  .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:first-child { transform: rotate(-6deg); }
+  .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:last-child { margin-left: -30px; transform: rotate(6deg); }
+  .table-screen .table-stage.stage-portrait .seat.me .cards .card-slot:first-child:last-child { margin-left: 0; transform: none; }
+  .table-screen .table-stage.stage-portrait .seat.me .avatar-wrap { width: 58px; height: 58px; }
+  .table-screen .table-stage.stage-portrait .seat.me .plate {
+    position: relative; left: auto; bottom: auto; margin-top: -6px; padding: 3px 10px 4px;
+    border-radius: 12px; text-align: center;
+  }
+  .table-screen .table-stage.stage-portrait .seat.me .plate .nm { justify-content: safe center; color: #f0c35a; }
+  .table-screen .table-stage.stage-portrait .seat.me .plate .st { text-align: center; font-size: 13px; }
+  /* Your countdown badge moves to the right of your portrait; the screen edge is on its left now. */
+  .table-screen .table-stage.stage-portrait .seat.me .turn-badge { right: auto; left: calc(50% + 32px); bottom: 40px; width: 44px; height: 44px; }
+  .table-screen .table-stage.stage-portrait .seat.me .turn-badge span { font-size: 18px; }
+
+  /* ---- One slim row of buttons along the bottom (tableStage.ts PORTRAIT_ACTION_BAR) ---- */
+  .table-screen { --phone-bar-h: 64px; }
+  .table-screen .action-bar {
+    min-height: var(--phone-bar-h); gap: 6px; border-top: 0;
+    padding: 0 0 max(6px, env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(transparent, rgba(0, 0, 0, .6) 45%, rgba(0, 0, 0, .85));
+  }
+  .table-screen .action-bar .action-row.main-actions {
+    --col: calc((100% - 24px) / 3);
+    grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "fold call raise";
+    gap: 6px; padding: 0 6px;
+  }
+  /* Buttons drawn like GGPoker mobile: flat charcoal faces, small rounded corners, no gold edge,
+     light grey text, a faint top highlight and a soft shadow. */
+  .table-screen .action-bar .main-actions .act-btn,
+  .table-screen .action-bar .aof-row .act-btn,
+  .table-screen .action-bar .main-actions .quick-bets button,
+  .table-screen .action-bar .reserved-actions button {
+    background: linear-gradient(#343434, #262626); border: 0; border-image: none; border-radius: 8px;
+    color: #dcdcdc; text-shadow: none; filter: none;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 3px 8px rgba(0, 0, 0, .5);
+  }
+  .table-screen .action-bar .main-actions .act-btn,
+  .table-screen .action-bar .aof-row .act-btn { height: 54px; padding: 0 4px; font-size: 17px; font-weight: 600; }
+  .table-screen .action-bar .act-btn.act-fold,
+  .table-screen .action-bar .act-btn.act-check,
+  .table-screen .action-bar .act-btn.act-call { color: #dcdcdc; }
+  .table-screen .action-bar .act-btn:active:not(:disabled),
+  .table-screen .action-bar .quick-bets button:active:not(:disabled) { background: linear-gradient(#2a2a2a, #1e1e1e); transform: none; }
+  /* Raise and Call read like GG presets: the word small and white on top, the amount large in yellow. */
+  .table-screen .action-bar .main-actions :is(.act-raise, .act-allin, .act-call) {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: #fff;
+  }
+  .table-screen .action-bar .act-btn .act-word { font-size: 12.5px; font-weight: 600; line-height: 1; }
+  .table-screen .action-bar .act-btn .act-amt { font-size: 18px; font-weight: 700; line-height: 1.1; color: #fde056; }
+
+  /* Raise presets: a column on the right edge right above Raise, the smallest at the bottom. Each
+     card has its size (Pot, 3BB, 75%) on a darker tab at the top-left and the amount in yellow. */
+  .table-screen .action-bar .main-actions .quick-bets {
+    position: absolute; right: 6px; bottom: calc(100% + 6px); z-index: 4; width: var(--col);
+    display: flex; flex-direction: column-reverse; gap: 6px;
+  }
+  .table-screen .action-bar .main-actions .quick-bets button {
+    position: relative; width: 100%; height: 50px; padding: 14px 4px 0; overflow: hidden;
+  }
+  .table-screen .action-bar .main-actions .quick-bets button .qb-tag {
+    position: absolute; left: 0; top: 0; padding: 2px 12px 2px 8px; font-size: 11px; font-weight: 600; line-height: 1.2;
+    color: #bdbdbd; background: #1c1c1c; border-bottom-right-radius: 8px;
+  }
+  .table-screen .action-bar .main-actions .quick-bets .qb-amt { display: block; font-size: 17px; font-weight: 700; color: #fde056; }
+  .table-screen .action-bar .main-actions .quick-bets button[aria-pressed="true"] { background: linear-gradient(#45412f, #2e2b1f); box-shadow: inset 0 0 0 1.5px #fde056; }
+
+  /* The upright slider panel stands just left of the presets, so the right column stays clear. */
+  .table-screen .action-bar .main-actions:has(.bet-slider:not(:disabled))::after {
+    display: block; right: calc(var(--col) + 12px); bottom: calc(100% + 6px); width: 60px; height: 192px;
+    border: 0; background: linear-gradient(rgba(52, 52, 52, .96), rgba(38, 38, 38, .96)); box-shadow: 0 3px 8px rgba(0, 0, 0, .5);
+  }
+  .table-screen .action-bar .main-actions .bet-slider {
+    left: auto; right: calc(var(--col) + 27px); bottom: calc(100% + 84px); width: 30px; height: 70px;
+    writing-mode: vertical-lr; direction: rtl;
+    background: url('/assets/table/ui/slider-track.webp') center / 12px 100% no-repeat;
+  }
+  .table-screen .action-bar .main-actions .bet-stepper .bet-step:last-child { right: calc(var(--col) + 25px); bottom: calc(100% + 158px); }
+  .table-screen .action-bar .main-actions .bet-stepper .amount-input { right: calc(var(--col) + 15px); width: 54px; bottom: calc(100% + 50px); }
+  .table-screen .action-bar .main-actions .bet-stepper .bet-step:first-child { right: calc(var(--col) + 25px); bottom: calc(100% + 12px); }
+
+  /* Time bank: left of the slider panel, clear of your seat in the corner. */
+  .table-screen .action-bar .main-actions .tb-btn { left: auto; right: calc(var(--col) + 80px); bottom: calc(100% + 8px); }
+
+  /* ---- Pre-actions: one row of dark buttons where the action buttons will appear ---- */
+  .table-screen .action-bar .reserved-actions {
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; height: 52px; padding: 0 6px;
+  }
+  .table-screen .action-bar .reserved-actions button {
+    width: 100%; max-width: none; height: 52px; padding: 0 2px 0 24px;
+    font: 600 13px/1.1 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  .table-screen .action-bar .reserved-actions button[aria-pressed="true"] { color: #fff; box-shadow: inset 0 0 0 1.5px #fde056; }
+  .table-screen .action-bar .reserved-actions button::before { left: 7px; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); }
+  .table-screen .action-bar .reserved-actions .reserve-text {
+    position: static; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; padding: 0;
+    white-space: normal; overflow: hidden; text-align: center; line-height: 1.1;
+  }
+
+  /* ---- Buttons pop up only when they are needed: the action row on your turn, the pre-actions while
+     you wait in a hand; between them the bottom of the table stays clear. ---- */
+  @keyframes gg-pop {
+    from { opacity: 0; transform: translateY(24px) scale(.96); }
+    to { opacity: 1; transform: none; }
+  }
+  .table-screen .action-bar :is(.main-actions, .reserved-actions, .aof-row) { animation: gg-pop .2s cubic-bezier(.2, .9, .3, 1.15) both; }
+  .table-screen .action-bar .main-actions .quick-bets { animation: gg-pop .24s .04s cubic-bezier(.2, .9, .3, 1.15) both; }
+  .table-screen .action-bar:not(:has(.main-actions, .reserved-actions, .aof-row, .straddle-ask)) { background: none; pointer-events: none; }
+  .table-screen .action-bar:not(:has(.main-actions, .reserved-actions, .aof-row, .straddle-ask)) * { pointer-events: auto; }
+
+  /* ---- No standing controls on the table: sit out, add chips and straddle live in the Menu. Chat
+     and reactions are two small icons in the bottom-right corner, hidden on your turn. ---- */
+  .table-screen .seat-dock { display: none; }
+  .table-screen .tchat-dock { right: 8px; left: auto; bottom: calc(max(var(--phone-bar-h), var(--action-bar-h, 0px)) + 8px); align-items: flex-end; transform: none; }
+  .table-screen .tchat-buttons { flex-direction: column; gap: 6px; opacity: .8; }
+  /* The toggles match the charcoal buttons: dark disc, light grey glyph, yellow ring when open. */
+  .table-screen .tchat-buttons .tchat-toggle {
+    width: 38px; height: 38px; background: linear-gradient(#343434, #262626); color: #d6d6d6;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 3px 8px rgba(0, 0, 0, .55);
+  }
+  .table-screen .tchat-toggle .tchat-icon [fill="#fbefcc"] { fill: #262626; }
+  .table-screen .tchat-toggle .tchat-icon [stroke="#fbefcc"] { stroke: #262626; }
+  .table-screen .tchat-buttons .tchat-toggle:hover:not(:disabled),
+  .table-screen .tchat-buttons .tchat-toggle[aria-expanded="true"] { color: #fff; box-shadow: inset 0 0 0 1.5px #fde056, 0 3px 8px rgba(0, 0, 0, .55); }
+  /* Open, the chat spans the screen above the bar; the stickers open leftwards from the corner. */
+  .table-screen .tchat-dock.open { left: 8px; }
+  .table-screen .reaction-picker { left: auto; right: 0; }
+  /* Your decision comes first: on your turn the chat steps aside (open or not) and comes back after. */
+  .table-screen:has(.action-bar :is(.main-actions, .aof-row)) .tchat-dock { visibility: hidden; }
+}
+
+@media (max-width: 760px) and (orientation: portrait) and (prefers-reduced-motion: reduce) {
+  .table-screen .action-bar :is(.main-actions, .reserved-actions, .aof-row),
+  .table-screen .action-bar .main-actions .quick-bets { animation: none; }
+}

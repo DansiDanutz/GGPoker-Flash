@@ -223,7 +223,7 @@ export function Slots() {
         <WinnersTicker winners={winners} labelFor={(w) => gameNameFromMemo(w.memo, games)} />
 
         <div className="slots-grid-head">
-          <h2>Only on DanGG</h2>
+          <h2>DanGG Originals</h2>
           <span>{shown.length} game{shown.length === 1 ? '' : 's'}</span>
         </div>
 
@@ -232,9 +232,8 @@ export function Slots() {
         {!error && !loading && !shown.length && <div className="list-empty">No games in this category yet.</div>}
 
         {!error && !!shown.length && (
-          <div className="slots-grid">
-            {featured && <SlotTile game={featured} featured onPlay={(g) => navigate(`/slots/${g.id}`)} />}
-            {rest.map((g) => <SlotTile key={g.id} game={g} onPlay={(x) => navigate(`/slots/${x.id}`)} />)}
+          <div className="slots-grid slots-grid-even">
+            {shown.map((g) => <SlotTile key={g.id} game={g} onPlay={(x) => navigate(`/slots/${x.id}`)} />)}
           </div>
         )}
       </div>

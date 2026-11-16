@@ -1,0 +1,119 @@
+/* Wordless table artwork (public/assets/table/ui) laid over the existing controls; every label stays live text.
+   Loaded last so it wins over styles.css / design-v2.css / table-premium.css / responsive.css. */
+
+/* Action buttons: 9-slice pills keep their round caps at any width. */
+.table-screen .action-bar .act-btn {
+  background: none; box-shadow: none; border-radius: 0;
+  border: 0 solid transparent;
+  border-image: url('/assets/table/ui/btn-fold.webp') 60 74 fill / 17px 22px stretch;
+  color: #f4ead2; text-shadow: 0 1px 2px rgba(0, 0, 0, .7);
+}
+.table-screen .action-bar .act-btn.act-fold:active:not(:disabled) { border-image-source: url('/assets/table/ui/btn-fold-down.webp'); }
+.table-screen .action-bar .act-btn.act-check,
+.table-screen .action-bar .act-btn.act-call { border-image-source: url('/assets/table/ui/btn-call.webp'); color: #fff; }
+.table-screen .action-bar .act-btn.act-check:active:not(:disabled),
+.table-screen .action-bar .act-btn.act-call:active:not(:disabled) { border-image-source: url('/assets/table/ui/btn-call-down.webp'); }
+.table-screen .action-bar .act-btn.act-raise,
+.table-screen .action-bar .act-btn.act-allin { border-image-source: url('/assets/table/ui/btn-raise.webp'); color: #2a1a02; text-shadow: 0 1px 0 rgba(255, 240, 200, .5); }
+.table-screen .action-bar .act-btn.act-raise:active:not(:disabled),
+.table-screen .action-bar .act-btn.act-allin:active:not(:disabled) { border-image-source: url('/assets/table/ui/btn-raise-down.webp'); }
+
+/* Bet presets, steppers, slider thumb and the time bank. */
+.table-screen .action-bar .quick-bets button {
+  background: none; border-radius: 0; border: 0 solid transparent;
+  border-image: url('/assets/table/ui/chip-preset.webp') 60 70 fill / 9px 13px stretch;
+  color: #ffe6a6; font-weight: 700; padding: 0 14px; height: 32px;
+}
+.table-screen .action-bar .quick-bets button:active:not(:disabled) { border-image-source: url('/assets/table/ui/chip-preset-on.webp'); color: #2a1a02; }
+.table-screen .action-bar .bet-step {
+  border: 0; border-radius: 50%; font-size: 0; color: transparent;
+  background: url('/assets/table/ui/ic-plus.webp') center / contain no-repeat;
+}
+.table-screen .action-bar .bet-step[aria-label="Bet less"] { background-image: url('/assets/table/ui/ic-minus.webp'); }
+.table-screen .action-bar .bet-step:hover:not(:disabled) { background-color: transparent; filter: brightness(1.12); }
+.table-screen .action-bar .bet-slider::-webkit-slider-thumb { width: 28px; height: 29px; background: url('/assets/table/ui/slider-thumb.webp') center / contain no-repeat; }
+.table-screen .action-bar .bet-slider::-moz-range-thumb { width: 28px; height: 29px; background: url('/assets/table/ui/slider-thumb.webp') center / contain no-repeat; }
+.table-screen .action-bar .tb-btn { background: #15130f url('/assets/table/ui/timebank.webp') 6px center / 28px no-repeat; padding-left: 40px; border-color: #6b5320; }
+
+/* Pre-action checkboxes. */
+.table-screen .action-bar .reserved-actions button::before { background: url('/assets/table/ui/cb-off.webp') center / contain no-repeat; }
+.table-screen .action-bar .reserved-actions button[aria-pressed="true"]::before { background-image: url('/assets/table/ui/cb-on.webp'); }
+.table-screen .action-bar .reserved-actions button[aria-pressed="true"]::after { display: none; }
+
+/* Table markers, timer ring and labels. */
+.table-screen .dealer-btn { background: url('/assets/table/ui/mk-dealer.webp') center / contain no-repeat; border-radius: 50%; }
+.table-screen .seat .timer {
+  border: 0; inset: -8px; animation: none; background: url('/assets/table/ui/ring-gold.webp') center / contain no-repeat;
+  /* Drains clockwise from the top as the turn clock runs down (--turn: 1 -> 0). */
+  -webkit-mask: conic-gradient(#000 calc(var(--turn, 1) * 360deg), transparent 0);
+  mask: conic-gradient(#000 calc(var(--turn, 1) * 360deg), transparent 0);
+}
+.table-screen .seat.active.urgent .timer, .table-screen .seat.active.hot .timer { background-image: url('/assets/table/ui/ring-red.webp'); }
+.table-screen .seat .action-badge {
+  background: none; border-radius: 0; border: 0 solid transparent;
+  border-image: url('/assets/table/ui/label-gold.webp') 34 34 fill / 6px 8px stretch;
+  padding: 6px 12px 5px; line-height: 1.1; white-space: nowrap;
+}
+.table-screen .seat .action-badge.fold { border-image-source: url('/assets/table/ui/label-red.webp'); }
+.table-screen .seat .action-badge.call, .table-screen .seat .action-badge.check { border-image-source: url('/assets/table/ui/label-green.webp'); }
+.table-screen .seat .action-badge.away { border-image-source: url('/assets/table/ui/label-purple.webp'); }
+.table-screen .pot-label {
+  background: none; border-radius: 0; border: 0 solid transparent;
+  border-image: url('/assets/table/ui/pot-pill.webp') 44 56 fill / 9px 14px stretch;
+  padding: 8px 20px 7px; line-height: 1.1;
+}
+.table-screen .vpip-badge { background: url('/assets/table/ui/level-tag.webp') center / 100% 100% no-repeat; border: 0; }
+
+/* Status badge over the avatar: small disc for away/offline, full ring for all-in/winner. */
+.table-screen .avatar-wrap { position: relative; }
+.table-screen .seat-status {
+  position: absolute; left: 50%; top: 50%; width: 54%; transform: translate(-50%, -50%);
+  z-index: 3; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .6));
+}
+.table-screen .seat-status[src*="badge-allin"], .table-screen .seat-status[src*="badge-winner"] { width: 134%; filter: none; }
+
+/* Run it twice/three times: a gold divider above each extra board. */
+.table-screen .extra-boards .second-board { position: relative; padding-top: 10px; }
+.table-screen .extra-boards .second-board::before {
+  content: ''; position: absolute; left: -8%; right: -8%; top: 0; height: 8px;
+  background: url('/assets/table/ui/fx-divider.webp') center / 100% 100% no-repeat;
+}
+.table-screen .sit-out-clock-inline::before {
+  content: ''; display: inline-block; width: 1.25em; height: 1.25em; margin-right: 4px; vertical-align: -.28em;
+  background: url('/assets/table/ui/alarm.webp') center / contain no-repeat;
+}
+
+/* Quick-control dock (straddle, sit out, add chips, history). */
+.table-screen .seat-dock {
+  position: absolute; right: 12px; bottom: max(118px, calc(var(--action-bar-h, 0px) + 10px)); z-index: 36;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.table-screen .dock-btn {
+  width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: none;
+  opacity: .86; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .55)); cursor: pointer;
+}
+.table-screen .dock-btn img { display: block; width: 100%; height: 100%; }
+.table-screen .dock-btn:hover:not(:disabled) { opacity: 1; }
+.table-screen .dock-btn.on { opacity: 1; box-shadow: 0 0 0 2px #ffd98a, 0 0 14px rgba(255, 200, 90, .7); }
+.table-screen .dock-btn:disabled { opacity: .35; cursor: not-allowed; }
+@media (max-width: 760px) {
+  /* Phones: a row beside Chat/React so the dock never covers a side seat. */
+  .table-screen .seat-dock { right: 6px; flex-direction: row; gap: 5px; bottom: max(150px, calc(var(--action-bar-h, 0px) + 10px)); }
+  .table-screen .dock-btn { width: 32px; height: 32px; }
+}
+
+/* Table options sheet and topbar gear. */
+.table-topbar .table-gear { border: 0; font-size: 0; color: transparent; background: url('/assets/table/ui/ic-gear.webp') center / contain no-repeat; }
+.topt-switch { width: 64px; height: 34px; border-radius: 17px; background: url('/assets/table/ui/sw-off.webp') center / 100% 100% no-repeat; }
+.topt-switch.on { background: url('/assets/table/ui/sw-on-gold.webp') center / 100% 100% no-repeat; }
+.topt-switch .topt-knob, .topt-switch .topt-switch-text { display: none; }
+.topt-seg { background: url('/assets/table/ui/seg-track.webp') center / 100% 100% no-repeat; }
+.topt-seg button.on { background: url('/assets/table/ui/seg-on.webp') center / 100% 100% no-repeat; box-shadow: none; }
+.topt-chip { background: none; border-radius: 0; border: 0 solid transparent; border-image: url('/assets/table/ui/chip-preset.webp') 60 70 fill / 14px 18px stretch; }
+.topt-chip i { display: inline-block; width: 16px; height: 16px; font-size: 0; background: url('/assets/table/ui/ic-edit.webp') center / contain no-repeat; }
+
+/* Folded players are out of the hand: dimmed and greyed, no turn ring or gold highlight. */
+.table-screen .seat.folded { opacity: .5; filter: grayscale(.85) brightness(.85); transition: opacity .25s, filter .25s; }
+.table-screen .seat.folded .seat-ring,
+.table-screen .seat.folded .timer { display: none; }
+.table-screen .seat.folded .plate { box-shadow: none; }

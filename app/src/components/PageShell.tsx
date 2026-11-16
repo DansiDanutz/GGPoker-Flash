@@ -4,6 +4,7 @@ import { TitleBar } from './TitleBar';
 import { AppHeader } from './AppHeader';
 import { MobileShell } from './mobile/MobileShell';
 import { useIsPhone } from '../lib/useIsPhone';
+import { AccountRail } from './AccountRail';
 
 export function PageShell({ activeTop, children, subnav }: {
   activeTop: string;
@@ -18,7 +19,7 @@ export function PageShell({ activeTop, children, subnav }: {
       '/cashier': 'Cashier', '/missions': 'Missions', '/leaderboard': 'Leaderboard',
       '/tournaments': 'Tournaments', '/slots': 'Slots', '/settings': 'Settings', '/promotions': 'Promotions',
       '/elo': 'ELO', '/support': 'Support', '/profile': 'Profile', '/hand-history': 'Hand history',
-      '/propbet': 'Prop bet', '/ocean': 'Ocean Rewards', '/ggcare': 'GG Care', '/honeymoon': 'Honeymoon', '/admin': 'Admin',
+      '/propbet': 'Prop bet', '/ocean': 'DanGG Rewards', '/ggcare': 'Player Care', '/honeymoon': 'Honeymoon', '/admin': 'Admin',
     };
     const title = path.startsWith('/slots/') ? 'Slots' : titles[path];
     return <MobileShell title={title} showBrand={!title}>{subnav}{children}</MobileShell>;
@@ -28,7 +29,10 @@ export function PageShell({ activeTop, children, subnav }: {
       <TitleBar online={meta.online} unread={user ? dmUnread : 0} />
       <AppHeader online={meta.online} jackpot={meta.jackpot} user={user} activeTop={activeTop} />
       {subnav}
-      <div className="app-content">{children}</div>
+      <div className="app-content has-rail">
+        <div className="app-page">{children}</div>
+        <AccountRail />
+      </div>
     </>
   );
 }

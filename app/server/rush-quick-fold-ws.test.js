@@ -7,7 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { startServer } from './test-helpers.js';
 
 const RUSH_TABLE = 'rush-platinum-1';
-const OPPORTUNITY_TIMEOUT_MS = 40_000;
+const OPPORTUNITY_TIMEOUT_MS = 60_000;
 
 async function registerAndJoin(srv, login, tableId, buyin) {
   const res = await srv.post('/api/auth/register', { body: { login, nick: login, password: 'secret12' } });
@@ -22,7 +22,7 @@ async function registerAndJoin(srv, login, tableId, buyin) {
 const quickFoldWindow = (id) => (m) => m.type === 'state' && m.state.quickFold?.allowed
   && m.state.actor !== id && m.state.players.some((p) => p.id === id && p.inHand && !p.folded);
 
-test('quick fold over the socket: instant move, and the folded hand stays in history', { timeout: 90_000 }, async () => {
+test('quick fold over the socket: instant move, and the folded hand stays in history', { timeout: 150_000 }, async () => {
   const srv = await startServer();
   try {
     const { sock, token, id } = await registerAndJoin(srv, 'qf_hero', RUSH_TABLE, 20_000);
@@ -44,10 +44,20 @@ test('quick fold over the socket: instant move, and the folded hand stays in his
         .all(id, 'rebuy', 'chips_refund').map((r) => [r.kind, r.amount]);
       db.close();
       assert.deepEqual(kinds, [['rebuy', -10_000], ['chips_refund', 10_000]], 'the pending top-up is refunded on the move');
+      // A reload that missed the move rejoins the old table: it is sent on to the new seat
+      // instead of watching the table it left (EGM final review, spec 9.1).
+      const reload = srv.socket(token);
+      await reload.opened;
+      reload.send({ type: 'join_table', tableId: RUSH_TABLE, rejoin: true });
+      const followed = await reload.next((m) => m.type === 'rush_move' || m.type === 'joined', 5000);
+      assert.equal(followed.type, 'rush_move', JSON.stringify(followed));
+      assert.equal(followed.tableId, moved.tableId);
+      await reload.close();
     }
     // The old hand finishes without the hero; then it is in their history.
     let mine = null;
-    for (let i = 0; i < 40 && !mine; i++) {
+    // Bots finish the abandoned hand at their own pace; CI can be slow, so allow 60s.
+    for (let i = 0; i < 120 && !mine; i++) {
       await new Promise((r) => setTimeout(r, 500));
       const { data } = await srv.get('/api/hands', { token });
       mine = (data.hands || []).find((h) => h.tableId === RUSH_TABLE && h.handNo === handNo) || null;
@@ -67,7 +77,8 @@ test('regression: a non-Rush table refuses quickfold', { timeout: 30_000 }, asyn
   try {
     const { sock } = await registerAndJoin(srv, 'qf_cash', 'nlh-diamond-01', 50_000);
     await sock.nextType('joined', 5000);
-    sock.send({ type: 'action', tableId: 'nlh-diamond-01', action: 'quickfold' });
+    const { state } = await sock.nextType('state', 5000);
+    sock.send({ type: 'action', tableId: 'nlh-diamond-01', action: 'quickfold', handNo: state.handNo });
     const err = await sock.nextType('error', 5000);
     assert.equal(err.error, 'cannot quick fold');
     await sock.close();

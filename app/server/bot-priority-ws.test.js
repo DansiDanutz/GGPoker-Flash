@@ -53,13 +53,13 @@ test('a bot with live cards finishes its hand, then gives its seat to the waitin
 
     // A click aimed at an earlier hand is refused and changes nothing.
     const handNo = live.state.handNo;
-    bSock.send({ type: 'action', tableId: TABLE, action: 'fold', handNo: handNo - 1 });
+    bSock.send({ type: 'action', tableId: TABLE, action: 'fold', handNo: handNo - 1, turnNo: live.state.turnNo });
     const refused = await bSock.nextType('error');
     assert.equal(refused.error, STALE_ACTION_ERROR);
     assert.equal(refused.handNo, handNo);
 
     // B folds this hand: between hands the bot stands up and C is offered its seat.
-    bSock.send({ type: 'action', tableId: TABLE, action: 'fold', handNo });
+    bSock.send({ type: 'action', tableId: TABLE, action: 'fold', handNo, turnNo: live.state.turnNo });
     const offer = (await cSock.next((m) => m.type === 'event' && m.event.type === 'waitlist_ready', 8000)).event;
     assert.equal(offer.seat, bot.seat);
     cSock.send({ type: 'join_table', tableId: TABLE, buyin: BUYIN });

@@ -341,7 +341,9 @@ body { background: #050706; }
   transition: transform .18s var(--ease), filter .18s var(--ease);
 }
 .promo-wrap:hover .promo-cta { transform: translateY(-1px); filter: brightness(1.06); }
-.second-board { margin-top: 4px; opacity: .9; border-top: 1px solid rgba(216, 177, 95, .18); padding-top: 4px; }
+.board { position: relative; }
+.extra-boards { position: absolute; left: 50%; top: calc(100% + 4px); transform: translateX(-50%); z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.second-board { min-height: 0; margin: 0; opacity: .95; border-top: 1px solid rgba(216, 177, 95, .18); padding-top: 4px; }
 
 /* ---------- final atmosphere pass ---------- */
 .lobby-content { position: relative; isolation: isolate; }
@@ -619,7 +621,9 @@ body { background: #050706; }
 .btn.btn-green { background: #2f8f3a; color: #fff; }
 
 /* Native SitOutView: a large mm:ss countdown over the board while you sit out. */
-.sit-out-clock { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); z-index: 5; background: rgba(0, 0, 0, .78); color: #fff; font-size: 30px; font-weight: 700; padding: 4px 16px; border-radius: 8px; letter-spacing: 1px; pointer-events: none; }
+.sit-out-clock-inline { margin-left: 8px; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.run-wait-note { width: 100%; text-align: center; margin-top: 4px; color: #ffd98a; font-size: 12px; letter-spacing: .3px; }
+.run-ask .action-row { flex-wrap: wrap; }
 .wait-blinds { display: inline-flex; align-items: center; gap: 6px; color: #ddd; font-size: 13px; margin-right: 10px; cursor: pointer; }
 
 /* Native PlayerCell VPIP badge: small dark square at the avatar's lower left. */
@@ -729,4 +733,74 @@ body { background: #050706; }
 
 @media (max-width: 1024px) {
   .home-tv-row { grid-auto-columns: minmax(200px, 46%); }
+}
+
+/* ---------- reference-scoped Home metrics (001–003) ---------- */
+.promo-wrap { height: 252px; flex-basis: 252px; border-radius: 8px; }
+.promo-copy { bottom: 34px; }
+.promo-copy b { font-size: clamp(26px, 2.8vw, 44px); }
+.home-promo-row { grid-auto-columns: 226px; gap: 10px; }
+.home-promo-card { min-height: 232px; }
+.home-promo-card b { font-size: 15px; }
+.home-promo-card small { font-size: 11.5px; }
+.home-promos-head b { font-size: 16px; }
+.lobby-rail { width: 112px; min-width: 112px; max-width: 112px; flex: 0 0 112px; padding: 4px; overflow: hidden; }
+.rail-btn { font-size: 10.5px; }
+.cashier-btn { font-size: 12px; }
+.rail-wallet .currency-row { font-size: 11px; }
+
+/* DanGG.TV cards follow the reference thumbnail-then-caption shape. */
+.tv-card { display: flex; flex-direction: column; min-height: 0; background: #0d0d0f; }
+.tv-card img { position: relative; inset: auto; width: 100%; height: 118px; opacity: 1; object-fit: cover; }
+.tv-card::after { display: none; }
+.tv-card .tv-play { top: 59px; }
+.tv-card .tv-live { top: 8px; left: 8px; }
+.tv-copy { position: static; padding: 9px 10px 10px; background: #0d0d0f; }
+.tv-copy b { font-size: 12.5px; }
+.tv-copy small { font-size: 10.5px; }
+.home-tv-row { grid-auto-columns: minmax(200px, 1fr); }
+
+/* ---------- global account rail (reference: present on every screen) ---------- */
+.app-content.has-rail { flex-direction: row; min-height: 0; }
+.app-page { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.app-content.has-rail > .lobby-rail { align-self: stretch; }
+
+@media (max-width: 1100px) {
+  .app-content.has-rail > .lobby-rail { display: none; }
+}
+
+/* ---------- header: give the profile column its own breathing room ----------
+   The jackpot used to end at x=1096 while the account block started at x=1090:
+   a -6px overlap that read as crowding around the profile circle. */
+.app-header { padding-right: 130px; }
+.jackpot-banner { flex: 0 0 300px; width: 300px; margin-right: 36px; }
+.account-block { right: 6px; min-width: 100px; }
+.account-name { font-size: 11.5px; }
+
+@media (max-width: 1280px) {
+  .jackpot-banner { flex-basis: 280px; width: 280px; margin-right: 30px; }
+}
+@media (max-width: 1080px) {
+  .jackpot-banner { flex-basis: 210px; width: 210px; margin-right: 40px; }
+  .jackpot-amount { font-size: 19px; }
+}
+@media (max-width: 960px) {
+  .jackpot-banner { flex-basis: 180px; width: 180px; margin-right: 34px; padding: 0 8px; }
+  .jackpot-label b { font-size: 12px; }
+  .jackpot-amount { font-size: 17px; }
+}
+
+/* The profile column is its own panel over the tab strip (reference 038): the
+   avatar, VIP badge and nickname stay legible instead of sitting on tab art. */
+.account-block {
+  right: 4px; top: 2px; width: 108px; min-width: 108px; height: auto;
+  padding: 3px 6px 7px; border-radius: 0 0 10px 10px;
+  background: linear-gradient(180deg, rgba(21,21,21,.96), rgba(11,11,11,.98));
+  border: 1px solid #262626; border-top: 0;
+  box-shadow: 0 10px 22px rgba(0,0,0,.45);
+}
+.account-block .avatar-ring { width: 56px; height: 56px; }
+.account-name { max-width: 96px; font-size: 11px; margin-top: 3px; }
+@media (max-width: 1280px) {
+  .account-block { right: 4px; width: 104px; min-width: 104px; }
 }

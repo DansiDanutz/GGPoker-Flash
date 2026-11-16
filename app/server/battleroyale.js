@@ -1,4 +1,4 @@
-// Mystery Battle Royale (P0 slice B0): the native rules and payout format have not been
+// Battle Royale (P0 slice B0): the native rules and payout format have not been
 // captured, so DanGG does not offer the format. Rows seeded under the label used to play as
 // plain Hold'em; they are switched off (never deleted) and every seat route refuses them.
 export const BATTLE_ROYALE_GAME = 'battleroyale';

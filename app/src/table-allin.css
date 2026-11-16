@@ -1,0 +1,103 @@
+/* All-in in the table's gold look, so it reads like the rest of the table and not like a warning:
+   the seat label, the run-it (and straddle) panel, and the ALL IN flash. Loaded after
+   table-buttons.css. */
+
+/* Seat label: a gold pill with dark ink, like the Raise / All-in button. */
+.table-screen .seat .plate .st.st-allin {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  background: linear-gradient(#ffe07a, #f2a812); color: #231400;
+  font-weight: 900; letter-spacing: .06em; text-transform: uppercase; text-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+/* Run it once / twice / three times: a dark panel inside the gold edge, gold title, cream chips. */
+.table-screen .straddle-ask {
+  margin: 0 6px 6px; padding: 10px 12px; border: 2px solid #e8b84a; border-radius: 14px;
+  background: linear-gradient(rgba(28, 22, 12, .96), rgba(10, 9, 7, .96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 6px 18px rgba(0, 0, 0, .6);
+}
+.table-screen .straddle-ask-head b { color: #ffd36a; font-weight: 900; letter-spacing: .02em; }
+.table-screen .straddle-time {
+  background: linear-gradient(#ffe07a, #f2a812); color: #231400; border-radius: 999px; padding: 2px 9px;
+}
+.table-screen .straddle-ask-note { color: #e9dcb8; }
+.table-screen .straddle-ask .action-row { gap: 8px; }
+.table-screen .straddle-ask .action-row .btn {
+  flex: 1 1 0; min-width: 0; height: 42px; border: 2px solid #e8b84a; border-radius: 14px; font-weight: 800;
+  background: linear-gradient(#fbefcc, #e2c47a); color: #1d1405; text-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 3px 0 rgba(0, 0, 0, .45), 0 6px 14px rgba(0, 0, 0, .5);
+}
+.table-screen .straddle-ask .action-row .btn:active { transform: translateY(2px); }
+
+/* Run-it choices: a big count over one short word, so "three times" never wraps or clips on a
+   phone. Run it once is the plain (cream) choice; more runs get the gold of the action buttons. */
+.table-screen .run-ask .action-row .run-choice {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  height: 58px; padding: 0 6px; line-height: 1;
+  background: linear-gradient(#ffe07a, #f2a812); color: #231400;
+}
+.table-screen .run-ask .action-row .run-choice.run-once { background: linear-gradient(#fbefcc, #e2c47a); color: #1d1405; }
+.table-screen .run-ask .run-choice .run-n { font-size: 24px; font-weight: 900; letter-spacing: -.01em; }
+.table-screen .run-ask .run-choice .run-word {
+  font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+}
+
+/* ALL IN flash: a dark plaque with the buttons' gold rim, framed by the table's own gold divider
+   and flare art, lettered in the same engraved serif as the DANGG mark on the felt. */
+.table-screen .allin-flash .allin-plaque {
+  position: relative; display: grid; justify-items: center; gap: 6px; width: max-content;
+  padding: 12px 30px 10px; border: 2px solid #e8b84a; border-radius: 16px; overflow: visible;
+  background: linear-gradient(#211c14, #0b0a08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 0 0 1px #5a3a06, 0 0 28px rgba(255, 196, 70, .45), 0 12px 30px rgba(0, 0, 0, .7);
+  animation: allinPlaque 1.6s ease both;
+}
+.table-screen .allin-flash .allin-word {
+  font-family: Georgia, 'Times New Roman', serif; font-size: 52px; font-weight: 700; line-height: 1;
+  letter-spacing: .28em; margin-right: -.28em; text-transform: uppercase; white-space: nowrap;
+  color: #ffe6a6; text-shadow: 0 0 18px rgba(255, 196, 70, .6), 0 2px 0 #3a2504;
+}
+/* The word sets the plaque's width; the gold lines span it without pushing it wider. */
+.table-screen .allin-flash .allin-line { display: block; width: 0; min-width: 112%; height: auto; max-width: none; opacity: .95; }
+.table-screen .allin-flash .allin-flare {
+  position: absolute; top: 50%; width: 150px; height: auto; pointer-events: none; mix-blend-mode: screen;
+}
+.table-screen .allin-flash .allin-flare-l { right: 100%; margin-right: -26px; animation: allinFlareL .9s ease-out both; }
+.table-screen .allin-flash .allin-flare-r { left: 100%; margin-left: -26px; animation: allinFlareR .9s ease-out both; }
+/* The sparks sit beside the plaque, not in it, so they show while it is still invisible.
+   1.6s in all, matching how long the flash stays up: sparks rush in and the plaque forms (0-30%),
+   it holds, then it dissolves as the sparks burst back out (75-100%). */
+.table-screen .allin-flash { animation: allinGlow 1.6s ease-out both; }
+@keyframes allinGlow { 0% { opacity: 0; } 6%, 94% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes allinPlaque {
+  0% { opacity: 0; transform: scale(.82); filter: blur(6px) brightness(1.8); }
+  22% { opacity: 0; transform: scale(.9); filter: blur(4px) brightness(1.8); }
+  34% { opacity: 1; transform: scale(1.04); filter: blur(0) brightness(1.25); }
+  44%, 74% { opacity: 1; transform: scale(1); filter: none; }
+  100% { opacity: 0; transform: scale(1.08); filter: blur(5px) brightness(1.6); }
+}
+.table-screen .allin-flash .allin-spark {
+  position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%;
+  background: #fff3c4; box-shadow: 0 0 6px 2px rgba(255, 200, 80, .9), 0 0 14px 4px rgba(232, 165, 18, .55);
+  pointer-events: none; animation: allinSpark 1.6s cubic-bezier(.3, .6, .4, 1) var(--d, 0s) both;
+}
+.table-screen .allin-flash .allin-spark:nth-child(3n) { width: 4px; height: 4px; margin: -2px 0 0 -2px; }
+@keyframes allinSpark {
+  0% { opacity: 0; transform: rotate(var(--a)) translateX(var(--r)) scale(.5); }
+  8% { opacity: 1; }
+  30% { opacity: 1; transform: rotate(var(--a)) translateX(10px) scale(1); }
+  36%, 72% { opacity: 0; transform: rotate(var(--a)) translateX(4px) scale(.6); }
+  78% { opacity: 1; transform: rotate(var(--a)) translateX(24px) scale(1.4); }
+  90% { opacity: .9; transform: rotate(var(--a)) translateX(calc(var(--r) * 1.05)) scale(1); }
+  100% { opacity: 0; transform: rotate(var(--a)) translateX(calc(var(--r) * 1.4)) scale(.4); }
+}
+@keyframes allinFlareL { from { opacity: 0; transform: translate(-40px, -50%); } 40% { opacity: 1; } to { opacity: .85; transform: translate(0, -50%); } }
+@keyframes allinFlareR { from { opacity: 0; transform: translate(40px, -50%); } 40% { opacity: 1; } to { opacity: .85; transform: translate(0, -50%); } }
+@media (max-width: 760px) {
+  .table-screen .allin-flash .allin-plaque { padding: 10px 22px 8px; }
+  .table-screen .allin-flash .allin-word { font-size: 36px; }
+  .table-screen .allin-flash .allin-flare { width: 96px; margin-right: -18px; margin-left: -18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-screen .allin-flash .allin-plaque, .table-screen .allin-flash .allin-flare { animation: none; }
+  .table-screen .allin-flash .allin-spark { display: none; }
+}

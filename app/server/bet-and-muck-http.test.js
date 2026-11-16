@@ -40,7 +40,7 @@ test('dedicated Bet-and-Muck HTTP settles on call and replays without another ef
       const actionKey = `${msg.state.handId}:${msg.state.street}:${me?.id}`;
       if (me && msg.state.actor === me.id && player.autoActionKey !== actionKey) {
         player.autoActionKey = actionKey;
-        player.socket.send({ type: 'action', tableId, action: msg.state.currentBet > me.bet ? 'call' : 'check', amount: 0 });
+        player.socket.send({ type: 'action', tableId, action: msg.state.currentBet > me.bet ? 'call' : 'check', amount: 0, handNo: msg.state.handNo, turnNo: msg.state.turnNo });
       }
     };
     player.socket.ws.on('message', player.autoHandler);
@@ -60,7 +60,7 @@ test('dedicated Bet-and-Muck HTTP settles on call and replays without another ef
   assert.equal(conflict.status, 409);
   const nextState = await opponent.socket.next((msg) => msg.type === 'state' && msg.state.actor === opponent.id && msg.state.betAndMuck?.status === 'awaiting-response');
   assert.equal(nextState.state.handId, river.state.handId);
-  opponent.socket.send({ type: 'action', tableId, action: 'call', amount: 0, handNo: river.state.handNo });
+  opponent.socket.send({ type: 'action', tableId, action: 'call', amount: 0, handNo: river.state.handNo, turnNo: river.state.turnNo });
   const settled = await opponent.socket.next((msg) => msg.type === 'state' && msg.state.result?.reason === 'fold');
   const bettorView = settled.state.players.find((seat) => seat.id === actualBettor.id);
   assert.equal(bettorView.folded, true);
