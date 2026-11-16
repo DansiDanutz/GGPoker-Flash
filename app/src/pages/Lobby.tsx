@@ -34,6 +34,8 @@ import { GameInfoDrawer } from '../components/GameInfoDrawer';
 import { SeatedPlayersList } from '../components/SeatedPlayersList';
 import { gameRules } from '../lib/gameRules';
 import { PROMO_ART } from '../lib/promoArt';
+import { marketplaceApi, type ManagementAccount } from '../lib/marketplace-api';
+import { ManagementAccessNotice } from '../components/ManagementPlugins';
 
 const PREVIEW_SEATS = [
   { x: 50, y: 8 }, { x: 10, y: 30 }, { x: 90, y: 30 },
@@ -99,7 +101,14 @@ export function Lobby() {
   const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000, bombPot: false });
   const [myHosts, setMyHosts] = useState<any[]>([]);
   const [myTourneys, setMyTourneys] = useState<any[]>([]);
-  const [hostKind, setHostKind] = useState<'cash' | 'tournament'>('cash');
+  const [hostKind, setHostKind] = useState<'cash' | 'tournament' | 'spin'>('cash');
+  const [hostSpinForm, setHostSpinForm] = useState({ name: '', stake: 5000 });
+  const [hostManagement, setHostManagement] = useState<ManagementAccount | null>(null);
+  const [hostAccessLoading, setHostAccessLoading] = useState(false);
+  const [hostAccessError, setHostAccessError] = useState('');
+  const [hostAccessRetry, setHostAccessRetry] = useState(0);
+  const [hostListError, setHostListError] = useState('');
+  const hostDialogRef = useRef<HTMLDivElement>(null);
   const [hostTourneyForm, setHostTourneyForm] = useState({ name: '', format: 'NLH', buyin: 1000, fee: 100, gtd: 0, starting_stack: 10000, blind_speed: 8, late_reg: 90, mode: 'STANDARD', bounty: 0, ticket: '', start_at: new Date(Date.now() + 3600000).toISOString().slice(0, 16) });
   const [viewMode, setViewMode] = useState<'table' | 'group'>('table');
   const [promoIdx, setPromoIdx] = useState(0);
@@ -194,10 +203,41 @@ export function Lobby() {
     else navigate(target.route);
   };
 
-  const openHost = async () => {
-    setHostOpen(true);
-    try { const [r, t] = await Promise.all([api.hostTables(), api.hostTournaments()]); setMyHosts(r.tables || []); setMyTourneys(t.tournaments || []); } catch { setMyHosts([]); setMyTourneys([]); }
-  };
+  const openHost = () => { setHostManagement(null); setHostAccessLoading(true); setHostAccessError(''); setHostOpen(true); };
+  useEffect(() => {
+    if (!hostOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const frame = window.requestAnimationFrame(() => hostDialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setHostOpen(false); return; }
+      if (event.key !== 'Tab' || !hostDialogRef.current) return;
+      const fields = Array.from(hostDialogRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'));
+      const first = fields[0]; const last = fields[fields.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { window.cancelAnimationFrame(frame); document.removeEventListener('keydown', onKeyDown); if (previous?.isConnected) previous.focus(); };
+  }, [hostOpen]);
+  useEffect(() => {
+    if (!hostOpen) return;
+    let cancelled = false;
+    setHostAccessLoading(true); setHostManagement(null); setHostAccessError(''); setHostListError('');
+    setMyHosts([]); setMyTourneys([]);
+    marketplaceApi.managementMine().then((result) => { if (!cancelled) setHostManagement(result); })
+      .catch((error: unknown) => { if (!cancelled) setHostAccessError(error instanceof Error ? error.message : 'Cannot check management access.'); })
+      .finally(() => { if (!cancelled) setHostAccessLoading(false); });
+    Promise.allSettled([api.hostTables(), api.hostTournaments()]).then(([tablesResult, eventsResult]) => {
+      if (cancelled) return;
+      if (tablesResult.status === 'fulfilled') setMyHosts(tablesResult.value.tables || []);
+      if (eventsResult.status === 'fulfilled') setMyTourneys(eventsResult.value.tournaments || []);
+      if (tablesResult.status === 'rejected' || eventsResult.status === 'rejected') setHostListError('Some of your existing games could not be loaded. Try again to refresh the list.');
+    });
+    return () => { cancelled = true; };
+  }, [hostOpen, user?.id, hostAccessRetry]);
+  const hostProductId = hostKind === 'spin' ? 'spin-and-go-manager' : hostKind === 'tournament' ? 'tournaments-manager' : 'cash-games-manager';
+  const hostAccess = hostManagement?.access.find((entry) => entry.product_id === hostProductId);
+  const hostCanManage = !hostAccessLoading && !hostAccessError && Boolean(hostAccess?.can_manage);
 
   const copyHostLink = async (id: string) => {
     const link = `${location.origin}/#/table/${id}?observe=1`;
@@ -253,7 +293,7 @@ export function Lobby() {
   };
 
   const createHost = async () => {
-    if (hostBusy) return;
+    if (hostBusy || !hostCanManage) return;
     setHostBusy(true);
     try {
       const r = await api.hostTable({ ...hostForm, name: hostForm.name.trim() || `${user?.nick || 'My'} table` });
@@ -267,7 +307,7 @@ export function Lobby() {
   };
 
   const createHostTournament = async () => {
-    if (hostBusy) return;
+    if (hostBusy || !hostCanManage) return;
     setHostBusy(true);
     try {
       const r = await api.hostTournament({ ...hostTourneyForm, start_at: new Date(hostTourneyForm.start_at).toISOString() });
@@ -276,6 +316,20 @@ export function Lobby() {
       navigate(`/tournaments?id=${r.id}`);
     } catch (e: any) {
       toast({ kind: 'error', title: 'Could not host tournament', body: e.message });
+    } finally { setHostBusy(false); }
+  };
+
+  const createHostSpin = async () => {
+    if (hostBusy || !hostCanManage) return;
+    setHostBusy(true);
+    try {
+      const result = await api.hostTable({ name: hostSpinForm.name.trim() || `${user?.nick || 'My'} Spin & Go`, game: 'spingold', seats: 3, sb: 10, bb: 20, min_buyin: hostSpinForm.stake, max_buyin: hostSpinForm.stake });
+      toast({ kind: 'success', title: 'Private Spin & Go created', body: 'Invite three players to start the play-money game.' });
+      setHostOpen(false);
+      await load();
+      navigate(`/table/${result.id}?buyin=${hostSpinForm.stake}`);
+    } catch (error: unknown) {
+      toast({ kind: 'error', title: 'Could not host Spin & Go', body: error instanceof Error ? error.message : 'Please try again.' });
     } finally { setHostBusy(false); }
   };
 
@@ -613,19 +667,22 @@ export function Lobby() {
 
       {hostOpen && (
         <div className="modal-backdrop" onClick={() => setHostOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 540 }}>
-            <div className="modal-head"><h3>{hostKind === 'cash' ? 'Host a private table' : 'Host a private tournament'}</h3><button className="title-icon" onClick={() => setHostOpen(false)}>✕</button></div>
+          <div ref={hostDialogRef} className="modal" role="dialog" aria-modal="true" aria-labelledby="host-dialog-title" onClick={(e) => e.stopPropagation()} style={{ width: 560, maxWidth: 'calc(100vw - 24px)' }}>
+            <div className="modal-head"><h3 id="host-dialog-title">{hostKind === 'cash' ? 'Host a private table' : hostKind === 'spin' ? 'Host a private Spin & Go' : 'Host a private tournament'}</h3><button className="title-icon" aria-label="Close host dialog" onClick={() => setHostOpen(false)}>✕</button></div>
             <div className="modal-body">
               <div className="tabs-line" style={{ marginBottom: 12 }}>
                 <button className={hostKind === 'cash' ? 'on' : ''} onClick={() => setHostKind('cash')}>Cash table</button>
                 <button className={hostKind === 'tournament' ? 'on' : ''} onClick={() => setHostKind('tournament')}>Tournament</button>
+                <button className={hostKind === 'spin' ? 'on' : ''} onClick={() => setHostKind('spin')}>Spin & Go</button>
               </div>
+              <ManagementAccessNotice name={hostKind === 'cash' ? 'Cash Games Manager' : hostKind === 'spin' ? 'Spin & Go Manager' : 'Tournaments Manager'} access={hostAccess} mode={hostManagement?.mode} loading={hostAccessLoading} error={hostAccessError} onRetry={() => setHostAccessRetry((value) => value + 1)} onMarketplace={() => { setHostOpen(false); navigate('/marketplace'); }} />
+              {hostListError && <p className="mg-error" role="alert">{hostListError} <button type="button" className="mg-link" onClick={() => setHostAccessRetry((value) => value + 1)}>Try again</button></p>}
               {hostKind === 'cash' && (<>
                 <p className="muted small" style={{ marginTop: 0 }}>Local play-money table. Only you and players with the table link can see it.</p>
-                {myHosts.length > 0 && (
+                {myHosts.some((entry) => entry.game !== 'spingold') && (
                   <div className="host-list">
                     <div className="panel-title" style={{ marginBottom: 4 }}>Your private tables</div>
-                    {myHosts.map((t) => (
+                    {myHosts.filter((entry) => entry.game !== 'spingold').map((t) => (
                       <div key={t.id} className="host-row">
                         <div><b>{t.name}</b><span>{t.game} · {t.seats}-max · {money(t.sb)}/{money(t.bb)}</span></div>
                         <button className="btn btn-ghost btn-sm" onClick={() => copyHostLink(t.id)}>Copy invite</button>
@@ -680,8 +737,26 @@ export function Lobby() {
                 </div>
                 <p className="muted small">Freezeout starts when at least two players register at the start time.</p>
               </>)}
+
+              {hostKind === 'spin' && <>
+                <p className="muted small" style={{ marginTop: 0 }}>A private Jackpot Sit & Go using virtual play chips. The existing engine starts the game when three seats are filled.</p>
+                {myHosts.some((entry) => entry.game === 'spingold') && <div className="host-list">
+                  <div className="panel-title" style={{ marginBottom: 4 }}>Your private Spin & Go tables</div>
+                  {myHosts.filter((entry) => entry.game === 'spingold').map((table) => <div key={table.id} className="host-row">
+                    <div><b>{table.name}</b><span>3 players · {Number(table.min_buyin).toLocaleString('en-GB')} play chips</span></div>
+                    <button className="btn btn-ghost btn-sm" onClick={() => copyHostLink(table.id)}>Copy invite</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => deleteHost(table.id)}>Delete</button>
+                  </div>)}
+                </div>}
+                <div className="mg-host-spin-details"><div><strong>3</strong><span>players per game</span></div><div><strong>Fixed</strong><span>play-chip buy-in</span></div><div><strong>Auto</strong><span>start when full</span></div></div>
+                <label className="admin-label" htmlFor="host-spin-name">Table name</label>
+                <input id="host-spin-name" className="admin-input" style={{ width: '100%' }} placeholder={`${user?.nick || 'My'} Spin & Go`} value={hostSpinForm.name} onChange={(event) => setHostSpinForm((current) => ({ ...current, name: event.target.value }))} maxLength={40} />
+                <label className="admin-label" htmlFor="host-spin-stake" style={{ marginTop: 12 }}>Buy-in in play chips</label>
+                <select id="host-spin-stake" className="admin-select" style={{ width: '100%' }} value={hostSpinForm.stake} onChange={(event) => setHostSpinForm((current) => ({ ...current, stake: Number(event.target.value) }))}><option value={5000}>5,000 play chips</option><option value={10000}>10,000 play chips</option></select>
+                <p className="muted small">Seat count, blind structure and prize rules come from the game engine. Buying the management plugin does not buy game chips or change these rules.</p>
+              </>}
             </div>
-            <div className="modal-foot"><button className="btn btn-dark" onClick={() => setHostOpen(false)}>Cancel</button>{hostKind === 'cash' ? <button className="btn btn-gold" disabled={hostBusy || hostForm.max_buyin < hostForm.min_buyin} onClick={createHost}>{hostBusy ? 'Creating…' : 'Create table'}</button> : <button className="btn btn-gold" disabled={hostBusy} onClick={createHostTournament}>{hostBusy ? 'Creating…' : 'Create tournament'}</button>}</div>
+            <div className="modal-foot"><button className="btn btn-dark" onClick={() => setHostOpen(false)}>Cancel</button>{hostKind === 'cash' ? <button className="btn btn-gold" disabled={hostBusy || !hostCanManage || hostForm.max_buyin < hostForm.min_buyin} onClick={createHost}>{hostBusy ? 'Creating…' : 'Create table'}</button> : hostKind === 'spin' ? <button className="btn btn-gold" disabled={hostBusy || !hostCanManage} onClick={createHostSpin}>{hostBusy ? 'Creating…' : 'Create Spin & Go'}</button> : <button className="btn btn-gold" disabled={hostBusy || !hostCanManage} onClick={createHostTournament}>{hostBusy ? 'Creating…' : 'Create tournament'}</button>}</div>
           </div>
         </div>
       )}

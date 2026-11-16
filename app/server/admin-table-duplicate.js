@@ -23,7 +23,7 @@ export function copyId(sourceId, isTaken) {
 /**
  * @param {{ db: any, json: (res: any, code: number, body: object) => void, requireAdmin: Function, readBody: (req: any) => Promise<any> }} deps
  */
-export function createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody }) {
+export function createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody, authorizeCopy = () => true }) {
   const selectTable = db.prepare('SELECT * FROM tables WHERE id = ?');
   const idTaken = (candidate) => Boolean(db.prepare('SELECT 1 FROM tables WHERE id = ?').get(candidate));
 
@@ -38,6 +38,7 @@ export function createAdminTableDuplicateRoute({ db, json, requireAdmin, readBod
     if (!sourceId) { json(res, 400, { error: 'table id required' }); return true; }
     const source = selectTable.get(sourceId);
     if (!source) { json(res, 404, { error: 'table not found' }); return true; }
+    if (!authorizeCopy(admin, source, res)) return true;
 
     const copy = { ...source, id: copyId(sourceId, idTaken), name: `${source.name}${COPY_NAME_SUFFIX}`, enabled: 0 };
     const columns = Object.keys(copy);

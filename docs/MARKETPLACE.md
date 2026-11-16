@@ -29,22 +29,47 @@ No default production password is documented or introduced by this feature.
   expiration and internal notes. Grants can be revoked. Expired grants are displayed as
   expired even though their stored historical state is `active`.
 - **Content:** public heading, introduction, request guidance and accepting/pausing requests.
+- **Plugins:** built-in management capability registry, implementation status and paid
+  access for the current account. Cash Games, Tournaments and Spin & Go have working
+  management adapters. Conventional Sit & Go and Social Casino management remain planned.
+- **Finance:** publisher review, verified commission-credit funding, offer ownership,
+  reserved orders, payment binding, operator-verified settlement and full-refund records.
 
 The broader console still manages users, tables, tournaments, waitlists, branding,
 promotions, missions, reports, moderation, settings, snapshots, transactions and audit logs.
 
 ## Commercial behavior
 
-This release does not include a payment gateway, checkout, automated subscription billing,
-license-key distribution or automatic installation/unlocking of premium game features.
-The catalog explicitly returns `checkout_enabled: false`. Prices are offer metadata.
-Approving a request does not collect money or grant access; granting service access is a
-separate operator action. Service fulfillment remains subject to the specific offer.
+This release includes paid management enforcement and a separate commerce ledger. It
+does not initiate NervixPay payments, automatically fetch payment evidence, issue invoices,
+install third-party code or run recurring charges. The catalog keeps `checkout_enabled:
+false`. An authenticated private operator can record payments independently verified in
+NervixPay; this atomically consumes the reserved commission and grants the purchased term.
+The console does not move money. Approving an interest request never implies payment.
 
-The four initial catalog entries are marked **coming soon**, with prices by quotation.
-Operators should only mark an offer available when they can actually supply it. Manual
-access can only be granted to an available product. No marketplace operation changes play
-chips, tickets, gems or any game ledger balance.
+The original four coming-soon offers are retained. Five management products are seeded
+without overwriting operator edits. Three have implemented management adapters; the two
+planned adapters cannot be published as available or sold. All begin with quotation
+pricing: configure an actual USD amount and monthly, yearly or one-time term before
+recording an order. Legacy manual grants cannot unlock these paid products. No marketplace
+operation changes play chips, tickets, gems or any game ledger balance.
+
+`GGPOKER_MARKETPLACE_ENFORCEMENT=off` preserves community/self-hosted behavior. `observe`
+records missing purchases without blocking. `enforce` requires active paid access for
+private hosting, applicable administrator creation/configuration/duplication and host
+straddle changes. The existing authorization and private-network checks still apply;
+purchases never grant administrator status. Inspecting resources, safety moderation,
+cleanup and recovery remain available. This release licenses management actions: existing
+tables can continue hands and Spin cycles after management access expires. It does not
+implement session-by-session hosting shutdown.
+
+Commission credits are USD cents, separate from NervixPay's own processing fees. Each
+order reserves 20% (rounded up to the next cent) before payment. The organizer pays the
+gross amount directly to the publisher; the platform consumes previously funded credits.
+Insufficient publisher credits block new reservations, not paid customer access. Repeated
+payment references cannot earn a second fee or extend access again. See the complete
+[implementation plan](MARKETPLACE_IMPLEMENTATION.md) for the economic model, exact ledger,
+provider contract, future publisher self-service and rollout procedure.
 
 Community code follows the repository's AGPL-3.0-only policy and documented exceptions.
 An offer labeled as a commercial module does not establish independent copyright or make
@@ -56,6 +81,9 @@ Four additive SQLite tables are initialized idempotently: `marketplace_products`
 `marketplace_settings`, `marketplace_requests`, and `marketplace_entitlements`. Initial
 products and copy never overwrite operator edits on restart. Administrative changes are
 recorded in the existing audit log. There are no destructive schema changes.
+The commerce extension additionally initializes publisher, offer, order, payment-binding,
+payment, immutable commission-journal, paid-access, refund and commerce-event tables.
+Paid order access is intentionally independent of the older manual access registry.
 
 | Route | Access | Purpose |
 | --- | --- | --- |
@@ -69,6 +97,11 @@ recorded in the existing audit log. There are no destructive schema changes.
 | `PATCH /api/admin/marketplace/requests/:id` | Administrator | Review a request and send an in-app response |
 | `POST /api/admin/marketplace/entitlements` | Administrator | Grant or renew service access |
 | `PATCH /api/admin/marketplace/entitlements/:id` | Administrator | Revoke service access |
+| `GET /api/marketplace/management` | Public | Implemented/planned registry and installation enforcement mode |
+| `GET /api/marketplace/management/me` | Signed-in account | Own paid capabilities and effective management access |
+| `GET/POST /api/marketplace/publisher` | Signed-in account | Read or create own pending publisher profile; no credit or approval authority |
+| `GET /api/admin/marketplace/commerce` | Private administrator | Publisher balances, offers, orders and bound payment quotes |
+| `POST /api/admin/marketplace/commerce/...` | Private administrator | Reviewed publisher, credit, reservation, verified payment and refund operations |
 
 Submitting an already pending request is idempotent. New requests are limited per account
 to five per hour and ten per day; these limits persist across restarts. Account responses
@@ -84,7 +117,7 @@ Run the project's existing required checks plus the focused behavior tests:
 
 ```sh
 cd app
-node --test server/marketplace.test.js server/marketplace-routing.test.js server/admin-guard.test.js
+node --test server/marketplace*.test.js server/management-*.test.js server/admin-guard.test.js
 pnpm exec tsc --noEmit -p tsconfig.json
 pnpm build
 node tools/verify-source-build.mjs

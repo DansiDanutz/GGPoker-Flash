@@ -28,7 +28,7 @@
 .ma-stats span { display: block; font-size: 11px; color: #d8ceb9; line-height: 1.5; }
 .ma-stats strong { display: block; color: #ffe6b3; font-size: 32px; font-weight: 600; letter-spacing: -1px; padding: 6px 0; }
 .ma-stats small { font-size: 10px; color: #999a9f; }
-.ma-tabs { display: flex; gap: 5px; padding: 5px; border: 1px solid #2b2d32; background: #111216; border-radius: 11px; margin-bottom: 22px; width: fit-content; max-width: 100%; }
+.ma-tabs { display: flex; flex-wrap: wrap; gap: 5px; padding: 5px; border: 1px solid #2b2d32; background: #111216; border-radius: 11px; margin-bottom: 22px; width: fit-content; max-width: 100%; }
 .ma-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 18px; min-height: 40px; border: 1px solid transparent; border-radius: 7px; background: none; color: #aaaab1; font-size: 12px; font-weight: 650; white-space: nowrap; }
 .ma-tabs button[aria-selected=true] { border-color: #705e3b; background: linear-gradient(135deg, #3a3020, #28241d); color: #ffe2a3; }
 .ma-tabs button span { display: inline-flex; align-items: center; justify-content: center; min-width: 19px; height: 19px; padding: 1px 5px; border-radius: 6px; background: #c49a4527; color: #f8d68d; font-size: 10px; }
@@ -142,7 +142,7 @@
   .ma-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-bottom: 18px; }
   .ma-stats strong { font-size: 28px; }
   .ma-stats small { font-size: 9px; }
-  .ma-tabs { width: 100%; gap: 2px; padding: 4px; }
+  .ma-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 4px; padding: 4px; }
   .ma-tabs button { flex: 1; min-width: 0; padding: 9px 5px; font-size: 11px; }
   .ma-tabs button span { min-width: 16px; height: 16px; padding: 0 3px; }
   .ma-toolbar { gap: 8px; }

@@ -64,6 +64,9 @@ import { tournamentGame, tournamentLobby } from './tournament-lobby.js';
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import { createMarketplaceRoutes } from './marketplace.js';
+import { createMarketplaceCommerce } from './marketplace-commerce.js';
+import { createManagementPolicy, privateSpinConfig, tableManagementProduct } from './management-plugins.js';
+import { createManagementRoutes } from './management-routes.js';
 import * as adminWaitlist from './admin-waitlist.js';
 import { setAdminRole } from './admin-roles.js';
 import { BATTLE_ROYALE_GAME, BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
@@ -555,6 +558,10 @@ const handleAdminAuditRoute = createAdminAuditRoute({ db, json, requireAdmin });
 const handleAdminTransactionsRoute = createAdminTransactionsRoute({ db, json, requireAdmin });
 const handleAdminUsersListRoute = createAdminUsersListRoute({ db, json, requireAdmin, publicUser });
 const handleMarketplaceRoute = createMarketplaceRoutes({ db, json, requireUser, requireAdmin, readBody });
+const marketplaceCommerce = createMarketplaceCommerce({ db });
+const managementPolicy = createManagementPolicy({ db, commerce: marketplaceCommerce });
+const handleManagementRoute = createManagementRoutes({ db, commerce: marketplaceCommerce, policy: managementPolicy, json, requireUser, requireAdmin, readBody });
+const requireManagement = (actor, productId, action, res) => managementPolicy.requireAccess(actor, productId, action, res, json);
 // Snapshots go to the OS temp dir (override with GGPOKER_BACKUP_TMP); never inside DATA_DIR.
 const handleAdminBackupRoute = createAdminBackupRoute({
   db, json, requireAdmin, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined,
@@ -568,7 +575,8 @@ const handleAdminRestoreRoute = createAdminRestoreRoute({
 const handleAdminSnapshotRoutes = createAdminSnapshotRoutes({
   db, json, requireAdmin, readBody, dataDir: DATA_DIR, tempRoot: process.env.GGPOKER_BACKUP_TMP || undefined, getSetting,
 });
-const handleAdminTableDuplicateRoute = createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody });
+const handleAdminTableDuplicateRoute = createAdminTableDuplicateRoute({ db, json, requireAdmin, readBody,
+  authorizeCopy: (actor, source, res) => requireManagement(actor, tableManagementProduct(source.game), 'admin_table_duplicate', res) });
 
 // Cash Drop ledger: one `cashdrop` row per hand, keyed by hand id (idempotent on retry).
 const CASHDROP_LEDGER = createCashDropLedger(db, addTransactionEx);
@@ -1328,6 +1336,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
+    if (await handleManagementRoute(req, res, url)) return;
     if (await handleMarketplaceRoute(req, res, url)) return;
     if (p === '/healthz') {
       return json(res, 200, buildHealthSummary({
@@ -1541,9 +1550,22 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/tables/host' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const b = await readBody(req);
+      // Preserve the host API's Hold'em fallback and authorize the actual format.
+      const game = ['holdem', 'omaha', 'omaha5', 'omaha6', 'shortdeck', 'spingold'].includes(b.game) ? b.game : 'holdem';
+      if (!requireManagement(u, tableManagementProduct(game), 'host_table_create', res)) return;
       const count = db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id = ? AND private = 1').get(u.id).n;
       if (count >= 8) return json(res, 400, { error: 'You already have 8 private tables' });
-      const game = ['holdem', 'omaha', 'omaha5', 'omaha6', 'shortdeck'].includes(b.game) ? b.game : 'holdem';
+      if (game === 'spingold') {
+        let spin;
+        try { spin = privateSpinConfig(b); } catch (error) { return json(res, 400, { error: error.message }); }
+        const id = `home-spin-${u.id}-${randomUUID().slice(0, 8)}`;
+        const name = String(b.name || `${u.nick}'s Jackpot SNG`).trim().slice(0, 40) || 'Private Jackpot SNG';
+        db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
+          VALUES (?,?,?,'Private',?,?,0,?,?,?, ?,0,1,0,?,1,0)`)
+          .run(id, name, spin.game, spin.sb, spin.bb, spin.min_buyin, spin.max_buyin, spin.seats, spin.speed, u.id);
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'host_spin_table', id);
+        return json(res, 200, { ok: true, id });
+      }
       const sb = Math.max(1, Math.round(Number(b.sb) || 100));
       const bb = Math.max(sb, Math.round(Number(b.bb) || sb * 2));
       const minBuyin = Math.max(bb, Math.round(Number(b.min_buyin) || bb * 20));
@@ -1586,6 +1608,7 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/tournaments/host' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
+      if (!requireManagement(u, 'tournaments-manager', 'host_tournament_create', res)) return;
       const b = await readBody(req);
       const count = db.prepare('SELECT COUNT(*) AS n FROM tournaments WHERE owner_id = ? AND private = 1').get(u.id).n;
       if (count >= 8) return json(res, 400, { error: 'You already have 8 private tournaments' });
@@ -2751,6 +2774,7 @@ const server = http.createServer(async (req, res) => {
       const id = decodeURIComponent(p.split('/')[4]);
       const room = TOURNAMENT_ROOMS.get(id);
       if (!room) return json(res, 404, { error: 'room not running' });
+      if (!requireManagement(a, 'tournaments-manager', 'admin_tournament_level', res)) return;
       const body = await readBody(req);
       const result = advanceRoomLevel(room, { delta: body.delta ?? 1, liveTables: LIVE_TABLES });
       if (result.ok) {
@@ -2905,6 +2929,11 @@ const server = http.createServer(async (req, res) => {
       if (!parsed.ok) return json(res, 400, { error: parsed.error });
       const t = parsed.value;
       const id = String(b.id || `custom-${Date.now()}`).slice(0, 60);
+      // Authorize the canonical values used by the upsert. Raw request coercion
+      // or a truncated ID must not select a cheaper, unrelated capability.
+      const previousTable = db.prepare('SELECT game FROM tables WHERE id = ?').get(id);
+      const tableProducts = new Set([tableManagementProduct(t.game), ...(previousTable ? [tableManagementProduct(previousTable.game)] : [])]);
+      for (const productId of tableProducts) if (!requireManagement(a, productId, 'admin_table_configure', res)) return;
       db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET name=excluded.name, game=excluded.game, category=excluded.category,
@@ -2932,6 +2961,7 @@ const server = http.createServer(async (req, res) => {
         db.prepare('DELETE FROM tournaments WHERE id = ?').run(b.id);
         return json(res, 200, { ok: true });
       }
+      if (!requireManagement(a, 'tournaments-manager', 'admin_tournament_configure', res)) return;
       const id = b.id || `t${Date.now()}`;
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -3248,6 +3278,10 @@ wss.on('connection', (ws, req) => {
         const ownerId = entry.table.cfg.owner_id;
         if (!ownerId || Number(ownerId) !== Number(ws.userId)) {
           return ws.send(JSON.stringify({ type: 'error', error: 'Only the table host can change straddles' }));
+        }
+        const productId = tableManagementProduct(entry.table.cfg.game);
+        if (!managementPolicy.check({ id: ws.userId }, productId, 'host_straddle_configure').can_manage) {
+          return ws.send(JSON.stringify({ type: 'error', ...managementPolicy.error(productId) }));
         }
         const res = entry.table.setStraddle(!!msg.straddle);
         if (!res.ok) ws.send(JSON.stringify({ type: 'error', error: res.error }));

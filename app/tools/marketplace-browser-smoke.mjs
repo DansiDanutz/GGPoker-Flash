@@ -48,6 +48,7 @@ async function startServer() {
       GGPOKER_DATA: path.join(temporary, 'data'), GGPOKER_SEED_DEMO: '1',
       GGPOKER_ADMIN_PASSWORD: 'admin123', GGPOKER_ADMIN_ALLOW: '127.0.0.1/32',
       GGPOKER_PUBLIC_ORIGIN: '', GGPOKER_ADMIN_ORIGIN: '', GGPOKER_ALLOWED_HOSTS: '',
+      GGPOKER_MARKETPLACE_ENFORCEMENT: 'enforce',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -123,33 +124,33 @@ async function fill(page, selector, value) {
   await input.dispose();
 }
 
-async function labeledField(page, label, selector = 'input,textarea,select') {
-  const handle = await page.evaluateHandle((label, selector) => Array.from(document.querySelectorAll('label.ma-field')).find((node) => node.querySelector('span')?.textContent === label)?.querySelector(selector), label, selector);
+async function labeledField(page, label, selector = 'input,textarea,select', labelSelector = 'label.ma-field') {
+  const handle = await page.evaluateHandle((label, selector, labelSelector) => Array.from(document.querySelectorAll(labelSelector)).find((node) => node.querySelector('span')?.textContent === label)?.querySelector(selector), label, selector, labelSelector);
   const element = handle.asElement();
   assert.ok(element, `Missing field: ${label}`);
   return element;
 }
 
-async function fillField(page, label, value) {
-  const input = await labeledField(page, label);
+async function fillField(page, label, value, labelSelector = 'label.ma-field') {
+  const input = await labeledField(page, label, 'input,textarea,select', labelSelector);
   await replaceInputValue(page, input, value, label);
   await input.dispose();
 }
 
-async function selectField(page, label, value) {
-  const input = await labeledField(page, label, 'select');
+async function selectField(page, label, value, labelSelector = 'label.ma-field') {
+  const input = await labeledField(page, label, 'select', labelSelector);
   await input.select(value);
   await input.dispose();
 }
 
 async function clickInside(page, container, heading, text) {
   await page.waitForFunction((container, heading, text) => {
-    const card = Array.from(document.querySelectorAll(container)).find((node) => node.querySelector('h3')?.textContent.trim() === heading);
+    const card = Array.from(document.querySelectorAll(container)).find((node) => node.querySelector('h3,h4')?.textContent.trim() === heading);
     const button = card && Array.from(card.querySelectorAll('button')).find((node) => node.textContent.trim() === text);
     return button && !button.disabled;
   }, {}, container, heading, text);
   const handle = await page.evaluateHandle((container, heading, text) => {
-    const card = Array.from(document.querySelectorAll(container)).find((node) => node.querySelector('h3')?.textContent.trim() === heading);
+    const card = Array.from(document.querySelectorAll(container)).find((node) => node.querySelector('h3,h4')?.textContent.trim() === heading);
     return card && Array.from(card.querySelectorAll('button')).find((node) => node.textContent.trim() === text);
   }, container, heading, text);
   const element = handle.asElement();
@@ -161,13 +162,31 @@ async function waitText(page, selector, text) {
   await page.waitForFunction((selector, text) => Array.from(document.querySelectorAll(selector)).some((node) => node.textContent.includes(text)), {}, selector, text);
 }
 
-async function screenshot(page, name) {
-  await page.screenshot({ path: path.join(artifacts, `${name}.png`), fullPage: true });
+async function commerceStep(page, label) {
+  const handle = await page.evaluateHandle((label) => Array.from(document.querySelectorAll('.mf-steps button')).find((node) => node.textContent.trim().endsWith(label)), label);
+  const element = handle.asElement();
+  assert.ok(element, `Missing commerce step: ${label}`);
+  await centerClick(element); await handle.dispose();
+}
+
+async function screenshot(page, name, focusSelector) {
+  // Background tabs may have a stale compositor surface. Foreground the page
+  // and allow layout/paint to settle before recording visual evidence.
+  await page.bringToFront();
+  if (focusSelector) {
+    const target = await page.waitForSelector(focusSelector, { visible: true });
+    await target.evaluate((node) => node.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' }));
+    await target.dispose();
+  }
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  // These pages scroll inside the app shell; a document-wide capture does not
+  // expand those containers. Targeted evidence records the scrolled viewport.
+  await page.screenshot({ path: path.join(artifacts, `${name}.png`), fullPage: !focusSelector });
 }
 
 async function assertPublicLayout(page, width) {
   const result = await page.evaluate(() => {
-    const blocks = Array.from(document.querySelectorAll('.mp-header-inner,.mp-hero-copy,.mp-product,.mp-search,.mp-filters'));
+    const blocks = Array.from(document.querySelectorAll('.mp-header-inner,.mp-hero-copy,.mp-product,.mp-search,.mp-filters,.mg-plugin,.mg-publisher-account'));
     return {
       viewport: innerWidth,
       document: document.documentElement.scrollWidth,
@@ -194,6 +213,25 @@ async function run() {
   assert.equal(await owner.$('#login-id'), null, 'Public marketplace unexpectedly requires login.');
   await owner.reload({ waitUntil: 'domcontentloaded' });
   await owner.waitForSelector('.mp-product', { visible: true });
+  const initial = await api('/api/marketplace');
+  const management = await api('/api/marketplace/management');
+  assert.equal(management.mode, 'enforce');
+  const managementIds = management.plugins.map((plugin) => plugin.id);
+  for (const id of ['cash-games-manager', 'tournaments-manager', 'spin-and-go-manager']) {
+    const plugin = management.plugins.find((entry) => entry.id === id);
+    assert.ok(plugin?.implemented, `Expected an implemented organizer plugin: ${id}`);
+    assert.equal(initial.products.find((entry) => entry.id === id)?.status, 'available');
+    await waitText(owner, '.mg-plugin h4', plugin.name);
+  }
+  for (const id of ['sit-and-go-manager', 'social-casino-manager']) {
+    const plugin = management.plugins.find((entry) => entry.id === id);
+    assert.equal(plugin?.implemented, false, 'Planned management must not be advertised as implemented.');
+    assert.equal(initial.products.find((entry) => entry.id === id)?.status, 'coming_soon');
+    await waitText(owner, '.mg-plugin-planned', plugin.name);
+  }
+  assert.equal(await owner.$('.mg-publisher-fields'), null, 'Publisher registration unexpectedly accepts an anonymous account.');
+  await waitText(owner, '.mg-publisher-account button', 'Intră în cont');
+  completed.push('Implemented/planned organizer offers and authenticated publisher onboarding');
   await assertPublicLayout(owner, 1440);
   await screenshot(owner, 'desktop');
   for (const width of [390, 320]) {
@@ -208,7 +246,6 @@ async function run() {
   completed.push('Public clean route, refresh and desktop/390px/320px layouts');
 
   await owner.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1, isMobile: false, hasTouch: false });
-  const initial = await api('/api/marketplace');
   const sample = initial.products[0];
   assert.ok(sample, 'Fixture catalog has no products.');
   await fill(owner, '.mp-search input', sample.name);
@@ -240,7 +277,7 @@ async function run() {
   await screenshot(owner, 'admin');
   await owner.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   await owner.waitForSelector('.market-admin .ma-product', { visible: true });
-  await screenshot(owner, 'admin-mobile');
+  await screenshot(owner, 'admin-mobile', '.ma-tabs');
   await owner.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1, isMobile: false, hasTouch: false });
   await owner.waitForSelector('.market-admin .ma-product', { visible: true });
   completed.push('UI admin login and return to the marketplace');
@@ -304,6 +341,23 @@ async function run() {
   }, memberAuth.token);
   await member.goto(`${base}/marketplace`, { waitUntil: 'domcontentloaded' });
   await member.waitForSelector('#marketplace-account', { visible: true });
+  await member.waitForSelector('.mg-publisher-fields', { visible: true });
+  await fillField(member, 'Numele editorului', 'CI Publisher Company', '.mg-publisher-fields label');
+  await selectField(member, 'Tipul profilului', 'company', '.mg-publisher-fields label');
+  await fillField(member, 'Merchant ID NervixPay', 'ci-fixture-merchant', '.mg-publisher-fields label');
+  await clickSelector(member, '.mg-publisher-fields button[type="submit"]');
+  await waitText(member, '.mg-publisher-account .mg-status', 'Cont în evaluare');
+  const publisherAccount = await api('/api/marketplace/publisher', { token: memberAuth.token });
+  const publisherId = publisherAccount.publisher.id;
+  assert.equal(publisherAccount.publisher.owner_user_id, memberAuth.user.id);
+  assert.equal(publisherAccount.publisher.kind, 'company');
+  assert.equal(publisherAccount.publisher.status, 'pending');
+  assert.equal(publisherAccount.balance.available_cents, 0);
+  assert.equal(publisherAccount.submission_enabled, false);
+  assert.equal(publisherAccount.checkout_enabled, false);
+  await member.reload({ waitUntil: 'domcontentloaded' });
+  await waitText(member, '.mg-publisher-account h4', 'CI Publisher Company');
+  completed.push('UI publisher registration persists with pending review and isolated commission balance');
   await waitText(member, '.mp-product h3 button', productName);
   await clickText(member, '.mp-product h3 button', productName);
   await fill(member, '.mp-request-form textarea', 'Browser request, held briefly to test dialog ownership.');
@@ -352,6 +406,111 @@ async function run() {
   await waitText(member, '.mp-account-list .mp-account-status', 'Revocat');
   await screenshot(owner, 'admin-access');
   completed.push('UI approval, grant/revoke and member-visible persisted status');
+
+  // Select Access explicitly instead of assuming the previous panel stays selected
+  // across the member refreshes and screenshot checks above.
+  await clickSelector(owner, '#ma-tab-access');
+  await owner.waitForSelector('.ma-grant select', { visible: true });
+  const manualProducts = await owner.$$eval('.ma-grant select option', (options) => options.map((option) => option.value));
+  assert.ok(manualProducts.includes(product.id), 'The existing manual service grant flow disappeared.');
+  assert.ok(managementIds.every((id) => !manualProducts.includes(id)), 'Manual access offers a bypass for paid management plugins.');
+  await clickSelector(owner, '#ma-tab-plugins');
+  await waitText(owner, '.mg-policy strong', 'Acces plătit obligatoriu');
+  await waitText(owner, '.mg-plugin h4', 'Spin & Go Manager');
+  await clickSelector(owner, '#ma-tab-finance');
+  await waitText(owner, '.mf-list-item', 'CI Publisher Company');
+  await selectField(owner, 'Decizia evaluării', 'approved', 'label.mf-field');
+  await fillField(owner, 'Motivul deciziei', 'Disposable browser fixture approval.', 'label.mf-field');
+  await clickText(owner, '.mf-main button', 'Înregistrează decizia');
+  await waitText(owner, '.mf-panel-title .mf-status', 'Aprobat');
+  await owner.waitForFunction(() => !document.querySelector('.mf-fieldset')?.disabled);
+  await fillField(owner, 'Suma în USD', '20.00', 'label.mf-field');
+  await fillField(owner, 'Referința unică a încasării sau ajustării', 'ci-browser-credit-proof', 'label.mf-field');
+  await clickSelector(owner, '.mf-check input');
+  await clickText(owner, '.mf-main button', 'Înregistrează creditele');
+  await waitUntil(async () => (await api('/api/marketplace/publisher', { token: memberAuth.token })).balance.available_cents === 2000, 'UI credit recording did not persist.');
+  await owner.waitForFunction(() => !document.querySelector('.mf-fieldset')?.disabled);
+  completed.push('Owner plugin enforcement display and UI publisher approval/verified credit recording');
+
+  const spinProduct = initial.products.find((entry) => entry.id === 'spin-and-go-manager');
+  await clickSelector(owner, '#ma-tab-catalog');
+  await clickInside(owner, '.ma-product', spinProduct.name, 'Editează');
+  const pricing = await labeledField(owner, 'Modalitate de tarifare', 'select');
+  assert.equal(await pricing.evaluate((element) => Array.from(element.options).some((option) => option.value === 'free')), false);
+  await pricing.dispose();
+  const currency = await labeledField(owner, 'Monedă', 'select');
+  assert.equal(await currency.evaluate((element) => element.value), 'USD');
+  assert.equal(await currency.evaluate((element) => element.disabled), true);
+  await currency.dispose();
+  await selectField(owner, 'Modalitate de tarifare', 'one_time');
+  await fillField(owner, 'Preț afișat', '100');
+  await clickSelector(owner, '.ma-editor button[type="submit"]');
+  await owner.waitForSelector('.ma-editor', { hidden: true });
+  await clickSelector(owner, '#ma-tab-finance');
+  await waitText(owner, '.mf-list-item', 'CI Publisher Company');
+  await commerceStep(owner, 'Oferte');
+  await selectField(owner, 'Produsul', spinProduct.id, 'label.mf-field');
+  await selectField(owner, 'Editorul aprobat', publisherId, 'label.mf-field');
+  await clickText(owner, '.mf-main button', 'Asociază oferta');
+  await waitText(owner, '.mf-side .mf-list-item', spinProduct.name);
+  await owner.waitForFunction(() => !document.querySelector('.mf-fieldset')?.disabled);
+  await commerceStep(owner, 'Comenzi și activări');
+  await fillField(owner, 'ID-ul utilizatorului cumpărător', String(memberAuth.user.id), 'label.mf-field');
+  await selectField(owner, 'Produsul', spinProduct.id, 'label.mf-field');
+  await clickText(owner, '.mf-main button', 'Rezervă comisionul și comanda');
+  await waitText(owner, '.mf-panel-title .mf-status', 'Așteaptă plata');
+  const commerceData = await api('/api/admin/marketplace/commerce', { token: adminToken });
+  const order = commerceData.orders.find((entry) => entry.product_id === spinProduct.id && entry.buyer_user_id === memberAuth.user.id);
+  assert.ok(order, 'UI did not create the intended management order.');
+  assert.equal(order.price_cents, 10000);
+  assert.equal(order.commission_cents, 2000);
+  assert.equal(order.status, 'awaiting_payment');
+  assert.equal(commerceData.publishers.find((entry) => entry.id === publisherId).balance.available_cents, 0);
+  assert.equal(commerceData.publishers.find((entry) => entry.id === publisherId).balance.reserved_cents, 2000);
+  completed.push('Management pricing restrictions and UI offer/order reservation with a 20% credit hold');
+
+  currentPage = member;
+  await member.goto(`${base}/#/?game=holdem`, { waitUntil: 'domcontentloaded' });
+  await clickSelector(member, '.host-table-btn');
+  await clickText(member, '.modal .tabs-line button', 'Spin & Go');
+  await waitText(member, '.mg-host-access', 'An active paid plugin is required');
+  assert.equal(await member.$eval('.modal-foot .btn-gold', (button) => button.disabled), true, 'An unpaid organizer can create Spin & Go.');
+  assert.equal(await member.$eval('#host-spin-stake', (select) => select.value), '5000');
+  assert.deepEqual(await member.$$eval('#host-spin-stake option', (options) => options.map((option) => option.value)), ['5000', '10000']);
+  await member.keyboard.press('Escape');
+  await member.waitForSelector('#host-dialog-title', { hidden: true });
+
+  // Fixture-only evidence: these local API calls do not contact NervixPay or move funds.
+  const paymentProof = { providerOrderId: 'ci-browser-payment-order', merchantId: 'ci-fixture-merchant', network: 'polygon', token: 'USDC', amountBaseUnits: '100000000' };
+  await api(`/api/admin/marketplace/commerce/orders/${order.id}/payment-binding`, { token: adminToken, method: 'POST', body: paymentProof });
+  await api('/api/admin/marketplace/commerce/payments/confirm', { token: adminToken, method: 'POST', body: { ...paymentProof, paymentId: 'ci-browser-payment-receipt', paidAt: new Date().toISOString() } });
+  assert.equal((await api('/api/marketplace/publisher', { token: memberAuth.token })).balance.available_cents, 0, 'Commission should consume the reserved credits.');
+  await clickSelector(member, '.host-table-btn');
+  await clickText(member, '.modal .tabs-line button', 'Spin & Go');
+  await waitText(member, '.mg-host-access', 'Paid management access active');
+  await member.waitForFunction(() => !document.querySelector('.modal-foot .btn-gold')?.disabled);
+  await fill(member, '#host-spin-name', 'CI Paid Private Spin');
+  await clickText(member, '.modal-foot button', 'Create Spin & Go');
+  await waitUntil(async () => (await api('/api/tables/host', { token: memberAuth.token })).tables.some((table) => table.name === 'CI Paid Private Spin'), 'Paid Spin & Go host creation failed.');
+  const createdSpin = (await api('/api/tables/host', { token: memberAuth.token })).tables.find((table) => table.name === 'CI Paid Private Spin');
+  assert.equal(createdSpin.game, 'spingold');
+  assert.equal(createdSpin.seats, 3);
+  assert.equal(createdSpin.min_buyin, 5000);
+  assert.equal(createdSpin.max_buyin, 5000);
+  assert.equal(Boolean((await api('/api/lobby', { token: memberAuth.token })).user.is_admin), false, 'Paid management promoted the organizer to administrator.');
+  await member.goto(`${base}/marketplace`, { waitUntil: 'domcontentloaded' });
+  await waitText(member, '.mg-plugin .mg-status-active', 'Acces plătit activ');
+  await waitText(member, '.mg-publisher-account .mg-status', 'Editor aprobat');
+  await screenshot(member, 'organizer-paid-access', '.mg-section');
+  await screenshot(member, 'publisher-approved', '.mg-publisher');
+  completed.push('Unpaid host creation is blocked; paid Spin & Go works with zero publisher credits and no admin promotion');
+
+  currentPage = owner;
+  await clickText(owner, '.mf-heading button', 'Actualizează');
+  await waitText(owner, '.mf-panel-title .mf-status', 'Plătită');
+  await owner.waitForSelector('#ma-tab-finance[aria-selected="true"]');
+  await screenshot(owner, 'admin-finance', '.mf-root');
+  assert.equal(await owner.$eval('#ma-tab-finance', (tab) => tab.getAttribute('aria-selected')), 'true', 'Finance was unmounted during its visual capture.');
   assert.deepEqual(pageErrors, [], 'Browser raised uncaught JavaScript errors.');
 }
 
