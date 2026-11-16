@@ -36,7 +36,7 @@ import { gameRules } from '../lib/gameRules';
 import { PROMO_ART } from '../lib/promoArt';
 import { marketplaceApi, type ManagementAccount } from '../lib/marketplace-api';
 import { ManagementAccessNotice } from '../components/ManagementPlugins';
-import { organizerBillingApi, type BillingMode, type OrganizerTariffs } from '../lib/organizer-billing-api';
+import { organizerBillingApi, type OrganizerBillingConfig } from '../lib/organizer-billing-api';
 import { cashChips } from '../lib/organizer-chips-api';
 
 const PREVIEW_SEATS = [
@@ -105,11 +105,12 @@ export function Lobby() {
   const [hostOpen, setHostOpen] = useState(false);
   const [hostBusy, setHostBusy] = useState(false);
   const [hostForm, setHostForm] = useState({ name: '', game: 'holdem', seats: 6, sb: 200, bb: 400, min_buyin: 8000, max_buyin: 40000, bombPot: false });
+  const [hostRake, setHostRake] = useState({ rakePercent: 5, rakeCap: 300 });
   const [myHosts, setMyHosts] = useState<any[]>([]);
   const [myTourneys, setMyTourneys] = useState<any[]>([]);
   const [hostKind, setHostKind] = useState<'cash' | 'tournament' | 'spin'>('cash');
   const [hostSpinForm, setHostSpinForm] = useState({ name: '', stake: 5000, start_at: '' });
-  const [hostBilling, setHostBilling] = useState<{ mode: BillingMode; tariffs: OrganizerTariffs } | null>(null);
+  const [hostBilling, setHostBilling] = useState<OrganizerBillingConfig | null>(null);
   const hostKeys = useRef(new Map<string, string>());
   const [hostManagement, setHostManagement] = useState<ManagementAccount | null>(null);
   const [hostAccessLoading, setHostAccessLoading] = useState(false);
@@ -248,6 +249,7 @@ export function Lobby() {
   const hostProductId = hostKind === 'spin' ? 'spin-and-go-manager' : hostKind === 'tournament' ? 'tournaments-manager' : 'cash-games-manager';
   const hostAccess = hostManagement?.access.find((entry) => entry.product_id === hostProductId);
   const hostCanManage = !hostAccessLoading && !hostAccessError && hostBilling !== null && Boolean(hostAccess?.can_manage);
+  const hostUsesChips = hostBilling?.chip_mode === 'enforce';
 
   const requestKey = (payload: object) => {
     const identity = JSON.stringify(payload);
@@ -311,8 +313,8 @@ export function Lobby() {
 
   const createHost = async () => {
     if (hostBusy || !hostCanManage) return;
-    const payload = { ...hostForm, name: hostForm.name.trim() || `${user?.nick || 'My'} table` };
-    if (hostBilling?.mode === 'enforce' && !window.confirm(`Create “${payload.name}” paused and debit $${(hostBilling.tariffs.cash_setup / 100).toFixed(2)} setup credits? Start it later in Marketplace for $${(hostBilling.tariffs.cash_hour / 100).toFixed(2)} per active hour.`)) return;
+    const payload = { ...hostForm, ...(hostUsesChips ? hostRake : {}), name: hostForm.name.trim() || `${user?.nick || 'My'} table` };
+    if (hostBilling?.mode === 'enforce' && !window.confirm(`Create “${payload.name}” paused and debit $${(hostBilling.tariffs.cash_setup / 100).toFixed(2)} setup credits? Active hours cost $5 down to $1, paid upfront, based on your lifetime paid table-hours. Check your next-hour price in Marketplace.`)) return;
     const replay = requestKey(payload);
     setHostBusy(true);
     try {
@@ -708,16 +710,16 @@ export function Lobby() {
                 <button className={hostKind === 'spin' ? 'on' : ''} onClick={() => setHostKind('spin')}>Spin & Go</button>
               </div>
               <ManagementAccessNotice name={hostKind === 'cash' ? 'Cash Games Manager' : hostKind === 'spin' ? 'Spin & Go Manager' : 'Tournaments Manager'} access={hostAccess} mode={hostManagement?.mode} loading={hostAccessLoading} error={hostAccessError} onRetry={() => setHostAccessRetry((value) => value + 1)} onMarketplace={() => { setHostOpen(false); navigate('/marketplace'); }} />
-              {hostBilling?.mode === 'enforce' ? <p className="muted small">Service-credit setup fee: {hostKind === 'cash' ? `$${(hostBilling.tariffs.cash_setup / 100).toFixed(2)}; the table is created paused, then costs $${(hostBilling.tariffs.cash_hour / 100).toFixed(2)} per active hour, paid upfront.` : hostKind === 'tournament' ? `$${(hostBilling.tariffs.tournament_setup / 100).toFixed(2)}; later rescheduling costs $${(hostBilling.tariffs.reschedule / 100).toFixed(2)}.` : `$${(hostBilling.tariffs.spin_setup / 100).toFixed(2)}; later rescheduling costs $${(hostBilling.tariffs.reschedule / 100).toFixed(2)}.`} Manage the resource and balance in Marketplace.</p> : <p className="muted small">Service-credit billing is inactive on this installation; legacy hosting remains available.</p>}
+              {hostBilling?.mode === 'enforce' ? <p className="muted small">Service-credit setup fee: {hostKind === 'cash' ? `$${(hostBilling.tariffs.cash_setup / 100).toFixed(2)}; the table is created paused, then costs $5 down to $1 per active hour, paid upfront, based on your lifetime paid table-hours.` : hostKind === 'tournament' ? `$${(hostBilling.tariffs.tournament_setup / 100).toFixed(2)}; later rescheduling costs $${(hostBilling.tariffs.reschedule / 100).toFixed(2)}.` : `$${(hostBilling.tariffs.spin_setup / 100).toFixed(2)}; later rescheduling costs $${(hostBilling.tariffs.reschedule / 100).toFixed(2)}.`} Manage the resource and balance in Marketplace.</p> : <p className="muted small">Service-credit billing is inactive on this installation; legacy hosting remains available.</p>}
               {hostListError && <p className="mg-error" role="alert">{hostListError} <button type="button" className="mg-link" onClick={() => setHostAccessRetry((value) => value + 1)}>Try again</button></p>}
               {hostKind === 'cash' && (<>
-                <p className="muted small" style={{ marginTop: 0 }}>Local play-money table. Only you and players with the table link can see it.</p>
+                <p className="muted small" style={{ marginTop: 0 }}>{hostUsesChips ? 'Organizer Cash Chips only. Rake is deducted from eligible pots and burned; the cap is per hand.' : 'Local play-money table.'} Only you and players with the table link can see it.</p>
                 {myHosts.some((entry) => entry.game !== 'spingold') && (
                   <div className="host-list">
                     <div className="panel-title" style={{ marginBottom: 4 }}>Your private tables</div>
                     {myHosts.filter((entry) => entry.game !== 'spingold').map((t) => (
                       <div key={t.id} className="host-row">
-                        <div><b>{t.name}</b><span>{t.game} · {t.seats}-max · {money(t.sb)}/{money(t.bb)}</span></div>
+                        <div><b>{t.name}</b><span>{t.game} · {t.seats}-max · {t.chip_economy ? `${cashChips(t.sb)}/${cashChips(t.bb)}` : `${money(t.sb)}/${money(t.bb)}`}</span></div>
                         <button className="btn btn-ghost btn-sm" onClick={() => copyHostLink(t.id)}>Copy invite</button>
                         <button className="btn btn-ghost btn-sm" onClick={() => deleteHost(t.id)}>Delete</button>
                       </div>
@@ -730,13 +732,17 @@ export function Lobby() {
                 <div className="grid g2" style={{ marginTop: 10 }}>
                   <div><label className="admin-label">Game</label><select className="admin-select" style={{ width: '100%' }} value={hostForm.game} onChange={(e) => setHostForm({ ...hostForm, game: e.target.value })}><option value="holdem">No-limit Hold'em</option><option value="omaha">PLO 4</option><option value="omaha5">PLO 5</option><option value="omaha6">PLO 6</option><option value="shortdeck">Short Deck</option></select></div>
                   <div><label className="admin-label">Seats</label><input className="admin-input" type="number" min={2} max={9} value={hostForm.seats} onChange={(e) => setHostForm({ ...hostForm, seats: Number(e.target.value) })} /></div>
-                  <div><label className="admin-label">Small blind (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.sb} onChange={(e) => setHostForm({ ...hostForm, sb: Number(e.target.value) })} /></div>
-                  <div><label className="admin-label">Big blind (cents)</label><input className="admin-input" type="number" min={2} value={hostForm.bb} onChange={(e) => setHostForm({ ...hostForm, bb: Number(e.target.value) })} /></div>
-                  <div><label className="admin-label">Min buy-in (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.min_buyin} onChange={(e) => setHostForm({ ...hostForm, min_buyin: Number(e.target.value) })} /></div>
-                  <div><label className="admin-label">Max buy-in (cents)</label><input className="admin-input" type="number" min={1} value={hostForm.max_buyin} onChange={(e) => setHostForm({ ...hostForm, max_buyin: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Small blind ({hostUsesChips ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={1} value={hostForm.sb} onChange={(e) => setHostForm({ ...hostForm, sb: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Big blind ({hostUsesChips ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={2} value={hostForm.bb} onChange={(e) => setHostForm({ ...hostForm, bb: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Min buy-in ({hostUsesChips ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={1} value={hostForm.min_buyin} onChange={(e) => setHostForm({ ...hostForm, min_buyin: Number(e.target.value) })} /></div>
+                  <div><label className="admin-label">Max buy-in ({hostUsesChips ? 'Cash Chips' : 'cents'})</label><input className="admin-input" type="number" min={1} value={hostForm.max_buyin} onChange={(e) => setHostForm({ ...hostForm, max_buyin: Number(e.target.value) })} /></div>
+                  {hostUsesChips && <>
+                    <div><label className="admin-label" htmlFor="host-rake-percent">Rake (%)</label><select id="host-rake-percent" className="admin-select" value={hostRake.rakePercent} onChange={(e) => setHostRake({ ...hostRake, rakePercent: Number(e.target.value) })}>{[2, 3, 4, 5].map((rate) => <option key={rate} value={rate}>{rate}%</option>)}</select></div>
+                    <div><label className="admin-label" htmlFor="host-rake-cap">Rake cap per hand (Cash Chips)</label><input id="host-rake-cap" className="admin-input" type="number" min={1} max={9000000000} step={1} required value={hostRake.rakeCap} onChange={(e) => setHostRake({ ...hostRake, rakeCap: Number(e.target.value) })} /></div>
+                  </>}
                   <label className="switch-row" style={{ gridColumn: '1 / -1' }}><span>Bomb pot — everyone antes, action starts on the flop</span><input type="checkbox" checked={hostForm.bombPot} onChange={(e) => setHostForm({ ...hostForm, bombPot: e.target.checked })} /></label>
                 </div>
-                <p className="muted small">Stakes are stored in cents. Example: 200/400 = $2/$4. Max buy-in must be at least the minimum.</p>
+                <p className="muted small">{hostUsesChips ? 'Stakes, buy-ins and the rake cap use whole Cash Chips belonging to this organizer.' : 'Stakes are stored in cents. Example: 200/400 = $2/$4.'} Max buy-in must be at least the minimum.</p>
               </>)}
 
               {hostKind === 'tournament' && (<>

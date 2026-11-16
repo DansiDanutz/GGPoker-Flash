@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 import puppeteer from 'puppeteer-core';
 import { startServer } from '../server/test-helpers.js';
 
@@ -66,6 +67,48 @@ try {
   await subscribe.asElement().click(); await subscribe.dispose();
   await ownerPage.waitForFunction((scope) => document.querySelector(scope)?.textContent.includes('Abonamentul a fost actualizat.'), {}, billing);
   await click(ownerPage, panel, 'Actualizează'); await text(ownerPage, '100,000 Cash Chips');
+  await ownerPage.goto(`${srv.base}/#/?game=holdem`);
+  await ownerPage.waitForSelector('.host-table-btn'); await ownerPage.click('.host-table-btn');
+  await ownerPage.waitForSelector('#host-rake-percent');
+  assert.deepEqual(await ownerPage.$$eval('#host-rake-percent option', (options) => options.map((option) => option.value)), ['2', '3', '4', '5']);
+  await input(ownerPage, '.modal input[maxlength="40"]', 'Browser Rake Cash');
+  await ownerPage.select('#host-rake-percent', '3');
+  const createCap = await ownerPage.$('#host-rake-cap'); await createCap.click({ clickCount: 3 }); await createCap.press('Backspace'); await createCap.type('25');
+  await click(ownerPage, '.modal-foot', 'Create table');
+  await ownerPage.waitForSelector('.mp-rake-form');
+  let cash = check(await srv.get('/api/marketplace/billing/me', { token: owner.token })).tables.find((table) => table.name === 'Browser Rake Cash');
+  assert.equal(cash.rakePercent, 3); assert.equal(cash.rakeCap, 25);
+  await ownerPage.select('.mp-rake-form select', '2');
+  const editCap = await ownerPage.$('.mp-rake-form input'); await editCap.click({ clickCount: 3 }); await editCap.press('Backspace'); await editCap.type('7');
+  await click(ownerPage, '.mp-rake-form', 'Salvează rake');
+  await ownerPage.waitForFunction((scope) => document.querySelector(scope)?.textContent.includes('Rake-ul a fost salvat.'), {}, billing);
+  await ownerPage.reload(); await ownerPage.waitForSelector('.mp-rake-form');
+  assert.equal(await ownerPage.$eval('.mp-rake-form select', (el) => el.value), '2');
+  assert.equal(await ownerPage.$eval('.mp-rake-form input', (el) => el.value), '7');
+  // Fixture-only legacy hours: real payment and checkout services are never contacted.
+  const fixtureDb = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
+  try {
+    for (let i = 1; i <= 50; i++) fixtureDb.prepare("INSERT INTO organizer_billing_ledger(user_id,kind,amount_cents,reference,resource_id,created_at) VALUES (?,'cash_hour',-500,?,'historical-fixture',datetime('now'))").run(owner.user.id, `browser-historical-hour-${i}`);
+  } finally { fixtureDb.close(); }
+  await ownerPage.reload(); await ownerPage.waitForSelector('[aria-label="Tarif orar Cash"]');
+  const formattedFour = new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'USD' }).format(4);
+  assert.match(await ownerPage.$eval('[aria-label="Tarif orar Cash"]', (el) => el.textContent), /Ore plătite: 50/);
+  await click(ownerPage, billing, `Pornește (${formattedFour})`);
+  await ownerPage.waitForFunction(() => document.querySelector('.mp-rake-form select')?.disabled);
+  let billingAccount = check(await srv.get('/api/marketplace/billing/me', { token: owner.token }));
+  assert.equal(billingAccount.cash_usage.paid_hours, 51);
+  assert.equal(billingAccount.ledger.find((entry) => entry.kind === 'cash_hour').amount_cents, -400);
+  await click(ownerPage, billing, 'Oprește');
+  await ownerPage.waitForFunction(() => document.querySelector('.mp-rake-form select')?.disabled === false);
+  await ownerPage.setViewport({ width: 390, height: 844 });
+  assert.ok(await ownerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Rake controls overflow mobile width');
+  await ownerPage.screenshot({ path: path.join(artifacts, 'organizer-rake-mobile.png'), fullPage: true });
+  await ownerPage.setViewport({ width: 1280, height: 1000 });
+  await ownerPage.goto(`${srv.base}/#/table/${cash.id}`);
+  await ownerPage.waitForFunction(() => [...document.querySelectorAll('.table-topbar .pill')].some((el) => el.textContent.includes('Rake 2%') && el.textContent.includes('7 Cash Chips/hand')));
+  await ownerPage.screenshot({ path: path.join(artifacts, 'organizer-rake-table.png'), fullPage: true });
+  await ownerPage.goto(`${srv.base}/marketplace`); await ownerPage.waitForSelector(panel);
+  console.log('PASS Cash rake creation/edit/persistence, table disclosure, mobile layout and discounted hour 51 at $4 in Chrome');
   await click(ownerPage, panel, 'Cumpără pachete'); await text(ownerPage, '110,000 Cash Chips');
   await input(ownerPage, `${panel} form:nth-of-type(2) input[type=number]:first-of-type`, recipient.user.id);
   const transferInputs = await ownerPage.$$(`${panel} form:nth-of-type(2) input`);

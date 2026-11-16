@@ -69,6 +69,17 @@ test('rake is floored at 5% and capped by rakeCap (default 300)', () => {
   assert.equal(zero.computeRake(10000), 300);
 });
 
+test('each organizer rake percentage floors whole chips and respects the per-hand cap and no-flop rule', () => {
+  for (const rakePercent of [2, 3, 4, 5]) {
+    const table = tableWith([player(1, 'A', 1000, 0, [])], { seats: 1, rakePercent, rakeCap: 70 });
+    assert.equal(table.computeRake(1010), rakePercent * 10);
+    assert.equal(table.computeRake(10000), 70);
+    assert.equal(table.rakeFor(1000), 0);
+    table.board = ['As', 'Kh', '2d'].map(C);
+    assert.equal(table.rakeFor(1000), rakePercent * 10);
+  }
+});
+
 test('showdown builds side pots and conserves chips', () => {
   const p1 = player(1, 'Short', 1000, 300, ['As', 'Ks'].map(C));
   const p2 = player(2, 'Big', 1000, 1000, ['Ah', 'Ad'].map(C));

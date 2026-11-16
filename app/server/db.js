@@ -294,6 +294,8 @@ function init() {
   try { db.exec('ALTER TABLE tables ADD COLUMN bomb_pot INTEGER DEFAULT 0'); } catch { /* already exists */ }
   // Owner-set seconds per decision (null = default 15 s).
   try { db.exec('ALTER TABLE tables ADD COLUMN action_seconds INTEGER'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tables ADD COLUMN rake_percent INTEGER CHECK(rake_percent IN (2,3,4,5))'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE tables ADD COLUMN rake_cap INTEGER CHECK(rake_cap BETWEEN 1 AND 9000000000)'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE reports ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE hands ADD COLUMN hand_id TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE hands ADD COLUMN meta TEXT'); } catch { /* already exists */ }

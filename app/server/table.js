@@ -2097,6 +2097,7 @@ export class PokerTable {
       maxRaiseTo: this.maxRaiseToFor(viewerId),
       raiseLocked: this.raiseLockedFor(viewerId),
       rake: this.rake,
+      ...(this.cfg.chip_economy && this.cfg.private && !this.tournament && !this.spin ? { rakePercent: this.rakePercent, rakeCap: this.rakeCap } : {}),
       actionTimeMs: this.actionTimeMs,
       actor: this.actor,
       actionEndsAt: this.actionEndsAt,

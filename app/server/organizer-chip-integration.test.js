@@ -92,7 +92,7 @@ test('real server integrates enforced billing, scoped chips, events, buybacks, a
     assert.equal(wallet((await srv.get(`${CHIPS}/me`, { token: owner.token })).data, owner.user.id), ownerBeforeBuyback + 1000);
 
     const cash = await postOk(srv, '/api/tables/host', owner.token, {
-      name: 'Cash Chip Integration Table', game: 'holdem', seats: 3, sb: 50, bb: 100, min_buyin: 4000, max_buyin: 10000, idempotencyKey: 'chip-cash-1',
+      name: 'Cash Chip Integration Table', game: 'holdem', seats: 3, sb: 50, bb: 100, min_buyin: 4000, max_buyin: 10000, rakePercent: 3, rakeCap: 4, idempotencyKey: 'chip-cash-1',
     });
     await postOk(srv, `${BILLING}/cash/${cash.id}/start`, owner.token, { idempotencyKey: 'chip-cash-start' });
     const emptySocket = srv.socket(unfunded.token); await emptySocket.opened;
@@ -128,7 +128,9 @@ test('real server integrates enforced billing, scoped chips, events, buybacks, a
     firstSocket.ws.on('message', act(firstSocket)); secondSocket.ws.on('message', act(secondSocket));
     act(firstSocket)(Buffer.from(JSON.stringify(pendingState))); act(secondSocket)(Buffer.from(JSON.stringify(secondLive)));
     const settled = await firstSocket.next((message) => message.type === 'state' && message.state.id === cash.id && message.state.handNo === live.state.handNo && message.state.street === 'ended', 15000);
-    assert.ok(settled.state.rake > 0, JSON.stringify(settled.state));
+    assert.equal(settled.state.rakePercent, 3);
+    assert.equal(settled.state.rakeCap, 4);
+    assert.equal(settled.state.rake, 4, 'the configured cap limits the raked 200-chip hand');
     const rakeJournal = db.prepare("SELECT amount FROM organizer_chip_journals WHERE organizer_id=? AND kind='rake' AND reference=?").get(owner.user.id, `hand:${settled.state.handId}:rake`);
     assert.equal(rakeJournal.amount, settled.state.rake);
     const settledEscrow = db.prepare("SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key=?").get(owner.user.id, `table:${cash.id}`).balance;
@@ -144,6 +146,10 @@ test('real server integrates enforced billing, scoped chips, events, buybacks, a
     const dataDir = srv.dataDir; db.close(); db = null; await srv.stop();
     srv = await startServer({ dataDir, env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_ORGANIZER_CHIPS: 'enforce' } });
     db = new DatabaseSync(path.join(dataDir, 'ggpoker.db'));
+    const restoredSocket = srv.socket(first.token); await restoredSocket.opened;
+    restoredSocket.send({ type: 'join_table', tableId: cash.id, observe: true });
+    await restoredSocket.next((message) => message.type === 'state' && message.state.id === cash.id && message.state.rakePercent === 3 && message.state.rakeCap === 4);
+    await restoredSocket.close();
     for (const session of settledSessions) assert.equal(db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key=?').get(owner.user.id, `wallet:${session.user_id}`).balance, walletsBeforeRestart.get(session.user_id) + session.held);
     assert.equal(db.prepare("SELECT COUNT(*) count FROM organizer_chip_sessions WHERE organizer_id=? AND table_id=? AND status='open'").get(owner.user.id, cash.id).count, 0);
     const afterRecovery = db.prepare("SELECT account_key,balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key IN (?,?) ORDER BY account_key").all(owner.user.id, `wallet:${first.user.id}`, `wallet:${second.user.id}`);

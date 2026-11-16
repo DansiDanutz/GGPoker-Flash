@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Service credits are separate from poker chips and publisher commission credits.
-export const ORGANIZER_TARIFFS = Object.freeze({ membership: 900, cash_setup: 1000, tournament_setup: 500, spin_setup: 300, reschedule: 100, cash_hour: 500, cash_start: 500 });
+export const ORGANIZER_TARIFFS = Object.freeze({ membership: 900, cash_setup: 1000, tournament_setup: 500, spin_setup: 300, reschedule: 100, cash_hour: 500, cash_start: 500,
+  cash_hour_tiers: Object.freeze([
+    { through: 50, cents: 500 }, { through: 100, cents: 400 }, { through: 200, cents: 300 },
+    { through: 500, cents: 200 }, { through: null, cents: 100 },
+  ].map(Object.freeze)),
+});
 const HOUR = 3600000;
 const MAX_CENTS = 9_000_000_000;
 function fail(message, status = 400, code = 'organizer_billing_invalid') {
@@ -43,6 +48,7 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     );
     CREATE TRIGGER IF NOT EXISTS organizer_billing_ledger_no_update BEFORE UPDATE ON organizer_billing_ledger BEGIN SELECT RAISE(ABORT,'immutable billing ledger'); END;
     CREATE TRIGGER IF NOT EXISTS organizer_billing_ledger_no_delete BEFORE DELETE ON organizer_billing_ledger BEGIN SELECT RAISE(ABORT,'immutable billing ledger'); END;
+    CREATE INDEX IF NOT EXISTS organizer_billing_paid_hours ON organizer_billing_ledger(user_id,kind);
   `);
   const stamp = () => new Date(now()).toISOString();
   // Restarted servers never charge for hours when they could not serve games.
@@ -74,7 +80,17 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
   }
   function account(id) {
     user(id);
-    return { mode, balance_cents: balance(id), memberships: { organizer: access(id, 'organizer'), contributor: access(id, 'contributor') } };
+    return { mode, balance_cents: balance(id), cash_usage: cashUsage(id), memberships: { organizer: access(id, 'organizer'), contributor: access(id, 'contributor') } };
+  }
+  function cashUsage(id) {
+    // The immutable ledger also includes hours paid before tiered pricing launched.
+    const paid_hours = db.prepare("SELECT COUNT(*) n FROM organizer_billing_ledger WHERE user_id=? AND kind='cash_hour' AND amount_cents<0").get(id).n;
+    const next_hour = paid_hours + 1;
+    return { paid_hours, next_hour, next_hour_cents: ORGANIZER_TARIFFS.cash_hour_tiers.find((tier) => tier.through === null || next_hour <= tier.through).cents };
+  }
+  function chargeCashHour(id, reference, tableId) {
+    const usage = cashUsage(id);
+    debit(id, usage.next_hour_cents, 'cash_hour', reference, tableId, { paid_hour: usage.next_hour, rate_cents: usage.next_hour_cents });
   }
   function journal(id, kind, amount, reference, resource, metadata = {}) {
     db.prepare('INSERT INTO organizer_billing_ledger(user_id,kind,amount_cents,reference,resource_id,metadata,created_at) VALUES (?,?,?,?,?,?,?)')
@@ -217,7 +233,7 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     if (session && Date.parse(session.paid_until) > time) {
       db.prepare('UPDATE organizer_cash_sessions SET active=1 WHERE user_id=? AND table_id=?').run(userId, tableId);
     } else {
-      debit(userId, ORGANIZER_TARIFFS.cash_hour, 'cash_hour', `cash:${userId}:${k}`, tableId);
+      chargeCashHour(userId, `cash:${userId}:${k}`, tableId);
       const paid = new Date(time + HOUR).toISOString();
       db.prepare('INSERT INTO organizer_cash_sessions VALUES (?,?,1,?,?,?) ON CONFLICT(table_id) DO UPDATE SET user_id=excluded.user_id,active=1,paid_until=excluded.paid_until,next_charge_at=excluded.next_charge_at,started_at=excluded.started_at').run(userId, tableId, paid, paid, stamp());
     }
@@ -232,19 +248,19 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     if (!session?.active) return false;
     const paid = Date.parse(session.paid_until);
     const eligible = activeUser(session.user_id) && access(session.user_id, 'organizer').active;
-    if (!eligible || !Number.isFinite(paid) || time - paid >= HOUR || (paid <= time && balance(session.user_id) < ORGANIZER_TARIFFS.cash_hour)) {
+    if (!eligible || !Number.isFinite(paid) || time - paid >= HOUR || (paid <= time && balance(session.user_id) < cashUsage(session.user_id).next_hour_cents)) {
       db.prepare('UPDATE organizer_cash_sessions SET active=0 WHERE table_id=?').run(session.table_id);
       return false;
     }
     if (paid > time) return true;
-    debit(session.user_id, ORGANIZER_TARIFFS.cash_hour, 'cash_hour', `cash-boundary:${session.table_id}:${session.paid_until}`, session.table_id);
+    chargeCashHour(session.user_id, `cash-boundary:${session.table_id}:${session.paid_until}`, session.table_id);
     const until = new Date(paid + HOUR).toISOString();
     db.prepare('UPDATE organizer_cash_sessions SET paid_until=?,next_charge_at=? WHERE table_id=?').run(until, until, session.table_id);
     return true;
   }
   function tickCash() {
     if (mode !== 'enforce') return;
-    transaction(db, () => { for (const session of db.prepare('SELECT * FROM organizer_cash_sessions WHERE active=1').all()) renew(session, now()); });
+    transaction(db, () => { for (const session of db.prepare('SELECT * FROM organizer_cash_sessions WHERE active=1 ORDER BY paid_until,table_id').all()) renew(session, now()); });
   }
   function canDeal(tableId) {
     if (mode !== 'enforce') return true;
