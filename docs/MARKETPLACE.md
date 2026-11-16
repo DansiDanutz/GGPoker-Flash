@@ -138,3 +138,5 @@ rejected by the existing network guard.
 ## Organiser tournaments
 
 See [Tournament Manager](TOURNAMENT_MANAGER.md) for setup costs, game terms, scoped tickets, payouts, cancellation and recovery.
+
+Spin & Go setup, funded prizes and transferable entry tickets: [Spin Manager](SPIN_MANAGER.md).

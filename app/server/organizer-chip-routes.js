@@ -7,7 +7,7 @@ function fields(body, allowed) {
   return body;
 }
 
-export function createOrganizerChipRoutes({ db, chips, events, spin, billing, json, requireUser, requireAdmin, readBody, mode, prepareSpin, onEventResolved }) {
+export function createOrganizerChipRoutes({ db, chips, events, spin, spinTickets, billing, json, requireUser, requireAdmin, readBody, mode, prepareSpin, onEventResolved }) {
   return async (req, res, url) => {
     const path = url.pathname;
     const adminMatch = path.match(/^\/api\/admin\/marketplace\/chips\/buybacks\/([^/]+)\/resolve$/);
@@ -66,10 +66,19 @@ export function createOrganizerChipRoutes({ db, chips, events, spin, billing, js
       json(res, 200, { mode, service_billing: billing.account(user.id), balances: chips.account(user.id), ...(db ? {
         organizer_supply: chips.supply(user.id), grants: db.prepare('SELECT reference,available_at,status FROM organizer_chip_grants WHERE organizer_id=? ORDER BY available_at DESC LIMIT 100').all(user.id),
         tables: db.prepare("SELECT id,name,game,min_buyin FROM tables WHERE owner_id=? AND chip_economy=1 AND game='spingold'").all(user.id).map((t) => ({ ...t, activeRound: spin.currentRound(t.id), maximumReserve: t.min_buyin * 20000 }))
-      } : {}), ...events.list(user.id), tournaments: events.eligibleTournaments(user.id) }); return true;
+      } : {}), ...events.list(user.id), spinTickets: spinTickets?.list(user.id) || [], tournaments: events.eligibleTournaments(user.id) }); return true;
     }
     if (req.method !== 'POST') fail('Method not allowed.', 405);
     if (mode !== 'enforce') fail('Organizer Cash Chips are not active on this installation.', 409);
+    if (path === '/api/marketplace/chips/spin-tickets') {
+      const body = fields(await readBody(req), ['tableId', 'key']);
+      json(res, 200, spinTickets.issue({ userId: user.id, ...body })); return true;
+    }
+    const ticketAction = path.match(/^\/api\/marketplace\/chips\/spin-tickets\/([^/]+)\/(transfer|refund)$/);
+    if (ticketAction) {
+      const body = fields(await readBody(req), ticketAction[2] === 'transfer' ? ['toUserId', 'key'] : []);
+      json(res, 200, spinTickets[ticketAction[2]]({ userId: user.id, ticketId: decodeURIComponent(ticketAction[1]), ...body })); return true;
+    }
     const spinMatch = path.match(/^\/api\/marketplace\/chips\/spin\/([^/]+)\/(start|cancel)$/);
     if (spinMatch) {
       fields(await readBody(req), []);

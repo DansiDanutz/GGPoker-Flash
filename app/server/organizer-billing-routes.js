@@ -18,9 +18,11 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
     table_id TEXT PRIMARY KEY REFERENCES tables(id), start_at TEXT NOT NULL, started_at TEXT
   )`);
   const resources = (userId) => ({
-    tables: db.prepare('SELECT id,name,game,private,owner_id,chip_economy,rake_percent,rake_cap FROM tables WHERE private=1 AND play_money=0 AND owner_id=?').all(userId).map((row) => ({
+    tables: db.prepare('SELECT id,name,game,private,owner_id,chip_economy,rake_percent,rake_cap,min_buyin,seats FROM tables WHERE private=1 AND play_money=0 AND owner_id=?').all(userId).map((row) => ({
       ...row, session: row.game === 'spingold' ? null : billing.cashSession(userId, row.id),
       ...cashRakeConfig(row, getSetting),
+      spinRound: row.game === 'spingold' ? db.prepare('SELECT id,state,max_reserve,outcome FROM organizer_chip_spin_rounds WHERE table_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1').get(row.id) || null : null,
+      occupied: liveTables.get(row.id)?.table?.occupiedSeats().length || 0,
       schedule: db.prepare('SELECT start_at,started_at FROM organizer_spin_schedule WHERE table_id=?').get(row.id) || null,
     })),
     tournaments: db.prepare('SELECT id,name,start_at,status,format,mode,buyin,fee,starting_stack,blind_speed,late_reg,max_players,entrants,bounty,chip_economy FROM tournaments WHERE private=1 AND play_money=0 AND owner_id=?').all(userId),

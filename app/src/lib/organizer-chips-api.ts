@@ -5,7 +5,8 @@ export type ChipBalance = { organizer_id: number; balance: number };
 export type ChipTicket = { id: string; organizer_id: number; tournament_id: string; holder_id: number; price: number; buyin: number; fee: number; starting_stack: number; state: 'issued' | 'redeemed' | 'consumed' | 'refunded' };
 export type ChipBuyback = { id: string; organizer_id: number; requester_id: number; chips: number; payment_amount: string; payment_currency: string; payment_details: string; state: 'requested' | 'reported' | 'paid' | 'cancelled' | 'rejected' | 'disputed'; receipt?: string; report_amount?: string; report_currency?: string; report_network?: string; report_details?: string };
 export type ChipTournament = { id: string; name: string; owner_id: number; buyin: number; fee: number; starting_stack: number; mode: string; start_at: string };
-export type ChipAccount = { mode: 'off' | 'enforce'; balances: ChipBalance[]; tickets: ChipTicket[]; buybacks: ChipBuyback[]; tournaments: ChipTournament[]; organizer_supply?: unknown; grants?: unknown; tables?: Array<{ id: string; name: string; game: string; activeRound?: { state?: string } | null; maximumReserve?: number }> };
+export type SpinTicket = { id: string; organizer_id: number; table_id: string; holder_id: number; price: number; state: 'issued' | 'consumed' | 'refunded' };
+export type ChipAccount = { mode: 'off' | 'enforce'; balances: ChipBalance[]; spinTickets: SpinTicket[]; tickets: ChipTicket[]; buybacks: ChipBuyback[]; tournaments: ChipTournament[]; organizer_supply?: unknown; grants?: unknown; tables?: Array<{ id: string; name: string; game: string; activeRound?: { state?: string } | null; maximumReserve?: number }> };
 
 async function request<T>(path = '', body?: unknown): Promise<T> {
   const response = await fetch(`/api/marketplace/chips${path}`, { method: body === undefined ? 'GET' : 'POST', headers: { authorization: `Bearer ${getToken()}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -24,6 +25,9 @@ export const organizerChipsApi = {
   requestBuyback: (body: { organizerId: number; amount: number; paymentAmount: string; paymentCurrency: string; paymentDetails: string; key: string }) => request('/buybacks', body),
   buyback: (id: string, action: 'confirm' | 'cancel' | 'reject', body: object = {}) => request(`/buybacks/${encodeURIComponent(id)}/${action}`, body),
   reportBuyback: (id: string, body: { receipt: string; paymentAmount: string; paymentCurrency: string; paymentNetwork: string; paymentDetails: string }) => request(`/buybacks/${encodeURIComponent(id)}/report`, body),
+  buySpinTicket: (tableId: string, key: string) => request('/spin-tickets', { tableId, key }),
+  transferSpinTicket: (id: string, toUserId: number, key: string) => request(`/spin-tickets/${encodeURIComponent(id)}/transfer`, { toUserId, key }),
+  refundSpinTicket: (id: string) => request(`/spin-tickets/${encodeURIComponent(id)}/refund`, {}),
   startSpin: (id: string) => request(`/spin/${encodeURIComponent(id)}/start`, {}),
   cancelSpin: (id: string) => request(`/spin/${encodeURIComponent(id)}/cancel`, {}),
 };

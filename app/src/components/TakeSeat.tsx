@@ -26,13 +26,14 @@ interface BuyInDialogProps {
   reservation: Reservation; min: number; max: number; step: number; now: number;
   /** Wallet balance in chips; the maximum never exceeds it. */
   balance?: number | null;
+  ticketValue?: number;
   /** Chips per typed display unit: 100 when amounts are shown in dollars, 1 for plain chips. */
   scale: number;
   format: (v: number) => string; onBuyIn: (amount: number) => void; onCancel: () => void;
 }
 
-export function BuyInDialog({ reservation, min, max, step, now, balance, scale, format, onBuyIn, onCancel }: BuyInDialogProps) {
-  const limits = buyInLimits(min, max, balance);
+export function BuyInDialog({ reservation, min, max, step, now, balance, ticketValue = 0, scale, format, onBuyIn, onCancel }: BuyInDialogProps) {
+  const limits = buyInLimits(min, max, ticketValue || balance);
   const [amount, setAmount] = useState(limits.min);
   const [text, setText] = useState(() => String(limits.min / scale));
   const error = buyInError(amount, limits, format);
@@ -45,6 +46,7 @@ export function BuyInDialog({ reservation, min, max, step, now, balance, scale, 
       <div className="modal buyin-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head"><h3>Buy-in · Seat {reservation.seat + 1}</h3></div>
         <div className="modal-body">
+          {ticketValue > 0 && <p>Your prepaid Spin ticket covers this entry and will be used before wallet chips. Leaving before the round starts refunds Cash Chips.</p>}
           <p className="muted small">Your seat is reserved for {secondsLeft}s.</p>
           <input type="range" aria-label="Buy-in amount" min={limits.min} max={limits.max} step={step} value={sliderValue}
             disabled={!limits.canAfford} onChange={(e) => fromSlider(Number(e.target.value))} style={{ width: '100%' }} />

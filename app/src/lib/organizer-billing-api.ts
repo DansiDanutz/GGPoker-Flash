@@ -18,6 +18,7 @@ export type BillingLedgerEntry = {
 };
 export type BillingTable = {
   id: string; name: string; game: string;
+  min_buyin: number; seats: number; occupied: number; spinRound?: { id: string; state: string; max_reserve: number; outcome: string | null } | null;
   chip_economy: number; rakePercent: number; rakeCap: number;
   session?: { active: number | boolean; paid_until: string } | null;
   schedule?: { start_at: string; started_at: string | null } | null;

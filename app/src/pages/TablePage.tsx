@@ -61,7 +61,7 @@ import FastFoldButton from '../components/table/FastFoldButton';
 import { BuyInDialog, TakeSeatControl, type Reservation } from '../components/TakeSeat';
 import { NATIVE_TABLE_WIDTH, PAYOUT_EASING, PAYOUT_FADE_MS, PAYOUT_HOLD_MS, PAYOUT_STOP_PX, PAYOUT_TRANSFER_MS, payoutShares, potOffset, stopShort, type PayoutShare } from '../game/payoutMotion';
 import { bubbleLabel, finishTitle, finishToast, ordinal, PayoutRow } from '../lib/tournamentPrizes';
-import { cashChips } from '../lib/organizer-chips-api';
+import { cashChips, organizerChipsApi } from '../lib/organizer-chips-api';
 
 type PlayerState = {
   seat: number; id?: string; nick?: string; country?: string; avatar?: string; stack?: number; bet?: number; totalBet?: number;
@@ -84,7 +84,7 @@ type TableState = {
   timeBankUsed?: number[];
   pots?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
-  walletKind?: 'organizer_chips' | 'play_money'; organizerId?: number | null; organizerBalance?: number;
+  walletKind?: 'organizer_chips' | 'play_money'; organizerId?: number | null; organizerBalance?: number; spinTicketValue?: number;
   spin?: {
     multiplier: number | null;
     prize: number;
@@ -724,6 +724,8 @@ export function TablePage({ tableId }: { tableId: string }) {
   };
   const { toCall, minTo, maxTo, allInTo, canRaise } = betLimits(betCtx);
   const organizerChips = state?.walletKind === 'organizer_chips';
+  const [ticketBusy, setTicketBusy] = useState(false);
+  const ticketKeys = useRef(new Map<string, string>());
   // Organizer Cash Chips and tournament stacks are whole integers; legacy play money remains cents.
   const displayUnit = state?.tournament || organizerChips ? 1 : 100;
   const chipStep = state?.tournament || organizerChips ? 1 : Math.min(100, state?.sb || 100);
@@ -1201,7 +1203,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <span className="pill">Blinds {state ? (state.tournament ? `${state.sb}/${state.bb}` : `${money(state.sb)}/${money(state.bb)}`) : ''}</span>
         <span className="pill">Hand #{state?.handNo ?? '-'}</span>
         {state?.rakePercent != null && state.rakeCap != null && <span className="pill">Rake {state.rakePercent}% · Cap {cashChips(state.rakeCap)}/hand</span>}
-        {state?.spin?.multiplier && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {money(state.spin.prize)}</span>}
+        {state?.spin?.multiplier && <span className="pill" style={{ color: '#ffd98a' }}>Spin {state.spin.multiplier}x · {organizerChips ? cashChips(state.spin.prize) : money(state.spin.prize)}</span>}
         {state?.tournament && <span className="pill" style={{ color: '#ffd98a' }}>Level {state.tournament.level}{state.tournament.nextBlindAt ? ` · ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000 / 60))}m ${Math.max(0, Math.floor((state.tournament.nextBlindAt - now) / 1000) % 60).toString().padStart(2, '0')}s` : ''} · Prize {money(state.tournament.prizePool)}</span>}
         {state?.tournament && (state.tournament.tables || 1) > 1 && (
           <span className="pill" style={{ color: '#ffd98a' }}>
@@ -1213,6 +1215,16 @@ export function TablePage({ tableId }: { tableId: string }) {
         {state?.bombPot && <span className="pill" style={{ color: '#ffd98a' }}>BOMB POT</span>}
         <span className={`pill`} style={{ color: connected ? '#7fe0a0' : '#ff9a9a' }}>{connected ? 'Connected' : 'Reconnecting…'}</span>
         {observing && <span className="pill" style={{ color: '#9ad0ff' }}>Spectating</span>}
+        {organizerChips && state?.spin && !me && <>
+          {state.spinTicketValue ? <span className="pill">Prepaid entry ticket: {cashChips(state.spinTicketValue)}. Used when you take a seat.</span> : <button className="btn btn-dark btn-sm" disabled={ticketBusy} onClick={async () => {
+            if (ticketBusy || !tableId || !window.confirm(`Buy a prepaid entry ticket for ${cashChips(state.minBuyin)} at this table? It does not reserve a seat.`)) return;
+            const key = ticketKeys.current.get(tableId) || crypto.randomUUID(); ticketKeys.current.set(tableId, key); setTicketBusy(true);
+            try { await organizerChipsApi.buySpinTicket(tableId, key); ticketKeys.current.delete(tableId); toast({ kind: 'success', title: 'Spin ticket purchased — take a seat to use it' }); }
+            catch (error) { toast({ kind: 'error', title: error instanceof Error ? error.message : 'Ticket purchase failed' }); }
+            finally { setTicketBusy(false); }
+          }}>Buy prepaid Spin ticket</button>}
+        </>}
+
         <div className="spacer" />
         <button type="button" className="table-sound-btn" aria-label="Sound" aria-pressed={sound.enabled} data-tip="Sound" onClick={() => sound.setEnabled(!sound.enabled)}>{sound.enabled ? '🔊' : '🔇'}</button>
         <button type="button" className="table-history-btn" aria-label="Hand history" data-tip="Hand history" onClick={() => navigate('/hand-history')}><img src="/assets/table/ui/ic-history.webp" alt="" /></button>
@@ -1847,10 +1859,10 @@ export function TablePage({ tableId }: { tableId: string }) {
             ))}
             <div className="spin-center">{state.spin.multiplier}x</div>
           </div>
-          <div className="spin-prize">Prize pool <b>{money(state.spin.prize)}</b></div>
+          <div className="spin-prize">Prize pool <b>{organizerChips ? cashChips(state.spin.prize) : money(state.spin.prize)}</b></div>
           <div className="spin-sub">
             {state.spin.payouts?.some((p, i) => i > 0 && p > 0)
-              ? state.spin.payouts.filter((p) => p > 0).map((p, i) => `${ordinal(i + 1)} ${money(p)}`).join(' · ')
+              ? state.spin.payouts.filter((p) => p > 0).map((p, i) => `${ordinal(i + 1)} ${organizerChips ? cashChips(p) : money(p)}`).join(' · ')
               : `Good luck — ${state.seats}-handed winner takes all`}
           </div>
         </div>
@@ -1872,7 +1884,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <div className="spin-overlay win">
           <div className="spin-title">WINNER</div>
           <div className="spin-center" style={{ width: 150, height: 150, fontSize: 38 }}>{spinWin.multiplier}x</div>
-          <div className="spin-prize">{spinWin.nick} wins <b>{money(spinWin.prize)}</b></div>
+          <div className="spin-prize">{spinWin.nick} wins <b>{organizerChips ? cashChips(spinWin.prize) : money(spinWin.prize)}</b></div>
           <button className="btn btn-gold" style={{ marginTop: 18 }} onClick={() => navigate('/')}>Back to lobby</button>
         </div>
       )}
@@ -1945,7 +1957,7 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {reservation && state && (
         <BuyInDialog reservation={reservation} now={serverNow} format={chip}
-          balance={organizerChips ? state.organizerBalance : user?.balance} scale={state.tournament || organizerChips ? 1 : 100}
+          ticketValue={state.spinTicketValue} balance={organizerChips ? state.organizerBalance : user?.balance} scale={state.tournament || organizerChips ? 1 : 100}
           min={state.minBuyin || state.bb * 20} max={state.maxBuyin || state.bb * 100} step={Math.max(chipStep, state.bb || chipStep)}
           onCancel={() => { send({ type: 'cancel_reservation' }); setReservation(null); }}
           onBuyIn={(amount) => { send({ type: 'join_table', buyin: amount, seat: reservation.seat, observe: false, waitForBlinds: joinWaitRef.current }); setReservation(null); }} />
