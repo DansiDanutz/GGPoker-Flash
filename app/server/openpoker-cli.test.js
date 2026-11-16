@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { cp, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { access, cp, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -81,7 +81,7 @@ test('fresh clone doctor gives actionable errors; setup uses locked install and 
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test('CLI sandbox serves Play Money and stops its server when interrupted', { timeout: 40000 }, async () => {
+for (const signal of ['SIGINT', 'SIGTERM']) test(`CLI sandbox serves Play Money and cleans up on ${signal}`, { timeout: 40000 }, async () => {
   const child = spawn(process.execPath, [cli, 'sandbox'], { cwd: tmpdir(), stdio: ['ignore', 'pipe', 'pipe'] });
   const closed = once(child, 'close');
   let output = '';
@@ -103,11 +103,17 @@ test('CLI sandbox serves Play Money and stops its server when interrupted', { ti
     assert.equal(billing.mode, 'off');
     assert.equal(billing.manual_funding.enabled, false);
   } finally {
-    child.kill('SIGTERM');
+    child.kill(signal);
     const timer = setTimeout(() => child.kill('SIGKILL'), 10000);
     const [code] = await closed;
     clearTimeout(timer);
     assert.equal(code, 0, output);
   }
   await assert.rejects(fetch(url));
+  const api = output.match(/Local API: (http:\/\/127\.0\.0\.1:\d+)/)?.[1];
+  const directory = output.match(/Temporary data: ([^\n]+)/)?.[1];
+  assert.ok(api);
+  assert.ok(directory);
+  await assert.rejects(fetch(api));
+  await assert.rejects(access(directory));
 });

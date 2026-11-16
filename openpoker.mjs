@@ -40,7 +40,7 @@ export function commandPlan(command, args = [], directory = root) {
     if (!names.length) throw new Error('No server tests found. Check your OpenPoker clone.');
     for (const name of names) {
       if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.test\.js$/.test(name) || !existsSync(path.join(app, 'server', name))) {
-        throw new Error(`Test not found or invalid: ${name}. Use filenames from app/server, for example auth-account.test.js.`);
+        throw new Error(`Test not found or invalid: ${name}. Use filenames from app/server, for example account-hub.test.js.`);
       }
     }
     return node('--test', ...names.map(name => path.join('server', name)));
@@ -56,11 +56,14 @@ export function commandPlan(command, args = [], directory = root) {
   }
 }
 
-export function runChild(command, args, options) {
+export function runChild(command, args, options, signalGroup = true) {
   return new Promise((resolve, reject) => {
     // Own the child group so terminal Ctrl+C is forwarded exactly once.
     const child = spawn(command, args, { ...options, stdio: 'inherit', shell: false, detached: true });
-    const forward = signal => { if (!child.killed) child.kill(signal); };
+    const forward = signal => {
+      if (!child.pid) return;
+      try { process.kill(signalGroup ? -child.pid : child.pid, signal); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+    };
     const interrupt = () => forward('SIGINT');
     const terminate = () => forward('SIGTERM');
     process.on('SIGINT', interrupt);
@@ -101,7 +104,8 @@ export async function main(argv = process.argv.slice(2)) {
   if (command === 'dev') console.log('Normal development uses your existing local data and environment. Use sandbox for disposable Play Money testing.');
   for (const [executable, values] of plan) {
     console.log(`\nOpenPoker ${command}: ${executable === process.execPath ? 'node' : executable} ${values.join(' ')}`);
-    const code = await runChild(executable, values, { cwd: app, env: command === 'setup' ? { ...process.env, ELECTRON_SKIP_BINARY_DOWNLOAD: '1' } : process.env });
+    // The sandbox stops its own children in order; pnpm/test commands need the whole group stopped.
+    const code = await runChild(executable, values, { cwd: app, env: command === 'setup' ? { ...process.env, ELECTRON_SKIP_BINARY_DOWNLOAD: '1' } : process.env }, command !== 'sandbox');
     if (code) return code;
   }
   if (command === 'setup') console.log('\nReady. Run openpoker sandbox (or node openpoker.mjs sandbox).');

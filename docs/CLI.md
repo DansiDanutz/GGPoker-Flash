@@ -61,7 +61,7 @@ from any directory, without linking or installing a root package.
 | `sandbox` | Start the disposable Play Money browser and server on loopback ports. |
 | `dev` | Run the existing `pnpm run dev`: persistent local app data, API on 5198 and browser on 5199. It uses your environment; use `sandbox` for isolated testing. |
 | `test` | Run every `app/server/*.test.js` file with Node's test runner. |
-| `test auth-account.test.js` | Run named files from `app/server`; multiple filenames are accepted. Paths, shell patterns and runner flags are not accepted. |
+| `test account-hub.test.js` | Run named files from `app/server`; multiple filenames are accepted. Paths, shell patterns and runner flags are not accepted. |
 | `check` | Run TypeScript checking, then the complete server test suite. Stop on the first failure. |
 | `build` | Build the web bundle in `app/dist`, then verify source/license build metadata. |
 
