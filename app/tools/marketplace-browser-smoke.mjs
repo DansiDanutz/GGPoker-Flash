@@ -396,6 +396,10 @@ async function run() {
   await screenshot(owner, 'admin-access');
   completed.push('UI approval, grant/revoke and member-visible persisted status');
 
+  // Select Access explicitly instead of assuming the previous panel stays selected
+  // across the member refreshes and screenshot checks above.
+  await clickSelector(owner, '#ma-tab-access');
+  await owner.waitForSelector('.ma-grant select', { visible: true });
   const manualProducts = await owner.$$eval('.ma-grant select option', (options) => options.map((option) => option.value));
   assert.ok(manualProducts.includes(product.id), 'The existing manual service grant flow disappeared.');
   assert.ok(managementIds.every((id) => !manualProducts.includes(id)), 'Manual access offers a bypass for paid management plugins.');
