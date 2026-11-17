@@ -3930,7 +3930,7 @@ restoreRunningTournamentRooms();
 server.listen(PORT, process.env.GGPOKER_BIND || '127.0.0.1', () => {
   const port = server.address().port;
   console.log(`LISTENING ${port}`);
-  console.log(`GGPoker clone server: http://127.0.0.1:${port}`);
+  console.log(`OpenPoker server: http://127.0.0.1:${port}`);
   if (process.env.NODE_ENV === 'production' && !String(process.env.GGPOKER_ADMIN_ALLOW || '').trim()) {
     console.warn(`GGPOKER_ADMIN_ALLOW is unset; admin API limited to ${PRODUCTION_ADMIN_ALLOW_FALLBACK.join(', ')}`);
   }

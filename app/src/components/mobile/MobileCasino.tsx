@@ -8,7 +8,7 @@ import { PROMO_ART } from '../../lib/promoArt';
 
 const KIND_LABEL: Record<string, string> = { slots: 'Slots', roulette: 'Roulette', crash_win: 'Crash', blackjack: 'Blackjack' };
 
-/** Phone Casino tab, as on the GGPoker mobile lobby: hero, one row per game, then today's wins and the slots catalogue. */
+/** Phone Casino tab, in the mobile lobby: hero, one row per game, then today's wins and the slots catalogue. */
 export function MobileCasino() {
   const { navigate } = useApp();
   const [winners, setWinners] = useState<WinnerRow[]>([]);

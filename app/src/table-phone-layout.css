@@ -1,4 +1,4 @@
-/* Phone table laid out like GGPoker mobile (David's Samsung capture, 15 Nov 2026): the oval fills
+/* Phone table laid out for the mobile layout (David's Samsung capture, 15 Nov 2026): the oval fills
    the screen, the hero sits in the bottom-left corner with the cards over the portrait, one row of
    dark buttons runs along the bottom and the raise presets stack on the right above Raise. Only the
    layout follows GG; the art, colours and marks stay DanGG's own. Loaded last, so it wins over the
@@ -62,7 +62,7 @@
     grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "fold call raise";
     gap: 6px; padding: 0 6px;
   }
-  /* Buttons drawn like GGPoker mobile: flat charcoal faces, small rounded corners, no gold edge,
+  /* Buttons drawn for the mobile layout: flat charcoal faces, small rounded corners, no gold edge,
      light grey text, a faint top highlight and a soft shadow. */
   .table-screen .action-bar .main-actions .act-btn,
   .table-screen .action-bar .aof-row .act-btn,

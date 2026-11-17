@@ -8,14 +8,14 @@ import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
-const css = () => read('src/table-phone-gg.css');
+const css = () => read('src/table-phone-layout.css');
 
 test('the GG phone layout loads after every other phone rule', () => {
   const main = read('src/main.tsx');
   const at = (f) => main.indexOf(`import './${f}';`);
-  assert.ok(at('table-phone-gg.css') > 0, 'imported');
+  assert.ok(at('table-phone-layout.css') > 0, 'imported');
   for (const f of ['table-phone.css', 'table-phone-look.css', 'table-phone-seat.css', 'table-stage.css', 'table-topbar-history.css']) {
-    assert.ok(at('table-phone-gg.css') > at(f), `after ${f}`);
+    assert.ok(at('table-phone-layout.css') > at(f), `after ${f}`);
   }
 });
 

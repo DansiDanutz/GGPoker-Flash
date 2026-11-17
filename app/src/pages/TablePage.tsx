@@ -1749,7 +1749,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             ><span className="reserve-text">Call Any</span></button>
           </div>
         )}
-        {/* Betting buttons only while it is your decision (GGPoker mobile): pre-actions cover
+        {/* Betting buttons only while it is your decision (portrait layout): pre-actions cover
             the wait, and nothing shows once you are all in, folded or out of the hand. */}
         {!myTurn ? null : state?.allInOrFold ? (
           <div className="action-row aof-row">

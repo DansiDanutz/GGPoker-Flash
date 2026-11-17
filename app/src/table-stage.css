@@ -69,7 +69,7 @@
 .table-stage.stage-portrait .stage-mark { top: 58%; font-size: 10px; }
 .table-stage.stage-portrait .stage-mark b { font-size: 28px; }
 
-/* ---- Upright phones: compact GGPoker-style seats that sit on the felt ---- */
+/* ---- Upright phones: compact mobile seats that sit on the felt ---- */
 .table-screen .table-stage.stage-portrait .seat { width: 96px; gap: 0; }
 .table-screen .table-stage.stage-portrait .seat .avatar-wrap { width: 54px; height: 54px; }
 .table-screen .table-stage.stage-portrait .seat .avatar-wrap .seat-ring { width: 54px; height: 54px; }

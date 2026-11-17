@@ -1981,7 +1981,7 @@ export class PokerTable {
       return;
     }
     if (now >= this.actionEndsAt) {
-      // Facing a bet, the clock spends one Time Bank Card before folding (GGPoker auto time bank),
+      // Facing a bet, the clock spends one Time Bank Card before folding (automatic time bank),
       // once per turn.
       if (this.toCall(p) > 0 && !this.timeBankAction && this.useTimeBank(p.id).ok) return;
       // A timeout sits the player out so an absent player cannot stall the table.

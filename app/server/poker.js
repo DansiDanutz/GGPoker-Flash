@@ -1,4 +1,4 @@
-// Texas Hold'em / Omaha / Short Deck poker engine used by the local GGPoker clone.
+// Texas Hold'em / Omaha / Short Deck poker engine used by OpenPoker.
 import { randomInt } from 'node:crypto';
 
 const cryptoRng = () => randomInt(0, 2 ** 32) / 2 ** 32;
@@ -41,7 +41,7 @@ function combinations(arr, k) {
   return out;
 }
 
-// Short Deck (6+), GGPoker rules: a flush beats a full house and three of a kind
+// Configured Short Deck (6+) rules: a flush beats a full house and three of a kind
 // beats a straight (both are rarer with 36 cards). The lowest straight is A-6-7-8-9.
 const SHORT_DECK_FLUSH = 6;
 const SHORT_DECK_FULL_HOUSE = 5;

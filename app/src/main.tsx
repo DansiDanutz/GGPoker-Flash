@@ -47,7 +47,7 @@ import './table-phone-pots.css';
 import './table-phone-clock.css';
 import './table-phone-win.css';
 import './table-phone-seat.css';
-import './table-phone-gg.css';
+import './table-phone-layout.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>

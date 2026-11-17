@@ -12,7 +12,7 @@ export const PHONE_NAV: readonly PhoneNavItem[] = Object.freeze([
   { key: 'me', label: 'My Page', to: '/my-page', kind: 'avatar' },
 ]);
 
-/** Phone players land on the Poker game menu after login (as on GGPoker mobile); desktop lands on Home. */
+/** Phone players land on the Poker game menu after login (mobile navigation); desktop lands on Home. */
 export function landingRoute(phone: boolean): string {
   return phone ? '/?play=1' : '/';
 }
