@@ -8,6 +8,11 @@
 
 export const MIN_TABLE_SIZE = 3;
 
+// Both the draw and escrow validation use the same whole-chip payout tiers.
+export function mysteryBountyAmounts(base) {
+  return [0.1, 0.25, 0.5, 1, 2, 5, 10].map(tier => Math.max(1, Math.round(base * tier)));
+}
+
 /** How many tables a field of `players` needs at `seatsPerTable` seats. */
 export function tableCount(players, seatsPerTable) {
   if (players <= 0) return 0;

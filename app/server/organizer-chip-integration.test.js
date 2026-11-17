@@ -128,6 +128,12 @@ test('real server integrates enforced billing, scoped chips, events, buybacks, a
     firstSocket.ws.on('message', act(firstSocket)); secondSocket.ws.on('message', act(secondSocket));
     act(firstSocket)(Buffer.from(JSON.stringify(pendingState))); act(secondSocket)(Buffer.from(JSON.stringify(secondLive)));
     const settled = await firstSocket.next((message) => message.type === 'state' && message.state.id === cash.id && message.state.handNo === live.state.handNo && message.state.street === 'ended', 15000);
+    await firstSocket.next(message => message.type === 'event' && message.event?.type === 'chat'
+      && message.event.kind === 'dealer' && /wins /.test(message.event.message), 15000);
+    const dealerLines = db.prepare("SELECT message FROM chat_messages WHERE table_id=? AND kind='dealer'").all(cash.id).map(row => row.message);
+    assert.ok(dealerLines.some(line => /calls 50 chips/.test(line)), 'live cash actions use whole Cash Chips');
+    assert.ok(dealerLines.some(line => /wins [\d,]+ chips/.test(line)), 'live results use whole Cash Chips');
+    assert.equal(dealerLines.some(line => line.includes('$')), false, 'Cash Chips are not labelled USD');
     assert.equal(settled.state.rakePercent, 3);
     assert.equal(settled.state.rakeCap, 4);
     assert.equal(settled.state.rake, 4, 'the configured cap limits the raked 200-chip hand');

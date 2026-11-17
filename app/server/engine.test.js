@@ -657,3 +657,19 @@ test('a timeout still spends one card first, then folds and sits out (EGM round 
   assert.equal(t.seats[0].player.sittingOut, true, 'the timeout sits the player out');
   assert.equal(t.seats[0].player.timeBankCards, 1);
 });
+
+
+test('Mystery draws whole-chip tiers including a one-chip minimum', (context) => {
+  for (const [base, amounts] of [[50, [5, 13, 25, 50, 100, 250, 500]], [1, [1, 1, 1, 1, 2, 5, 10]]]) {
+    amounts.forEach((amount, index) => {
+      const table = tableWith([player(1, 'Winner', 5000, 0, []), player(2, 'Busted', 0, 0, [])],
+        { seats: 2, tournament: { prizePool: 10000, mode: 'MYSTERY', bounty: base } });
+      table.lastAggressor = 1; table.street = 'ended'; table.nextHandAt = 1;
+      const paid = [];
+      table.hooks = { onBounty: (_table, info) => paid.push(info.amount), onTournamentPayout: () => {}, onTournamentEnd: () => {} };
+      context.mock.method(Math, 'random', () => (index + 0.5) / amounts.length);
+      try { table.tick(2); } finally { context.mock.restoreAll(); }
+      assert.deepEqual(paid, [amount]);
+    });
+  }
+});

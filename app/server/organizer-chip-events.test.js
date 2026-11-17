@@ -173,3 +173,33 @@ test('paused event recovery requires an audited exact escrow allocation and cann
     assert.throws(() => f.events.resolveEvent({ ...plan, awards: [{ userId: 2, amount: 2000 }] }), /different details/);
   } finally { f.db.close(); }
 });
+
+
+test('mystery bounty tiers settle once and reconcile their prefunded reserve', () => {
+  for (const [base, amounts] of [[50, [5, 13, 25, 50, 100, 250, 500]], [1, [1, 1, 1, 1, 2, 5, 10]]]) {
+    for (const amount of amounts) {
+      const f = fixture();
+      try {
+        f.db.prepare("UPDATE organizer_chip_accounts SET balance=1000 WHERE account_key='wallet:1'").run();
+        f.db.prepare("UPDATE tournaments SET mode='MYSTERY',bounty=? WHERE id='t1'").run(base);
+        const one = f.events.issueTicket({ userId: 2, tournamentId: 't1', idempotencyKey: 'm1' });
+        const two = f.events.issueTicket({ userId: 2, tournamentId: 't1', idempotencyKey: 'm2' });
+        f.events.transferTicket({ userId: 2, ticketId: two.id, toUserId: 3, idempotencyKey: 'mx' });
+        f.events.redeemTicket({ userId: 2, ticketId: one.id });
+        f.events.redeemTicket({ userId: 3, ticketId: two.id });
+        const reserve = f.events.startEvent({ organizerId: 1, tournamentId: 't1' }).bounty_pool;
+        assert.equal(reserve, base * 20);
+        const payout = { organizerId: 1, tournamentId: 't1', userId: 2, bustedUserId: 3, amount };
+        assert.throws(() => f.events.awardBounty({ ...payout, amount: base * 10 + 1 }), error => error.code === 'bounty_amount_mismatch');
+        assert.throws(() => f.events.awardBounty({ ...payout, amount: base === 50 ? 30 : 3 }), error => error.code === 'bounty_amount_mismatch');
+        assert.equal(f.events.awardBounty(payout).applied, true);
+        assert.equal(f.events.awardBounty(payout).applied, false);
+        const other = amounts.find(value => value !== amount);
+        assert.throws(() => f.events.awardBounty({ ...payout, amount: other }), error => error.code === 'reference_conflict');
+        assert.equal(f.events.burnRemainder({ organizerId: 1, tournamentId: 't1' }).bounty_returned, reserve - amount);
+        assert.equal(f.chips.balance(1, 1), 1000 - amount);
+        assert.equal(f.db.prepare('SELECT SUM(balance) total FROM organizer_chip_accounts').get().total, 11000);
+      } finally { f.db.close(); }
+    }
+  }
+});

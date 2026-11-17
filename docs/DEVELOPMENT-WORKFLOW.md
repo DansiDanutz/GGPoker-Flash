@@ -32,6 +32,23 @@ older version does not prevent upstream development. Review migration notes,
 back up persistent data and test upgrades before changing a running installation.
 Older versions do not automatically receive new fixes or features.
 
+## Improvements versus optional alternatives
+
+A shared correction or replacement must demonstrate its benefit against the
+current behavior and pass regression tests. Maintainers approve the tradeoff;
+a contribution is not accepted just because its author calls it better.
+
+An alternative such as a table theme need not replace the default or suit every
+player. Review readability, contrast/accessibility, phone layouts, performance,
+compatibility, rights to the assets and the ability to switch safely. Approved
+alternatives can be offered as named choices with creator attribution.
+
+The intended marketplace experience is free Play Money preview, an explicit
+choice of an optional product, payment only for a configured paid offer, and
+activation with a way to switch back. This policy does not claim that a generic
+marketplace theme installer or automatic royalties already exist. Implement and
+verify those product capabilities before advertising them as available.
+
 ## DanGG development
 
 For a new developer clone (respect the machine's storage policy):
