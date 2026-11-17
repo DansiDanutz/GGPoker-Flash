@@ -908,7 +908,7 @@ function getLiveTable(id) {
           addTransaction(winner.id, info.mystery ? 'mystery_bounty' : 'bounty', share.amount,
             `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`, 'USD',
             { tournamentId: table.cfg.tournamentId || null,
-              reference: `bounty:${table.cfg.tournamentId || table.cfg.id}:${table.handNo}:${info.bustedId}`, onDuplicate: 'skip' });
+              reference: `bounty:${table.cfg.tournamentId || table.cfg.id}:${table.cfg.id}:${table.handNo}:${info.bustedId}`, onDuplicate: 'skip' });
         }
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bounty',
           `${table.cfg.name} ${share.winnerNick} ${share.amount} (${info.bustedNick})`);
