@@ -1,0 +1,75 @@
+# Paid-loop evidence (roadmap S2)
+
+Roadmap step **S2** is evidence, not code: prove in production that a played cash table
+produces a rake row, an hourly debit, a service-credit entry and a chip journal entry that
+reconcile with each other.
+
+This tool collects that evidence **read-only**. It never writes to the database and the report
+stays on the machine that runs it.
+
+## Collect
+
+On Dexter (the host with the Docker socket):
+
+```bash
+bash ~/dangro/tools/paid-loop-evidence.sh home-2-fe0ac1d0 24
+```
+
+Arguments: `[table-id] [hours]` — both optional. Without a table id it reports every organizer
+table in the window, which is the right default for a first run.
+
+The report is written to `~/paid-loop-evidence/paid-loop-<UTC stamp>.json` and includes the live
+`/healthz` payload (build commit) so the evidence cannot drift from the release it describes.
+
+## What it reads
+
+| Source | Fields |
+|---|---|
+| `tables` | organizer tables only (`owner_id IS NOT NULL`): stakes, rake percent/cap, economy |
+| `hands` | count, pot and rake parsed from each hand's `result` JSON |
+| `organizer_billing_ledger` | `credit_topup`, `membership`, `setup`, `cash_hour` rows and net debits |
+| `organizer_cash_sessions` | `active`, `paid_until`, `next_charge_at`, `started_at` |
+| `organizer_chip_journals` | per-kind counts (e.g. `seat_open`, prizes, rake) |
+| `organizer_chip_accounts` | balances per account key |
+| SQLite | `PRAGMA quick_check` |
+
+## Reading the verdict
+
+`verdict: "proven"` requires every check to pass for at least one table:
+
+- `hands_observed` — hands were played inside the window;
+- `rake_observed` — at least one hand recorded rake > 0;
+- `setup_charge` — the `$10` cash setup debit exists;
+- `hourly_charge` — at least one `cash_hour` debit (negative amount, tiered rate);
+- `seat_open` — the organizer chip journal recorded players taking seats.
+
+`blocking` lists exactly what is missing, e.g.:
+
+```json
+["home-2-fe0ac1d0: no cash_hour debit yet", "home-2-fe0ac1d0: no seat_open journal"]
+```
+
+Before the smoke test the expected output is `incomplete`, and that is correct: the table exists,
+the setup charge exists, but no hands have been played.
+
+## The run (operator)
+
+1. Pick or create one **private organizer cash table** with a known owner and record of its id.
+2. Join with two accounts (or one account plus the operator), play enough hands for at least one
+   pot to reach the rake trigger, and stay long enough for one hourly debit.
+3. Run the collector for that table and the window.
+4. Store the JSON with the receipt/screenshot evidence for that day; do **not** commit it.
+
+## Acceptance for S2
+
+- `verdict: "proven"`, or every remaining `blocking` item explained and accepted by the owner.
+- `total_rake` equals the sum of rake the operator saw in hand results.
+- Service-credit debits (setup + hours) equal the published tariff: `$10` setup, then the tiered
+  hourly rate for the organizer's lifetime paid hours.
+- Chip journal shows the seat/prize movement without a duplicate rake or double-debit.
+- `service.commit` matches the release the operator is reporting against.
+
+## Privacy
+
+The report contains aggregate money figures, organizer ids and table ids — not nicknames, hole
+cards or hand histories. Keep it local anyway; it is operational evidence, not a public dataset.
