@@ -12,7 +12,7 @@ read through an admin-only endpoint. Storage is append-only until retention prun
 |---|---|---|---|
 | `guest_joined` | a guest account is created | `source` | human |
 | `account_created` | a registration succeeds | `source` | human |
-| `hand_completed` | a completed hand is persisted | `table_id`, `pot`, `rake` | bot only when every participant is a bot; mixed tables count as human |
+| `hand_completed` | a completed hand is persisted | `table_id`, `pot`, `rake` | bot only when every hand participant is a bot; mixed participating hands count as human |
 | `checkout_started` | a checkout begins | `product_id`, `amount_cents` | human |
 | `entitlement_activated` | a purchase unlocks access | `product_id` | human |
 | `renewal_completed` | a subscription renews | `product_id` | human |
@@ -28,7 +28,7 @@ instrumented (S9).
   120 characters; free text, cards, credentials and nested objects cannot enter by accident.
 - **Recording never throws.** A failed insert is ignored so analytics cannot break gameplay.
 - **Every summary splits human and bot** (`is_bot`). `hand_completed` is marked bot only when
-  every participant in the hand is a bot; a mixed table counts as human. Human activity must
+  every participant in the hand is a bot; a mixed participating hand counts as human. Occupied seats explicitly marked `inHand: false` are excluded; folded participants remain included. Human activity must
   never be inflated by bot tables.
 - **No card content, hole cards, passwords or emails** are recorded. Hand properties are aggregate:
   table id, pot, rake.

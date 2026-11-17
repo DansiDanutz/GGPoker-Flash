@@ -27,15 +27,15 @@ The report is written to `~/paid-loop-evidence/paid-loop-<UTC stamp>.json` and i
 |---|---|
 | `tables` | organizer tables only (`owner_id IS NOT NULL`): stakes, rake percent/cap, economy |
 | `hands` | count, pot and rake parsed from each hand's `result` JSON |
-| `organizer_billing_ledger` | `credit_topup`, `membership`, `setup`, `cash_hour` rows and net debits |
+| `organizer_billing_ledger` | table-specific rows (`resource_id = table.id`), including `setup`, `cash_hour` and net debits |
 | `organizer_cash_sessions` | `active`, `paid_until`, `next_charge_at`, `started_at` |
-| `organizer_chip_journals` | per-kind counts (e.g. `seat_open`, prizes, rake) |
+| `organizer_chip_journals` | per-kind counts involving this table account (e.g. `seat_open`, rake) |
 | `organizer_chip_accounts` | balances per account key |
 | SQLite | `PRAGMA quick_check` |
 
 ## Reading the verdict
 
-`verdict: "proven"` requires every check to pass for at least one table:
+`verdict: "proven"` requires every check to pass for every selected table:
 
 - `hands_observed` — hands were played inside the window;
 - `rake_observed` — at least one hand recorded rake > 0;
@@ -73,3 +73,5 @@ the setup charge exists, but no hands have been played.
 
 The report contains aggregate money figures, organizer ids and table ids — not nicknames, hole
 cards or hand histories. Keep it local anyway; it is operational evidence, not a public dataset.
+
+Timestamps are compared as SQLite dates, so native SQLite timestamps and ISO timestamps share the same window. Service-credit and chip balance snapshots remain organiser-wide and are explicitly labelled; they are not evidence that another table paid this table’s charges. Funding and membership rows without a table resource ID are not included in the table debit totals.

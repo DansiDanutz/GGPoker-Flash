@@ -44,7 +44,7 @@ function sanitizeProperties(name, properties) {
 
 /** A hand counts as bot activity only when every participant is a bot. */
 export function isBotOnlyHand(players) {
-  const list = Array.isArray(players) ? players : [];
+  const list = Array.isArray(players) ? players.filter(player => player?.inHand !== false) : [];
   return list.length > 0 && list.every((player) => player && player.isBot === true);
 }
 
