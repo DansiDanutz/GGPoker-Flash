@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy one CI-green commit of main to Dexter and prove it is running.
 #
-#   deploy/deploy.sh [<sha>]        # default: origin/main
+#   deploy/deploy.sh [<sha>]        # default: public OpenPoker main
 #   deploy/deploy.sh --dry-run [<sha>]
 #
 # Runs on the operator's Mac. Ships exactly the committed tree (git archive), never the
@@ -19,18 +19,21 @@ if [[ "${1:-}" == "--dry-run" ]]; then DRY_RUN=1; shift; fi
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
-git fetch --quiet origin
-sha="$(git rev-parse --verify "${1:-origin/main}^{commit}")"
+# Remote names differ between DanGG and contributor clones. Pin the release authority.
+PUBLIC_REPO="OpenPoker4all/OpenPoker"
+PUBLIC_REF="refs/remotes/openpoker-release/main"
+git fetch --quiet "https://github.com/$PUBLIC_REPO.git" "main:$PUBLIC_REF"
+sha="$(git rev-parse --verify "${1:-$PUBLIC_REF}^{commit}")"
 short="${sha:0:12}"
 echo "deploy: commit $short"
 
-if ! git merge-base --is-ancestor "$sha" origin/main; then
-  echo "deploy: refusing, $short is not on origin/main" >&2
+if ! git merge-base --is-ancestor "$sha" "$PUBLIC_REF"; then
+  echo "deploy: refusing, $short is not on $PUBLIC_REPO main" >&2
   exit 1
 fi
 
-green="$(gh run list --workflow "$CI_WORKFLOW" --commit "$sha" --limit 20 --json conclusion --jq '[.[] | select(.conclusion == "success")] | length')"
-if [[ "$green" != "1" ]]; then
+green="$(gh run list --repo "$PUBLIC_REPO" --branch main --event push --workflow "$CI_WORKFLOW" --commit "$sha" --limit 20 --json conclusion --jq '[.[] | select(.conclusion == "success")] | length')"
+if [[ "$green" -lt 1 ]]; then
   echo "deploy: refusing, no successful $CI_WORKFLOW run for $short" >&2
   exit 1
 fi

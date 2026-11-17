@@ -8,6 +8,17 @@ Fork the repository, create a topic branch and open a pull request against `main
 Describe the change and verification. Preserve authors, copyright notices and
 third-party licenses. Do not submit proprietary client assets, credentials or user data.
 
+## Approval and contributor benefits
+
+**Build it. Test it. Get approved. Earn when customers pay to use your plugin or
+customisation.** Free local testing and ordinary code contributions need no paid
+membership. Paid marketplace publication has a separate publisher review and
+commercial setup; approval alone does not activate automatic royalties.
+
+OpenPoker maintainers approve public PRs. Independent operators choose when to
+update their installations. See the [development and approval workflow](docs/DEVELOPMENT-WORKFLOW.md)
+for DanGG integration, public promotion, attribution and earning terms.
+
 ## Setup and verification
 
 Use Node 26+ and pnpm 10.32.1. From the repository root:
