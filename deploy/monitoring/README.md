@@ -31,8 +31,13 @@ sudo cp prometheus.yml rules.yml /opt/monitoring/
 sudo chmod 644 /opt/monitoring/rules.yml /opt/monitoring/prometheus.yml
 sudo cp dangro-dashboard.json /opt/monitoring/grafana/provisioning/dashboards/json/dangro.json
 sudo chown root:root /opt/monitoring/rules.yml /opt/monitoring/prometheus.yml
-cd /opt/monitoring && sudo docker compose up -d prometheus grafana
+cd /opt/monitoring && sudo docker compose up -d --force-recreate prometheus grafana
 ```
+
+**Recreate, do not just `up -d`.** Copying bind-mounted files does not change the Compose
+service definition, so `up -d` would leave Prometheus running the previous scrape config and
+alert rules. `--force-recreate` guarantees it reloads; equivalently, `docker compose restart
+prometheus` after copying.
 
 `rules.yml` **must be world-readable**: Prometheus runs as a non-root user and crash-loops
 with `permission denied` on a `600` mount.
