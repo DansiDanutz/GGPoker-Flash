@@ -1,0 +1,39 @@
+groups:
+  - name: dangro
+    rules:
+      - alert: DanGGProbeFailing
+        expr: probe_success{instance="https://dangg.live/healthz"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: dangro
+        annotations:
+          summary: "dangg.live/healthz is failing"
+          description: "Blackbox probe has failed for 2 minutes; the game container or edge is down."
+
+      - alert: DanGGTlsExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry{instance="https://dangg.live"} - time()) < 14 * 24 * 3600
+        for: 10m
+        labels:
+          severity: warning
+          service: dangro
+        annotations:
+          summary: "dangg.live TLS certificate expires within 14 days"
+          description: "Let's Encrypt renewal may be failing; check Traefik logs."
+
+      - alert: RoadmapProbeFailing
+        expr: probe_success{instance="https://danslab.vercel.app/OpenPoker-roadmap"} == 0
+        for: 10m
+        labels:
+          severity: warning
+          service: roadmap
+        annotations:
+          summary: "The OpenPoker roadmap page is not answering"
+
+      - alert: BlackboxTargetDown
+        expr: up{job=~"blackbox-.*"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus cannot scrape a blackbox target"

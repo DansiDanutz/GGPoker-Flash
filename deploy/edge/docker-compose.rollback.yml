@@ -1,0 +1,31 @@
+# Rollback: the pre-socket-proxy configuration (Traefik reads the Docker socket directly).
+services:
+  traefik:
+    image: traefik:v3
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=admin@dangg.live
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_certs:/letsencrypt
+    restart: unless-stopped
+    networks:
+      - default
+
+volumes:
+  traefik_certs:
+    name: crawdbot-worker_traefik_certs
+    external: true
+
+networks:
+  default:
+    name: crawdbot-worker_default
+    external: true
