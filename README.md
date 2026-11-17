@@ -25,6 +25,10 @@ and use their own service identity; see the [brand policy](TRADEMARKS.md).
 
 ---
 
+**Contributors:** Build it. Test it. Get approved. Earn when customers pay to use
+your plugin or customisation. Local testing is free; paid marketplace offers need
+publisher approval and commercial setup. See [how development and approval work](docs/DEVELOPMENT-WORKFLOW.md).
+
 ## Contents
 
 - [Live service](#live-service)
