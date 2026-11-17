@@ -10,6 +10,7 @@ import {
   db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, newSession, userByToken,
   publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone, missionPeriodKey,
 } from './db.js';
+import { createProductEvents } from './product-events.js';
 import { PokerTable, botName } from './table.js';
 import { normalizeAvatar } from './avatar.js';
 import { makeDeck, shuffle, cardStr } from './poker.js';
@@ -797,6 +798,7 @@ function getLiveTable(id) {
           JSON.stringify(h.meta || {})
         );
         TABLE_STATS.invalidate(h.tableId);
+        productEvents.record('hand_completed', { properties: { table_id: h.tableId, pot: h.pot, rake: h.result?.rake || 0 } });
         const winners = h.result?.winners || [];
         for (const p of (h.players || [])) {
           if (!p || !p.id || p.inHand === false) continue;
@@ -1522,6 +1524,8 @@ function rewardHandPlayed(table, summary) {
 /* HTTP API                                                            */
 /* ------------------------------------------------------------------ */
 
+const productEvents = createProductEvents(db);
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname;
@@ -1609,6 +1613,7 @@ const server = http.createServer(async (req, res) => {
       if (/^guest_[0-9a-f]{8}-[0-9a-f]{3}$/.test(login)) return json(res, 400, { error: 'That account ID is reserved for guest sessions.' });
       if (identityTaken(login) || identityTaken(nick)) return json(res, 400, { error: 'That account ID or nickname is already taken' });
       const user = createAccount(login, nick, String(body.password), String(body.email || '').slice(0, 120));
+      productEvents.record('account_created', { userId: user.id, properties: { source: 'api' } });
       // Count only accounts actually created, so typos in the form do not use up the allowance.
       if (clientKey) registerLimiter.record(clientKey);
       const token = newSession(user.id, req.headers['user-agent'] || '');
@@ -1626,6 +1631,7 @@ const server = http.createServer(async (req, res) => {
       if (!nick) return json(res, 503, { error: 'Guest seats are busy right now. Try again in a moment.' });
       if (clientKey) registerLimiter.record(clientKey);
       const user = createAccount(`guest_${randomUUID().slice(0, 12)}`, nick, randomUUID(), '');
+      productEvents.record('guest_joined', { userId: user.id, properties: { source: 'api' } });
       const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
     }
@@ -2966,6 +2972,11 @@ const server = http.createServer(async (req, res) => {
     if (await handleAdminSnapshotRoutes(req, res, url)) return;
     if (await handleAdminTableDuplicateRoute(req, res, url)) return;
     if (handleAdminChatRoute(req, res, url)) return;
+    if (p === '/api/admin/analytics' && req.method === 'GET') {
+      const a = requireAdmin(req, res); if (!a) return;
+      const days = Math.min(365, Math.max(1, Number(url.searchParams.get('days')) || 30));
+      return json(res, 200, productEvents.summary({ days }));
+    }
     if (p === '/api/admin/verifications' && req.method === 'GET') {
       const a = requireAdmin(req, res); if (!a) return;
       const rows = db.prepare(`SELECT v.id, v.user_id, u.nick, u.login, v.full_name, v.dob, v.country, v.doc_type, v.status, v.note, v.created_at, v.reviewed_at

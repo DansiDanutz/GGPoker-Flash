@@ -76,13 +76,13 @@ Acceptance: PR #215 merged and deployed; host dialog and organizer copy reviewed
 390/1440.
 Depends: —
 
-**S2. Prove the paid loop in production** · size M · status next
+**S2. Prove the paid loop in production** · size M · status in progress (harness merged, awaiting table evidence)
 Outcome: one private table actually played end to end with operator-observed evidence.
 Acceptance: hands played, rake row, hourly debit, service-credit and chip journal entries all
 reconciled in one evidence file; no manual correction needed.
 Depends: S1.
 
-**S3. Event taxonomy v1, human/bot split** · size M · status planned
+**S3. Event taxonomy v1, human/bot split** · size M · status shipped (v1)
 Outcome: one versioned set of events (invite opened, guest joined, hand completed, checkout,
 entitlement, renewal) and a way to read them.
 Acceptance: dashboard totals reconcile to events; bot activity cannot inflate human activation.
