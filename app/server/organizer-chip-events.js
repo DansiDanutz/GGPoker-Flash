@@ -131,15 +131,41 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
     if (moved.applied) db.prepare('UPDATE organizer_chip_event_states SET payout_count=payout_count+1 WHERE tournament_id=?').run(state.tournament_id);
     return moved;
   });
-  const awardBounty = ({ organizerId, tournamentId, userId, bustedUserId, amount }) => transaction(db, () => {
-    knownUser(organizerId); knownUser(userId); knownUser(bustedUserId); integer(amount, 'amount');
-    if (userId === bustedUserId) fail('A player cannot collect their own bounty.', 409, 'bounty_self_award');
-    for (const id of [userId, bustedUserId]) if (!db.prepare("SELECT 1 FROM organizer_chip_tickets WHERE organizer_id=? AND tournament_id=? AND holder_id=? AND state IN ('redeemed','consumed')").get(organizerId, tournamentId, id)) fail('Bounty participants did not enter this event.', 409, 'event_participant_required');
+  const awardBounty = ({ organizerId, tournamentId, userId, bustedUserId, amount, shares = [{ userId, amount }] }) => transaction(db, () => {
+    knownUser(organizerId); knownUser(bustedUserId); integer(amount, 'amount');
+    if (!Array.isArray(shares) || !shares.length || shares.length > 10) fail('A bounded bounty split is required.');
+    const ids = new Set();
+    const plan = shares.map((share, index) => {
+      knownUser(share?.userId); nonnegative(share.amount, 'share amount');
+      if (share.userId === bustedUserId) fail('A player cannot collect their own bounty.', 409, 'bounty_self_award');
+      if (ids.has(share.userId)) fail('Duplicate bounty recipient.');
+      ids.add(share.userId);
+      if (share.amount !== Math.floor(amount / shares.length) + (index < amount % shares.length ? 1 : 0)) fail('Bounty shares must split the draw equally, with whole-chip remainders.');
+      return { userId: share.userId, amount: share.amount };
+    });
+    for (const id of [...ids, bustedUserId]) if (!db.prepare("SELECT 1 FROM organizer_chip_tickets WHERE organizer_id=? AND tournament_id=? AND holder_id=? AND state IN ('redeemed','consumed')").get(organizerId, tournamentId, id)) fail('Bounty participants did not enter this event.', 409, 'event_participant_required');
     const state = db.prepare('SELECT * FROM organizer_chip_event_states WHERE tournament_id=? AND organizer_id=?').get(short(tournamentId, 'tournamentId'), organizerId);
-    if (!state || state.closed_at || !['BOUNTY', 'MYSTERY'].includes(state.mode)) fail('Started bounty event required.', 409, 'bounty_not_available');
+    if (!state || !['BOUNTY', 'MYSTERY'].includes(state.mode)) fail('Started bounty event required.', 409, 'bounty_not_available');
     const base = JSON.parse(state.contract).bounty;
     if (!(state.mode === 'MYSTERY' ? mysteryBountyAmounts(base).includes(amount) : amount === base)) fail('Bounty amount does not match the event contract.', 409, 'bounty_amount_mismatch');
-    return chips.moveInTransaction({ organizerId, from: `event:${state.tournament_id}-bounty`, to: `wallet:${userId}`, amount, kind: 'bounty_award', reference: `event:${state.tournament_id}:bounty:${bustedUserId}` });
+    const reference = `event:${state.tournament_id}:bounty:${bustedUserId}`;
+    const payload = JSON.stringify({ amount, shares: plan });
+    const old = db.prepare('SELECT payload,kind FROM organizer_chip_ticket_operations WHERE actor_id=? AND operation_key=?').get(organizerId, reference);
+    if (old) {
+      if (old.kind !== 'bounty_award' || old.payload !== payload) fail('Bounty payout cannot be changed.', 409, 'reference_conflict');
+      return { applied: false };
+    }
+    // Keep old single-winner journal references authoritative across upgrades.
+    const legacy = db.prepare('SELECT payload FROM organizer_chip_journals WHERE organizer_id=? AND reference=?').get(organizerId, reference);
+    if (legacy) {
+      if (plan.length !== 1 || legacy.payload !== JSON.stringify({ from: `event:${state.tournament_id}-bounty`, to: `wallet:${plan[0].userId}`, amount, kind: 'bounty_award' })) fail('Bounty payout cannot be changed.', 409, 'reference_conflict');
+      return { applied: false };
+    }
+    if (state.closed_at) fail('Started bounty event required.', 409, 'bounty_not_available');
+    for (const share of plan) if (share.amount > 0) chips.moveInTransaction({ organizerId, from: `event:${state.tournament_id}-bounty`,
+      to: `wallet:${share.userId}`, amount: share.amount, kind: 'bounty_award',
+      reference: plan.length === 1 ? reference : `${reference}:share:${share.userId}` });
+    return record(organizerId, reference, 'bounty_award', payload, { applied: true });
   });
   const burnRemainder = ({ organizerId, tournamentId }) => transaction(db, () => {
     knownUser(organizerId); const state = db.prepare('SELECT * FROM organizer_chip_event_states WHERE tournament_id=? AND organizer_id=?').get(short(tournamentId, 'tournamentId'), organizerId);

@@ -604,7 +604,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       setTimeout(() => sound.play('fireworks', { volume: .7 }), 600);
     } else if (evt.type === 'bounty') {
       if (evt.mystery) setFxEffect('mystery_box');
-      toast({ kind: 'reward', title: evt.mystery ? 'Mystery bounty' : 'Bounty', body: `${evt.winnerNick} wins ${money(evt.amount)} (${evt.bustedNick})` });
+      toast({ kind: 'reward', title: evt.mystery ? 'Mystery bounty' : 'Bounty', body: `${evt.winnerNick} wins ${evt.chipEconomy ? cashChips(evt.amount) : money(evt.amount)} (${evt.bustedNick})` });
       sound.play('coin');
     } else if (evt.type === 'tourney_payout') {
       toast({ kind: 'reward', ...finishToast(evt, (n) => money(n)) });

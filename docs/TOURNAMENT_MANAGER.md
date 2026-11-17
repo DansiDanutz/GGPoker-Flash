@@ -65,3 +65,19 @@ Mystery bounty draws and Cash Chip escrow validation share the same tiers:
 0.1×, 0.25×, 0.5×, 1×, 2×, 5× and 10× the configured base. Each draw rounds to
 whole chips with a one-chip minimum. Ordinary Bounty payouts remain exactly the
 configured base. Replaying the same eliminated player's payout cannot pay twice.
+
+
+The bounty belongs to the winner(s) of the last pot the eliminated player was
+eligible to win. A tied winner must cover that player's full all-in to share it;
+if only one tied winner covers, that winner receives the entire bounty. A higher
+side-pot win alone does not earn a shorter player's bounty. Tied covering winners
+split a single draw equally, with whole-chip remainders clockwise from the dealer.
+A one-chip draw can therefore give one winner one chip and the other zero.
+
+Cash Chip shares are committed together under one immutable knockout reference.
+Changed recipients or amounts are rejected, identical retries pay nothing extra,
+and older single-recipient references remain authoritative. A payout failure
+leaves the busted seats in place and retries the same draw before ranking them.
+The server bounty hook receives a total `amount` and ordered `shares` containing
+`winnerId`, `winnerNick` and `amount`; client notifications remain one per positive
+share and identify Cash Chip payouts explicitly.
