@@ -1,6 +1,6 @@
 # OpenPoker
 
-**Open source play-money poker software — first official implementation at [DanGG.live](https://dangg.live).**
+**Open source poker software with free Play Money and scoped organiser Cash Chips — first official implementation at [DanGG.live](https://dangg.live).**
 
 OpenPoker is the public upstream software project developed from DanGG. DanGG.live
 is its first official implementation, with its own service name and visual identity.
@@ -41,7 +41,7 @@ publisher approval and commercial setup. See [how development and approval work]
 - [CI and release flow](#ci-and-release-flow)
 - [Deployment and operations](#deployment-and-operations)
 - [Security model](#security-model)
-- [Reverse engineering](#reverse-engineering)
+- [Reverse engineering](#historical-research)
 - [Documentation index](#documentation-index)
 - [Scope and limitations](#scope-and-limitations)
 
@@ -436,13 +436,16 @@ Scale planning lives in [`deploy/SCALE-PLAN.md`](deploy/SCALE-PLAN.md).
 - Admin API restricted to an allowlist (loopback/tunnel by default); no public admin
   hostname.
 - Server-authoritative game outcomes; the client never sets balances, cards or winners.
-- No real-money payment processing, KYC or cash value — identity verification is a
-  play-money demo surface only.
+- Service-credit funding and organiser buybacks record independently verified payment
+  evidence; OpenPoker does not execute player payouts. Identity verification remains a
+  demo surface, not production KYC. See [the economy contract](docs/ROADMAP.md).
 - Extracted third-party art/audio stay out of the public repository.
 
 ---
 
-## Reverse engineering
+## Historical research
+
+See [product naming and retained compatibility identifiers](docs/NAMING.md).
 
 Historical research context follows; this is not the current asset setup workflow.
 The current app uses committed assets and `tools/original-assets/` generators.
