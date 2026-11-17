@@ -60,3 +60,8 @@ hands and final payout/fee conservation. The Chrome organiser workflow covers
 creation, displayed terms, five viewport widths, player ticket registration and
 cancellation refunds. Existing event, room, checkpoint and billing tests remain
 part of CI.
+
+Mystery bounty draws and Cash Chip escrow validation share the same tiers:
+0.1×, 0.25×, 0.5×, 1×, 2×, 5× and 10× the configured base. Each draw rounds to
+whole chips with a one-chip minimum. Ordinary Bounty payouts remain exactly the
+configured base. Replaying the same eliminated player's payout cannot pay twice.

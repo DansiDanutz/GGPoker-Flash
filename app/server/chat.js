@@ -129,36 +129,39 @@ export function dealerStartText(handNo) {
  * (run it twice, side pots) summed per player. Null when nobody won.
  * @param {{ winners?: Array<{ id: unknown, nick?: string, amount?: number, hand?: string | null }> } | null | undefined} result
  */
-/** Chip amounts are cents; the chat names them in dollars like the table does. */
-function dollars(cents) {
-  const n = (Number(cents) || 0) / 100;
+/** Tournament/Spin stacks and organizer Cash Chips are whole chips; demo cash uses cents. */
+function dealerAmount(amount, table) {
+  if (table?.tournament || table?.spin || table?.cfg?.chip_economy) {
+    return `${(Number(amount) || 0).toLocaleString('en-US')} chips`;
+  }
+  const n = (Number(amount) || 0) / 100;
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 const ACTION_TEXT = {
   check: () => 'checks',
   fold: () => 'folds',
-  call: (a) => `calls ${dollars(a)}`,
-  bet: (a) => `bets ${dollars(a)}`,
-  raise: (a) => `raises to ${dollars(a)}`,
+  call: (a, table) => `calls ${dealerAmount(a, table)}`,
+  bet: (a, table) => `bets ${dealerAmount(a, table)}`,
+  raise: (a, table) => `raises to ${dealerAmount(a, table)}`,
 };
 
 /** Dealer line for one bet or fold, or null for anything that is not a betting action. */
-export function dealerActionText(nick, evt) {
+export function dealerActionText(nick, evt, table) {
   const say = ACTION_TEXT[evt?.action];
   if (!say) return null;
-  return `${String(nick || 'Player')} ${say(evt.amount)}${evt.allIn ? ' and is all in' : ''}`;
+  return `${String(nick || 'Player')} ${say(evt.amount, table)}${evt.allIn ? ' and is all in' : ''}`;
 }
 
 /** Run it 2-3 times: one dealer line per board, naming that board's winners. */
-export function dealerBoardTexts(result) {
+export function dealerBoardTexts(result, table) {
   if (!Array.isArray(result?.byBoard) || result.byBoard.length < 2) return [];
   return result.byBoard.map((winners, b) => `Board ${b + 1}: ${winners
-    .map((w) => `${String(w.nick || 'Player')} wins ${dollars(w.amount)}${w.hand ? ` with ${w.hand}` : ''}`)
+    .map((w) => `${String(w.nick || 'Player')} wins ${dealerAmount(w.amount, table)}${w.hand ? ` with ${w.hand}` : ''}`)
     .join('; ')}`);
 }
 
-export function dealerResultText(result) {
+export function dealerResultText(result, table) {
   const totals = new Map();
   for (const w of result?.winners || []) {
     const prior = totals.get(w.id) || { nick: String(w.nick || 'Player'), amount: 0, hands: [] };
@@ -167,7 +170,7 @@ export function dealerResultText(result) {
   }
   if (!totals.size) return null;
   return [...totals.values()]
-    .map((w) => `${w.nick} wins ${dollars(w.amount)}${w.hands.length ? ` with ${w.hands.join(' / ')}` : ''}`)
+    .map((w) => `${w.nick} wins ${dealerAmount(w.amount, table)}${w.hands.length ? ` with ${w.hands.join(' / ')}` : ''}`)
     .join('; ');
 }
 

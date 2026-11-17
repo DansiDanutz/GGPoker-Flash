@@ -191,6 +191,7 @@ test('mystery bounty tiers settle once and reconcile their prefunded reserve', (
         assert.equal(reserve, base * 20);
         const payout = { organizerId: 1, tournamentId: 't1', userId: 2, bustedUserId: 3, amount };
         assert.throws(() => f.events.awardBounty({ ...payout, amount: base * 10 + 1 }), error => error.code === 'bounty_amount_mismatch');
+        assert.throws(() => f.events.awardBounty({ ...payout, amount: base === 50 ? 30 : 3 }), error => error.code === 'bounty_amount_mismatch');
         assert.equal(f.events.awardBounty(payout).applied, true);
         assert.equal(f.events.awardBounty(payout).applied, false);
         const other = amounts.find(value => value !== amount);

@@ -106,7 +106,7 @@ test('who won is written in the chat, not left on the table', () => {
   assert.doesNotMatch(page, /wins \$\{chip\(w\.amount\)\}/, 'no winner text on the table');
   assert.doesNotMatch(page, /run-results/);
   const server = read('server/index.js');
-  assert.match(server, /dealerBoardTexts\(h\.result\)/, 'one chat line per board');
+  assert.match(server, /dealerBoardTexts\(h\.result, table\)/, 'one chat line per board');
   assert.match(server, /runResultAt\(/, 'each board line waits until that board is decided on screen');
   assert.match(server, /evt\.type === 'action'[\s\S]{0,300}dealerActionText\(/, 'bets go to the chat too');
 });

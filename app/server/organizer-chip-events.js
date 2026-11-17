@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { randomUUID } from 'node:crypto';
+import { mysteryBountyAmounts } from './tournament.js';
 
 function fail(message, status = 400, code = 'organizer_chip_event_invalid') { throw Object.assign(new Error(message), { status, code }); }
 const integer = (value, name) => { if (!Number.isSafeInteger(value) || value < 1 || value > 9_000_000_000) fail(`${name} must be a bounded positive integer.`); return value; };
@@ -136,7 +137,8 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
     for (const id of [userId, bustedUserId]) if (!db.prepare("SELECT 1 FROM organizer_chip_tickets WHERE organizer_id=? AND tournament_id=? AND holder_id=? AND state IN ('redeemed','consumed')").get(organizerId, tournamentId, id)) fail('Bounty participants did not enter this event.', 409, 'event_participant_required');
     const state = db.prepare('SELECT * FROM organizer_chip_event_states WHERE tournament_id=? AND organizer_id=?').get(short(tournamentId, 'tournamentId'), organizerId);
     if (!state || state.closed_at || !['BOUNTY', 'MYSTERY'].includes(state.mode)) fail('Started bounty event required.', 409, 'bounty_not_available');
-    if (amount !== JSON.parse(state.contract).bounty) fail('Bounty amount does not match the event contract.', 409, 'bounty_amount_mismatch');
+    const base = JSON.parse(state.contract).bounty;
+    if (!(state.mode === 'MYSTERY' ? mysteryBountyAmounts(base).includes(amount) : amount === base)) fail('Bounty amount does not match the event contract.', 409, 'bounty_amount_mismatch');
     return chips.moveInTransaction({ organizerId, from: `event:${state.tournament_id}-bounty`, to: `wallet:${userId}`, amount, kind: 'bounty_award', reference: `event:${state.tournament_id}:bounty:${bustedUserId}` });
   });
   const burnRemainder = ({ organizerId, tournamentId }) => transaction(db, () => {

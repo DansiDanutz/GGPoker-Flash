@@ -11,7 +11,7 @@ import {
 } from './poker.js';
 import { randomInt } from 'node:crypto';
 import { FOLD_WIN_BOT_MS, FOLD_WIN_MS, SHOWDOWN_CLEAR_MS, runPresentationMs } from './handPacing.js';
-import { payoutFor, payoutTable } from './tournament.js';
+import { mysteryBountyAmounts, payoutFor, payoutTable } from './tournament.js';
 import { organizerSpinOutcome } from './organizer-spin-prizes.js';
 import { SPIN_SEATS, SPIN_TICKET_TOTAL, isSpinStake, spinBlindLevel, spinOutcome } from './spin.js';
 import { ACTION_SECONDS, isRushGame, parseActionSeconds } from './validate.js';
@@ -1941,10 +1941,8 @@ export class PokerTable {
                   ? killerSeat.player
                   : this.occupiedSeats().find((x) => x.player && x.player.stack > 0)?.player;
                 if (killer && killer.id !== busted.id) {
-                  const tiers = [0.1, 0.25, 0.5, 1, 2, 5, 10];
-                  const amount = this.mystery
-                    ? Math.round(this.bounty * tiers[Math.floor(Math.random() * tiers.length)])
-                    : this.bounty;
+                  const amounts = this.mystery ? mysteryBountyAmounts(this.bounty) : [this.bounty];
+                  const amount = this.mystery ? amounts[Math.floor(Math.random() * amounts.length)] : this.bounty;
                   this.hooks.onBounty?.(this, {
                     winnerId: killer.id, winnerNick: killer.nick,
                     bustedId: busted.id, bustedNick: busted.nick,

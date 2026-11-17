@@ -784,7 +784,7 @@ function getLiveTable(id) {
       }
       // Every bet, call, check and fold goes to the chat log (the "All" filter), not on the table.
       if (evt.type === 'action') {
-        const text = dealerActionText(t.seats[evt.seat]?.player?.nick, evt);
+        const text = dealerActionText(t.seats[evt.seat]?.player?.nick, evt, t);
         if (text) postDealerLine(t.cfg.id, text);
       }
     },
@@ -826,14 +826,14 @@ function getLiveTable(id) {
         RUSH_POOL.settleHand(h, table);
       } catch (e) { console.error('hand save', e); }
       // Run it 2-3 times: one line per board, each when the table reaches that board's result.
-      const boardTexts = dealerBoardTexts(h.result);
+      const boardTexts = dealerBoardTexts(h.result, table);
       if (boardTexts.length) {
         const at = runResultAt(boardTexts.length, h.result.shared ?? 0);
         boardTexts.forEach((text, b) => setTimeout(
           () => postDealerLine(h.tableId, text, `result:${h.handId || h.handNo}:${b + 1}`), at[b] ?? 0,
         ));
       } else {
-        const resultText = dealerResultText(h.result);
+        const resultText = dealerResultText(h.result, table);
         if (resultText) postDealerLine(h.tableId, resultText, `result:${h.handId || h.handNo}`);
       }
     },
