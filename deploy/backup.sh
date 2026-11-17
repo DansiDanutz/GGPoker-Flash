@@ -10,8 +10,18 @@ set -euo pipefail
 cd "$(dirname "$0")"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 RECIPIENT="backup-recipient.pem"
-SNAPSHOT="backups/backup-${STAMP}.db"
-mkdir -p backups
+
+# --hourly keeps a short, dense ring for "oops" recovery (bad deploy, corruption) while the
+# daily run stays the long-tail copy that Nano pulls off-host.
+if [[ "${1:-}" == "--hourly" ]]; then
+  OUT_DIR="backups/hourly"
+  RETENTION_DAYS=3
+else
+  OUT_DIR="backups"
+  RETENTION_DAYS=14
+fi
+SNAPSHOT="${OUT_DIR}/backup-${STAMP}.db"
+mkdir -p "$OUT_DIR"
 
 docker compose exec -T game node --input-type=module -e "
 import { DatabaseSync } from 'node:sqlite';
@@ -39,5 +49,6 @@ chmod 600 "${SNAPSHOT}.cms"
 rm -f "$SNAPSHOT"
 ls -lh "${SNAPSHOT}.cms"
 
-# Keep two weeks of local backups; off-host copies handle longer retention.
-find backups -name 'backup-*.db*' -type f -mtime +14 -delete
+# Keep two weeks of daily backups (three days of hourly ones); off-host copies handle
+# longer retention.
+find "$OUT_DIR" -name 'backup-*.db*' -type f -mtime +"$RETENTION_DAYS" -delete

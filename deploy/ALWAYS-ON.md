@@ -39,8 +39,14 @@ ssh dexter 'crontab -e'
 
 ```cron
 */2 * * * * /home/Dexter1981/dangro/deploy/keepalive.sh >/dev/null 2>&1
+0 * * * * cd /home/Dexter1981/dangro/deploy && ./backup.sh --hourly >> backups/backup.log 2>&1
 15 4 * * * cd /home/Dexter1981/dangro/deploy && ./backup.sh >> backups/backup.log 2>&1
 ```
+
+The hourly ring lives in `backups/hourly/` with three-day retention and stays on Dexter: it
+covers a bad deploy or corruption, where the host is still alive. The nightly copy is the
+long-tail, off-host one that Nano pulls, so data loss windows are an hour for mistakes and a
+day for losing the droplet.
 
 Both entries are installed on Dexter as of 2026-11-11.
 
@@ -63,9 +69,11 @@ snapshots without `--delete`, so files Dexter prunes stay on Nano until its own
 30-day `find` removes them (an earlier `--delete` mirror capped Nano at 14 days).
 `backup.sh` also removes the snapshot it leaves in the live data volume, so the only
 copies are in `deploy/backups/` and on Nano. It authenticates with
-Nano's existing key, which is trusted by Dexter's `authorized_keys`, and needs one
-firewall rule on Dexter: `ufw allow from 157.230.23.158 to any port 22` (Nano's
-public IP only).
+Nano's existing key, which is trusted by Dexter's `authorized_keys`, and connects over the
+tailnet (`Dexter1981@100.94.135.19:22`), so no public SSH exception is needed for backups.
+The hourly ring in `backups/hourly/` is deliberately excluded from the pull: it only covers
+mistakes while Dexter is alive, and mirroring 24 snapshots a day off-host would need its own
+retention.
 
 Snapshots are encrypted (`backup-<stamp>.db.cms`, OpenSSL CMS, RSA-OAEP + AES-256-GCM)
 to `deploy/backup-recipient.pem`. The private key exists only on the Mac (Keychain item
