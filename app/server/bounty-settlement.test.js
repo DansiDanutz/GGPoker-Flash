@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PokerTable } from './table.js';
 const card = s => ({ r: s[0], s: s[1], v: '23456789TJQKA'.indexOf(s[0]) + 2 });
-function settle(entries, bounty = 5) {
+function settle(entries, bounty = 5, configure = () => {}) {
   const table = new PokerTable({ id: 'bounty-test', name: 'Bounty', game: 'holdem', seats: entries.length, sb: 1, bb: 2,
     tournament: { mode: 'BOUNTY', bounty, prizePool: 0 } });
   table.button = 0;
@@ -18,6 +18,7 @@ function settle(entries, bounty = 5) {
   table.emit = event => events.push(event);
   table.doShowdown();
   table.nextHandAt = 1;
+  configure(table);
   table.tick(2);
   return { table, awards, events };
 }
@@ -49,4 +50,20 @@ test('a one-chip bounty is never rounded up for every tied winner', () => {
   const { awards, events } = settle([[100, ['Ah', 'Qd']], [100, ['As', 'Qc']], [100, ['Jh', 'Td']]], 1);
   assert.deepEqual(shares(awards[0]), [[2, 1], [1, 0]]);
   assert.equal(events.filter(e => e.type === 'bounty').reduce((sum, e) => sum + e.amount, 0), 1);
+});
+
+test('a failed payout retries the same Mystery draw before ranking or clearing the busted seat', context => {
+  const { awards } = settle([[100, ['Ah', 'Qd']], [100, ['As', 'Qc']], [100, ['Jh', 'Td']]], 50, table => {
+    table.mystery = true;
+    const original = table.hooks.onBounty;
+    table.hooks.onBounty = () => { throw new Error('temporary payout failure'); };
+    context.mock.method(Math, 'random', () => 0.2);
+    assert.throws(() => table.tick(2), /temporary payout failure/);
+    assert.equal(table.finished.length, 0);
+    assert.equal(table.seats[2].player.id, 3);
+    context.mock.method(Math, 'random', () => 0.99);
+    table.hooks.onBounty = original;
+  });
+  assert.equal(awards[0].amount, 13, 'retry must not redraw the 500-chip tier');
+  assert.deepEqual(shares(awards[0]), [[2, 7], [1, 6]]);
 });

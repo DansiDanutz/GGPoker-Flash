@@ -898,15 +898,21 @@ function getLiveTable(id) {
       setSetting(key, (Number(getSetting(key, 0)) || 0) + Number(amount || 0));
     },
     onBounty: (table, info) => {
-      if (usesOrganizerChips(table)) return organizerChipEvents.awardBounty({ organizerId: table.cfg.owner_id, tournamentId: table.cfg.tournamentId, userId: info.winnerId, bustedUserId: info.bustedId, amount: info.amount });
-      const winner = db.prepare('SELECT * FROM users WHERE id = ?').get(info.winnerId);
-      if (winner) {
-        addTransaction(winner.id, info.mystery ? 'mystery_bounty' : 'bounty', info.amount,
-          `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`, 'USD',
-          { tournamentId: table.cfg.tournamentId || null });
+      if (usesOrganizerChips(table)) return organizerChipEvents.awardBounty({ organizerId: table.cfg.owner_id,
+        tournamentId: table.cfg.tournamentId, bustedUserId: info.bustedId, amount: info.amount,
+        shares: info.shares.map(share => ({ userId: share.winnerId, amount: share.amount })) });
+      for (const share of info.shares) {
+        if (!share.amount) continue;
+        const winner = db.prepare('SELECT * FROM users WHERE id = ?').get(share.winnerId);
+        if (winner) {
+          addTransaction(winner.id, info.mystery ? 'mystery_bounty' : 'bounty', share.amount,
+            `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`, 'USD',
+            { tournamentId: table.cfg.tournamentId || null,
+              reference: `bounty:${table.cfg.tournamentId || table.cfg.id}:${table.handNo}:${info.bustedId}`, onDuplicate: 'skip' });
+        }
+        db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bounty',
+          `${table.cfg.name} ${share.winnerNick} ${share.amount} (${info.bustedNick})`);
       }
-      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bounty',
-        `${table.cfg.name} ${info.winnerNick} ${info.amount} (${info.bustedNick})`);
     },
     beforeDeal: (table) => settleChipMoves(table),
     onSeatBusted: (table, player) => {

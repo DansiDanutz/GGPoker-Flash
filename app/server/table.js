@@ -598,6 +598,8 @@ export class PokerTable {
     if (this.spinStarted()) this.applySpinBlinds();
 
     this.handNo++;
+    this.bountyPots = [];
+    this.bountyAwards = new Map();
     this.handReturns = new Map();
     this.markMissedBlinds();
     this.deck = shuffle(makeDeck(this.shortDeck));
@@ -1677,6 +1679,12 @@ export class PokerTable {
         });
       }
     }
+    // The last pot the busted player contested identifies who covered their full all-in.
+    this.bountyPots = pots.map((pot, potIndex) => ({
+      eligible: pot.eligible.map(sc => sc.player.id),
+      winners: results.filter(result => result.potIndex === potIndex),
+    }));
+    this.bountyAwards = new Map();
     // Winners show at showdown; losing hands muck unless the player turned
     // auto-muck off.
     const winnerIds = new Set(results.map((r) => r.id));
@@ -1903,6 +1911,10 @@ export class PokerTable {
       if (this.nextHandAt && now >= this.nextHandAt) {
         // Give a fresh bust a reload window before the next deal.
         if (this.openRebuyWindow(now)) return;
+        // Settle all knockouts before changing the field; failed payouts retry the same draw.
+        if (this.elimination) for (const seat of this.seats) {
+          if (seat.player && seat.player.stack <= 0) this.payBounty(seat.player, seat.index);
+        }
         this.nextHandAt = 0;
         // The hand is fully resolved: nobody is in it any more, so the room
         // may balance or break this table before the next deal.
@@ -1934,25 +1946,6 @@ export class PokerTable {
               } else if (this.spin) {
                 this.recordSpinFinish(busted, aliveCount + 1 + batch);
                 batch++;
-              }
-              if (this.bounty > 0 && (this.mystery || this.tournament.mode === 'BOUNTY')) {
-                const killerSeat = this.lastAggressor ? this.seatOf(this.lastAggressor) : null;
-                const killer = killerSeat?.player && killerSeat.player.stack > 0
-                  ? killerSeat.player
-                  : this.occupiedSeats().find((x) => x.player && x.player.stack > 0)?.player;
-                if (killer && killer.id !== busted.id) {
-                  const amounts = this.mystery ? mysteryBountyAmounts(this.bounty) : [this.bounty];
-                  const amount = this.mystery ? amounts[Math.floor(Math.random() * amounts.length)] : this.bounty;
-                  this.hooks.onBounty?.(this, {
-                    winnerId: killer.id, winnerNick: killer.nick,
-                    bustedId: busted.id, bustedNick: busted.nick,
-                    amount, mystery: this.mystery,
-                  });
-                  this.emit({
-                    type: 'bounty', seat: s.index, winnerId: killer.id, winnerNick: killer.nick,
-                    bustedNick: busted.nick, amount, mystery: this.mystery,
-                  });
-                }
               }
               try { if (this.hooks.onSeatBusted) this.hooks.onSeatBusted(this, busted); } catch (e) { console.error('seat busted hook', e); }
               if (this.tournament && this.hooks.onTournamentBust) this.hooks.onTournamentBust(this, { id: busted.id, nick: busted.nick });
@@ -1998,6 +1991,30 @@ export class PokerTable {
         this.emit({ type: 'sit_out', seat: seat.index, playerId: p.id, reason: 'timeout' });
       }
       this.act(p.id, this.toCall(p) > 0 ? 'fold' : 'check', 0, { auto: true });
+    }
+  }
+
+  payBounty(busted, seat) {
+    if (!(this.bounty > 0 && (this.mystery || this.tournament?.mode === 'BOUNTY'))) return;
+    const pot = this.bountyPots?.findLast(pot => pot.eligible.includes(busted.id));
+    if (!pot) return;
+    let award = this.bountyAwards.get(busted.id);
+    if (!award) {
+      const winners = pot.winners.filter(w => w.id !== busted.id && w.invested >= busted.totalBet);
+      if (!winners.length) throw new Error('Bounty has no covering pot winner');
+      const amounts = this.mystery ? mysteryBountyAmounts(this.bounty) : [this.bounty];
+      const amount = this.mystery ? amounts[Math.floor(Math.random() * amounts.length)] : this.bounty;
+      award = { bustedId: busted.id, bustedNick: busted.nick, amount, mystery: this.mystery,
+        shares: winners.map((w, index) => ({ winnerId: w.id, winnerNick: w.nick,
+          amount: Math.floor(amount / winners.length) + (index < amount % winners.length ? 1 : 0) })) };
+      this.bountyAwards.set(busted.id, award);
+    }
+    if (award.paid) return;
+    this.hooks.onBounty?.(this, award);
+    award.paid = true;
+    for (const share of award.shares) if (share.amount > 0) {
+      this.emit({ type: 'bounty', seat, ...share, bustedNick: busted.nick, mystery: this.mystery,
+        chipEconomy: !!this.cfg.chip_economy });
     }
   }
 

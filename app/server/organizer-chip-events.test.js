@@ -220,6 +220,13 @@ test('split bounty is atomic, immutable, replay-safe and conserves its single dr
     const before = f.db.prepare('SELECT SUM(balance) total FROM organizer_chip_accounts').get().total;
     const award = { organizerId: 1, tournamentId: 't1', bustedUserId: 4, amount: 13,
       shares: [{ userId: 3, amount: 7 }, { userId: 2, amount: 6 }] };
+    const pool = f.db.prepare("SELECT balance FROM organizer_chip_accounts WHERE account_key='event:t1-bounty'").get().balance;
+    f.db.prepare("UPDATE organizer_chip_accounts SET balance=7 WHERE account_key='event:t1-bounty'").run();
+    const wallet = f.chips.balance(1, 2);
+    assert.throws(() => f.events.awardBounty(award), error => error.code === 'insufficient_chips');
+    assert.equal(f.chips.balance(1, 3), 0, 'first share rolled back when second cannot be funded');
+    assert.equal(f.chips.balance(1, 2), wallet);
+    f.db.prepare("UPDATE organizer_chip_accounts SET balance=? WHERE account_key='event:t1-bounty'").run(pool);
     assert.equal(f.events.awardBounty(award).applied, true);
     const balance = f.chips.balance(1, 2);
     assert.equal(f.events.awardBounty(award).applied, false);

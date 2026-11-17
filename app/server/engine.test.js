@@ -220,12 +220,12 @@ test('Quick Flip marks its first hand all-in', () => {
 });
 
 test('Bounty and satellite tournament modes are wired', () => {
-  const p1 = player(1, 'Winner', 5000, 0, []);
-  const p2 = player(2, 'Busted', 0, 0, []);
-  const p3 = player(3, 'Third', 0, 0, []);
+  const p1 = player(1, 'Winner', 5000, 100, ['Ah', 'Ad'].map(C));
+  const p2 = player(2, 'Busted', 0, 100, ['Qh', 'Jd'].map(C));
+  const p3 = player(3, 'Third', 0, 100, ['Th', '8d'].map(C));
   const t = tableWith([p1, p2, p3], { seats: 3, tournament: { prizePool: 10000, mode: 'BOUNTY', bounty: 500 } });
-  t.lastAggressor = 1;
-  t.street = 'ended';
+  t.board = ['2s', '3d', '7h', '9c', 'Kd'].map(C);
+  t.doShowdown();
   t.nextHandAt = 1;
   let paid = 0;
   t.hooks = { onBounty: (_t, info) => { paid += info.amount; }, onTournamentPayout: () => {}, onTournamentEnd: () => {} };
@@ -662,9 +662,10 @@ test('a timeout still spends one card first, then folds and sits out (EGM round 
 test('Mystery draws whole-chip tiers including a one-chip minimum', (context) => {
   for (const [base, amounts] of [[50, [5, 13, 25, 50, 100, 250, 500]], [1, [1, 1, 1, 1, 2, 5, 10]]]) {
     amounts.forEach((amount, index) => {
-      const table = tableWith([player(1, 'Winner', 5000, 0, []), player(2, 'Busted', 0, 0, [])],
+      const table = tableWith([player(1, 'Winner', 5000, 100, ['Ah', 'Ad'].map(C)), player(2, 'Busted', 0, 100, ['Qh', 'Jd'].map(C))],
         { seats: 2, tournament: { prizePool: 10000, mode: 'MYSTERY', bounty: base } });
-      table.lastAggressor = 1; table.street = 'ended'; table.nextHandAt = 1;
+      table.board = ['2s', '3d', '7h', '9c', 'Kd'].map(C);
+      table.doShowdown(); table.nextHandAt = 1;
       const paid = [];
       table.hooks = { onBounty: (_table, info) => paid.push(info.amount), onTournamentPayout: () => {}, onTournamentEnd: () => {} };
       context.mock.method(Math, 'random', () => (index + 0.5) / amounts.length);
