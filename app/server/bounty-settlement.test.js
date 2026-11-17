@@ -67,3 +67,10 @@ test('a failed payout retries the same Mystery draw before ranking or clearing t
   assert.equal(awards[0].amount, 13, 'retry must not redraw the 500-chip tier');
   assert.deepEqual(shares(awards[0]), [[2, 7], [1, 6]]);
 });
+
+test('Cash Chip bounty notifications preserve the whole-chip amount and unit', () => {
+  const { events } = settle([[100, ['Ah', 'Qd']], [100, ['As', 'Qc']], [100, ['Jh', 'Td']]], 13,
+    table => { table.cfg.chip_economy = 1; });
+  const messages = events.filter(e => e.type === 'bounty');
+  assert.deepEqual(messages.map(e => [e.chipEconomy, e.amount]), [[true, 7], [true, 6]]);
+});

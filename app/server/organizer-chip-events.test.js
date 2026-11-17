@@ -97,6 +97,9 @@ test('bounty modes require organizer prefunding, pay by busted user once, and re
   assert.equal(f.events.startEvent({ organizerId: 1, tournamentId: 't1' }).bounty_pool, 100);
   assert.throws(() => f.events.awardBounty({ organizerId: 1, tournamentId: 't1', userId: 2, bustedUserId: 2, amount: 50 }), (error) => error.code === 'bounty_self_award');
   assert.equal(f.events.awardBounty({ organizerId: 1, tournamentId: 't1', userId: 2, bustedUserId: 3, amount: 50 }).applied, true);
+  f.db.prepare("DELETE FROM organizer_chip_ticket_operations WHERE kind='bounty_award'").run();
+  assert.equal(f.events.awardBounty({ organizerId: 1, tournamentId: 't1', userId: 2, bustedUserId: 3, amount: 50 }).applied, false,
+    'a pre-upgrade single-winner journal prevents a second payment');
   assert.throws(() => f.events.awardBounty({ organizerId: 1, tournamentId: 't1', userId: 2, bustedUserId: 3, amount: 40 }), (error) => error.code === 'bounty_amount_mismatch');
   assert.equal(f.events.burnRemainder({ organizerId: 1, tournamentId: 't1' }).bounty_returned, 50);
   assert.equal(f.chips.balance(1, 1), 950);
