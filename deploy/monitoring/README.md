@@ -34,6 +34,13 @@ sudo chown root:root /opt/monitoring/rules.yml /opt/monitoring/prometheus.yml
 cd /opt/monitoring && sudo docker compose up -d --force-recreate prometheus grafana
 ```
 
+All of this runs **on Dexter**, not on the Mac — `/opt/monitoring` does not exist locally.
+To run it in one line from the Mac instead of opening a shell:
+
+```bash
+ssh dexter 'cd /opt/monitoring && sudo docker compose up -d --force-recreate prometheus grafana'
+```
+
 **Recreate, do not just `up -d`.** Copying bind-mounted files does not change the Compose
 service definition, so `up -d` would leave Prometheus running the previous scrape config and
 alert rules. `--force-recreate` guarantees it reloads; equivalently, `docker compose restart
