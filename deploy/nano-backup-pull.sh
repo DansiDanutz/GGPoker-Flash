@@ -10,7 +10,8 @@
 #   crontab: 0 5 * * * ~/dangro-backup-pull.sh >> ~/dangro-backup-pull.log 2>&1
 set -uo pipefail
 
-HOST="${DANGGRO_HOST:-Dexter1981@46.101.219.116}"
+# Pull over the tailnet: encrypted, and it does not depend on a public SSH exception.
+HOST="${DANGGRO_HOST:-Dexter1981@100.94.135.19}"
 SRC="${DANGGRO_SRC:-/home/Dexter1981/dangro/deploy/backups/}"
 DEST="${DANGGRO_DEST:-$HOME/dangro-backups}"
 KEY="${DANGGRO_KEY:-$HOME/.ssh/id_ed25519_github}"
@@ -21,7 +22,8 @@ mkdir -p "$DEST"
 echo "$(date -Is) pulling $HOST:$SRC -> $DEST"
 # No --delete: Dexter prunes after 14 days, and mirroring that would cap this copy at 14
 # days too. Retention here is the find below.
-rsync -az \
+# The hourly ring stays on Dexter; only the daily long-tail copy leaves the host.
+rsync -az --exclude 'hourly/' \
   -e "ssh -i $KEY -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10" \
   "$HOST:$SRC" "$DEST/" || { echo "$(date -Is) FAILED"; exit 1; }
 
