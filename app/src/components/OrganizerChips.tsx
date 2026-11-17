@@ -25,7 +25,7 @@ export function OrganizerChips({ userId }: { userId?: number }) {
   return <section className="mp-account-panel" aria-label="Cash Chips organizator">
     <div className="mp-section-heading"><div><span className="mp-eyebrow">ECONOMIE PER ORGANIZATOR</span><h2>Cash Chips</h2></div><button type="button" className="mp-button mp-button-secondary" disabled={Boolean(busy)} onClick={() => void load()}>Actualizează</button></div>
     <p>Cash Chips aparțin exclusiv organizatorului selectat și nu pot fi folosite la alte mese sau în soldul play-money. Abonamentul lunar acordă organizatorului 100.000 Cash Chips. Pachetele wholesale costă $1 credit de serviciu pentru 10.000 Cash Chips.</p>
-    {!enabled && <div className="mp-notice">Economia Cash Chips este inactivă pe această instalare; toate acțiunile financiare sunt dezactivate.</div>}
+    {data?.mode === 'off' && <div className="mp-notice">Economia Cash Chips este inactivă pe această instalare; toate acțiunile financiare sunt dezactivate.</div>}
     {error && <div className="mp-notice mp-notice-error" role="alert">{error}</div>}{notice && <div className="mp-notice mp-notice-success" role="status">{notice}</div>}
     {!userId ? <p>Intră în cont pentru a vedea soldurile.</p> : data && <>
       <label className="admin-label">Organizator<select className="admin-select" value={selectedOrg} onChange={(event) => setSelectedOrg(event.target.value)}>{data.balances.map((row) => <option key={row.organizer_id} value={row.organizer_id}>Organizator #{row.organizer_id} · {cashChips(row.balance)}</option>)}</select></label>
