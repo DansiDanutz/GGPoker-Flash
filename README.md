@@ -469,6 +469,7 @@ DanGG assets with `bash tools/setup_assets.sh`; this does not extract the old cl
 
 | Document | What it covers |
 |---|---|
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Product order: phases, steps, acceptance gates and current status |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Components, request flow, data model, table protocol |
 | [`docs/MARKETPLACE.md`](docs/MARKETPLACE.md) | Public marketplace, catalog, access requests and private owner administration |
 | [`docs/CONTRIBUTOR_SANDBOX.md`](docs/CONTRIBUTOR_SANDBOX.md) | Free local browser/server development, Play Money trials and reviewed GitHub contribution releases |
