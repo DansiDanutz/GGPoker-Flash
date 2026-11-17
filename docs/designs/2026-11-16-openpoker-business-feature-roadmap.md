@@ -111,7 +111,7 @@ Status labels: **Verified** = named checks/evidence for a bounded claim; **Imple
 | Capability | Status and evidence | Remaining gap |
 | --- | --- | --- |
 | Organiser/Contributor billing, grants and hourly tiers | **Verified**, targeted `organizer-billing.test.js` and `organizer-chips.test.js`; modules under `app/server/` | Automatic renewal/payment collection is not implied by calendar-month membership logic. |
-| Scoped transfers, cash escrow and rake | **Verified**, organiser chip tests; prior controlled cash test records | No new live cash-table run in this audit. |
+| Scoped transfers, cash escrow and rake | **Live-verified**, [controlled paid Cash Game evidence, 17 November](2026-11-17-paid-cash-loop-verification.md), release `0ce0cf7d6e830b1e9dcefce0a31b443c467f36d4`: setup, first hour, retries, capped rake, pause and full reconciliation | Real hourly renewal and lifetime pricing-tier transitions remain pending live verification. |
 | Tournament tickets, main pools, manual buyback and Mystery reserve | **Verified**, `organizer-chip-events.test.js`, bounty tests and prior live/isolated records | Hard-process restart during a partially settled Mystery batch still needs integrated proof. |
 | Paid Spin net pool and 2–5% rake | **Verified**, `organizer-chip-spin.test.js`, including partial-payout recovery | No claim of a new live Spin run today. |
 | Local browser/server sandbox and OpenPoker CLI | **Implemented—unverified in this audit**, launcher, CLI and existing tests; [sandbox specification](https://github.com/OpenPoker4all/OpenPoker/blob/ed03bf43f9f17c74160ca576ec13a728a85d6a98/docs/CONTRIBUTOR_SANDBOX.md) | Re-run CLI/browser acceptance for any changed integration; this is trusted source development, not hostile uploaded-code isolation. |
@@ -575,7 +575,7 @@ Priority indicates recommended discovery and delivery order, not a promise of re
 | M1.1 | DanGG sync PR from current approved OpenPoker, preserving branding; align public delivery tracker with this agreed economy/status | Public source ancestry retained, reviewed diff, CI on resulting private head, no private history published. Product owner accepts tracker wording; no merge implied by this roadmap. |
 | M1.2 | Deterministic process-kill/restart test with disposable persistent SQLite | Kill before first bounty, after one bounty commits, and after payment but before acknowledgement/checkpoint. Restart preserves original draw/recipients and pays each once, or explicitly pauses the event for audited resolution. No silent redraw or assumed auto-resume. Verify ticket count, escrows, grants, burn and whole-chip supply. |
 | M1.3 | Receipt recovery drill for the existing verified-funding path | Reuse one canonical payment reference; duplicate, wrong-token, late-confirmed and restored-database scenarios cannot grant credits twice. Preserve original request and actual receipt evidence. An unresolved mismatch stays in review. No new payment required for disposable fixtures. |
-| M1.4 | One coherent paid-loop evidence report and accurate operator state | Use existing read-only paid-loop collector and prior evidence first. Bind build, setup/hour charges, hands, rake, Cash Chip journals and totals to the same table/time window. Show paused/pending/manual states truthfully. Missing evidence stays missing; do not create another paid table silently. |
+| M1.4 | **Verified: paid Cash Game first-hour loop** | [Live evidence](2026-11-17-paid-cash-loop-verification.md), 17 November, release `0ce0cf7`: $15 funded once; $10 setup + $5 prepaid hour; two hands, 310-chip rake including 300-chip cap; paused, all balances reconciled, collector `proven`. **Pending:** real hourly renewal and lifetime tier transitions 50→51, 100→101, 200→201, 500→501; same-hour retry coverage is not renewal coverage. |
 
 **Owners:** DanGG implementation and test maintainer; OpenPoker maintainers for public acceptance; operator for any live payment/production decision. Assign named delivery owners at PR intake; do not invent commitments or dates here.
 
@@ -663,7 +663,7 @@ Business growth must not worsen:
 ## 11. Recommended immediate backlog
 
 1. Reconcile the public delivery tracker with this economy/status revision and prepare the DanGG sync PR (M1.1).
-2. Bind the existing paid-loop collector to the actual earlier test table/window; inspect its evidence before requesting another paid test (M1.4).
+2. **Completed:** the [first-hour paid Cash Game loop](2026-11-17-paid-cash-loop-verification.md) is live-verified (M1.4 / S2). Next billing evidence: real hourly renewal and lifetime pricing-tier transitions; do not repeat the completed paid run or inflate production usage for tests.
 3. Add deterministic persistent-database restart cases around each Mystery draw/settlement checkpoint (M1.2).
 4. Prove safe pause and audited resolution where automatic resume cannot be shown correct (M1.2).
 5. Exercise canonical receipt replay and wrong-token/late-payment/restored-database exceptions without new money (M1.3).

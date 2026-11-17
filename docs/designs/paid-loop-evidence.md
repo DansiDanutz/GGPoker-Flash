@@ -7,6 +7,14 @@ reconcile with each other.
 This tool collects that evidence **read-only**. It never writes to the database and the report
 stays on the machine that runs it.
 
+## Verified run and remaining scope
+
+The [17 November 2026 controlled live run](2026-11-17-paid-cash-loop-verification.md)
+verified setup, first-hour prepayment, replay safety, 5% rake with a 300-chip cap, pause
+and Cash Chip reconciliation on release `0ce0cf7d6e830b1e9dcefce0a31b443c467f36d4`.
+Its table-scoped verdict was `proven`. **Hourly renewal and pricing-tier transitions
+remain pending live verification.** A prepaid hour debit does not prove a renewal.
+
 ## Collect
 
 On Dexter (the host with the Docker socket):
@@ -56,7 +64,8 @@ the setup charge exists, but no hands have been played.
 
 1. Pick or create one **private organizer cash table** with a known owner and record of its id.
 2. Join with two accounts (or one account plus the operator), play enough hands for at least one
-   pot to reach the rake trigger, and stay long enough for one hourly debit.
+   pot to reach the rake trigger. Record the first prepaid hourly debit; testing renewal
+   across a real hour boundary is a separate, explicitly funded scenario.
 3. Run the collector for that table and the window.
 4. Store the JSON with the receipt/screenshot evidence for that day; do **not** commit it.
 

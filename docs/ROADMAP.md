@@ -1,6 +1,6 @@
 # OpenPoker product delivery tracker
 
-**Reviewed:** 17 November 2026 · **Status:** proposed next milestone; merge and deployment require approval.
+**Reviewed:** 17 November 2026 · **Status:** paid Cash Game first-hour loop live-verified; remaining milestones proposed. Merge and deployment require approval.
 
 This is the concise delivery order. The [business roadmap](designs/2026-11-16-openpoker-business-feature-roadmap.md)
 contains the agreed economy, detailed feature proposals, audit evidence and acceptance criteria.
@@ -68,7 +68,7 @@ implementation was found. **Deferred** is a delivery decision, not a claim of ab
 
 | Capability | Status | Remaining evidence or work |
 | --- | --- | --- |
-| Membership, grants, lifetime hours, scoped chips and rake | Verified: billing/chip tests | Coherent paid-loop report and changed-UI acceptance |
+| Membership, grants, lifetime hours, scoped chips and rake | Verified: billing/chip tests; [paid Cash Game first-hour loop live-verified](designs/2026-11-17-paid-cash-loop-verification.md) | Live hourly renewal and pricing-tier transitions pending; changed-UI acceptance remains separate |
 | Tickets, bounties and manual buyback | Verified: event/bounty tests and prior bounded live evidence | Hard restart midway through a multi-bounty settlement |
 | Paid Spin net pool and single payout | Verified: pooled Spin tests, including partial recovery | No new live Spin run in the audit |
 | Contributor review and Rake Lab registration | Verified: state-machine tests | Current browser/publisher state; configured paid offer and delivery |
@@ -97,9 +97,13 @@ players or retained communities. Do not substitute hand counts for the north sta
 3. **M1.3 — Receipt recovery:** prove duplicate, wrong-token, late-confirmed and restored-database
    scenarios cannot credit twice. Bind actual token/chain/recipient/amount to one receipt; keep
    unresolved mismatches in review. No new customer payment needed for these fixtures.
-4. **M1.4 — Coherent paid-loop evidence:** reuse the [read-only collector](designs/paid-loop-evidence.md)
-   and historical test records first. Bind commit, table, time window, setup/hour debits, hands,
-   rake and all chip movements. Do not create another charge merely to produce a report.
+4. **M1.4 — Paid Cash Game first-hour loop: VERIFIED** on 17 November 2026, release
+   `0ce0cf7d6e830b1e9dcefce0a31b443c467f36d4`. [Live evidence](designs/2026-11-17-paid-cash-loop-verification.md):
+   $15 funding once, $10 setup, $5 first prepaid hour, two hands, 310 chips of rake including
+   a 300-chip capped hand, table paused and all balances reconciled; collector `proven`.
+   **Still pending:** real hourly renewal and lifetime pricing-tier transitions (50→51,
+   100→101, 200→201, 500→501). Same-hour retries do not verify renewal. No repeat paid run
+   is needed to reproduce this completed report.
 
 Exit: no unexplained accounting discrepancy; reproducible recovery disposition and expected /
 actual balances; required checks on the exact public promotion head. No new game, repricing,
@@ -125,7 +129,7 @@ Retain these IDs for code comments, evidence tools and older PRs; milestone orde
 | Step | Current disposition |
 | --- | --- |
 | S1 — Economy wording | Source fixes exist; align policy here and verify changed UI, not an old PR number |
-| S2 — Paid-loop proof | Collector implemented; assemble coherent table/time-bound evidence in M1.4 |
+| S2 — Paid-loop proof | **Verified: first-hour Cash Game loop**, [live evidence](designs/2026-11-17-paid-cash-loop-verification.md); hourly renewal and pricing-tier transitions pending |
 | S3 — Taxonomy v1 | Implemented and module-tested; partial emitters, not a finished dashboard |
 | S4 — Service truth | Health foundation exists; operator recovery/status evidence in M1 |
 | S5–S7 — Invitations/instrumentation/mobile | Guest foundation exists; complete in M2 |
