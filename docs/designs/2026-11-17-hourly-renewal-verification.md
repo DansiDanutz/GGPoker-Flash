@@ -2,7 +2,8 @@
 
 **Status:** Verified for one automatic $5 renewal, start-request retries, and no charge
 across the following paused boundary with sufficient service credits.
-**Still pending:** pricing-tier transitions, insufficient-credit renewal and restart recovery.
+**Follow-up:** [Insufficient-credit recovery verified separately on 18 November](2026-11-18-insufficient-credit-recovery-verification.md).
+**Still pending:** active-hand expiry, pricing-tier transitions and restart recovery.
 
 **Run:** 17 November 2026, 21:51:54–23:22:17 Europe/Bucharest
 (19:51:54–21:22:17 UTC), on DanGG.live.
@@ -50,8 +51,8 @@ bounded results rather than private records. No application code or deployment c
 
 - **Pricing-tier transitions:** lifetime table-hours 50→51 ($5→$4), 100→101 ($4→$3),
   200→201 ($3→$2), and 500→501 ($2→$1), including concurrent tables.
-- **Insufficient-credit renewal:** insufficient funds at the boundary, safe pause/no invalid
-  debit, and the subsequent funding/resume path without duplicate charges.
+- **Active-hand expiry:** insufficient credit at a renewal boundary during an active hand;
+  correct hand settlement, safe pause before another deal, and chip reconciliation.
 - **Restart recovery:** interruption around renewal or acknowledgement, durable payment
   identity, no duplicate debit, and correct paused/paid state after recovery.
 

@@ -14,8 +14,10 @@ verified setup, first-hour prepayment, replay safety, 5% rake with a 300-chip ca
 and Cash Chip reconciliation on release `0ce0cf7d6e830b1e9dcefce0a31b443c467f36d4`.
 Its table-scoped verdict was `proven`. A [separate real-boundary test](2026-11-17-hourly-renewal-verification.md)
 verified one $5 hourly renewal, retries without duplicate charges and no debit across the
-following paused boundary with $5 available. **Pricing-tier transitions, insufficient-credit
-renewal and restart recovery remain pending live verification.** The collector verdict alone
+following paused boundary with $5 available. A [separate insufficient-credit recovery run](2026-11-18-insufficient-credit-recovery-verification.md) verified automatic pause
+without a renewal debit, rejected unfunded retries, one $5 top-up and one $5 resume debit
+across retries, followed by pause and full reconciliation. **Active-hand expiry, pricing-tier transitions
+and restart recovery remain pending live verification.** The collector verdict alone
 does not verify renewal; use the separate timestamped ledger evidence.
 
 ## Collect
