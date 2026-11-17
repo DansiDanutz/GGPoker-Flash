@@ -1,7 +1,7 @@
 # Paid Cash Game loop: controlled live verification
 
 **Status:** Verified for setup, first-hour prepayment, two played hands, rake, pause,
-cash-out and reconciliation. Hourly renewal and pricing-tier transitions remain pending.
+cash-out and reconciliation. Hourly renewal was subsequently [verified in a separate run](2026-11-17-hourly-renewal-verification.md); pricing-tier transitions, insufficient-credit renewal and restart recovery remain pending.
 
 **Run:** 17 November 2026, 21:22:09–21:22:35 Europe/Bucharest
 (19:22:09–19:22:35 UTC), on DanGG.live.
@@ -52,10 +52,14 @@ The raw artifacts remain operator-local, following the [collector privacy policy
 Reproduce accounting logic with disposable fixtures; another live charge requires operator
 approval. This summary documents the completed run rather than publishing private data.
 
-## Pending live verification
+## Follow-up evidence and pending live verification
 
-- **Hourly renewal:** crossing the real one-hour boundary, exactly one next-hour debit under
-  retries/concurrent triggers, insufficient-credit handling, and no renewal while paused.
+The [separate hourly renewal run](2026-11-17-hourly-renewal-verification.md) verified one
+automatic $5 boundary debit, subsequent retry safety, and no charge at the following paused
+boundary despite $5 remaining. These outcomes were not tested in the short run above.
+
+- **Insufficient-credit renewal:** insufficient funds at the boundary and safe funding/resume.
+- **Restart recovery:** interruption around renewal/acknowledgement without duplicate debit.
 - **Pricing-tier transitions:** organiser lifetime table-hour boundaries 50→51 ($5→$4),
   100→101 ($4→$3), 200→201 ($3→$2), and 500→501 ($2→$1), including concurrent tables.
   Existing isolated billing tests are separate evidence; none of these boundaries was crossed

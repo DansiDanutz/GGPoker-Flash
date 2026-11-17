@@ -12,8 +12,11 @@ stays on the machine that runs it.
 The [17 November 2026 controlled live run](2026-11-17-paid-cash-loop-verification.md)
 verified setup, first-hour prepayment, replay safety, 5% rake with a 300-chip cap, pause
 and Cash Chip reconciliation on release `0ce0cf7d6e830b1e9dcefce0a31b443c467f36d4`.
-Its table-scoped verdict was `proven`. **Hourly renewal and pricing-tier transitions
-remain pending live verification.** A prepaid hour debit does not prove a renewal.
+Its table-scoped verdict was `proven`. A [separate real-boundary test](2026-11-17-hourly-renewal-verification.md)
+verified one $5 hourly renewal, retries without duplicate charges and no debit across the
+following paused boundary with $5 available. **Pricing-tier transitions, insufficient-credit
+renewal and restart recovery remain pending live verification.** The collector verdict alone
+does not verify renewal; use the separate timestamped ledger evidence.
 
 ## Collect
 
