@@ -64,3 +64,9 @@ test('a hand is bot activity only when every participant is a bot', () => {
   assert.equal(isBotOnlyHand([{ isBot: true }, { isBot: false }]), false);
   assert.equal(isBotOnlyHand([{ isBot: true }, {}]), false);
 });
+
+test('spectators at occupied seats do not turn bot hands into human activity', () => {
+  assert.equal(isBotOnlyHand([{isBot:true,inHand:true}, {isBot:false,inHand:false}]), true);
+  assert.equal(isBotOnlyHand([{isBot:true,inHand:true}, {isBot:false,inHand:true,folded:true}]), false);
+  assert.equal(isBotOnlyHand([{isBot:true,inHand:false}]), false);
+});
