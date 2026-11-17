@@ -28,6 +28,8 @@ Related runbooks:
 - [`MONITORING.md`](MONITORING.md) — monitoring checklist and incident rules.
 - [`SCALE-PLAN.md`](SCALE-PLAN.md) — capacity planning beyond one SQLite writer.
 - [`DEXTER-STAGING.md`](DEXTER-STAGING.md) — host-specific notes.
+- [`edge/README.md`](edge/README.md) — Traefik + socket proxy: apply, verify and rollback.
+- [`monitoring/README.md`](monitoring/README.md) — Prometheus scrape jobs, alert rules and the Grafana dashboard.
 
 > Dexter also runs peer services (Grafana, Prometheus, Nomad, Postgres/Redis,
 > Traefik). Never restart or reconfigure those as part of a DanGG deploy; the
