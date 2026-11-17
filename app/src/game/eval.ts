@@ -29,7 +29,7 @@ function score5(cards: Card[], shortDeck = false): number[] {
   if (g0[1] === 4) return [7, g0[0], g1[0]];
   if (g0[1] === 3 && g1[1] === 2) return [shortDeck ? 5 : 6, g0[0], g1[0]];
   if (flush) return [shortDeck ? 6 : 5, ...vs];
-  // Short Deck (GGPoker rules): three of a kind beats a straight.
+  // Short Deck (configured rules): three of a kind beats a straight.
   if (straightHigh) return [shortDeck ? 3 : 4, straightHigh];
   if (g0[1] === 3) return [shortDeck ? 4 : 3, g0[0], ...groups.filter((g) => g[1] === 1).map((g) => g[0])];
   if (g0[1] === 2 && g1[1] === 2) {

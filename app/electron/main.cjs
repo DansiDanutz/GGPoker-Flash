@@ -4,6 +4,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const { URL: NodeURL } = require('node:url');
 const { LIVE_URL, readLocalVersion, isOutdated, readMode, writeMode, fetchLiveVersion } = require('./update.cjs');
+const { profilePath } = require('./profile.cjs');
 
 
 const ROOT = path.join(__dirname, '..');
@@ -20,7 +21,7 @@ if (!gotSingleInstanceLock) {
 }
 app.setName('DanGG');
 // GGPOKER_USER_DATA points a test or second instance at its own profile and database.
-app.setPath('userData', process.env.GGPOKER_USER_DATA || path.join(app.getPath('appData'), 'GGPoker Clone'));
+app.setPath('userData', profilePath(app.getPath('appData'), process.env.GGPOKER_USER_DATA));
 try { require('node:fs').mkdirSync(app.getPath('userData'), { recursive: true }); } catch {}
 
 const DEV = process.env.GGPOKER_DEV === '1';

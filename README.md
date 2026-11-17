@@ -41,7 +41,7 @@ publisher approval and commercial setup. See [how development and approval work]
 - [CI and release flow](#ci-and-release-flow)
 - [Deployment and operations](#deployment-and-operations)
 - [Security model](#security-model)
-- [Reverse engineering](#historical-research)
+- [Historical research](#historical-research)
 - [Documentation index](#documentation-index)
 - [Scope and limitations](#scope-and-limitations)
 

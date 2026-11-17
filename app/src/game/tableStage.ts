@@ -19,7 +19,7 @@ const PORTRAIT_TOP_GAP = 6;
 const PORTRAIT_UNDER_BAR = 0.5;
 const PORTRAIT_MIN_RATIO = 1.3;
 const PORTRAIT_MAX_RATIO = 2.1;
-/** Phones: the bottom button row's fixed height (table-phone-gg.css --phone-bar-h). The rail is
+/** Phones: the bottom button row's fixed height (table-phone-layout.css --phone-bar-h). The rail is
  *  sized from this, not the live panel, so the table never jumps when your turn adds a row. */
 export const PORTRAIT_ACTION_BAR = 64;
 
@@ -51,7 +51,7 @@ function wideBox({ width, height, topBar, actionBar }: { width: number; height: 
 }
 
 /**
- * Phones held upright (GGPoker mobile): the oval always fills the screen edge to edge and runs from
+ * Phones held upright (portrait layout): the oval always fills the screen edge to edge and runs from
  * just under the top bar into the bottom button row. Its height follows the screen, so the skin
  * stretches (TablePage passes the size to CSS) instead of the table shrinking on short screens.
  */
@@ -75,7 +75,7 @@ const WIDE: Record<number, Spot[]> = {
   9: [[50, 100], [19, 97], [1, 64], [8, 26], [31, 1], [69, 1], [92, 26], [99, 64], [81, 97]],
 };
 
-// Portrait seats follow GGPoker mobile: the hero in the bottom-left corner, the others up the side
+// Portrait seats follow the portrait layout: the hero in the bottom-left corner, the others up the side
 // rails and across the top (clockwise from the hero), and the bottom-right corner left free for the
 // stacked raise presets.
 const PORTRAIT: Record<number, Spot[]> = {

@@ -1,5 +1,5 @@
 /* Phone (portrait) table: the winner's "+$amount" is a solid gold-edged plaque over the avatar,
-   like GGPoker mobile. As gradient text above the seat it landed on the shown cards and could
+   for the mobile layout. As gradient text above the seat it landed on the shown cards and could
    not be read. Centred with auto margins so the pop animation's transform stays free. */
 .table-screen .table-stage.stage-portrait .seat .win-amount {
   top: 34%; left: 0; right: 0; width: max-content; margin: 0 auto; z-index: 14;
