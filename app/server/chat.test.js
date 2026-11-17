@@ -238,3 +238,14 @@ test('run it 2-3 times gets one dealer line per board, in order', () => {
   }), ['Board 1: Ana wins $5.00 with Flush', 'Board 2: Bo wins $2.50 with Straight; Ana wins $2.50 with Straight']);
   assert.deepEqual(dealerBoardTexts({ winners: [{ id: 1, nick: 'Ana', amount: 1, hand: 'Pair' }] }), []);
 });
+
+
+test('dealer actions, results and split boards retain whole chips for chip tables', () => {
+  for (const table of [{ tournament: {} }, { spin: true }, { cfg: { chip_economy: 1 } }]) {
+    assert.equal(dealerActionText('Ana', { action: 'raise', amount: 1000 }, table), 'Ana raises to 1,000 chips');
+    assert.equal(dealerActionText('Ana', { action: 'call', amount: 50, allIn: true }, table), 'Ana calls 50 chips and is all in');
+    assert.equal(dealerResultText({ winners: [{ id: 1, nick: 'Ana', amount: 1000 }] }, table), 'Ana wins 1,000 chips');
+    assert.deepEqual(dealerBoardTexts({ byBoard: [[{ nick: 'Ana', amount: 1000 }], [{ nick: 'Bo', amount: 500 }]] }, table),
+      ['Board 1: Ana wins 1,000 chips', 'Board 2: Bo wins 500 chips']);
+  }
+});
