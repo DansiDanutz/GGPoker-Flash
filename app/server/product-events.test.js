@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
-import { createProductEvents, EVENT_VERSION } from './product-events.js';
+import { createProductEvents, isBotOnlyHand, EVENT_VERSION } from './product-events.js';
 
 function fresh() {
   const db = new DatabaseSync(':memory:');
@@ -55,4 +55,12 @@ test('summary window excludes events outside it', () => {
   events.record('guest_joined', { now: new Date('2026-01-01T00:00:00Z') });
   events.record('guest_joined', { now: new Date('2026-06-01T00:00:00Z') });
   assert.equal(events.summary({ days: 30, now: new Date('2026-06-02T00:00:00Z') }).events.guest_joined.total, 1);
+});
+
+test('a hand is bot activity only when every participant is a bot', () => {
+  assert.equal(isBotOnlyHand([]), false);
+  assert.equal(isBotOnlyHand(undefined), false);
+  assert.equal(isBotOnlyHand([{ isBot: true }, { isBot: true }]), true);
+  assert.equal(isBotOnlyHand([{ isBot: true }, { isBot: false }]), false);
+  assert.equal(isBotOnlyHand([{ isBot: true }, {}]), false);
 });

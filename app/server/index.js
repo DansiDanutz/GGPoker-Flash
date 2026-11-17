@@ -10,7 +10,7 @@ import {
   db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, newSession, userByToken,
   publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone, missionPeriodKey,
 } from './db.js';
-import { createProductEvents } from './product-events.js';
+import { createProductEvents, isBotOnlyHand } from './product-events.js';
 import { PokerTable, botName } from './table.js';
 import { normalizeAvatar } from './avatar.js';
 import { makeDeck, shuffle, cardStr } from './poker.js';
@@ -798,7 +798,10 @@ function getLiveTable(id) {
           JSON.stringify(h.meta || {})
         );
         TABLE_STATS.invalidate(h.tableId);
-        productEvents.record('hand_completed', { properties: { table_id: h.tableId, pot: h.pot, rake: h.result?.rake || 0 } });
+        productEvents.record('hand_completed', {
+          isBot: isBotOnlyHand(h.players),
+          properties: { table_id: h.tableId, pot: h.pot, rake: h.result?.rake || 0 },
+        });
         const winners = h.result?.winners || [];
         for (const p of (h.players || [])) {
           if (!p || !p.id || p.inHand === false) continue;
