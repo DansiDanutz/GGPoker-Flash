@@ -203,3 +203,35 @@ test('mystery bounty tiers settle once and reconcile their prefunded reserve', (
     }
   }
 });
+
+
+test('split bounty is atomic, immutable, replay-safe and conserves its single draw', () => {
+  const f = fixture();
+  try {
+    f.db.prepare("UPDATE organizer_chip_accounts SET balance=1000 WHERE account_key='wallet:1'").run();
+    f.db.prepare("UPDATE tournaments SET mode='MYSTERY',bounty=50 WHERE id='t1'").run();
+    for (const id of [2, 3, 4]) {
+      const t = f.events.issueTicket({ userId: 2, tournamentId: 't1', idempotencyKey: `split-${id}` });
+      if (id !== 2) f.events.transferTicket({ userId: 2, ticketId: t.id, toUserId: id, idempotencyKey: `send-${id}` });
+      f.events.redeemTicket({ userId: id, ticketId: t.id });
+    }
+    f.db.prepare("UPDATE organizer_chip_accounts SET balance=2000 WHERE account_key='wallet:1'").run();
+    f.events.startEvent({ organizerId: 1, tournamentId: 't1' });
+    const before = f.db.prepare('SELECT SUM(balance) total FROM organizer_chip_accounts').get().total;
+    const award = { organizerId: 1, tournamentId: 't1', bustedUserId: 4, amount: 13,
+      shares: [{ userId: 3, amount: 7 }, { userId: 2, amount: 6 }] };
+    assert.equal(f.events.awardBounty(award).applied, true);
+    const balance = f.chips.balance(1, 2);
+    assert.equal(f.events.awardBounty(award).applied, false);
+    assert.equal(f.chips.balance(1, 2), balance);
+    assert.equal(f.chips.balance(1, 3), 7);
+    assert.throws(() => f.events.awardBounty({ ...award, shares: [{ userId: 3, amount: 6 }, { userId: 2, amount: 7 }] }));
+    assert.throws(() => f.events.awardBounty({ ...award, shares: undefined, userId: 2 }));
+    assert.throws(() => f.events.awardBounty({ ...award, bustedUserId: 3, shares: [{ userId: 2, amount: 7 }, { userId: 1, amount: 6 }] }));
+    assert.equal(f.chips.balance(1, 2), balance, 'invalid second recipient rolls back all changes');
+    assert.throws(() => f.events.awardBounty({ ...award, bustedUserId: 3, shares: [{ userId: 2, amount: 13 }, { userId: 2, amount: 0 }] }));
+    f.events.burnRemainder({ organizerId: 1, tournamentId: 't1' });
+    assert.equal(f.events.awardBounty(award).applied, false, 'closed event accepts identical replay only');
+    assert.equal(f.db.prepare('SELECT SUM(balance) total FROM organizer_chip_accounts').get().total, before);
+  } finally { f.db.close(); }
+});
