@@ -12,7 +12,7 @@ import { FRAME_COUNT, layout, placement, toFrame, revealProgress, peel, clipHalf
 import { glyphRects, innerSheetSvg, frameDefs, backArt, feltSvg, openButtonSvg } from './squeeze-art.mjs';
 
 const FORMATS = [
-  { name: 'holdem', inner: 'native-squeeze-inner.png', cards: 2, cardWidth: 190, bandRatio: 0.4 },
+  { name: 'holdem', inner: 'native-squeeze-inner.png', cards: 2, cardWidth: 145, bandRatio: 0.5 },
   { name: 'plo', inner: 'native-squeeze-plo-inner.png', cards: 4, cardWidth: 150, bandRatio: 0.42 },
   { name: 'plo5', inner: 'native-squeeze-plo5-inner.png', cards: 5, cardWidth: 138, bandRatio: 0.42 },
   { name: 'plo6', inner: 'native-squeeze-plo6-inner.png', cards: 6, cardWidth: 128, bandRatio: 0.42 },
@@ -36,19 +36,20 @@ function glyphSize(lay) {
 }
 
 /** One card's SVG in local coordinates at peel state `st`. */
-function cardSvg(lay, pl, st, id) {
-  const g = `translate(${round(pl.cx)} ${round(pl.cy)}) rotate(${round(pl.deg)}) translate(${round(-lay.w / 2)} ${round(-lay.h / 2)})`;
+function cardSvg(lay, pl, st, id, faceOnly = false) {
+  const g = `translate(${round(pl.cx)} ${round(pl.cy)}) scale(1 ${lay.corner ? .6 : 1}) rotate(${round(pl.deg)}) translate(${round(-lay.w / 2)} ${round(-lay.h / 2)})`;
   let out = `<g transform="${g}"><clipPath id="b${id}"><polygon points="${pts(st.back)}"/></clipPath>`
-    + `<polygon points="${pts(st.outline)}" fill="#000" filter="url(#cardShadow)" opacity=".9"/>`
+    + `<polygon points="${pts(lay.corner ? st.back : st.outline)}" fill="#000" filter="url(#cardShadow)" opacity=".9"/>`
     + `<g clip-path="url(#b${id})">${backArt(lay.w, lay.h, lay.r)}</g>`;
-  if (st.face.length > 2) {
+  if (!lay.corner && st.face.length > 2) {
     out += `<polygon points="${pts(st.face)}" fill="url(#paper)"/>`;
   }
-  if (st.flap.length > 2) {
+  if (faceOnly) out = `<g transform="${g}">`;
+  if ((!lay.corner || faceOnly) && st.flap.length > 2) {
     const { a, n } = st.fold;
     const far = { x: a.x - n.x * lay.band * 2, y: a.y - n.y * lay.band * 2 };
     out += `<linearGradient id="fl${id}" gradientUnits="userSpaceOnUse" x1="${round(a.x)}" y1="${round(a.y)}" x2="${round(far.x)}" y2="${round(far.y)}">`
-      + '<stop offset="0" stop-color="#9c9890"/><stop offset=".35" stop-color="#e7e3da"/><stop offset=".8" stop-color="#ffffff"/><stop offset="1" stop-color="#d9d5cc"/></linearGradient>'
+      + (lay.corner ? '<stop offset="0" stop-color="#dededb"/><stop offset=".18" stop-color="#ffffff"/><stop offset="1" stop-color="#ffffff"/></linearGradient>' : '<stop offset="0" stop-color="#9c9890"/><stop offset=".35" stop-color="#e7e3da"/><stop offset=".8" stop-color="#ffffff"/><stop offset="1" stop-color="#d9d5cc"/></linearGradient>')
       + `<polygon points="${pts(st.flap)}" fill="url(#fl${id})" stroke="#b8b3a8" stroke-width=".6" filter="url(#flapShadow)"/>`;
   }
   return `${out}</g>`;
@@ -60,22 +61,27 @@ function buildFrame(fmt, lay, glyph, f) {
     const pl = placement(lay, i, f);
     return { pl, st: peel(lay, revealProgress(fmt.cards, i, f)), map: toFrame(lay, pl) };
   });
-  const svgCards = states.map(({ pl, st }, i) => cardSvg(lay, pl, st, i)).join('');
+  const svgCards = states.map(({ pl, st }, i) => cardSvg(lay, pl, st, i)).join('')
+    + (lay.corner ? states.map(({ pl, st }, i) => cardSvg(lay, pl, st, i, true)).join('') : '');
   const slots = states.map(({ pl, st, map }, i) => {
-    let mask = st.face.map(map);
-    // Cards above this one (higher slots sit to the right) hide everything right of their left edge.
-    for (let j = i + 1; j < states.length; j += 1) {
+    if (lay.corner && i === 0 && f <= 32) return null;
+    let mask = (lay.corner ? st.flap : st.face).map(map);
+    // The bent faces sit above both backs; only higher faces obscure a lower face.
+    const occluders = lay.corner ? states.slice(i + 1).map(s => s.st.flap.map(s.map)).filter(p => p.length > 2) : [];
+    if (!lay.corner) for (let j = i + 1; j < states.length; j++) {
       const top = states[j].map({ x: 0, y: 0 });
       const bottom = states[j].map({ x: 0, y: lay.h });
       const edge = { x: bottom.x - top.x, y: bottom.y - top.y };
       mask = clipHalfPlane(mask, top, { x: -edge.y, y: edge.x });
     }
     if (mask.length < 3 || polygonArea(mask) < 1) return null;
-    const origin = map({ x: 0, y: lay.h - lay.band });
-    const scale = round((100 * lay.w) / glyph.gw);
+    const peak = lay.corner ? st.flap.reduce((a, b) => a.y < b.y ? a : b) : null;
+    const origin = peak ? map(peak) : map({ x: 0, y: lay.h - lay.band });
+    if (peak) { origin.x -= 7; origin.y += 6; }
+    const scale = lay.corner ? 65 : round((100 * lay.w) / glyph.gw);
     return {
-      t: { index: f, x: round(origin.x), y: round(origin.y), scaleX: scale, scaleY: scale, skewX: round(pl.deg), skewY: round(pl.deg), visible: true },
-      m: { index: f, array: mask.map((p) => ({ x: round(p.x), y: round(p.y) })), visible: true },
+      t: { index: f, x: round(origin.x), y: round(origin.y), scaleX: scale, scaleY: lay.corner ? 39 : scale, skewX: lay.corner ? 18 : round(pl.deg), skewY: lay.corner ? 0 : round(pl.deg), visible: true },
+      m: { index: f, array: mask.map((p) => ({ x: round(p.x), y: round(p.y) })), ...(occluders.length ? { occluders: occluders.map(poly => poly.map(p => ({ x: round(p.x), y: round(p.y) }))) } : {}), visible: true },
     };
   });
   const bounds = states.flatMap(({ st, map }) => st.outline.map(map));
@@ -104,7 +110,7 @@ async function renderFormat(fmt, sizes) {
     });
   }
   const innerSize = sizes.get(`squeeze/${fmt.inner}`);
-  await renderPng(`squeeze/${fmt.inner}`, innerSheetSvg(glyph.gw, glyph.gh, INNER_SIZE), innerSize.width, innerSize.height);
+  await renderPng(`squeeze/${fmt.inner}`, innerSheetSvg(glyph.gw, glyph.gh, INNER_SIZE, fmt.cards === 2), innerSize.width, innerSize.height);
 
   const data = {
     frames: Array.from({ length: FRAME_COUNT }, (_, f) => `/assets/${framePath(fmt.name, f)}`),
@@ -112,7 +118,7 @@ async function renderFormat(fmt, sizes) {
     glyphs: glyphRects(glyph.gw, glyph.gh),
     slots,
     canvas: CANVAS,
-    container: CONTAINER,
+    container: fmt.cards === 2 ? [65, 40] : CONTAINER,
     scale: SCALE,
     ordinal: 'rank23456789TJQKA ×4 +suitcdhs',
   };
@@ -123,7 +129,8 @@ async function renderFormat(fmt, sizes) {
 
 async function main() {
   const sizes = new Map(manifestEntries('squeeze/').map((e) => [e.path, e]));
-  for (const fmt of FORMATS) await renderFormat(fmt, sizes);
+  for (const fmt of FORMATS.filter(fmt => !process.env.SQUEEZE_FORMAT || fmt.name === process.env.SQUEEZE_FORMAT)) await renderFormat(fmt, sizes);
+  if (process.env.SQUEEZE_FORMAT) return;
   const felt = sizes.get('squeeze/native-squeeze-felt.png');
   await renderPng('squeeze/native-squeeze-felt.png', feltSvg(felt.width, felt.height), felt.width, felt.height);
   for (const [file, down] of [['native-squeeze-open.png', false], ['native-squeeze-open-down.png', true]]) {

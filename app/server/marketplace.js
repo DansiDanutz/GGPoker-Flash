@@ -45,6 +45,9 @@ const LEGACY_SEEDS = [
     features: ['Propuneri de extensii', 'Evaluarea compatibilității', 'Integrare și suport la cerere'] },
 ];
 const SEEDS = [
+  { id: 'squeeze-3d', slug: 'squeeze-3d', name: '3D Card Squeeze', summary: 'Peel your hole cards with the optional 3D squeeze on Play Money or with paid access.', category: 'customization', delivery: 'open_source_extension', featured: true, status: 'available', pricing: 'monthly', price_cents: 100, currency: 'USD',
+    description: 'Play Money preview is free. Paid tables require manual service-credit access: $1 per calendar month or $10 for lifetime access. Monthly access never renews automatically.',
+    features: ['Free Play Money preview', '$1 manual monthly renewal', '$10 lifetime access'] },
   { id: 'club-entry', slug: 'club-entry', name: 'Club Entry', summary: 'Verified admission to an organizer club, with a free Knock Knock option.', category: 'tools', delivery: 'hosted_service', featured: true, status: 'available', pricing: 'one_time', price_cents: 100, currency: 'USD',
     description: 'Choose an organizer club and its published entry terms. Organizers may offer free entry or set a fee from $0 to $1,000; the default is $1. Paid access activates only after server-side payment verification. For each verified $1 entry, the organizer receives 6,400 non-redeemable bonus Cash Chips. The creator allocation is 20 cents gross; after the 20% platform commission on that allocation, the creator receives 16 cents net. The platform receives 20 cents in royalties (16 cents from the organizer share and 4 cents from the creator share) before payment-provider fees. Organizers do not receive USD withdrawals.',
     features: ['Free Knock Knock option or organizer-set fee', 'Access only after server-side payment verification', '6,400 non-redeemable bonus Cash Chips per verified $1 entry'] },
@@ -114,6 +117,7 @@ function pathId(raw, numeric = false) {
 
 function normalizeProduct(body, previous = null) {
   objectBody(body, PRODUCT_FIELDS);
+  if (previous?.id === 'squeeze-3d') fail('The built-in Squeeze 3D offer uses fixed service-credit pricing.', 409);
   const value = { summary: '', description: '', category: 'hosting', delivery: 'hosted_service', status: 'draft', pricing: 'quote', price_cents: null, currency: 'EUR', features: [], featured: false, sort_order: 0, ...previous, ...body };
   const slug = textField(value.slug, 'Product slug', 80, 1);
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail('The product slug accepts lowercase letters, numbers, and hyphens.');

@@ -12,6 +12,7 @@ import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval'
 import { betLimits, potOdds, sizingPresets, sliderTarget, type BetContext } from '../game/betting';
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
+import { readSqueeze3D, squeezePluginApi } from '../lib/squeeze-plugin-api';
 import { runSchedule } from '../game/runItPacing';
 import { boardAwards } from '../game/runItAwards';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
@@ -286,6 +287,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const runPlan = useMemo(() => ((state?.boards?.length ?? 0) > 1 ? runSchedule(state!.boards!) : null), [state?.handNo, runBoardsKey]);
   const runAwards = useMemo(() => boardAwards(state?.result?.byBoard), [state?.handNo, runResultsKey]);
   const [shownRunAwards, setShownRunAwards] = useState<{ hand: number; count: number }>({ hand: -1, count: 0 });
+  const playedRunAwards = useRef({ hand: -1, count: 0 });
   const [awardVectors, setAwardVectors] = useState<Record<string, [number, number]>>({});
   const [runReleasedHand, setRunReleasedHand] = useState<number | null>(null);
   const runHeld = !!runPlan && state?.street === 'ended' && runReleasedHand !== state?.handNo;
@@ -311,6 +313,10 @@ export function TablePage({ tableId }: { tableId: string }) {
     const boardIndex = shownRunAwards.count - 1;
     const row = stage?.querySelector<HTMLElement>(`.multi-board[data-board="${boardIndex + 1}"]`);
     if (!stage || !row) return;
+    if (playedRunAwards.current.hand !== state!.handNo || playedRunAwards.current.count < shownRunAwards.count) {
+      playedRunAwards.current = { hand: state!.handNo, count: shownRunAwards.count };
+      for (const share of payoutShares(state?.result?.byBoard?.[boardIndex] || [])) awardPot(share, boardIndex);
+    }
     const stageBox = stage.getBoundingClientRect();
     const rowBox = row.getBoundingClientRect();
     const startX = rowBox.left + rowBox.width / 2 - stageBox.left;
@@ -517,7 +523,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     window.setTimeout(() => chipEl.remove(), COLLECT_MS + 20);
   };
 
-  const awardPot = (share: PayoutShare) => {
+  const awardPot = (share: PayoutShare, boardIndex?: number) => {
     const el = stageRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
@@ -527,18 +533,22 @@ export function TablePage({ tableId }: { tableId: string }) {
     const to = stopShort(from, [(r.width * sx) / 100, (r.height * sy) / 100], PAYOUT_STOP_PX * (r.width / NATIVE_TABLE_WIDTH));
     const node = document.createElement('div');
     node.className = 'payout-share';
+    if (boardIndex !== undefined) node.dataset.board = String(boardIndex + 1);
+    node.dataset.amount = String(share.amount);
+    node.dataset.seat = String(share.seat);
     node.style.left = `${from[0]}px`;
     node.style.top = `${from[1]}px`;
     const label = document.createElement('span');
     // The socket handler keeps the first render's closures: read the live table state here.
-    const tourney = !!stateRef.current?.tournament;
+    const tourney = !!stateRef.current?.tournament || stateRef.current?.walletKind === 'organizer_chips';
     label.textContent = tourney ? Math.round(share.amount).toLocaleString('en-US') : money(share.amount);
     node.appendChild(document.createElement('i'));
     node.appendChild(label);
     el.appendChild(node);
     const total = PAYOUT_TRANSFER_MS + PAYOUT_HOLD_MS + PAYOUT_FADE_MS;
     const at = `translate(calc(-50% + ${to[0] - from[0]}px), calc(-50% + ${to[1] - from[1]}px))`;
-    node.animate([
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) node.style.transform = at;
+    else node.animate([
       { transform: 'translate(-50%,-50%)', opacity: 1, easing: PAYOUT_EASING },
       { transform: at, opacity: 1, offset: PAYOUT_TRANSFER_MS / total },
       { transform: at, opacity: 1, offset: (PAYOUT_TRANSFER_MS + PAYOUT_HOLD_MS) / total },
@@ -597,7 +607,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       const revealSeats = isShowdown ? (evt.hands || []).filter((h: any) => h.cards).map((h: any) => h.seat) : [];
       const plan = isShowdown ? showdownPlan(revealSeats, evt.showFirst) : [];
       const revealDone = isShowdown ? showdownComplete(revealSeats) : 0;
-      // Several boards: the chips move only after every board and every board's winner is shown.
+      // Multi-board chip transfers are driven by each board's state-based award, not this aggregate event.
       const fxAt = (evt.runs ?? 1) > 1 && Array.isArray(evt.boards) ? Math.max(revealDone, runSchedule(evt.boards).done) : revealDone;
       setFocusReady(false);
       if (isShowdown) window.setTimeout(() => setFocusReady(true), fxAt);
@@ -607,7 +617,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       }
       // Native per-pot awards: one transfer per pot share from that pot's own position.
       const withSeats = (evt.winners || []).map((w: any) => ({ ...w, seat: typeof w.seat === 'number' ? w.seat : s?.players.find((x) => x.id === w.id)?.seat }));
-      for (const share of payoutShares(withSeats)) {
+      for (const share of payoutShares((evt.runs ?? 1) > 1 && Array.isArray(evt.byBoard) ? [] : withSeats)) {
         window.setTimeout(() => awardPot(share), fxAt);
         window.setTimeout(() => pushStack(seatPosOf(share.seat)), fxAt + PAYOUT_TRANSFER_MS);
       }
@@ -771,7 +781,9 @@ export function TablePage({ tableId }: { tableId: string }) {
   const betStep = organizerChips ? 1 : betUnitOf(bettingOptions, state?.sb || 0, state?.bb || 0);
   // Native live piles: with a side pot the main pile shows only the main pot.
   const livePots = state?.pots || [];
-  const potColumns = potChipLayout(livePots.length > 1 ? livePots[0] : state?.pot || 0, state?.bb || 1);
+  const runPot = runPlan && state?.street === 'ended' && state.result?.byBoard
+    ? payoutShares(state.result.byBoard.slice(shownRunAwards.hand === state.handNo ? shownRunAwards.count : 0).flat()).reduce((sum, winner) => sum + winner.amount, 0) : null;
+  const potColumns = potChipLayout(runPot ?? (livePots.length > 1 ? livePots[0] : state?.pot || 0), state?.bb || 1);
   const startChipShuffle = useCallback(() => {
     if (!chipShuffleOn) return;
     if (chipShuffleTimer.current) window.clearInterval(chipShuffleTimer.current);
@@ -1099,8 +1111,19 @@ export function TablePage({ tableId }: { tableId: string }) {
     const host = squeezeHostRef.current;
     const cards = (me?.cards || []).filter((c) => c !== '??');
     if (!host || ![2, 4, 5, 6].includes(cards.length)) { setSqueezing(false); return; }
-    return createSqueezePanel(host, cards, () => setSqueezing(false), () => sound.play('deal', { volume: .5 }));
-  }, [squeezing]);
+    let cancelled = false;
+    let dispose: (() => void) | undefined;
+    const mount = (enabled: boolean) => {
+      if (!cancelled) dispose = createSqueezePanel(host, cards, () => setSqueezing(false), () => sound.play('deal', { volume: .5 }), enabled);
+    };
+    if (cards.length === 2 && readSqueeze3D(user?.id)) {
+      squeezePluginApi.access(tableId).then(({ access }) => {
+        if (!cancelled && !access.allowed) toast({ kind: 'info', title: 'Card inspection', body: '3D access is inactive. Using free card inspection.' });
+        mount(access.allowed);
+      }).catch(() => mount(false));
+    } else mount(false);
+    return () => { cancelled = true; dispose?.(); };
+  }, [squeezing, tableId, user?.id]);
 
   useEffect(() => {
     if (state?.spin && state.handNo === 1 && !spinIntroSeen.current) {
@@ -1424,9 +1447,9 @@ export function TablePage({ tableId }: { tableId: string }) {
               ))}
             </div>
           )}
-          {!winFx && <div className="pot-label"><span>Total Pot </span><strong>{amt(state?.pot)}</strong></div>}
+          {!winFx && <div className="pot-label"><span>{runPot === null ? 'Total Pot ' : 'Remaining Pot '}</span><strong data-amount={runPot ?? state?.pot}>{amt(runPot ?? state?.pot)}</strong></div>}
         </div>
-        {!winFx && livePots.length > 1 && <div className="live-pots">{livePots.map((amount, i) => {
+        {!winFx && runPot === null && livePots.length > 1 && <div className="live-pots">{livePots.map((amount, i) => {
             const [x, y] = potOffset(i, stageRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);
             return (
               <div key={i} className={'live-pot' + (i === 0 ? ' main' : '')} style={{ transform: `translate(calc(-50% + ${x}px), ${y}px)` }}>
@@ -1449,10 +1472,11 @@ export function TablePage({ tableId }: { tableId: string }) {
           ))}
         </div>}
         {(state?.boards?.length ?? 0) > 1 ? (
-          <div className="multi-boards" aria-label={`${state!.boards!.length} boards`}>
+          <div className="multi-boards" data-resolving={shownRunAwards.hand === state!.handNo && shownRunAwards.count > 0} aria-label={`${state!.boards!.length} boards`}>
             {state!.boards!.map((run, boardIndex) => {
               const awarded = shownRunAwards.hand === state!.handNo && boardIndex < shownRunAwards.count;
-              return <div className={`multi-board${awarded ? ' awarded' : ''}`} data-board={boardIndex + 1} key={`${state!.handNo}-run-${boardIndex + 1}`} aria-label={`Board ${boardIndex + 1}`}>
+              const current = awarded && boardIndex === shownRunAwards.count - 1 && runHeld;
+              return <div className={`multi-board${awarded ? ' awarded' : ''}${current ? ' current' : ''}`} data-board={boardIndex + 1} key={`${state!.handNo}-run-${boardIndex + 1}`} aria-label={`Board ${boardIndex + 1}`}>
                 <span className="multi-board-label">{boardIndex + 1}</span>
                 <div className="board">
                   {run.map((c, i) => {
@@ -1498,8 +1522,8 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {shownRunAwards.hand === state?.handNo && shownRunAwards.count > 0 && runAwards[shownRunAwards.count - 1]?.counts.map((winner) => {
         const [x, y] = seatPosOf(winner.seat);
-        return <div className="board-win-count" data-seat={winner.seat} key={winner.seat} style={{ left: `${x}%`, top: `${y}%` }} role="status">
-          {winner.nick} · {[winner.won && `${winner.won} ${winner.won === 1 ? 'board' : 'boards'} won`, winner.shared && `${winner.shared} ${winner.shared === 1 ? 'board' : 'boards'} shared`].filter(Boolean).join(' · ')}
+        return <div className={`board-win-count${runHeld && runAwards[shownRunAwards.count - 1]?.seats.includes(winner.seat) ? ' current' : ''}`} data-seat={winner.seat} key={winner.seat} style={{ left: `clamp(80px, ${x}%, calc(100% - 80px))`, top: `${y}%` }} role="status">
+          {runHeld && runAwards[shownRunAwards.count - 1]?.seats.includes(winner.seat) && `Board ${shownRunAwards.count} · `}{winner.nick} · {[winner.won && `${winner.won} ${winner.won === 1 ? 'board' : 'boards'} won`, winner.shared && `${winner.shared} ${winner.shared === 1 ? 'board' : 'boards'} shared`].filter(Boolean).join(' · ')}
         </div>;
       })}
 

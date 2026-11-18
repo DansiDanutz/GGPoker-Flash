@@ -21,6 +21,8 @@ const pageErrors = [];
 const checks = [];
 let browser;
 let page;
+const phone = process.env.PHONE_DEVICE_SERIAL;
+const phonePorts = [new URL(sandbox.url).port,new URL(sandbox.api).port];
 
 function chromePath() {
   if (process.env.CHROME_PATH && existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -157,7 +159,7 @@ async function capture(kind, width, height) {
   await page.waitForFunction((expectedWidth) => {
     const screen = document.querySelector('.table-screen')?.getBoundingClientRect();
     const stage = document.querySelector('.table-stage.stage-portrait')?.getBoundingClientRect();
-    return innerWidth === expectedWidth && screen?.width === expectedWidth && stage?.width === expectedWidth;
+    return innerWidth === expectedWidth && Math.abs((screen?.width ?? 0) - expectedWidth) < 1 && Math.abs((stage?.width ?? 0) - expectedWidth) < 1;
   }, {}, width);
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.waitForFunction(() => document.querySelectorAll('.table-stage .seat:not(.seat-take)').length >= 6 && document.querySelectorAll('.board > .pcard').length >= 3 && document.querySelector('.seat.me'));
@@ -189,13 +191,16 @@ async function capture(kind, width, height) {
       clipped: [...outside('.table-stage .seat:not(.seat-take)'), ...outside('.table-stage .seat .cards .pcard'), ...outside('.action-bar button')],
     };
   });
-  if (kind === 'cash' && width === 390) {
+  if (width === 390) {
+  const stageBeforeDrawer = await page.$eval('.table-stage', n => n.getBoundingClientRect().top);
   if (await page.$eval('.tchat-swipe-handle', n => n.getAttribute('aria-expanded')) !== 'true') {
     const box=await (await page.$('.tchat-swipe-handle')).boundingBox();
     await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
     await page.mouse.down();await page.mouse.move(box.x+box.width/2,box.y-55,{steps:8});await page.mouse.up();
   }
   await page.waitForSelector('.tchat-dock.tools-open .tchat-buttons', {visible:true});
+  await page.waitForFunction(() => document.querySelector('.tchat-dock').getBoundingClientRect().bottom >= innerHeight - 10);
+  assert.ok(await page.$eval('.table-stage', n => n.getBoundingClientRect().top) < stageBeforeDrawer - 50, 'Opening the footer raises the table');
   assert.equal(await page.$eval('.tchat-buttons', n => n.querySelectorAll('button').length), 2);
   assert.equal(await page.evaluate(() => {
     const dock=document.querySelector('.tchat-dock').getBoundingClientRect();
@@ -204,12 +209,79 @@ async function capture(kind, width, height) {
   await page.click('[aria-label="Emoticons"]');
   assert.ok(await page.$eval('.reaction-picker',n=>{const r=n.getBoundingClientRect();return r.top>=0&&r.left>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1;}),'Reaction picker must stay inside viewport');
   await page.screenshot({path:path.join(artifacts, `${kind}-emoticons-${width}.png`)});
-  await page.click('[aria-label="Emoticons"]');
-  await page.click('.tchat-swipe-handle');
+  const handle = await (await page.$('.tchat-swipe-handle')).boundingBox();
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height + 50, { steps: 8 });
+  await page.mouse.up();
+  assert.equal(await page.$eval('.tchat-swipe-handle', n => n.getAttribute('aria-expanded')), 'false');
+  assert.equal(await page.$('.reaction-picker'), null, 'Closing the drawer also closes emoticons');
+  // Horizontal drags must not accidentally toggle the drawer.
+  await page.mouse.move(handle.x + 20, handle.y + 22);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + 120, handle.y + 22, { steps: 8 });
+  await page.mouse.up();
+  assert.equal(await page.$eval('.tchat-swipe-handle', n => n.getAttribute('aria-expanded')), 'false');
+  await page.evaluate(() => { for (const key of Object.keys(localStorage)) if (key.startsWith('openpoker.squeeze3d:')) localStorage.setItem(key, '0'); });
   await page.click('.inspect-cards');
   await page.waitForSelector('.cardSqueeze:not([aria-busy="true"])');
+  assert.equal(await page.$eval('.cardSqueeze', n => n.dataset.renderer), '2d-default', 'Cash and tournament inspection default to free 2D');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.cardSqueeze', { hidden: true });
+  await page.evaluate(() => { for (const key of Object.keys(localStorage)) if (key.startsWith('openpoker.squeeze3d:')) localStorage.setItem(key, '1'); });
+  for (const failure of ['denied', 'offline']) {
+    await page.evaluate(failure => {
+      window.savedSqueezeFetch = window.fetch;
+      window.fetch = (url, options) => String(url).includes('/api/marketplace/squeeze-3d/access')
+        ? failure === 'offline' ? Promise.reject(new TypeError('Offline fixture')) : Promise.resolve(new Response(JSON.stringify({ access: { allowed: false } }), { status: 200 }))
+        : window.savedSqueezeFetch(url, options);
+    }, failure);
+    await page.click('.inspect-cards');
+    await page.waitForSelector('.cardSqueeze:not([aria-busy="true"])');
+    assert.equal(await page.$eval('.cardSqueeze', n => n.dataset.renderer), '2d-default', `${kind}: ${failure} access fails closed to free 2D`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.cardSqueeze', { hidden: true });
+    await page.evaluate(() => { window.fetch = window.savedSqueezeFetch; delete window.savedSqueezeFetch; });
+  }
+  await page.click('.inspect-cards');
+  await page.waitForSelector('.cardSqueeze:not([aria-busy="true"])');
+  assert.equal(await page.$eval('.cardSqueeze', n => n.dataset.renderer), 'webgl', 'Cash and tournament inspection use the 3D renderer');
+  const visibility = await page.evaluate(async () => {
+    const { loadSqueeze, drawSqueeze } = await import('/src/game/squeeze.ts');
+    const { data, images } = await loadSqueeze(2);
+    const canvas = document.createElement('canvas'); canvas.width = 652; canvas.height = 484;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const pixels = (cards, frame) => { drawSqueeze(ctx, data, images, cards, frame); return ctx.getImageData(0,0,652,484).data; };
+    const difference = (a,b) => a.reduce((sum,value,i) => sum + (value !== b[i] ? 1 : 0),0);
+    return {
+      hidden: difference(pixels(['Ah','Kc'],30), pixels(['4h','Kc'],30)),
+      first: difference(pixels(['Ah','Kc'],30), pixels(['Ah','Qc'],30)),
+      second: difference(pixels(['Ah','Kc'],60), pixels(['4h','Kc'],60)),
+    };
+  });
+  assert.equal(visibility.hidden, 0, 'The lower card remains hidden during the first peek');
+  assert.ok(visibility.first > 20 && visibility.second > 20, 'Each actual card becomes readable in its own stage');
+  const canvas = await (await page.$('.cardSqueeze canvas')).boundingBox();
+  const touch = await page.createCDPSession();
+  const finger = { x: canvas.x + canvas.width / 2, y: canvas.y + canvas.height * .75 };
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [finger] });
+  await new Promise(resolve => setTimeout(resolve, 150));
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...finger, y: finger.y - canvas.height * .08 }] });
+  assert.ok(Number(await page.$eval('.cardSqueeze', n => n.dataset.frame)) > 15);
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.waitForFunction(() => document.querySelector('.cardSqueeze')?.dataset.frame === '0');
+  await touch.detach();
+  await page.screenshot({path:path.join(artifacts, `${kind}-inspect-closed-${width}.png`)});
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height * .75);
+  await page.mouse.down();
+  await new Promise(resolve => setTimeout(resolve, 150));
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height * .55, { steps: 8 });
+  assert.ok(Number(await page.$eval('.cardSqueeze', n => n.dataset.frame)) > 15, 'Dragging must visibly peel actual cards');
   await page.screenshot({path:path.join(artifacts, `${kind}-inspect-${width}.png`)});
+  await page.mouse.up();
   await page.click('.squeezeOpen');
+  await page.waitForFunction(() => document.querySelector('.cardSqueeze')?.dataset.frame === '60');
+  await page.screenshot({path:path.join(artifacts, `${kind}-inspect-open-${width}.png`)});
   await page.waitForSelector('.cardSqueeze', {hidden:true});
   }
   await page.screenshot({ path: path.join(artifacts, `${kind}-${width}x${height}.png`) });
@@ -226,7 +298,7 @@ async function capture(kind, width, height) {
 
 async function captureTournamentWaiting(width, height) {
   await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
-  await page.waitForFunction((expectedWidth) => document.querySelector('.table-stage.stage-portrait')?.getBoundingClientRect().width === expectedWidth, {}, width);
+  await page.waitForFunction((expectedWidth) => Math.abs((document.querySelector('.table-stage.stage-portrait')?.getBoundingClientRect().width ?? 0) - expectedWidth) < 1, {}, width);
   await page.waitForSelector('.tt-hud', { visible: true });
   const geometry = await page.evaluate(() => {
     const rect = (selector) => document.querySelector(selector)?.getBoundingClientRect();
@@ -267,7 +339,8 @@ try {
   assert.ok(freeroll, 'The disposable sandbox has no freeroll tournament fixture.');
   const tournament = await prepareTournament(players[0], players.slice(1), freeroll.id);
 
-  browser = await puppeteer.launch({
+  if (phone) for (const port of phonePorts) execFileSync('adb',['-s',phone,'reverse',`tcp:${port}`,`tcp:${port}`]);
+  browser = phone ? await puppeteer.connect({browserURL:'http://127.0.0.1:9223',defaultViewport:null}) : await puppeteer.launch({
     executablePath: chromePath(), headless: true, pipe: true,
     userDataDir: path.join(sandbox.directory, 'reference-browser'),
     args: ['--disable-dev-shm-usage', '--no-first-run'],
@@ -276,13 +349,14 @@ try {
   page.setDefaultTimeout(20000);
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-  await page.evaluateOnNewDocument((token) => {
+  await page.evaluateOnNewDocument((token, userId) => {
     if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
     sessionStorage.setItem('ggpoker.entered', '1');
     localStorage.setItem('ggpoker.welcomeSeen', '1');
     localStorage.setItem('ggpoker.squeeze', '0');
+    localStorage.setItem(`openpoker.squeeze3d:${userId}`, '1');
     localStorage.setItem('ggpoker.token', token);
-  }, players[0].token);
+  }, players[0].token, players[0].user.id);
 
   const layouts = {};
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
@@ -295,6 +369,8 @@ try {
   }
 
   await page.goto(`${sandbox.url}/#/table/${encodeURIComponent(tournament.tableId)}`, { waitUntil: 'domcontentloaded' });
+  // Hash navigation can retain the cash DOM until the tournament snapshot arrives.
+  await page.waitForSelector('.table-screen.table-tournament');
   await page.waitForSelector('.seat.me', { visible: true });
   await driveBrowserHeroToFlop(tournament.clients, tournament.tableId);
   for (const [width, height] of [[390, 844], [320, 700]]) {
@@ -315,7 +391,7 @@ try {
   await writeFile(path.join(artifacts, 'results.json'), JSON.stringify({ checks, page_errors: pageErrors, error: error.message }, null, 2));
   throw error;
 } finally {
-  await browser?.close();
+  if (phone) { await page?.close(); await browser?.disconnect(); for (const port of phonePorts) execFileSync('adb',['-s',phone,'reverse','--remove',`tcp:${port}`]); } else await browser?.close();
   await Promise.allSettled(sockets.map((client) => client.close()));
   await sandbox.close();
 }

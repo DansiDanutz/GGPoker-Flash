@@ -76,6 +76,10 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
   };
 
   const closePicker = useCallback(() => setPickerOpen(false), []);
+  const setDrawerOpen = (next: boolean) => {
+    setToolsOpen(next);
+    if (!next) { setPickerOpen(false); store.close(); }
+  };
   const toggleLine = useCallback((id: string) => setActiveLine((cur) => (cur === id ? null : id)), []);
 
   const submit = (e: React.FormEvent) => {
@@ -93,11 +97,21 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
   return (
     <div className={`tchat-dock${open ? ' open' : ''}${toolsOpen ? ' tools-open' : ''}`}>
       <button type="button" className="tchat-swipe-handle" aria-label="Chat and emoticons menu"
-        aria-expanded={toolsOpen} onClick={e => {if(e.detail === 0) setToolsOpen(v => !v);}}
+        aria-expanded={toolsOpen} onClick={e => { if (e.detail === 0) setDrawerOpen(!toolsOpen); }}
         onPointerDown={e => { swipeStart.current = {x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId); }}
         onPointerCancel={() => {swipeStart.current=null;}}
-        onPointerUp={e => {const start=swipeStart.current;swipeStart.current=null;if(start && start.y-e.clientY>35 && Math.abs(start.x-e.clientX)<60){setToolsOpen(true);e.preventDefault();} else if(start && Math.abs(start.y-e.clientY)<15){setToolsOpen(v=>!v);}}}>
-        <span aria-hidden="true">⌃</span><span>Chat &amp; emoticons</span>
+        onPointerUp={e => {
+          const start = swipeStart.current;
+          swipeStart.current = null;
+          if (!start) return;
+          const dx = Math.abs(start.x - e.clientX);
+          const dy = start.y - e.clientY;
+          if (Math.abs(dy) > 35 && dx < 60) {
+            setDrawerOpen(dy > 0);
+            e.preventDefault();
+          } else if (Math.abs(dy) < 15 && dx < 15) setDrawerOpen(!toolsOpen);
+        }}>
+        <span className="tchat-grip" aria-hidden="true" /><span>Chat &amp; emoticons</span><span aria-hidden="true">{toolsOpen ? '⌄' : '⌃'}</span>
       </button>
       {open && (
         <section className="tchat-panel" aria-label="Table chat">
@@ -143,6 +157,7 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
             <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5v-8Z" fill="currentColor" />
             <circle cx="8.5" cy="9.5" r="1.3" fill="#fbefcc" /><circle cx="12" cy="9.5" r="1.3" fill="#fbefcc" /><circle cx="15.5" cy="9.5" r="1.3" fill="#fbefcc" />
           </svg>
+          <span className="tchat-tool-label">Chat</span>
           {unread > 0 && !open && <span className="tchat-badge" aria-hidden="true">{unreadLabel}</span>}
         </button>
         <span className="tchat-react-wrap">
@@ -154,6 +169,7 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
               <circle cx="8.8" cy="10" r="1.4" fill="#fbefcc" /><circle cx="15.2" cy="10" r="1.4" fill="#fbefcc" />
               <path d="M7.6 13.6a4.8 4.8 0 0 0 8.8 0" fill="none" stroke="#fbefcc" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
+            <span className="tchat-tool-label">Emoticons</span>
           </button>
           {pickerOpen && <ReactionPicker onPick={onReact} onClose={closePicker} />}
         </span>

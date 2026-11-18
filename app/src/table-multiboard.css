@@ -51,3 +51,13 @@
 }
 .table-screen.anim-off .board-particles { display: none; }
 .table-screen.anim-off .multi-board.awarded .board { animation: none; }
+
+/* Show each board's award in turn; the other boards remain readable but subdued. */
+.table-screen .multi-boards[data-resolving="true"] .multi-board .board { animation: none; opacity: .35; transition: opacity .18s ease; }
+.table-screen .multi-boards[data-resolving="true"] .multi-board.current .board { opacity: 1; filter: drop-shadow(0 0 5px #ffdf78); }
+.table-screen .multi-board.current .multi-board-label { color: #fff; }
+.table-screen .board-win-count { box-sizing: border-box; width: max-content; max-width: 150px; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+.table-screen .board-win-count.current { border-color: #fff0aa; box-shadow: 0 0 12px #e8b942; color: #fff; }
+@media (prefers-reduced-motion: reduce) {
+  .table-screen .multi-boards .multi-board .board { transition: none; }
+}
