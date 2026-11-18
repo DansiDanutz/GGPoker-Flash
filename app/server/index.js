@@ -1568,7 +1568,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, organizerClubs.directory({search:url.searchParams.get('search') || '', rank:url.searchParams.get('sort') !== 'newest', offset:Number(url.searchParams.get('offset') || 0)}));
     }
     if (p.startsWith('/api/organizers/')) {
-      const match = p.match(/^\/api\/organizers\/(\d+)(?:\/(knock|leave|entry))?$/);
+      const match = p.match(/^\/api\/organizers\/(\d+)(?:\/(knock|leave|entry|vote))?$/);
       if (match && !match[2] && req.method === 'GET') {
         return json(res, 200, organizerClubs.profile(Number(match[1]), userByToken(tokenFrom(req))?.id));
       }
@@ -1580,6 +1580,7 @@ const server = http.createServer(async (req, res) => {
       if (p === '/api/organizers/me/profile') return json(res,200,organizerClubs.updateProfile({ownerId:actor.id,actorId:actor.id,name:body.name,description:body.description,entryFeeCents:body.entryFeeCents}));
       const reply = p.match(/^\/api\/organizers\/me\/requests\/(\d+)\/respond$/);
       if (reply) return json(res,200,organizerClubs.respond({organizerId:actor.id,actorId:actor.id,userId:Number(reply[1]),decision:({approved:'approve',rejected:'reject'})[body.decision]}));
+      if (match?.[2] === 'vote') return json(res,200,organizerClubs.vote({organizerId:Number(match[1]),userId:actor.id,stars:body.stars}));
       if (match?.[2] === 'knock') return json(res,200,organizerClubs.requestJoin({organizerId:Number(match[1]),userId:actor.id,message:body.message}));
       if (match?.[2] === 'leave') return json(res,200,organizerClubs.leave({organizerId:Number(match[1]),userId:actor.id}));
       if (match?.[2] === 'entry') return json(res,503,{error:'Paid club entry is not available yet.'});

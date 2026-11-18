@@ -30,6 +30,10 @@ export function createOrganizerClubs({ db, now = Date.now }) {
       status TEXT NOT NULL CHECK(status IN ('pending','approved','rejected','removed')), message TEXT NOT NULL DEFAULT '' CHECK(length(message)<=500),
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(organizer_id,user_id)
     );
+    CREATE TABLE IF NOT EXISTS organizer_club_votes (
+      organizer_id INTEGER NOT NULL, user_id INTEGER NOT NULL, stars INTEGER NOT NULL CHECK(stars BETWEEN 1 AND 5),
+      PRIMARY KEY(organizer_id,user_id), FOREIGN KEY(organizer_id,user_id) REFERENCES organizer_club_members(organizer_id,user_id)
+    );
     CREATE INDEX IF NOT EXISTS organizer_club_members_status ON organizer_club_members(organizer_id,status,updated_at);
     CREATE INDEX IF NOT EXISTS organizer_club_hands_activity ON hands(table_id,created_at);
     CREATE INDEX IF NOT EXISTS organizer_club_tables_owner ON tables(owner_id,private,play_money);
@@ -60,8 +64,11 @@ export function createOrganizerClubs({ db, now = Date.now }) {
     const rake30d = journal.rake;
     const pluginsUsed = [tables30d, tourneys.events, journal.spins, journal.entries].filter(n => n > 0).length;
     const breakdown = { acceptedMembers: memberCount, tables30d, hands30d, tournaments30d: tourneys.events, pluginsUsed, tournamentEntrants30d: tourneys.entrants, maxTournamentEntrants: tourneys.maximum, cashChipRake30d: rake30d };
-    const score = 1 + memberCount + 10 * pluginsUsed + 5 * tables30d + 5 * tourneys.events + hands30d / 100 + tourneys.entrants + tourneys.maximum + rake30d / 1000;
-    return { ownerId, membershipActive: true, nick: user.nick, avatar: user.avatar || '', country: user.country || '', name: profile?.name || `${user.nick} Club`, description: profile?.description || '', entryFeeCents: profile?.entry_fee_cents ?? 100, memberCount, hands30d, tournamentEntrants30d: tourneys.entrants, maxTournamentEntrants: tourneys.maximum, cashChipRake30d: rake30d, score, pluginsUsed, breakdown };
+    const reputation = db.prepare(`SELECT COUNT(*) votes, ROUND(AVG(v.stars),2) stars FROM organizer_club_votes v
+      JOIN organizer_club_members m USING(organizer_id,user_id) JOIN users u ON u.id=v.user_id
+      WHERE v.organizer_id=? AND m.status='approved' AND u.banned=0 AND u.deleted_at IS NULL`).get(ownerId);
+    const score = (reputation.stars || 0) + 1 + memberCount + 10 * pluginsUsed + 5 * tables30d + 5 * tourneys.events + hands30d / 100 + tourneys.entrants + tourneys.maximum + rake30d / 1000;
+    return { ownerId, membershipActive: true, nick: user.nick, avatar: user.avatar || '', country: user.country || '', name: profile?.name || `${user.nick} Club`, description: profile?.description || '', entryFeeCents: profile?.entry_fee_cents ?? 100, memberCount, hands30d, tournamentEntrants30d: tourneys.entrants, maxTournamentEntrants: tourneys.maximum, cashChipRake30d: rake30d, score, reputation, pluginsUsed, breakdown };
   };
   function directory({ limit = 20, offset = 0, search = '', rank = true } = {}) {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(offset) || offset < 0) fail('Invalid pagination.');
@@ -127,5 +134,11 @@ export function createOrganizerClubs({ db, now = Date.now }) {
     try { activeOrganizer(id(organizerId, 'organizerId')); activeUser(id(userId)) || fail('inactive'); } catch { return false; }
     return organizerId === userId || db.prepare("SELECT 1 FROM organizer_club_members WHERE organizer_id=? AND user_id=? AND status='approved'").get(organizerId, userId) != null;
   }
-  return { directory, profile, updateProfile, requestJoin, respond, approvePaid, leave, members, canEnter };
+  function vote({organizerId,userId,stars}) {
+    if (!Number.isInteger(stars) || stars<1 || stars>5) fail('Choose 1 to 5 stars.');
+    if (organizerId===userId || !canEnter(organizerId,userId)) fail('Only approved club members can vote.',403);
+    db.prepare('INSERT INTO organizer_club_votes VALUES(?,?,?) ON CONFLICT(organizer_id,user_id) DO UPDATE SET stars=excluded.stars').run(organizerId,userId,stars);
+    return {stars};
+  }
+  return { vote, directory, profile, updateProfile, requestJoin, respond, approvePaid, leave, members, canEnter };
 }

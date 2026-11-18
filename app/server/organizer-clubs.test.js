@@ -103,3 +103,12 @@ test('two used plugins outrank membership alone even with a lower points total',
  assert.equal(idle.ownerId,2); assert.equal(idle.pluginsUsed,0); assert.equal(idle.score,101);
  assert.ok(used.score<idle.score);
 });
+
+test('only current approved members count once toward reputation',()=>{
+ const {clubs}=fixture(); const vote=stars=>clubs.vote({organizerId:1,userId:3,stars});
+ assert.throws(()=>vote(5)); clubs.approvePaid({organizerId:1,userId:3});
+ assert.throws(()=>vote(6)); vote(5); vote(3);
+ assert.deepEqual({...clubs.profile(1).reputation},{votes:1,stars:3});
+ assert.throws(()=>clubs.vote({organizerId:1,userId:1,stars:5}));
+ clubs.leave({organizerId:1,userId:3}); assert.equal(clubs.profile(1).reputation.votes,0);
+});
