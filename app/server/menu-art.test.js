@@ -14,7 +14,7 @@ test('every menu emblem points at a file that exists', () => {
     for (const [key, url] of Object.entries(map)) assert.ok(fs.existsSync(path.join(root, 'public', url)), key);
   }
   assert.deepEqual(Object.keys(GAME_TAB_EMBLEM), ['home', 'aof', 'rush', 'holdem', 'plo', 'short', 'spin', 'battle']);
-  assert.deepEqual(Object.keys(PHONE_MENU_EMBLEM), ['poker', 'events', 'casino', 'rewards']);
+  assert.deepEqual(Object.keys(PHONE_MENU_EMBLEM), ['poker', 'events', 'casino', 'organizers', 'rewards']);
 });
 
 test('the desktop game-mode row draws its labels as text, not baked plates', () => {
@@ -28,7 +28,7 @@ test('the desktop game-mode row draws its labels as text, not baked plates', () 
 test('the phone shortcut tiles and tab bar use the emblems with visible labels', () => {
   const home = read('src/components/mobile/MobileHome.tsx');
   assert.doesNotMatch(home, /NavGlyph name="(tables|events|casino|rewards)"/);
-  for (const k of ['poker', 'events', 'casino', 'rewards']) assert.match(home, new RegExp(`PHONE_MENU_EMBLEM\\.${k}\\b`), k);
+  for (const k of ['poker', 'events', 'casino', 'organizers', 'rewards']) assert.match(home, new RegExp(`PHONE_MENU_EMBLEM\\.${k}\\b`), k);
   const nav = read('src/components/MobileNav.tsx');
   assert.doesNotMatch(nav, /<NavGlyph/);
   assert.match(nav, /PHONE_MENU_EMBLEM/);

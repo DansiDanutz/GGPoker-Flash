@@ -590,3 +590,26 @@
   .p-hero-dots span.on { width: 18px; border-radius: 3px; background: #f2c45c; }
   .p-hero-dots button { display: none; }
 }
+
+/* Make the install entry discoverable without moving its tap target. */
+@media (max-width: 760px) {
+  .login2-splash-app { position: relative; isolation: isolate; border: 2px solid #ffd46a;
+    background: linear-gradient(120deg, #301329ed, #392113ed); animation: install-edge-glow 3.6s ease-in-out infinite; }
+  .login2-splash-app::before { content: ''; position: absolute; inset: -2px; border-radius: inherit;
+    padding: 2px; background: linear-gradient(110deg, #ffd46a 15%, #fff9df 35%, #c276ff 50%, #ffd46a 65%);
+    background-size: 250% 100%; mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude; pointer-events: none; animation: install-border-travel 4s linear infinite; }
+  .login2-splash-app > svg { flex-shrink: 0; width: 26px; height: 32px; color: #ffe294;
+    filter: drop-shadow(0 0 5px #ffc64c80); animation: install-phone-lift 3.6s ease-in-out infinite; }
+  .login2-splash-app b { color: #ffe6a1; text-shadow: 0 0 12px #ffc64c55;
+    animation: install-title-glow 3.6s ease-in-out infinite; }
+  .login2-splash-app small { color: #fff1d4; }
+  .login2-splash-app:focus-visible { outline: 3px solid #fff; outline-offset: 5px; }
+}
+@keyframes install-edge-glow { 0%,100% { box-shadow: 0 0 8px #ffc64c30; } 50% { box-shadow: 0 0 20px #ffc64c75, inset 0 0 12px #ffc64c18; } }
+@keyframes install-border-travel { to { background-position: 250% 0; } }
+@keyframes install-phone-lift { 0%,25%,65%,100% { transform: translateY(0); } 40%,55% { transform: translateY(-4px); } }
+@keyframes install-title-glow { 0%,100% { color: #ffe6a1; } 50% { color: #fff; text-shadow: 0 0 16px #ffc64c99; } }
+@media (prefers-reduced-motion: reduce) {
+  .login2-splash-app, .login2-splash-app::before, .login2-splash-app > svg, .login2-splash-app b { animation: none; }
+}

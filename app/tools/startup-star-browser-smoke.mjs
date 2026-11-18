@@ -36,6 +36,13 @@ try {
     });
     assert.ok(posterBounds.left >= 0 && posterBounds.top >= 0 && posterBounds.right <= posterBounds.width + 1 && posterBounds.bottom <= posterBounds.height + 1,
       `Entire poster must fit the viewport: ${JSON.stringify(posterBounds)}`);
+    if(width===390) for(const viewport of [{width:320,height:568},{width:430,height:932},{width:844,height:390}]) {
+      await page.setViewport(viewport);
+      assert.ok(await page.$eval('.ls-poster',n=>{const r=n.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&getComputedStyle(n).objectFit==='contain';}));
+      await page.screenshot({path:path.join(artifacts,`intro-${viewport.width}x${viewport.height}.png`)});
+    }
+    await page.setViewport({width,height:844});
+
     assert.ok(await page.$('.ls-content[inert]'));
     await page.screenshot({path:path.join(artifacts,`intro-${width}.png`)});
     if (width === 390) {
@@ -58,6 +65,9 @@ try {
     await page.waitForSelector('.ls',{hidden:true});
     await page.waitForSelector('#login-id,.login2-splash-login',{visible:true});
     assert.equal(await page.$('.ls-content[inert]'),null);
+    assert.ok(await page.$('.login2-splash-app'));
+    const installMotion=await page.$eval('.login2-splash-app',n=>({card:getComputedStyle(n).animationName,border:getComputedStyle(n,'::before').animationName,icon:getComputedStyle(n.querySelector('svg')).animationName,title:getComputedStyle(n.querySelector('b')).animationName}));
+    assert.ok(Object.values(installMotion).every(name=>width===320?name==='none':name!=='none'));
     await page.screenshot({path:path.join(artifacts,`login-${width}.png`)});
     await page.click('.creator-credit-btn'); await page.waitForSelector('.cn-star-button');
     assert.equal(await page.$eval('.cn-star-button',n=>getComputedStyle(n).backgroundColor),'rgb(255, 213, 74)');

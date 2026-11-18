@@ -54,6 +54,8 @@ function ChatLogLine({ line, role, active, onToggle, onMute, onReport }: LinePro
 export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSend, onReact, onMute, onReport }: Props) {
   const { lines, unread, open } = useTableChat(store);
   const [draft, setDraft] = useState('');
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const swipeStart = useRef<{x:number;y:number} | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeLine, setActiveLine] = useState<string | null>(null);
   // Panel-local so switching never re-renders the table. All shows bets and winnings with the chat.
@@ -89,7 +91,14 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
   const unreadLabel = unread > 99 ? '99+' : String(unread);
 
   return (
-    <div className={`tchat-dock${open ? ' open' : ''}`}>
+    <div className={`tchat-dock${open ? ' open' : ''}${toolsOpen ? ' tools-open' : ''}`}>
+      <button type="button" className="tchat-swipe-handle" aria-label="Chat and emoticons menu"
+        aria-expanded={toolsOpen} onClick={e => {if(e.detail === 0) setToolsOpen(v => !v);}}
+        onPointerDown={e => { swipeStart.current = {x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId); }}
+        onPointerCancel={() => {swipeStart.current=null;}}
+        onPointerUp={e => {const start=swipeStart.current;swipeStart.current=null;if(start && start.y-e.clientY>35 && Math.abs(start.x-e.clientX)<60){setToolsOpen(true);e.preventDefault();} else if(start && Math.abs(start.y-e.clientY)<15){setToolsOpen(v=>!v);}}}>
+        <span aria-hidden="true">⌃</span><span>Chat &amp; emoticons</span>
+      </button>
       {open && (
         <section className="tchat-panel" aria-label="Table chat">
           <header className="tchat-head">
@@ -138,7 +147,7 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
         </button>
         <span className="tchat-react-wrap">
           <button type="button" className="tchat-toggle" disabled={readOnly} aria-haspopup="menu" aria-expanded={pickerOpen}
-            aria-label="React" data-tip={readOnly ? 'Spectators cannot react' : 'Reaction'}
+            aria-label="Emoticons" data-tip={readOnly ? 'Spectators cannot react' : 'Reaction'}
             onClick={() => setPickerOpen((v) => !v)}>
             <svg className="tchat-icon" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="9.5" fill="currentColor" />

@@ -118,8 +118,8 @@ test('an open chat spans the screen width and the reaction picker opens leftward
   assert.match(css(), /\.table-screen \.reaction-picker \{ left: auto; right: 0; \}/);
 });
 
-test('on your turn the whole chat (open or not) steps aside so it never covers the bet controls', () => {
-  assert.match(css(), /\.table-screen:has\(\.action-bar :is\(\.main-actions, \.aof-row\)\) :is\(\.tchat-dock, \.tt-hud\) \{ visibility: hidden; \}/);
+test('on your turn the HUD steps aside while the chat menu remains accessible', () => {
+  assert.match(css(), /\.table-screen:has\(\.action-bar :is\(\.main-actions, \.aof-row\)\) \.tt-hud \{ visibility: hidden; \}/);
 });
 
 test('chat and reactions share a slim horizontal row', () => {

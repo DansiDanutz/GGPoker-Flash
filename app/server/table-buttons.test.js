@@ -43,11 +43,11 @@ test('Chat and React are round chip icon buttons (speech bubble, smiley), React 
   const chat = read('src/components/table/TableChat.tsx');
   const toggles = chat.slice(chat.indexOf('<div className="tchat-buttons">'));
   assert.match(toggles, /aria-label=\{unread \? `Chat, \$\{unread\} unread` : 'Chat'\}/);
-  assert.match(toggles, /aria-label="React"/);
+  assert.match(toggles, /aria-label="Emoticons"/);
   assert.equal((toggles.match(/<svg className="tchat-icon"/g) || []).length, 2, 'both buttons draw an icon');
   assert.doesNotMatch(toggles, />\s*Chat\s*\{|>React<\/button>/, 'no text label is drawn');
   // React is second in the markup; the column is reversed so it sits above Chat.
-  assert.ok(toggles.indexOf('aria-label="React"') > toggles.indexOf("'Chat'"));
+  assert.ok(toggles.indexOf('aria-label="Emoticons"') > toggles.indexOf("'Chat'"));
   assert.match(rule(css(), '.table-screen .tchat-buttons'), /flex-direction: column-reverse;/);
   // The time-bank chip's striped gold edge around the presets' cream face, with a dark icon.
   const chip = rule(css(), '.table-screen .tchat-toggle');
