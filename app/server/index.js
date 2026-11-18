@@ -73,6 +73,7 @@ import { previewRake } from './rake-lab.js';
 import { createManagementPolicy, privateSpinConfig, tableManagementProduct } from './management-plugins.js';
 import { createManagementRoutes } from './management-routes.js';
 import { createOrganizerBilling } from './organizer-billing.js';
+import { createSqueeze3dRoutes } from './squeeze-3d.js';
 import { createOrganizerBillingRoutes } from './organizer-billing-routes.js';
 import { cashRakeConfig, validateCashRake } from './cash-rake.js';
 import { createClubEntryProvider, verifyClubEntryPayment, clubEntryCheckoutUrl } from './club-entry-provider.js';
@@ -637,6 +638,7 @@ const handleManagementRoute = createManagementRoutes({ db, commerce: marketplace
 const contributorSubmissions = createContributorSubmissions({ db, commerce: marketplaceCommerce, billing: organizerBilling });
 const handleContributorRoute = createContributorRoutes({ submissions: contributorSubmissions, json, requireUser, requireAdmin, readBody });
 const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES, getSetting, broadcastState });
+const handleSqueeze3dRoute = createSqueeze3dRoutes({ db, billing: organizerBilling, liveTables: LIVE_TABLES, json, requireUser, readBody });
 const handleOrganizerChipRoute = createOrganizerChipRoutes({ db, chips: organizerChips, events: organizerChipEvents,
   spin: organizerChipSpin, spinTickets: organizerSpinTickets, billing: organizerBilling, json, requireUser, requireAdmin, readBody, mode: organizerChipMode,
   onEventResolved: (id) => {
@@ -1628,6 +1630,7 @@ const server = http.createServer(async (req, res) => {
       return json(res,200,{order:{id:order.id,status:'settled',amountCents:order.feeCents,checkoutUrl:null},membership:{status:'approved'}});
     }
     if (await handleOrganizerChipRoute(req, res, url)) return;
+    if (await handleSqueeze3dRoute(req, res, url)) return;
     if (await handleOrganizerBillingRoute(req, res, url)) return;
     if (await handleManagementRoute(req, res, url)) return;
     if (await handleContributorRoute(req, res, url)) return;

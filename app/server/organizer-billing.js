@@ -6,6 +6,7 @@ export const ORGANIZER_TARIFFS = Object.freeze({ membership: 900, cash_setup: 10
     { through: 500, cents: 200 }, { through: null, cents: 100 },
   ].map(Object.freeze)),
 });
+export const SQUEEZE_3D_PRICES = Object.freeze({ monthly: 100, lifetime: 1000 });
 const HOUR = 3600000;
 const MAX_CENTS = 9_000_000_000;
 function fail(message, status = 400, code = 'organizer_billing_invalid') {
@@ -39,6 +40,7 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     CREATE TABLE IF NOT EXISTS organizer_billing_memberships (user_id INTEGER NOT NULL REFERENCES users(id), role TEXT NOT NULL CHECK(role IN ('organizer','contributor')), active INTEGER NOT NULL DEFAULT 1, expires_at TEXT NOT NULL, PRIMARY KEY(user_id,role));
     CREATE TABLE IF NOT EXISTS organizer_billing_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id), kind TEXT NOT NULL, amount_cents INTEGER NOT NULL, reference TEXT NOT NULL UNIQUE, resource_id TEXT, metadata TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS organizer_billing_operations (user_id INTEGER NOT NULL REFERENCES users(id), idempotency_key TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, result_id TEXT, created_at TEXT NOT NULL, PRIMARY KEY(user_id,idempotency_key));
+    CREATE TABLE IF NOT EXISTS squeeze_3d_entitlements (user_id INTEGER PRIMARY KEY REFERENCES users(id), plan TEXT NOT NULL CHECK(plan IN ('monthly','lifetime')), expires_at TEXT, updated_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS organizer_cash_sessions (user_id INTEGER NOT NULL REFERENCES users(id), table_id TEXT PRIMARY KEY, active INTEGER NOT NULL DEFAULT 0, paid_until TEXT NOT NULL, next_charge_at TEXT NOT NULL, started_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS organizer_billing_refunds (
       request_id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), original_reference TEXT NOT NULL,
@@ -197,6 +199,30 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     if (role === 'organizer' && onOrganizerMembership) onOrganizerMembership({ organizerId: userId, reference: `membership:${userId}:${k}`, availableAt: new Date(periodStart).toISOString() });
     return record(userId, k, 'subscribe', role, { role, expires_at });
   });
+  function squeeze3dAccount(id) {
+    user(id);
+    const row = db.prepare('SELECT plan,expires_at FROM squeeze_3d_entitlements WHERE user_id=?').get(id);
+    return {
+      mode,
+      purchases_enabled: mode === 'enforce',
+      product: { id: 'squeeze-3d', prices: { monthly_cents: SQUEEZE_3D_PRICES.monthly, lifetime_cents: SQUEEZE_3D_PRICES.lifetime } },
+      entitlement: row ? { active: row.plan === 'lifetime' || Date.parse(row.expires_at) > now(), plan: row.plan, expires_at: row.expires_at } : { active: false, plan: null, expires_at: null },
+      service_credit_balance_cents: balance(id),
+    };
+  }
+  const purchaseSqueeze3d = ({ userId, plan, idempotencyKey: k }) => transaction(db, () => {
+    enabled(); user(userId);
+    if (typeof plan !== 'string' || !Object.hasOwn(SQUEEZE_3D_PRICES, plan)) fail('Plan must be monthly or lifetime.');
+    const old = operation(userId, k, 'squeeze_3d_purchase', plan);
+    if (old) return old;
+    const current = squeeze3dAccount(userId).entitlement;
+    if (current.plan === 'lifetime') fail('Lifetime access is already active.', 409, 'already_lifetime');
+    const expires_at = plan === 'lifetime' ? null : nextMonth(current.active ? Date.parse(current.expires_at) : now());
+    debit(userId, SQUEEZE_3D_PRICES[plan], 'squeeze_3d', `squeeze-3d:${userId}:${k}`, 'squeeze-3d', { plan });
+    db.prepare(`INSERT INTO squeeze_3d_entitlements(user_id,plan,expires_at,updated_at) VALUES (?,?,?,?)
+      ON CONFLICT(user_id) DO UPDATE SET plan=excluded.plan,expires_at=excluded.expires_at,updated_at=excluded.updated_at`).run(userId, plan, expires_at, stamp());
+    return record(userId, k, 'squeeze_3d_purchase', plan, { plan, entitlement: squeeze3dAccount(userId).entitlement });
+  });
   function replay(userId, k, payload) {
     if (mode !== 'enforce') return null;
     user(userId); key(k);
@@ -282,5 +308,5 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     user(id);
     return db.prepare('SELECT * FROM organizer_billing_ledger WHERE user_id=? ORDER BY id DESC LIMIT 100').all(id);
   }
-  return { mode, tariffs: ORGANIZER_TARIFFS, account, credit, reserveCreditRefund, markCreditRefundPaid, cancelCreditRefund, getCreditRefund, listCreditRefunds, subscribe, requireMembership, setup, replay, cashSession, startCash, stopCash, tickCash, canDeal, reschedule, history };
+  return { mode, tariffs: ORGANIZER_TARIFFS, account, credit, reserveCreditRefund, markCreditRefundPaid, cancelCreditRefund, getCreditRefund, listCreditRefunds, subscribe, squeeze3dAccount, purchaseSqueeze3d, requireMembership, setup, replay, cashSession, startCash, stopCash, tickCash, canDeal, reschedule, history };
 }

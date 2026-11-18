@@ -108,12 +108,14 @@
   .tchat-log.chat-log { max-height: 160px; }
 }
 
-.tchat-swipe-handle { display: none; }
+.tchat-swipe-handle, .tchat-tool-label { display: none; }
 @media (max-width: 760px) and (orientation: portrait) {
-  .tchat-swipe-handle { display: flex; align-items: center; gap: 8px; border: 1px solid #ffffff30;
-    border-radius: 18px; padding: 9px 14px; background: #151b21; color: #fff; min-height: 44px; touch-action: none; }
+  .tchat-swipe-handle { display: flex; position: relative; justify-content: center; align-items: center; gap: 8px; width: 100%; border: 1px solid #ffffff30;
+    border-radius: 16px 16px 0 0; padding: 16px 14px 8px; background: #151b21; color: #fff; min-height: 44px; touch-action: none; }
+  .tchat-grip { position: absolute; top: 5px; width: 36px; height: 3px; border-radius: 3px; background: #ffffff70; }
+  .tchat-tool-label { display: block; font-size: 11px; }
   .tchat-dock:not(.tools-open) .tchat-buttons { display: none; }
-  .tchat-dock.tools-open .tchat-buttons { padding: 10px; border-radius: 14px; background: #151b21;
+  .tchat-dock.tools-open .tchat-buttons { box-sizing: border-box; width: 100%; justify-content: flex-end; padding: 10px; border-radius: 0 0 14px 14px; background: #151b21;
     box-shadow: 0 -8px 24px #0006; animation: tableToolsRise .18s ease-out; }
 }
 @keyframes tableToolsRise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }

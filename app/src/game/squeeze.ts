@@ -1,14 +1,9 @@
-// Card Squeeze, ported from the reference clone's `card-squeeze.mjs`.
-//
-// The native compositor ships 61 frames per format (Hold'em, PLO4/5/6) plus an
-// inner face sheet and per-card masks. The panel is a canvas over the native
-// squeeze felt; wheel, hover, press and drag move a 0..60 frame counter, and
-// `Open` runs the full reveal. Copy of the original geometry and gestures.
+// Render the original DanGG card art with a gesture-driven corner peel.
 
-export type SqueezeTransform = { visible: boolean; x: number; y: number; scaleX: number; skewX: number; skewY: number };
+export type SqueezeTransform = { visible: boolean; x: number; y: number; scaleX: number; scaleY?: number; skewX: number; skewY: number };
 export type SqueezeSlot = {
   transforms: SqueezeTransform[];
-  masks: Array<{ array: Array<{ x: number; y: number }> }>;
+  masks: Array<{ array: Array<{ x: number; y: number }>; occluders?: Array<Array<{ x: number; y: number }>> }>;
 };
 export type SqueezeData = {
   frames: string[];
@@ -58,6 +53,7 @@ export function drawSqueeze(
     const r = data.glyphs[ordinals[i]];
     if (!r) continue;
     const sx = t.scaleX / 100;
+    const sy = (t.scaleY ?? t.scaleX) / 100;
     const x = t.skewX * Math.PI / 180;
     const y = t.skewY * Math.PI / 180;
     ctx.save();
@@ -65,8 +61,15 @@ export function drawSqueeze(
     mask.array.forEach((p, j) => (j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
     ctx.closePath();
     ctx.clip();
-    // SqueezeUtil.skew uses scaleX on both axes; preserve the original matrix.
-    ctx.transform(sx * Math.cos(y), sx * Math.sin(y), -sx * Math.sin(x), sx * Math.cos(x), t.x, t.y);
+    for (const cover of mask.occluders || []) {
+      ctx.beginPath();
+      ctx.rect(0, 0, 652, 484);
+      cover.forEach((p, j) => (j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.clip('evenodd');
+    }
+    // The lifted face follows the same perspective projection as its card art.
+    ctx.transform(sx * Math.cos(y), sx * Math.sin(y), -sy * Math.sin(x), sy * Math.cos(x), t.x, t.y);
     ctx.drawImage(images.inner, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
     ctx.restore();
   }
@@ -96,7 +99,7 @@ export function loadSqueeze(count = 2) {
   return assets.get(count)!;
 }
 
-export function createSqueezeMotion(paint: (frame: number) => void, complete: () => void) {
+export function createSqueezeMotion(paint: (frame: number) => void, complete: () => void, reducedMotion = false) {
   let frame = 0;
   let raf = 0;
   let generation = 0;
@@ -104,16 +107,17 @@ export function createSqueezeMotion(paint: (frame: number) => void, complete: ()
   let opening = false;
   let wheelTarget: number | null = null;
   const stop = () => { generation += 1; cancelAnimationFrame(raf); raf = 0; };
-  const set = (value: number) => { frame = Math.trunc(Math.max(0, Math.min(60, value))); paint(frame); };
+  const set = (value: number) => { frame = Math.max(0, Math.min(60, value)); paint(frame); };
   function tween(target: number, duration: number, hold = 0, done?: () => void) {
     stop();
+    if (reducedMotion) { set(target); if (target === 60) { closed = true; complete(); } else done?.(); return; }
     const version = generation;
     const start = performance.now();
     const from = frame;
     const tick = (now: number) => {
       if (closed || version !== generation) return;
       const progress = duration ? Math.min(1, (now - start) / duration) : 1;
-      set(from + (target - from) * progress);
+      set(from + (target - from) * (1 - (1 - progress) ** 3));
       if (progress < 1 || now - start < duration + hold) { raf = requestAnimationFrame(tick); return; }
       raf = 0;
       if (target === 60) { closed = true; complete(); } else done?.();
@@ -164,12 +168,14 @@ export function createSqueezePanel(
   cards: string[],
   onClose: (error?: Error) => void,
   playCues: (names: string[]) => void = () => {},
+  enable3D = false,
 ) {
   const panel = document.createElement('section');
   const canvas = document.createElement('canvas');
   const felt = new Image();
   const button = document.createElement('button');
   panel.className = 'cardSqueeze';
+  panel.dataset.cards = String(cards.length);
   panel.setAttribute('aria-label', 'Card Squeeze');
   panel.setAttribute('aria-busy', 'true');
   canvas.width = 652;
@@ -187,6 +193,7 @@ export function createSqueezePanel(
 
   let disposed = false;
   let motion: ReturnType<typeof createSqueezeMotion> | null = null;
+  let releaseRenderer: (() => void) | undefined;
   let timer = 0;
   let start: { x: number; y: number } | null = null;
   let current = { x: 0, y: 0 };
@@ -197,6 +204,7 @@ export function createSqueezePanel(
     disposed = true;
     window.clearTimeout(timer);
     motion?.dispose();
+    releaseRenderer?.();
     panel.remove();
   };
   function finish() {
@@ -206,15 +214,35 @@ export function createSqueezePanel(
     timer = window.setTimeout(() => { dispose(); onClose(); }, 300);
   }
 
-  loadSqueeze(cards.length).then(({ data, images }) => {
+  loadSqueeze(cards.length).then(async ({ data, images }) => {
     if (disposed) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Squeeze canvas unavailable');
+    let surface: { paint: (frame: number) => void; dispose: () => void } | undefined;
+    let lost = false;
+    const gpuCanvas = document.createElement('canvas');
     const paint = (frame: number) => {
-      drawSqueeze(ctx, data, images, cards, frame);
-      panel.dataset.frame = String(frame);
+      if (surface && !lost) {
+        surface.paint(frame);
+        ctx.clearRect(0,0,652,484);
+        ctx.drawImage(gpuCanvas,0,0);
+      } else drawSqueeze(ctx, data, images, cards, Math.trunc(frame));
+      panel.dataset.frame = String(Math.trunc(frame));
     };
-    motion = createSqueezeMotion(paint, finish);
+    if (enable3D && cards.length === 2) {
+      try {
+        const { createSqueeze3D } = await import('./squeeze3d');
+        if (disposed) return;
+        surface = await createSqueeze3D(gpuCanvas, cards.map(cardOrdinal), () => {
+          lost = true; surface?.dispose(); panel.dataset.renderer = '2d-fallback';
+          if (!disposed) paint(motion?.frame ?? 0);
+        });
+        releaseRenderer = surface.dispose;
+        if (disposed || lost) { surface.dispose(); if (disposed) return; }
+      } catch { lost = true; }
+    }
+    panel.dataset.renderer = surface && !lost ? 'webgl' : enable3D ? '2d-fallback' : '2d-default';
+    motion = createSqueezeMotion(paint, finish, window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     paint(0);
     panel.setAttribute('aria-busy', 'false');
     button.disabled = false;
@@ -251,7 +279,7 @@ export function createSqueezePanel(
     };
     canvas.onpointermove = (e) => {
       current = point(e);
-      if (!pressed && !hovering && hoverArea(current)) { hovering = true; anchor(); }
+      if (e.pointerType === 'mouse' && !pressed && !hovering && hoverArea(current)) { hovering = true; anchor(); }
       if (!start || (!pressed && !hovering)) return;
       start.y = Math.max(start.y, current.y);
       motion?.drag(current.x - start.x, current.y - start.y, !pressed);
@@ -263,7 +291,7 @@ export function createSqueezePanel(
       start = null;
       current = point(e);
       if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-      motion?.release(e.type === 'pointerup' && current.x >= 0 && current.x <= 652 && current.y >= 0 && current.y <= 484);
+      motion?.release(e.pointerType === 'mouse' && e.type === 'pointerup' && current.x >= 0 && current.x <= 652 && current.y >= 0 && current.y <= 484);
     };
     canvas.onpointercancel = canvas.onpointerup;
     canvas.onkeydown = (e) => {

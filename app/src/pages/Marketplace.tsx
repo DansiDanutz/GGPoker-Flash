@@ -10,6 +10,7 @@ import { ManagementPlugins } from '../components/ManagementPlugins';
 import { MarketplacePublisher } from '../components/MarketplacePublisher';
 import { OrganizerBilling } from '../components/OrganizerBilling';
 import { OrganizerChips } from '../components/OrganizerChips';
+import { SqueezePlugin } from '../components/SqueezePlugin';
 import { PlayMoneyPlugins } from '../components/PlayMoneyPlugins';
 import { ContributorDirectory, marketplaceProductLabel, type PublicContributor } from '../components/ContributorDirectory';
 import { ProfileWorkspaceTabs } from '../components/ProfileWorkspaceTabs';
@@ -211,6 +212,7 @@ export function Marketplace() {
   }, []);
 
   const openProduct = useCallback((product: MarketplaceProduct) => {
+    if (product.id === 'squeeze-3d') { scrollToSection('squeeze-3d-plugin'); return; }
     dialogGeneration.current += 1;
     setMessage(''); setRequestError(''); setSelected(product);
   }, []);
@@ -317,6 +319,7 @@ export function Marketplace() {
         </section>
 
         <section className="mp-section mp-container"><OrganizerBilling key={user?.id ?? "guest"} userId={user?.id} /></section>
+        <SqueezePlugin key={`squeeze-${user?.id ?? 'guest'}`} />
         <PlayMoneyPlugins />
         <section className="mp-section mp-container"><OrganizerChips key={`chips-${user?.id ?? 'guest'}`} userId={user?.id} /></section>
 

@@ -8,7 +8,7 @@ const INDEX_FONT = "'Avenir Next Condensed','Helvetica Neue',Arial,sans-serif";
  * The near band of a card face, gw×gh: stacked corner index at the left (the part a
  * partially covered card still shows), then a large pip / court monogram.
  */
-function strip(rank, suit, gw, gh) {
+function strip(rank, suit, gw, gh, corner) {
   const col = TWO_COLOUR[suit];
   const label = rankLabel(rank);
   const size = gh * 0.58;
@@ -16,6 +16,7 @@ function strip(rank, suit, gw, gh) {
   const fit = label.length > 1 ? ` textLength="${size * 0.8}" lengthAdjust="spacingAndGlyphs"` : '';
   const index = `<text x="${ix}" y="${size * 0.92}" font-family="${INDEX_FONT}" font-weight="700" font-size="${size}" fill="${col}" text-anchor="middle"${fit}>${label}</text>`
     + use(suit, ix, size + gh * 0.18, gh * 0.3, col);
+  if (corner) return index;
   const mid = gw * 0.56;
   if ('JQK'.includes(rank)) {
     return index
@@ -36,11 +37,11 @@ export function glyphRects(gw, gh) {
   return rects;
 }
 
-export function innerSheetSvg(gw, gh, size) {
+export function innerSheetSvg(gw, gh, size, corner = false) {
   const rects = glyphRects(gw, gh);
   const body = RANKS.flatMap((rank, r) => SUITS.map((suit, s) => {
     const g = rects[r * 4 + s];
-    return `<g transform="translate(${g.x} ${g.y})" clip-path="url(#cell)">${strip(rank, suit, gw, gh)}</g>`;
+    return `<g transform="translate(${g.x} ${g.y})" clip-path="url(#cell)">${strip(rank, suit, gw, gh, corner)}</g>`;
   })).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><defs>${suitDefs()}<clipPath id="cell"><rect width="${gw}" height="${gh}"/></clipPath></defs>${body}</svg>`;
 }

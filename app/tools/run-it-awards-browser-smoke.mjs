@@ -73,8 +73,27 @@ try {
       refresh(); window.fixtureRefresh=setInterval(refresh,250);
     },state);
     await page.waitForSelector('.multi-board');
+    await page.evaluate(result => {
+      window.payoutObserver?.disconnect();
+      window.payoutFlights = [];
+      window.payoutObserver = new MutationObserver(records => {
+        for (const record of records) for (const node of record.addedNodes) {
+          if (node instanceof HTMLElement && node.matches('.payout-share')) window.payoutFlights.push({board:Number(node.dataset.board),seat:Number(node.dataset.seat),amount:Number(node.dataset.amount)});
+        }
+      });
+      window.payoutObserver.observe(document.querySelector('.table-stage'), {childList:true});
+      window.injectTable({type:'event',event:{type:'win',...result}});
+    }, state.result);
     const plan=runSchedule(state.boards);
     await new Promise(resolve=>setTimeout(resolve,plan.resultAt[0]+180));
+    assert.equal(await page.$eval('.multi-board.current', n => Number(n.dataset.board)), 1);
+    assert.ok(await page.$$eval('.board-win-count', nodes => nodes.every(n => { const r=n.getBoundingClientRect(); return r.left>=0 && r.right<=innerWidth; })), 'Current winner labels stay inside the screen');
+    assert.ok(await page.$eval('.multi-board[data-board="2"] .board', n => Number(getComputedStyle(n).opacity)) < .6, 'Other boards are dimmed during the current award');
+    const firstShares = await page.$$eval('.payout-share[data-board="1"]', nodes => nodes.map(n => Number(n.dataset.amount)));
+    if (shared) assert.equal(await page.$$eval('.payout-share', nodes => nodes.flatMap(n => n.getAnimations()).length), 0, 'Reduced motion shows awards without moving chips');
+    assert.equal(firstShares.reduce((a,b)=>a+b,0), state.result.byBoard[0].reduce((a,w)=>a+w.amount,0), 'Only board one pot shares move at its award');
+    assert.equal(await page.$$eval('.payout-share[data-board="2"]', nodes => nodes.length), 0, 'Board two cannot pay during board one');
+    assert.equal(await page.$eval('.pot-label strong', n => Number(n.dataset.amount)), state.result.byBoard.slice(1).flat().reduce((sum,w)=>sum+w.amount,0), 'The pot removes board one share');
     const flights=await page.$$eval('.multi-board[data-board="1"] .board-particles',nodes=>nodes.map(n=>{
       const r=n.getBoundingClientRect(), stage=document.querySelector('.table-stage').getBoundingClientRect(), css=getComputedStyle(n);
       return {seat:Number(n.dataset.seat),x:(r.left+parseFloat(css.getPropertyValue('--award-x'))-stage.left)/stage.width*100,y:(r.top+parseFloat(css.getPropertyValue('--award-y'))-stage.top)/stage.height*100,display:css.display};
@@ -88,8 +107,17 @@ try {
       }
     }
     await page.screenshot({path:path.join(artifacts,`particles-${runs}-${shared?'reduced':'animated'}.png`)});
-    await new Promise(resolve=>setTimeout(resolve,plan.done-plan.resultAt[0]+150));
+    for(let board=1;board<runs;board++) {
+      await new Promise(resolve=>setTimeout(resolve,plan.resultAt[board]-plan.resultAt[board-1]));
+      assert.equal(await page.$eval('.multi-board.current', n => Number(n.dataset.board)), board+1, `Board ${board+1} is highlighted in turn`);
+      const remaining=state.result.byBoard.slice(board+1).flat().reduce((sum,w)=>sum+w.amount,0);
+      assert.equal(await page.$eval('.pot-label strong', n => Number(n.dataset.amount)),remaining,`The pot removes board ${board+1} share`);
+    }
+    await new Promise(resolve=>setTimeout(resolve,plan.done-plan.resultAt.at(-1)+150));
     assert.equal(await page.$$eval('.multi-board.awarded',nodes=>nodes.length),runs,'Repeated snapshots must not restart the result sequence');
+    const paid = await page.evaluate(() => window.payoutFlights);
+    const expected = state.result.byBoard.flatMap((winners, board) => winners.filter(w => w.amount > 0).map(w => ({board:board+1,seat:w.seat,amount:w.amount})));
+    assert.deepEqual(paid, expected, 'Each board share animates exactly once, without a second aggregate payout');
     const expectedCounts=new Map();
     for(const winners of state.result.byBoard) {
       const seatsWon=[...new Set(winners.map(w=>w.seat))];
@@ -114,6 +142,7 @@ try {
       });
       assert.equal(geometry.cards.length,runs*5);
       assert.ok(geometry.cards.every(c=>c.width>=24&&c.height>=32&&c.left>=0&&c.top>=0&&c.right<=width+1&&c.bottom<=height+1),JSON.stringify(geometry));
+      assert.ok(await page.$$eval('.board-win-count', nodes => nodes.every(n => { const r=n.getBoundingClientRect(); return r.left>=0 && r.right<=innerWidth; })), 'Winner summaries stay inside the screen');
       assert.equal(geometry.overlaps.length,0,`Cards overlap seats at ${runs} boards/${seats} seats/${width}: ${JSON.stringify(geometry)}`);
       await page.screenshot({path:path.join(artifacts,`boards-${runs}-seats-${seats}-${shared?'shared-':''}${width}.png`)});
       checks.push({runs,seats,shared,width,height,cards:geometry.cards.length});

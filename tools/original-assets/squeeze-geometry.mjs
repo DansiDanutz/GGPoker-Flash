@@ -47,6 +47,13 @@ export function roundedRect(w, h, r, steps = 5) {
 
 /** Card layout for a format: size, fan positions and the face band height. */
 export function layout({ cards, width, minHeight, cardWidth, bandRatio }) {
+  if (cards === 2) {
+    // Phone reference: two overlapping cards tilt together; only the near corner opens.
+    const w = cardWidth; const h = w * 1.4;
+    return { w, h, r: w * .06, band: h * bandRatio, dx: 38, corner: true,
+      slots: [0, 1].map(i => ({ cx: width / 2 - 19 + i * 38, cy: minHeight / 2 + i * 5, deg: -25 })),
+      stack: { cx: width / 2, cy: minHeight / 2, deg: -25 } };
+  }
   const fit = minHeight - 4;
   const spreadDeg = cards === 2 ? 4 : 8 / (cards - 1);
   const maxDeg = (spreadDeg * (cards - 1)) / 2;
@@ -65,9 +72,9 @@ export function layout({ cards, width, minHeight, cardWidth, bandRatio }) {
 
 /** Placement of slot i at frame f: centre and rotation, from the neat stack to the fan. */
 export function placement(lay, i, f) {
-  const t = easeOut(clamp01(f / SPREAD_END));
+  const t = easeOut(clamp01(lay.corner ? (f - 32) / 28 : f / SPREAD_END));
   const s = lay.slots[i];
-  return { cx: lerp(lay.stack.cx - i * 0.6, s.cx, t), cy: lerp(lay.stack.cy - i * 0.8, s.cy, t), deg: lerp(0, s.deg, t) };
+  return { cx: lerp(lay.stack.cx - i * 0.6, s.cx, t), cy: lerp(lay.stack.cy - i * 0.8, s.cy, t), deg: lerp(lay.stack.deg || 0, s.deg, t) };
 }
 
 /** Local card coordinates → frame coordinates. */
@@ -75,12 +82,13 @@ export function toFrame(lay, pl) {
   const c = Math.cos(rad(pl.deg)); const s = Math.sin(rad(pl.deg));
   return (p) => {
     const u = p.x - lay.w / 2; const v = p.y - lay.h / 2;
-    return { x: pl.cx + u * c - v * s, y: pl.cy + u * s + v * c };
+    return { x: pl.cx + u * c - v * s, y: pl.cy + (u * s + v * c) * (lay.corner ? .6 : 1) };
   };
 }
 
 /** Reveal progress (0..1) of slot i at frame f; cards peel left to right with overlap. */
 export function revealProgress(cards, i, f) {
+  if (cards === 2) return easeInOut(clamp01((f - 16) / 16));
   const step = cards === 1 ? 0 : Math.min(14, 24 / (cards - 1));
   const duration = 60 - REVEAL_START - (cards - 1) * step;
   return easeInOut(clamp01((f - (REVEAL_START + i * step)) / duration));
@@ -94,7 +102,7 @@ export function peel(lay, p) {
   const outline = roundedRect(lay.w, lay.h, lay.r);
   if (p <= 0) return { outline, back: outline, face: [], flap: [], fold: null };
   const lift = lay.band * p;
-  const phi = rad(FOLD_START_DEG * (1 - p));
+  const phi = rad(lay.corner ? lerp(FOLD_START_DEG, 25, p) : FOLD_START_DEG * (1 - p));
   const a = { x: 0, y: lay.h - lift };
   const n = { x: -Math.sin(phi), y: Math.cos(phi) };
   const face = clipHalfPlane(outline, a, n);
@@ -107,6 +115,18 @@ export function peel(lay, p) {
   let flap = face.map(reflect).reverse();
   for (const [pa, pn] of [[{ x: 0, y: 0 }, { x: 1, y: 0 }], [{ x: 0, y: 0 }, { x: 0, y: 1 }], [{ x: lay.w, y: lay.h }, { x: -1, y: 0 }]]) {
     flap = clipHalfPlane(flap, pa, pn);
+  }
+  if (lay.corner) {
+    // The exposed edge rolls instead of forming a rigid triangular flap.
+    flap = flap.flatMap((q, i, poly) => {
+      const next = poly[(i + 1) % poly.length];
+      const onCrease = v => Math.abs((v.x - a.x) * n.x + (v.y - a.y) * n.y) < .1;
+      if (Math.hypot(next.x - q.x, next.y - q.y) < lay.w * .6 || (onCrease(q) && onCrease(next))) return [q];
+      return Array.from({length: 12}, (_, j) => {
+        const t = j / 12;
+        return {x: lerp(q.x, next.x, t), y: lerp(q.y, next.y, t) + Math.sin(Math.PI * t) * lift * .2};
+      });
+    });
   }
   return { outline, back, face, flap, fold: { a, d, n } };
 }

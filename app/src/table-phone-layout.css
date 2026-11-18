@@ -181,13 +181,13 @@
   .table-screen .action-bar:not(:has(.main-actions, .reserved-actions, .aof-row, .straddle-ask)) * { pointer-events: auto; }
 
   /* ---- No standing controls on the table: sit out, add chips and straddle live in the Menu. Chat
-     and reactions are two small icons in the bottom-right corner, hidden on your turn. ---- */
+     and reactions share the swipe drawer. ---- */
   .table-screen .seat-dock { display: none; }
-  .table-screen .tchat-dock { right: 8px; left: auto; bottom: calc(max(var(--phone-bar-h), var(--action-bar-h, 0px)) + 8px); align-items: flex-end; transform: none; }
+  .table-screen .tchat-dock { right: 8px; left: 8px; bottom: calc(max(var(--phone-bar-h), var(--action-bar-h, 0px)) + 8px); align-items: flex-end; transform: none; }
   .table-screen .tchat-buttons { flex-direction: row; gap: 6px; opacity: .8; }
   /* The toggles match the charcoal buttons: dark disc, light grey glyph, yellow ring when open. */
   .table-screen .tchat-buttons .tchat-toggle {
-    width: 38px; height: 38px; background: linear-gradient(#343434, #262626); color: #d6d6d6;
+    width: 76px; height: 58px; flex-direction: column; gap: 3px; border-radius: 10px; background: linear-gradient(#343434, #262626); color: #d6d6d6;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 3px 8px rgba(0, 0, 0, .55);
   }
   .table-screen .tchat-toggle .tchat-icon [fill="#fbefcc"] { fill: #262626; }
@@ -197,13 +197,25 @@
   /* Open, the chat spans the screen above the bar; the stickers open leftwards from the corner. */
   .table-screen .tchat-dock.open { left: 8px; }
   .table-screen .reaction-picker { left: auto; right: 0; }
-  /* Your decision comes first: on your turn the chat steps aside (open or not) and comes back after. */
   .table-screen:has(.action-bar :is(.main-actions, .aof-row)) .tt-hud { visibility: hidden; }
-  .table-screen:has(.action-bar :is(.main-actions, .aof-row)) .tchat-dock { top: 56px; bottom: auto; }
-  .table-screen:has(.action-bar :is(.main-actions, .aof-row)) .tchat-dock:not(.open) .reaction-picker { top: calc(100% + 6px); bottom: auto; max-height: calc(100dvh - 180px); overflow-y: auto; }
+  /* The footer extends the table: lift the play surface and keep bets above it. */
+  .table-screen { --table-tools-h: 0px; }
+  .table-screen:has(.tchat-dock.tools-open) { --table-tools-h: 132px; }
+  .table-screen .table-stage { translate: 0 calc(-1 * var(--table-tools-h)); transition: translate .22s ease-out; }
+  .table-screen .action-bar { bottom: var(--table-tools-h); transition: bottom .22s ease-out; }
+  .table-screen .tchat-dock.tools-open { bottom: 0; gap: 0; height: var(--table-tools-h); background: #101418; border-radius: 16px 16px 0 0; }
+  .table-screen .tchat-dock.tools-open .tchat-buttons { flex: 1; opacity: 1; }
+  .table-screen .tchat-panel { position: absolute; bottom: calc(100% + max(var(--phone-bar-h), var(--action-bar-h, 0px)) + 8px); }
+  .table-screen .reaction-picker { bottom: calc(100% + max(var(--phone-bar-h), var(--action-bar-h, 0px)) + 56px); max-height: calc(100dvh - 300px); overflow-y: auto; }
+  .table-screen:has(.tchat-dock.tools-open) .inspect-cards { translate: 0 calc(-1 * var(--table-tools-h)); }
+
 }
 
 @media (max-width: 760px) and (orientation: portrait) and (prefers-reduced-motion: reduce) {
   .table-screen .action-bar :is(.main-actions, .reserved-actions, .aof-row),
   .table-screen .action-bar .main-actions .quick-bets { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-screen .table-stage, .table-screen .action-bar { transition: none; }
 }

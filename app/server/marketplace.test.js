@@ -76,11 +76,13 @@ test('public catalog has honest seeded products, safe settings and no checkout',
   const result = await srv.get('/api/marketplace');
   assert.equal(result.status, 200);
   assert.equal(result.data.checkout_enabled, false);
-  assert.equal(result.data.products.length, 10);
+  assert.equal(result.data.products.length, 11);
   const clubEntry = result.data.products.find((product) => product.id === 'club-entry');
   assert.deepEqual({ status: clubEntry.status, pricing: clubEntry.pricing, price_cents: clubEntry.price_cents, currency: clubEntry.currency }, { status: 'available', pricing: 'one_time', price_cents: 100, currency: 'USD' });
-  assert.ok(result.data.products.filter((product) => product.id !== 'club-entry').every((product) => product.pricing === 'quote' && product.price_cents === null));
-  const implemented = new Set(['club-entry', 'cash-games-manager', 'tournaments-manager', 'spin-and-go-manager']);
+  const squeeze = result.data.products.find((product) => product.id === 'squeeze-3d');
+  assert.deepEqual({ status: squeeze.status, pricing: squeeze.pricing, price_cents: squeeze.price_cents, currency: squeeze.currency }, { status: 'available', pricing: 'monthly', price_cents: 100, currency: 'USD' });
+  assert.ok(result.data.products.filter((product) => !['club-entry', 'squeeze-3d'].includes(product.id)).every((product) => product.pricing === 'quote' && product.price_cents === null));
+  const implemented = new Set(['club-entry', 'squeeze-3d', 'cash-games-manager', 'tournaments-manager', 'spin-and-go-manager']);
   assert.ok(result.data.products.every((product) => product.status === (implemented.has(product.id) ? 'available' : 'coming_soon')));
   assert.deepEqual(Object.keys(result.data).sort(), ['checkout_enabled', 'products', 'settings']);
   assert.deepEqual(Object.keys(result.data.settings).sort(), ['contact_note', 'requests_enabled', 'subtitle', 'title']);
