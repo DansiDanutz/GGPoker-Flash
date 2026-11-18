@@ -9,7 +9,7 @@ import puppeteer from 'puppeteer-core';
 import { startServer } from '../server/test-helpers.js';
 
 const artifacts = path.resolve('artifacts/marketplace-browser');
-const panel = 'section[aria-label="Cash Chips organizator"]';
+const panel = 'section[aria-label="Organizer Cash Chips"]';
 const errors = [];
 let srv, browser, currentPage;
 const check = (r) => { assert.equal(r.status, 200, JSON.stringify(r.data)); return r.data; };
@@ -54,8 +54,8 @@ try {
   const executablePath = process.env.CHROME_PATH || execFileSync('which', ['google-chrome'], { encoding: 'utf8' }).trim();
   browser = await puppeteer.launch({ executablePath, headless: true, args: ['--disable-dev-shm-usage', '--no-first-run'] });
   const ownerPage = await pageFor(owner.token);
-  const billing = 'section[aria-label="Credite și servicii pentru organizatori"]';
-  const funding = 'section[aria-label="Finanțare manuală credite servicii"]';
+  const billing = 'section[aria-label="Organizer credits and services"]';
+  const funding = 'section[aria-label="Manual service credit funding"]';
   await ownerPage.waitForSelector(funding);
   assert.deepEqual(await ownerPage.evaluate(() => window.__externalCheckoutAttempts), [], 'Funding UI navigated before an explicit click.');
   const fundingButtons = await ownerPage.$$(`${funding} button`);
@@ -67,15 +67,15 @@ try {
   assert.equal(checkoutUrl.searchParams.get('ref'), `openpoker:user:${owner.user.id}`);
   assert.equal(checkoutUrl.searchParams.has('reference'), false);
   assert.equal(checkoutAttempt.target, '_blank');
-  assert.match(await ownerPage.$eval(funding, (node) => node.textContent), /verificată manual|verificării operatorului/);
+  assert.match(await ownerPage.$eval(funding, (node) => node.textContent), /verifies payment manually/);
   assert.equal(new URL(ownerPage.url()).origin, srv.base);
   assert.equal((await ownerPage.browser().pages()).some((page) => page.url().startsWith('https://nervixpay.live/')), false, 'Smoke must not open an external payment page.');
-  await ownerPage.waitForFunction((scope) => [...document.querySelectorAll(`${scope} article`)].some((a) => a.querySelector('strong')?.textContent === 'Organizator' && a.querySelector('button') && !a.querySelector('button').disabled), {}, billing);
-  const subscribe = await ownerPage.evaluateHandle((scope) => [...document.querySelectorAll(`${scope} article`)].find((a) => a.querySelector('strong')?.textContent === 'Organizator').querySelector('button'), billing);
+  await ownerPage.waitForFunction((scope) => [...document.querySelectorAll(`${scope} article`)].some((a) => a.querySelector('strong')?.textContent === 'Organizer' && a.querySelector('button') && !a.querySelector('button').disabled), {}, billing);
+  const subscribe = await ownerPage.evaluateHandle((scope) => [...document.querySelectorAll(`${scope} article`)].find((a) => a.querySelector('strong')?.textContent === 'Organizer').querySelector('button'), billing);
   await subscribe.asElement().evaluate((button) => button.scrollIntoView({ block: 'center' }));
   await subscribe.asElement().click(); await subscribe.dispose();
-  await ownerPage.waitForFunction((scope) => document.querySelector(scope)?.textContent.includes('Abonamentul a fost actualizat.'), {}, billing);
-  await click(ownerPage, panel, 'Actualizează'); await text(ownerPage, '100,000 Cash Chips');
+  await ownerPage.waitForFunction((scope) => document.querySelector(scope)?.textContent.includes('Membership updated.'), {}, billing);
+  await click(ownerPage, panel, 'Refresh'); await text(ownerPage, '100,000 Cash Chips');
   await ownerPage.goto(`${srv.base}/#/?game=holdem`); await ownerPage.waitForSelector('.ls-content:not([inert])');
   await ownerPage.waitForSelector('.host-table-btn'); await ownerPage.click('.host-table-btn');
   await ownerPage.waitForSelector('#host-economy');
@@ -92,8 +92,8 @@ try {
   assert.equal(cash.rakePercent, 3); assert.equal(cash.rakeCap, 25);
   await ownerPage.select('.mp-rake-form select', '2');
   await input(ownerPage, '.mp-rake-form input', '7');
-  await click(ownerPage, '.mp-rake-form', 'Salvează rake');
-  await ownerPage.waitForFunction((scope) => document.querySelector(scope)?.textContent.includes('Rake-ul a fost salvat.'), {}, billing);
+  await click(ownerPage, '.mp-rake-form', 'Save rake');
+  await ownerPage.waitForFunction((scope) => document.querySelector(scope)?.textContent.includes('Rake saved.'), {}, billing);
   await ownerPage.reload(); await ownerPage.waitForSelector('.ls-content:not([inert])'); await ownerPage.waitForSelector('.mp-rake-form');
   assert.equal(await ownerPage.$eval('.mp-rake-form select', (el) => el.value), '2');
   assert.equal(await ownerPage.$eval('.mp-rake-form input', (el) => el.value), '7');
@@ -102,17 +102,18 @@ try {
   try {
     for (let i = 1; i <= 50; i++) fixtureDb.prepare("INSERT INTO organizer_billing_ledger(user_id,kind,amount_cents,reference,resource_id,created_at) VALUES (?,'cash_hour',-500,?,'historical-fixture',datetime('now'))").run(owner.user.id, `browser-historical-hour-${i}`);
   } finally { fixtureDb.close(); }
-  await ownerPage.reload(); await ownerPage.waitForSelector('.ls-content:not([inert])'); await ownerPage.waitForSelector('[aria-label="Tarif orar Cash"]');
-  const formattedFour = new Intl.NumberFormat('ro-RO', { style: 'currency', currency: 'USD' }).format(4);
-  assert.match(await ownerPage.$eval('[aria-label="Tarif orar Cash"]', (el) => el.textContent), /Ore plătite: 50/);
-  await click(ownerPage, billing, `Pornește (${formattedFour})`);
+  await ownerPage.reload(); await ownerPage.waitForSelector('.ls-content:not([inert])'); await ownerPage.waitForSelector('[aria-label="Cash hourly rate"]');
+  const formattedFour = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(4);
+  assert.match(await ownerPage.$eval('[aria-label="Cash hourly rate"]', (el) => el.textContent), /Paid hours: 50/);
+  await click(ownerPage, billing, `Start (${formattedFour})`);
   await ownerPage.waitForFunction(() => document.querySelector('.mp-rake-form select')?.disabled);
   let billingAccount = check(await srv.get('/api/marketplace/billing/me', { token: owner.token }));
   assert.equal(billingAccount.cash_usage.paid_hours, 51);
   assert.equal(billingAccount.ledger.find((entry) => entry.kind === 'cash_hour').amount_cents, -400);
-  await click(ownerPage, billing, 'Oprește');
+  await click(ownerPage, billing, 'Stop');
   await ownerPage.waitForFunction(() => document.querySelector('.mp-rake-form select')?.disabled === false);
   await ownerPage.setViewport({ width: 390, height: 844 });
+  await ownerPage.waitForSelector(".mp-rake-form", { visible: true });
   await ownerPage.$eval('.mp-rake-form', (form) => form.scrollIntoView({ block: 'center' }));
   assert.ok(await ownerPage.$$eval('.mp-rake-form input, .mp-rake-form select, .mp-rake-form button', (controls) => controls.every((control) => { const bounds = control.getBoundingClientRect(); return bounds.left >= 0 && bounds.right <= innerWidth; })), 'Rake inputs overflow mobile width');
   assert.ok(await ownerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Rake controls overflow mobile width');
@@ -123,11 +124,11 @@ try {
   await ownerPage.screenshot({ path: path.join(artifacts, 'organizer-rake-table.png'), fullPage: true });
   await ownerPage.goto(`${srv.base}/marketplace`); await ownerPage.waitForSelector('.ls-content:not([inert])'); await ownerPage.waitForSelector(panel);
   console.log('PASS Cash rake creation/edit/persistence, table disclosure, mobile layout and discounted hour 51 at $4 in Chrome');
-  await click(ownerPage, panel, 'Cumpără pachete'); await text(ownerPage, '110,000 Cash Chips');
+  await click(ownerPage, panel, 'Buy packs'); await text(ownerPage, '110,000 Cash Chips');
   await input(ownerPage, `${panel} form:nth-of-type(2) input[type=number]:first-of-type`, recipient.user.id);
   const transferInputs = await ownerPage.$$(`${panel} form:nth-of-type(2) input`);
   assert.equal(transferInputs.length, 2); await transferInputs[1].type('10000');
-  await click(ownerPage, panel, 'Transferă'); await text(ownerPage, 'Cash Chips au fost transferate.');
+  await click(ownerPage, panel, 'Transfer'); await text(ownerPage, 'Cash Chips transferred.');
   const recipientAccount = check(await srv.get('/api/marketplace/chips/me', { token: recipient.token }));
   assert.equal(recipientAccount.balances.find((b) => b.organizer_id === owner.user.id).balance, 10000);
   await ownerPage.goto(`${srv.base}/#/?host=tournament&economy=organizer`); await ownerPage.waitForSelector('.ls-content:not([inert])');
@@ -155,8 +156,8 @@ try {
 
   const playerPage = await pageFor(recipient.token);
   await text(playerPage, '10,000 Cash Chips'); await text(playerPage, 'Browser Cash Chip Cup');
-  await click(playerPage, panel, 'Cumpără bilet'); await text(playerPage, 'Biletul a fost emis.');
-  await click(playerPage, panel, 'Înscrie biletul'); await text(playerPage, 'Biletul a fost înscris în turneu.');
+  await click(playerPage, panel, 'Buy ticket'); await text(playerPage, 'Ticket issued.');
+  await click(playerPage, panel, 'Register ticket'); await text(playerPage, 'Ticket registered for the tournament.');
   assert.equal(check(await srv.get('/api/marketplace/chips/me', { token: recipient.token })).tickets.find((t) => t.tournament_id === event.id).state, 'redeemed');
   await playerPage.screenshot({ path: path.join(artifacts, 'organizer-chip-tickets.png'), fullPage: true });
   await playerPage.setViewport({ width: 390, height: 844 });
@@ -189,12 +190,12 @@ try {
   await ownerPage.goto(`${srv.base}/#/organiser`); await ownerPage.waitForSelector('.ls-content:not([inert])');
   await ownerPage.waitForSelector(spinManager);
   await click(ownerPage, spinManager, 'Buy entry ticket');
-  await click(ownerPage, panel, 'Actualizează');
+  await click(ownerPage, panel, 'Refresh');
   const spinTickets = 'section[aria-label="Spin entry tickets"]';
   await ownerPage.waitForSelector(`${spinTickets} input[type=number]`);
   await input(ownerPage, `${spinTickets} input[type=number]`, recipient.user.id);
   await click(ownerPage, spinTickets, 'Transfer Spin ticket');
-  await click(playerPage, panel, 'Actualizează');
+  await click(playerPage, panel, 'Refresh');
   await playerPage.waitForFunction((scope, id) => document.querySelector(scope)?.textContent.includes(id), {}, spinTickets, spinTable.id);
   await click(playerPage, spinTickets, 'Refund unused ticket');
   assert.equal(check(await srv.get('/api/marketplace/chips/me', { token: recipient.token })).balances.find(row => row.organizer_id === owner.user.id).balance, 15000);

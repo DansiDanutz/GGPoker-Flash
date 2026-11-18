@@ -246,7 +246,7 @@ async function run() {
   completed.push('Public clean route, refresh and desktop/390px/320px layouts');
 
   await owner.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1, isMobile: false, hasTouch: false });
-  const sample = initial.products[0];
+  const sample = initial.products.find(p => p.id === 'club-hosting');
   assert.ok(sample, 'Fixture catalog has no products.');
   await fill(owner, '.mp-search input', sample.name);
   await owner.waitForFunction(() => document.querySelectorAll('.mp-product').length === 1);
@@ -398,12 +398,12 @@ async function run() {
   await waitText(owner, '.ma-access-entry', productName);
   await waitUntil(async () => (await api('/api/marketplace/me', { token: memberAuth.token })).entitlements.some((entry) => entry.product_id === product.id && entry.status === 'active'), 'Granted access was not persisted.');
   await member.reload({ waitUntil: 'domcontentloaded' });
-  await waitText(member, '.mp-account-list .mp-account-status', 'Acordat');
+  await waitText(member, '.mp-account-list .mp-account-status', 'Granted');
   owner.once('dialog', (dialog) => void dialog.accept());
   await clickInside(owner, '.ma-access-entry', productName, 'Revocă accesul');
   await waitText(owner, '.ma-access-entry .ma-badge', 'Revocat');
   await member.reload({ waitUntil: 'domcontentloaded' });
-  await waitText(member, '.mp-account-list .mp-account-status', 'Revocat');
+  await waitText(member, '.mp-account-list .mp-account-status', 'Revoked');
   await screenshot(owner, 'admin-access');
   completed.push('UI approval, grant/revoke and member-visible persisted status');
 
