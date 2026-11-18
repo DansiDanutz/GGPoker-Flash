@@ -23,8 +23,8 @@ test('runsLabel names each choice', () => {
 test('the table sends the run choice and draws every extra board', () => {
   const src = read('src/pages/TablePage.tsx');
   assert.match(src, /type: 'run_decide', tableId, runs/);
-  assert.match(src, /\(state\?\.boards \?\? \[\]\)\.slice\(1\)\.map/);
-  assert.match(src, /className="extra-boards"/, 'extra runs stack under the main board');
+  assert.match(src, /state!\.boards!\.map/);
+  assert.match(src, /className="multi-boards"/, 'all runs share a reserved board area');
   assert.doesNotMatch(src, /runItTwice: !state\?\.runItTwice/, 'no table-wide switch any player can flip');
   assert.match(src, /runItAsk: !\(me\?\.runItAsk \?\? true\)/, 'the menu toggles the player\'s own preference');
 });
