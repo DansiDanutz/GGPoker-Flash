@@ -4,7 +4,7 @@ export type ClubMembershipStatus = 'pending' | 'approved' | 'rejected' | 'remove
 export type OrganizerClub = {
   ownerId: number; membershipActive: boolean; nick: string; avatar: string; country: string; name: string; description: string;
   entryFeeCents: number; memberCount: number; hands30d: number; tournamentEntrants30d: number;
-  maxTournamentEntrants: number; cashChipRake30d: number; score: number; membershipStatus?: ClubMembershipStatus;
+  maxTournamentEntrants: number; cashChipRake30d: number; score: number; pluginsUsed: number; membershipStatus?: ClubMembershipStatus;
   tables?: Array<{ id: string; name: string; game: string; seats: number; minBuyin?: number }>;
 };
 export type ClubRequest = { userId: number; nick: string; avatar: string; country: string; status: string; message: string; createdAt: string; updatedAt: string };

@@ -91,3 +91,15 @@ test('expired organizers disappear from every sort and page even with the highes
     assert.deepEqual(clubs.directory({rank,offset:2,limit:1}).clubs,[]);
   }
 });
+
+test('two used plugins outrank membership alone even with a lower points total', () => {
+ const {db,clubs}=fixture();
+ for(let i=100;i<200;i++){
+   db.prepare('INSERT INTO users(id,login,nick) VALUES(?,?,?)').run(i,'player'+i,'Player');
+   db.prepare("INSERT INTO organizer_club_members VALUES(2,?,'approved','','','')").run(i);
+ }
+ const [used,idle]=clubs.directory().clubs;
+ assert.equal(used.ownerId,1); assert.equal(used.pluginsUsed,2);
+ assert.equal(idle.ownerId,2); assert.equal(idle.pluginsUsed,0); assert.equal(idle.score,101);
+ assert.ok(used.score<idle.score);
+});

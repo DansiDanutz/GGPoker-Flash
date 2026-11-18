@@ -50,14 +50,18 @@ export function createOrganizerClubs({ db, now = Date.now }) {
     const user = activeOrganizer(ownerId), profile = profileRow(ownerId);
     const memberCount = db.prepare(`SELECT COUNT(*) n FROM organizer_club_members m JOIN users u ON u.id=m.user_id
       WHERE m.organizer_id=? AND m.status='approved' AND m.user_id<>? AND u.banned=0 AND u.deleted_at IS NULL AND ${NON_GUEST.replaceAll('login', 'u.login')}`).get(ownerId, ownerId).n;
-    const hands30d = db.prepare(`SELECT COUNT(*) n FROM hands h JOIN tables t ON t.id=h.table_id
-      WHERE t.owner_id=? AND t.private=1 AND COALESCE(t.play_money,0)=0 AND julianday(h.created_at)>=julianday(?) AND julianday(h.created_at)<=julianday(?)`).get(ownerId, cutoff(), stamp()).n;
-    const tourneys = db.prepare(`SELECT COALESCE(SUM(entrants),0) entrants,COALESCE(MAX(entrants),0) maximum FROM tournaments
-      WHERE owner_id=? AND private=1 AND COALESCE(play_money,0)=0 AND status='finished' AND julianday(start_at)>=julianday(?) AND julianday(start_at)<=julianday(?)`).get(ownerId, cutoff(), stamp());
-    const rake30d = db.prepare("SELECT COALESCE(SUM(amount),0) total FROM organizer_chip_journals WHERE organizer_id=? AND kind IN ('rake','spin_rake','event_fee') AND julianday(created_at)>=julianday(?) AND julianday(created_at)<=julianday(?)").get(ownerId, cutoff(), stamp()).total;
-    const breakdown = { acceptedMembers: memberCount, hands30d, tournamentEntrants30d: tourneys.entrants, maxTournamentEntrants: tourneys.maximum, cashChipRake30d: rake30d };
-    const score = Math.log1p(memberCount) + Math.log1p(hands30d) + Math.log1p(tourneys.entrants) + Math.log1p(tourneys.maximum) + Math.log1p(rake30d);
-    return { ownerId, membershipActive: true, nick: user.nick, avatar: user.avatar || '', country: user.country || '', name: profile?.name || `${user.nick} Club`, description: profile?.description || '', entryFeeCents: profile?.entry_fee_cents ?? 100, memberCount, hands30d, tournamentEntrants30d: tourneys.entrants, maxTournamentEntrants: tourneys.maximum, cashChipRake30d: rake30d, score, breakdown };
+    const { hands30d, tables30d } = db.prepare(`SELECT COUNT(*) hands30d, COUNT(DISTINCT t.id) tables30d FROM hands h JOIN tables t ON t.id=h.table_id
+      WHERE t.owner_id=? AND t.private=1 AND COALESCE(t.play_money,0)=0 AND julianday(h.created_at)>=julianday(?) AND julianday(h.created_at)<=julianday(?)`).get(ownerId, cutoff(), stamp());
+    const tourneys = db.prepare(`SELECT COUNT(*) events, COALESCE(SUM(entrants),0) entrants,COALESCE(MAX(entrants),0) maximum FROM tournaments
+      WHERE owner_id=? AND private=1 AND COALESCE(play_money,0)=0 AND status='finished' AND entrants>0 AND julianday(start_at)>=julianday(?) AND julianday(start_at)<=julianday(?)`).get(ownerId, cutoff(), stamp());
+    const journal = db.prepare(`SELECT COALESCE(SUM(CASE WHEN kind IN ('rake','spin_rake','event_fee') THEN amount ELSE 0 END),0) rake,
+      COUNT(CASE WHEN kind='spin_rake' THEN 1 END) spins, COUNT(CASE WHEN kind='club_entry_bonus' THEN 1 END) entries
+      FROM organizer_chip_journals WHERE organizer_id=? AND julianday(created_at) BETWEEN julianday(?) AND julianday(?)`).get(ownerId, cutoff(), stamp());
+    const rake30d = journal.rake;
+    const pluginsUsed = [tables30d, tourneys.events, journal.spins, journal.entries].filter(n => n > 0).length;
+    const breakdown = { acceptedMembers: memberCount, tables30d, hands30d, tournaments30d: tourneys.events, pluginsUsed, tournamentEntrants30d: tourneys.entrants, maxTournamentEntrants: tourneys.maximum, cashChipRake30d: rake30d };
+    const score = 1 + memberCount + 10 * pluginsUsed + 5 * tables30d + 5 * tourneys.events + hands30d / 100 + tourneys.entrants + tourneys.maximum + rake30d / 1000;
+    return { ownerId, membershipActive: true, nick: user.nick, avatar: user.avatar || '', country: user.country || '', name: profile?.name || `${user.nick} Club`, description: profile?.description || '', entryFeeCents: profile?.entry_fee_cents ?? 100, memberCount, hands30d, tournamentEntrants30d: tourneys.entrants, maxTournamentEntrants: tourneys.maximum, cashChipRake30d: rake30d, score, pluginsUsed, breakdown };
   };
   function directory({ limit = 20, offset = 0, search = '', rank = true } = {}) {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(offset) || offset < 0) fail('Invalid pagination.');
@@ -65,7 +69,7 @@ export function createOrganizerClubs({ db, now = Date.now }) {
     let rows = db.prepare(`SELECT m.user_id owner_id FROM organizer_billing_memberships m JOIN users u ON u.id=m.user_id
       WHERE m.role='organizer' AND m.active=1 AND julianday(m.expires_at)>julianday(?) AND u.banned=0 AND u.deleted_at IS NULL AND ${NON_GUEST.replaceAll('login', 'u.login')}`).all(stamp()).map((row) => publicInfo(row.owner_id));
     if (search) rows = rows.filter((row) => `${row.nick} ${row.name} ${row.description} ${row.country}`.toLowerCase().includes(search));
-    rows.sort((a, b) => (rank ? b.score - a.score : 0) || a.ownerId - b.ownerId);
+    rows.sort((a, b) => (rank ? Number(b.pluginsUsed > 0) - Number(a.pluginsUsed > 0) || b.score - a.score : 0) || a.ownerId - b.ownerId);
     return { clubs: rows.slice(offset, offset + limit), total: rows.length, limit, offset };
   }
   function profile(ownerId, viewerId) {
