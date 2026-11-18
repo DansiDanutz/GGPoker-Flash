@@ -2,7 +2,8 @@
 
 **Status:** Verified for an empty table: automatic pause at insufficient-credit renewal,
 rejected unfunded retries, receipt credit once, and funded resume with one hourly debit.
-**Still pending:** active-hand expiry, pricing-tier transitions and restart recovery.
+**Follow-up:** [Normal active-hand expiry verified separately](2026-11-18-active-hand-expiry-verification.md), with harness recovery disclosed.
+**Still pending:** all-in/side-pot expiry, pricing-tier transitions and restart recovery.
 
 **Run:** 17 November 23:45 through 18 November 00:54, Europe/Bucharest
 (17 November 21:45–22:54 UTC), on DanGG.live.
@@ -53,8 +54,8 @@ No application code or deployment changed.
 
 ## Pending live verification
 
-- **Active-hand expiry:** insufficient credit at a renewal boundary during an active hand;
-  correct hand settlement, safe pause before another deal, and chip reconciliation.
+- **All-in/side-pot expiry:** extend the normal heads-up showdown proof to all-in hands
+  and multiple side pots crossing expiry; verify settlement, next-deal blocking and reconciliation.
 - **Pricing-tier transitions:** lifetime table-hours 50→51 ($5→$4), 100→101 ($4→$3),
   200→201 ($3→$2), and 500→501 ($2→$1), including concurrent tables.
 - **Restart recovery:** interruption around renewal or acknowledgement, durable payment
