@@ -42,7 +42,7 @@ export const CREATOR_NEWS = Object.freeze({
     'Build it. Test it. Get approved. Earn when customers pay to use your plugin or customisation. Contributor approval does not guarantee income, company equity or automatic royalties.',
     'Open Profile to find Contributor, Organizer and Marketplace. See the public Contributors directory for approved publishers and their published work.',
   ]),
-  badge: 'View the code on GitHub',
+  badge: 'Star on GitHub',
   signature: '— DansiDanutz',
   close: 'Got it',
 });

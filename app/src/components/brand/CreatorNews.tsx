@@ -35,7 +35,7 @@ export function CreatorNews({ onClose }: CreatorNewsProps) {
             <small className="cn-kicker">{CREATOR_NEWS.kicker}</small>
             <h2 id="cn-title">{CREATOR_NEWS.title}</h2>
             <a className="cn-badge" href={sourceRepository(__APP_SOURCE_URL__)} target="_blank" rel="noopener noreferrer">
-              <GitHubMark />{CREATOR_NEWS.badge}
+              <span aria-hidden="true">☆</span><GitHubMark />{CREATOR_NEWS.badge}
             </a>
           </div>
         </div>
