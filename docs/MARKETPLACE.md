@@ -113,6 +113,29 @@ requests and access records.
 
 ## Verification and deployment
 
+### Public contributor directory
+
+`GET /api/marketplace/contributors` is public and read-only. It returns approved
+publisher display names and kinds, with their available products from existing
+commercial offer bindings or published contributor submissions. Pending, rejected
+and suspended publishers are excluded. Draft/planned/archived products and revoked
+submissions do not appear as published work. Approved profiles without a published
+product remain visible with an empty product list. Merchant identifiers, account
+IDs, balances, review notes and payment records are never projected into this API.
+
+The Profile workspace tabs expose Contributor, Organizer and Marketplace on phones
+and desktop. Marketplace cards use Cash Table, Tournaments and Spin & Go as display
+labels while retaining the existing stable management product IDs. Other published
+plugins, including Rake Lab, retain their own names and publication rules.
+
+To attribute the three first-party managers to an existing approved publisher, use
+the private administrator's existing offer-binding action after verifying ownership
+and Contributor membership. Do not create duplicate publishers or change catalog
+prices merely to add attribution. Service-credit billing continues to reject legacy
+product-wide purchases; an attribution binding does not introduce another fee.
+Rake Lab attribution comes from its published submission. The directory does not
+approve publishers, publish plugins or grant Organizer membership.
+
 Run the project's existing required checks plus the focused behavior tests:
 
 ```sh

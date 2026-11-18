@@ -3,46 +3,35 @@
    on the felt, a bold pot pill, and the bet slider in a framed upright column (+ on top, then the
    track, the amount and - at the bottom). Layout and sizes of the panel stay in table-phone.css. */
 @media (max-width: 760px) and (orientation: portrait) {
-  /* Seats: a 64px portrait in a gold ring; the face fills the ring. */
-  .table-screen .table-stage.stage-portrait .seat { width: 104px; }
+  /* Seats: a 64px portrait in a thin silver ring; the face fills the ring. */
+  .table-screen .table-stage.stage-portrait .seat { width: 82px; }
   .table-screen .table-stage.stage-portrait .seat .avatar-wrap {
     position: relative; z-index: 2; width: 64px; height: 64px; border-radius: 50%;
-    box-shadow: 0 0 0 2px #c9952f, 0 4px 12px rgba(0, 0, 0, .65);
+    box-shadow: 0 0 0 1px #a6a6a6, 0 4px 12px rgba(0, 0, 0, .65);
   }
   .table-screen .table-stage.stage-portrait .seat .avatar-wrap .seat-ring { display: none; }
   .table-screen .table-stage.stage-portrait .seat .avatar-wrap .face {
     position: absolute; inset: 0; width: auto; height: auto; border-radius: 50%; overflow: hidden;
   }
   .table-screen .table-stage.stage-portrait .seat .avatar-wrap .face > * { width: 100%; height: 100%; object-fit: cover; font-size: 26px; }
-  .table-screen .table-stage.stage-portrait .seat.active .avatar-wrap { box-shadow: 0 0 0 3px #ffd36a, 0 0 16px rgba(255, 196, 70, .7); }
+  .table-screen .table-stage.stage-portrait .seat.active .avatar-wrap { box-shadow: 0 0 0 2px #fff, 0 0 12px rgba(255, 255, 255, .55); }
   .table-screen .table-stage.stage-portrait .seat.folded .avatar-wrap { filter: grayscale(.85) brightness(.6); }
-  /* Turn timer: a ring hugging the portrait that drains clockwise from the top (--turn on the
-     seat runs 1 -> 0), red when time is short. The seat-sized ring does not fit this layout. */
-  .table-screen .table-stage.stage-portrait .seat .timer { display: none; }
-  .table-screen .table-stage.stage-portrait .seat.active:not(.folded) .avatar-wrap::after {
-    content: ''; position: absolute; inset: -6px; z-index: 3; border-radius: 50%; pointer-events: none;
-    background: conic-gradient(var(--ring, #ffd36a) calc(var(--turn, 1) * 360deg), rgba(0, 0, 0, .45) 0);
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
-    mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
-    filter: drop-shadow(0 0 4px rgba(255, 196, 70, .6));
+  /* The reference keeps the countdown under the nameplate, leaving the portrait clear. */
+  .table-screen .table-stage.stage-portrait .seat .timer {
+    display: block; inset: auto 5px -4px; height: 4px; border: 0; border-radius: 2px;
+    background: linear-gradient(to right, #a5ec65 calc(var(--turn, 1) * 100%), #303330 0);
+    animation: none; z-index: 5;
   }
-  /* Your own portrait has your cards over its top and your plate on its right, so your countdown
-     runs along the part that shows: a 170deg arc from just past the bottom round to the upper left,
-     slightly thicker, draining from the upper end back towards the bottom over a dark track. */
-  .table-screen .table-stage.stage-portrait .seat.me.active:not(.folded) .avatar-wrap::after {
-    inset: -7px;
-    background: conic-gradient(from 170deg, var(--ring, #ffd36a) 0 calc(var(--turn, 1) * 170deg), rgba(0, 0, 0, .55) 0 170deg, transparent 0);
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4.5px));
-    mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4.5px));
+  .table-screen .table-stage.stage-portrait .seat.active.urgent .timer,
+  .table-screen .table-stage.stage-portrait .seat.active.hot .timer {
+    background: linear-gradient(to right, #ff5656 calc(var(--turn, 1) * 100%), #303330 0);
   }
-  .table-screen .table-stage.stage-portrait .seat.active.urgent .avatar-wrap::after,
-  .table-screen .table-stage.stage-portrait .seat.active.hot .avatar-wrap::after { --ring: #ff4d4d; }
 
-  /* Opponents' cards: a small fan peeking out above the portrait, behind it. */
+  /* Opponents' cards fan across the portrait, above the nameplate. */
   .table-screen .table-stage.stage-portrait .seat:not(.me) .cards {
-    position: relative; z-index: 1; margin-bottom: -30px;
+    position: absolute; top: 12px; z-index: 3; margin-bottom: 0;
   }
-  .table-screen .table-stage.stage-portrait .seat:not(.me) .cards .pcard.mini { width: 36px; height: 50px; }
+  .table-screen .table-stage.stage-portrait .seat:not(.me) .cards .pcard.mini { width: 40px; height: 56px; }
   /* Both hands are held like real cards: the second card lies over the first, and both fan from
      one point below the hand, so the cards touch all the way down with no gap between them. */
   .table-screen .table-stage.stage-portrait .seat .cards { display: flex; justify-content: center; gap: 0; }
@@ -70,13 +59,13 @@
 
   /* Plate: flag and name on the first line, the stack in bold on the second. */
   .table-screen .table-stage.stage-portrait .seat .plate {
-    position: relative; z-index: 3; margin-top: -6px; width: 100px; box-sizing: border-box; padding: 3px 7px 4px;
-    border: 1px solid rgba(214, 170, 82, .75); border-radius: 12px;
-    background: linear-gradient(#1d1b18, #0b0a09); box-shadow: 0 3px 10px rgba(0, 0, 0, .6);
+    position: relative; z-index: 3; margin-top: -6px; width: 80px; box-sizing: border-box; padding: 3px 7px 4px;
+    border: 1px solid #373737; border-radius: 3px;
+    background: linear-gradient(#242424, #131513); box-shadow: 0 3px 10px rgba(0, 0, 0, .6);
   }
   .table-screen .table-stage.stage-portrait .seat .plate .nm {
     display: flex; align-items: center; justify-content: safe center; gap: 4px;
-    max-width: 100%; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 12px; font-weight: 700; color: #f4ead2;
+    max-width: 100%; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 11px; font-weight: 500; color: #f1f1f1;
   }
   .table-screen .table-stage.stage-portrait .seat .plate .seat-flag { order: -1; font-size: 12px; line-height: 1; }
   .table-screen .table-stage.stage-portrait .seat .plate .nm-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -85,8 +74,8 @@
   .table-screen .table-stage.stage-portrait .seat .plate .bot-badge {
     position: absolute; top: -7px; right: 8px; margin: 0; padding: 0 3px; font-size: 8px; line-height: 12px;
   }
-  .table-screen .table-stage.stage-portrait .seat .plate .st { font-size: 13px; font-weight: 800; color: #fff; text-align: center; }
-  .table-screen .table-stage.stage-portrait .seat.active .plate { border-color: #ffd36a; }
+  .table-screen .table-stage.stage-portrait .seat .plate .st { font-size: 13px; font-weight: 500; color: #94cbd7; text-align: center; }
+  .table-screen .table-stage.stage-portrait .seat.active .plate { border-color: #fff; box-shadow: 0 0 7px #ffffff70; }
 
   /* Bets: the chip stack with its amount pill on the felt (the plate keeps the stack only). */
   .table-screen .table-stage.stage-portrait .seat-bet-inline { display: none; }

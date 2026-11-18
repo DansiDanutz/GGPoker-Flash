@@ -1,6 +1,6 @@
 /* Phone portrait seat polish, with the mobile layout: action labels you can read at a
    glance, and your plate wide enough for your whole name. */
 @media (max-width: 760px) and (orientation: portrait) {
-  .table-screen .table-stage.stage-portrait .seat .action-badge { font-size: 11px; line-height: 1.1; padding: 4px 10px 3px; bottom: -20px; white-space: nowrap; }
-  .table-screen .table-stage.stage-portrait .seat.me .plate { width: max-content; min-width: 108px; max-width: 150px; }
+  .table-screen .table-stage.stage-portrait .seat .action-badge { font-size: 11px; line-height: 1.1; padding: 4px 10px 3px; bottom: 34px; z-index: 5; white-space: nowrap; }
+  .table-screen .table-stage.stage-portrait .seat.me .plate { width: max-content; min-width: 88px; max-width: 108px; }
 }

@@ -1200,7 +1200,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     : null;
 
   return (
-    <div ref={tableRef} onWheel={onShuffleWheel} className={`table-screen theme-${theme.toLowerCase()}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack} front-${cardFront} room-bg-${roomBg}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
+    <div ref={tableRef} onWheel={onShuffleWheel} className={`table-screen theme-${theme.toLowerCase()}${state?.tournament ? ' table-tournament' : ''}${fourColor ? ' four-color' : ''}${animOff ? ' anim-off' : ''} layout-${buttonLayout} cards-${cardAnim} back-skin-${cardBack} front-${cardFront} room-bg-${roomBg}`} style={{ '--deal-speed': `${[0,.7,.58,.42,.32,.25][dealSpeed]}s` } as React.CSSProperties}>
       <div className="table-topbar">
         <span className="name">{state?.name || 'Table'}</span>
         <span className="pill">{state ? `${state.seats}-max` : ''}</span>
@@ -1242,7 +1242,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         <DailyLeaderboardRibbon tableId={tableId} stake={`${money(state.sb)}/${money(state.bb)}`} refreshKey={vpipHand} />
       )}
 
-      {state?.tournament && <TournamentHud tournament={state.tournament} sb={state.sb} bb={state.bb} ante={state.ante} />}
+      {stage.mode !== 'portrait' && state?.tournament && <TournamentHud tournament={state.tournament} sb={state.sb} bb={state.bb} ante={state.ante} />}
 
       {!organizerChips && cashDrop && <CashDropBanner drop={cashDrop} />}
 
@@ -1366,6 +1366,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       </div>
       <div ref={stageRef} className={`table-stage stage-${stage.mode}${stage.short ? ' stage-short' : ''}`} style={{ left: stage.left, top: stage.top, width: stage.width, height: stage.height }}>
       <div className="felt" />
+      {stage.mode === 'portrait' && state?.tournament && <TournamentHud tournament={state.tournament} sb={state.sb} bb={state.bb} ante={state.ante} />}
       <div className="table-watermark stage-mark" aria-hidden="true"><b>DanGG</b><span>{state?.name || ''}</span></div>
       <div className="table-center">
         <div className="pot-stack">
@@ -1384,7 +1385,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               ))}
             </div>
           )}
-          {!winFx && <div className="pot-label">Total Pot : {amt(state?.pot)}</div>}
+          {!winFx && <div className="pot-label"><span>Total Pot </span><strong>{amt(state?.pot)}</strong></div>}
         </div>
         {!winFx && livePots.length > 1 && <div className="live-pots">{livePots.map((amount, i) => {
             const [x, y] = potOffset(i, stageRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);

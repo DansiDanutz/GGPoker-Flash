@@ -34,7 +34,7 @@ test('the sound button shows its state and wears the gold ring', () => {
 
 test('portrait action labels are readable and your name plate fits your name', () => {
   assert.match(css, /\.stage-portrait \.seat \.action-badge \{[^}]*font-size: 11px;[^}]*padding: 4px 10px 3px;/, 'room for the label art');
-  assert.match(css, /\.stage-portrait \.seat\.me \.plate \{[^}]*width: max-content;[^}]*max-width: 150px;/);
+  assert.match(css, /\.stage-portrait \.seat\.me \.plate \{[^}]*width: max-content;[^}]*max-width: 108px;/);
   const main = read('src/main.tsx');
   assert.ok(main.indexOf("import './table-phone-seat.css';") > main.indexOf("import './table-phone-look.css';"));
 });

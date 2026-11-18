@@ -7,6 +7,12 @@
 .table-screen .action-bar .quick-bets .qb-amt { display: none; }
 
 @media (max-width: 760px) and (orientation: portrait) {
+  .table-screen { background: radial-gradient(ellipse at 50% 45%, #30302e, #171717 70%, #030303); }
+  .table-screen .table-topbar { background: linear-gradient(#050505, transparent); }
+  .table-screen .table-topbar :is(.table-menu-btn, .table-gear, .table-history-btn, .table-sound-btn) {
+    border: 1px solid #4a4a4a; color: #bfbfbf; background: #202020; box-shadow: none;
+  }
+  .table-screen .table-topbar .table-gear { font-size: 20px; }
   /* ---- Table: drawn in 3D perspective like GG mobile (narrow far end, wide rounded near end, thick
      dark rail whose side shows at the bottom), stretched to the stage TablePage sizes
      (tableStage.ts portraitBox) on every room. Original DanGG drawing. ---- */
@@ -22,14 +28,21 @@
     mask-image: url('/assets/tables/skins/portrait/phone-table-3d-felt.svg'); mask-size: 100% 100%; mask-repeat: no-repeat;
   }
 
+  /* Large corner indices and a single suit remain legible at phone scale. Other selected decks keep their art. */
+  .table-screen .stage-portrait .pcard.art-official { background: linear-gradient(#fff, #e8e8e8); }
+  .table-screen .stage-portrait .pcard.art-official .rank { display: block; top: 3px; left: 4px; font: 800 24px/1 Arial, sans-serif; }
+  .table-screen .stage-portrait .pcard.art-official .suit { display: block; top: 27px; left: 4px; font-size: 17px; }
+  .table-screen .stage-portrait .pcard.art-official .big-suit { display: block; right: 4px; bottom: 3px; font-size: 32px; }
+  .table-screen .stage-portrait .seat.me .pcard.art-official .big-suit { font-size: 40px; }
+
   /* ---- Board and pot in the middle of the oval, the pot pill right above the cards ---- */
   .table-screen .table-stage.stage-portrait .table-center { top: 45%; width: 94%; gap: 6px; }
-  .table-screen .table-stage.stage-portrait .board > .pcard { width: 60px; height: 84px; }
+  .table-screen .table-stage.stage-portrait .board > .pcard { width: clamp(40px, 12.4vw, 54px); height: clamp(56px, 17.4vw, 76px); }
   .table-screen .table-stage.stage-portrait .hand-strength {
     padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
     background: rgba(8, 8, 7, .78); border: 1px solid rgba(214, 170, 82, .55);
   }
-  .table-stage.stage-portrait .stage-mark { top: 62%; }
+  .table-stage.stage-portrait .stage-mark { top: 47%; }
 
   /* ---- Hero in the bottom-left corner: cards over the portrait (66x92, up 13% from
      58x81 at David's ask), the plate right under it ---- */
@@ -42,13 +55,35 @@
   .table-screen .table-stage.stage-portrait .seat.me .avatar-wrap { width: 58px; height: 58px; }
   .table-screen .table-stage.stage-portrait .seat.me .plate {
     position: relative; left: auto; bottom: auto; margin-top: -6px; padding: 3px 10px 4px;
-    border-radius: 12px; text-align: center;
+    border-radius: 3px; text-align: center;
   }
   .table-screen .table-stage.stage-portrait .seat.me .plate .nm { justify-content: safe center; color: #f0c35a; }
   .table-screen .table-stage.stage-portrait .seat.me .plate .st { text-align: center; font-size: 13px; }
   /* Your countdown badge moves to the right of your portrait; the screen edge is on its left now. */
   .table-screen .table-stage.stage-portrait .seat.me .turn-badge { right: auto; left: calc(50% + 32px); bottom: 40px; width: 44px; height: 44px; }
   .table-screen .table-stage.stage-portrait .seat.me .turn-badge span { font-size: 18px; }
+
+  /* Compact two-line pot and on-felt tournament status follow the recorded phone view. */
+  .table-screen .table-stage.stage-portrait .pot-label {
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    padding: 3px 16px; border: 0; border-radius: 24px; box-shadow: none;
+    background: rgba(0, 0, 0, .3); font-size: 12px; font-weight: 400; line-height: 1.1;
+  }
+  .table-screen .table-stage.stage-portrait .pot-label::before { display: none; }
+  .table-screen .table-stage.stage-portrait .pot-label strong { color: #f8e55a; font-size: 14px; }
+  .table-screen .table-stage.stage-portrait .tt-hud {
+    display: block; left: 50%; top: 64%; transform: translateX(-50%); width: 48%;
+    border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none;
+    z-index: 4; pointer-events: none;
+  }
+  .table-screen .stage-portrait .tt-hud-top { display: block; padding: 0 0 3px; border: 0; text-align: center; }
+  .table-screen .stage-portrait .tt-hud-top b { display: block; font-size: 10px; color: #d1d1ca; }
+  .table-screen .stage-portrait .tt-hud-mode { display: none; }
+  .table-screen .stage-portrait .tt-hud-grid { display: block; background: none; }
+  .table-screen .stage-portrait .tt-hud-grid > div { justify-content: center; gap: 4px; padding: 1px 0; background: none; }
+  .table-screen .stage-portrait .tt-hud-grid span { text-transform: none; letter-spacing: 0; font-size: 10px; color: #bfc1b9; }
+  .table-screen .stage-portrait .tt-hud-grid b { font-size: 10px; color: #e1e3dc; }
+  .table-screen.table-tournament.theme-green .table-stage.stage-portrait::before { filter: saturate(.08) brightness(.65); }
 
   /* ---- One slim row of buttons along the bottom (tableStage.ts PORTRAIT_ACTION_BAR) ---- */
   .table-screen { --phone-bar-h: 64px; }
@@ -149,7 +184,7 @@
      and reactions are two small icons in the bottom-right corner, hidden on your turn. ---- */
   .table-screen .seat-dock { display: none; }
   .table-screen .tchat-dock { right: 8px; left: auto; bottom: calc(max(var(--phone-bar-h), var(--action-bar-h, 0px)) + 8px); align-items: flex-end; transform: none; }
-  .table-screen .tchat-buttons { flex-direction: column; gap: 6px; opacity: .8; }
+  .table-screen .tchat-buttons { flex-direction: row; gap: 6px; opacity: .8; }
   /* The toggles match the charcoal buttons: dark disc, light grey glyph, yellow ring when open. */
   .table-screen .tchat-buttons .tchat-toggle {
     width: 38px; height: 38px; background: linear-gradient(#343434, #262626); color: #d6d6d6;
@@ -163,7 +198,7 @@
   .table-screen .tchat-dock.open { left: 8px; }
   .table-screen .reaction-picker { left: auto; right: 0; }
   /* Your decision comes first: on your turn the chat steps aside (open or not) and comes back after. */
-  .table-screen:has(.action-bar :is(.main-actions, .aof-row)) .tchat-dock { visibility: hidden; }
+  .table-screen:has(.action-bar :is(.main-actions, .aof-row)) :is(.tchat-dock, .tt-hud) { visibility: hidden; }
 }
 
 @media (max-width: 760px) and (orientation: portrait) and (prefers-reduced-motion: reduce) {

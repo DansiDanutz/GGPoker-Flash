@@ -21,6 +21,10 @@ test('sandbox starts the real browser/server app on loopback and removes only it
     assert.equal(new URL(sandbox.url).hostname, '127.0.0.1');
     const page = await fetch(sandbox.url); assert.equal(page.status, 200);
     assert.match(await page.text(), /src\/main.tsx/);
+    const version = await fetch(sandbox.url + '/api/version?t=mobile-review');
+    assert.equal(version.status, 200);
+    assert.equal(version.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await version.json(), { version: 'dev', build: 'dev' });
     const billing = await (await fetch(sandbox.url + '/api/marketplace/billing')).json();
     assert.equal(billing.mode, 'off'); assert.equal(billing.manual_funding.enabled, false);
     const login = await fetch(sandbox.url + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', origin: sandbox.url }, body: JSON.stringify({ login: 'admin', password: sandbox.password }) });

@@ -25,7 +25,7 @@ export function TournamentHud({ tournament, sb, bb, ante }: { tournament: T; sb:
       </div>
       <div className="tt-hud-grid">
         <div><span>Level</span><b>{tournament.level ?? 1}</b></div>
-        <div><span>Blinds</span><b>{money(sb)}/{money(bb)}{ante ? ` (${money(ante)})` : ''}</b></div>
+        <div><span>Blinds</span><b>{sb.toLocaleString()}/{bb.toLocaleString()}{ante ? ` (${ante.toLocaleString()})` : ''}</b></div>
         <div><span>Next level</span><b>{left != null ? `${mm}:${String(ss).padStart(2, '0')}` : '—'}</b></div>
         <div><span>Players left</span><b>{tournament.playersLeft != null ? tournament.playersLeft.toLocaleString() : '—'}</b></div>
         <div><span>Prize pool</span><b className="gold">{money(tournament.prizePool || 0)}</b></div>

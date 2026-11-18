@@ -123,10 +123,10 @@ try {
   }
   await page.setViewport({ width: 390, height: 1000 });
   await page.goto(sandbox.url + '/#/my-page');
-  await page.waitForSelector('.ma .profile-role-workspaces button');
+  await page.waitForSelector('.ma .profile-workspace-tabs button');
   assert.equal(await page.$('.platform-tabs'), null);
-  assert.match(await page.$eval('.ma .profile-role-workspaces button', (node) => node.textContent), /Marketplace/);
-  checks.push('Phones reach the Marketplace from the profile role guide instead of a top strip.');
+  assert.deepEqual(await page.$$eval('.ma .profile-workspace-tabs button', nodes => nodes.map(node => node.textContent)), ['Contributor', 'Organizer', 'Marketplace']);
+  checks.push('Phones reach all three workspaces from the prominent Profile tabs.');
   await page.setViewport({ width: 1440, height: 1000 });
   await page.goto(sandbox.url + '/#/?host=cash');
   await page.waitForSelector('#host-economy');

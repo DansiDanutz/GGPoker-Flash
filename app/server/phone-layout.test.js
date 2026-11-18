@@ -63,15 +63,17 @@ test('the phone table is drawn in 3D perspective: narrow top, wide rounded botto
   assert.match(svg, /id="rail"/, 'has a rail');
   assert.match(svg, /id="apron"/, 'has the rail side that gives it depth');
   assert.match(svg, /id="felt"/, 'has a felt');
-  // Top edge narrower than the bottom: the shoulder at y 104 sits further in than the widest point.
-  assert.match(svg, /L390 548/);
-  assert.match(svg, /348 104/);
+  // Rounded shoulder remains narrower than the near rail.
+  assert.match(svg, /L407 520/);
+  assert.match(svg, /370 200/);
   assert.match(css(), /\.table-screen\[class\] \.table-stage\.stage-portrait::before \{[^}]*transform: none;[^}]*url\('\/assets\/tables\/skins\/portrait\/phone-table-3d\.svg'\) center \/ 100% 100% no-repeat/);
 });
 
 test('the felt tint is cut to the same 3D felt shape', () => {
   const mask = fs.readFileSync(path.join(root, 'public/assets/tables/skins/portrait/phone-table-3d-felt.svg'), 'utf8');
   assert.match(mask, /preserveAspectRatio="none"/);
+  const skin = read('public/assets/tables/skins/portrait/phone-table-3d.svg');
+  assert.equal(mask.match(/<path d="([^"]+)"/)[1], skin.match(/<path id="inner" d="([^"]+)"/)[1], 'theme tint follows the exact felt boundary');
   assert.match(css(), /\.table-stage\.stage-portrait \.felt \{[^}]*mask-image: url\('\/assets\/tables\/skins\/portrait\/phone-table-3d-felt\.svg'\)/);
 });
 
@@ -117,11 +119,11 @@ test('an open chat spans the screen width and the reaction picker opens leftward
 });
 
 test('on your turn the whole chat (open or not) steps aside so it never covers the bet controls', () => {
-  assert.match(css(), /\.table-screen:has\(\.action-bar :is\(\.main-actions, \.aof-row\)\) \.tchat-dock \{ visibility: hidden; \}/);
+  assert.match(css(), /\.table-screen:has\(\.action-bar :is\(\.main-actions, \.aof-row\)\) :is\(\.tchat-dock, \.tt-hud\) \{ visibility: hidden; \}/);
 });
 
-test('chat and reactions stack one on top of the other in the corner', () => {
-  assert.match(css(), /\.table-screen \.tchat-buttons \{ flex-direction: column;/);
+test('chat and reactions share a slim horizontal row', () => {
+  assert.match(css(), /\.table-screen \.tchat-buttons \{ flex-direction: row;/);
 });
 
 test('the chat corner always clears the bottom bar, even the taller sitting-out panel', () => {

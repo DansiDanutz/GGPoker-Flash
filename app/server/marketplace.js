@@ -222,6 +222,21 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
       const actor = isAdmin ? requireAdmin(req, res) : null;
       if (isAdmin && !actor) return true;
 
+      if (pathname === `${PUBLIC_ROOT}/contributors`) {
+        method(req, ['GET']);
+        const publishers = db.prepare("SELECT id,display_name,kind FROM marketplace_publishers WHERE status='approved' ORDER BY created_at,id LIMIT 500").all();
+        const products = db.prepare(`SELECT DISTINCT p.id,p.name,p.slug FROM marketplace_products p
+          WHERE p.status='available' AND (EXISTS (
+            SELECT 1 FROM marketplace_commerce_offers o WHERE o.product_id=p.id AND o.publisher_id=?
+          ) OR EXISTS (
+            SELECT 1 FROM contributor_submissions s WHERE 'contrib-' || s.plugin_id=p.id
+              AND s.publisher_id=? AND s.status='published'
+          )) ORDER BY p.sort_order,p.name,p.id LIMIT 200`);
+        json(res, 200, { contributors: publishers.map(publisher => ({
+          ...publisher, products: products.all(publisher.id, publisher.id),
+        })) });
+        return true;
+      }
       if (pathname === PUBLIC_ROOT) {
         method(req, ['GET']);
         const products = db.prepare("SELECT * FROM marketplace_products WHERE status IN ('available','coming_soon') ORDER BY featured DESC, sort_order, name LIMIT 200").all().map(productFrom);

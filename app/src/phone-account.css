@@ -8,7 +8,7 @@
     scrollbar-width: none;
   }
   .ma::-webkit-scrollbar { display: none; }
-  .ma button { font: inherit; color: inherit; text-align: left; background: none; border: 0; }
+  .ma :where(button) { font: inherit; color: inherit; text-align: left; background: none; border: 0; }
 
   /* profile */
   .ma-profile { display: flex; align-items: center; gap: 16px; }
