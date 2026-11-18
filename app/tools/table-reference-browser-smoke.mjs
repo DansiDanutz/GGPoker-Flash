@@ -197,6 +197,10 @@ async function capture(kind, width, height) {
   }
   await page.waitForSelector('.tchat-dock.tools-open .tchat-buttons', {visible:true});
   assert.equal(await page.$eval('.tchat-buttons', n => n.querySelectorAll('button').length), 2);
+  assert.equal(await page.evaluate(() => {
+    const dock=document.querySelector('.tchat-dock').getBoundingClientRect();
+    return [...document.querySelectorAll('.action-bar button')].every(n=>{const r=n.getBoundingClientRect();return !r.width || dock.bottom<=r.top || dock.top>=r.bottom || dock.right<=r.left || dock.left>=r.right;});
+  }),true,'Expanded chat must not cover betting buttons');
   await page.click('[aria-label="Emoticons"]');
   await page.screenshot({path:path.join(artifacts, `${kind}-emoticons-${width}.png`)});
   await page.click('[aria-label="Emoticons"]');

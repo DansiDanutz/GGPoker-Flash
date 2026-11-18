@@ -10,7 +10,7 @@ import { sound } from '../lib/sound';
 import { PageShell, SubNav } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
 import { useI18n } from '../lib/i18n';
-import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, betLabel, readBetPrefs, readBettingOptions, readCardBack, readStackMode, readShowChatBubbles, readShowReactions, CHAT_BUBBLES_KEY, REACTIONS_KEY, type BetPrefs, type BettingOptions, type StackMode } from '../lib/tablePrefs';
+import { CARD_BACKS, DEFAULT_BETS, NORMAL_CHOICES, OPENING_CHOICES, betLabel, readBetPrefs, readBettingOptions, readSqueeze, readCardBack, readStackMode, readShowChatBubbles, readShowReactions, CHAT_BUBBLES_KEY, REACTIONS_KEY, type BetPrefs, type BettingOptions, type StackMode } from '../lib/tablePrefs';
 import { TB_CARD_SECONDS, TB_CARDS_PER_ACTION, TB_MAX_CARDS, TB_REFILL_HANDS, TB_START_CARDS } from '../game/timeBankRules';
 import { PROMO_ART } from '../lib/promoArt';
 
@@ -217,7 +217,7 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
   const [volume, setVolume] = useState(Number(localStorage.getItem('ggpoker.volume') || 70));
   const [betting, setBetting] = useState<BetPrefs>(() => readBetPrefs());
   const [bettingOptions, setBettingOptions] = useState<BettingOptions>(readBettingOptions);
-  const [squeeze, setSqueeze] = useState(() => localStorage.getItem('ggpoker.squeeze') === '1');
+  const [squeeze, setSqueeze] = useState(readSqueeze);
   const [chipShuffle, setChipShuffle] = useState(() => localStorage.getItem('ggpoker.chipShuffle') !== '0');
   const [showHand, setShowHand] = useState(() => localStorage.getItem('ggpoker.showHand') !== '0');
   const [chatBubbles, setChatBubbles] = useState(readShowChatBubbles);
