@@ -19,15 +19,21 @@ try {
   for (const width of [390,320]) {
     const page=await browser.newPage(); page.on('pageerror',e=>errors.push(e.message));
     await page.setViewport({width,height:844});
+    await page.evaluateOnNewDocument(()=>{
+      document.addEventListener('load',event=>{if(event.target instanceof HTMLImageElement && event.target.matches('.ls-poster')) window.__introLoadedAt=performance.now();},true);
+      const observer=new MutationObserver(()=>{
+        if(document.querySelector('.ls--leaving')) {window.__introLeavingAt=performance.now();observer.disconnect();}
+      });
+      observer.observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+    });
     if(width===320) await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);
     await page.goto(sandbox.url);
     await page.waitForFunction(()=>document.querySelector('.ls-poster')?.complete && document.querySelector('.ls-poster')?.naturalWidth>0);
-    const shown=await page.evaluate(()=>performance.now());
     assert.equal(await page.$eval('.ls-poster',n=>getComputedStyle(n).objectFit),'contain');
     assert.ok(await page.$('.ls-content[inert]'));
     await page.screenshot({path:path.join(artifacts,`intro-${width}.png`)});
     await page.waitForSelector('.ls--leaving');
-    const readingMs=await page.evaluate(()=>performance.now())-shown;
+    const readingMs=await page.evaluate(()=>window.__introLeavingAt-window.__introLoadedAt);
     assert.ok(readingMs>=3200,`Poster was only readable for ${readingMs}ms`);
     if(width===390) {
       await page.waitForFunction(()=>document.querySelector('.ls-particles')?.width===innerWidth);
