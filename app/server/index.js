@@ -66,6 +66,7 @@ import { tournamentGame, tournamentLobby } from './tournament-lobby.js';
 import { createAdminTransactionsRoute } from './admin-transactions.js';
 import { createAdminUsersListRoute } from './admin-users-list.js';
 import { createMarketplaceRoutes } from './marketplace.js';
+import { createGitHubStarRoutes } from './github-star.js';
 import { createMarketplaceCommerce } from './marketplace-commerce.js';
 import { createContributorSubmissions, createContributorRoutes } from './contributor-submissions.js';
 import { previewRake } from './rake-lab.js';
@@ -573,6 +574,7 @@ const handleAdminAuditRoute = createAdminAuditRoute({ db, json, requireAdmin });
 const handleAdminTransactionsRoute = createAdminTransactionsRoute({ db, json, requireAdmin });
 const handleAdminUsersListRoute = createAdminUsersListRoute({ db, json, requireAdmin, publicUser });
 const handleMarketplaceRoute = createMarketplaceRoutes({ db, json, requireUser, requireAdmin, readBody });
+const handleGitHubStarRoute = createGitHubStarRoutes({ json, readBody, clientKey: abuseClientKey });
 const marketplaceCommerce = createMarketplaceCommerce({ db });
 const organizerChipMode = process.env.GGPOKER_ORGANIZER_CHIPS || 'off';
 if (!['off', 'enforce'].includes(organizerChipMode)) throw new Error('GGPOKER_ORGANIZER_CHIPS must be off or enforce');
@@ -1554,6 +1556,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
+    if (await handleGitHubStarRoute(req, res, url)) return;
     if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
     if (p === '/api/plugins/rake-lab') {
       if (req.method !== 'GET') return json(res, 405, { error: 'Use GET for the read-only Rake Lab preview.' });

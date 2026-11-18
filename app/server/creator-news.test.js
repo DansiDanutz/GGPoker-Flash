@@ -20,7 +20,7 @@ test('the GitHub badge links to the repository, not one commit', () => {
   assert.equal(sourceRepository('https://github.com/OpenPoker4all/OpenPoker/tree/0123456789abcdef0123456789abcdef01234567'), 'https://github.com/OpenPoker4all/OpenPoker');
   assert.equal(sourceRepository('https://github.com/OpenPoker4all/OpenPoker'), 'https://github.com/OpenPoker4all/OpenPoker');
   const card = fs.readFileSync(new URL('../src/components/brand/CreatorNews.tsx', import.meta.url), 'utf8');
-  assert.match(card, /<a className="cn-badge" href=\{sourceRepository\(__APP_SOURCE_URL__\)\} target="_blank" rel="noopener noreferrer">/);
+  assert.match(card, /href=\{sourceRepository\(__APP_SOURCE_URL__\)\} target="_blank" rel="noopener noreferrer">Open GitHub/);
 });
 
 test('the news card renders into <body>, so the login footer can never cover Got it', () => {

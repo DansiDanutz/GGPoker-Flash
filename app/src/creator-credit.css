@@ -61,6 +61,16 @@
   text-decoration: none;
 }
 a.cn-badge:hover, a.cn-badge:focus-visible { background: rgba(255, 255, 255, .16); border-color: rgba(240, 200, 110, .7); }
+.cn-star-button { min-height: 44px; padding: 7px 12px; background: #ffd54a; border-color: #ffe58b; color: #241900; cursor: pointer; font-size: 13px; box-shadow: 0 0 20px #ffd54a33; }
+.cn-star-button:hover, .cn-star-yes:hover { background: #ffe58b; }
+.cn-star-icon { font-size: 25px; line-height: 1; }
+.cn-star-emblem { color: #ffd54a; font-size: 64px; text-align: center; }
+.cn-star-yes, .cn-star-no { display: block; width: 100%; min-height: 46px; padding: 10px 16px; border-radius: 12px; font: inherit; font-weight: 700; cursor: pointer; }
+.cn-star-yes { background: #ffd54a; color: #241900; border: 1px solid #ffe58b; }
+.cn-star-yes:disabled { opacity: .65; cursor: wait; }
+.cn-star-no { margin-top: 10px; background: transparent; color: #f3ece0; border: 1px solid #817263; }
+.cn-star-button:focus-visible, .cn-star-yes:focus-visible, .cn-star-no:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.cn-body a { color: #ffd54a; }
 .cn-body { margin-top: 16px; }
 .cn-body p { margin: 0 0 11px; font-size: 14.5px; line-height: 1.5; color: #e6dccb; }
 .cn-body p:nth-last-child(2) { color: #ffe2a6; font-weight: 700; }
