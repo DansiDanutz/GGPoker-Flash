@@ -185,6 +185,7 @@ async function capture(kind, width, height) {
       board: document.querySelectorAll('.board > .pcard').length,
       cards: document.querySelectorAll('.table-stage .seat .cards .pcard').length,
       actions: [...document.querySelectorAll('.action-bar button')].filter(visible).length,
+      timerMasks: [...document.querySelectorAll('.seat.active .timer')].filter(visible).map((node) => getComputedStyle(node).maskImage),
       clipped: [...outside('.table-stage .seat:not(.seat-take)'), ...outside('.table-stage .seat .cards .pcard'), ...outside('.action-bar button')],
     };
   });
@@ -194,6 +195,8 @@ async function capture(kind, width, height) {
   assert.ok(layout.board >= 3, `${kind} has not reached a populated flop.`);
   assert.ok(layout.cards >= 2, `${kind} does not render the authenticated player's dealt hand.`);
   assert.ok(layout.actions >= 3, `${kind} does not show the seated hero action row.`);
+  assert.ok(layout.timerMasks.length > 0, `${kind} has no visible countdown.`);
+  assert.ok(layout.timerMasks.every((mask) => mask === 'none'), `${kind} countdown is clipped by a circular mask.`);
   assert.deepEqual(layout.clipped, [], `${kind} clips seats/cards/actions at ${width}x${height}: ${JSON.stringify(layout.clipped)}`);
   return layout;
 }
