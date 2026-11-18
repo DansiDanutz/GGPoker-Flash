@@ -42,11 +42,6 @@ function ScaleStage({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Splash() {
-  const { brand } = useApp();
-  return <LoadingScreen logo={brand.logo} />;
-}
-
 function ComingSoon({ title }: { title: string }) {
   const { navigate } = useApp();
   return (
@@ -63,6 +58,11 @@ function ComingSoon({ title }: { title: string }) {
 }
 
 export default function App() {
+  const { loading, route } = useApp();
+  return <LoadingScreen ready={!loading} bypass={route.split('?')[0] === '/marketplace'}><AppContent /></LoadingScreen>;
+}
+
+function AppContent() {
   const { route, navigate, toasts, dismissToast, loading, user, guest, splashDone, meta, installGate, authOffline, firstLaunch } = useApp();
 
   const page = useMemo(() => {
@@ -103,12 +103,7 @@ export default function App() {
   if (route.split('?')[0] === '/marketplace') return <Marketplace />;
 
   if (!splashDone || loading) {
-    return (
-      <ScaleStage>
-        <TitleBar online={meta.online} />
-        <Splash />
-      </ScaleStage>
-    );
+    return null;
   }
 
   if (!user && !guest) {

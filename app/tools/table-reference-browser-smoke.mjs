@@ -264,6 +264,7 @@ try {
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   await page.goto(`${sandbox.url}/#/table/${encodeURIComponent(cash.id)}?buyin=5000&seat=0`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.seat.me', { visible: true });
+  await page.waitForSelector('.ls-content:not([inert])');
   await driveBrowserHeroToFlop(cashClients, cash.id);
   for (const [width, height] of [[390, 844], [320, 700]]) {
     layouts[`cash-${width}`] = await capture('cash', width, height);

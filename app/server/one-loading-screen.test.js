@@ -1,4 +1,4 @@
-// The boot placeholder and React loader show the same static advert without a manufactured delay.
+// Boot, version checks and the reading period share the supplied poster.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -14,16 +14,17 @@ test("Android's splash uses the loading screen's colour, not a green-black", () 
   assert.match(read('index.html'), /<meta name="theme-color" content="#070507" \/>/);
 });
 
-test('the boot page and React loader share the same DanGG advert', () => {
-  assert.match(read('index.html'), /\/assets\/brand\/og-card\.jpg/);
-  assert.match(read('src/components/splash/LoadingScreen.tsx'), /\/assets\/brand\/og-card\.jpg/);
+test('the boot page, version check and React loader share the supplied poster', () => {
+  for (const file of ['index.html', 'src/components/VersionGate.tsx', 'src/components/splash/LoadingScreen.tsx']) {
+    assert.match(read(file), /\/assets\/brand\/openpoker-intro\.png/);
+  }
 });
 
 test('the boot advert has the same accessible campaign and loading content', () => {
   const html = read('index.html');
-  assert.match(html, /Cash Table · Tournaments · Spin &amp; Go/);
-  assert.match(html, /Created by DansiDanutz · Powered by OpenPoker/);
-  assert.match(html, /<progress class="boot-progress" aria-label="Loading DanGG"><\/progress>/);
+  assert.match(html, /Introducing OpenPoker, the project behind DanGG/);
+  assert.match(html, /Built by DansiDanutz/);
+  assert.match(html, /object-fit:contain/);
 });
 
 test('the boot placeholder is static and does not hold startup on a timer', () => {

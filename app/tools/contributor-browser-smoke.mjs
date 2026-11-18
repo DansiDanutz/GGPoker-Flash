@@ -27,6 +27,7 @@ async function pageFor(token, route) {
     if (value) localStorage.setItem('ggpoker.token', value);
   }, token);
   await page.goto(sandbox.url + '/#' + route);
+  await page.waitForSelector('.ls-content:not([inert])');
   return page;
 }
 async function button(page, scope, label) {

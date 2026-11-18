@@ -93,12 +93,8 @@ export function VersionGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="version-gate">
-      <div className="version-gate-card">
-        <div className="version-gate-brand">Dan<b>GG</b></div>
-        <div className="version-gate-spinner" aria-hidden="true" />
-        <p>{phase === 'updating' ? 'Updating to the latest version…' : 'Checking version…'}</p>
-      </div>
+    <div className="boot-shell" role="status" aria-label={phase === 'updating' ? 'Updating to the latest version…' : 'Checking version…'}>
+      <img src="/assets/brand/openpoker-intro.png" alt="Hi, I’m Dan. Let me introduce you to OpenPoker, the project behind DanGG." />
     </div>
   );
 }
