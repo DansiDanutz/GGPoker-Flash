@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CREATOR_AVATAR_LARGE, CREATOR_NEWS, PROJECT_NAME, sourceRepository } from '../../lib/creator';
 
@@ -12,16 +12,44 @@ interface CreatorNewsProps {
  */
 export function CreatorNews({ onClose }: CreatorNewsProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const authorizationRef = useRef<AbortController | null>(null);
+  function cancelStar() {
+    authorizationRef.current?.abort();
+    setBusy(false);
+    setAsking(false);
+  }
+  useEffect(() => () => authorizationRef.current?.abort(), []);
 
   useEffect(() => {
     closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') asking ? cancelStar() : onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, asking]);
+
+  async function authorizeStar() {
+    setBusy(true);
+    setError('');
+    const controller = new AbortController();
+    authorizationRef.current = controller;
+    try {
+      const response = await fetch('/api/github-star/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ consent: true }), signal: controller.signal });
+      const data = await response.json();
+      if (controller.signal.aborted) return;
+      if (!response.ok) throw new Error(data.error || 'GitHub authorization could not start. Please try again.');
+      window.location.assign(data.url);
+    } catch (cause) {
+      if (controller.signal.aborted) return;
+      setError(cause instanceof Error ? cause.message : 'GitHub authorization could not start. Please try again.');
+      setBusy(false);
+    }
+  }
 
   return createPortal(
-    <div className="cn-backdrop" onClick={onClose}>
+    <div className="cn-backdrop" onClick={() => asking ? cancelStar() : onClose()}>
       <article
         className="cn-card"
         role="dialog"
@@ -29,21 +57,31 @@ export function CreatorNews({ onClose }: CreatorNewsProps) {
         aria-labelledby="cn-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="cn-head">
+        {asking ? <>
+          <div className="cn-star-emblem" aria-hidden="true">★</div>
+          <h2 id="cn-title">Give OpenPoker a star?</h2>
+          <div className="cn-body">
+            <p>Your star helps others discover the open-source platform behind DanGG.</p>
+            <p>Choose your GitHub account and authorize DanGG to add one star to <strong>OpenPoker4all/OpenPoker</strong>. This is optional and free.</p>
+            {error && <p role="alert">{error} <a href={sourceRepository(__APP_SOURCE_URL__)} target="_blank" rel="noopener noreferrer">Open GitHub</a></p>}
+          </div>
+          <button type="button" className="cn-star-yes" disabled={busy} onClick={authorizeStar}>{busy ? 'Opening GitHub…' : 'Yes, authorize GitHub'}</button>
+          <button ref={closeRef} type="button" className="cn-star-no" onClick={cancelStar}>No thanks</button>
+        </> : <><div className="cn-head">
           <img className="cn-avatar" src={CREATOR_AVATAR_LARGE} alt="Dan" width={88} height={88} />
           <div>
             <small className="cn-kicker">{CREATOR_NEWS.kicker}</small>
             <h2 id="cn-title">{CREATOR_NEWS.title}</h2>
-            <a className="cn-badge" href={sourceRepository(__APP_SOURCE_URL__)} target="_blank" rel="noopener noreferrer">
-              <span aria-hidden="true">☆</span><GitHubMark />{CREATOR_NEWS.badge}
-            </a>
+            <button type="button" className="cn-badge cn-star-button" onClick={() => { setError(''); setAsking(true); }}>
+              <span className="cn-star-icon" aria-hidden="true">★</span><GitHubMark />{CREATOR_NEWS.badge}
+            </button>
           </div>
         </div>
         <div className="cn-body">
           {CREATOR_NEWS.paragraphs.map((p) => <p key={p}>{p}</p>)}
           <p className="cn-sign">{CREATOR_NEWS.signature} · {PROJECT_NAME}</p>
         </div>
-        <button ref={closeRef} type="button" className="cn-close" onClick={onClose}>{CREATOR_NEWS.close}</button>
+        <button ref={closeRef} type="button" className="cn-close" onClick={onClose}>{CREATOR_NEWS.close}</button></>}
       </article>
     </div>,
     document.body,

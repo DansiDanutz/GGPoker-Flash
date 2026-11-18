@@ -89,6 +89,7 @@ async function newPage(context = browser) {
 }
 
 async function clickText(page, selector, text) {
+  await page.waitForSelector('.ls', { hidden: true });
   const handle = await page.evaluateHandle((selector, text) => Array.from(document.querySelectorAll(selector)).find((node) => node.textContent.trim() === text), selector, text);
   const element = handle.asElement();
   assert.ok(element, `Missing control: ${selector} / ${text}`);
@@ -102,6 +103,7 @@ async function centerClick(element) {
 }
 
 async function clickSelector(page, selector) {
+  await page.waitForSelector('.ls', { hidden: true });
   const element = await page.waitForSelector(selector, { visible: true });
   await centerClick(element);
   await element.dispose();
@@ -110,9 +112,7 @@ async function clickSelector(page, selector) {
 async function replaceInputValue(page, input, value, label) {
   await input.evaluate((node) => node.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
   await input.focus();
-  await page.keyboard.down('Control');
-  await page.keyboard.press('A');
-  await page.keyboard.up('Control');
+  await input.evaluate((node) => node.select());
   await page.keyboard.press('Backspace');
   if (value) await input.type(value);
   assert.equal(await input.evaluate((node) => node.value), value, `Field was not filled correctly: ${label}`);

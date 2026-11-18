@@ -88,11 +88,17 @@ jobs:
         timeout-minutes: 3
         run: node tools/contributor-browser-smoke.mjs
 
+      - name: Verify startup and voluntary GitHub consent in Chrome
+        timeout-minutes: 3
+        run: node tools/startup-star-browser-smoke.mjs
+
       - name: Upload marketplace browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: marketplace-browser-${{ github.run_id }}
-          path: app/artifacts/marketplace-browser/
+          path: |
+            app/artifacts/marketplace-browser/
+            app/artifacts/startup-star/
           if-no-files-found: ignore
           retention-days: 7

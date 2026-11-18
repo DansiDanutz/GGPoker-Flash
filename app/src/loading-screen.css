@@ -1,37 +1,15 @@
-/* Startup advert: one existing DanGG-owned campaign image, visible only while real gates resolve. */
-.ls {
-  position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden;
-  display: grid; place-items: center; padding: clamp(14px, 3vw, 36px);
-  background: radial-gradient(circle at 50% 20%, #35103b, #100516 58%, #050207);
-  color: #fff;
+.ls-content { display: contents; }
+.ls { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; overflow: hidden; background: #100516; color: #fff; }
+.ls-poster { display: block; width: 100%; height: 100%; object-fit: contain; }
+.ls-particles { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ls--leaving { background: transparent; pointer-events: none; }
+.ls--leaving .ls-poster { opacity: 0; }
+.ls-fallback { position: absolute; text-align: center; font: 700 24px/1.6 system-ui; color: #ffd54a; }
+.ls-progress { position: absolute; bottom: max(8px, env(safe-area-inset-bottom)); left: 50%; translate: -50% 0; display: grid; gap: 5px; justify-items: center; padding: 8px 16px; border-radius: 12px; background: #100516e8; font-size: 12px; }
+.ls-progress progress { width: 180px; height: 4px; accent-color: #ffd54a; }
+@media (prefers-reduced-motion: reduce) {
+  .ls--leaving { animation: ls-fade .2s ease-out both; }
+  .ls--leaving .ls-poster { opacity: 1; }
+  .ls-particles { display: none; }
 }
-.ls-ad {
-  position: relative; width: min(1120px, 100%); max-height: calc(100dvh - 130px); margin: 0; overflow: hidden;
-  border: 1px solid rgba(242, 203, 119, .45); border-radius: clamp(14px, 2vw, 24px);
-  background: #100516; box-shadow: 0 30px 90px rgba(0, 0, 0, .65), 0 0 50px rgba(200, 70, 180, .12);
-}
-.ls-ad-image { display: block; width: 100%; height: auto; max-height: calc(100dvh - 130px); object-fit: cover; }
-.ls-ad-caption {
-  position: absolute; inset: auto 0 0; display: grid; justify-items: start; gap: 3px; padding: clamp(18px, 3vw, 32px);
-  background: linear-gradient(180deg, transparent, rgba(8, 2, 12, .92) 40%); text-align: left;
-}
-.ls-ad-logo { width: min(180px, 38vw); height: auto; margin-bottom: 5px; filter: drop-shadow(0 4px 12px #000); }
-.ls-ad-caption span { color: #e9c978; font-size: 10px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
-.ls-ad-caption strong { color: #fff8e7; font-size: clamp(17px, 2.4vw, 29px); line-height: 1.2; text-shadow: 0 2px 8px #000; }
-.ls-ad-caption small { color: #d7cadb; font-size: clamp(10px, 1.2vw, 13px); }
-.ls-progress { position: absolute; inset: auto 50% 18px auto; translate: 50% 0; display: grid; justify-items: center; gap: 6px; }
-.ls-progress progress { width: min(260px, 58vw); height: 5px; border: 0; overflow: hidden; border-radius: 99px; accent-color: #e9c978; }
-.ls-progress progress::-webkit-progress-bar { background: rgba(255, 255, 255, .16); }
-.ls-progress progress:indeterminate::-webkit-progress-value { background: #e9c978; }
-.ls-progress span { color: #ddd2df; font-size: 12px; }
-.ls-legal { position: absolute; right: 18px; bottom: 18px; margin: 0; color: #8f8292; font-size: 10px; }
-
-@media (max-width: 620px) {
-  .ls { padding: 0 0 76px; align-items: stretch; }
-  .ls-ad { width: 100%; max-height: none; border: 0; border-radius: 0; }
-  .ls-ad-image { width: 100%; height: calc(100dvh - 76px); max-height: none; object-fit: cover; object-position: 68% center; }
-  .ls-ad-caption { padding: 26px 20px; }
-  .ls-ad-caption strong { max-width: 320px; }
-  .ls-progress { bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
-  .ls-legal { display: none; }
-}
+@keyframes ls-fade { to { opacity: 0; } }

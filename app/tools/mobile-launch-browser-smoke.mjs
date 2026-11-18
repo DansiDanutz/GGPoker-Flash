@@ -94,6 +94,7 @@ try {
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   await page.goto(`${sandbox.url}/#/login`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#login-id,.login2-splash-login', { visible: true });
+  await page.waitForSelector('.ls-content:not([inert])');
   if (!await page.$('#login-id')) await page.click('.login2-splash-login');
   await page.waitForSelector('#login-id', { visible: true });
   await page.type('#login-id', login);

@@ -26,7 +26,7 @@ async function pageFor(token, route) {
     localStorage.setItem('ggpoker.welcomeSeen', '1');
     if (value) localStorage.setItem('ggpoker.token', value);
   }, token);
-  await page.goto(sandbox.url + '/#' + route);
+  await page.goto(sandbox.url + '/#' + route); await page.waitForSelector('.ls-content:not([inert])');
   return page;
 }
 async function button(page, scope, label) {
@@ -47,7 +47,7 @@ try {
   checks.push('Guest Play Money session has no Contributor, Organiser or Marketplace tabs.');
   const member = await call('/api/auth/register', { login: 'contributor_browser', nick: 'Contributor Browser', password: 'browser-test-password' });
   const page = await pageFor(member.token, '/contributor');
-  await page.goto(sandbox.url + '/#/my-page?tab=overview');
+  await page.goto(sandbox.url + '/#/my-page?tab=overview'); await page.waitForSelector('.ls-content:not([inert])');
   await page.waitForSelector('section[aria-label="Choose how you use OpenPoker"]');
   assert.deepEqual(await page.$$eval('.profile-role-guide h3', nodes => nodes.map(node => node.textContent)), ['Player for fun', 'Organiser', 'Contributor']);
   await page.waitForSelector('.mpp input[type=file]');
@@ -56,7 +56,7 @@ try {
   await page.waitForFunction(() => document.querySelector('.mpp-portrait img')?.getAttribute('src')?.startsWith('data:image/png;'));
   await button(page, '.mpp-foot', 'Apply');
   await page.waitForFunction(() => [...document.querySelectorAll('.toast')].some(node => node.textContent.includes('Profile saved')));
-  await page.reload();
+  await page.reload(); await page.waitForSelector('.ls-content:not([inert])');
   await page.waitForFunction(() => document.querySelector('.mpp-portrait img')?.getAttribute('src')?.startsWith('data:image/png;'));
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewport({ width, height: 1000 });
@@ -65,8 +65,8 @@ try {
     if ([390, 1440].includes(width)) await page.screenshot({ path: path.join(artifacts, `profile-${width}.png`), fullPage: true });
   }
   await page.setViewport({ width: 390, height: 1000 });
-  await page.goto(sandbox.url + '/#/my-page');
-  await page.reload();
+  await page.goto(sandbox.url + '/#/my-page'); await page.waitForSelector('.ls-content:not([inert])');
+  await page.reload(); await page.waitForSelector('.ls-content:not([inert])');
   await page.waitForSelector('.ma .profile-role-guide');
   await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
   await page.click('button[aria-label="Edit game profile"]');
@@ -76,13 +76,13 @@ try {
   await button(page, '.profile-role-guide', 'Open Contributor');
   await page.waitForSelector('section[aria-label="Contributor membership and credits"]');
   assert.equal(await page.$('section[aria-label="Contributor membership and credits"] [aria-label="Tarif orar Cash"]'), null);
-  await page.goto(sandbox.url + '/#/organiser');
+  await page.goto(sandbox.url + '/#/organiser'); await page.waitForSelector('.ls-content:not([inert])');
   await page.waitForSelector('section[aria-label="Organiser management"]');
   await button(page, 'section[aria-label="Organiser management"]', 'Create tournament');
   await page.waitForSelector('#host-economy');
   assert.equal(await page.$eval('#host-economy', node => node.value), 'organizer');
   assert.match(await page.$eval('#host-dialog-title', node => node.textContent), /tournament/);
-  await page.goto(sandbox.url + '/#/contributor');
+  await page.goto(sandbox.url + '/#/contributor'); await page.waitForSelector('.ls-content:not([inert])');
   checks.push('Profile guides all three roles, uploaded avatar previews and persists, and management stays inside each workspace.');
   await page.waitForSelector('section[aria-label="Contributor workspace"] form');
   assert.equal(await page.$('.platform-tabs'), null, 'Workspace tabs must not sit above the app chrome');
@@ -122,13 +122,13 @@ try {
     if ([375, 1440].includes(width)) await page.screenshot({ path: path.join(artifacts, `contributor-${width}.png`), fullPage: true });
   }
   await page.setViewport({ width: 390, height: 1000 });
-  await page.goto(sandbox.url + '/#/my-page');
+  await page.goto(sandbox.url + '/#/my-page'); await page.waitForSelector('.ls-content:not([inert])');
   await page.waitForSelector('.ma .profile-workspace-tabs button');
   assert.equal(await page.$('.platform-tabs'), null);
   assert.deepEqual(await page.$$eval('.ma .profile-workspace-tabs button', nodes => nodes.map(node => node.textContent)), ['Contributor', 'Organizer', 'Marketplace']);
   checks.push('Phones reach all three workspaces from the prominent Profile tabs.');
   await page.setViewport({ width: 1440, height: 1000 });
-  await page.goto(sandbox.url + '/#/?host=cash');
+  await page.goto(sandbox.url + '/#/?host=cash'); await page.waitForSelector('.ls-content:not([inert])');
   await page.waitForSelector('#host-economy');
   assert.equal(await page.$eval('#host-economy', (node) => node.value), 'play_money');
   await page.waitForSelector('.modal input[maxlength="40"]');
@@ -141,7 +141,7 @@ try {
   const account = await (await fetch(sandbox.api + '/api/marketplace/billing/me', { headers })).json();
   assert.equal(account.ledger.length, 0); assert.equal(account.balance_cents, 0);
   checks.push('Browser-created Play Money table is playable and leaves service-credit billing untouched.');
-  await page.goto(sandbox.url + '/#/contributor');
+  await page.goto(sandbox.url + '/#/contributor'); await page.waitForSelector('.ls-content:not([inert])');
   await page.waitForFunction(() => [...document.querySelectorAll('article h3')].some(node => node.textContent === 'Rake Lab'));
   const sampleHandle = await page.evaluateHandle(() => [...document.querySelectorAll('article')].find(node => node.querySelector('h3')?.textContent === 'Rake Lab')?.querySelector('button'));
   const sampleButton = sampleHandle.asElement(); assert.ok(sampleButton);
