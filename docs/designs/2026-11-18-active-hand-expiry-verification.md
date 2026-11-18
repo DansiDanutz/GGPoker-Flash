@@ -9,7 +9,24 @@
 This extends [insufficient-credit recovery](2026-11-18-insufficient-credit-recovery-verification.md)
 for M1.4 / S2. It does not complete every expiry or recovery scenario.
 
-## Observed results
+## Disposable reproduction (required for future tests)
+
+Run `node --test app/server/active-expiry.test.js` from the repository root.
+The fixture creates an in-memory SQLite database, synthetic users, 500 service-credit
+cents and 100,000 Cash Chips. It wires the existing billing gate and chip settlement
+hook into PokerTable, starts a heads-up hand, advances only the injected fixture billing
+clock one hour, and settles the hand after the unfunded pause. Assertions cover one
+200-chip pot, 10 rake, 9,990 returned stacks, idempotent settlement, blocked next deals,
+three rejected unfunded starts, one initial hourly debit and reconciled chip supply.
+The database is closed in finally; no network, payment credentials or production data
+are used. This automated reproduction passed on 18 November 2026.
+
+The following live run is a historical operator-authorized record, not a procedure to
+repeat with customer balances. Future verification must use the disposable fixture or
+CLI Play Money sandbox as required by AGENTS.md. All-in/side-pot expiry, pricing-tier
+transitions and restart recovery remain pending.
+
+## Observed historical results
 
 | Check | Observed |
 | --- | --- |
