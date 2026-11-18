@@ -13,6 +13,7 @@ import { betLimits, potOdds, sizingPresets, sliderTarget, type BetContext } from
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
 import { runSchedule } from '../game/runItPacing';
+import { boardAwards } from '../game/runItAwards';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
 import { WIN_BANNER_MS, heroHoldsHand, heroWon, showdownComplete, showdownPlan } from '../game/showdown';
 import { ALLIN_SPARKS } from '../game/allinFx';
@@ -280,7 +281,12 @@ export function TablePage({ tableId }: { tableId: string }) {
   const [focusReady, setFocusReady] = useState(false);
   // Run it 2-3 times: deal the boards one by one, then name each board's winner; seats show their
   // winnings only once that show is over (runHeld).
-  const runPlan = useMemo(() => ((state?.boards?.length ?? 0) > 1 ? runSchedule(state!.boards!) : null), [state?.handNo, state?.boards]);
+  const runBoardsKey = JSON.stringify(state?.boards || []);
+  const runResultsKey = JSON.stringify(state?.result?.byBoard || []);
+  const runPlan = useMemo(() => ((state?.boards?.length ?? 0) > 1 ? runSchedule(state!.boards!) : null), [state?.handNo, runBoardsKey]);
+  const runAwards = useMemo(() => boardAwards(state?.result?.byBoard), [state?.handNo, runResultsKey]);
+  const [shownRunAwards, setShownRunAwards] = useState<{ hand: number; count: number }>({ hand: -1, count: 0 });
+  const [awardVectors, setAwardVectors] = useState<Record<string, [number, number]>>({});
   const [runReleasedHand, setRunReleasedHand] = useState<number | null>(null);
   const runHeld = !!runPlan && state?.street === 'ended' && runReleasedHand !== state?.handNo;
   useEffect(() => {
@@ -289,6 +295,35 @@ export function TablePage({ tableId }: { tableId: string }) {
     const id = window.setTimeout(() => setRunReleasedHand(hand), runPlan.done);
     return () => window.clearTimeout(id);
   }, [runPlan, state?.street, state?.handNo]);
+  useEffect(() => {
+    const hand = state?.handNo;
+    setShownRunAwards({ hand: hand ?? -1, count: 0 });
+    setAwardVectors({});
+    if (!runPlan || hand == null || state?.street !== 'ended') return;
+    const timers = runPlan.resultAt.map((at, index) => window.setTimeout(() => {
+      setShownRunAwards((current) => current.hand === hand ? { hand, count: Math.max(current.count, index + 1) } : current);
+    }, at));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [runPlan, state?.street, state?.handNo]);
+  useEffect(() => {
+    if (shownRunAwards.hand !== state?.handNo || shownRunAwards.count === 0) return;
+    const stage = stageRef.current;
+    const boardIndex = shownRunAwards.count - 1;
+    const row = stage?.querySelector<HTMLElement>(`.multi-board[data-board="${boardIndex + 1}"]`);
+    if (!stage || !row) return;
+    const stageBox = stage.getBoundingClientRect();
+    const rowBox = row.getBoundingClientRect();
+    const startX = rowBox.left + rowBox.width / 2 - stageBox.left;
+    const startY = rowBox.top + rowBox.height / 2 - stageBox.top;
+    setAwardVectors((current) => {
+      const next = { ...current };
+      for (const seat of runAwards[boardIndex]?.seats || []) {
+        const [x, y] = seatPosOf(seat);
+        next[`${boardIndex}-${seat}`] = [x * stageBox.width / 100 - startX, y * stageBox.height / 100 - startY];
+      }
+      return next;
+    });
+  }, [shownRunAwards, state?.handNo, runAwards]);
   const chipShuffleTimer = useRef<number | null>(null);
   const chipShuffleIdle = useRef<number | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -1368,7 +1403,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       <div className="felt" />
       {stage.mode === 'portrait' && state?.tournament && <TournamentHud tournament={state.tournament} sb={state.sb} bb={state.bb} ante={state.ante} />}
       <div className="table-watermark stage-mark" aria-hidden="true"><b>DanGG</b><span>{state?.name || ''}</span></div>
-      <div className="table-center">
+      <div className={`table-center${(state?.boards?.length ?? 0) > 1 ? ' multi-board-center' : ''}`}>
         <div className="pot-stack">
           {chipShuffle ? (
             <div
@@ -1409,33 +1444,44 @@ export function TablePage({ tableId }: { tableId: string }) {
             <div className="bbj-row" key={row.label}><span>{row.label}</span><b>{row.names}</b><em>{money(row.amount)}</em></div>
           ))}
         </div>}
-        <div className="board">
+        {(state?.boards?.length ?? 0) > 1 ? (
+          <div className="multi-boards" aria-label={`${state!.boards!.length} boards`}>
+            {state!.boards!.map((run, boardIndex) => {
+              const awarded = shownRunAwards.hand === state!.handNo && boardIndex < shownRunAwards.count;
+              return <div className={`multi-board${awarded ? ' awarded' : ''}`} data-board={boardIndex + 1} key={`${state!.handNo}-run-${boardIndex + 1}`} aria-label={`Board ${boardIndex + 1}`}>
+                <span className="multi-board-label">{boardIndex + 1}</span>
+                <div className="board">
+                  {run.map((c, i) => {
+                    const delay = runPlan?.delays[boardIndex]?.[i] ?? null;
+                    return <PlayingCard key={`run${boardIndex + 1}-${state?.handNo}-${i}-${c}`} card={c} size="mini" dealt={delay !== null} style={delay !== null ? { animationDelay: `${delay}ms` } : undefined} />;
+                  })}
+                </div>
+                {awarded && runAwards[boardIndex]?.winners.map((winner) => {
+                  const vector = awardVectors[`${boardIndex}-${winner.seat}`];
+                  return vector && <div className="board-particles" data-seat={winner.seat} aria-hidden="true" key={winner.seat} style={{ '--award-x': `${vector[0]}px`, '--award-y': `${vector[1]}px` } as React.CSSProperties}>
+                    {Array.from({ length: 9 }, (_, i) => <i key={i} style={{ '--particle': i } as React.CSSProperties} />)}
+                  </div>;
+                })}
+                {awarded && runAwards[boardIndex] && <span className="multi-board-result">
+                  {runAwards[boardIndex].winners.map((winner) => winner.nick).join(' + ')} {runAwards[boardIndex].winners.length > 1 ? 'share' : 'wins'}
+                </span>}
+              </div>;
+            })}
+          </div>
+        ) : <div className="board">
           {(state?.board || []).map((c, i) => {
             const [dxp, dyp] = state && state.button >= 0 ? seatPos(state.button) : [50, 12];
             const fromX = Math.round((50 - dxp) * 4);
             const fromY = Math.round((45 - dyp) * 3);
-            const runDelay = runPlan?.delays[0]?.[i];
-            const delay = runDelay != null ? `${runDelay}ms` : `${(i < 3 ? i : 0) * 0.07}s`;
+            const delay = `${(i < 3 ? i : 0) * 0.07}s`;
             return <PlayingCard key={`${state?.handNo}-${i}-${c}`} card={c} dealt className={focusClass(winnerFocus?.board, i)} style={{ '--dx': `${fromX}px`, '--dy': `${fromY}px`, animationDelay: delay } as React.CSSProperties} />;
           })}
-          {((state?.boards?.length ?? 0) > 1 || othersChoosingRuns) && (
-            <div className="extra-boards">
-              {(state?.boards ?? []).slice(1).map((run, r) => (
-                <div className="board second-board" key={`run-${r + 2}`} aria-label={`Board ${r + 2}`}>
-                  {run.map((c, i) => {
-                    const delay = runPlan?.delays[r + 1]?.[i] ?? null;
-                    return <PlayingCard key={`run${r + 2}-${state?.handNo}-${i}-${c}`} card={c} size="mini" dealt={delay !== null} style={delay !== null ? { animationDelay: `${delay}ms` } : undefined} />;
-                  })}
-                </div>
-              ))}
-              {othersChoosingRuns && <div className="run-wait-note">Players are choosing how many times to run it</div>}
-            </div>
-          )}
+          {othersChoosingRuns && <div className="extra-boards"><div className="run-wait-note">Players are choosing how many times to run it</div></div>}
           {state && state.board.length === 0 && state.street !== 'idle' && (
             <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 12, letterSpacing: 2 }}>PRE-FLOP</div>
           )}
-        </div>
-        {handInfo && showHand && (
+        </div>}
+        {handInfo && showHand && (state?.boards?.length ?? 0) <= 1 && (
           <div className="hand-strength">{handInfo.name} <span>·</span> {holeLabel}</div>
         )}
         {rabbit.length > 0 && (
@@ -1445,6 +1491,13 @@ export function TablePage({ tableId }: { tableId: string }) {
           </div>
         )}
       </div>
+
+      {shownRunAwards.hand === state?.handNo && shownRunAwards.count > 0 && runAwards[shownRunAwards.count - 1]?.counts.map((winner) => {
+        const [x, y] = seatPosOf(winner.seat);
+        return <div className="board-win-count" data-seat={winner.seat} key={winner.seat} style={{ left: `${x}%`, top: `${y}%` }} role="status">
+          {winner.nick} · {[winner.won && `${winner.won} ${winner.won === 1 ? 'board' : 'boards'} won`, winner.shared && `${winner.shared} ${winner.shared === 1 ? 'board' : 'boards'} shared`].filter(Boolean).join(' · ')}
+        </div>;
+      })}
 
       {(state?.players || []).map((p) => {
         if (!p || p.empty) {
