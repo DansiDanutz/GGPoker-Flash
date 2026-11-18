@@ -82,3 +82,12 @@ test('verified receipt unlocks the paying member only and applies the split once
   assert.equal(ledger.earnings(2).netCents,16);
   assert.equal(payment.platformRoyaltyCents,20);
 });
+
+test('active subscriptions lead every sort and page even when an expired organizer has the highest activity', () => {
+  const {db,clubs}=fixture();
+  db.prepare('UPDATE organizer_billing_memberships SET expires_at=? WHERE user_id=1').run('2026-01-31');
+  for (const rank of [true,false]) {
+    assert.deepEqual(clubs.directory({rank}).clubs.map(c=>c.ownerId),[2,6,1]);
+    assert.equal(clubs.directory({rank,offset:2,limit:1}).clubs[0].membershipActive,false);
+  }
+});
