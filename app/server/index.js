@@ -3458,7 +3458,7 @@ const server = http.createServer(async (req, res) => {
         if (isFile(cand)) { file = cand; break; }
       }
     } else if (fs.existsSync(DIST)) {
-      const cand = resolveInside(DIST, p === '/' ? 'index.html' : p.slice(1));
+      const cand = resolveInside(DIST, p === '/' ? 'index.html' : /^\/openpoker\/?$/.test(p) ? 'openpoker.html' : p.slice(1));
       if (isFile(cand)) file = cand;
       else if (!path.extname(p)) file = path.join(DIST, 'index.html');
     }

@@ -79,6 +79,7 @@ export function CreatorNews({ onClose }: CreatorNewsProps) {
         </div>
         <div className="cn-body">
           {CREATOR_NEWS.paragraphs.map((p) => <p key={p}>{p}</p>)}
+          <p><a href="/openpoker">See how the OpenPoker business model works</a></p>
           <p className="cn-sign">{CREATOR_NEWS.signature} · {PROJECT_NAME}</p>
         </div>
         <button ref={closeRef} type="button" className="cn-close" onClick={onClose}>{CREATOR_NEWS.close}</button></>}

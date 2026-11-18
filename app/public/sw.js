@@ -35,7 +35,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws')) return;
   // Licence and notices are plain files, not the app: leave them to the browser.
-  if (url.pathname.startsWith('/legal/')) return;
+  if (url.pathname.startsWith('/legal/') || /^\/openpoker(?:\/|\.html)?$/.test(url.pathname)) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(
