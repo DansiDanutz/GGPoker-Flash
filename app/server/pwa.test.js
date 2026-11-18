@@ -31,7 +31,7 @@ test('the installable app shell is wired up for phones', () => {
 
   const html = read('index.html');
   assert.match(html, /rel="manifest" href="\/manifest\.webmanifest"/);
-  assert.match(html, /rel="apple-touch-icon" href="\/pwa\/apple-touch-icon\.png"/);
+  assert.match(html, /rel="apple-touch-icon" href="\/pwa\/spade-apple-touch\.png"/);
   assert.match(html, /name="apple-mobile-web-app-capable" content="yes"/);
   assert.match(html, /name="theme-color"/);
 });
