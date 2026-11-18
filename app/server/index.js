@@ -1581,7 +1581,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, previewRake(url.searchParams));
     }
     if (p === '/api/organizers' && req.method === 'GET') {
-      return json(res, 200, organizerClubs.directory({search:url.searchParams.get('search') || '', rank:url.searchParams.get('sort') !== 'newest', offset:Number(url.searchParams.get('offset') || 0)}));
+      return json(res, 200, organizerClubs.directory({search:url.searchParams.get('search') || '', rank:url.searchParams.get('sort') !== 'newest', offset:Number(url.searchParams.get('offset') || 0), limit:Number(url.searchParams.get('limit') || 20)}));
     }
     if (p.startsWith('/api/organizers/')) {
       const match = p.match(/^\/api\/organizers\/(\d+)(?:\/(knock|leave|entry|vote))?$/);

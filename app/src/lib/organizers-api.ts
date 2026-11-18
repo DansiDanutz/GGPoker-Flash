@@ -18,12 +18,16 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `Organizer request failed (${response.status}).`);
+  if (!response.ok) {
+    const error = new Error(data.error || `Organizer request failed (${response.status}).`);
+    (error as Error & { status?: number }).status = response.status;
+    throw error;
+  }
   return data as T;
 }
 
 export const organizersApi = {
-  list: (search = '', sort: 'rank' | 'newest' = 'rank') => request<{ clubs: OrganizerClub[]; total: number }>(`/api/organizers?search=${encodeURIComponent(search)}&sort=${sort}`),
+  list: (search = '', sort: 'rank' | 'newest' = 'rank', offset = 0, limit = 20) => request<{ clubs: OrganizerClub[]; total: number; offset: number; limit: number }>(`/api/organizers?search=${encodeURIComponent(search)}&sort=${sort}&offset=${offset}&limit=${limit}`),
   profile: (id: number) => request<OrganizerClub>(`/api/organizers/${id}`),
   saveProfile: (body: { name: string; description: string; entryFeeCents: number }) => request<OrganizerClub>('/api/organizers/me/profile', 'POST', body),
   vote: (id: number, stars: number) => request<{stars:number}>(`/api/organizers/${id}/vote`, 'POST', {stars}),
@@ -33,5 +37,14 @@ export const organizersApi = {
   leave: (id: number) => request<{ status: string }>(`/api/organizers/${id}/leave`, 'POST', {}),
   entry: (id: number) => request<{ order: ClubOrder; paymentReady: boolean }>(`/api/organizers/${id}/entry`, 'POST', {}),
   order: (id: string) => request<{ order: ClubOrder; membership?: { status: string } | null }>(`/api/club-entry/orders/${encodeURIComponent(id)}`),
-  verify: (id: string, paymentId: string) => request<{ order: ClubOrder; membership?: { status: string } | null }>(`/api/club-entry/orders/${encodeURIComponent(id)}/verify`, 'POST', { paymentId }),
+  verify: async (id: string, paymentId: string) => {
+    for (let attempt = 0; ; attempt += 1) {
+      try { return await request<{ order: ClubOrder; membership?: { status: string } | null }>(`/api/club-entry/orders/${encodeURIComponent(id)}/verify`, 'POST', { paymentId }); }
+      catch (error) {
+        const status = (error as Error & { status?: number }).status;
+        if (attempt >= 2 || ![502, 503, 504].includes(status || 0)) throw error;
+        await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
+      }
+    }
+  },
 };

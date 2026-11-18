@@ -17,7 +17,7 @@ function fixture() {
     CREATE TABLE hands(id INTEGER PRIMARY KEY,table_id TEXT,created_at TEXT);
     INSERT INTO hands VALUES (1,'cash','2026-01-20T00:00:00.000Z'),(2,'free','2026-01-20T00:00:00.000Z'),(3,'public','2026-01-20T00:00:00.000Z');
     CREATE TABLE tournaments(id TEXT PRIMARY KEY,owner_id INTEGER,private INTEGER,play_money INTEGER,start_at TEXT,entrants INTEGER,status TEXT);
-    INSERT INTO tournaments VALUES ('paid',1,1,0,'2026-01-20T00:00:00.000Z',8,'finished'),('free',1,1,1,'2026-01-20T00:00:00.000Z',99,'finished'),('future',2,1,0,'2027-01-20T00:00:00.000Z',9999,'finished'),('registering',2,1,0,'2026-01-20T00:00:00.000Z',9999,'registering');
+    INSERT INTO tournaments VALUES ('paid',1,1,0,'2026-01-20T00:00:00.000Z',8,'completed'),('free',1,1,1,'2026-01-20T00:00:00.000Z',99,'completed'),('future',2,1,0,'2027-01-20T00:00:00.000Z',9999,'completed'),('registering',2,1,0,'2026-01-20T00:00:00.000Z',9999,'registering');
     CREATE TABLE organizer_chip_journals(id INTEGER PRIMARY KEY,organizer_id INTEGER,kind TEXT,amount INTEGER,created_at TEXT);
     INSERT INTO organizer_chip_journals VALUES (1,1,'rake',30,'2026-01-20T00:00:00.000Z'),(2,1,'transfer',9999,'2026-01-20T00:00:00.000Z');
   `);

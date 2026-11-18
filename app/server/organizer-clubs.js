@@ -57,7 +57,7 @@ export function createOrganizerClubs({ db, now = Date.now }) {
     const { hands30d, tables30d } = db.prepare(`SELECT COUNT(*) hands30d, COUNT(DISTINCT t.id) tables30d FROM hands h JOIN tables t ON t.id=h.table_id
       WHERE t.owner_id=? AND t.private=1 AND COALESCE(t.play_money,0)=0 AND julianday(h.created_at)>=julianday(?) AND julianday(h.created_at)<=julianday(?)`).get(ownerId, cutoff(), stamp());
     const tourneys = db.prepare(`SELECT COUNT(*) events, COALESCE(SUM(entrants),0) entrants,COALESCE(MAX(entrants),0) maximum FROM tournaments
-      WHERE owner_id=? AND private=1 AND COALESCE(play_money,0)=0 AND status='finished' AND entrants>0 AND julianday(start_at)>=julianday(?) AND julianday(start_at)<=julianday(?)`).get(ownerId, cutoff(), stamp());
+      WHERE owner_id=? AND private=1 AND COALESCE(play_money,0)=0 AND status='completed' AND entrants>0 AND julianday(start_at)>=julianday(?) AND julianday(start_at)<=julianday(?)`).get(ownerId, cutoff(), stamp());
     const journal = db.prepare(`SELECT COALESCE(SUM(CASE WHEN kind IN ('rake','spin_rake','event_fee') THEN amount ELSE 0 END),0) rake,
       COUNT(CASE WHEN kind='spin_rake' THEN 1 END) spins, COUNT(CASE WHEN kind='club_entry_bonus' THEN 1 END) entries
       FROM organizer_chip_journals WHERE organizer_id=? AND julianday(created_at) BETWEEN julianday(?) AND julianday(?)`).get(ownerId, cutoff(), stamp());
