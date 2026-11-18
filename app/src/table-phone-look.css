@@ -21,6 +21,7 @@
     display: block; inset: auto 5px -4px; height: 4px; border: 0; border-radius: 2px;
     background: linear-gradient(to right, #a5ec65 calc(var(--turn, 1) * 100%), #303330 0);
     animation: none; z-index: 5;
+    -webkit-mask: none; mask: none;
   }
   .table-screen .table-stage.stage-portrait .seat.active.urgent .timer,
   .table-screen .table-stage.stage-portrait .seat.active.hot .timer {
