@@ -75,6 +75,7 @@ import { createManagementRoutes } from './management-routes.js';
 import { createOrganizerBilling } from './organizer-billing.js';
 import { createOrganizerBillingRoutes } from './organizer-billing-routes.js';
 import { cashRakeConfig, validateCashRake } from './cash-rake.js';
+import { createOrganizerClubs } from './organizer-clubs.js';
 import { createOrganizerChips } from './organizer-chips.js';
 import { createOrganizerChipEvents } from './organizer-chip-events.js';
 import { organizerSpinOutcome } from './organizer-spin-prizes.js';
@@ -585,6 +586,7 @@ for (const tableName of ['tables', 'tournaments']) {
   if (!db.prepare(`PRAGMA table_info(${tableName})`).all().some((column) => column.name === 'chip_economy')) db.exec(`ALTER TABLE ${tableName} ADD COLUMN chip_economy INTEGER NOT NULL DEFAULT 0`);
 }
 const organizerChips = createOrganizerChips({ db });
+const organizerClubs = createOrganizerClubs({ db });
 const organizerBilling = createOrganizerBilling({ db, mode: process.env.GGPOKER_USAGE_BILLING || 'off',
   onOrganizerMembership: chipEconomyEnabled ? (grant) => organizerChips.grantMembership(grant) : null });
 const usageBilling = organizerBilling.mode === 'enforce';
@@ -1561,6 +1563,27 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/plugins/rake-lab') {
       if (req.method !== 'GET') return json(res, 405, { error: 'Use GET for the read-only Rake Lab preview.' });
       return json(res, 200, previewRake(url.searchParams));
+    }
+    if (p === '/api/organizers' && req.method === 'GET') {
+      return json(res, 200, organizerClubs.directory({search:url.searchParams.get('search') || '', rank:url.searchParams.get('sort') !== 'newest', offset:Number(url.searchParams.get('offset') || 0)}));
+    }
+    if (p.startsWith('/api/organizers/')) {
+      const match = p.match(/^\/api\/organizers\/(\d+)(?:\/(knock|leave|entry))?$/);
+      if (match && !match[2] && req.method === 'GET') {
+        return json(res, 200, organizerClubs.profile(Number(match[1]), userByToken(tokenFrom(req))?.id));
+      }
+      const actor = requireUser(req, res); if (!actor) return;
+      if (actor.is_guest) return json(res, 403, {error:'Sign in to manage club membership.'});
+      if (p === '/api/organizers/me/requests' && req.method === 'GET') return json(res,200,{requests:organizerClubs.members({organizerId:actor.id,actorId:actor.id})});
+      if (req.method !== 'POST') return json(res,405,{error:'Method not allowed.'});
+      const body = await readBody(req);
+      if (p === '/api/organizers/me/profile') return json(res,200,organizerClubs.updateProfile({ownerId:actor.id,actorId:actor.id,name:body.name,description:body.description,entryFeeCents:body.entryFeeCents}));
+      const reply = p.match(/^\/api\/organizers\/me\/requests\/(\d+)\/respond$/);
+      if (reply) return json(res,200,organizerClubs.respond({organizerId:actor.id,actorId:actor.id,userId:Number(reply[1]),decision:({approved:'approve',rejected:'reject'})[body.decision]}));
+      if (match?.[2] === 'knock') return json(res,200,organizerClubs.requestJoin({organizerId:Number(match[1]),userId:actor.id,message:body.message}));
+      if (match?.[2] === 'leave') return json(res,200,organizerClubs.leave({organizerId:Number(match[1]),userId:actor.id}));
+      if (match?.[2] === 'entry') return json(res,503,{error:'Paid club entry is not available yet.'});
+      return json(res,404,{error:'Club route not found.'});
     }
     if (await handleOrganizerChipRoute(req, res, url)) return;
     if (await handleOrganizerBillingRoute(req, res, url)) return;

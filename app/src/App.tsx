@@ -29,6 +29,7 @@ import { QuickMenu } from './components/QuickMenu';
 import { Marketplace } from './pages/Marketplace';
 import { PlatformWorkspace } from './pages/PlatformWorkspace';
 import { RakeLab } from './pages/RakeLab';
+import { Organizers } from './pages/Organizers';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
   const desktop = typeof window !== 'undefined' && !!(window as any).ggDesktop;
@@ -75,6 +76,7 @@ function AppContent() {
       case 'rake-lab': return <RakeLab />;
       case 'contributor': return <PlatformWorkspace kind="contributor" />;
       case 'organiser': return <PlatformWorkspace kind="organiser" />;
+      case 'organizers': return <Organizers />;
       case 'tournaments': return <Tournaments />;
       case 'cashier': return <Cashier />;
       case 'rewards': return <Rewards />;

@@ -14,7 +14,7 @@ export function MobileNav() {
   if (path.startsWith('/table') || path.startsWith('/login')) return null;
   const active = activeNavKey(route);
   return (
-    <nav className="mobile-nav" aria-label="Primary">
+    <nav className="mobile-nav" aria-label="Primary" style={{ gridTemplateColumns: `repeat(${PHONE_NAV.length}, 1fr)` }}>
       {PHONE_NAV.map((item) => {
         const on = active === item.key;
         return (

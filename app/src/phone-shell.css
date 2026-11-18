@@ -448,6 +448,11 @@
   .mobile-nav-item.on .mobile-nav-avatar { box-shadow: 0 0 0 2px #f2c45c; }
   .mobile-nav-badge { position: absolute; top: -6px; right: -9px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #e0303c; color: #fff; font: 700 10px/17px system-ui, sans-serif; font-style: normal; text-align: center; box-shadow: 0 0 0 2px #1d1d20; }
 
+  @media (max-width: 360px) {
+    .mobile-nav-label { font-size: 8px; }
+    .mobile-nav-emblem { width: 27px; height: 27px; }
+  }
+
   /* Pages that still render desktop chrome at phone width must not double up. */
   .pshell .page, .pshell .slots-page { padding: 14px 14px 28px; }
   .pshell-body > .page { overflow-y: auto; }

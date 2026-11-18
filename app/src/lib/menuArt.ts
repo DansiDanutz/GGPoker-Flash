@@ -20,5 +20,6 @@ export const PHONE_MENU_EMBLEM = Object.freeze({
   poker: emblem('chip'),
   events: emblem('trophy'),
   casino: emblem('roulette'),
+  organizers: emblem('crown'),
   rewards: emblem('gift'),
 });

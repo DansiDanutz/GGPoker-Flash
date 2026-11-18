@@ -258,13 +258,13 @@ async function run() {
   await owner.waitForSelector('[role="dialog"]', { hidden: true });
   assert.equal(await owner.evaluate(() => document.activeElement.textContent.trim()), sample.name, 'Dialog did not restore trigger focus.');
   await fill(owner, '.mp-search input', '');
-  await clickText(owner, '.mp-filters button', 'Extensii');
-  await owner.waitForFunction(() => Array.from(document.querySelectorAll('.mp-filters button')).some((button) => button.textContent.trim() === 'Extensii' && button.getAttribute('aria-pressed') === 'true'));
+  await clickText(owner, '.mp-filters button', 'Extensions');
+  await owner.waitForFunction(() => Array.from(document.querySelectorAll('.mp-filters button')).some((button) => button.textContent.trim() === 'Extensions' && button.getAttribute('aria-pressed') === 'true'));
   await owner.waitForFunction((expected) => document.querySelectorAll('.mp-product').length === expected, {}, initial.products.filter((p) => p.category === 'extensions').length);
   await clickSelector(owner, '.mp-filters button:first-child');
   completed.push('Search, category filter, product dialog and focus restoration');
 
-  await clickText(owner, '.mp-header-actions button', 'Intră în cont');
+  await clickText(owner, '.mp-header-actions button', 'Sign in');
   await fill(owner, '#login-id', 'admin');
   await fill(owner, '#login-password', 'admin123');
   await clickSelector(owner, '.login2-cta');

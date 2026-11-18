@@ -1,7 +1,7 @@
 // Phone tab bar: the five destinations and which one a route belongs to. Free of React so Node can test it.
 
 export type PhoneNavItem =
-  | { readonly key: string; readonly label: string; readonly to: string; readonly kind: 'glyph'; readonly glyph: 'poker' | 'events' | 'casino' }
+  | { readonly key: string; readonly label: string; readonly to: string; readonly kind: 'glyph'; readonly glyph: 'poker' | 'events' | 'casino' | 'organizers' }
   | { readonly key: string; readonly label: string; readonly to: string; readonly kind: 'brand' | 'avatar' };
 
 export const PHONE_NAV: readonly PhoneNavItem[] = Object.freeze([
@@ -9,6 +9,7 @@ export const PHONE_NAV: readonly PhoneNavItem[] = Object.freeze([
   { key: 'events', label: 'Tournaments', to: '/tournaments', kind: 'glyph', glyph: 'events' },
   { key: 'home', label: 'Home', to: '/', kind: 'brand' },
   { key: 'casino', label: 'Casino', to: '/casino', kind: 'glyph', glyph: 'casino' },
+  { key: 'organizers', label: 'Organizers', to: '/organizers', kind: 'glyph', glyph: 'organizers' },
   { key: 'me', label: 'My Page', to: '/my-page', kind: 'avatar' },
 ]);
 
@@ -22,6 +23,7 @@ const PREFIXES: readonly (readonly [string, string])[] = [
   ['/propbet', 'events'],
   ['/casino', 'casino'],
   ['/slots', 'casino'],
+  ['/organizers', 'organizers'],
   ['/my-page', 'me'],
   ['/profile', 'me'],
   ['/cashier', 'me'],

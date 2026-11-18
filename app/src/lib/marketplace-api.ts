@@ -119,7 +119,7 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || data.message || `Cererea nu a reușit (${response.status}).`);
+  if (!response.ok) throw new Error(data.error || data.message || `The request failed (${response.status}).`);
   return data as T;
 }
 
@@ -154,16 +154,16 @@ export const marketplaceApi = {
 };
 
 export const MARKETPLACE_CATEGORY_LABELS: Record<MarketplaceCategory, string> = {
-  hosting: 'Găzduire', tools: 'Organizare', customization: 'Personalizare', extensions: 'Extensii',
+  hosting: 'Hosting', tools: 'Organizer tools', customization: 'Customization', extensions: 'Extensions',
 };
 
 export const MARKETPLACE_DELIVERY_LABELS: Record<MarketplaceDelivery, string> = {
-  hosted_service: 'Serviciu DanGG', open_source_extension: 'Extensie open-source', commercial_module: 'Modul comercial',
+  hosted_service: 'DanGG service', open_source_extension: 'Open-source extension', commercial_module: 'Commercial module',
 };
 
 export function marketplacePrice(product: Pick<MarketplaceProduct, 'pricing' | 'price_cents' | 'currency'>): string {
-  if (product.pricing === 'free') return 'Gratuit';
-  if (product.pricing === 'quote' || product.price_cents === null) return 'La cerere';
-  const amount = new Intl.NumberFormat('ro-RO', { style: 'currency', currency: product.currency }).format(product.price_cents / 100);
-  return amount + (product.pricing === 'monthly' ? ' / lună' : product.pricing === 'yearly' ? ' / an' : '');
+  if (product.pricing === 'free') return 'Free';
+  if (product.pricing === 'quote' || product.price_cents === null) return 'Request a quote';
+  const amount = new Intl.NumberFormat('en-US', { style: 'currency', currency: product.currency }).format(product.price_cents / 100);
+  return amount + (product.pricing === 'monthly' ? ' / month' : product.pricing === 'yearly' ? ' / year' : '');
 }
