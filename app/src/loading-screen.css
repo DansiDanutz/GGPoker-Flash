@@ -1,6 +1,6 @@
 .ls-content { display: contents; }
-.ls { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; overflow: hidden; background: #100516; color: #fff; }
-.ls-poster { display: block; width: 100%; height: 100%; object-fit: contain; }
+.ls { position: fixed; inset: 0; width: 100%; height: 100dvh; box-sizing: border-box; z-index: 2000; display: grid; place-items: center; overflow: hidden; background: #100516; color: #fff; }
+.ls-poster { position: absolute; inset: 0; display: block; width: 100%; height: 100%; max-width: 100vw; max-height: 100dvh; box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); object-fit: contain; }
 .ls-particles { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .ls--leaving { background: transparent; pointer-events: none; }
 .ls--leaving .ls-poster { opacity: 0; }

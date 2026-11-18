@@ -1056,6 +1056,10 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [state?.handNo, state?.street, state?.game, observing, squeezeEnabled, me?.inHand, me?.cards?.length]);
 
   useEffect(() => {
+    if (!me?.inHand || state?.street === 'ended') setSqueezing(false);
+  }, [me?.inHand, state?.street, state?.handNo]);
+
+  useEffect(() => {
     if (!squeezing) return;
     const host = squeezeHostRef.current;
     const cards = (me?.cards || []).filter((c) => c !== '??');
@@ -1596,6 +1600,10 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       </div>
 
+      {!observing && me?.inHand && state?.street !== 'ended' && !squeezing &&
+        [2, 4, 5, 6].includes(me.cards?.length || 0) && me.cards?.every(c => c !== '??') && (
+        <button type="button" className="inspect-cards" onClick={() => setSqueezing(true)}>Inspect cards</button>
+      )}
       <div className="squeeze-host" ref={squeezeHostRef} />
 
       {winFx && (
@@ -1722,32 +1730,6 @@ export function TablePage({ tableId }: { tableId: string }) {
               aria-pressed={preAction?.kind === 'checkfold'}
               onClick={() => setPreAction(preAction?.kind === 'checkfold' ? null : { kind: 'checkfold' })}
             ><span className="reserve-text">{toCall > 0 ? 'Fold' : 'Check / Fold'}</span></button>
-            <button
-              type="button"
-              aria-pressed={preAction?.kind === 'foldany'}
-              title="Fold to any bet for the rest of this hand; check when checking is free"
-              onClick={() => setPreAction(preAction?.kind === 'foldany' ? null : { kind: 'foldany' })}
-            ><span className="reserve-text">Fold to any bet</span></button>
-            {toCall === 0 && (
-              <button
-                type="button"
-                aria-pressed={preAction?.kind === 'check'}
-                onClick={() => setPreAction(preAction?.kind === 'check' ? null : { kind: 'check' })}
-              ><span className="reserve-text">Check</span></button>
-            )}
-            {toCall > 0 && (
-              <button
-                type="button"
-                aria-pressed={preAction?.kind === 'call' && preAction.amount === toCall}
-                onClick={() => setPreAction(preAction?.kind === 'call' && preAction.amount === toCall ? null : { kind: 'call', amount: toCall })}
-              ><span className="reserve-text">Call {amt(toCall)}</span></button>
-            )}
-            <button
-              type="button"
-              aria-pressed={preAction?.kind === 'callany'}
-              title="Call any bet on your next turn; check when nobody bets"
-              onClick={() => setPreAction(preAction?.kind === 'callany' ? null : { kind: 'callany' })}
-            ><span className="reserve-text">Call Any</span></button>
           </div>
         )}
         {/* Betting buttons only while it is your decision (portrait layout): pre-actions cover
