@@ -1,6 +1,6 @@
 # OpenPoker product delivery tracker
 
-**Reviewed:** 18 November 2026 · **Status:** paid Cash Game first-hour loop, hourly renewal and insufficient-credit recovery live-verified; remaining milestones proposed. Merge and deployment require approval.
+**Reviewed:** 18 November 2026 · **Status:** paid Cash Game first-hour loop, hourly renewal, insufficient-credit recovery and normal active-hand expiry live-verified; remaining milestones proposed. Merge and deployment require approval.
 
 This is the concise delivery order. The [business roadmap](designs/2026-11-16-openpoker-business-feature-roadmap.md)
 contains the agreed economy, detailed feature proposals, audit evidence and acceptance criteria.
@@ -68,7 +68,7 @@ implementation was found. **Deferred** is a delivery decision, not a claim of ab
 
 | Capability | Status | Remaining evidence or work |
 | --- | --- | --- |
-| Membership, grants, lifetime hours, scoped chips and rake | Verified: billing/chip tests; [paid Cash Game first-hour loop live-verified](designs/2026-11-17-paid-cash-loop-verification.md) | [Hourly renewal live-verified](designs/2026-11-17-hourly-renewal-verification.md); [insufficient-credit recovery verified](designs/2026-11-18-insufficient-credit-recovery-verification.md); active-hand expiry, pricing-tier transitions and restart recovery pending; changed-UI acceptance remains separate |
+| Membership, grants, lifetime hours, scoped chips and rake | Verified: billing/chip tests; [paid Cash Game first-hour loop live-verified](designs/2026-11-17-paid-cash-loop-verification.md) | [Hourly renewal live-verified](designs/2026-11-17-hourly-renewal-verification.md); [insufficient-credit recovery verified](designs/2026-11-18-insufficient-credit-recovery-verification.md); [normal active-hand expiry verified](designs/2026-11-18-active-hand-expiry-verification.md); all-in/side-pot expiry, pricing-tier transitions and restart recovery pending; changed-UI acceptance remains separate |
 | Tickets, bounties and manual buyback | Verified: event/bounty tests and prior bounded live evidence | Hard restart midway through a multi-bounty settlement |
 | Paid Spin net pool and single payout | Verified: pooled Spin tests, including partial recovery | No new live Spin run in the audit |
 | Contributor review and Rake Lab registration | Verified: state-machine tests | Current browser/publisher state; configured paid offer and delivery |
@@ -107,8 +107,11 @@ players or retained communities. Do not substitute hand counts for the north sta
    **Insufficient-credit recovery: VERIFIED** in the [empty-table recovery run](designs/2026-11-18-insufficient-credit-recovery-verification.md)
    on 18 November: automatic pause with no renewal debit, three rejected unfunded retries,
    one $5 top-up and one $5 resumed hour across concurrent retries; paused and reconciled.
+   **Normal active-hand expiry: VERIFIED** in the [heads-up showdown run](designs/2026-11-18-active-hand-expiry-verification.md):
+   the hand settled after expiry, no next deal with two ready players for 30 seconds, no
+   extra debit, and full reconciliation. The report retains the harness error and recovery.
    **Still pending:** pricing-tier transitions (50→51, 100→101, 200→201, 500→501),
-   active-hand expiry and restart recovery. No repeat paid run is needed for this evidence.
+   all-in/side-pot expiry and restart recovery. No repeat paid run is needed for this evidence.
 
 Exit: no unexplained accounting discrepancy; reproducible recovery disposition and expected /
 actual balances; required checks on the exact public promotion head. No new game, repricing,
@@ -134,7 +137,7 @@ Retain these IDs for code comments, evidence tools and older PRs; milestone orde
 | Step | Current disposition |
 | --- | --- |
 | S1 — Economy wording | Source fixes exist; align policy here and verify changed UI, not an old PR number |
-| S2 — Paid-loop proof | **Verified: first-hour Cash Game loop**, [live evidence](designs/2026-11-17-paid-cash-loop-verification.md); [hourly renewal verified](designs/2026-11-17-hourly-renewal-verification.md); [insufficient-credit recovery verified](designs/2026-11-18-insufficient-credit-recovery-verification.md); active-hand expiry, pricing-tier transitions and restart recovery pending |
+| S2 — Paid-loop proof | **Verified: first-hour Cash Game loop**, [live evidence](designs/2026-11-17-paid-cash-loop-verification.md); [hourly renewal verified](designs/2026-11-17-hourly-renewal-verification.md); [insufficient-credit recovery verified](designs/2026-11-18-insufficient-credit-recovery-verification.md); [normal active-hand expiry verified](designs/2026-11-18-active-hand-expiry-verification.md); all-in/side-pot expiry, pricing-tier transitions and restart recovery pending |
 | S3 — Taxonomy v1 | Implemented and module-tested; partial emitters, not a finished dashboard |
 | S4 — Service truth | Health foundation exists; operator recovery/status evidence in M1 |
 | S5–S7 — Invitations/instrumentation/mobile | Guest foundation exists; complete in M2 |

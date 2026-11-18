@@ -16,7 +16,9 @@ Its table-scoped verdict was `proven`. A [separate real-boundary test](2026-11-1
 verified one $5 hourly renewal, retries without duplicate charges and no debit across the
 following paused boundary with $5 available. A [separate insufficient-credit recovery run](2026-11-18-insufficient-credit-recovery-verification.md) verified automatic pause
 without a renewal debit, rejected unfunded retries, one $5 top-up and one $5 resume debit
-across retries, followed by pause and full reconciliation. **Active-hand expiry, pricing-tier transitions
+across retries, followed by pause and full reconciliation. A [normal active-hand expiry run](2026-11-18-active-hand-expiry-verification.md) verified post-expiry showdown,
+blocked next deal, no extra debit and reconciled chips, with the harness recovery disclosed.
+**All-in/side-pot expiry, pricing-tier transitions
 and restart recovery remain pending live verification.** The collector verdict alone
 does not verify renewal; use the separate timestamped ledger evidence.
 
