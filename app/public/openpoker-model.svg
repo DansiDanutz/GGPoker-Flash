@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1320" role="img" aria-labelledby="title desc">
+  <title id="title">OpenPoker free-play marketplace flow</title>
+  <desc id="desc">A vertical flow: contributor builds, tests, and submits a plugin for approval; an organizer selects it; a player may pay optional club admission. Gross one-dollar economics are 80 cents to the organizer and 20 cents to the plugin creator; the platform takes 20 percent from each, or 16 cents plus 4 cents. The organizer receives 6400 nonwithdrawable club Cash Chips. Free Play Money is separate. No live payment verification or equity.</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#53627a"/></marker></defs>
+  <rect width="720" height="1320" fill="#f7f8fc"/>
+  <text x="48" y="66" font-family="Arial,sans-serif" font-size="32" font-weight="700" fill="#172033">OpenPoker model</text>
+  <text x="48" y="96" font-family="Arial,sans-serif" font-size="23" fill="#53627a">From an idea to a paid club entry</text>
+  <g font-family="Arial,sans-serif" stroke="#24344d" stroke-width="3">
+    <rect x="48" y="140" width="624" height="145" rx="20" fill="#e8f1ff"/>
+    <text x="78" y="180" font-size="22" font-weight="700" fill="#172033" stroke="none">1 · Contributor</text>
+    <text x="78" y="215" font-size="25" fill="#24344d" stroke="none">Build → test → submit plugin</text>
+    <text x="78" y="250" font-size="25" fill="#24344d" stroke="none">Marketplace approval gate</text>
+    <rect x="48" y="350" width="624" height="130" rx="20" fill="#edf8ee"/>
+    <text x="78" y="390" font-size="22" font-weight="700" fill="#172033" stroke="none">2 · Organizer</text>
+    <text x="78" y="430" font-size="25" fill="#24344d" stroke="none">Selects an approved plugin</text>
+    <rect x="48" y="545" width="624" height="130" rx="20" fill="#fff5dc"/>
+    <text x="78" y="585" font-size="22" font-weight="700" fill="#172033" stroke="none">3 · Player</text>
+    <text x="78" y="625" font-size="25" fill="#24344d" stroke="none">Chooses a club with $1 admission</text>
+    <rect x="48" y="740" width="624" height="245" rx="20" fill="#f1eaff"/>
+    <text x="78" y="780" font-size="22" font-weight="700" fill="#172033" stroke="none">4 · Follow one $1 admission</text>
+    <text x="78" y="820" font-size="20" fill="#24344d" stroke="none">Organizer: 6,400 club Cash Chips</text>
+    <text x="78" y="852" font-size="23" fill="#53627a" stroke="none">nonwithdrawable · Free Play Money separate</text>
+    <text x="78" y="895" font-size="20" fill="#24344d" stroke="none">Creator keeps $0.16 of $0.20</text>
+    <text x="78" y="927" font-size="20" fill="#24344d" stroke="none">Platform keeps $0.20 in total</text>
+    <text x="78" y="959" font-size="23" fill="#53627a" stroke="none">Platform fee: $0.16 of $0.80 + $0.04 of $0.20</text>
+    <rect x="48" y="1050" width="624" height="145" rx="20" fill="#172033"/>
+    <text x="78" y="1092" font-size="22" font-weight="700" fill="#ffffff" stroke="none">What contributors own</text>
+    <text x="78" y="1130" font-size="19" fill="#ffffff" stroke="none">A share of plugin revenue, when customers pay.</text>
+    <text x="78" y="1165" font-size="19" fill="#dbe6f5" stroke="none">Company shares require a separate equity grant.</text>
+  </g>
+  <g stroke="#53627a" stroke-width="4" fill="none" marker-end="url(#arrow)"><path d="M360 285v60"/><path d="M360 480v60"/><path d="M360 675v60"/><path d="M360 985v60"/></g>
+</svg>
