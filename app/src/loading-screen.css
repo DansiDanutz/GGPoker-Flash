@@ -1,82 +1,37 @@
-/* Loading screen (components/splash/LoadingScreen.tsx): logo in a gold halo, orbiting chips, sparks. */
-
+/* Startup advert: one existing DanGG-owned campaign image, visible only while real gates resolve. */
 .ls {
-  --ls-orbit-s: 6s;          /* one lap of the chip orbit */
-  --ls-rx: min(38vw, 230px); /* orbit half-width */
-  --ls-ry: 58px;             /* orbit half-height */
   position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 24px 16px calc(24px + env(safe-area-inset-bottom, 0px));
-  background: radial-gradient(120% 80% at 50% 42%, #3a1420 0%, #1a0b12 42%, #070507 78%, #040304 100%);
-  color: #fff; text-align: center;
+  display: grid; place-items: center; padding: clamp(14px, 3vw, 36px);
+  background: radial-gradient(circle at 50% 20%, #35103b, #100516 58%, #050207);
+  color: #fff;
 }
-.ls-glow {
-  position: absolute; left: 50%; top: 42%; width: 140vmax; height: 140vmax; translate: -50% -50%; pointer-events: none;
-  background: radial-gradient(closest-side, rgba(255, 186, 84, .2), rgba(220, 60, 80, .08) 45%, transparent 70%);
-  animation: ls-breathe 3.2s ease-in-out infinite;
+.ls-ad {
+  position: relative; width: min(1120px, 100%); max-height: calc(100dvh - 130px); margin: 0; overflow: hidden;
+  border: 1px solid rgba(242, 203, 119, .45); border-radius: clamp(14px, 2vw, 24px);
+  background: #100516; box-shadow: 0 30px 90px rgba(0, 0, 0, .65), 0 0 50px rgba(200, 70, 180, .12);
 }
-.ls-sparks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ls-ad-image { display: block; width: 100%; height: auto; max-height: calc(100dvh - 130px); object-fit: cover; }
+.ls-ad-caption {
+  position: absolute; inset: auto 0 0; display: grid; justify-items: start; gap: 3px; padding: clamp(18px, 3vw, 32px);
+  background: linear-gradient(180deg, transparent, rgba(8, 2, 12, .92) 40%); text-align: left;
+}
+.ls-ad-logo { width: min(180px, 38vw); height: auto; margin-bottom: 5px; filter: drop-shadow(0 4px 12px #000); }
+.ls-ad-caption span { color: #e9c978; font-size: 10px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+.ls-ad-caption strong { color: #fff8e7; font-size: clamp(17px, 2.4vw, 29px); line-height: 1.2; text-shadow: 0 2px 8px #000; }
+.ls-ad-caption small { color: #d7cadb; font-size: clamp(10px, 1.2vw, 13px); }
+.ls-progress { position: absolute; inset: auto 50% 18px auto; translate: 50% 0; display: grid; justify-items: center; gap: 6px; }
+.ls-progress progress { width: min(260px, 58vw); height: 5px; border: 0; overflow: hidden; border-radius: 99px; accent-color: #e9c978; }
+.ls-progress progress::-webkit-progress-bar { background: rgba(255, 255, 255, .16); }
+.ls-progress progress:indeterminate::-webkit-progress-value { background: #e9c978; }
+.ls-progress span { color: #ddd2df; font-size: 12px; }
+.ls-legal { position: absolute; right: 18px; bottom: 18px; margin: 0; color: #8f8292; font-size: 10px; }
 
-.ls-stage { position: relative; width: 100%; max-width: 560px; height: 300px; display: grid; place-items: center; }
-.ls-halo {
-  position: absolute; width: 270px; height: 270px; border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0deg, rgba(255, 214, 130, .9) 50deg, transparent 110deg, transparent 180deg, rgba(255, 120, 120, .7) 230deg, transparent 290deg);
-  -webkit-mask: radial-gradient(closest-side, transparent 78%, #000 80%, #000 86%, transparent 89%);
-  mask: radial-gradient(closest-side, transparent 78%, #000 80%, #000 86%, transparent 89%);
-  filter: blur(1.5px) drop-shadow(0 0 18px rgba(255, 196, 92, .7));
-  animation: ls-spin 3.6s linear infinite, ls-in .8s ease-out both;
-}
-
-/* Each chip: the outer span moves up/down (and scales for depth), the image moves left/right.
-   Two sine-like halves a quarter lap apart trace an ellipse; z-index puts the near half in front. */
-.ls-orbit {
-  position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px;
-  animation: ls-y calc(var(--ls-orbit-s) / 2) ease-in-out infinite alternate, ls-in 1s ease-out both;
-  animation-delay: calc(var(--ls-i) * var(--ls-orbit-s) / -4 - var(--ls-orbit-s) / 4), 0s;
-}
-.ls-chip {
-  display: block; width: 100%; height: 100%; object-fit: contain;
-  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .6));
-  animation: ls-x calc(var(--ls-orbit-s) / 2) ease-in-out infinite alternate;
-  animation-delay: calc(var(--ls-i) * var(--ls-orbit-s) / -4);
-}
-
-/* No intro pop: the boot page already shows this logo in this spot, so it simply stays. */
-.ls-logo { position: relative; z-index: 2; width: min(72vw, 320px); }
-.ls-logo img { display: block; width: 100%; height: auto; filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .8)) drop-shadow(0 0 30px rgba(255, 186, 84, .45)); }
-.ls-logo::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .85) 50%, transparent 65%) no-repeat;
-  background-size: 250% 100%;
-  -webkit-mask: var(--ls-logo) center / contain no-repeat;
-  mask: var(--ls-logo) center / contain no-repeat;
-  animation: ls-glint 2.4s ease-in-out .6s infinite;
-}
-
-.ls-tag { position: relative; margin: 6px 0 0; color: #ffe2a6; font-size: 12px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; text-shadow: 0 0 14px rgba(255, 180, 70, .55); }
-.ls-bar { position: relative; width: min(70vw, 300px); height: 6px; margin: 30px 0 12px; border-radius: 99px; overflow: hidden; background: rgba(255, 255, 255, .08); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .6); }
-.ls-bar i {
-  position: absolute; inset: 0 auto 0 0; width: 100%; border-radius: inherit; transform-origin: left;
-  background: linear-gradient(90deg, #8a5d16, #f3d27a 45%, #fff3c4 50%, #f3d27a 55%, #8a5d16) 0 0 / 200% 100%;
-  box-shadow: 0 0 14px rgba(240, 200, 110, .7);
-  animation: ls-fill 1.9s cubic-bezier(.4, 0, .2, 1) both, ls-shimmer 1.2s linear infinite;
-}
-.ls-status { position: relative; min-height: 18px; margin: 0; color: #d8cfc0; font-size: 13px; }
-.ls-legal { position: relative; margin: 16px 0 0; color: #6d6560; font-size: 11px; letter-spacing: .4px; }
-
-@keyframes ls-spin { to { rotate: 360deg; } }
-@keyframes ls-breathe { 0%, 100% { opacity: .75; scale: .96; } 50% { opacity: 1; scale: 1.04; } }
-@keyframes ls-in { from { opacity: 0; } }
-@keyframes ls-x { from { translate: calc(var(--ls-rx) * -1) 0; } to { translate: var(--ls-rx) 0; } }
-@keyframes ls-y {
-  from { translate: 0 calc(var(--ls-ry) * -1); scale: .62; z-index: 1; filter: brightness(.7); }
-  to { translate: 0 var(--ls-ry); scale: 1.12; z-index: 3; filter: brightness(1.05); }
-}
-@keyframes ls-glint { 0% { background-position: 120% 0; } 60%, 100% { background-position: -120% 0; } }
-@keyframes ls-fill { from { transform: scaleX(0); } }
-@keyframes ls-shimmer { to { background-position: -200% 0; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .ls-glow, .ls-halo, .ls-orbit, .ls-chip, .ls-logo, .ls-logo::after, .ls-bar i { animation: none; }
-  .ls-orbit { display: none; }
+@media (max-width: 620px) {
+  .ls { padding: 0 0 76px; align-items: stretch; }
+  .ls-ad { width: 100%; max-height: none; border: 0; border-radius: 0; }
+  .ls-ad-image { width: 100%; height: calc(100dvh - 76px); max-height: none; object-fit: cover; object-position: 68% center; }
+  .ls-ad-caption { padding: 26px 20px; }
+  .ls-ad-caption strong { max-width: 320px; }
+  .ls-progress { bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
+  .ls-legal { display: none; }
 }

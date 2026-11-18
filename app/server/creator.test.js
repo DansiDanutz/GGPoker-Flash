@@ -2,13 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { PROJECT_NAME, creatorCredit } from '../src/lib/creator.ts';
+import { PROJECT_NAME, CREATOR_NEWS, creatorCredit } from '../src/lib/creator.ts';
 
 const root = path.resolve(import.meta.dirname, '..');
 
-test('credit line names the creator and says it is free', () => {
-  assert.equal(creatorCredit('Dan'), 'Built free for the community by Dan');
-  assert.equal(creatorCredit('  '), 'Built free for the community by Dan');
+test('credit names the creator and identifies the free Play Money experience', () => {
+  assert.equal(creatorCredit('Dan'), 'Play Money is free · Built by Dan');
+  assert.equal(creatorCredit('  '), 'Play Money is free · Built by DansiDanutz');
+  assert.equal(PROJECT_NAME, 'DanGG');
+  assert.match(CREATOR_NEWS.paragraphs.join(' '), /OpenPoker/);
+  assert.match(CREATOR_NEWS.paragraphs.join(' '), /paid/);
 });
 
 test('the installed app carries the project name and a short label that fits under the icon', () => {
