@@ -18,7 +18,7 @@ try {
   browser=await puppeteer.launch({executablePath,headless:true,args:['--no-sandbox']});
   for (const width of [390,320]) {
     const page=await browser.newPage(); page.on('pageerror',e=>errors.push(e.message));
-    await page.setViewport({width,height:844});
+    await page.setViewport({width,height:width===390 ? 760 : 568});
     await page.evaluateOnNewDocument(()=>{
       document.addEventListener('load',event=>{if(event.target instanceof HTMLImageElement && event.target.matches('.ls-poster')) window.__introLoadedAt=performance.now();},true);
       const observer=new MutationObserver(()=>{
@@ -30,8 +30,23 @@ try {
     await page.goto(sandbox.url);
     await page.waitForFunction(()=>document.querySelector('.ls-poster')?.complete && document.querySelector('.ls-poster')?.naturalWidth>0);
     assert.equal(await page.$eval('.ls-poster',n=>getComputedStyle(n).objectFit),'contain');
+    const posterBounds = await page.$eval('.ls-poster', n => {
+      const r = n.getBoundingClientRect();
+      return {left:r.left, top:r.top, right:r.right, bottom:r.bottom, width:innerWidth, height:innerHeight};
+    });
+    assert.ok(posterBounds.left >= 0 && posterBounds.top >= 0 && posterBounds.right <= posterBounds.width + 1 && posterBounds.bottom <= posterBounds.height + 1,
+      `Entire poster must fit the viewport: ${JSON.stringify(posterBounds)}`);
     assert.ok(await page.$('.ls-content[inert]'));
     await page.screenshot({path:path.join(artifacts,`intro-${width}.png`)});
+    if (width === 390) {
+      await page.setViewport({width:844,height:390});
+      await page.waitForFunction(() => {
+        const r=document.querySelector('.ls-poster').getBoundingClientRect();
+        return r.top>=0 && r.left>=0 && r.bottom<=innerHeight+1 && r.right<=innerWidth+1;
+      });
+      await page.screenshot({path:path.join(artifacts,'intro-landscape.png')});
+      await page.setViewport({width:390,height:760});
+    }
     await page.waitForSelector('.ls--leaving');
     const readingMs=await page.evaluate(()=>window.__introLeavingAt-window.__introLoadedAt);
     assert.ok(readingMs>=3200,`Poster was only readable for ${readingMs}ms`);
