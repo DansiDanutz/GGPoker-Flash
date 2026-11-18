@@ -10,13 +10,21 @@
 .profile-role-cards button { margin-top: auto; min-height: 44px; padding: 10px 14px; color: #effcf8; background: #24483e; border: 1px solid #619987; border-radius: 6px; font: inherit; cursor: pointer; }
 .profile-role-guide button:focus-visible { outline: 3px solid #a4d9ff; outline-offset: 3px; }
 .profile-role-note { color: #a7b7c4; font-size: 13px; }
-.profile-role-workspaces { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 0; }
-.profile-role-workspaces button { min-height: 40px; padding: 8px 14px; color: #effcf8; background: rgba(36,72,62,.55); border: 1px solid #3f6b5f; border-radius: 6px; font: inherit; font-size: 14px; cursor: pointer; }
-.profile-role-workspaces button:hover { border-color: #619987; }
+.profile-workspace-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0 20px; }
+.profile-workspace-tabs button { min-height: 48px; padding: 8px 10px; color: #effcf8; background: #1b2c2a; border: 1px solid #4d756b; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer; }
+.profile-workspace-tabs button.active { color: #08120f; background: #8fe4d1; border-color: #8fe4d1; }
+@media (hover: hover) { .profile-workspace-tabs button:hover { color: #08120f; background: #8fe4d1; border-color: #8fe4d1; } }
+.profile-workspace-tabs button:focus-visible { outline: 3px solid #a4d9ff; outline-offset: 2px; }
 .workspace-intro { margin: 0 auto; max-width: 1000px; padding: 24px; color: #edf3f6; }
 .workspace-intro p, .workspace-intro li { line-height: 1.6; }
 .workspace-intro a { color: #a4d9ff; }
 .workspace-intro nav { display: flex; flex-wrap: wrap; gap: 12px; }
 .workspace-intro button { min-height: 44px; padding: 10px 16px; }
+.workspace-intro .profile-workspace-tabs { display: grid; }
+.workspace-intro .profile-workspace-tabs button { padding: 8px 10px; }
 .platform-workspace > .mp-container { width: 100%; box-sizing: border-box; }
-@media (max-width: 600px) { .workspace-intro { padding: 16px 12px; } }
+@media (max-width: 600px) {
+  .workspace-intro { padding: 16px 12px; }
+  .profile-workspace-tabs { position: sticky; top: 0; z-index: 2; margin: 14px 0 18px; padding: 6px 0; background: #0b0b0c; }
+  .profile-workspace-tabs button { min-width: 0; padding-inline: 6px; font-size: 13px; }
+}

@@ -66,6 +66,13 @@ export type MarketplaceCatalog = {
   checkout_enabled: false;
 };
 
+export type PublicContributor = {
+  id: string;
+  display_name: string;
+  kind: 'individual' | 'company';
+  products: Pick<MarketplaceProduct, 'id' | 'name' | 'slug'>[];
+};
+
 export type MarketplaceAccount = {
   requests: MarketplaceRequest[];
   entitlements: MarketplaceEntitlement[];
@@ -119,6 +126,7 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
 const ADMIN = '/api/admin/marketplace';
 
 export const marketplaceApi = {
+  contributors: () => request<{ contributors: PublicContributor[] }>('/api/marketplace/contributors'),
   catalog: () => request<MarketplaceCatalog>('/api/marketplace'),
   mine: () => request<MarketplaceAccount>('/api/marketplace/me'),
   management: () => request<ManagementCatalog>('/api/marketplace/management'),

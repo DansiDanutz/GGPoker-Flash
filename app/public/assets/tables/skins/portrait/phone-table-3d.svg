@@ -2,17 +2,17 @@
   <!-- DanGG phone table, drawn in perspective: the far (top) end narrower, the near (bottom) end wide
        and rounded, a thick dark rail with its side showing at the bottom, green felt lit from above. -->
   <defs>
-    <path id="outer" d="M200 18 C292 18 342 45 348 104 L390 548 C396 610 330 702 200 702 C70 702 4 610 10 548 L52 104 C58 45 108 18 200 18 Z"/>
-    <path id="inner" d="M200 44 C278 44 318 60 323 114 L364 546 C369 600 314 676 200 676 C86 676 31 600 36 546 L77 114 C82 60 122 44 200 44 Z"/>
+    <path id="outer" d="M200 18 C300 18 353 80 370 200 L407 520 C424 630 330 702 200 702 C70 702 -24 630 -7 520 L30 200 C47 80 100 18 200 18 Z"/>
+    <path id="inner" d="M200 32 C291 32 341 89 357 201 L394 520 C410 619 323 684 200 684 C77 684 -10 619 6 520 L43 201 C59 89 109 32 200 32 Z"/>
     <linearGradient id="railTop" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3c3c3e"/><stop offset=".45" stop-color="#2a2a2c"/><stop offset="1" stop-color="#18181a"/>
+      <stop offset="0" stop-color="#292929"/><stop offset=".45" stop-color="#202020"/><stop offset="1" stop-color="#18181a"/>
     </linearGradient>
     <linearGradient id="railSide" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#0d0d0e"/><stop offset="1" stop-color="#020202"/>
     </linearGradient>
     <radialGradient id="cloth" cx=".5" cy=".42" r=".62">
-      <stop offset="0" stop-color="#36a062"/><stop offset=".45" stop-color="#22794a"/>
-      <stop offset=".8" stop-color="#145634"/><stop offset="1" stop-color="#0c3d24"/>
+      <stop offset="0" stop-color="#246c2a"/><stop offset=".45" stop-color="#205e26"/>
+      <stop offset=".8" stop-color="#194b20"/><stop offset="1" stop-color="#103719"/>
     </radialGradient>
     <radialGradient id="glow" cx=".5" cy=".3" r=".5">
       <stop offset="0" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>

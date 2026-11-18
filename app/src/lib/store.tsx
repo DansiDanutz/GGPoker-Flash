@@ -113,8 +113,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [firstLaunch, setFirstLaunch] = useState(() => typeof window !== 'undefined'
     && isStandalone()
     && localStorage.getItem('ggpoker.welcomeSeen') !== '1');
-  const [splashDone, setSplashDone] = useState(false);
   const [loading, setLoading] = useState(true);
+  const splashDone = !loading;
   const [route, setRoute] = useState(currentRoute());
   const routeRef = useRef(route);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -223,8 +223,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     sound.preload();
-    const t = window.setTimeout(() => setSplashDone(true), 2100);
-    return () => window.clearTimeout(t);
   }, []);
 
   const refreshBrand = useCallback(async () => {

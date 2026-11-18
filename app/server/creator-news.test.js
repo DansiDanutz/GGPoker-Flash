@@ -1,17 +1,18 @@
-// The creator badge opens a news card: DanGG is going open source on GitHub.
+// The creator badge explains the platform, creator and commercial participation.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { CREATOR_NEWS, sourceRepository } from '../src/lib/creator.ts';
 
-test('the news card says the code goes open source on GitHub and anyone can contribute', () => {
+test('the news card distinguishes open source and free testing from paid participation', () => {
   const text = [CREATOR_NEWS.title, ...CREATOR_NEWS.paragraphs].join(' ');
-  assert.match(text, /open source/i);
-  assert.match(text, /GitHub/);
-  assert.match(text, /anyone can contribute/i);
-  assert.match(text, /middleman/i);
-  assert.match(text, /AI/);
-  assert.equal(CREATOR_NEWS.signature, '— Dan');
+  assert.match(text, /OpenPoker, the open-source platform/);
+  assert.match(CREATOR_NEWS.badge, /GitHub/);
+  assert.match(text, /Play Money testing are free/);
+  assert.match(text, /offers are paid separately/);
+  assert.match(text, /does not guarantee income/);
+  assert.match(text, /Contributor, Organizer and Marketplace/);
+  assert.equal(CREATOR_NEWS.signature, '— DansiDanutz');
   assert.ok(Object.isFrozen(CREATOR_NEWS) && Object.isFrozen(CREATOR_NEWS.paragraphs));
 });
 

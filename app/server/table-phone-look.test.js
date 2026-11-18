@@ -27,10 +27,10 @@ test('the table screen never scrolls sideways (a focused slider used to shift it
   assert.match(rule(s, '.table-screen'), /overflow: clip;/);
 });
 
-test('seats are big round portraits with the cards peeking out behind them', () => {
+test('seats have round portraits with cards fanned over them', () => {
   const s = look();
   assert.match(rule(s, '.table-screen .table-stage.stage-portrait .seat .avatar-wrap'), /width: 64px; height: 64px;/);
-  assert.match(rule(s, '.table-screen .table-stage.stage-portrait .seat:not(.me) .cards'), /z-index: 1;/);
+  assert.match(rule(s, '.table-screen .table-stage.stage-portrait .seat:not(.me) .cards'), /position: absolute; top: 12px; z-index: 3;/);
   assert.match(rule(s, '.table-screen .table-stage.stage-portrait .seat .avatar-wrap .face'), /inset: 0;/);
 });
 
@@ -66,14 +66,15 @@ test('short phones lay the slider flat in the panel instead, so it never covers 
   assert.match(short, /writing-mode: horizontal-tb;/);
 });
 
-test('the turn timer is a thin ring hugging the portrait that drains with the clock, red when short', () => {
+test('the portrait countdown drains below the plate and turns red when urgent', () => {
   const s = look();
-  assert.match(rule(s, '.table-screen .table-stage.stage-portrait .seat .timer'), /display: none;/);
-  const ring = rule(s, '.table-screen .table-stage.stage-portrait .seat.active:not(.folded) .avatar-wrap::after');
-  assert.match(ring, /conic-gradient\(var\(--ring, #ffd36a\) calc\(var\(--turn, 1\) \* 360deg\)/);
-  assert.match(s, /\.seat\.active\.hot \.avatar-wrap::after \{ --ring: #ff4d4d; \}/);
-  // The seat carries the countdown so the ring can read it.
-  assert.match(read('src/pages/TablePage.tsx'), /\.\.\.\(isActor \? \{ '--turn': timerPct \} : \{\}\)/);
+  const timer = rule(s, '.table-screen .table-stage.stage-portrait .seat .timer');
+  assert.match(timer, /display: block;/);
+  assert.match(timer, /var\(--turn, 1\) \* 100%/);
+  assert.match(timer, /animation: none;/);
+  assert.match(s, /\.seat\.active\.hot \.timer/);
+  assert.match(s, /#ff5656/);
+  assert.match(read('src/pages/TablePage.tsx'), /isActor && !p.folded \? <div className="timer"/);
 });
 
 test('hole cards are held like a real hand: the second card overlaps the first, no gap between them', () => {
@@ -87,12 +88,10 @@ test('hole cards are held like a real hand: the second card overlaps the first, 
   assert.doesNotMatch(s, /\.seat\.me \.cards \.card-slot:(first|last)-child \{ transform: rotate\([^)]*\) translate/);
 });
 
-test("your own ring counts down along the part your cards and plate leave visible", () => {
-  const s = look();
-  const mine = rule(s, '.table-screen .table-stage.stage-portrait .seat.me.active:not(.folded) .avatar-wrap::after');
-  // A 170deg arc from just past the bottom round to the upper left, drained part on a dark track.
-  assert.match(mine, /conic-gradient\(from 170deg, var\(--ring, #ffd36a\) 0 calc\(var\(--turn, 1\) \* 170deg\), rgba\(0, 0, 0, \.55\) 0 170deg, transparent 0\)/);
-  // It comes after the shared ring rule, so it wins for your seat while red still applies when time is short.
-  assert.ok(s.indexOf('.seat.me.active:not(.folded) .avatar-wrap::after') > s.indexOf('.seat.active:not(.folded) .avatar-wrap::after {'));
-  assert.ok(s.indexOf('.seat.active.hot .avatar-wrap::after { --ring') > s.indexOf('.seat.me.active:not(.folded) .avatar-wrap::after'));
+test('portrait tournament status lives on the felt and remains visible on phones', () => {
+  const page = read('src/pages/TablePage.tsx');
+  const layout = read('src/table-phone-layout.css');
+  assert.match(page, /stage.mode === 'portrait' && state\?\.tournament && <TournamentHud/);
+  assert.match(rule(layout, '.table-screen .table-stage.stage-portrait .tt-hud'), /display: block;/);
+  assert.match(rule(layout, '.table-screen .table-stage.stage-portrait .tt-hud'), /pointer-events: none;/);
 });

@@ -5,11 +5,15 @@ import {
   type MarketplaceAccount, type MarketplaceCatalog, type MarketplaceCategory, type MarketplaceProduct,
 } from '../lib/marketplace-api';
 import '../marketplace.css';
+import '../profile-roles.css';
 import { ManagementPlugins } from '../components/ManagementPlugins';
 import { MarketplacePublisher } from '../components/MarketplacePublisher';
 import { OrganizerBilling } from '../components/OrganizerBilling';
 import { OrganizerChips } from '../components/OrganizerChips';
 import { PlayMoneyPlugins } from '../components/PlayMoneyPlugins';
+import { ContributorDirectory, marketplaceProductLabel, type PublicContributor } from '../components/ContributorDirectory';
+import { ProfileWorkspaceTabs } from '../components/ProfileWorkspaceTabs';
+import { Avatar } from '../components/Avatar';
 
 type IconName = 'arrow' | 'code' | 'server' | 'layers' | 'check' | 'search' | 'close' | 'spark' | 'clock' | 'shield' | 'external' | 'grid';
 
@@ -57,11 +61,12 @@ function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
 }
 
-function ProductCard({ product, onOpen, requested, active }: {
-  product: MarketplaceProduct; onOpen: (product: MarketplaceProduct) => void; requested: boolean; active: boolean;
+function ProductCard({ product, contributor, onOpen, requested, active }: {
+  product: MarketplaceProduct; contributor?: PublicContributor; onOpen: (product: MarketplaceProduct) => void; requested: boolean; active: boolean;
 }) {
+  const productName = marketplaceProductLabel(product);
   return (
-    <article className={`mp-product ${product.featured ? 'mp-product-featured' : ''}`}>
+    <article id={`product-${encodeURIComponent(product.id)}`} className={`mp-product ${product.featured ? 'mp-product-featured' : ''}`}>
       <div className={`mp-product-cover mp-cover-${product.category}`}>
         <span className="mp-product-symbol"><Icon name={CATEGORY_ICONS[product.category]} /></span>
         <span className={`mp-status ${product.status === 'available' ? 'mp-status-ready' : ''}`}>
@@ -71,12 +76,13 @@ function ProductCard({ product, onOpen, requested, active }: {
       </div>
       <div className="mp-product-body">
         <span className="mp-eyebrow mp-product-delivery">{MARKETPLACE_DELIVERY_LABELS[product.delivery]}</span>
-        <h3><button type="button" onClick={() => onOpen(product)}>{product.name}</button></h3>
+        <h3><button type="button" onClick={() => onOpen(product)}>{productName}</button></h3>
+        {contributor && <button type="button" className="mp-product-creator" onClick={() => scrollToSection(`contributor-${encodeURIComponent(contributor.id)}`)}>By {contributor.display_name}</button>}
         <p>{product.summary}</p>
         {product.features.length > 0 && <ul className="mp-feature-list">{product.features.slice(0, 3).map((feature, i) => <li key={`${feature}-${i}`}><Icon name="check" /><span>{feature}</span></li>)}</ul>}
         <div className="mp-product-bottom">
           <div className="mp-price"><strong>{marketplacePrice(product)}</strong><span>{product.pricing === 'quote' ? 'Oferta se confirmă individual' : product.status === 'coming_soon' ? 'Disponibilitate în pregătire' : 'Vezi condițiile serviciului'}</span></div>
-          <button type="button" className="mp-round-button" onClick={() => onOpen(product)} aria-label={`Vezi detalii: ${product.name}`}><Icon name="arrow" /></button>
+          <button type="button" className="mp-round-button" onClick={() => onOpen(product)} aria-label={`Vezi detalii: ${productName}`}><Icon name="arrow" /></button>
         </div>
         {(active || requested) && <div className="mp-product-account"><Icon name={active ? 'shield' : 'clock'} />{active ? 'Acces înregistrat în cont' : 'Solicitare în evaluare'}</div>}
       </div>
@@ -102,6 +108,7 @@ export function Marketplace() {
   const [requestError, setRequestError] = useState('');
   const [actionError, setActionError] = useState('');
   const [success, setSuccess] = useState('');
+  const [contributors, setContributors] = useState<PublicContributor[]>([]);
   const inFlightProducts = useRef(new Set<string>());
   const dialogGeneration = useRef(0);
   const currentUserId = useRef(user?.id);
@@ -153,7 +160,7 @@ export function Marketplace() {
   }, [selected?.id, closeProduct]);
 
   const products = useMemo(() => (catalog?.products || []).filter((p) => p.status === 'available' || p.status === 'coming_soon')
-    .sort((a, b) => Number(b.featured) - Number(a.featured) || a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'ro')), [catalog]);
+    .sort((a, b) => Number(b.status === 'available') - Number(a.status === 'available') || Number(b.featured) - Number(a.featured) || a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'ro')), [catalog]);
   const filtered = useMemo(() => {
     const needle = searchText(query.trim());
     return products.filter((product) => (category === 'all' || product.category === category)
@@ -161,6 +168,13 @@ export function Marketplace() {
   }, [products, category, query]);
   const pendingProducts = useMemo(() => new Set(account.requests.filter((r) => r.status === 'pending').map((r) => r.product_id)), [account.requests]);
   const activeProducts = useMemo(() => new Set(account.entitlements.filter((e) => e.status === 'active' && (!e.expires_at || new Date(e.expires_at).getTime() > Date.now())).map((e) => e.product_id)), [account.entitlements]);
+  const contributorsByProduct = useMemo(() => new Map(contributors.flatMap((contributor) => contributor.products.map((product) => [product.id, contributor]))), [contributors]);
+  const receiveContributors = useCallback((next: PublicContributor[]) => setContributors(next), []);
+  const showContributorProduct = useCallback((productId: string) => {
+    setCategory('all');
+    setQuery('');
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => scrollToSection(`product-${encodeURIComponent(productId)}`)));
+  }, []);
 
   const openProduct = useCallback((product: MarketplaceProduct) => {
     dialogGeneration.current += 1;
@@ -182,12 +196,12 @@ export function Marketplace() {
       const result = await marketplaceApi.requestAccess(product.id, message.trim());
       if (currentUserId.current !== submittedBy) return;
       setAccount((current) => ({ ...current, requests: [result.request, ...current.requests.filter((request) => request.id !== result.request.id)] }));
-      setSuccess(`Solicitarea pentru „${product.name}” a fost înregistrată. Urmărește răspunsul în secțiunea Contul meu.`);
+      setSuccess(`Solicitarea pentru „${marketplaceProductLabel(product)}” a fost înregistrată. Urmărește răspunsul în secțiunea Contul meu.`);
       if (dialogGeneration.current === submittedFrom) closeProduct();
     } catch (error: unknown) {
       if (currentUserId.current !== submittedBy) return;
       if (dialogGeneration.current === submittedFrom) setRequestError(errorMessage(error));
-      else setActionError(`Solicitarea pentru „${product.name}” nu a fost trimisă. ${errorMessage(error)}`);
+      else setActionError(`Solicitarea pentru „${marketplaceProductLabel(product)}” nu a fost trimisă. ${errorMessage(error)}`);
     } finally {
       inFlightProducts.current.delete(product.id);
       setSubmittingProducts((current) => { const next = new Set(current); next.delete(product.id); return next; });
@@ -206,24 +220,27 @@ export function Marketplace() {
           <button className="mp-brand" type="button" onClick={() => navigate(user ? '/' : '/login')} aria-label="Deschide DanGG"><img src={brand.logo} alt="DanGG" /><span>MARKETPLACE</span></button>
           <nav className="mp-navigation" aria-label="Navigare marketplace">
             <button type="button" onClick={() => scrollToSection('marketplace-catalog')}>Catalog</button>
+            <button type="button" onClick={() => scrollToSection('marketplace-contributors')}>Contributors</button>
             <button type="button" onClick={() => scrollToSection('marketplace-management')}>Organizatori</button>
             <button type="button" onClick={() => scrollToSection('marketplace-how')}>Cum funcționează</button>
             {user && <button type="button" onClick={() => scrollToSection('marketplace-account')}>Contul meu</button>}
           </nav>
           <div className="mp-header-actions">
             {user?.is_admin ? <button type="button" className="mp-button mp-button-secondary mp-header-admin" onClick={() => navigate('/admin?section=marketplace')}><Icon name="shield" />Administrare</button> : null}
-            <button type="button" className="mp-button mp-button-primary" onClick={() => navigate(user ? '/' : '/login?returnTo=marketplace')}>{user ? 'Deschide DanGG' : 'Intră în cont'}<Icon name="arrow" /></button>
+            {user ? <button type="button" className="mp-profile-button" aria-label="Open Profile" onClick={() => navigate('/my-page')}><Avatar name={user.nick || 'Player'} src={user.avatar} size={38} /></button>
+              : <button type="button" className="mp-button mp-button-primary" onClick={() => navigate('/login?returnTo=marketplace')}>Intră în cont<Icon name="arrow" /></button>}
           </div>
         </div>
       </header>
 
       <main>
+        <div className="mp-container mp-workspace-navigation"><ProfileWorkspaceTabs active="marketplace" /></div>
         <section className="mp-hero mp-container" aria-labelledby="marketplace-title">
           <div className="mp-hero-copy">
             <span className="mp-eyebrow"><span className="mp-gold-dot" />DANGG OPEN NETWORK</span>
             <h1 id="marketplace-title">{catalog?.settings.title || 'Comunitatea ta. Posibilități noi.'}</h1>
             <p className="mp-hero-description">{catalog?.settings.subtitle || 'Cod deschis pentru comunitate. Servicii și instrumente DanGG pentru organizatori. Alege cum îți construiești experiența de poker.'}</p>
-            <div className="mp-hero-actions"><button type="button" className="mp-button mp-button-primary mp-button-large" onClick={() => scrollToSection('marketplace-catalog')}>Explorează catalogul<Icon name="arrow" /></button><a className="mp-text-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer"><Icon name="code" />Vezi proiectul open-source<Icon name="external" /></a></div>
+            <div className="mp-hero-actions"><button type="button" className="mp-button mp-button-primary mp-button-large" onClick={() => scrollToSection('marketplace-catalog')}>Explorează catalogul<Icon name="arrow" /></button><button type="button" className="mp-button mp-button-secondary mp-button-large" onClick={() => scrollToSection('marketplace-contributors')}>Contributors</button><a className="mp-text-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer"><Icon name="code" />Vezi proiectul open-source<Icon name="external" /></a></div>
             <div className="mp-hero-facts"><span><Icon name="check" />Jucători gratuit</span><span><Icon name="check" />Comunități independente</span><span><Icon name="check" />Servicii la alegere</span></div>
           </div>
           <div className="mp-ecosystem" aria-label="DanGG conectează ediția Community, serviciile oficiale și extensiile marketplace">
@@ -254,10 +271,12 @@ export function Marketplace() {
           </div>
           {loading ? <div className="mp-product-grid" aria-busy="true" aria-label="Se încarcă produsele">{[0, 1, 2].map((i) => <div className="mp-skeleton" key={i}><div /><span /><span /><span /></div>)}</div>
             : catalogError ? <div className="mp-empty" role="alert"><Icon name="server" /><h3>Catalogul nu este disponibil momentan</h3><p>{catalogError}</p><button type="button" className="mp-button mp-button-secondary" onClick={() => setRetry((value) => value + 1)}>Încearcă din nou</button></div>
-              : filtered.length ? <div className="mp-product-grid">{filtered.map((product) => <ProductCard key={product.id} product={product} onOpen={openProduct} requested={pendingProducts.has(product.id)} active={activeProducts.has(product.id)} />)}</div>
+              : filtered.length ? <div className="mp-product-grid">{filtered.map((product) => <ProductCard key={product.id} product={product} contributor={contributorsByProduct.get(product.id)} onOpen={openProduct} requested={pendingProducts.has(product.id)} active={activeProducts.has(product.id)} />)}</div>
                 : <div className="mp-empty"><Icon name={products.length ? 'search' : 'layers'} /><h3>{products.length ? 'Niciun produs pentru această căutare' : 'Catalogul se pregătește'}</h3><p>{products.length ? 'Încearcă alt termen sau explorează toate categoriile.' : 'Produsele publicate de echipa DanGG vor apărea aici, cu detalii și disponibilitate.'}</p>{products.length > 0 && <button type="button" className="mp-button mp-button-secondary" onClick={() => { setQuery(''); setCategory('all'); }}>Resetează filtrele</button>}</div>}
           <div className="mp-catalog-note"><Icon name="shield" /><p>{catalog?.settings.contact_note || 'Solicitările sunt analizate de echipa DanGG. Această pagină nu procesează plăți; prețul și livrarea se confirmă înainte de activare.'}</p></div>
         </section>
+
+        <ContributorDirectory onContributors={receiveContributors} onProductSelect={showContributorProduct} />
 
         <section id="marketplace-management" className="mp-section mp-container" aria-label="Administrare prin pluginuri">
           <ManagementPlugins userId={user?.id} onSelect={(productId) => { const product = products.find((entry) => entry.id === productId); if (product) openProduct(product); else { setCategory('all'); setQuery(''); scrollToSection('marketplace-catalog'); } }} />
@@ -281,11 +300,11 @@ export function Marketplace() {
           <div className="mp-section-heading"><div><span className="mp-eyebrow">SPAȚIUL TĂU</span><h2 id="marketplace-account-title">Solicitări și acces</h2></div><button type="button" className="mp-button mp-button-secondary" onClick={() => setAccountRetry((value) => value + 1)} disabled={accountLoading}>{accountLoading ? 'Se actualizează…' : 'Actualizează'}</button></div>
           {accountError && <div className="mp-notice mp-notice-error" role="alert">{accountError}</div>}
           {accountLoading ? <p className="mp-account-loading" role="status">Se încarcă datele contului…</p> : <div className="mp-account-grid">
-            <div className="mp-account-panel"><h3><Icon name="clock" />Solicitările mele<span>{account.requests.length}</span></h3>{account.requests.length === 0 ? <p className="mp-account-empty">Nu ai trimis încă o solicitare. Alege un produs din catalog pentru a începe.</p> : <ul className="mp-account-list">{account.requests.map((request) => <li key={request.id}><div className="mp-account-row"><strong>{request.product_name}</strong><span className={`mp-account-status mp-account-${request.status}`}>{REQUEST_STATUS[request.status]}</span></div><time>{displayDate(request.created_at)}</time>{request.message && <p className="mp-account-message">{request.message}</p>}{request.response && <div className="mp-team-response"><b>Răspuns DanGG</b><p>{request.response}</p></div>}</li>)}</ul>}</div>
+            <div className="mp-account-panel"><h3><Icon name="clock" />Solicitările mele<span>{account.requests.length}</span></h3>{account.requests.length === 0 ? <p className="mp-account-empty">Nu ai trimis încă o solicitare. Alege un produs din catalog pentru a începe.</p> : <ul className="mp-account-list">{account.requests.map((request) => <li key={request.id}><div className="mp-account-row"><strong>{marketplaceProductLabel({ id: request.product_id, name: request.product_name })}</strong><span className={`mp-account-status mp-account-${request.status}`}>{REQUEST_STATUS[request.status]}</span></div><time>{displayDate(request.created_at)}</time>{request.message && <p className="mp-account-message">{request.message}</p>}{request.response && <div className="mp-team-response"><b>Răspuns DanGG</b><p>{request.response}</p></div>}</li>)}</ul>}</div>
             <div className="mp-account-panel"><h3><Icon name="shield" />Accesul meu<span>{account.entitlements.length}</span></h3>{account.entitlements.length === 0 ? <p className="mp-account-empty">Accesul acordat de echipa DanGG va apărea aici, împreună cu perioada de valabilitate.</p> : <ul className="mp-account-list">{account.entitlements.map((entitlement) => {
               const expired = Boolean(entitlement.expires_at && new Date(entitlement.expires_at).getTime() <= Date.now());
               const active = entitlement.status === 'active' && !expired;
-              return <li key={entitlement.id}><div className="mp-account-row"><strong>{entitlement.product_name}</strong><span className={`mp-account-status ${active ? 'mp-account-approved' : 'mp-account-declined'}`}>{entitlement.status === 'revoked' ? 'Revocat' : expired ? 'Expirat' : 'Acordat'}</span></div><time>{entitlement.expires_at ? `Valabil până la ${displayDate(entitlement.expires_at)}` : 'Fără dată de expirare'}</time>{entitlement.note && <p>{entitlement.note}</p>}</li>;
+              return <li key={entitlement.id}><div className="mp-account-row"><strong>{marketplaceProductLabel({ id: entitlement.product_id, name: entitlement.product_name })}</strong><span className={`mp-account-status ${active ? 'mp-account-approved' : 'mp-account-declined'}`}>{entitlement.status === 'revoked' ? 'Revocat' : expired ? 'Expirat' : 'Acordat'}</span></div><time>{entitlement.expires_at ? `Valabil până la ${displayDate(entitlement.expires_at)}` : 'Fără dată de expirare'}</time>{entitlement.note && <p>{entitlement.note}</p>}</li>;
             })}</ul>}<p className="mp-access-note">Drepturile de acces sunt înregistrate în cont. Livrarea fiecărui serviciu se confirmă conform ofertei.</p></div>
           </div>}
         </section>}
@@ -309,7 +328,7 @@ export function Marketplace() {
       {selected && <div className="mp-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeProduct(); }}>
         <section ref={dialogRef} className="mp-modal" role="dialog" aria-modal="true" aria-labelledby={dialogTitle}>
           <button type="button" data-dialog-close className="mp-modal-close mp-round-button" onClick={closeProduct} aria-label="Închide detaliile"><Icon name="close" /></button>
-          <div className="mp-modal-heading"><span className="mp-product-symbol"><Icon name={CATEGORY_ICONS[selected.category]} /></span><span className="mp-eyebrow">{MARKETPLACE_DELIVERY_LABELS[selected.delivery]}</span><h2 id={dialogTitle}>{selected.name}</h2><p>{selected.summary}</p></div>
+          <div className="mp-modal-heading"><span className="mp-product-symbol"><Icon name={CATEGORY_ICONS[selected.category]} /></span><span className="mp-eyebrow">{MARKETPLACE_DELIVERY_LABELS[selected.delivery]}</span><h2 id={dialogTitle}>{marketplaceProductLabel(selected)}</h2><p>{selected.summary}</p></div>
           <div className="mp-modal-price"><strong>{marketplacePrice(selected)}</strong><span className={`mp-status ${selected.status === 'available' ? 'mp-status-ready' : ''}`}><span />{selected.status === 'available' ? 'Disponibil' : 'În pregătire'}</span></div>
           <p className="mp-product-description">{selected.description}</p>
           {selected.features.length > 0 && <ul className="mp-feature-list">{selected.features.map((feature, i) => <li key={`${feature}-${i}`}><Icon name="check" /><span>{feature}</span></li>)}</ul>}

@@ -59,7 +59,15 @@ export async function startSandbox() {
     });
     const api = `http://127.0.0.1:${port}`;
     // Own HTTP and signals: Vite's standalone SIGTERM handler exits before our cleanup.
-    browser = createHttpServer((req, res) => web.middlewares(req, res));
+    browser = createHttpServer((req, res) => {
+      // Vite serves live source; retained production dist metadata must not trigger reloads.
+      if (req.method === 'GET' && req.url?.split('?')[0] === '/api/version') {
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        res.end(JSON.stringify({ version: 'dev', build: 'dev' }));
+        return;
+      }
+      web.middlewares(req, res);
+    });
     web = await createServer({ root: app, configFile: path.join(app, 'vite.config.ts'), envDir: directory, cacheDir: path.join(directory, 'vite'),
       optimizeDeps: { noDiscovery: true, include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime'] },
       server: { middlewareMode: { server: browser }, hmr: { server: browser }, host: '127.0.0.1', port: webPort, strictPort: true, open: false, proxy: { '/api': { target: api, changeOrigin: true }, '/ws': { target: api.replace('http:', 'ws:'), ws: true, changeOrigin: true } } } });
