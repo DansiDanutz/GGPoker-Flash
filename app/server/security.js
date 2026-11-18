@@ -57,6 +57,7 @@ export const SECURITY_HEADERS = Object.freeze({
 
 export const HTML_CSP = [
   "default-src 'self'",
+  "frame-src https://nervixpay.live",
   // Ruffle compiles its self-hosted WebAssembly; no eval or remote script is allowed.
   "script-src 'self' 'wasm-unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",

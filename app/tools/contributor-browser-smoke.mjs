@@ -49,7 +49,7 @@ try {
   const page = await pageFor(member.token, '/contributor');
   await page.goto(sandbox.url + '/#/my-page?tab=overview'); await page.waitForSelector('.ls-content:not([inert])');
   await page.waitForSelector('section[aria-label="Choose how you use OpenPoker"]');
-  assert.deepEqual(await page.$$eval('.profile-role-guide h3', nodes => nodes.map(node => node.textContent)), ['Player for fun', 'Organiser', 'Contributor']);
+  assert.deepEqual(await page.$$eval('.profile-role-guide h3', nodes => nodes.map(node => node.textContent)), ['Make it yours', 'Run games your way', 'Turn useful ideas into offers']);
   await page.waitForSelector('.mpp input[type=file]');
   const upload = await page.$('.mpp input[type=file]');
   await upload.uploadFile(path.resolve('public/assets/avatars/gg-02.jpg'));
@@ -73,12 +73,12 @@ try {
   await page.waitForSelector('.mpp-portrait');
   await page.setViewport({ width: 1440, height: 1000 });
   await page.waitForFunction(() => !document.querySelector('.pshell'));
-  await button(page, '.profile-role-guide', 'Open Contributor');
+  await button(page, '.profile-role-guide', 'Open Contributor workspace');
   await page.waitForSelector('section[aria-label="Contributor membership and credits"]');
-  assert.equal(await page.$('section[aria-label="Contributor membership and credits"] [aria-label="Tarif orar Cash"]'), null);
+  assert.equal(await page.$('section[aria-label="Contributor membership and credits"] [aria-label="Cash hourly rate"]'), null);
   await page.goto(sandbox.url + '/#/organiser'); await page.waitForSelector('.ls-content:not([inert])');
-  await page.waitForSelector('section[aria-label="Organiser management"]');
-  await button(page, 'section[aria-label="Organiser management"]', 'Create tournament');
+  await page.waitForSelector('section[aria-label="Organizer management"]');
+  await button(page, 'section[aria-label="Organizer management"]', 'Create tournament');
   await page.waitForSelector('#host-economy');
   assert.equal(await page.$eval('#host-economy', node => node.value), 'organizer');
   assert.match(await page.$eval('#host-dialog-title', node => node.textContent), /tournament/);

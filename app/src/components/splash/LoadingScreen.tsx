@@ -43,10 +43,11 @@ export function LoadingScreen({ ready, bypass = false, children }: { readonly re
     sample.width = columns; sample.height = rows;
     const sampler = sample.getContext('2d')!;
     sampler.fillStyle = '#100516'; sampler.fillRect(0, 0, columns, rows);
-    const scale = Math.min(width / source.naturalWidth, height / source.naturalHeight);
+    const bounds = source.getBoundingClientRect();
+    const scale = Math.min(bounds.width / source.naturalWidth, bounds.height / source.naturalHeight);
     const imageWidth = source.naturalWidth * scale;
     const imageHeight = source.naturalHeight * scale;
-    sampler.drawImage(source, (width - imageWidth) / width * columns / 2, (height - imageHeight) / height * rows / 2, imageWidth / width * columns, imageHeight / height * rows);
+    sampler.drawImage(source, (bounds.left + (bounds.width - imageWidth) / 2) / width * columns, (bounds.top + (bounds.height - imageHeight) / 2) / height * rows, imageWidth / width * columns, imageHeight / height * rows);
     const from = sampler.getImageData(0, 0, columns, rows).data;
     let to = from;
     const start = performance.now();

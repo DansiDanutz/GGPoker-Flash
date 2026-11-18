@@ -97,7 +97,8 @@ test('the next hand waits for every board, every result and the usual showdown c
 test('the table deals the extra boards with the schedule and holds the chips until the results', () => {
   const page = read('src/pages/TablePage.tsx');
   assert.match(page, /runSchedule\(/);
-  assert.match(page, /className="board second-board"[\s\S]{0,400}dealt=\{delay !== null\}/);
+  assert.match(page, /className="multi-boards"[\s\S]{0,1500}dealt=\{delay !== null\}/);
+  assert.match(page, /runPlan\.resultAt\.map/, 'board awards use the presentation schedule');
   assert.match(page, /runHeld/);
 });
 

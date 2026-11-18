@@ -3,10 +3,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { activeNavKey, landingRoute, PHONE_NAV } from '../src/lib/phoneNav.ts';
 
-test('the tab bar has five items with the Home brand button in the centre', () => {
-  assert.deepEqual(PHONE_NAV.map((i) => i.key), ['poker', 'events', 'home', 'casino', 'me']);
+test('the tab bar exposes organizers without changing the Home brand or account destinations', () => {
+  assert.deepEqual(PHONE_NAV.map((i) => i.key), ['poker', 'events', 'home', 'casino', 'organizers', 'me']);
   assert.equal(PHONE_NAV[2].kind, 'brand');
-  assert.equal(PHONE_NAV[4].kind, 'avatar');
+  assert.equal(PHONE_NAV[5].kind, 'avatar');
 });
 
 test('the Poker tab owns every play route, whatever the game', () => {
@@ -19,6 +19,7 @@ test('tournaments, casino and account pages light their own tab', () => {
   assert.equal(activeNavKey('/tournaments'), 'events');
   assert.equal(activeNavKey('/propbet?create=last_longer'), 'events');
   assert.equal(activeNavKey('/slots/wild-jungle'), 'casino');
+  assert.equal(activeNavKey('/organizers'), 'organizers');
   assert.equal(activeNavKey('/my-page?tab=wallet'), 'me');
   assert.equal(activeNavKey('/cashier'), 'me');
 });

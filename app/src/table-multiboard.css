@@ -1,0 +1,53 @@
+.table-screen .multi-boards { position: relative; display: grid; gap: 4px; width: max-content; max-width: 74vw; z-index: 1; }
+.table-screen .table-center.multi-board-center { z-index: 9; }
+.table-screen .multi-board { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 58px; }
+.table-screen .multi-board + .multi-board { border-top: 1px solid rgba(255, 220, 145, .28); }
+.table-screen .multi-board-label { position: absolute; right: calc(100% + 5px); color: #ffe09a; font-size: 10px; font-weight: 900; }
+.table-screen .multi-board .board { min-height: 0; gap: 4px; }
+.table-screen .multi-board .pcard.mini { width: 34px; height: 48px; }
+.table-screen .multi-board .pcard.mini .rank { display: block; top: 2px; left: 3px; font: 800 14px/1 Arial, sans-serif; }
+.table-screen .multi-board .pcard.mini .suit { display: block; top: 18px; left: 3px; font-size: 13px; }
+.table-screen .multi-board .pcard.mini .big-suit { display: none; }
+.table-screen .table-stage.stage-portrait .multi-board .board > .pcard.mini { width: 27px; height: 38px; }
+.table-screen .table-stage.stage-portrait .multi-board .pcard.mini .rank { top: 2px; left: 2px; font-size: 12px; }
+.table-screen .table-stage.stage-portrait .multi-board .pcard.mini .suit { top: 16px; left: 2px; font-size: 11px; }
+.table-screen .table-stage.stage-portrait .multi-board .pcard.mini .big-suit { display: none; }
+.table-screen .multi-board.awarded .board { animation: board-dissolve 900ms ease both; }
+.table-screen .multi-board-result { max-width: 100%; overflow: hidden; color: #ffe3a0; font-size: 9px; line-height: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.table-screen .board-particles { position: absolute; left: 50%; top: 50%; pointer-events: none; z-index: 12; }
+.table-screen .board-particles i { position: absolute; width: 7px; height: 7px; border-radius: 2px; background: hsl(calc(38 + var(--particle) * 5) 90% 65%); box-shadow: 0 0 8px #ffe3a0; animation: board-to-winner 720ms cubic-bezier(.25,.8,.35,1) both; animation-delay: calc(var(--particle) * 22ms); }
+.table-screen .board-particles i:nth-child(1) { --start-x: -64px; --start-y: -9px; }
+.table-screen .board-particles i:nth-child(2) { --start-x: -48px; --start-y: 8px; }
+.table-screen .board-particles i:nth-child(3) { --start-x: -32px; --start-y: -4px; }
+.table-screen .board-particles i:nth-child(4) { --start-x: -16px; --start-y: 9px; }
+.table-screen .board-particles i:nth-child(5) { --start-x: 0px; --start-y: -8px; }
+.table-screen .board-particles i:nth-child(6) { --start-x: 16px; --start-y: 7px; }
+.table-screen .board-particles i:nth-child(7) { --start-x: 32px; --start-y: -5px; }
+.table-screen .board-particles i:nth-child(8) { --start-x: 48px; --start-y: 9px; }
+.table-screen .board-particles i:nth-child(9) { --start-x: 64px; --start-y: -7px; }
+.table-screen .board-win-count { position: absolute; z-index: 14; transform: translate(-50%, 48px); padding: 3px 7px; border-radius: 9px; background: rgba(20, 12, 3, .9); border: 1px solid rgba(255, 215, 120, .7); color: #ffe3a0; font-size: 10px; font-weight: 800; white-space: nowrap; pointer-events: none; }
+@keyframes board-to-winner {
+  0% { transform: translate(var(--start-x), var(--start-y)) scale(1) rotate(calc(var(--particle) * 18deg)); opacity: 1; }
+  100% { transform: translate(var(--award-x), var(--award-y)) scale(.3) rotate(240deg); opacity: 0; }
+}
+@keyframes board-dissolve { 0%, 100% { opacity: 1; } 42% { opacity: .24; } }
+@media (max-width: 760px) {
+  .table-screen .multi-boards { max-width: 70vw; gap: 2px; }
+  .table-screen .multi-board { min-height: 51px; }
+  .table-screen .multi-board .pcard.mini { width: 27px; height: 38px; }
+  .table-screen .board-win-count { transform: translate(-50%, 40px); }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .table-screen .multi-board-center { gap: 3px; }
+  .table-screen .multi-board-center .pot-chips { display: none; }
+  .table-screen .multi-board-center .pot-label { padding: 2px 8px; font-size: 11px; }
+  .table-screen .multi-boards { gap: 1px; }
+  .table-screen .multi-board { min-height: 45px; }
+  .table-screen .multi-board .pcard.mini { width: 24px; height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-screen .board-particles { display: none; }
+  .table-screen .multi-board.awarded .board { animation: none; }
+}
+.table-screen.anim-off .board-particles { display: none; }
+.table-screen.anim-off .multi-board.awarded .board { animation: none; }

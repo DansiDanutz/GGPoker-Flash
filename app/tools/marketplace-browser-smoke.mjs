@@ -230,7 +230,7 @@ async function run() {
     await waitText(owner, '.mg-plugin-planned', plugin.name);
   }
   assert.equal(await owner.$('.mg-publisher-fields'), null, 'Publisher registration unexpectedly accepts an anonymous account.');
-  await waitText(owner, '.mg-publisher-account button', 'Intră în cont');
+  await waitText(owner, '.mg-publisher-account button', 'Sign in');
   completed.push('Implemented/planned organizer offers and authenticated publisher onboarding');
   await assertPublicLayout(owner, 1440);
   await screenshot(owner, 'desktop');
@@ -246,7 +246,7 @@ async function run() {
   completed.push('Public clean route, refresh and desktop/390px/320px layouts');
 
   await owner.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1, isMobile: false, hasTouch: false });
-  const sample = initial.products[0];
+  const sample = initial.products.find(p => p.id === 'club-hosting');
   assert.ok(sample, 'Fixture catalog has no products.');
   await fill(owner, '.mp-search input', sample.name);
   await owner.waitForFunction(() => document.querySelectorAll('.mp-product').length === 1);
@@ -258,13 +258,13 @@ async function run() {
   await owner.waitForSelector('[role="dialog"]', { hidden: true });
   assert.equal(await owner.evaluate(() => document.activeElement.textContent.trim()), sample.name, 'Dialog did not restore trigger focus.');
   await fill(owner, '.mp-search input', '');
-  await clickText(owner, '.mp-filters button', 'Extensii');
-  await owner.waitForFunction(() => Array.from(document.querySelectorAll('.mp-filters button')).some((button) => button.textContent.trim() === 'Extensii' && button.getAttribute('aria-pressed') === 'true'));
+  await clickText(owner, '.mp-filters button', 'Extensions');
+  await owner.waitForFunction(() => Array.from(document.querySelectorAll('.mp-filters button')).some((button) => button.textContent.trim() === 'Extensions' && button.getAttribute('aria-pressed') === 'true'));
   await owner.waitForFunction((expected) => document.querySelectorAll('.mp-product').length === expected, {}, initial.products.filter((p) => p.category === 'extensions').length);
   await clickSelector(owner, '.mp-filters button:first-child');
   completed.push('Search, category filter, product dialog and focus restoration');
 
-  await clickText(owner, '.mp-header-actions button', 'Intră în cont');
+  await clickText(owner, '.mp-header-actions button', 'Sign in');
   await fill(owner, '#login-id', 'admin');
   await fill(owner, '#login-password', 'admin123');
   await clickSelector(owner, '.login2-cta');
@@ -342,11 +342,11 @@ async function run() {
   await member.goto(`${base}/marketplace`, { waitUntil: 'domcontentloaded' });
   await member.waitForSelector('#marketplace-account', { visible: true });
   await member.waitForSelector('.mg-publisher-fields', { visible: true });
-  await fillField(member, 'Numele editorului', 'CI Publisher Company', '.mg-publisher-fields label');
-  await selectField(member, 'Tipul profilului', 'company', '.mg-publisher-fields label');
-  await fillField(member, 'Merchant ID NervixPay', 'ci-fixture-merchant', '.mg-publisher-fields label');
+  await fillField(member, 'Publisher name', 'CI Publisher Company', '.mg-publisher-fields label');
+  await selectField(member, 'Profile type', 'company', '.mg-publisher-fields label');
+  await fillField(member, 'NervixPay merchant ID', 'ci-fixture-merchant', '.mg-publisher-fields label');
   await clickSelector(member, '.mg-publisher-fields button[type="submit"]');
-  await waitText(member, '.mg-publisher-account .mg-status', 'Cont în evaluare');
+  await waitText(member, '.mg-publisher-account .mg-status', 'Account under review');
   const publisherAccount = await api('/api/marketplace/publisher', { token: memberAuth.token });
   const publisherId = publisherAccount.publisher.id;
   assert.equal(publisherAccount.publisher.owner_user_id, memberAuth.user.id);
@@ -398,12 +398,12 @@ async function run() {
   await waitText(owner, '.ma-access-entry', productName);
   await waitUntil(async () => (await api('/api/marketplace/me', { token: memberAuth.token })).entitlements.some((entry) => entry.product_id === product.id && entry.status === 'active'), 'Granted access was not persisted.');
   await member.reload({ waitUntil: 'domcontentloaded' });
-  await waitText(member, '.mp-account-list .mp-account-status', 'Acordat');
+  await waitText(member, '.mp-account-list .mp-account-status', 'Granted');
   owner.once('dialog', (dialog) => void dialog.accept());
   await clickInside(owner, '.ma-access-entry', productName, 'Revocă accesul');
   await waitText(owner, '.ma-access-entry .ma-badge', 'Revocat');
   await member.reload({ waitUntil: 'domcontentloaded' });
-  await waitText(member, '.mp-account-list .mp-account-status', 'Revocat');
+  await waitText(member, '.mp-account-list .mp-account-status', 'Revoked');
   await screenshot(owner, 'admin-access');
   completed.push('UI approval, grant/revoke and member-visible persisted status');
 
@@ -518,7 +518,7 @@ async function run() {
   assert.equal(Boolean((await api('/api/lobby', { token: memberAuth.token })).user.is_admin), false, 'Paid management promoted the organizer to administrator.');
   await member.goto(`${base}/marketplace`, { waitUntil: 'domcontentloaded' });
   await waitText(member, '.mg-plugin .mg-status-active', 'Acces plătit activ');
-  await waitText(member, '.mg-publisher-account .mg-status', 'Editor aprobat');
+  await waitText(member, '.mg-publisher-account .mg-status', 'Approved publisher');
   await screenshot(member, 'organizer-paid-access', '.mg-section');
   await screenshot(member, 'publisher-approved', '.mg-publisher');
   completed.push('Unpaid host creation is blocked; paid Spin & Go works with zero publisher credits and no admin promotion');

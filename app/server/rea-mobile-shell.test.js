@@ -5,10 +5,10 @@ import path from 'node:path';
 
 const read = (file) => fs.readFileSync(path.resolve(import.meta.dirname, '..', file), 'utf8');
 
-test('phone navigation is the Paper icon bar: Poker, Tournaments, centre DanGG Home, Casino, My Page', () => {
+test('phone navigation includes the organizer directory and keeps the DanGG Home control', () => {
   const nav = read('src/lib/phoneNav.ts');
   const labels = [...nav.matchAll(/label: '([^']+)'/g)].map((match) => match[1]);
-  assert.deepEqual(labels, ['Poker', 'Tournaments', 'Home', 'Casino', 'My Page']);
+  assert.deepEqual(labels, ['Poker', 'Tournaments', 'Home', 'Casino', 'Organizers', 'My Page']);
   const source = read('src/components/MobileNav.tsx');
   // Home is the raised round brand button; every item keeps an accessible label.
   assert.match(source, /center/);

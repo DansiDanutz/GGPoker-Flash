@@ -14,7 +14,7 @@ test('every menu emblem points at a file that exists', () => {
     for (const [key, url] of Object.entries(map)) assert.ok(fs.existsSync(path.join(root, 'public', url)), key);
   }
   assert.deepEqual(Object.keys(GAME_TAB_EMBLEM), ['home', 'aof', 'rush', 'holdem', 'plo', 'short', 'spin', 'battle']);
-  assert.deepEqual(Object.keys(PHONE_MENU_EMBLEM), ['poker', 'events', 'casino', 'rewards']);
+  assert.deepEqual(Object.keys(PHONE_MENU_EMBLEM), ['poker', 'events', 'casino', 'organizers', 'rewards']);
 });
 
 test('the desktop game-mode row draws its labels as text, not baked plates', () => {

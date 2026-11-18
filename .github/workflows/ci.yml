@@ -92,6 +92,10 @@ jobs:
         timeout-minutes: 3
         run: node tools/startup-star-browser-smoke.mjs
 
+      - name: Verify multi-board visibility and results in Chrome
+        timeout-minutes: 3
+        run: node tools/run-it-awards-browser-smoke.mjs
+
       - name: Upload marketplace browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -100,5 +104,6 @@ jobs:
           path: |
             app/artifacts/marketplace-browser/
             app/artifacts/startup-star/
+            app/artifacts/run-it-awards/
           if-no-files-found: ignore
           retention-days: 7

@@ -75,6 +75,10 @@ import { createManagementRoutes } from './management-routes.js';
 import { createOrganizerBilling } from './organizer-billing.js';
 import { createOrganizerBillingRoutes } from './organizer-billing-routes.js';
 import { cashRakeConfig, validateCashRake } from './cash-rake.js';
+import { createClubEntryProvider, verifyClubEntryPayment, clubEntryCheckoutUrl } from './club-entry-provider.js';
+import { createClubEntryLedger } from './club-entry-ledger.js';
+import { randomUUID as clubOrderKey } from 'node:crypto';
+import { createOrganizerClubs } from './organizer-clubs.js';
 import { createOrganizerChips } from './organizer-chips.js';
 import { createOrganizerChipEvents } from './organizer-chip-events.js';
 import { organizerSpinOutcome } from './organizer-spin-prizes.js';
@@ -585,6 +589,20 @@ for (const tableName of ['tables', 'tournaments']) {
   if (!db.prepare(`PRAGMA table_info(${tableName})`).all().some((column) => column.name === 'chip_economy')) db.exec(`ALTER TABLE ${tableName} ADD COLUMN chip_economy INTEGER NOT NULL DEFAULT 0`);
 }
 const organizerChips = createOrganizerChips({ db });
+const organizerClubs = createOrganizerClubs({ db });
+const clubMerchant = process.env.NERVIXPAY_CLUB_MERCHANT_ID;
+const clubProvider = createClubEntryProvider({token:process.env.NERVIXPAY_CLUB_TOKEN,merchantId:clubMerchant});
+const clubVerificationLimiter = createRateLimiter({limit:20,windowMs:60000});
+let entryLedger;
+function clubLedger() {
+  const creator = db.prepare("SELECT owner_user_id FROM marketplace_publishers WHERE id=? AND status='approved'").get(process.env.DANGG_CLUB_ENTRY_PUBLISHER_ID || '');
+  if (!creator || !clubMerchant) throw Object.assign(new Error('Paid club entry is not configured.'),{status:503});
+  return entryLedger ||= createClubEntryLedger({db,clubs:organizerClubs,grantBonus:organizerChips.grantClubEntryBonus,publisherUserId:creator.owner_user_id,merchantId:clubMerchant});
+}
+function clubBlocksTable(row,userId) {
+  return row?.private && !row.play_money && db.prepare('SELECT 1 FROM organizer_club_profiles WHERE owner_id=?').get(row.owner_id) && !organizerClubs.canEnter(row.owner_id,userId);
+}
+
 const organizerBilling = createOrganizerBilling({ db, mode: process.env.GGPOKER_USAGE_BILLING || 'off',
   onOrganizerMembership: chipEconomyEnabled ? (grant) => organizerChips.grantMembership(grant) : null });
 const usageBilling = organizerBilling.mode === 'enforce';
@@ -1561,6 +1579,53 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/plugins/rake-lab') {
       if (req.method !== 'GET') return json(res, 405, { error: 'Use GET for the read-only Rake Lab preview.' });
       return json(res, 200, previewRake(url.searchParams));
+    }
+    if (p === '/api/organizers' && req.method === 'GET') {
+      return json(res, 200, organizerClubs.directory({search:url.searchParams.get('search') || '', rank:url.searchParams.get('sort') !== 'newest', offset:Number(url.searchParams.get('offset') || 0)}));
+    }
+    if (p.startsWith('/api/organizers/')) {
+      const match = p.match(/^\/api\/organizers\/(\d+)(?:\/(knock|leave|entry|vote))?$/);
+      if (match && !match[2] && req.method === 'GET') {
+        const viewer = userByToken(tokenFrom(req))?.id;
+        const club = organizerClubs.profile(Number(match[1]), viewer);
+        if (viewer && organizerClubs.canEnter(club.ownerId,viewer)) club.tables = db.prepare('SELECT id,name,game,seats FROM tables WHERE private=1 AND play_money=0 AND enabled=1 AND owner_id=?').all(club.ownerId);
+        return json(res,200,club);
+      }
+      const actor = requireUser(req, res); if (!actor) return;
+      if (actor.is_guest) return json(res, 403, {error:'Sign in to manage club membership.'});
+      if (p === '/api/organizers/me/requests' && req.method === 'GET') return json(res,200,{requests:organizerClubs.members({organizerId:actor.id,actorId:actor.id})});
+      if (req.method !== 'POST') return json(res,405,{error:'Method not allowed.'});
+      const body = await readBody(req);
+      if (p === '/api/organizers/me/profile') return json(res,200,organizerClubs.updateProfile({ownerId:actor.id,actorId:actor.id,name:body.name,description:body.description,entryFeeCents:body.entryFeeCents}));
+      const reply = p.match(/^\/api\/organizers\/me\/requests\/(\d+)\/respond$/);
+      if (reply) return json(res,200,organizerClubs.respond({organizerId:actor.id,actorId:actor.id,userId:Number(reply[1]),decision:({approved:'approve',rejected:'reject'})[body.decision]}));
+      if (match?.[2] === 'vote') return json(res,200,organizerClubs.vote({organizerId:Number(match[1]),userId:actor.id,stars:body.stars}));
+      if (match?.[2] === 'knock') return json(res,200,organizerClubs.requestJoin({organizerId:Number(match[1]),userId:actor.id,message:body.message}));
+      if (match?.[2] === 'leave') return json(res,200,organizerClubs.leave({organizerId:Number(match[1]),userId:actor.id}));
+      if (match?.[2] === 'entry') {
+        const organizerId = Number(match[1]), club = organizerClubs.profile(organizerId,actor.id);
+        if (organizerClubs.canEnter(organizerId,actor.id)) return json(res,409,{error:'You already have access.'});
+        if (!db.prepare('SELECT 1 FROM organizer_club_profiles WHERE owner_id=?').get(organizerId)) return json(res,409,{error:'The organizer must configure this club first.'});
+        const links = JSON.parse(process.env.DANGG_VERIFIED_CLUB_LINKS || '{}');
+        const link = links[club.entryFeeCents];
+        if (!link || !await clubProvider.ready()) return json(res,503,{error:'Paid club entry is not configured for this price.'});
+        const order = clubLedger().create({organizerId,userId:actor.id,paymentLinkId:link,idempotencyKey:clubOrderKey()});
+        return json(res,200,{paymentReady:true,order:{id:order.id,status:order.status,amountCents:order.feeCents,checkoutUrl:clubEntryCheckoutUrl(order)}});
+      }
+      return json(res,404,{error:'Club route not found.'});
+    }
+    const verifyEntry = p.match(/^\/api\/club-entry\/orders\/([a-f0-9-]{36})\/verify$/);
+    if (verifyEntry && req.method==='POST') {
+      const actor=requireUser(req,res); if (!actor) return;
+      if (clubVerificationLimiter.isBlocked(actor.id)) return json(res,429,{error:'Try again shortly.'});
+      clubVerificationLimiter.record(actor.id);
+      const ledger=clubLedger(), order=ledger.get(verifyEntry[1],actor.id);
+      if (!await clubProvider.ready()) return json(res,503,{error:'Payment verification unavailable.'});
+      const body=await readBody(req);
+      const receipt=verifyClubEntryPayment(order,await clubProvider.payment(body.paymentId));
+      const settled=ledger.settle(receipt);
+      if (settled.order.status!=='settled') return json(res,409,{error:'Payment received; refund review required.'});
+      return json(res,200,{order:{id:order.id,status:'settled',amountCents:order.feeCents,checkoutUrl:null},membership:{status:'approved'}});
     }
     if (await handleOrganizerChipRoute(req, res, url)) return;
     if (await handleOrganizerBillingRoute(req, res, url)) return;
@@ -3463,6 +3528,7 @@ wss.on('connection', (ws, req) => {
         broadcastState(table);
         return;
       }
+      if (clubBlocksTable(tableRow(msg.tableId),ws.userId)) return ws.send(JSON.stringify({type:'error',error:'Club membership required.'}));
       if (table.tournament || table.spin) return ws.send(JSON.stringify({ type: 'error', error: 'seats are assigned at this table' }));
       const res = table.reserveSeat(toInt(msg.seat, { min: 0, max: table.cfg.seats - 1 }) ?? -1, ws.userId);
       if (!res.ok) return ws.send(JSON.stringify({ type: 'error', error: res.error }));
@@ -3482,6 +3548,7 @@ wss.on('connection', (ws, req) => {
       if (!u) return ws.send(JSON.stringify({ type: 'error', error: 'login required' }));
       // A cash reconnect whose seat is gone (cashed out while away) watches; it never buys in again
       // unasked. A tournament seat may have moved: that reconnect goes on to the redirect below.
+      if (!table.seatOf(u.id) && clubBlocksTable(tableRow(msg.tableId),u.id)) return ws.send(JSON.stringify({type:'error',error:'Club membership required.'}));
       const rejoinedEmpty = !msg.observe && msg.rejoin === true && !table.tournament && !table.seatOf(ws.userId);
       // A Rush move may have seated the player at another table of the pool before this tab
       // heard of it: follow them there instead of watching the old table.

@@ -3,7 +3,7 @@ export function resolveEntryRoute(hash: string, pathname: string, search: string
   const hashRoute = hash.replace(/^#/, '');
   if (hashRoute) return hashRoute;
   const path = pathname.replace(/\/+$/, '') || '/';
-  if (['/marketplace', '/contributor', '/organiser'].includes(path)) return path;
+  if (['/marketplace', '/contributor', '/organiser', '/organizers'].includes(path)) return path;
   if (path === '/marketplace/admin') return '/admin?section=marketplace';
   if (path === '/admin') return `/admin${search}`;
   return fallback;
@@ -13,7 +13,7 @@ export function resolveEntryRoute(hash: string, pathname: string, search: string
 export function marketplaceAuthDestination(route: string): string | null {
   const [path, query = ''] = route.split('?');
   if (path === '/admin') return route;
-  if (['/marketplace', '/contributor', '/organiser'].includes(path)) return path;
+  if (['/marketplace', '/contributor', '/organiser', '/organizers'].includes(path)) return path;
   const destination = new URLSearchParams(query).get('returnTo');
-  return ['marketplace', 'contributor', 'organiser'].includes(destination || '') ? `/${destination}` : null;
+  return ['marketplace', 'contributor', 'organiser', 'organizers'].includes(destination || '') ? `/${destination}` : null;
 }

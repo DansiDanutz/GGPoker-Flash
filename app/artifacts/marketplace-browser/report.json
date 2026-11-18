@@ -1,0 +1,19 @@
+{
+  "completed": [
+    "Implemented/planned organizer offers and authenticated publisher onboarding",
+    "Public clean route, refresh and desktop/390px/320px layouts",
+    "Search, category filter, product dialog and focus restoration",
+    "UI admin login and return to the marketplace",
+    "UI product creation, draft isolation and publication persistence",
+    "Content persistence, new-tab preview and dirty Back protection",
+    "UI publisher registration persists with pending review and isolated commission balance",
+    "Persistent member request and delayed-response dialog regression",
+    "UI approval, grant/revoke and member-visible persisted status",
+    "Owner plugin enforcement display and UI publisher approval/verified credit recording",
+    "Organizer funding UI persists service credits separately from publisher credits and membership",
+    "Management pricing restrictions and UI offer/order reservation with a 20% credit hold",
+    "Unpaid host creation is blocked; paid Spin & Go works with zero publisher credits and no admin promotion"
+  ],
+  "pageErrors": [],
+  "ok": true
+}

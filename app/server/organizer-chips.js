@@ -142,6 +142,12 @@ export function createOrganizerChips({ db, now = Date.now }) {
     if (due) movement({ organizerId, from: null, to: `wallet:${organizerId}`, amount: MEMBERSHIP_CHIPS, kind: 'membership_grant', reference: `membership:${reference}` }, true);
     return { applied: due, pending: !due, available_at: available };
   }
+  function grantClubEntryBonus({ organizerId, reference, amount, nonredeemable }) {
+    if (!db.isTransaction || nonredeemable !== true) fail('Club entry bonus requires a settlement transaction.', 500, 'transaction_required');
+    organizerId = ensureOrganizer(organizerId);
+    requireMembership(organizerId);
+    return movement({ organizerId, from: null, to: `wallet:${organizerId}`, amount, kind: 'club_entry_bonus', reference: text(reference, 'reference') }, true);
+  }
   function releaseDueGrants() {
     return transaction(db, () => {
       const due = db.prepare("SELECT * FROM organizer_chip_grants WHERE status='pending' AND available_at<=? ORDER BY available_at,organizer_id,reference").all(stamp());
@@ -244,7 +250,7 @@ export function createOrganizerChips({ db, now = Date.now }) {
     return { minted, burned, circulating: minted - burned };
   }
   const history = (organizerId) => db.prepare('SELECT * FROM organizer_chip_journals WHERE organizer_id=? ORDER BY id DESC').all(organizerExists(organizerId));
-  return { grantMembership, releaseDueGrants, purchase, balance, account, history, supply, transfer, openSeat, seatMove, settleHand, closeSeat, recoverSessions, reconcileTable, move, moveInTransaction };
+  return { grantMembership, grantClubEntryBonus, releaseDueGrants, purchase, balance, account, history, supply, transfer, openSeat, seatMove, settleHand, closeSeat, recoverSessions, reconcileTable, move, moveInTransaction };
 }
 
 export { MEMBERSHIP_CHIPS, PACK_CHIPS, PACK_CENTS };

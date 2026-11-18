@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
 import { startServer } from './test-helpers.js';
+import { ensureMarketplaceSchema } from './marketplace.js';
 
 let srv;
 let admin;
@@ -49,13 +51,36 @@ before(async () => {
 
 after(async () => { if (srv) await srv.stop(); });
 
+test('legacy default catalog copy migrates to English without overwriting custom content', () => {
+  const db = new DatabaseSync(':memory:');
+  ensureMarketplaceSchema(db);
+  db.prepare('UPDATE marketplace_settings SET title=? WHERE id=1').run('Mai mult pentru comunitatea ta.');
+  db.prepare('UPDATE marketplace_settings SET subtitle=? WHERE id=1').run('Custom operator subtitle');
+  db.prepare('UPDATE marketplace_products SET name=?,summary=? WHERE id=?')
+    .run('Găzduire pentru club', 'Custom operator summary', 'club-hosting');
+
+  ensureMarketplaceSchema(db);
+
+  const settings = db.prepare('SELECT title,subtitle FROM marketplace_settings WHERE id=1').get();
+  const product = db.prepare('SELECT name,summary,description,features_json FROM marketplace_products WHERE id=?').get('club-hosting');
+  assert.equal(settings.title, 'More for your community.');
+  assert.equal(settings.subtitle, 'Custom operator subtitle');
+  assert.equal(product.name, 'Club hosting');
+  assert.equal(product.summary, 'Custom operator summary');
+  assert.match(product.description, /^A service in preparation/);
+  assert.deepEqual(JSON.parse(product.features_json), ['Assisted configuration', 'Agreed hosting capacity', 'Organizer support']);
+  db.close();
+});
+
 test('public catalog has honest seeded products, safe settings and no checkout', async () => {
   const result = await srv.get('/api/marketplace');
   assert.equal(result.status, 200);
   assert.equal(result.data.checkout_enabled, false);
-  assert.equal(result.data.products.length, 9);
-  assert.ok(result.data.products.every((product) => product.pricing === 'quote' && product.price_cents === null));
-  const implemented = new Set(['cash-games-manager', 'tournaments-manager', 'spin-and-go-manager']);
+  assert.equal(result.data.products.length, 10);
+  const clubEntry = result.data.products.find((product) => product.id === 'club-entry');
+  assert.deepEqual({ status: clubEntry.status, pricing: clubEntry.pricing, price_cents: clubEntry.price_cents, currency: clubEntry.currency }, { status: 'available', pricing: 'one_time', price_cents: 100, currency: 'USD' });
+  assert.ok(result.data.products.filter((product) => product.id !== 'club-entry').every((product) => product.pricing === 'quote' && product.price_cents === null));
+  const implemented = new Set(['club-entry', 'cash-games-manager', 'tournaments-manager', 'spin-and-go-manager']);
   assert.ok(result.data.products.every((product) => product.status === (implemented.has(product.id) ? 'available' : 'coming_soon')));
   assert.deepEqual(Object.keys(result.data).sort(), ['checkout_enabled', 'products', 'settings']);
   assert.deepEqual(Object.keys(result.data.settings).sort(), ['contact_note', 'requests_enabled', 'subtitle', 'title']);

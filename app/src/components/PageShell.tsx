@@ -18,6 +18,7 @@ export function PageShell({ activeTop, children, subnav }: {
     const titles: Record<string, string> = {
       '/cashier': 'Cashier', '/missions': 'Missions', '/leaderboard': 'Leaderboard',
       '/tournaments': 'Tournaments', '/slots': 'Slots', '/settings': 'Settings', '/promotions': 'Promotions',
+      '/organizers': 'Organizers',
       '/elo': 'ELO', '/support': 'Support', '/profile': 'Profile', '/hand-history': 'Hand history',
       '/propbet': 'Prop bet', '/ocean': 'DanGG Rewards', '/ggcare': 'Player Care', '/honeymoon': 'Honeymoon', '/admin': 'Admin',
     };

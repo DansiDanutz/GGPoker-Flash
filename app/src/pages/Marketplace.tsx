@@ -38,27 +38,60 @@ function Icon({ name, className = '' }: { name: IconName; className?: string }) 
 const CATEGORY_ICONS: Record<MarketplaceCategory, IconName> = {
   hosting: 'server', tools: 'grid', customization: 'spark', extensions: 'code',
 };
-const REQUEST_STATUS = { pending: 'În evaluare', approved: 'Aprobată', declined: 'Refuzată' };
+const REQUEST_STATUS = { pending: 'Under review', approved: 'Approved', declined: 'Declined' };
 const EMPTY_ACCOUNT: MarketplaceAccount = { requests: [], entitlements: [] };
 const SOURCE_URL = __APP_SOURCE_URL__;
 const SOURCE_FILE_ROOT = SOURCE_URL.replace('/tree/', '/blob/');
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Nu am putut finaliza cererea. Încearcă din nou.';
+  return error instanceof Error ? error.message : 'We could not complete the request. Please try again.';
 }
 
 function displayDate(value: string): string {
   const normalized = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`;
   const date = new Date(normalized);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', year: 'numeric' });
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function searchText(value: string): string {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('ro-RO');
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('en-US');
 }
 
 function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+}
+
+function ProductArtwork({ product }: { product: MarketplaceProduct }) {
+  const kind = product.id === 'cash-games-manager' ? 'cash'
+    : product.id === 'tournaments-manager' ? 'tournament'
+      : product.id === 'spin-and-go-manager' ? 'spin'
+        : product.category;
+  return <svg className={`mp-product-art mp-product-art-${kind}`} viewBox="0 0 360 180" aria-hidden="true" focusable="false">
+    <path className="mp-art-horizon" d="M18 142C92 91 172 158 342 72" />
+    {kind === 'cash' ? <>
+      <ellipse cx="181" cy="105" rx="115" ry="54" /><ellipse cx="181" cy="105" rx="86" ry="36" />
+      <path d="m151 112 18-39 24 5 18 42-30 13-30-21Z" /><path d="m169 73 14 30 10-25" />
+      <circle cx="83" cy="91" r="15" /><circle cx="278" cy="111" r="15" /><path d="m74 91 9-9 9 9-9 9-9-9Zm195 20 9-9 9 9-9 9-9-9Z" />
+    </> : kind === 'tournament' ? <>
+      <path d="M137 51h86v28c0 30-17 50-43 50s-43-20-43-50V51Z" /><path d="M137 65h-24v12c0 21 16 31 34 31m76-43h24v12c0 21-16 31-34 31M180 129v22m-31 0h62" />
+      <path d="m180 67 6 12 14 2-10 10 2 14-12-7-12 7 2-14-10-10 14-2 6-12Z" />
+      <circle cx="88" cy="110" r="18" /><circle cx="278" cy="92" r="12" />
+    </> : kind === 'spin' ? <>
+      <circle cx="181" cy="99" r="64" /><circle cx="181" cy="99" r="13" />
+      <path d="m181 35 13 51 40-34-27 44 55 3-55 10 34 42-47-29-13 41-9-41-48 29 34-42-56-10 55-3-27-44 40 34 11-51Z" />
+      <path className="mp-art-spin-mark" d="m180 74 8 17 18 7-18 8-8 18-8-18-18-8 18-7 8-17Z" />
+    </> : kind === 'hosting' ? <>
+      <rect x="104" y="55" width="152" height="35" rx="9" /><rect x="104" y="99" width="152" height="35" rx="9" />
+      <circle cx="125" cy="72" r="4" /><circle cx="125" cy="116" r="4" /><path d="M145 72h82M145 116h82" />
+    </> : kind === 'customization' ? <>
+      <path d="M121 136 222 35l27 27-101 101-35 8 8-35Z" /><path d="m205 52 27 27M126 134l22 22" />
+      <circle cx="91" cy="67" r="15" /><circle cx="271" cy="126" r="10" />
+    </> : kind === 'extensions' ? <>
+      <path d="M113 73h39V48a18 18 0 1 1 36 0v25h39v39h25a18 18 0 1 1 0 36h-64v-25h-36v25h-39V73Z" />
+    </> : <>
+      <rect x="104" y="45" width="65" height="65" rx="13" /><rect x="191" y="45" width="65" height="65" rx="13" /><rect x="148" y="105" width="65" height="55" rx="13" />
+    </>}
+  </svg>;
 }
 
 function ProductCard({ product, contributor, onOpen, requested, active }: {
@@ -68,9 +101,10 @@ function ProductCard({ product, contributor, onOpen, requested, active }: {
   return (
     <article id={`product-${encodeURIComponent(product.id)}`} className={`mp-product ${product.featured ? 'mp-product-featured' : ''}`}>
       <div className={`mp-product-cover mp-cover-${product.category}`}>
+        <ProductArtwork product={product} />
         <span className="mp-product-symbol"><Icon name={CATEGORY_ICONS[product.category]} /></span>
         <span className={`mp-status ${product.status === 'available' ? 'mp-status-ready' : ''}`}>
-          <span />{product.status === 'available' ? 'Disponibil' : 'În pregătire'}
+          <span />{product.status === 'available' ? 'Available' : 'Coming soon'}
         </span>
         <span className="mp-cover-category">{MARKETPLACE_CATEGORY_LABELS[product.category]}</span>
       </div>
@@ -81,10 +115,10 @@ function ProductCard({ product, contributor, onOpen, requested, active }: {
         <p>{product.summary}</p>
         {product.features.length > 0 && <ul className="mp-feature-list">{product.features.slice(0, 3).map((feature, i) => <li key={`${feature}-${i}`}><Icon name="check" /><span>{feature}</span></li>)}</ul>}
         <div className="mp-product-bottom">
-          <div className="mp-price"><strong>{marketplacePrice(product)}</strong><span>{product.pricing === 'quote' ? 'Oferta se confirmă individual' : product.status === 'coming_soon' ? 'Disponibilitate în pregătire' : 'Vezi condițiile serviciului'}</span></div>
-          <button type="button" className="mp-round-button" onClick={() => onOpen(product)} aria-label={`Vezi detalii: ${productName}`}><Icon name="arrow" /></button>
+          <div className="mp-price"><strong>{marketplacePrice(product)}</strong><span>{product.pricing === 'quote' ? 'Quote confirmed individually' : product.status === 'coming_soon' ? 'Availability in preparation' : 'Review the service terms'}</span></div>
+          <button type="button" className="mp-card-cta" onClick={() => onOpen(product)} aria-label={`View details: ${productName}`}>View details<Icon name="arrow" /></button>
         </div>
-        {(active || requested) && <div className="mp-product-account"><Icon name={active ? 'shield' : 'clock'} />{active ? 'Acces înregistrat în cont' : 'Solicitare în evaluare'}</div>}
+        {(active || requested) && <div className="mp-product-account"><Icon name={active ? 'shield' : 'clock'} />{active ? 'Access recorded in your account' : 'Request under review'}</div>}
       </div>
     </article>
   );
@@ -160,7 +194,7 @@ export function Marketplace() {
   }, [selected?.id, closeProduct]);
 
   const products = useMemo(() => (catalog?.products || []).filter((p) => p.status === 'available' || p.status === 'coming_soon')
-    .sort((a, b) => Number(b.status === 'available') - Number(a.status === 'available') || Number(b.featured) - Number(a.featured) || a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'ro')), [catalog]);
+    .sort((a, b) => Number(b.status === 'available') - Number(a.status === 'available') || Number(b.featured) - Number(a.featured) || a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'en')), [catalog]);
   const filtered = useMemo(() => {
     const needle = searchText(query.trim());
     return products.filter((product) => (category === 'all' || product.category === category)
@@ -196,12 +230,12 @@ export function Marketplace() {
       const result = await marketplaceApi.requestAccess(product.id, message.trim());
       if (currentUserId.current !== submittedBy) return;
       setAccount((current) => ({ ...current, requests: [result.request, ...current.requests.filter((request) => request.id !== result.request.id)] }));
-      setSuccess(`Solicitarea pentru „${marketplaceProductLabel(product)}” a fost înregistrată. Urmărește răspunsul în secțiunea Contul meu.`);
+      setSuccess(`Your request for “${marketplaceProductLabel(product)}” was recorded. Track the response in My account.`);
       if (dialogGeneration.current === submittedFrom) closeProduct();
     } catch (error: unknown) {
       if (currentUserId.current !== submittedBy) return;
       if (dialogGeneration.current === submittedFrom) setRequestError(errorMessage(error));
-      else setActionError(`Solicitarea pentru „${marketplaceProductLabel(product)}” nu a fost trimisă. ${errorMessage(error)}`);
+      else setActionError(`Your request for “${marketplaceProductLabel(product)}” was not sent. ${errorMessage(error)}`);
     } finally {
       inFlightProducts.current.delete(product.id);
       setSubmittingProducts((current) => { const next = new Set(current); next.delete(product.id); return next; });
@@ -213,22 +247,22 @@ export function Marketplace() {
   const submitting = selected ? submittingProducts.has(selected.id) : false;
 
   return (
-    <div className="marketplace" lang="ro">
-      <a className="mp-skip-link" href="#" onClick={(event) => { event.preventDefault(); scrollToSection('marketplace-catalog'); }}>Sari la catalog</a>
+    <div className="marketplace" lang="en">
+      <a className="mp-skip-link" href="#" onClick={(event) => { event.preventDefault(); scrollToSection('marketplace-catalog'); }}>Skip to catalog</a>
       <header className="mp-header">
         <div className="mp-container mp-header-inner">
-          <button className="mp-brand" type="button" onClick={() => navigate(user ? '/' : '/login')} aria-label="Deschide DanGG"><img src={brand.logo} alt="DanGG" /><span>MARKETPLACE</span></button>
-          <nav className="mp-navigation" aria-label="Navigare marketplace">
+          <button className="mp-brand" type="button" onClick={() => navigate(user ? '/' : '/login')} aria-label="Open DanGG"><img src={brand.logo} alt="DanGG" /><span>MARKETPLACE</span></button>
+          <nav className="mp-navigation" aria-label="Marketplace navigation">
             <button type="button" onClick={() => scrollToSection('marketplace-catalog')}>Catalog</button>
             <button type="button" onClick={() => scrollToSection('marketplace-contributors')}>Contributors</button>
-            <button type="button" onClick={() => scrollToSection('marketplace-management')}>Organizatori</button>
-            <button type="button" onClick={() => scrollToSection('marketplace-how')}>Cum funcționează</button>
-            {user && <button type="button" onClick={() => scrollToSection('marketplace-account')}>Contul meu</button>}
+            <button type="button" onClick={() => scrollToSection('marketplace-management')}>Organizers</button>
+            <button type="button" onClick={() => scrollToSection('marketplace-how')}>How it works</button>
+            {user && <button type="button" onClick={() => scrollToSection('marketplace-account')}>My account</button>}
           </nav>
           <div className="mp-header-actions">
-            {user?.is_admin ? <button type="button" className="mp-button mp-button-secondary mp-header-admin" onClick={() => navigate('/admin?section=marketplace')}><Icon name="shield" />Administrare</button> : null}
+            {user?.is_admin ? <button type="button" className="mp-button mp-button-secondary mp-header-admin" onClick={() => navigate('/admin?section=marketplace')}><Icon name="shield" />Admin</button> : null}
             {user ? <button type="button" className="mp-profile-button" aria-label="Open Profile" onClick={() => navigate('/my-page')}><Avatar name={user.nick || 'Player'} src={user.avatar} size={38} /></button>
-              : <button type="button" className="mp-button mp-button-primary" onClick={() => navigate('/login?returnTo=marketplace')}>Intră în cont<Icon name="arrow" /></button>}
+              : <button type="button" className="mp-button mp-button-primary" onClick={() => navigate('/login?returnTo=marketplace')}>Sign in<Icon name="arrow" /></button>}
           </div>
         </div>
       </header>
@@ -238,47 +272,47 @@ export function Marketplace() {
         <section className="mp-hero mp-container" aria-labelledby="marketplace-title">
           <div className="mp-hero-copy">
             <span className="mp-eyebrow"><span className="mp-gold-dot" />DANGG OPEN NETWORK</span>
-            <h1 id="marketplace-title">{catalog?.settings.title || 'Comunitatea ta. Posibilități noi.'}</h1>
-            <p className="mp-hero-description">{catalog?.settings.subtitle || 'Cod deschis pentru comunitate. Servicii și instrumente DanGG pentru organizatori. Alege cum îți construiești experiența de poker.'}</p>
-            <div className="mp-hero-actions"><button type="button" className="mp-button mp-button-primary mp-button-large" onClick={() => scrollToSection('marketplace-catalog')}>Explorează catalogul<Icon name="arrow" /></button><button type="button" className="mp-button mp-button-secondary mp-button-large" onClick={() => scrollToSection('marketplace-contributors')}>Contributors</button><a className="mp-text-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer"><Icon name="code" />Vezi proiectul open-source<Icon name="external" /></a></div>
-            <div className="mp-hero-facts"><span><Icon name="check" />Jucători gratuit</span><span><Icon name="check" />Comunități independente</span><span><Icon name="check" />Servicii la alegere</span></div>
+            <h1 id="marketplace-title">{catalog?.settings.title || 'Your community. New possibilities.'}</h1>
+            <p className="mp-hero-description">{catalog?.settings.subtitle || 'Open source for the community. DanGG services and tools for organizers. Choose how you build your poker experience.'}</p>
+            <div className="mp-hero-actions"><button type="button" className="mp-button mp-button-primary mp-button-large" onClick={() => scrollToSection('marketplace-catalog')}>Explore the catalog<Icon name="arrow" /></button><button type="button" className="mp-button mp-button-secondary mp-button-large" onClick={() => scrollToSection('marketplace-contributors')}>Contributors</button><a className="mp-text-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer"><Icon name="code" />View the open-source project<Icon name="external" /></a></div>
+            <div className="mp-hero-facts"><span><Icon name="check" />Free for players</span><span><Icon name="check" />Independent communities</span><span><Icon name="check" />Optional services</span></div>
           </div>
-          <div className="mp-ecosystem" aria-label="DanGG conectează ediția Community, serviciile oficiale și extensiile marketplace">
+          <div className="mp-ecosystem" aria-label="DanGG connects the Community edition, official services, and marketplace extensions">
             <div className="mp-orbit mp-orbit-one" /><div className="mp-orbit mp-orbit-two" />
             <div className="mp-ecosystem-glow" />
-            <div className="mp-ecosystem-center"><img src={brand.logo} alt="" /><span>UN LOC PENTRU COMUNITATEA TA</span></div>
-            <div className="mp-ecosystem-card mp-ecosystem-community"><span className="mp-ecosystem-icon"><Icon name="code" /></span><div><strong>Community</strong><span>Cod deschis · AGPLv3</span></div><span className="mp-mini-dot" /></div>
-            <div className="mp-ecosystem-card mp-ecosystem-network"><span className="mp-ecosystem-icon"><Icon name="server" /></span><div><strong>DanGG Network</strong><span>Servicii oficiale</span></div><Icon name="arrow" /></div>
-            <div className="mp-ecosystem-card mp-ecosystem-extensions"><span className="mp-ecosystem-icon"><Icon name="layers" /></span><div><strong>Marketplace</strong><span>Instrumente & extensii</span></div><Icon name="spark" /></div>
-            <span className="mp-ecosystem-caption">COMUNITATE · INFRASTRUCTURĂ · POSIBILITĂȚI</span>
+            <div className="mp-ecosystem-center"><img src={brand.logo} alt="" /><span>A PLACE FOR YOUR COMMUNITY</span></div>
+            <div className="mp-ecosystem-card mp-ecosystem-community"><span className="mp-ecosystem-icon"><Icon name="code" /></span><div><strong>Community</strong><span>Open source · AGPLv3</span></div><span className="mp-mini-dot" /></div>
+            <div className="mp-ecosystem-card mp-ecosystem-network"><span className="mp-ecosystem-icon"><Icon name="server" /></span><div><strong>DanGG Network</strong><span>Official services</span></div><Icon name="arrow" /></div>
+            <div className="mp-ecosystem-card mp-ecosystem-extensions"><span className="mp-ecosystem-icon"><Icon name="layers" /></span><div><strong>Marketplace</strong><span>Tools &amp; extensions</span></div><Icon name="spark" /></div>
+            <span className="mp-ecosystem-caption">COMMUNITY · INFRASTRUCTURE · POSSIBILITIES</span>
           </div>
         </section>
 
-        <section className="mp-principles mp-container" aria-label="Principiile DanGG Marketplace">
-          <div><Icon name="code" /><p><strong>Tu alegi unde rulezi</strong><span>Pe infrastructura ta sau prin serviciile oficiale DanGG.</span></p></div>
-          <div><Icon name="shield" /><p><strong>Condiții transparente</strong><span>Fiecare produs își precizează livrarea și disponibilitatea.</span></p></div>
-          <div><Icon name="layers" /><p><strong>Separat de jetoanele de joc</strong><span>Marketplace-ul este pentru software și servicii.</span></p></div>
+        <section className="mp-principles mp-container" aria-label="DanGG Marketplace principles">
+          <div><Icon name="code" /><p><strong>You choose where to run it</strong><span>On your infrastructure or through official DanGG services.</span></p></div>
+          <div><Icon name="shield" /><p><strong>Transparent terms</strong><span>Every product states its delivery model and availability.</span></p></div>
+          <div><Icon name="layers" /><p><strong>Separate from game chips</strong><span>The marketplace is for software and services.</span></p></div>
         </section>
 
-        {success && <div className="mp-container"><div className="mp-notice mp-notice-success" role="status"><Icon name="check" /><span>{success}</span><button type="button" onClick={() => setSuccess('')} aria-label="Închide confirmarea"><Icon name="close" /></button></div></div>}
-        {actionError && <div className="mp-container"><div className="mp-notice mp-notice-error mp-action-error" role="alert"><span>{actionError}</span><button type="button" onClick={() => setActionError('')} aria-label="Închide mesajul de eroare"><Icon name="close" /></button></div></div>}
+        {success && <div className="mp-container"><div className="mp-notice mp-notice-success" role="status"><Icon name="check" /><span>{success}</span><button type="button" onClick={() => setSuccess('')} aria-label="Close confirmation"><Icon name="close" /></button></div></div>}
+        {actionError && <div className="mp-container"><div className="mp-notice mp-notice-error mp-action-error" role="alert"><span>{actionError}</span><button type="button" onClick={() => setActionError('')} aria-label="Close error message"><Icon name="close" /></button></div></div>}
 
         <section id="marketplace-catalog" className="mp-section mp-container" aria-labelledby="marketplace-catalog-title">
-          <div className="mp-section-heading"><div><span className="mp-eyebrow">ALEGE CE SE POTRIVEȘTE COMUNITĂȚII TALE</span><h2 id="marketplace-catalog-title">Catalogul DanGG</h2></div><p>Explorează oferta și trimite o solicitare.<br />Disponibilitatea și condițiile se confirmă înainte de activare.</p></div>
+          <div className="mp-section-heading"><div><span className="mp-eyebrow">CHOOSE WHAT FITS YOUR COMMUNITY</span><h2 id="marketplace-catalog-title">DanGG Catalog</h2></div><p>Explore the offers and send a request.<br />Availability and terms are confirmed before activation.</p></div>
           <div className="mp-catalog-toolbar">
-            <div className="mp-filters" role="group" aria-label="Filtrează după categorie"><button type="button" className={category === 'all' ? 'is-active' : ''} onClick={() => setCategory('all')} aria-pressed={category === 'all'}>Toate<span>{products.length}</span></button>{(Object.keys(MARKETPLACE_CATEGORY_LABELS) as MarketplaceCategory[]).map((key) => <button key={key} type="button" className={category === key ? 'is-active' : ''} onClick={() => setCategory(key)} aria-pressed={category === key}>{MARKETPLACE_CATEGORY_LABELS[key]}</button>)}</div>
-            <label className="mp-search" htmlFor={searchId}><Icon name="search" /><span className="mp-sr-only">Caută în catalog</span><input id={searchId} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Caută un serviciu sau o extensie" type="search" /></label>
+            <div className="mp-filters" role="group" aria-label="Filter by category"><button type="button" className={category === 'all' ? 'is-active' : ''} onClick={() => setCategory('all')} aria-pressed={category === 'all'}>All<span>{products.length}</span></button>{(Object.keys(MARKETPLACE_CATEGORY_LABELS) as MarketplaceCategory[]).map((key) => <button key={key} type="button" className={category === key ? 'is-active' : ''} onClick={() => setCategory(key)} aria-pressed={category === key}>{MARKETPLACE_CATEGORY_LABELS[key]}</button>)}</div>
+            <label className="mp-search" htmlFor={searchId}><Icon name="search" /><span className="mp-sr-only">Search the catalog</span><input id={searchId} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search for a service or extension" type="search" /></label>
           </div>
-          {loading ? <div className="mp-product-grid" aria-busy="true" aria-label="Se încarcă produsele">{[0, 1, 2].map((i) => <div className="mp-skeleton" key={i}><div /><span /><span /><span /></div>)}</div>
-            : catalogError ? <div className="mp-empty" role="alert"><Icon name="server" /><h3>Catalogul nu este disponibil momentan</h3><p>{catalogError}</p><button type="button" className="mp-button mp-button-secondary" onClick={() => setRetry((value) => value + 1)}>Încearcă din nou</button></div>
+          {loading ? <div className="mp-product-grid" aria-busy="true" aria-label="Loading products">{[0, 1, 2].map((i) => <div className="mp-skeleton" key={i}><div /><span /><span /><span /></div>)}</div>
+            : catalogError ? <div className="mp-empty" role="alert"><Icon name="server" /><h3>The catalog is currently unavailable</h3><p>{catalogError}</p><button type="button" className="mp-button mp-button-secondary" onClick={() => setRetry((value) => value + 1)}>Try again</button></div>
               : filtered.length ? <div className="mp-product-grid">{filtered.map((product) => <ProductCard key={product.id} product={product} contributor={contributorsByProduct.get(product.id)} onOpen={openProduct} requested={pendingProducts.has(product.id)} active={activeProducts.has(product.id)} />)}</div>
-                : <div className="mp-empty"><Icon name={products.length ? 'search' : 'layers'} /><h3>{products.length ? 'Niciun produs pentru această căutare' : 'Catalogul se pregătește'}</h3><p>{products.length ? 'Încearcă alt termen sau explorează toate categoriile.' : 'Produsele publicate de echipa DanGG vor apărea aici, cu detalii și disponibilitate.'}</p>{products.length > 0 && <button type="button" className="mp-button mp-button-secondary" onClick={() => { setQuery(''); setCategory('all'); }}>Resetează filtrele</button>}</div>}
-          <div className="mp-catalog-note"><Icon name="shield" /><p>{catalog?.settings.contact_note || 'Solicitările sunt analizate de echipa DanGG. Această pagină nu procesează plăți; prețul și livrarea se confirmă înainte de activare.'}</p></div>
+                : <div className="mp-empty"><Icon name={products.length ? 'search' : 'layers'} /><h3>{products.length ? 'No products match this search' : 'The catalog is being prepared'}</h3><p>{products.length ? 'Try another term or explore every category.' : 'Products published by the DanGG team will appear here with details and availability.'}</p>{products.length > 0 && <button type="button" className="mp-button mp-button-secondary" onClick={() => { setQuery(''); setCategory('all'); }}>Reset filters</button>}</div>}
+          <div className="mp-catalog-note"><Icon name="shield" /><p>{catalog?.settings.contact_note || 'Requests are reviewed by the DanGG team. This page does not process payments; price and delivery are confirmed before activation.'}</p></div>
         </section>
 
         <ContributorDirectory onContributors={receiveContributors} onProductSelect={showContributorProduct} />
 
-        <section id="marketplace-management" className="mp-section mp-container" aria-label="Administrare prin pluginuri">
+        <section id="marketplace-management" className="mp-section mp-container" aria-label="Plugin management">
           <ManagementPlugins userId={user?.id} onSelect={(productId) => { const product = products.find((entry) => entry.id === productId); if (product) openProduct(product); else { setCategory('all'); setQuery(''); scrollToSection('marketplace-catalog'); } }} />
         </section>
 
@@ -287,58 +321,59 @@ export function Marketplace() {
         <section className="mp-section mp-container"><OrganizerChips key={`chips-${user?.id ?? 'guest'}`} userId={user?.id} /></section>
 
         <section id="marketplace-how" className="mp-explanation-band" aria-labelledby="marketplace-how-title"><div className="mp-container mp-section">
-          <div className="mp-section-heading"><div><span className="mp-eyebrow">LIBERTATE PENTRU COMUNITATE. OPȚIUNI PENTRU ORGANIZATORI.</span><h2 id="marketplace-how-title">Un proiect deschis.<br />Mai multe moduri de a-l folosi.</h2></div><p>Licența codului și accesul la un serviciu sunt lucruri distincte. Alege varianta potrivită pentru tine.</p></div>
+          <div className="mp-section-heading"><div><span className="mp-eyebrow">FREEDOM FOR THE COMMUNITY. OPTIONS FOR ORGANIZERS.</span><h2 id="marketplace-how-title">One open project.<br />More ways to use it.</h2></div><p>The code license and access to a service are separate. Choose the option that fits you.</p></div>
           <div className="mp-explanation-grid">
-            <article><span className="mp-explanation-number">01</span><Icon name="code" /><h3>DanGG Community</h3><p>Descarci, instalezi și îmbunătățești ediția open-source pe serverul tău, în condițiile AGPLv3. Tu îți administrezi infrastructura și datele.</p><a className="mp-text-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Explorează codul<Icon name="external" /></a></article>
-            <article><span className="mp-explanation-number">02</span><Icon name="server" /><h3>Serviciile oficiale</h3><p>Poți solicita găzduire, capacitate, configurare sau suport de la DanGG. Serviciile se oferă conform disponibilității și condițiilor fiecărui produs.</p><button type="button" className="mp-text-link" onClick={() => { setCategory('hosting'); scrollToSection('marketplace-catalog'); }}>Vezi opțiunile de găzduire<Icon name="arrow" /></button></article>
-            <article><span className="mp-explanation-number">03</span><Icon name="layers" /><h3>Extensii și integrări</h3><p>Fiecare extensie are propriile condiții de utilizare, compatibile cu aplicația. O extensie vândută sub AGPL păstrează drepturile oferite de acea licență.</p><button type="button" className="mp-text-link" onClick={() => { setCategory('extensions'); scrollToSection('marketplace-catalog'); }}>Explorează extensiile<Icon name="arrow" /></button></article>
+            <article><span className="mp-explanation-number">01</span><Icon name="code" /><h3>DanGG Community</h3><p>Download, install, and improve the open-source edition on your server under AGPLv3. You manage your infrastructure and data.</p><a className="mp-text-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Explore the code<Icon name="external" /></a></article>
+            <article><span className="mp-explanation-number">02</span><Icon name="server" /><h3>Official services</h3><p>Request hosting, capacity, configuration, or support from DanGG. Services are provided according to each product's availability and terms.</p><button type="button" className="mp-text-link" onClick={() => { setCategory('hosting'); scrollToSection('marketplace-catalog'); }}>View hosting options<Icon name="arrow" /></button></article>
+            <article><span className="mp-explanation-number">03</span><Icon name="layers" /><h3>Extensions and integrations</h3><p>Each extension has its own application-compatible terms. An extension sold under AGPL retains the rights granted by that license.</p><button type="button" className="mp-text-link" onClick={() => { setCategory('extensions'); scrollToSection('marketplace-catalog'); }}>Explore extensions<Icon name="arrow" /></button></article>
           </div>
-          <div className="mp-flow"><span><b>1</b>Alegi un produs</span><Icon name="arrow" /><span><b>2</b>Trimiți o solicitare</span><Icon name="arrow" /><span><b>3</b>Primești un răspuns în cont</span></div>
+          <div className="mp-flow"><span><b>1</b>Choose a product</span><Icon name="arrow" /><span><b>2</b>Send a request</span><Icon name="arrow" /><span><b>3</b>Receive a response in your account</span></div>
         </div></section>
 
         {user && <section id="marketplace-account" className="mp-section mp-container" aria-labelledby="marketplace-account-title">
-          <div className="mp-section-heading"><div><span className="mp-eyebrow">SPAȚIUL TĂU</span><h2 id="marketplace-account-title">Solicitări și acces</h2></div><button type="button" className="mp-button mp-button-secondary" onClick={() => setAccountRetry((value) => value + 1)} disabled={accountLoading}>{accountLoading ? 'Se actualizează…' : 'Actualizează'}</button></div>
+          <div className="mp-section-heading"><div><span className="mp-eyebrow">YOUR SPACE</span><h2 id="marketplace-account-title">Requests and access</h2></div><button type="button" className="mp-button mp-button-secondary" onClick={() => setAccountRetry((value) => value + 1)} disabled={accountLoading}>{accountLoading ? 'Refreshing…' : 'Refresh'}</button></div>
           {accountError && <div className="mp-notice mp-notice-error" role="alert">{accountError}</div>}
-          {accountLoading ? <p className="mp-account-loading" role="status">Se încarcă datele contului…</p> : <div className="mp-account-grid">
-            <div className="mp-account-panel"><h3><Icon name="clock" />Solicitările mele<span>{account.requests.length}</span></h3>{account.requests.length === 0 ? <p className="mp-account-empty">Nu ai trimis încă o solicitare. Alege un produs din catalog pentru a începe.</p> : <ul className="mp-account-list">{account.requests.map((request) => <li key={request.id}><div className="mp-account-row"><strong>{marketplaceProductLabel({ id: request.product_id, name: request.product_name })}</strong><span className={`mp-account-status mp-account-${request.status}`}>{REQUEST_STATUS[request.status]}</span></div><time>{displayDate(request.created_at)}</time>{request.message && <p className="mp-account-message">{request.message}</p>}{request.response && <div className="mp-team-response"><b>Răspuns DanGG</b><p>{request.response}</p></div>}</li>)}</ul>}</div>
-            <div className="mp-account-panel"><h3><Icon name="shield" />Accesul meu<span>{account.entitlements.length}</span></h3>{account.entitlements.length === 0 ? <p className="mp-account-empty">Accesul acordat de echipa DanGG va apărea aici, împreună cu perioada de valabilitate.</p> : <ul className="mp-account-list">{account.entitlements.map((entitlement) => {
+          {accountLoading ? <p className="mp-account-loading" role="status">Loading account data…</p> : <div className="mp-account-grid">
+            <div className="mp-account-panel"><h3><Icon name="clock" />My requests<span>{account.requests.length}</span></h3>{account.requests.length === 0 ? <p className="mp-account-empty">You have not sent a request yet. Choose a product from the catalog to begin.</p> : <ul className="mp-account-list">{account.requests.map((request) => <li key={request.id}><div className="mp-account-row"><strong>{marketplaceProductLabel({ id: request.product_id, name: request.product_name })}</strong><span className={`mp-account-status mp-account-${request.status}`}>{REQUEST_STATUS[request.status]}</span></div><time>{displayDate(request.created_at)}</time>{request.message && <p className="mp-account-message">{request.message}</p>}{request.response && <div className="mp-team-response"><b>DanGG response</b><p>{request.response}</p></div>}</li>)}</ul>}</div>
+            <div className="mp-account-panel"><h3><Icon name="shield" />My access<span>{account.entitlements.length}</span></h3>{account.entitlements.length === 0 ? <p className="mp-account-empty">Access granted by the DanGG team will appear here with its validity period.</p> : <ul className="mp-account-list">{account.entitlements.map((entitlement) => {
               const expired = Boolean(entitlement.expires_at && new Date(entitlement.expires_at).getTime() <= Date.now());
               const active = entitlement.status === 'active' && !expired;
-              return <li key={entitlement.id}><div className="mp-account-row"><strong>{marketplaceProductLabel({ id: entitlement.product_id, name: entitlement.product_name })}</strong><span className={`mp-account-status ${active ? 'mp-account-approved' : 'mp-account-declined'}`}>{entitlement.status === 'revoked' ? 'Revocat' : expired ? 'Expirat' : 'Acordat'}</span></div><time>{entitlement.expires_at ? `Valabil până la ${displayDate(entitlement.expires_at)}` : 'Fără dată de expirare'}</time>{entitlement.note && <p>{entitlement.note}</p>}</li>;
-            })}</ul>}<p className="mp-access-note">Drepturile de acces sunt înregistrate în cont. Livrarea fiecărui serviciu se confirmă conform ofertei.</p></div>
+              return <li key={entitlement.id}><div className="mp-account-row"><strong>{marketplaceProductLabel({ id: entitlement.product_id, name: entitlement.product_name })}</strong><span className={`mp-account-status ${active ? 'mp-account-approved' : 'mp-account-declined'}`}>{entitlement.status === 'revoked' ? 'Revoked' : expired ? 'Expired' : 'Granted'}</span></div><time>{entitlement.expires_at ? `Valid until ${displayDate(entitlement.expires_at)}` : 'No expiration date'}</time>{entitlement.note && <p>{entitlement.note}</p>}</li>;
+            })}</ul>}<p className="mp-access-note">Access rights are recorded in your account. Delivery of each service is confirmed according to its offer.</p></div>
           </div>}
         </section>}
 
         <div className="mp-section mp-container" id="marketplace-publisher"><MarketplacePublisher userId={user?.id} onLogin={() => navigate('/login?returnTo=marketplace')} /></div>
 
         <section className="mp-section mp-container mp-faq" aria-labelledby="marketplace-faq-title">
-          <div><span className="mp-eyebrow">RĂSPUNSURI CLARE</span><h2 id="marketplace-faq-title">Înainte să alegi.</h2><p>Ce primești prin codul open-source și ce înseamnă serviciile din marketplace.</p><a className="mp-text-link" href={`${SOURCE_FILE_ROOT}/docs/LICENSING.md`} target="_blank" rel="noopener noreferrer">Ghidul de licențiere<Icon name="external" /></a></div>
+          <div><span className="mp-eyebrow">CLEAR ANSWERS</span><h2 id="marketplace-faq-title">Before you choose.</h2><p>What the open-source code includes and what marketplace services mean.</p><a className="mp-text-link" href={`${SOURCE_FILE_ROOT}/docs/LICENSING.md`} target="_blank" rel="noopener noreferrer">Licensing guide<Icon name="external" /></a></div>
           <div className="mp-faq-list">
-            <details><summary>Pot copia, folosi și îmbunătăți DanGG?<span>+</span></summary><p>Da. Ediția Community este publicată sub AGPLv3. Poți să o folosești și să o modifici, inclusiv comercial, respectând licența. Pentru versiunile modificate oferite utilizatorilor prin rețea se aplică obligațiile AGPL privind accesul la sursa corespunzătoare.</p></details>
-            <details><summary>Pentru ce plătesc în marketplace?<span>+</span></summary><p>Pentru serviciile, capacitatea sau extensiile descrise în oferta aleasă. În această etapă trimiți o solicitare, iar echipa confirmă disponibilitatea, prețul și condițiile. Trimiterea unei solicitări nu efectuează o plată și nu creează automat un abonament.</p></details>
-            <details><summary>O funcție plătită este automat cu cod închis?<span>+</span></summary><p>Nu. Licența fiecărui produs stabilește drepturile asupra codului. O funcție distribuită sub AGPL poate fi modificată pe o instalare proprie; aceasta nu oferă acces gratuit la infrastructura sau serviciile oficiale DanGG. Condițiile modulelor comerciale se verifică înainte de livrare.</p></details>
-            <details><summary>Serviciile au legătură cu jetoanele de joc?<span>+</span></summary><p>Soldurile demo gratuite nu au valoare monetară și nu se convertesc în Cash Chips. Când serviciile plătite sunt active, abonamentul Organizator de $9/lună include 100.000 Cash Chips; pachetele suplimentare costă $1 pentru 10.000. Cash Chips sunt valabile numai la organizatorul emitent. Acesta stabilește separat condițiile cu jucătorii și plătește eventualele răscumpărări; platforma nu execută și nu garantează acele plăți externe. Creditele pentru servicii rămân un sold separat.</p></details>
-            <details><summary>Cum se verifică o alimentare sau o solicitare de rambursare?<span>+</span></summary><p>Alimentările NervixPay se creditează numai după verificarea manuală a plății finale și a contului beneficiar. Păstrează ID-ul comenzii și contactează Suport pentru verificare, o plată greșită sau o solicitare de rambursare. Deschiderea checkout-ului nu confirmă plata, iar alimentarea nu activează automat un abonament. Rambursările și răscumpărările externe nu sunt automate.</p></details>
+            <details><summary>Can I copy, use, and improve DanGG?<span>+</span></summary><p>Yes. The Community edition is published under AGPLv3. You may use and modify it, including commercially, while following the license. Modified versions offered to users over a network are subject to the AGPL requirements for access to the corresponding source.</p></details>
+            <details><summary>What do I pay for in the marketplace?<span>+</span></summary><p>For the services, capacity, or extensions described in the offer you choose. At this stage you send a request, and the team confirms availability, price, and terms. Sending a request does not make a payment or automatically create a subscription.</p></details>
+            <details><summary>Is a paid feature automatically closed source?<span>+</span></summary><p>No. Each product's license defines your rights to its code. A feature distributed under AGPL may be modified on your own installation; that does not provide free access to official DanGG infrastructure or services. Commercial module terms are reviewed before delivery.</p></details>
+            <details><summary>Are services connected to game chips?<span>+</span></summary><p>Free demo balances have no monetary value and cannot be converted into Cash Chips. When paid services are active, the $9/month Organizer membership includes 100,000 Cash Chips; additional packs cost $1 for 10,000. Cash Chips are valid only with the issuing organizer. The organizer separately sets player terms and pays any buybacks; the platform does not execute or guarantee those external payments. Service credits remain a separate balance.</p></details>
+            <details><summary>How is a top-up or refund request verified?<span>+</span></summary><p>NervixPay top-ups are credited only after manual verification of the final payment and beneficiary account. Keep the order ID and contact Support for verification, an incorrect payment, or a refund request. Opening checkout does not confirm payment, and a top-up does not automatically activate a subscription. External refunds and buybacks are not automatic.</p></details>
           </div>
         </section>
       </main>
 
-      <footer className="mp-footer"><div className="mp-container"><div><img src={brand.logo} alt="DanGG" /><p>Poker social. Cod deschis. Comunitatea ta.</p></div><nav aria-label="Informații legale"><a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Cod sursă<Icon name="external" /></a><a href="/legal/LICENSE" target="_blank" rel="noopener noreferrer">Licență AGPLv3</a><a href={`${SOURCE_FILE_ROOT}/TRADEMARKS.md`} target="_blank" rel="noopener noreferrer">Brand DanGG</a><button type="button" onClick={() => navigate('/support')}>Suport</button></nav><span>DanGG · Demo &amp; organizer services · 18+</span></div></footer>
+      <footer className="mp-footer"><div className="mp-container"><div><img src={brand.logo} alt="DanGG" /><p>Social poker. Open source. Your community.</p></div><nav aria-label="Legal information"><a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Source code<Icon name="external" /></a><a href="/legal/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 license</a><a href={`${SOURCE_FILE_ROOT}/TRADEMARKS.md`} target="_blank" rel="noopener noreferrer">DanGG brand</a><button type="button" onClick={() => navigate('/support')}>Support</button></nav><span>DanGG · Demo &amp; organizer services · 18+</span></div></footer>
 
       {selected && <div className="mp-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeProduct(); }}>
         <section ref={dialogRef} className="mp-modal" role="dialog" aria-modal="true" aria-labelledby={dialogTitle}>
-          <button type="button" data-dialog-close className="mp-modal-close mp-round-button" onClick={closeProduct} aria-label="Închide detaliile"><Icon name="close" /></button>
+          <button type="button" data-dialog-close className="mp-modal-close mp-round-button" onClick={closeProduct} aria-label="Close details"><Icon name="close" /></button>
           <div className="mp-modal-heading"><span className="mp-product-symbol"><Icon name={CATEGORY_ICONS[selected.category]} /></span><span className="mp-eyebrow">{MARKETPLACE_DELIVERY_LABELS[selected.delivery]}</span><h2 id={dialogTitle}>{marketplaceProductLabel(selected)}</h2><p>{selected.summary}</p></div>
-          <div className="mp-modal-price"><strong>{marketplacePrice(selected)}</strong><span className={`mp-status ${selected.status === 'available' ? 'mp-status-ready' : ''}`}><span />{selected.status === 'available' ? 'Disponibil' : 'În pregătire'}</span></div>
+          <div className="mp-modal-price"><strong>{marketplacePrice(selected)}</strong><span className={`mp-status ${selected.status === 'available' ? 'mp-status-ready' : ''}`}><span />{selected.status === 'available' ? 'Available' : 'Coming soon'}</span></div>
           <p className="mp-product-description">{selected.description}</p>
           {selected.features.length > 0 && <ul className="mp-feature-list">{selected.features.map((feature, i) => <li key={`${feature}-${i}`}><Icon name="check" /><span>{feature}</span></li>)}</ul>}
-          <div className="mp-delivery-explanation"><Icon name="shield" /><p>{selected.delivery === 'hosted_service' ? 'Serviciu furnizat de DanGG, conform ofertei confirmate. Accesul la serviciu este separat de dreptul de a instala ediția Community.' : selected.delivery === 'open_source_extension' ? 'Extensie open-source. Licența aplicabilă și instrucțiunile de instalare se comunică înainte de livrare; plata nu elimină drepturile oferite de licență.' : 'Modul comercial. Condițiile de licențiere, compatibilitatea și livrarea se confirmă înainte de orice achiziție.'}</p></div>
+          <div className="mp-delivery-explanation"><Icon name="shield" /><p>{selected.delivery === 'hosted_service' ? 'A service provided by DanGG under the confirmed offer. Service access is separate from the right to install the Community edition.' : selected.delivery === 'open_source_extension' ? 'An open-source extension. The applicable license and installation instructions are provided before delivery; payment does not remove the rights granted by the license.' : 'A commercial module. Licensing terms, compatibility, and delivery are confirmed before any purchase.'}</p></div>
           {requestError && <div className="mp-notice mp-notice-error" role="alert">{requestError}</div>}
-          {selectedRequest ? <div className="mp-modal-requested" role="status"><Icon name="clock" /><div><strong>Solicitarea ta este în evaluare</strong><p>Poți urmări răspunsul în secțiunea Contul meu.</p></div><button type="button" className="mp-text-link" onClick={() => { closeProduct(); scrollToSection('marketplace-account'); }}>Vezi solicitările<Icon name="arrow" /></button></div>
-            : activeProducts.has(selected.id) ? <div className="mp-modal-requested"><Icon name="shield" /><div><strong>Ai un drept de acces înregistrat</strong><p>Verifică detaliile și valabilitatea în secțiunea Contul meu.</p></div></div>
-              : !requestsEnabled ? <div className="mp-modal-requested"><Icon name="clock" /><p>Solicitările sunt momentan închise. Poți reveni pentru disponibilitatea acestui produs.</p></div>
-                : !user ? <div className="mp-modal-signin"><p>Intră în cont pentru a trimite o solicitare și a urmări răspunsul echipei.</p><button type="button" className="mp-button mp-button-primary" onClick={() => { closeProduct(); navigate('/login?returnTo=marketplace'); }}>Intră în cont<Icon name="arrow" /></button></div>
-                  : <form className="mp-request-form" onSubmit={submitRequest}><label htmlFor={messageId}>{selected.status === 'coming_soon' ? 'Spune-ne cum ai folosi acest produs' : 'Spune-ne de ce are nevoie comunitatea ta'}<span>Opțional</span></label><textarea id={messageId} value={message} onChange={(event) => setMessage(event.target.value)} maxLength={2000} rows={3} placeholder="De exemplu: numărul de participanți și serviciile care te interesează." disabled={submitting} /><div className="mp-request-footer"><p>Solicitarea nu implică o plată.{selected.status === 'coming_soon' ? ' Produsul este încă în pregătire.' : ''}</p><button type="submit" className="mp-button mp-button-primary" disabled={submitting}>{submitting ? 'Se trimite…' : selected.status === 'coming_soon' ? 'Înregistrează interesul' : 'Trimite solicitarea'}<Icon name="arrow" /></button></div></form>}
+          {selected.id === 'club-entry' ? <div className="mp-modal-signin"><p>Club Entry is an admission service, not a software purchase. Choose a club to see its free or paid entry terms. Paid access is granted only after server-side payment verification.</p><button type="button" className="mp-button mp-button-primary" onClick={() => { closeProduct(); navigate('/organizers'); }}>Choose a club<Icon name="arrow" /></button></div>
+            : selectedRequest ? <div className="mp-modal-requested" role="status"><Icon name="clock" /><div><strong>Your request is under review</strong><p>Track the response in My account.</p></div><button type="button" className="mp-text-link" onClick={() => { closeProduct(); scrollToSection('marketplace-account'); }}>View requests<Icon name="arrow" /></button></div>
+            : activeProducts.has(selected.id) ? <div className="mp-modal-requested"><Icon name="shield" /><div><strong>You have a recorded access entitlement</strong><p>Review its details and validity in My account.</p></div></div>
+              : !requestsEnabled ? <div className="mp-modal-requested"><Icon name="clock" /><p>Requests are currently closed. Check back for this product's availability.</p></div>
+                : !user ? <div className="mp-modal-signin"><p>Sign in to send a request and track the team's response.</p><button type="button" className="mp-button mp-button-primary" onClick={() => { closeProduct(); navigate('/login?returnTo=marketplace'); }}>Sign in<Icon name="arrow" /></button></div>
+                  : <form className="mp-request-form" onSubmit={submitRequest}><label htmlFor={messageId}>{selected.status === 'coming_soon' ? 'Tell us how you would use this product' : 'Tell us what your community needs'}<span>Optional</span></label><textarea id={messageId} value={message} onChange={(event) => setMessage(event.target.value)} maxLength={2000} rows={3} placeholder="For example: participant count and the services you are interested in." disabled={submitting} /><div className="mp-request-footer"><p>The request does not make a payment.{selected.status === 'coming_soon' ? ' This product is still in preparation.' : ''}</p><button type="submit" className="mp-button mp-button-primary" disabled={submitting}>{submitting ? 'Sending…' : selected.status === 'coming_soon' ? 'Register interest' : 'Send request'}<Icon name="arrow" /></button></div></form>}
         </section>
       </div>}
     </div>

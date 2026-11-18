@@ -48,6 +48,7 @@ import './table-phone-clock.css';
 import './table-phone-win.css';
 import './table-phone-seat.css';
 import './table-phone-layout.css';
+import './table-multiboard.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>

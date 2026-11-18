@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-test('mobile navigation keeps five top-level destinations', () => {
+test('mobile navigation exposes the organizer directory', () => {
   const source = fs.readFileSync(path.resolve(import.meta.dirname, '../src/lib/phoneNav.ts'), 'utf8');
   const labels = [...source.matchAll(/label: '([^']+)'/g)].map((match) => match[1]);
-  assert.deepEqual(labels, ['Poker', 'Tournaments', 'Home', 'Casino', 'My Page']);
+  assert.deepEqual(labels, ['Poker', 'Tournaments', 'Home', 'Casino', 'Organizers', 'My Page']);
 });

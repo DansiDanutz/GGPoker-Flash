@@ -18,14 +18,19 @@ const REQUESTS_PER_HOUR = 5;
 const REQUESTS_PER_DAY = 10;
 const timestamp = () => new Date().toISOString();
 
-const DEFAULT_SETTINGS = {
+const LEGACY_SETTINGS = {
   title: 'Mai mult pentru comunitatea ta.',
   subtitle: 'Descoperă serviciile DanGG pentru organizatori și direcțiile în care construim marketplace-ul. Comunitatea open-source rămâne instalabilă independent.',
   contact_note: 'Trimite o cerere de interes. Echipa DanGG îți răspunde înainte de orice activare. Cererile nu inițiază plăți și nu cumpără jetoane de joc.',
+};
+const DEFAULT_SETTINGS = {
+  title: 'More for your community.',
+  subtitle: 'Discover DanGG services for organizers and the directions in which we are building the marketplace. The open-source Community edition remains independently installable.',
+  contact_note: 'Send an expression of interest. The DanGG team will respond before any activation. Requests do not initiate payments or purchase game chips.',
   requests_enabled: true,
 };
 
-const SEEDS = [
+const LEGACY_SEEDS = [
   { id: 'club-hosting', slug: 'club-hosting', name: 'Găzduire pentru club', summary: 'Un spațiu administrat pentru comunitatea ta de poker social.', category: 'hosting', delivery: 'hosted_service', featured: true,
     description: 'Serviciu în pregătire pentru organizatorii care vor să își găzduiască activitatea în rețeaua oficială DanGG. Capacitatea, suportul și condițiile de operare se stabilesc individual. Cererea exprimă interesul și nu activează automat un serviciu.',
     features: ['Configurare asistată', 'Capacitate de găzduire convenită', 'Suport pentru organizator'] },
@@ -38,6 +43,23 @@ const SEEDS = [
   { id: 'community-extensions', slug: 'community-extensions', name: 'Extensii comunitare', summary: 'Un loc pentru idei, extensii și contribuții compatibile cu DanGG.', category: 'extensions', delivery: 'open_source_extension', featured: false,
     description: 'Catalog în pregătire pentru extensii ale comunității. Licența și compatibilitatea fiecărei extensii vor fi precizate înainte de distribuție. Oferta se referă la evaluare, integrare sau suport; drepturile asupra codului rămân cele acordate de licența sa.',
     features: ['Propuneri de extensii', 'Evaluarea compatibilității', 'Integrare și suport la cerere'] },
+];
+const SEEDS = [
+  { id: 'club-entry', slug: 'club-entry', name: 'Club Entry', summary: 'Verified admission to an organizer club, with a free Knock Knock option.', category: 'tools', delivery: 'hosted_service', featured: true, status: 'available', pricing: 'one_time', price_cents: 100, currency: 'USD',
+    description: 'Choose an organizer club and its published entry terms. Organizers may offer free entry or set a fee from $0 to $1,000; the default is $1. Paid access activates only after server-side payment verification. For each verified $1 entry, the organizer receives 6,400 non-redeemable bonus Cash Chips. The creator allocation is 20 cents gross; after the 20% platform commission on that allocation, the creator receives 16 cents net. The platform receives 20 cents in royalties (16 cents from the organizer share and 4 cents from the creator share) before payment-provider fees. Organizers do not receive USD withdrawals.',
+    features: ['Free Knock Knock option or organizer-set fee', 'Access only after server-side payment verification', '6,400 non-redeemable bonus Cash Chips per verified $1 entry'] },
+  { id: 'club-hosting', slug: 'club-hosting', name: 'Club hosting', summary: 'A managed space for your social poker community.', category: 'hosting', delivery: 'hosted_service', featured: true,
+    description: 'A service in preparation for organizers who want to host their activity on the official DanGG network. Capacity, support, and operating terms are agreed individually. A request expresses interest and does not automatically activate a service.',
+    features: ['Assisted configuration', 'Agreed hosting capacity', 'Organizer support'] },
+  { id: 'organizer-tools', slug: 'organizer-tools', name: 'Organizer tools', summary: 'Planning and reporting for growing communities.', category: 'tools', delivery: 'hosted_service', featured: true,
+    description: 'A planned toolkit for managing events and tracking club activity. Features and availability will be confirmed before activation. It does not include cash prizes or purchasable game chips.',
+    features: ['Event planning', 'Club reports', 'Configuration with the DanGG team'] },
+  { id: 'club-branding', slug: 'club-branding', name: 'Club customization', summary: 'Your community identity in a consistent DanGG experience.', category: 'customization', delivery: 'hosted_service', featured: false,
+    description: 'A planned service for customizing a club identity and assisting with configuration. The domain, visual elements, and required work are agreed in the offer. Availability is confirmed individually.',
+    features: ['Club visual identity', 'Custom domain assistance', 'Assisted configuration and integration'] },
+  { id: 'community-extensions', slug: 'community-extensions', name: 'Community extensions', summary: 'A place for ideas, extensions, and DanGG-compatible contributions.', category: 'extensions', delivery: 'open_source_extension', featured: false,
+    description: 'A catalog in preparation for community extensions. Each extension\'s license and compatibility will be stated before distribution. The offer covers evaluation, integration, or support; rights to the code remain those granted by its license.',
+    features: ['Extension proposals', 'Compatibility review', 'Integration and support on request'] },
 ];
 
 function transaction(db, operation) {
@@ -53,79 +75,79 @@ function fail(message, status = 400) {
 }
 
 function objectBody(body, allowed) {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) fail('Datele trebuie să fie un obiect.');
-  if (JSON.stringify(body).length > 24_000) fail('Conținutul trimis este prea mare.', 413);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) fail('The request data must be an object.');
+  if (JSON.stringify(body).length > 24_000) fail('The submitted content is too large.', 413);
   const unknown = Object.keys(body).filter((key) => !allowed.includes(key));
-  if (unknown.length) fail('Cererea conține câmpuri neacceptate.');
+  if (unknown.length) fail('The request contains unsupported fields.');
   return body;
 }
 
 function textField(value, name, maximum, minimum = 0) {
-  if (typeof value !== 'string') fail(`${name} trebuie să fie text.`);
+  if (typeof value !== 'string') fail(`${name} must be text.`);
   const clean = value.trim();
   if (clean.length < minimum || clean.length > maximum || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(clean)) {
-    fail(`${name} trebuie să aibă între ${minimum} și ${maximum} de caractere.`);
+    fail(`${name} must contain between ${minimum} and ${maximum} characters.`);
   }
   return clean;
 }
 
 function choice(value, allowed, label) {
-  if (!allowed.includes(value)) fail(`${label} nu este valid.`);
+  if (!allowed.includes(value)) fail(`${label} is invalid.`);
   return value;
 }
 
 function numericId(value) {
-  if (!Number.isSafeInteger(value) || value < 1) fail('Identificatorul utilizatorului nu este valid.');
+  if (!Number.isSafeInteger(value) || value < 1) fail('The user ID is invalid.');
   return value;
 }
 
 function pathId(raw, numeric = false) {
   let id;
-  try { id = decodeURIComponent(raw); } catch { fail('Identificator invalid.'); }
+  try { id = decodeURIComponent(raw); } catch { fail('Invalid identifier.'); }
   if (numeric) {
-    if (!/^[1-9][0-9]{0,14}$/.test(id)) fail('Identificator invalid.');
+    if (!/^[1-9][0-9]{0,14}$/.test(id)) fail('Invalid identifier.');
     return numericId(Number(id));
   }
-  if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) fail('Identificator invalid.');
+  if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) fail('Invalid identifier.');
   return id;
 }
 
 function normalizeProduct(body, previous = null) {
   objectBody(body, PRODUCT_FIELDS);
   const value = { summary: '', description: '', category: 'hosting', delivery: 'hosted_service', status: 'draft', pricing: 'quote', price_cents: null, currency: 'EUR', features: [], featured: false, sort_order: 0, ...previous, ...body };
-  const slug = textField(value.slug, 'Adresa produsului', 80, 1);
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail('Adresa produsului acceptă litere mici, cifre și cratime.');
+  const slug = textField(value.slug, 'Product slug', 80, 1);
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail('The product slug accepts lowercase letters, numbers, and hyphens.');
   const output = {
     slug,
-    name: textField(value.name, 'Numele', 120, 2),
-    summary: textField(value.summary, 'Rezumatul', 240),
-    description: textField(value.description, 'Descrierea', 6000),
-    category: choice(value.category, CATEGORIES, 'Categoria'),
-    delivery: choice(value.delivery, DELIVERIES, 'Tipul produsului'),
-    status: choice(value.status, STATUSES, 'Starea'),
-    pricing: choice(value.pricing, PRICING, 'Tipul prețului'),
-    currency: choice(value.currency, CURRENCIES, 'Moneda'),
+    name: textField(value.name, 'Name', 120, 2),
+    summary: textField(value.summary, 'Summary', 240),
+    description: textField(value.description, 'Description', 6000),
+    category: choice(value.category, CATEGORIES, 'Category'),
+    delivery: choice(value.delivery, DELIVERIES, 'Product type'),
+    status: choice(value.status, STATUSES, 'Status'),
+    pricing: choice(value.pricing, PRICING, 'Pricing type'),
+    currency: choice(value.currency, CURRENCIES, 'Currency'),
   };
-  if (!Array.isArray(value.features) || value.features.length > 12) fail('Sunt permise cel mult 12 caracteristici.');
-  output.features = value.features.map((item) => textField(item, 'Caracteristica', 160, 1));
-  if (typeof value.featured !== 'boolean') fail('Promovarea produsului trebuie să fie true sau false.');
+  if (!Array.isArray(value.features) || value.features.length > 12) fail('A maximum of 12 features is allowed.');
+  output.features = value.features.map((item) => textField(item, 'Feature', 160, 1));
+  if (typeof value.featured !== 'boolean') fail('Product promotion must be true or false.');
   output.featured = value.featured;
-  if (!Number.isSafeInteger(value.sort_order) || Math.abs(value.sort_order) > 10000) fail('Ordinea trebuie să fie un număr întreg între -10000 și 10000.');
+  if (!Number.isSafeInteger(value.sort_order) || Math.abs(value.sort_order) > 10000) fail('Sort order must be an integer between -10000 and 10000.');
   output.sort_order = value.sort_order;
-  if (value.price_cents !== null && (!Number.isSafeInteger(value.price_cents) || value.price_cents < 0 || value.price_cents > 100_000_000)) fail('Prețul trebuie exprimat ca număr întreg de subdiviziuni monetare.');
+  if (value.price_cents !== null && (!Number.isSafeInteger(value.price_cents) || value.price_cents < 0 || value.price_cents > 100_000_000)) fail('Price must be an integer number of minor currency units.');
   if (output.pricing === 'quote') output.price_cents = null;
   else if (output.pricing === 'free') output.price_cents = 0;
   else {
-    if (!Number.isSafeInteger(value.price_cents) || value.price_cents <= 0) fail('Un preț cu plată trebuie să fie mai mare decât zero.');
+    if (!Number.isSafeInteger(value.price_cents) || value.price_cents <= 0) fail('A paid price must be greater than zero.');
     output.price_cents = value.price_cents;
   }
-  if (['available', 'coming_soon'].includes(output.status) && !output.summary) fail('Adaugă un rezumat înainte de publicare.');
+  if (['available', 'coming_soon'].includes(output.status) && !output.summary) fail('Add a summary before publishing.');
   const plugin = managementPlugin(previous?.id);
   if (plugin) {
-    if (!plugin.implemented && output.status === 'available') fail('Acest modul de administrare nu este încă implementat.', 409);
-    if (output.pricing === 'free') fail('Modulele de administrare folosesc un preț plătit sau o ofertă la cerere.');
-    if (output.currency !== 'USD') fail('Decontarea modulelor de administrare este disponibilă în USD.');
-    if (output.delivery !== 'hosted_service') fail('Acest modul reprezintă un serviciu de administrare găzduit.');
+    if (!plugin.implemented && output.status === 'available') fail('This management module is not implemented yet.', 409);
+    if (output.pricing === 'free') fail('Management modules use a paid price or a quote.');
+    if (output.currency !== 'USD') fail('Management module settlement is available in USD.');
+    if (output.delivery !== 'hosted_service') fail('This module is a hosted management service.');
   }
   return output;
 }
@@ -193,9 +215,21 @@ export function ensureMarketplaceSchema(db) {
   transaction(db, () => {
     db.prepare('INSERT OR IGNORE INTO marketplace_settings (id,title,subtitle,contact_note,requests_enabled) VALUES (1,?,?,?,?)')
       .run(DEFAULT_SETTINGS.title, DEFAULT_SETTINGS.subtitle, DEFAULT_SETTINGS.contact_note, 1);
-    const insert = db.prepare(`INSERT OR IGNORE INTO marketplace_products (id,slug,name,summary,description,category,delivery,status,pricing,price_cents,currency,features_json,featured,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'coming_soon','quote',NULL,'EUR',?,?,?,?,?)`);
+    for (const field of ['title', 'subtitle', 'contact_note']) {
+      db.prepare(`UPDATE marketplace_settings SET ${field}=? WHERE id=1 AND ${field}=?`).run(DEFAULT_SETTINGS[field], LEGACY_SETTINGS[field]);
+    }
+    const insert = db.prepare(`INSERT OR IGNORE INTO marketplace_products (id,slug,name,summary,description,category,delivery,status,pricing,price_cents,currency,features_json,featured,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     const now = timestamp();
-    for (const [index, item] of SEEDS.entries()) insert.run(item.id, item.slug, item.name, item.summary, item.description, item.category, item.delivery, JSON.stringify(item.features), item.featured ? 1 : 0, index * 10, now, now);
+    for (const [index, item] of SEEDS.entries()) insert.run(item.id, item.slug, item.name, item.summary, item.description, item.category, item.delivery, item.status || 'coming_soon', item.pricing || 'quote', item.price_cents ?? null, item.currency || 'EUR', JSON.stringify(item.features), item.featured ? 1 : 0, index * 10, now, now);
+    for (const item of SEEDS) {
+      const legacy = LEGACY_SEEDS.find((entry) => entry.id === item.id);
+      if (!legacy) continue;
+      for (const field of ['name', 'summary', 'description']) {
+        db.prepare(`UPDATE marketplace_products SET ${field}=? WHERE id=? AND ${field}=?`).run(item[field], item.id, legacy[field]);
+      }
+      db.prepare('UPDATE marketplace_products SET features_json=? WHERE id=? AND features_json=?')
+        .run(JSON.stringify(item.features), item.id, JSON.stringify(legacy.features));
+    }
     seedManagementProducts(db);
   });
 }
@@ -211,7 +245,7 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
   const getRequest = (id, admin = false) => requestFrom(db.prepare(`${REQUEST_SELECT} WHERE r.id = ?`).get(id), admin);
   const getEntitlement = (id, admin = false) => entitlementFrom(db.prepare(`${ENTITLEMENT_SELECT} WHERE e.id = ?`).get(id), admin);
   const audit = (actor, action, detail) => db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(actor.login, action, JSON.stringify(detail));
-  const method = (req, allowed) => { if (!allowed.includes(req.method)) fail('Metodă neacceptată.', 405); };
+  const method = (req, allowed) => { if (!allowed.includes(req.method)) fail('Method not allowed.', 405); };
 
   return async function handleMarketplace(req, res, url) {
     const pathname = url.pathname;
@@ -255,19 +289,19 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
       if (pathname === `${PUBLIC_ROOT}/requests`) {
         method(req, ['POST']);
         const user = requireUser(req, res); if (!user) return true;
-        if (!settings().requests_enabled) fail('Cererile sunt momentan oprite.', 403);
+        if (!settings().requests_enabled) fail('Requests are currently closed.', 403);
         const body = objectBody(await readBody(req), ['product_id', 'message']);
-        const productId = textField(body.product_id, 'Produsul', 100, 1);
-        const message = textField(body.message ?? '', 'Mesajul', 2000);
+        const productId = textField(body.product_id, 'Product', 100, 1);
+        const message = textField(body.message ?? '', 'Message', 2000);
         const result = transaction(db, () => {
           const product = getProduct(productId);
-          if (!product || !['available', 'coming_soon'].includes(product.status)) fail('Produsul nu este disponibil pentru cereri.', 404);
+          if (!product || !['available', 'coming_soon'].includes(product.status)) fail('This product is not available for requests.', 404);
           const existing = db.prepare("SELECT id FROM marketplace_requests WHERE user_id = ? AND product_id = ? AND status = 'pending'").get(user.id, productId);
           if (existing) return { duplicate: true, request: getRequest(existing.id) };
           const now = Date.now();
           const hourly = db.prepare('SELECT COUNT(*) n FROM marketplace_requests WHERE user_id = ? AND created_at >= ?').get(user.id, new Date(now - 3600_000).toISOString()).n;
           const daily = db.prepare('SELECT COUNT(*) n FROM marketplace_requests WHERE user_id = ? AND created_at >= ?').get(user.id, new Date(now - 86400_000).toISOString()).n;
-          if (hourly >= REQUESTS_PER_HOUR || daily >= REQUESTS_PER_DAY) fail('Ai trimis deja mai multe cereri. Te rugăm să revii mai târziu.', 429);
+          if (hourly >= REQUESTS_PER_HOUR || daily >= REQUESTS_PER_DAY) fail('You have already sent several requests. Please try again later.', 429);
           const at = new Date(now).toISOString();
           const result = db.prepare("INSERT INTO marketplace_requests (product_id,user_id,message,status,response,created_at,updated_at) VALUES (?,?,?,'pending','',?,?)").run(productId, user.id, message, at, at);
           return { duplicate: false, request: getRequest(Number(result.lastInsertRowid)) };
@@ -298,11 +332,11 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
         const id = productPath ? pathId(productPath[1]) : randomUUID();
         const previous = productPath ? getProduct(id) : null;
         if (id.startsWith('contrib-')) fail('Use the contributor review queue to manage reviewed plugin releases.', 409);
-        if (productPath && !previous) fail('Produsul nu a fost găsit.', 404);
+        if (productPath && !previous) fail('Product not found.', 404);
         if (!productPath && db.prepare('SELECT COUNT(*) n FROM marketplace_products').get().n >= 200) fail('Catalogul permite cel mult 200 de produse.', 409);
         const product = normalizeProduct(await readBody(req), previous);
         const duplicate = db.prepare('SELECT id FROM marketplace_products WHERE slug = ? AND id != ?').get(product.slug, id);
-        if (duplicate) fail('Această adresă este deja folosită de un produs.', 409);
+        if (duplicate) fail('This slug is already used by a product.', 409);
         transaction(db, () => {
           const now = timestamp();
           const values = [product.slug, product.name, product.summary, product.description, product.category, product.delivery, product.status, product.pricing, product.price_cents, product.currency, JSON.stringify(product.features), product.featured ? 1 : 0, product.sort_order];
@@ -323,7 +357,7 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
           contact_note: textField(value.contact_note, 'Nota pentru cereri', 1000),
           requests_enabled: value.requests_enabled,
         };
-        if (typeof next.requests_enabled !== 'boolean') fail('Activarea cererilor trebuie să fie true sau false.');
+        if (typeof next.requests_enabled !== 'boolean') fail('Request availability must be true or false.');
         transaction(db, () => {
           db.prepare('UPDATE marketplace_settings SET title=?,subtitle=?,contact_note=?,requests_enabled=? WHERE id=1').run(next.title, next.subtitle, next.contact_note, next.requests_enabled ? 1 : 0);
           audit(actor, 'marketplace_settings_update', { fields: Object.keys(body) });
@@ -335,13 +369,13 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
       if (requestPath) {
         method(req, ['PATCH']);
         const id = pathId(requestPath[1], true);
-        if (!getRequest(id)) fail('Cererea nu a fost găsită.', 404);
+        if (!getRequest(id)) fail('Request not found.', 404);
         const body = objectBody(await readBody(req), ['status', 'response']);
         const status = choice(body.status, ['pending', 'approved', 'declined'], 'Starea cererii');
-        const response = textField(body.response ?? '', 'Răspunsul', 2000);
+        const response = textField(body.response ?? '', 'Response', 2000);
         transaction(db, () => {
           const current = getRequest(id);
-          if (status === 'pending' && db.prepare("SELECT id FROM marketplace_requests WHERE product_id=? AND user_id=? AND status='pending' AND id!=?").get(current.product_id, current.user_id, id)) fail('Există deja o cerere deschisă pentru acest produs.', 409);
+          if (status === 'pending' && db.prepare("SELECT id FROM marketplace_requests WHERE product_id=? AND user_id=? AND status='pending' AND id!=?").get(current.product_id, current.user_id, id)) fail('An open request already exists for this product.', 409);
           db.prepare('UPDATE marketplace_requests SET status=?,response=?,updated_at=? WHERE id=?').run(status, response, timestamp(), id);
           audit(actor, 'marketplace_request_review', { request_id: id, status });
         });
@@ -354,16 +388,16 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
         const body = objectBody(await readBody(req), ['product_id', 'user_id', 'expires_at', 'note']);
         const productId = textField(body.product_id, 'Produsul', 100, 1);
         const userId = numericId(body.user_id);
-        if (managementPlugin(productId)) fail('Accesul la un modul plătit se activează numai după înregistrarea unei plăți verificate în secțiunea Financiar.', 409);
+        if (managementPlugin(productId)) fail('Access to a paid module is activated only after a verified payment is recorded in Finance.', 409);
         const product = getProduct(productId);
         if (!product || product.status !== 'available') fail('Accesul poate fi acordat numai pentru un produs disponibil.', 409);
         const target = db.prepare('SELECT id FROM users WHERE id=? AND banned=0 AND deleted_at IS NULL').get(userId);
-        if (!target) fail('Utilizatorul activ nu a fost găsit.', 404);
-        const note = textField(body.note ?? '', 'Nota internă', 2000);
+        if (!target) fail('Active user not found.', 404);
+        const note = textField(body.note ?? '', 'Internal note', 2000);
         let expires = null;
         if (body.expires_at !== undefined && body.expires_at !== null && body.expires_at !== '') {
           const raw = textField(body.expires_at, 'Expirarea', 64, 1);
-          if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(raw) || !Number.isFinite(Date.parse(raw)) || Date.parse(raw) <= Date.now()) fail('Expirarea trebuie să fie o dată viitoare cu fus orar.');
+          if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(raw) || !Number.isFinite(Date.parse(raw)) || Date.parse(raw) <= Date.now()) fail('Expiration must be a future date with a time zone.');
           expires = new Date(raw).toISOString();
         }
         let id;
@@ -380,9 +414,9 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
       if (entitlementPath) {
         method(req, ['PATCH']);
         const id = pathId(entitlementPath[1], true);
-        if (!getEntitlement(id)) fail('Accesul nu a fost găsit.', 404);
+        if (!getEntitlement(id)) fail('Access record not found.', 404);
         const body = objectBody(await readBody(req), ['status']);
-        if (body.status !== 'revoked') fail('Această acțiune acceptă numai revocarea accesului.');
+        if (body.status !== 'revoked') fail('This action only supports revoking access.');
         transaction(db, () => {
           const current = getEntitlement(id);
           if (current.status !== 'revoked') {
@@ -393,7 +427,7 @@ export function createMarketplaceRoutes({ db, json, requireUser, requireAdmin, r
         json(res, 200, { entitlement: getEntitlement(id, true) });
         return true;
       }
-      fail('Ruta marketplace nu a fost găsită.', 404);
+      fail('Marketplace route not found.', 404);
     } catch (error) {
       if (!error.status) throw error;
       json(res, error.status, { error: error.message });

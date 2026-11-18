@@ -46,6 +46,8 @@ export function AppHeader({ online, jackpot, user, activeTop = 'poker' }: { onli
         <span className="sep" />
         {tab('tournaments', 'Tournaments', '/tournaments')}
         <span className="sep" />
+        {tab('organizers', 'Organizers', '/organizers')}
+        <span className="sep" />
         {tab('slots', 'Slots', '/slots')}
         <span className="sep" />
         {tab('casino', 'Casino', '/casino')}
