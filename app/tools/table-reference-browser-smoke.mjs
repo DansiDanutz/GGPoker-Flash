@@ -189,6 +189,24 @@ async function capture(kind, width, height) {
       clipped: [...outside('.table-stage .seat:not(.seat-take)'), ...outside('.table-stage .seat .cards .pcard'), ...outside('.action-bar button')],
     };
   });
+  if (kind === 'cash' && width === 390) {
+  if (await page.$eval('.tchat-swipe-handle', n => n.getAttribute('aria-expanded')) !== 'true') {
+    const box=await (await page.$('.tchat-swipe-handle')).boundingBox();
+    await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
+    await page.mouse.down();await page.mouse.move(box.x+box.width/2,box.y-55,{steps:8});await page.mouse.up();
+  }
+  await page.waitForSelector('.tchat-dock.tools-open .tchat-buttons', {visible:true});
+  assert.equal(await page.$eval('.tchat-buttons', n => n.querySelectorAll('button').length), 2);
+  await page.click('[aria-label="Emoticons"]');
+  await page.screenshot({path:path.join(artifacts, `${kind}-emoticons-${width}.png`)});
+  await page.click('[aria-label="Emoticons"]');
+  await page.click('.tchat-swipe-handle');
+  await page.click('.inspect-cards');
+  await page.waitForSelector('.cardSqueeze:not([aria-busy="true"])');
+  await page.screenshot({path:path.join(artifacts, `${kind}-inspect-${width}.png`)});
+  await page.click('.squeezeOpen');
+  await page.waitForSelector('.cardSqueeze', {hidden:true});
+  }
   await page.screenshot({ path: path.join(artifacts, `${kind}-${width}x${height}.png`) });
   assert.equal(layout.documentWidth <= width + 1, true, `${kind} document overflows at ${width}px.`);
   assert.equal(layout.seats, 6, `${kind} does not show six populated seats.`);
@@ -257,6 +275,7 @@ try {
     if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
     sessionStorage.setItem('ggpoker.entered', '1');
     localStorage.setItem('ggpoker.welcomeSeen', '1');
+    localStorage.setItem('ggpoker.squeeze', '0');
     localStorage.setItem('ggpoker.token', token);
   }, players[0].token);
 

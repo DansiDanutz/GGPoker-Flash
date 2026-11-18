@@ -189,8 +189,10 @@ test('call any calls whatever the bet is, or checks when nobody bet, then clears
   assert.equal(keepPreAction(callAny, 900), callAny, 'a bigger bet does not cancel call any');
 });
 
-test('the pre-action row offers Call Any', () => {
+test('the waiting pre-action row offers only Check/Fold', () => {
   const page = fs.readFileSync(path.join(path.resolve(import.meta.dirname, '..'), 'src/pages/TablePage.tsx'), 'utf8');
-  assert.match(page, /kind: 'callany'/);
-  assert.match(page, />Call Any</);
+  const row=page.slice(page.indexOf('aria-label="Actions on your next turn"'),page.indexOf('{/* Betting buttons only'));
+  assert.match(row, /kind: 'checkfold'/);
+  assert.equal((row.match(/<button/g)||[]).length,1);
+  assert.doesNotMatch(row, /Call Any|kind: 'call'/);
 });

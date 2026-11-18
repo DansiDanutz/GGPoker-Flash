@@ -198,7 +198,7 @@
   .table-screen .tchat-dock.open { left: 8px; }
   .table-screen .reaction-picker { left: auto; right: 0; }
   /* Your decision comes first: on your turn the chat steps aside (open or not) and comes back after. */
-  .table-screen:has(.action-bar :is(.main-actions, .aof-row)) :is(.tchat-dock, .tt-hud) { visibility: hidden; }
+  .table-screen:has(.action-bar :is(.main-actions, .aof-row)) .tt-hud { visibility: hidden; }
 }
 
 @media (max-width: 760px) and (orientation: portrait) and (prefers-reduced-motion: reduce) {
