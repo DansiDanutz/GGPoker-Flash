@@ -104,3 +104,14 @@ test('the real server exposes the unconfigured flow without granting a star', as
   assert.equal(response.status, 503);
   assert.match(response.data.error, /not available yet/);
 });
+
+
+test('www document entry points canonicalize before browser-bound consent', async () => {
+  const f = fixture();
+  const result = await f.call('/marketplace?from=star', { headers: { host: 'www.dangg.test', accept: 'text/html' } });
+  assert.equal(result.status, 308);
+  assert.equal(result.headers.location, 'https://dangg.test/marketplace?from=star');
+  assert.equal(f.calls.length, 0);
+  assert.equal((await f.call('/marketplace', { headers: { host: 'unrelated.test', accept: 'text/html' } })).status, undefined);
+  assert.equal((await f.call('/api/tables', { headers: { host: 'www.dangg.test', accept: 'application/json' } })).status, undefined);
+});

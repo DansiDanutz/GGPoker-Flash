@@ -31,7 +31,10 @@ GITHUB_STAR_CLIENT_SECRET=<GitHub App client secret>
 GITHUB_STAR_ORIGIN=https://dangg.live
 ```
 
-Use the canonical origin for authorization. The existing deployment compose
+Use the canonical origin for authorization. When configured, browser document
+requests on its www alias redirect to the canonical host before the app opens,
+keeping consent cookies on the callback host. Existing www sessions may need to
+sign in again on the canonical host. The existing deployment compose
 configuration already loads `.env`. Release through the standard approved
 public-main deployment process after configuration. Missing configuration leaves
 automatic authorization unavailable and shows a direct GitHub link as a fallback.

@@ -30,6 +30,11 @@ export function createGitHubStarRoutes({ json, readBody, clientKey, env = proces
   }
 
   return async function handleGitHubStar(req, res, url) {
+    // Keep the consent cookie and callback on one host before the app is opened.
+    if (configured && ['GET', 'HEAD'].includes(req.method) && String(req.headers.accept || '').includes('text/html') && req.headers.host === `www.${new URL(origin).host}`) {
+      res.writeHead(308, { ...SECURITY_HEADERS, location: `${origin}${url.pathname}${url.search}`, 'cache-control': 'no-store' });
+      res.end(); return true;
+    }
     if (!url.pathname.startsWith(`${ROOT}/`)) return false;
     if (url.pathname === `${ROOT}/start`) {
       if (req.method !== 'POST') { json(res, 405, { error: 'Use POST to authorize a star.' }); return true; }
