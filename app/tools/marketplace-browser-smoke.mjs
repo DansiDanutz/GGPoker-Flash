@@ -230,7 +230,7 @@ async function run() {
     await waitText(owner, '.mg-plugin-planned', plugin.name);
   }
   assert.equal(await owner.$('.mg-publisher-fields'), null, 'Publisher registration unexpectedly accepts an anonymous account.');
-  await waitText(owner, '.mg-publisher-account button', 'Intră în cont');
+  await waitText(owner, '.mg-publisher-account button', 'Sign in');
   completed.push('Implemented/planned organizer offers and authenticated publisher onboarding');
   await assertPublicLayout(owner, 1440);
   await screenshot(owner, 'desktop');
@@ -342,11 +342,11 @@ async function run() {
   await member.goto(`${base}/marketplace`, { waitUntil: 'domcontentloaded' });
   await member.waitForSelector('#marketplace-account', { visible: true });
   await member.waitForSelector('.mg-publisher-fields', { visible: true });
-  await fillField(member, 'Numele editorului', 'CI Publisher Company', '.mg-publisher-fields label');
-  await selectField(member, 'Tipul profilului', 'company', '.mg-publisher-fields label');
-  await fillField(member, 'Merchant ID NervixPay', 'ci-fixture-merchant', '.mg-publisher-fields label');
+  await fillField(member, 'Publisher name', 'CI Publisher Company', '.mg-publisher-fields label');
+  await selectField(member, 'Profile type', 'company', '.mg-publisher-fields label');
+  await fillField(member, 'NervixPay merchant ID', 'ci-fixture-merchant', '.mg-publisher-fields label');
   await clickSelector(member, '.mg-publisher-fields button[type="submit"]');
-  await waitText(member, '.mg-publisher-account .mg-status', 'Cont în evaluare');
+  await waitText(member, '.mg-publisher-account .mg-status', 'Account under review');
   const publisherAccount = await api('/api/marketplace/publisher', { token: memberAuth.token });
   const publisherId = publisherAccount.publisher.id;
   assert.equal(publisherAccount.publisher.owner_user_id, memberAuth.user.id);
@@ -518,7 +518,7 @@ async function run() {
   assert.equal(Boolean((await api('/api/lobby', { token: memberAuth.token })).user.is_admin), false, 'Paid management promoted the organizer to administrator.');
   await member.goto(`${base}/marketplace`, { waitUntil: 'domcontentloaded' });
   await waitText(member, '.mg-plugin .mg-status-active', 'Acces plătit activ');
-  await waitText(member, '.mg-publisher-account .mg-status', 'Editor aprobat');
+  await waitText(member, '.mg-publisher-account .mg-status', 'Approved publisher');
   await screenshot(member, 'organizer-paid-access', '.mg-section');
   await screenshot(member, 'publisher-approved', '.mg-publisher');
   completed.push('Unpaid host creation is blocked; paid Spin & Go works with zero publisher credits and no admin promotion');
