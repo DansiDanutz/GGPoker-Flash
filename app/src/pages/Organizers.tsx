@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '../components/Avatar';
 import { PageShell } from '../components/PageShell';
 import { useApp } from '../lib/store';
@@ -25,13 +25,30 @@ export function Organizers() {
   const [draft, setDraft] = useState({ name: '', description: '', entryFeeCents: 100 });
   const [order, setOrder] = useState<ClubOrder | null>(null), [paymentOrigin, setPaymentOrigin] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true); setError('');
-    try { const data = await organizersApi.list(search, sort); setClubs(data.clubs); }
-    catch (failure) { setError(errorText(failure)); }
-    finally { setLoading(false); }
+  const generation = useRef(0);
+  const load = useCallback(async (quiet = false) => {
+    const current = ++generation.current;
+    if (!quiet) { setLoading(true); setError(''); }
+    try {
+      const data = await organizersApi.list(search, sort);
+      if (generation.current === current) setClubs(data.clubs);
+    } catch (failure) {
+      if (!quiet && generation.current === current) setError(errorText(failure));
+    } finally {
+      if (generation.current === current) setLoading(false);
+    }
   }, [search, sort]);
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 180); return () => window.clearTimeout(timer); }, [load]);
+  useEffect(() => {
+    const first = window.setTimeout(() => void load(), 180);
+    const refresh = () => { if (!document.hidden) void load(true); };
+    const timer = window.setInterval(refresh, 30000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      ++generation.current;
+      window.clearTimeout(first); window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   const openClub = async (club: OrganizerClub) => {
     setBusy('profile'); setError(''); setNotice(''); setOrder(null);
@@ -82,7 +99,7 @@ export function Organizers() {
     <main className="org-page">
       <section className="org-hero">
         <div><span className="org-kicker">DANGG CLUB NETWORK</span><h1>Find your table.<br /><em>Meet your organizer.</em></h1><p>Explore active organizer clubs, compare transparent activity metrics, and request entry without confusing game chips with real money.</p></div>
-        <aside><strong>How ranking works</strong><p>Only clubs with an active organizer subscription appear here. Clubs with verified plugin use in the last 30 days rank ahead of membership-only clubs. Within each group: 1 point for the subscription and each approved member, 10 per distinct plugin used, 5 per cash table played or completed tournament, 1 per tournament entry and per player in the largest field, 0.01 per hand and 0.001 per Cash Chip of rake. Rake measures game activity, not USD income.</p></aside>
+        <aside><strong>How ranking works</strong><p>Standings refresh every 30 seconds. Only clubs with an active organizer subscription appear here. Clubs with verified plugin use in the last 30 days rank ahead of membership-only clubs. Within each group: 1 point for the subscription and each approved member, 10 per distinct plugin used, 5 per cash table played or completed tournament, 1 per tournament entry and per player in the largest field, 0.01 per hand and 0.001 per Cash Chip of rake. Rake measures game activity, not USD income.</p></aside>
       </section>
       <section className="org-toolbar" aria-label="Organizer directory controls"><label><span>Search clubs</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Club, organizer, or country" /></label><div role="group" aria-label="Sort organizers"><button className={sort === 'rank' ? 'on' : ''} onClick={() => setSort('rank')}>Top ranked</button><button className={sort === 'newest' ? 'on' : ''} onClick={() => setSort('newest')}>Newest</button></div></section>
       {error && <div className="org-alert org-error" role="alert">{error}</div>}{notice && <div className="org-alert" role="status">{notice}</div>}
