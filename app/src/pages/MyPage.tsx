@@ -44,7 +44,7 @@ const PANE_TITLES: Record<string, string> = {
 };
 
 export function MyPage() {
-  const { user, refreshUser, toast, navigate, logout } = useApp();
+  const { user, refreshUser, toast, navigate, logout, route } = useApp();
   const [tab, setTab] = useState('overview');
   const isPhone = useIsPhone();
   // Phones open on the account hub; a deep link with ?tab= goes straight to that pane.
@@ -105,13 +105,13 @@ export function MyPage() {
   }, [dmPeer?.peer_id]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.hash.split('?')[1] || '');
+    const params = new URLSearchParams(route.split('?')[1] || '');
     const wanted = params.get('tab');
-    if (wanted && ['overview', 'promo', 'missions', 'transactions', 'tickets', 'messages', 'notes', 'friends', 'leaderboard', 'verify', 'security'].includes(wanted)) setTab(wanted);
+    if (wanted && ['overview', 'wallet', 'promo', 'missions', 'transactions', 'tickets', 'messages', 'notes', 'friends', 'leaderboard', 'verify', 'security'].includes(wanted)) { setTab(wanted); setHub(false); }
     const id = Number(params.get('dm') || 0);
     if (!id) return;
     api.userProfile(id).then((r) => openDm({ peer_id: r.user.id, nick: r.user.nick })).catch(() => {});
-  }, []);
+  }, [route]);
 
   const loadFriendReqs = async () => { try { setFriendReqs(await api.friendRequests()); } catch { /* ignore */ } };
 

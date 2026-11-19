@@ -18,7 +18,7 @@ export function WalletPane() {
   };
 
   const cards = [
-    { key: 'usd', label: 'USD Available', value: money(user?.balance ?? 0), accent: 'gold' },
+    { key: 'usd', label: 'Play Money (USD units)', value: money(user?.balance ?? 0), accent: 'gold' },
     { key: 'poker', label: 'Poker Dollar', value: `P$${(user?.play_chips ?? 0).toLocaleString()}`, accent: 'gold' },
     { key: 'tournament', label: 'Tournament Dollar', value: `T$${(user?.tickets ?? 0).toLocaleString()}`, accent: 'gold' },
     { key: 'gems', label: 'Gems', value: (user?.gems ?? 0).toLocaleString(), accent: 'violet' },
@@ -26,6 +26,9 @@ export function WalletPane() {
 
   return (
     <div className="wallet">
+      <p className="account-eyebrow">YOUR PRACTICE BALANCES</p>
+      <h2>Play Money wallet</h2>
+      <p className="wallet-note">For free games only. These balances are separate from your organizer Cash Chips and service credits.</p>
       <button type="button" className="wallet-refresh" onClick={refresh} disabled={busy}>
         <span aria-hidden="true">↻</span> {busy ? 'Refreshing…' : 'Refresh'}
       </button>

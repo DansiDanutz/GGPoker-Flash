@@ -39,6 +39,28 @@ try {
    checks.push(`${tab} at ${width}px`);
   }
  }
+ // Account redesign stays on the same disposable user and must never initiate billing.
+ for (const width of [1280,390,320]) {
+  await page.setViewport({width,height:950});
+  for (const [route,selector,name] of [['/my-page?tab=overview','.mpp','profile'],['/my-page?tab=wallet','.wallet','wallet'],['/my-page?tab=transactions','.txp','transactions'],['/organizers','.org-page','clubs'],['/contributor','.contributor-workspace','contributor'],['/marketplace','.marketplace','marketplace']]) {
+   await page.goto(sandbox.url+'/#'+route);
+   await page.waitForSelector(selector);
+   await page.waitForSelector('.ls',{hidden:true});
+   await page.waitForFunction(()=>!document.documentElement.matches(':active-view-transition'));
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} must fit ${width}px`);
+   if(name==='wallet') {
+    assert.ok(await page.$eval('.wallet',n=>n.textContent.includes('Play Money wallet')));
+    assert.ok(await page.$$eval('.wallet button',ns=>ns.every(n=>n.getBoundingClientRect().height>=44)),'Wallet controls meet mobile touch size');
+   }
+   if(name==='profile') {
+    assert.equal(await page.$eval('#mpp-nick',n=>n.value),'Workspace owner');
+    assert.ok(await page.evaluate(()=>document.querySelector('.mpp-head').getBoundingClientRect().top<document.querySelector('.mpp .profile-role-guide').getBoundingClientRect().top),'Identity editing precedes membership guide');
+   }
+   await page.screenshot({path:path.join(artifacts,`${name}-${width}.png`),fullPage:true});
+   checks.push(`${name} at ${width}px`);
+  }
+ }
+ await page.goto(sandbox.url+'/#/organiser');await page.waitForSelector('.ow-tabs');
  await select('transfers');await page.type('input[aria-label="Cash Chips for buyback"]','1');
  await select('how-it-works');await select('transfers');assert.equal(await page.$eval('input[aria-label="Cash Chips for buyback"]',n=>n.value),'1','Tab switching preserves transfer drafts');
  await page.reload();await page.waitForSelector('.ls',{hidden:true});await page.waitForSelector('.ow-tabs a[aria-current]');assert.equal(await page.$eval('.ow-tabs a[aria-current]',n=>n.textContent),'Transfers');
@@ -55,6 +77,16 @@ try {
  page.on('dialog',d=>d.accept());await page.click('.ow-members button');await page.waitForFunction(()=>document.querySelector('.ow-members')?.textContent.includes('approved'));
  assert.equal((await request(`/api/organizers/${owner.user.id}`,member.token)).membershipStatus,'approved');
  await page.click(`a[href="#/organizers?club=${owner.user.id}"]`);await page.waitForFunction(()=>document.querySelector('.org-modal')?.textContent.includes('Emerald test club')||document.querySelector('[role="dialog"]')?.textContent.includes('Emerald test club'));
+ for (const width of [1280,390,320]) {
+  await page.setViewport({width,height:950});
+  await page.goto(sandbox.url+`/#/organizers?club=${owner.user.id}`);
+  await page.waitForSelector('.org-modal');
+  await page.waitForSelector('.ls',{hidden:true});
+  assert.ok(await page.$eval('.org-modal',n=>n.scrollWidth<=n.clientWidth+1),'Club dialog content fits without clipping');
+  assert.ok(await page.$eval('.org-close',n=>n.getBoundingClientRect().width>=44),'Club close control is easy to tap');
+  await page.screenshot({path:path.join(artifacts,`club-dialog-${width}.png`),fullPage:true});
+  checks.push(`Club dialog at ${width}px`);
+ }
  checks.push('Profile saved, member approved and shared club link opens the correct club');
  assert.deepEqual(financialRequests,[],'Browsing, saving profile and approving entry must not debit credits');
  const after=await request('/api/marketplace/billing/me',owner.token);assert.equal(after.balance_cents,before.balance_cents);assert.deepEqual(after.ledger,before.ledger);
