@@ -111,7 +111,7 @@ export function createOrganizerChipRoutes({ db, chips, events, spin, spinTickets
       const body = fields(await readBody(req), ['organizerId', 'amount', 'paymentAmount', 'paymentCurrency', 'paymentDetails', 'key']);
       json(res, 200, events.requestBuyback({ userId: user.id, organizerId: body.organizerId, amount: body.amount, paymentAmount: body.paymentAmount, paymentCurrency: body.paymentCurrency, paymentDetails: body.paymentDetails, idempotencyKey: body.key })); return true;
     }
-    match = path.match(/^\/api\/marketplace\/chips\/buybacks\/([^/]+)\/(report|confirm|cancel|reject)$/);
+    match = path.match(/^\/api\/marketplace\/chips\/buybacks\/([^/]+)\/(accept|report|confirm|cancel|reject)$/);
     if (match) {
       const buybackId = decodeURIComponent(match[1]), operation = match[2];
       if (operation === 'report') {
@@ -119,7 +119,7 @@ export function createOrganizerChipRoutes({ db, chips, events, spin, spinTickets
         json(res, 200, events.reportBuyback({ userId: user.id, buybackId, receipt: body.receipt, paymentAmount: body.paymentAmount, paymentCurrency: body.paymentCurrency, paymentNetwork: body.paymentNetwork, paymentDetails: body.paymentDetails })); return true;
       }
       fields(await readBody(req), []);
-      const action = operation === 'confirm' ? events.confirmBuyback : operation === 'cancel' ? events.cancelBuyback : events.rejectBuyback;
+      const action = operation === 'accept' ? events.acceptBuyback : operation === 'confirm' ? events.confirmBuyback : operation === 'cancel' ? events.cancelBuyback : events.rejectBuyback;
       json(res, 200, action({ userId: user.id, buybackId })); return true;
     }
     fail('Cash Chip route not found.', 404);

@@ -32,9 +32,10 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
       payment_amount TEXT NOT NULL, payment_currency TEXT NOT NULL, payment_details TEXT NOT NULL,
       state TEXT NOT NULL CHECK(state IN ('requested','reported','paid','cancelled','rejected','disputed')),
       receipt TEXT UNIQUE, report_amount TEXT, report_currency TEXT, report_network TEXT, report_details TEXT,
-      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+      processing_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
   `);
+  if (!db.prepare("PRAGMA table_info('organizer_chip_buybacks')").all().some((column) => column.name === 'processing_at')) db.exec('ALTER TABLE organizer_chip_buybacks ADD COLUMN processing_at TEXT');
   const stamp = () => new Date(now()).toISOString();
   const active = (id) => { integer(id, 'userId'); if (!db.prepare('SELECT id FROM users WHERE id=? AND banned=0 AND deleted_at IS NULL').get(id)) fail('Active user required.', 403, 'user_inactive'); return id; };
   const tournament = (id) => db.prepare('SELECT * FROM tournaments WHERE id=?').get(short(id, 'tournamentId'));
@@ -50,6 +51,7 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
   const issueTicket = ({ userId, tournamentId, idempotencyKey }) => transaction(db, () => {
     active(userId); const payload = String(tournamentId), old = op(userId, idempotencyKey, 'ticket_issue', payload); if (old) return old;
     const event = tournament(tournamentId); if (!eligible(event)) fail('Eligible private organizer tournament required.', 409, 'event_not_eligible');
+    chips.assertSessionCreditUnlocked(event.owner_id, userId);
     if (String(event.mode || 'STANDARD') === 'SATELLITE') fail('Cash Chip satellites require a bound target ticket and are not configured.', 409, 'event_mode_unsupported');
     const buyin = integer(event.buyin, 'buyin'), fee = nonnegative(event.fee, 'fee'), price = buyin + fee, id = randomUUID();
     chips.moveInTransaction({ organizerId: event.owner_id, from: `wallet:${userId}`, to: `ticket:${id}`, amount: price, kind: 'ticket_issue', reference: `ticket:${id}:issue` });
@@ -60,6 +62,7 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
     active(userId); active(toUserId); const payload = JSON.stringify({ ticketId, toUserId }), old = op(userId, idempotencyKey, 'ticket_transfer', payload); if (old) return old;
     const row = ticket(ticketId); if (!row || row.holder_id !== userId) fail('Ticket not found.', 404, 'ticket_not_found');
     if (row.state !== 'issued') fail('Only an issued ticket can be transferred.', 409, 'ticket_not_transferable'); if (userId === toUserId) fail('Choose another holder.');
+    chips.assertSessionCreditUnlocked(row.organizer_id, userId, toUserId);
     db.prepare('UPDATE organizer_chip_tickets SET holder_id=?,updated_at=? WHERE id=?').run(toUserId, stamp(), row.id);
     return record(userId, idempotencyKey, 'ticket_transfer', payload, { id: row.id, holder_id: toUserId });
   });
@@ -67,6 +70,7 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
     active(userId); const row = ticket(ticketId); if (!row || row.holder_id !== userId) fail('Ticket not found.', 404, 'ticket_not_found');
     if (row.state === 'redeemed') return { id: row.id, tournament_id: row.tournament_id, replayed: true };
     if (row.state !== 'issued') fail('Ticket is not redeemable.', 409, 'ticket_not_redeemable');
+    chips.assertSessionCreditUnlocked(row.organizer_id, userId);
     const event = tournament(row.tournament_id);
     if (!eligible(event) || db.prepare('SELECT 1 FROM organizer_chip_event_states WHERE tournament_id=?').get(event?.id) || event.owner_id !== row.organizer_id || event.buyin !== row.buyin || event.fee !== row.fee || event.starting_stack !== row.starting_stack) fail('Tournament terms no longer match this ticket.', 409, 'ticket_terms_changed');
     if (db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id=? AND user_id=?').get(event.id, userId)) fail('User is already registered.', 409, 'already_registered');
@@ -79,6 +83,7 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
   });
   const unregisterTicket = ({ userId, ticketId }) => transaction(db, () => {
     active(userId); const row = ticket(ticketId); if (!row || row.holder_id !== userId) fail('Ticket not found.', 404, 'ticket_not_found');
+    chips.assertSessionCreditUnlocked(row.organizer_id, userId);
     const event = tournament(row.tournament_id); if (row.state !== 'redeemed' || event?.status !== 'registering' || db.prepare('SELECT 1 FROM organizer_chip_event_states WHERE tournament_id=?').get(event?.id)) fail('Ticket cannot be restored after the event starts.', 409, 'ticket_not_restorable');
     if (!db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id=? AND user_id=?').get(event.id, userId)) fail('Registration not found.', 409, 'registration_not_found');
     chips.moveInTransaction({ organizerId: row.organizer_id, from: `event:${event.id}`, to: `ticket:${row.id}`, amount: row.price, kind: 'ticket_unregister', reference: `ticket:${row.id}:unregister:${row.redemptions}` });
@@ -198,6 +203,13 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
     db.prepare("INSERT INTO organizer_chip_buybacks(id,organizer_id,requester_id,chips,payment_amount,payment_currency,payment_details,state,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'requested',?,?)").run(id, organizerId, userId, amount, paymentAmount, paymentCurrency, paymentDetails, stamp(), stamp());
     return record(userId, idempotencyKey, 'buyback_request', payload, { id });
   });
+  const acceptBuyback = ({ userId, buybackId }) => transaction(db, () => {
+    active(userId); const row = db.prepare('SELECT * FROM organizer_chip_buybacks WHERE id=?').get(short(buybackId, 'buybackId')); if (!row || row.organizer_id !== userId) fail('Buyback not found.', 404, 'buyback_not_found');
+    if (row.processing_at) return row;
+    if (row.state !== 'requested') fail('Only a requested buyback can be accepted.', 409, 'buyback_state');
+    db.prepare('UPDATE organizer_chip_buybacks SET processing_at=?,updated_at=? WHERE id=?').run(stamp(), stamp(), row.id);
+    return db.prepare('SELECT * FROM organizer_chip_buybacks WHERE id=?').get(row.id);
+  });
   const reportBuyback = ({ userId, buybackId, receipt, paymentAmount, paymentCurrency, paymentNetwork, paymentDetails }) => transaction(db, () => {
     active(userId); const row = db.prepare('SELECT * FROM organizer_chip_buybacks WHERE id=?').get(short(buybackId, 'buybackId')); if (!row || row.organizer_id !== userId) fail('Buyback not found.', 404, 'buyback_not_found');
     receipt = short(receipt, 'receipt'); paymentAmount = validatePaymentAmount(paymentAmount); paymentCurrency = validateCurrency(paymentCurrency); paymentNetwork = validatePaymentText(paymentNetwork, 'paymentNetwork', 80); paymentDetails = validatePaymentText(paymentDetails, 'paymentDetails', 1000);
@@ -207,6 +219,7 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
       return row;
     }
     if (row.state !== 'requested') fail('Only a requested buyback can be reported.', 409, 'buyback_state');
+    if (!row.processing_at) fail('Accept the buyback before sending or reporting payment.', 409, 'buyback_not_accepted');
     try { db.prepare("UPDATE organizer_chip_buybacks SET state='reported',receipt=?,report_amount=?,report_currency=?,report_network=?,report_details=?,updated_at=? WHERE id=?").run(receipt, paymentAmount, paymentCurrency, paymentNetwork, paymentDetails, stamp(), row.id); }
     catch (error) { if (/UNIQUE/.test(String(error))) fail('Payment receipt is already used.', 409, 'receipt_conflict'); throw error; }
     return db.prepare('SELECT * FROM organizer_chip_buybacks WHERE id=?').get(row.id);
@@ -221,6 +234,7 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
     active(userId); const row = db.prepare('SELECT * FROM organizer_chip_buybacks WHERE id=?').get(short(buybackId, 'buybackId')); if (!row || (action === 'cancel' ? row.requester_id : row.organizer_id) !== userId) fail('Buyback not found.', 404, 'buyback_not_found');
     if (row.state === (action === 'cancel' ? 'cancelled' : 'rejected')) return row;
     if (row.state !== 'requested') fail('Reported buybacks remain locked for dispute resolution.', 409, 'buyback_state');
+    if (action === 'cancel' && row.processing_at) fail('The organizer is processing this payment; cancellation is locked.', 409, 'buyback_processing');
     chips.moveInTransaction({ organizerId: row.organizer_id, from: `payout:${row.id}`, to: `wallet:${row.requester_id}`, amount: row.chips, kind: `buyback_${action}`, reference: `buyback:${row.id}:${action}` });
     db.prepare('UPDATE organizer_chip_buybacks SET state=?,updated_at=? WHERE id=?').run(action === 'cancel' ? 'cancelled' : 'rejected', stamp(), row.id); return db.prepare('SELECT * FROM organizer_chip_buybacks WHERE id=?').get(row.id);
   });
@@ -278,5 +292,5 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
       AND (t.owner_id=? OR k.id IS NOT NULL OR EXISTS (SELECT 1 FROM organizer_chip_accounts a WHERE a.organizer_id=t.owner_id AND a.account_key=printf('wallet:%d',?) AND a.balance>0))
       AND (t.start_at>? OR k.id IS NOT NULL) ORDER BY t.start_at`).all(userId, userId, userId, stamp());
   };
-  return { resolveEvent, resolveBuyback, issueTicket, transferTicket, redeemTicket, unregisterTicket, startEvent, award, awardBounty, burnRemainder, cancelEvent, requestBuyback, reportBuyback, confirmBuyback, cancelBuyback: (args) => refundBuyback({ ...args, action: 'cancel' }), rejectBuyback: (args) => refundBuyback({ ...args, action: 'reject' }), list, eligibleTournaments };
+  return { resolveEvent, resolveBuyback, issueTicket, transferTicket, redeemTicket, unregisterTicket, startEvent, award, awardBounty, burnRemainder, cancelEvent, requestBuyback, acceptBuyback, reportBuyback, confirmBuyback, cancelBuyback: (args) => refundBuyback({ ...args, action: 'cancel' }), rejectBuyback: (args) => refundBuyback({ ...args, action: 'reject' }), list, eligibleTournaments };
 }

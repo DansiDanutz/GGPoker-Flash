@@ -87,6 +87,7 @@ test('real server integrates enforced billing, scoped chips, events, buybacks, a
 
     const buyback = await postOk(srv, `${CHIPS}/buybacks`, first.token, { organizerId: owner.user.id, amount: 1000, paymentAmount: '10.00', paymentCurrency: 'USDT', paymentDetails: 'Manual integration agreement', key: 'buyback-one' });
     const ownerBeforeBuyback = wallet((await srv.get(`${CHIPS}/me`, { token: owner.token })).data, owner.user.id);
+    await postOk(srv, `${CHIPS}/buybacks/${buyback.id}/accept`, owner.token, {});
     await postOk(srv, `${CHIPS}/buybacks/${buyback.id}/report`, owner.token, { receipt: 'integration-receipt-1', paymentAmount: '10.00', paymentCurrency: 'USDT', paymentNetwork: 'TRC20', paymentDetails: 'Paid externally' });
     await postOk(srv, `${CHIPS}/buybacks/${buyback.id}/confirm`, first.token, {});
     assert.equal(wallet((await srv.get(`${CHIPS}/me`, { token: owner.token })).data, owner.user.id), ownerBeforeBuyback + 1000);

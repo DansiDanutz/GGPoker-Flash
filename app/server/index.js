@@ -81,6 +81,11 @@ import { createClubEntryLedger } from './club-entry-ledger.js';
 import { randomUUID as clubOrderKey } from 'node:crypto';
 import { createOrganizerClubs } from './organizer-clubs.js';
 import { createOrganizerChips } from './organizer-chips.js';
+import { createOrganizerFunding } from './organizer-funding.js';
+import { createOrganizerFundingProviders } from './organizer-funding-provider.js';
+import { createOrganizerFundingRoutes } from './organizer-funding-routes.js';
+import { createOrganizerSessionCredit } from './organizer-session-credit.js';
+import { createOrganizerSessionCreditRoutes } from './organizer-session-credit-routes.js';
 import { createOrganizerChipEvents } from './organizer-chip-events.js';
 import { organizerSpinOutcome } from './organizer-spin-prizes.js';
 import { createOrganizerChipSpin } from './organizer-chip-spin.js';
@@ -639,6 +644,13 @@ const contributorSubmissions = createContributorSubmissions({ db, commerce: mark
 const handleContributorRoute = createContributorRoutes({ submissions: contributorSubmissions, json, requireUser, requireAdmin, readBody });
 const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES, getSetting, broadcastState });
 const handleSqueeze3dRoute = createSqueeze3dRoutes({ db, billing: organizerBilling, liveTables: LIVE_TABLES, json, requireUser, readBody });
+const organizerFunding = createOrganizerFunding({ db, chips: organizerChips });
+const organizerFundingProviders = createOrganizerFundingProviders({ connections: process.env.ORGANIZER_NERVIXPAY_CONNECTIONS || '{}' });
+const organizerSessionCredit = createOrganizerSessionCredit({ db, chips: organizerChips, funding: organizerFunding });
+const handleOrganizerSessionCreditRoute = createOrganizerSessionCreditRoutes({ db, sessionCredit: organizerSessionCredit, providers: organizerFundingProviders, mode: organizerChipMode,
+  requireUser, readBody, json, limiter: createRateLimiter({ limit: 20, windowMs: 60000 }) });
+const handleOrganizerFundingRoute = createOrganizerFundingRoutes({ db, funding: organizerFunding, providers: organizerFundingProviders, mode: organizerChipMode,
+  requireUser, readBody, json, limiter: createRateLimiter({ limit: 20, windowMs: 60000 }) });
 const handleOrganizerChipRoute = createOrganizerChipRoutes({ db, chips: organizerChips, events: organizerChipEvents,
   spin: organizerChipSpin, spinTickets: organizerSpinTickets, billing: organizerBilling, json, requireUser, requireAdmin, readBody, mode: organizerChipMode,
   onEventResolved: (id) => {
@@ -1629,6 +1641,8 @@ const server = http.createServer(async (req, res) => {
       if (settled.order.status!=='settled') return json(res,409,{error:'Payment received; refund review required.'});
       return json(res,200,{order:{id:order.id,status:'settled',amountCents:order.feeCents,checkoutUrl:null},membership:{status:'approved'}});
     }
+    if (await handleOrganizerSessionCreditRoute(req, res, url)) return;
+    if (await handleOrganizerFundingRoute(req, res, url)) return;
     if (await handleOrganizerChipRoute(req, res, url)) return;
     if (await handleSqueeze3dRoute(req, res, url)) return;
     if (await handleOrganizerBillingRoute(req, res, url)) return;
