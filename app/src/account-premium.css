@@ -155,3 +155,10 @@
   .ma-profile { padding: 16px; }
   .marketplace .mp-button { min-height: 44px; }
 }
+
+/* Chip requests share the readable account controls inside club dialogs. */
+:is(.funding-panel,.cashout-panel) form { display: grid; gap: 12px; margin-block: 16px; }
+:is(.funding-panel,.cashout-panel) form label { display: grid; gap: 6px; min-width: 0; }
+:is(.funding-panel,.cashout-panel) .mp-button { white-space: normal; min-height: 44px; }
+.org-modal :is(.funding-panel,.cashout-panel) .mp-account-list p { font-size: 14px; line-height: 1.6; color: var(--account-muted); }
+.session-credit-panel { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--account-line,#4c4436); }

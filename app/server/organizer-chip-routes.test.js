@@ -9,7 +9,7 @@ function fixture(mode = 'enforce') {
   const events = {
     eligibleTournaments: (id) => [{ id: 't1', viewer: id || null }], list: () => ({ tickets: [], buybacks: [] }),
     issueTicket: (x) => (calls.push(['issue', x]), x), transferTicket: (x) => (calls.push(['ticket-transfer', x]), x), redeemTicket: (x) => (calls.push(['redeem', x]), x),
-    requestBuyback: (x) => (calls.push(['buyback', x]), x), reportBuyback: (x) => (calls.push(['report', x]), x), confirmBuyback: (x) => (calls.push(['confirm', x]), x), cancelBuyback: (x) => (calls.push(['cancel', x]), x), rejectBuyback: (x) => (calls.push(['reject', x]), x),
+    requestBuyback: (x) => (calls.push(['buyback', x]), x), acceptBuyback: (x) => (calls.push(['accept', x]), x), reportBuyback: (x) => (calls.push(['report', x]), x), confirmBuyback: (x) => (calls.push(['confirm', x]), x), cancelBuyback: (x) => (calls.push(['cancel', x]), x), rejectBuyback: (x) => (calls.push(['reject', x]), x),
   };
   const route = createOrganizerChipRoutes({ chips, events, billing: { account: () => ({ balance_cents: 0 }) }, mode,
     json: (_res, status, data) => reply.push({ status, data }), requireUser: () => ({ id: 7 }), readBody: async (req) => req.body });
@@ -51,7 +51,7 @@ test('buyback routes keep stated payment separate and require explicit report ev
   assert.deepEqual(f.calls.pop(), ['buyback', { userId: 7, organizerId: 1, amount: 1000, paymentAmount: '25.00', paymentCurrency: 'USD', paymentDetails: 'manual agreement', idempotencyKey: 'b1' }]);
   await f.call('/api/marketplace/chips/buybacks/b1/report', { receipt: 'receipt-1', paymentAmount: '25.00', paymentCurrency: 'USD', paymentNetwork: 'SEPA', paymentDetails: 'paid externally' });
   assert.deepEqual(f.calls.pop(), ['report', { userId: 7, buybackId: 'b1', receipt: 'receipt-1', paymentAmount: '25.00', paymentCurrency: 'USD', paymentNetwork: 'SEPA', paymentDetails: 'paid externally' }]);
-  for (const action of ['confirm', 'cancel', 'reject']) { await f.call(`/api/marketplace/chips/buybacks/b1/${action}`, {}); assert.equal(f.calls.pop()[1].userId, 7); }
+  for (const action of ['accept', 'confirm', 'cancel', 'reject']) { await f.call(`/api/marketplace/chips/buybacks/b1/${action}`, {}); assert.equal(f.calls.pop()[1].userId, 7); }
 });
 
 test('all mutations are disabled outside enforce mode', async () => {

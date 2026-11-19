@@ -60,6 +60,20 @@ test('wallets cannot spend free chips and organizer ledgers stay isolated', () =
   assert.throws(() => f.db.prepare("UPDATE organizer_chip_accounts SET balance=0 WHERE organizer_id=1 AND account_key='burn'").run(), /burn balance cannot decrease/);
 });
 
+test('active session credit locks borrower wallet movements except cash seats', () => {
+  const f = fixture(); grant(f);
+  f.db.exec(`CREATE TABLE organizer_session_credits(id TEXT PRIMARY KEY,funding_request_id TEXT,organizer_id INTEGER,user_id INTEGER,state TEXT);
+    INSERT INTO organizer_session_credits VALUES ('loan-1','fund-1',1,3,'active')`);
+  assert.throws(() => f.chips.transfer({ organizerId: 1, fromUserId: 1, toUserId: 3, amount: 10, idempotencyKey: 'locked-in' }), (error) => error.code === 'session_credit_locked');
+  f.db.prepare('INSERT INTO organizer_chip_accounts VALUES (?,?,?)').run(1, 'wallet:3', 100);
+  assert.equal(f.chips.openSeat({ organizerId: 1, userId: 3, tableId: 't1', sessionId: 'credit-seat', amount: 100 }).applied, true);
+  f.db.prepare("UPDATE tables SET private=0 WHERE id='t1'").run();
+  assert.equal(f.chips.recoverSessions().length, 1); assert.equal(f.chips.balance(1, 3), 100);
+  f.db.exec("CREATE TABLE tournaments(id TEXT PRIMARY KEY); INSERT INTO tournaments VALUES('t2')");
+  assert.throws(() => f.chips.openSeat({ organizerId: 1, userId: 3, tableId: 't2', sessionId: 'credit-tourney', amount: 10 }), (error) => error.code === 'session_credit_locked');
+  assert.throws(() => f.chips.transfer({ organizerId: 1, fromUserId: 3, toUserId: 4, amount: 10, idempotencyKey: 'locked-out' }), (error) => error.code === 'session_credit_locked');
+});
+
 test('seat APIs reject public, play-money, and other-organizer tables', () => {
   const f = fixture(); grant(f);
   for (const tableId of ['wrong-owner', 'public', 'play', 'missing']) {

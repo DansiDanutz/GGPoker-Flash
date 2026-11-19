@@ -65,3 +65,15 @@ test('table, owner, stake, operation and holder boundaries preserve ticket funds
     assert.equal(f.chips.balance(1, 2), 5000, 'expiry cannot trap an existing ticket refund');
   } finally { f.db.close(); }
 });
+
+test('active session credit blocks Spin ticket transfers without changing ownership', () => {
+  const f = fixture();
+  try {
+    f.db.exec("CREATE TABLE organizer_session_credits(id TEXT,organizer_id INTEGER,user_id INTEGER,state TEXT); INSERT INTO organizer_session_credits VALUES('locked',1,3,'active')");
+    assert.throws(() => f.tickets.transfer({ userId: 2, ticketId: f.ticket.id, toUserId: 3, key: 'locked-transfer' }), (error) => error.code === 'session_credit_locked');
+    assert.equal(f.tickets.list(2)[0].holder_id, 2); assert.equal(f.tickets.list(3).length, 0);
+    f.db.prepare('UPDATE organizer_session_credits SET user_id=2').run();
+    assert.throws(() => f.tickets.openSeat(f.seat), (error) => error.code === 'session_credit_locked');
+    assert.equal(f.tickets.list(2)[0].state, 'issued'); assert.equal(f.db.prepare('SELECT COUNT(*) n FROM organizer_chip_sessions').get().n, 0);
+  } finally { f.db.close(); }
+});

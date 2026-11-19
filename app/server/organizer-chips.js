@@ -105,6 +105,22 @@ export function createOrganizerChips({ db, now = Date.now }) {
       if (old.payload !== payload) fail('Reference already used with different details.', 409, 'reference_conflict');
       return { applied: false, balance: to ? rawBalance(organizerId, to) : null };
     }
+    if (db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='organizer_session_credits'").get()) {
+      const credits = db.prepare("SELECT * FROM organizer_session_credits WHERE organizer_id=? AND state='active'").all(organizerId);
+      for (const credit of credits) {
+        const wallet = `wallet:${credit.user_id}`;
+        if (from !== wallet && to !== wallet) continue;
+        const tableAccount = from?.startsWith('table:') ? from : to?.startsWith('table:') ? to : null;
+        const tableId = tableAccount?.slice(6), tableRow = tableId && db.prepare('SELECT * FROM tables WHERE id=? AND owner_id=? AND private=1 AND chip_economy=1').get(tableId, organizerId);
+        const tournament = tableId && db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='tournaments'").get() && db.prepare('SELECT 1 FROM tournaments WHERE id=?').get(tableId);
+        const persisted = tableId && db.prepare("SELECT * FROM organizer_chip_sessions WHERE organizer_id=? AND user_id=? AND table_id=? AND status='open'").get(organizerId, credit.user_id, tableId);
+        const persistedClose = persisted && kind === 'seat_close' && reference === `seat:${persisted.session_id}:close` && from === tableAccount && to === wallet;
+        const seat = persistedClose || (reference.startsWith('seat:') && tableRow && tableRow.game !== 'spingold' && !tournament && ((from === wallet && to === tableAccount) || (to === wallet && from === tableAccount)));
+        const advance = kind === 'funding_credit' && reference === `funding:${credit.funding_request_id}:credit` && from === `wallet:${organizerId}` && to === wallet;
+        const reclaim = kind === 'session_credit_reclaim' && reference === `session-credit:${credit.id}:reclaim` && from === wallet && to === `wallet:${organizerId}`;
+        if (!seat && !advance && !reclaim) fail('Wallet movements are locked during session credit.', 409, 'session_credit_locked');
+      }
+    }
     if (from) {
       ensureAccount(organizerId, from);
       const debit = db.prepare('UPDATE organizer_chip_accounts SET balance=balance-? WHERE organizer_id=? AND account_key=? AND balance>=?').run(amount, organizerId, from, amount);
@@ -121,6 +137,11 @@ export function createOrganizerChips({ db, now = Date.now }) {
   }
   const moveInTransaction = (details) => movement(details);
   const move = (details) => transaction(db, () => movement(details));
+  function assertSessionCreditUnlocked(organizerId, ...userIds) {
+    organizerId = orgId(organizerId); userIds = [...new Set(userIds.map(userId))];
+    if (!userIds.length || !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='organizer_session_credits'").get()) return;
+    for (const id of userIds) if (db.prepare("SELECT 1 FROM organizer_session_credits WHERE organizer_id=? AND user_id=? AND state='active'").get(organizerId, id)) fail('Ticket and event movements are locked during session credit.', 409, 'session_credit_locked');
+  }
   function requireMembership(organizerId) {
     const membership = db.prepare("SELECT expires_at FROM organizer_billing_memberships WHERE user_id=? AND role='organizer' AND active=1").get(organizerId);
     if (!membership || Date.parse(membership.expires_at) <= now()) fail('Active organizer membership required.', 402, 'membership_required');
@@ -250,7 +271,7 @@ export function createOrganizerChips({ db, now = Date.now }) {
     return { minted, burned, circulating: minted - burned };
   }
   const history = (organizerId) => db.prepare('SELECT * FROM organizer_chip_journals WHERE organizer_id=? ORDER BY id DESC').all(organizerExists(organizerId));
-  return { grantMembership, grantClubEntryBonus, releaseDueGrants, purchase, balance, account, history, supply, transfer, openSeat, seatMove, settleHand, closeSeat, recoverSessions, reconcileTable, move, moveInTransaction };
+  return { grantMembership, grantClubEntryBonus, releaseDueGrants, purchase, balance, account, history, supply, transfer, openSeat, seatMove, settleHand, closeSeat, recoverSessions, reconcileTable, move, moveInTransaction, assertSessionCreditUnlocked };
 }
 
 export { MEMBERSHIP_CHIPS, PACK_CHIPS, PACK_CENTS };

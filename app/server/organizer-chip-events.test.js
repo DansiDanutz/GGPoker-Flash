@@ -20,6 +20,10 @@ function fixture() {
   db.prepare('INSERT INTO organizer_chip_accounts VALUES (?,?,?)').run(1, 'wallet:1', 0);
   return { db, chips, events: createOrganizerChipEvents({ db, chips, now: () => Date.parse('2026-01-01T00:00:00Z') }) };
 }
+function lockSession(f, userId) {
+  f.db.exec(`CREATE TABLE IF NOT EXISTS organizer_session_credits(id TEXT,organizer_id INTEGER,user_id INTEGER,state TEXT);
+    INSERT INTO organizer_session_credits VALUES ('lock-${userId}',1,${userId},'active')`);
+}
 
 test('ticket issue, transfer, redeem, unregister and current-term checks conserve scoped chips', () => {
   const f = fixture();
@@ -45,6 +49,27 @@ test('ticket can redeem and unregister repeatedly with unique escrow references'
   }
   assert.equal(f.db.prepare('SELECT redemptions FROM organizer_chip_tickets WHERE id=?').get(issued.id).redemptions, 2);
   assert.equal(f.db.prepare('SELECT entrants FROM tournaments WHERE id=?').get('t1').entrants, 0);
+});
+
+test('active session credit blocks tournament ticket ownership, registration and payouts atomically', () => {
+  const incoming = fixture(), ticket = incoming.events.issueTicket({ userId: 2, tournamentId: 't1', idempotencyKey: 'locked-transfer' });
+  lockSession(incoming, 3);
+  assert.throws(() => incoming.events.transferTicket({ userId: 2, ticketId: ticket.id, toUserId: 3, idempotencyKey: 'to-locked' }), (error) => error.code === 'session_credit_locked');
+  assert.equal(incoming.db.prepare('SELECT holder_id FROM organizer_chip_tickets WHERE id=?').get(ticket.id).holder_id, 2);
+
+  const redeem = fixture(), held = redeem.events.issueTicket({ userId: 2, tournamentId: 't1', idempotencyKey: 'locked-redeem' }); lockSession(redeem, 2);
+  assert.throws(() => redeem.events.redeemTicket({ userId: 2, ticketId: held.id }), (error) => error.code === 'session_credit_locked');
+  assert.equal(redeem.db.prepare('SELECT state FROM organizer_chip_tickets WHERE id=?').get(held.id).state, 'issued');
+  assert.equal(redeem.db.prepare('SELECT COUNT(*) n FROM tourney_regs').get().n, 0); assert.equal(redeem.db.prepare("SELECT entrants FROM tournaments WHERE id='t1'").get().entrants, 0);
+
+  const payout = fixture(), entry = payout.events.issueTicket({ userId: 2, tournamentId: 't1', idempotencyKey: 'locked-payout' }), other = payout.events.issueTicket({ userId: 2, tournamentId: 't1', idempotencyKey: 'locked-payout-other' });
+  payout.events.transferTicket({ userId: 2, ticketId: other.id, toUserId: 3, idempotencyKey: 'locked-payout-transfer' }); payout.events.redeemTicket({ userId: 2, ticketId: entry.id }); payout.events.redeemTicket({ userId: 3, ticketId: other.id }); payout.events.startEvent({ organizerId: 1, tournamentId: 't1' }); lockSession(payout, 2);
+  const escrow = payout.db.prepare("SELECT balance FROM organizer_chip_accounts WHERE organizer_id=1 AND account_key='event:t1'").get().balance;
+  assert.throws(() => payout.events.award({ organizerId: 1, tournamentId: 't1', userId: 2, amount: 500, payoutId: 'locked-award' }), (error) => error.code === 'session_credit_locked');
+  assert.equal(payout.db.prepare("SELECT balance FROM organizer_chip_accounts WHERE organizer_id=1 AND account_key='event:t1'").get().balance, escrow);
+  const cancel = fixture(), unused = cancel.events.issueTicket({ userId: 2, tournamentId: 't1', idempotencyKey: 'locked-cancel' }); lockSession(cancel, 2);
+  assert.throws(() => cancel.events.cancelEvent({ organizerId: 1, tournamentId: 't1' }), (error) => error.code === 'session_credit_locked');
+  assert.equal(cancel.db.prepare('SELECT state FROM organizer_chip_tickets WHERE id=?').get(unused.id).state, 'issued'); assert.equal(cancel.db.prepare("SELECT status FROM tournaments WHERE id='t1'").get().status, 'registering');
 });
 
 test('event fees burn separately, awards cannot exceed reserved pool, and cancellation refunds current holders once', () => {
@@ -80,10 +105,13 @@ test('manual buyback locks chips and only recipient confirmation transfers escro
   const requested = f.events.requestBuyback({ userId: 2, organizerId: 1, amount: 2500, paymentAmount: '25.00', paymentCurrency: 'USD', paymentDetails: 'Bank transfer negotiated directly', idempotencyKey: 'buyback-1' });
   assert.equal(f.chips.balance(1, 2), 7500); assert.equal(f.chips.balance(1, 1), 0);
   assert.throws(() => f.events.confirmBuyback({ userId: 2, buybackId: requested.id }), (error) => error.code === 'buyback_state');
-  f.events.reportBuyback({ userId: 1, buybackId: requested.id, receipt: 'provider-receipt-global-1', paymentAmount: '25.00', paymentCurrency: 'USD', paymentNetwork: 'SEPA', paymentDetails: 'Paid manually outside the platform' });
+  assert.equal(f.events.acceptBuyback({ userId: 1, buybackId: requested.id }).processing_at, '2026-01-01T00:00:00.000Z');
+  const reported = f.events.reportBuyback({ userId: 1, buybackId: requested.id, receipt: 'provider-receipt-global-1', paymentAmount: '25.00', paymentCurrency: 'USD', paymentNetwork: 'SEPA', paymentDetails: 'Paid manually outside the platform' });
+  assert.deepEqual(f.events.reportBuyback({ userId: 1, buybackId: requested.id, receipt: 'provider-receipt-global-1', paymentAmount: '25.00', paymentCurrency: 'USD', paymentNetwork: 'SEPA', paymentDetails: 'Paid manually outside the platform' }), reported);
   assert.throws(() => f.events.cancelBuyback({ userId: 2, buybackId: requested.id }), (error) => error.code === 'buyback_state');
   assert.equal(f.events.confirmBuyback({ userId: 2, buybackId: requested.id }).state, 'paid');
   assert.equal(f.chips.balance(1, 1), 2500);
+  assert.equal(f.chips.balance(1, 1) + f.chips.balance(1, 2), 10000);
 });
 
 test('bounty modes require organizer prefunding, pay by busted user once, and return unused reserve', () => {
@@ -141,18 +169,50 @@ test('requested buybacks can only be cancelled by requester or rejected by organ
   const reject = f.events.requestBuyback({ userId: 2, organizerId: 1, amount: 1000, paymentAmount: '10', paymentCurrency: 'EUR', paymentDetails: 'Cash', idempotencyKey: 'reject' });
   assert.equal(f.events.rejectBuyback({ userId: 1, buybackId: reject.id }).state, 'rejected'); assert.equal(f.chips.balance(1, 2), 10000);
   const first = f.events.requestBuyback({ userId: 2, organizerId: 1, amount: 1000, paymentAmount: '10', paymentCurrency: 'EUR', paymentDetails: 'Cash', idempotencyKey: 'r1' });
+  f.events.acceptBuyback({ userId: 1, buybackId: first.id });
   f.events.reportBuyback({ userId: 1, buybackId: first.id, receipt: 'same-receipt', paymentAmount: '10', paymentCurrency: 'EUR', paymentNetwork: 'cash', paymentDetails: 'desk' });
   const second = f.events.requestBuyback({ userId: 2, organizerId: 1, amount: 1000, paymentAmount: '10', paymentCurrency: 'EUR', paymentDetails: 'Cash', idempotencyKey: 'r2' });
+  f.events.acceptBuyback({ userId: 1, buybackId: second.id });
   assert.throws(() => f.events.reportBuyback({ userId: 1, buybackId: second.id, receipt: 'same-receipt', paymentAmount: '10', paymentCurrency: 'EUR', paymentNetwork: 'cash', paymentDetails: 'desk' }), (error) => error.code === 'receipt_conflict');
 });
 
 test('reported buybacks must match the quote and admin resolution is audited', () => {
   const f = fixture(), requested = f.events.requestBuyback({ userId: 2, organizerId: 1, amount: 1000, paymentAmount: '10.00', paymentCurrency: 'USDT', paymentDetails: 'Agreed transfer', idempotencyKey: 'admin-resolve' });
+  f.events.acceptBuyback({ userId: 1, buybackId: requested.id });
   assert.throws(() => f.events.reportBuyback({ userId: 1, buybackId: requested.id, receipt: 'quote-wrong', paymentAmount: '11.00', paymentCurrency: 'USDT', paymentNetwork: 'TRC20', paymentDetails: 'sent' }), (error) => error.code === 'buyback_quote_mismatch');
   f.events.reportBuyback({ userId: 1, buybackId: requested.id, receipt: 'quote-right', paymentAmount: '10.00', paymentCurrency: 'USDT', paymentNetwork: 'TRC20', paymentDetails: 'sent' });
   assert.equal(f.events.resolveBuyback({ adminId: 1, buybackId: requested.id, resolution: 'refund', reason: 'Verified payment dispute' }).state, 'rejected');
   const audit = f.db.prepare("SELECT * FROM audit_log WHERE action='organizer_buyback_resolved'").get();
   assert.equal(audit.actor, '1'); assert.match(audit.detail, /Verified payment dispute/);
+});
+
+test('buyback acceptance closes the player cancellation race without moving escrow', () => {
+  const f = fixture(), requested = f.events.requestBuyback({ userId: 2, organizerId: 1, amount: 2500, paymentAmount: '25.00', paymentCurrency: 'USDT', paymentDetails: 'Polygon address', idempotencyKey: 'accept-race' });
+  assert.throws(() => f.events.reportBuyback({ userId: 1, buybackId: requested.id, receipt: 'too-early', paymentAmount: '25.00', paymentCurrency: 'USDT', paymentNetwork: 'Polygon', paymentDetails: 'not sent' }), (error) => error.code === 'buyback_not_accepted');
+  assert.throws(() => f.events.acceptBuyback({ userId: 2, buybackId: requested.id }), (error) => error.code === 'buyback_not_found');
+  f.db.prepare('UPDATE users SET banned=1 WHERE id=1').run();
+  assert.throws(() => f.events.acceptBuyback({ userId: 1, buybackId: requested.id }), (error) => error.code === 'user_inactive');
+  f.db.prepare('UPDATE users SET banned=0 WHERE id=1').run();
+  const accepted = f.events.acceptBuyback({ userId: 1, buybackId: requested.id });
+  assert.equal(accepted.processing_at, '2026-01-01T00:00:00.000Z');
+  assert.deepEqual(f.events.acceptBuyback({ userId: 1, buybackId: requested.id }), accepted);
+  assert.equal(f.chips.balance(1, 1), 0); assert.equal(f.chips.balance(1, 2), 7500);
+  assert.equal(f.db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=1 AND account_key=?').get(`payout:${requested.id}`).balance, 2500);
+  assert.throws(() => f.events.cancelBuyback({ userId: 2, buybackId: requested.id }), (error) => error.code === 'buyback_processing');
+  assert.equal(f.events.rejectBuyback({ userId: 1, buybackId: requested.id }).state, 'rejected');
+  assert.equal(f.chips.balance(1, 2), 10000);
+});
+
+test('existing buyback tables gain the nullable processing marker', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(`CREATE TABLE organizer_chip_buybacks (
+    id TEXT PRIMARY KEY, organizer_id INTEGER NOT NULL, requester_id INTEGER NOT NULL, chips INTEGER NOT NULL,
+    payment_amount TEXT NOT NULL, payment_currency TEXT NOT NULL, payment_details TEXT NOT NULL,
+    state TEXT NOT NULL, receipt TEXT UNIQUE, report_amount TEXT, report_currency TEXT, report_network TEXT, report_details TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  )`);
+  createOrganizerChipEvents({ db, chips: {} });
+  assert.equal(db.prepare("PRAGMA table_info('organizer_chip_buybacks')").all().find((column) => column.name === 'processing_at').notnull, 0);
 });
 
 test('paused event recovery requires an audited exact escrow allocation and cannot mint on replay', () => {

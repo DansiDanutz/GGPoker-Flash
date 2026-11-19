@@ -38,6 +38,7 @@ export function createOrganizerSpinTickets({ db, chips }) {
   });
   const issue = ({ userId, tableId, key }) => operation(userId, key, ['issue', tableId], () => {
     const t = eligible(tableId), id = randomUUID();
+    chips.assertSessionCreditUnlocked(t.owner_id, userId);
     active(t.owner_id);
     const membership = db.prepare("SELECT expires_at FROM organizer_billing_memberships WHERE user_id=? AND role='organizer' AND active=1").get(t.owner_id);
     if (!membership || Date.parse(membership.expires_at) <= Date.now()) fail('Active organiser membership required to sell new tickets.', 402);
@@ -48,11 +49,13 @@ export function createOrganizerSpinTickets({ db, chips }) {
   const transfer = ({ userId, ticketId, toUserId, key }) => operation(userId, key, ['transfer', ticketId, toUserId], () => {
     active(toUserId); const t = held(userId, ticketId);
     if (t.state !== 'issued' || userId === toUserId) fail('Choose another holder for an unused ticket.', 409);
+    chips.assertSessionCreditUnlocked(t.organizer_id, userId, toUserId);
     db.prepare('UPDATE organizer_chip_spin_tickets SET holder_id=? WHERE id=?').run(toUserId, t.id); return { id: t.id, holder_id: toUserId };
   });
   const refundRow = t => {
     if (t.state === 'refunded') return { id: t.id, state: t.state };
     if (t.state !== 'issued') fail('Only unused tickets can be refunded.', 409);
+    chips.assertSessionCreditUnlocked(t.organizer_id, t.holder_id);
     chips.moveInTransaction({ organizerId: t.organizer_id, from: `ticket:${t.id}`, to: `wallet:${t.holder_id}`, amount: t.price, kind: 'spin_ticket_refund', reference: `spin-ticket:${t.id}:refund` });
     db.prepare("UPDATE organizer_chip_spin_tickets SET state='refunded' WHERE id=?").run(t.id); return { id: t.id, state: 'refunded' };
   };
@@ -62,6 +65,7 @@ export function createOrganizerSpinTickets({ db, chips }) {
   const openSeat = details => transaction(() => {
     const { userId, tableId, organizerId, amount, sessionId } = details;
     active(userId); const cfg = eligible(tableId), t = available(userId, tableId);
+    chips.assertSessionCreditUnlocked(organizerId, userId);
     if (cfg.owner_id !== organizerId || amount !== cfg.min_buyin || amount !== cfg.max_buyin) fail('Spin entry terms changed.', 409);
     if (db.prepare('SELECT 1 FROM organizer_chip_sessions WHERE organizer_id=? AND session_id=?').get(organizerId, sessionId)) return chips.openSeat(details);
     if (t) {

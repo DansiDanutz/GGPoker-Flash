@@ -163,7 +163,7 @@ async function driveBrowserHeroToFlop(clients, tableId, untilReveal = false) {
         if (document.querySelector('.action-bar .act-call:not(:disabled)')) return '.action-bar .act-call:not(:disabled)';
         return '';
       });
-      if (selector) await page.click(selector);
+      if (selector) await page.locator(selector).click();
       await new Promise((resolve) => setTimeout(resolve, 80));
     }
     throw new Error(`Timed out driving ${tableId} to the browser hero's flop action.`);
