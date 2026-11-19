@@ -57,7 +57,7 @@ try {
 
   await menu((await me()).sittingOut?'Post blinds / sit in':'Sitting out next hand');
   await page.waitForFunction(()=>{const p=window.menuState.players.find(p=>p.isMe);return p&&!p.sitOutNext&&!p.sittingOut;});
-  for(const [label,field] of [['Sit out next big blind','sitOutNextBigBlind'],['Leave table after this hand','leaveAfterHand'],['Sit out at all tables','sitOutAll']]) {
+  for(const [label,field] of [['Sit out next big blind','sitOutNextBigBlind'],['Sit out at all tables','sitOutAll']]) {
     await menu(label);await page.waitForFunction(f=>window.menuState.players.find(p=>p.isMe)?.[f]===true,{},field);
     await menu(label);await page.waitForFunction(f=>window.menuState.players.find(p=>p.isMe)?.[f]===false,{},field);
     console.log('PASS toggle',label);
@@ -73,6 +73,11 @@ try {
   assert.equal(await page.$eval('.table-menu-btn',n=>getComputedStyle(n).webkitTapHighlightColor),'rgba(0, 0, 0, 0)');
   const controls=await page.$$eval('.table-menu button',bs=>bs.map(b=>({text:b.textContent.trim(),disabled:b.disabled})));
   await writeFile(path.join(artifacts,'menu-controls.json'),JSON.stringify({controls,errors},null,2));
+  await menu('Leave table after this hand');
+  await page.evaluate(()=>{window.menuFold=setInterval(()=>{const s=window.menuState,p=s?.players.find(p=>p.isMe);if(p&&s.actor===p.id)window.menuSocket.send(JSON.stringify({type:'action',tableId:s.id,action:'fold',amount:0,handNo:s.handNo,turnNo:s.turnNo}));},200);});
+  await page.waitForFunction(()=>!window.menuState.players.some(p=>p.isMe),{timeout:60000});
+  await page.evaluate(()=>clearInterval(window.menuFold));
+  console.log('PASS leave-after-hand releases the seat');
   assert.deepEqual(errors,[]);
   console.log('PASS menu browser audit');
 } finally { await browser?.close(); await sandbox.close(); }
