@@ -259,6 +259,15 @@ async function capture(kind, width, height) {
     await page.waitForFunction(()=>Math.abs(parseFloat(getComputedStyle(document.querySelector('.action-bar')).bottom))<1);
   }
   await page.screenshot({ path: path.join(artifacts, `${kind}-${width}x${height}.png`) });
+  if (kind === 'cash') {
+    const overlaps = await page.evaluate(() => {
+      const ribbon=document.querySelector('.daily-lb:not(.open) .daily-lb-ribbon');
+      if (!ribbon || getComputedStyle(ribbon).display==='none') return false;
+      const r=ribbon.getBoundingClientRect();
+      return [...document.querySelectorAll('.seat .avatar-wrap,.seat .plate')].some(n=>{const p=n.getBoundingClientRect();return r.width>0&&r.height>0&&r.left<p.right&&r.right>p.left&&r.top<p.bottom&&r.bottom>p.top;});
+    });
+    assert.equal(overlaps,false,'Collapsed leaderboard must not cover player identities');
+  }
   assert.equal(layout.documentWidth <= width + 1, true, `${kind} document overflows at ${width}px.`);
   assert.equal(layout.seats, 6, `${kind} does not show six populated seats.`);
   assert.ok(layout.board >= 3, `${kind} has not reached a populated flop.`);
@@ -355,6 +364,13 @@ try {
   });
   page = await browser.newPage();
   page.setDefaultTimeout(20000);
+  // Hosted fixture tables have no public leaderboard; exercise the same header with a fixture response.
+  await page.setRequestInterception(true);
+  page.on('request', request => {
+    if (/\/api\/tables\/[^/]+\/leaderboard$/.test(new URL(request.url()).pathname)) {
+      request.respond({status:200,contentType:'application/json',body:JSON.stringify({leaderboard:{day:'fixture',totalPrize:0,myPoints:0,myRank:null,top:[]}})});
+    } else request.continue();
+  });
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: phone ? 'no-preference' : 'reduce' }]);
   await page.evaluateOnNewDocument((token, userId) => {
