@@ -28,3 +28,10 @@ payment evidence. TypeScript and whitespace checks accompany the browser run.
 This is a private DanGG design review. Public promotion, merge and deployment need
 maintainer approval. Real-device usability and owner visual approval remain release
 checks; browser emulation does not prove physical-phone behavior.
+
+## Follow-up consistency pass
+Wallet, transaction history, public clubs and club dialogs share the same palette,
+readable labels and 44px controls. Wallet labels explicitly identify demo balances.
+Account query navigation now responds to route changes, including direct Wallet
+links, without requiring a reload. Browser coverage includes wallet/history/clubs
+at all three widths and the disposable club dialog with real fixture data.

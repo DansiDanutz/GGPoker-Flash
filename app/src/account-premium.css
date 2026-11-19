@@ -86,6 +86,52 @@
 .platform-workspace .mp-eyebrow { font-size: 11px; }
 :is(.platform-workspace,.marketplace) .mp-notice { margin-block: 20px; font-size: 14px; line-height: 1.6; }
 :is(.platform-workspace,.marketplace) .mp-notice:not(.mp-notice-error):not(.mp-notice-success) { background: #242119; border-color: #766340; color: #e9d8b3; }
+/* Wallet and history belong to the same account, without implying redeemable money. */
+.wallet h2 { font-size: clamp(26px,3vw,36px); letter-spacing: -.025em; margin: 12px 0; }
+.wallet :is(.wallet-card,.wallet-ticket), .txp-table-wrap { background: #18191c; border-color: #4c4436; border-radius: 12px; }
+.wallet-card { min-width: 0; padding: 20px; }
+.wallet-card b { color: #f2dba8; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.wallet-note { color: #bcb8af; font-size: 14px; line-height: 1.65; }
+.wallet :is(.wallet-refresh,.wallet-chip-btn,.wallet-action), .txp-pager button { min-height: 44px; height: auto; color: #f5e0b4; border-color: #8b7751; background: #29251d; border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+.wallet-label { font-size: 14px; line-height: 1.4; }
+.txp-tabs { border-color: #4c4436; border-radius: 10px; overflow: hidden; gap: 4px; padding: 4px; background: #141518; }
+.txp-tab { min-height: 44px; height: auto; border-radius: 6px; }
+.txp-table { font-size: 14px; }
+.txp-table th { color: #e6d8bc; background: #26231e; padding-block: 12px; }
+.txp-table td { padding-block: 12px; }
+.txp-empty { color: #bcb8af; }
+.txp-pager button { min-width: 44px; }
+.ma .ma-wallet-top button { min-height: 44px; color: #e6c785 !important; }
+.ma :is(.ma-balance small,.ma-wallet-row small,.ma-row-copy small) { color: #bcb8af; }
+.ma :is(.ma-cashier,.ma-cta) { background: linear-gradient(135deg,#f2dba8,#d8b36b) !important; color: #211a0e !important; box-shadow: none; }
+@media (max-width:420px) {
+  .wallet-cards { grid-template-columns: 1fr; }
+  .txp-tabs { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+/* Directory cards and member dialogs use the account palette as well. */
+.org-page :is(.org-hero aside,.org-card,.org-modal) { background: var(--account-panel); border-color: var(--account-line); box-shadow: none; }
+.org-cover { color: #d8b778; background: radial-gradient(ellipse at 80% 0,#3a3020,transparent 75%),#18191c; }
+.org-page :is(.org-toolbar label,.org-description,.org-identity p,.org-metric span,.org-profile-head p,.org-tables span,.org-requests p,.org-economics) { color: var(--account-muted); font-size: 14px; line-height: 1.65; }
+.org-page :is(.org-rank,.org-entry,.org-kicker) { font-size: 11px; }
+.org-page :is(.org-metric,.org-toolbar div,.org-economics) { background: #111215; border-color: var(--account-line); }
+.org-page :is(.org-toolbar input,.org-modal input,.org-modal textarea,.org-modal select) { box-sizing: border-box; background: #101114; border-color: #736956; }
+.org-page :is(.org-owner-actions button,.org-join>button,.org-requests button) { border-color: #8b7751; color: #f5e0b4; background: #29251d; }
+.org-page :is(button,.org-primary) { min-height: 44px; }
+.org-page .org-close { width: 44px; height: 44px; background: #29251d; color: #f5e0b4; }
+.org-page .org-profile-head { padding-right: 50px; }
+.org-page :is(.org-owner-actions,.org-toolbar) { flex-wrap: wrap; }
+.org-page .org-owner-actions button { flex: 1; }
+.org-page .org-metric { min-width: 0; overflow-wrap: anywhere; }
+.marketplace .mp-modal-close { width: 44px; height: 44px; }
+.marketplace .mp-modal-heading { padding-right: 36px; }
+.marketplace :is(.mp-modal-heading > p,.mp-modal .mp-feature-list li,.mp-modal-signin > p) { font-size: 14px; color: #bcb8af; }
+:is(.platform-workspace,.marketplace) .mp-button { white-space: normal; text-align: center; }
+@media (max-width:620px) {
+  .org-page .org-profile-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .org-page .org-requests article { grid-template-columns: auto minmax(0,1fr); }
+  .org-page .org-modal { padding: 22px 18px; }
+  .org-page .org-profile-head h2 { font-size: 26px; overflow-wrap: anywhere; }
+}
 @media (hover:hover) {
   .profile-workspace-tabs button:not(.active):hover { background: #302a1e; color: #f4dfb1; border-color: #8b7751; }
   .profile-role-cards button:hover, .ow-workspace button:not(:disabled):hover { background: #393020; border-color: #e6c785; }
