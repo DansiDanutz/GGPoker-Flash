@@ -115,12 +115,13 @@ try {
       const r=n.getBoundingClientRect();const rank=n.querySelector('.rank');const k=rank.getBoundingClientRect();
       const hit=document.elementFromPoint(k.left+k.width/2,k.top+k.height/2);
       const suit=n.querySelector('.suit').getBoundingClientRect();const suitHit=document.elementFromPoint(suit.left+suit.width/2,suit.top+suit.height/2);
-      return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,rankVisible:n.contains(hit)&&n.contains(suitHit),label:n.getAttribute('aria-label')};
+      return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,rankVisible:n.contains(hit)&&n.contains(suitHit)&&n.contains(document.elementFromPoint(k.right-1,k.top+k.height/2))&&n.contains(document.elementFromPoint(suit.right-1,suit.top+suit.height/2)),label:n.getAttribute('aria-label')};
     }));
     await page.screenshot({path:path.join(artifacts,`omaha-${count}-${desktop?'desktop':'phone'}-${width}.png`)});
     const allCardsFit=await page.$$eval('.seat .cards .pcard',nodes=>nodes.every(n=>{const r=n.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;}));
     assert.ok(allCardsFit,'Opponent hands also stay inside the viewport');
     assert.equal(hand.length,count);
+    assert.ok(hand.slice(1).every((c,i)=>Math.abs((c.left-hand[i].left)/(hand[i].right-hand[i].left)-.35)<.02), "Omaha cards overlap while keeping each index visible");
     assert.ok(hand.every(c=>c.left>=0&&c.right<=width&&c.top>=0&&c.bottom<=800&&c.rankVisible),`All ${count} Omaha indices visible at ${width}: ${JSON.stringify(hand)}`);
     if (!desktop && width === 390) {
       await page.evaluate(state=>window.injectTable({type:'state',state:{...state,handNo:100+state.players[0].cards.length,street:'preflop',board:[]}}),state);

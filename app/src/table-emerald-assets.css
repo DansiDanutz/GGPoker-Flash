@@ -93,7 +93,7 @@
 .table-screen .seat .allin-equity { display: flex; justify-content: center; gap: 4px; padding: 2px 3px; color: #c9e9ce; font-size: 10px; line-height: 12px; white-space: nowrap; }
 .table-screen .seat .allin-equity b { color: #b6f3a8; font-variant-numeric: tabular-nums; }
 
-/* Omaha hands need independent indices, not the two-card Hold'em fan. */
+/* Omaha keeps a visible rank/suit strip for every card. */
 .table-screen[class] .table-stage[class] .seat[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) {
   display: flex; width: max-content; gap: 2px; --hole-width: 20px;
 }
@@ -103,9 +103,8 @@
 .table-screen[class] .table-stage[class] .seat[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .pcard.mini {
   width: var(--hole-width); height: 56px;
 }
-.table-screen[class] .table-stage[class] .seat.me[class] .cards[data-count="4"] { --hole-width: 42px; }
-.table-screen[class] .table-stage[class] .seat.me[class] .cards[data-count="5"] { --hole-width: 36px; }
-.table-screen[class] .table-stage[class] .seat.me[class] .cards[data-count="6"] { --hole-width: 32px; }
+.table-screen[class] .table-stage[class] .seat.me[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) { --hole-width: 48px; gap: 0; }
+.table-screen[class] .table-stage[class] .seat.me[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) > .card-slot + .card-slot { margin-left: calc(var(--hole-width) * -.65); }
 .table-screen[class] .table-stage[class] .seat[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .rank { left: 3px; top: 3px; font-size: 17px; }
 .table-screen[class] .table-stage[class] .seat[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .suit { left: 3px; top: 24px; font-size: 20px; }
 .table-screen[class] .table-stage[class] .seat[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .big-suit { display: none; }
@@ -119,3 +118,6 @@
 .table-screen[class] .table-stage[class] .seat:not(.me)[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .suit { left: 2px; font-size: 14px; }
 /* The turn countdown must sit beside the full Omaha hand, not over its suit indices. */
 .table-screen[class] .table-stage.stage-portrait[class] .seat.me[class]:has(.cards:is([data-count="4"],[data-count="5"],[data-count="6"])) .turn-badge { left: 250px; right: auto; }
+
+.table-screen[class] .table-stage[class] .seat.me[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .rank { left: 0; font-size: 14px; }
+.table-screen[class] .table-stage[class] .seat.me[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .suit { left: 0; font-size: 14px; }
