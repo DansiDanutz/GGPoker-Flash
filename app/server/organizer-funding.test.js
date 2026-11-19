@@ -140,3 +140,23 @@ test('organizer may verify a trusted provider payment for the requester', () => 
   assert.equal(paid.state, 'paid');
   assert.equal(f.chips.balance(1, 2), 1000);
 });
+
+test('cancel unpaid escrow once; linked offers require provider confirmation', () => {
+ const f=fixture(), r=f.funding.create({userId:2,organizerId:1,amount:10000,key:'cancel-offer'});
+ f.funding.offer({userId:1,id:r.id,feeCents:100});
+ f.funding.cancel({userId:1,id:r.id});
+ f.funding.cancel({userId:1,id:r.id});
+ assert.equal(f.chips.balance(1,1),50000);
+ assert.equal(f.db.prepare("SELECT count(*) n FROM organizer_chip_journals WHERE kind='funding_cancel'").get().n,1);
+});
+
+test('linked cancellation requires trusted provider clearance and cannot settle afterward',()=>{
+ const f=fixture(),r=f.funding.create({userId:2,organizerId:1,amount:10000,key:'linked-cancel'});
+ f.funding.offer({userId:1,id:r.id,feeCents:100});f.funding.attachLink({userId:1,id:r.id,paymentLinkId:LINK});
+ assert.throws(()=>f.funding.cancel({userId:2,id:r.id,providerCleared:true}));
+ assert.throws(()=>f.funding.cancel({userId:1,id:r.id}),e=>e.code==='provider_confirmation_required');
+ assert.equal(f.chips.balance(1,1),40000);
+ f.funding.cancel({userId:1,id:r.id,providerCleared:true});f.funding.cancel({userId:1,id:r.id});
+ assert.equal(f.chips.balance(1,1),50000);
+ assert.throws(()=>f.funding.settle({userId:2,id:r.id,payment:PAYMENT}),e=>e.code==='funding_state');
+});

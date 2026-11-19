@@ -37,12 +37,12 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
     }
     function same(connection) { const latest = current(); return latest && connectionKey(latest) === connectionKey(connection); }
 
-    async function request(path, body, expected = current()) {
+    async function request(path, body, expected = current(), method = body ? 'POST' : 'GET') {
       if (!expected) fail(`Organizer ${organizerId} has no verified live NervixPay connection.`, 503);
       if (!same(expected)) fail('The NervixPay connection changed. Retry this request.', 503);
       let response;
       try {
-        response = await fetchImpl(ORIGIN + '/api/v1' + path, { method:body ? 'POST' : 'GET', redirect:'error', signal:AbortSignal.timeout(10000), headers:{ authorization:`Bearer ${expected.token}`, ...(body ? { 'content-type':'application/json' } : {}) }, ...(body ? { body:JSON.stringify(body) } : {}) });
+        response = await fetchImpl(ORIGIN + '/api/v1' + path, { method, redirect:'error', signal:AbortSignal.timeout(10000), headers:{ authorization:`Bearer ${expected.token}`, ...(body ? { 'content-type':'application/json' } : {}) }, ...(body ? { body:JSON.stringify(body) } : {}) });
       } catch { fail('NervixPay could not be reached. No funding has been granted.', 503); }
       if (!same(expected)) fail('The NervixPay connection changed. No provider result was accepted.', 503);
       if (!response.ok) fail('NervixPay could not confirm this funding request. Try again later.', 503);
@@ -84,7 +84,7 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
         }
         const existing = (await request('/payment-links', undefined, connection)).items?.find(valid);
         const link = existing || (await request('/payment-links', {
-          linkType:'embed', itemName, displayTitle:settlement ? `${row.amount.toLocaleString('en-US')} Cash Chips · Session settlement` : `${row.amount.toLocaleString('en-US')} Cash Chips`,
+          linkType:'embed', itemName, displayTitle:settlement ? `DanGG · ${row.amount.toLocaleString('en-US')} Cash Chips · Session settlement` : `DanGG · ${row.amount.toLocaleString('en-US')} Cash Chips`,
           description:settlement ? 'Settlement for used or lost organizer Cash Chips. This payment does not grant additional chips and is not service credits or club entry. Network fees are separate.' : 'Organizer Cash Chips for this funding request only; not service credits or club entry. Network fees are separate.',
           prices:[
             { network:'polygon', currencyToken:'USDC', amount:price(row.feeCents), pricingMode:'fixed' },
@@ -101,7 +101,17 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
       try { return await task; } finally { pendingLinks.delete(pendingKey); }
     }
 
-    const provider = { ready, linkForRequest, payment:async id => (await request(`/payments/${uuid(id)}`)).payment };
+    async function cancelLink(row) {
+      if (!row.paymentLinkId) return;
+      const connection = current();
+      const updated = await request(`/payment-links/${uuid(row.paymentLinkId)}`, { active:false }, connection, 'PATCH');
+      if (updated.paymentLink?.id !== row.paymentLinkId || updated.paymentLink.active !== false) fail('Checkout could not be disabled.',503);
+      // Any existing order may still receive a late transfer; require operator reconciliation.
+      const payments = await request('/payments?limit=100', undefined, connection);
+      if (!Array.isArray(payments.items) || payments.items.length >= 100 || payments.items.some(p => p.paymentLinkId === row.paymentLinkId)) fail('Checkout disabled; existing payment orders require reconciliation before returning chips.');
+    }
+
+    const provider = { ready, linkForRequest, cancelLink, payment:async id => (await request(`/payments/${uuid(id)}`)).payment };
     providers.set(organizerId, provider);
     return provider;
   }

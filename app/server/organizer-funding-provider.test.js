@@ -57,7 +57,7 @@ test('disconnect or replacement during fetch fails closed before returning provi
 test('creates exact request-bound product and validates live amount/network',async()=>{
  const db=new DatabaseSync(':memory:'),calls=[];
  const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{calls.push({url,init});if(url.endsWith('/verify'))return Response.json(verification('merchant'));if(!init.body)return Response.json({items:[]});return Response.json({paymentLink:link});}}).forOrganizer('organizer-1');
- assert.equal(await provider.linkForRequest(db,row),link.id);const body=JSON.parse(calls.find(call=>call.init.body).init.body);assert.equal(body.itemName,link.itemName);assert.deepEqual(body.prices.map(value=>value.amount),['3.75','3.75']);
+ assert.equal(await provider.linkForRequest(db,row),link.id);const body=JSON.parse(calls.find(call=>call.init.body).init.body);assert.match(body.displayTitle,/^DanGG · /);assert.equal(body.itemName,link.itemName);assert.deepEqual(body.prices.map(value=>value.amount),['3.75','3.75']);
 });
 
 test('session settlement is labelled as repayment and grants no additional chips',async()=>{
@@ -74,5 +74,15 @@ test('creation recovery reuses exact live links and rejects wrong amount or netw
  for(const bad of [{...link,prices:link.prices.map(value=>({...value,amount:'3.74'}))},{...link,prices:[{network:'ethereum',currencyToken:'USDC',amount:'3.75',pricingMode:'fixed'}]}]){
   const other=new DatabaseSync(':memory:');const badProvider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>url.endsWith('/verify')?Response.json(verification('merchant')):!init.body?Response.json({items:[]}):Response.json({paymentLink:bad})}).forOrganizer('organizer-1');
   await assert.rejects(()=>badProvider.linkForRequest(other,row),/valid live/);
+ }
+});
+
+test('cancellation disables checkout and fails closed on existing or incomplete payment history',async()=>{
+ for(const items of [[],[{paymentLinkId:link.id,status:'pending'}],Array.from({length:100},()=>({paymentLinkId:'other'}))]){
+  const calls=[];
+  const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{calls.push({url,method:init.method});return Response.json(init.method==='PATCH'?{paymentLink:{...link,active:false}}:{items});}}).forOrganizer('organizer-1');
+  const run=()=>provider.cancelLink({...row,paymentLinkId:link.id});
+  if(items.length)await assert.rejects(run,/reconciliation/);else await run();
+  assert.equal(calls[0].method,'PATCH');assert.match(calls[1].url,/payments\?limit=100$/);
  }
 });

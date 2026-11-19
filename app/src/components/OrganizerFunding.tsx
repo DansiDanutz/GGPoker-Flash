@@ -68,10 +68,11 @@ export function OrganizerFunding({ userId, organizerId, active = true, canReques
         </div>}
         {owner && !proposed && (row.state === 'requested' || (row.state === 'offered' && !checkout)) && <form onSubmit={e => { e.preventDefault(); void offer(row); }}>
           <label>Price in USD (full requested amount)<input className="admin-input" type="text" inputMode="decimal" required readOnly={row.feeCents != null} value={prices[row.id] ?? (row.feeCents == null ? '' : (row.feeCents / 100).toFixed(2))} onChange={e => setPrices({ ...prices, [row.id]: e.target.value })} /></label>
-          <p>Uses your connected merchant. The checkout displays the payment QR code. Your chips are reserved until verified payment; contact support to resolve an abandoned offer.</p>
+          <p>Uses your connected merchant. The checkout displays the payment QR code. Your chips are reserved until verified payment; cancel an unpaid offer to return the reservation. Existing payment orders require reconciliation first.</p>
           <button className="mp-button mp-button-secondary" disabled={!enabled || busy}>{row.state === 'offered' ? 'Retry payment link' : 'Create payment link'}</button>
         {row.state === 'requested' && !sessions.some(session => session.fundingRequestId === row.id) && <button type="button" className="mp-button mp-button-secondary" disabled={!enabled || busy} onClick={() => void offer(row, true)}>Offer session credit</button>}
         </form>}
+        {owner && row.state === 'offered' && !proposed && <button className="mp-button mp-button-secondary" disabled={!enabled || busy} onClick={() => void run(() => organizerFundingApi.act(row.id, 'cancel'), 'Unpaid offer cancelled; reserved chips returned.')}>Cancel unpaid offer</button>}
         {row.state === 'offered' && checkout && <>
           <a className="mp-button mp-button-primary" href={checkout} target="_blank" rel="noopener noreferrer">Open NervixPay QR checkout</a>
           <p>Pay the exact asset and amount shown at checkout. Returning here does not confirm payment. Chips are released only once after verification.</p>

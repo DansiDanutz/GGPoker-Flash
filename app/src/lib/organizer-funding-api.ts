@@ -19,7 +19,7 @@ async function request<T>(path = '', body?: unknown, base = '/api/marketplace/ch
 export const organizerFundingApi = {
   list: () => request<{ requests: FundingRequest[]; enabled: boolean }>(),
   create: (organizerId: number, amount: number, key: string) => request<FundingRequest>('', { organizerId, amount, key }),
-  act: (id: string, action: 'credit' | 'reject' | 'offer' | 'verify', body: object = {}) => request<FundingRequest>(`/${encodeURIComponent(id)}/${action}`, body),
+  act: (id: string, action: 'credit' | 'reject' | 'offer' | 'verify' | 'cancel', body: object = {}) => request<FundingRequest>(`/${encodeURIComponent(id)}/${action}`, body),
 };
 
 export function fundingCheckout(row: Pick<FundingRequest, 'paymentLinkId' | 'reference'>) {
