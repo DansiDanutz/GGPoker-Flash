@@ -121,6 +121,7 @@ try {
     const allCardsFit=await page.$$eval('.seat .cards .pcard',nodes=>nodes.every(n=>{const r=n.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;}));
     assert.ok(allCardsFit,'Opponent hands also stay inside the viewport');
     assert.equal(hand.length,count);
+    assert.ok(hand.slice(1).every((c,i)=>c.left<hand[i].right-1), "Omaha cards overlap while keeping each index visible");
     assert.ok(hand.every(c=>c.left>=0&&c.right<=width&&c.top>=0&&c.bottom<=800&&c.rankVisible),`All ${count} Omaha indices visible at ${width}: ${JSON.stringify(hand)}`);
     if (!desktop && width === 390) {
       await page.evaluate(state=>window.injectTable({type:'state',state:{...state,handNo:100+state.players[0].cards.length,street:'preflop',board:[]}}),state);
