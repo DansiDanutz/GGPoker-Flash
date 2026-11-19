@@ -4,15 +4,15 @@ import { cashChips, organizerChipsApi, type ChipAccount, type ChipBuyback } from
 const err = (value: unknown) => value instanceof Error ? value.message : 'The action failed.';
 const whole = (value: string, label: string) => { const n = Number(value); if (!Number.isSafeInteger(n) || n < 1) throw new Error(`${label} must be a positive whole number.`); return n; };
 
-export function OrganizerChips({ userId }: { userId?: number }) {
+export function OrganizerChips({ userId, active = true }: { userId?: number; active?: boolean }) {
   const [data, setData] = useState<ChipAccount | null>(null), [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState('');
   const [selectedOrg, setSelectedOrg] = useState(''), [packs, setPacks] = useState('1');
   const [transfer, setTransfer] = useState({ user: '', amount: '' });
   const [buyback, setBuyback] = useState({ amount: '', paymentAmount: '', currency: 'USD', details: '' });
   const [ticketTargets, setTicketTargets] = useState<Record<string, string>>({}), [reports, setReports] = useState<Record<string, { receipt: string; amount: string; currency: string; network: string; details: string }>>({});
   const keys = useRef(new Map<string, string>());
-  const load = useCallback(async () => { if (!userId) { setData(null); return; } try { const next = await organizerChipsApi.mine(); setData(next); setSelectedOrg((value) => value || String(next.balances[0]?.organizer_id || userId)); } catch (failure) { setError(err(failure)); } }, [userId]);
-  useEffect(() => { void load(); }, [load]);
+  const load = useCallback(async () => { if (!userId) { setData(null); return; } try { const next = await organizerChipsApi.mine(); setData(next); setSelectedOrg((value) => value || String(next.balances.find(row => row.organizer_id === userId)?.organizer_id || next.balances[0]?.organizer_id || userId)); } catch (failure) { setError(err(failure)); } }, [userId]);
+  useEffect(() => { if (active) void load(); }, [load, active]);
   const run = async (id: string, action: (key: string) => Promise<unknown>, success: string, confirmation?: string) => {
     if (busy || (confirmation && !window.confirm(confirmation))) return;
     const key = keys.current.get(id) || crypto.randomUUID(); keys.current.set(id, key); setBusy(id); setError(''); setNotice('');

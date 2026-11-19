@@ -84,6 +84,10 @@ jobs:
         timeout-minutes: 3
         run: node tools/organizer-chips-browser-smoke.mjs
 
+      - name: Verify Organizer workspace in Chrome
+        timeout-minutes: 3
+        run: node tools/organizer-workspace-browser-smoke.mjs
+
       - name: Verify contributor Play Money workflow in Chrome
         timeout-minutes: 3
         run: node tools/contributor-browser-smoke.mjs
@@ -136,5 +140,6 @@ jobs:
             app/artifacts/desktop-table/
             app/artifacts/desktop-boards/
             app/artifacts/desktop-reference/
+            app/artifacts/organizer-workspace/
           if-no-files-found: ignore
           retention-days: 7

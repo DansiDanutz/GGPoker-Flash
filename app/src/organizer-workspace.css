@@ -1,0 +1,50 @@
+.ow-workspace { max-width: 1120px; margin: 0 auto 40px; padding: 0 24px; color: #edf3f0; min-width: 0; }
+.ow-workspace [hidden] { display: none !important; }
+.ow-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid #344c43; border-radius: 14px; background: #111c18; }
+.ow-tabs a { flex: 1 1 120px; padding: 13px 10px; border-radius: 9px; text-align: center; color: #cbd8d0; text-decoration: none; font-weight: 650; white-space: nowrap; }
+.ow-tabs a[aria-current] { color: #101912; background: #d7bb7c; }
+.ow-heading { padding: 30px 0 18px; }
+.ow-heading > span,.ow-kicker { color: #d7bb7c; font-size: 11px; letter-spacing: .12em; font-weight: 700; }
+.ow-heading h2 { font-size: clamp(26px,4vw,38px); margin: 8px 0; }
+.ow-heading p { color: #bdcdc4; margin: 0; }
+.ow-card { background: #15221c; border: 1px solid #3d5246; padding: 24px; border-radius: 16px; margin-bottom: 18px; min-width: 0; }
+.ow-welcome { background: linear-gradient(120deg,#203d2e,#14231c); border-color: #7d7953; }
+.ow-card h3 { font-size: 21px; margin: 8px 0 14px; line-height: 1.3; }
+.ow-card p,.ow-card li { color: #c9d7ce; line-height: 1.65; }
+.ow-card strong { color: #f1f5ed; }
+.ow-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.ow-grid .ow-card { display: flex; flex-direction: column; }
+.ow-grid button { margin-top: auto; }
+.ow-number { color: #d7bb7c; font-size: 24px; font-weight: 700; }
+.ow-workspace button { min-height: 44px; border: 1px solid #8c9a78; color: #f5f5e7; background: #2b4434; padding: 10px 15px; border-radius: 9px; font: inherit; cursor: pointer; }
+.ow-workspace button:disabled { opacity: .5; cursor: not-allowed; }
+.ow-workspace :is(a,button,input,textarea,select):focus-visible { outline: 3px solid #b6d9ff; outline-offset: 3px; }
+.ow-workspace a { color: #e4cb91; }
+.ow-workspace .ow-tabs a[aria-current] { color: #101912; }
+.ow-actions,.ow-section-top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.ow-section-top { justify-content: space-between; }
+.ow-actions { margin: 16px 0; }
+.ow-steps { padding-left: 24px; }
+.ow-steps li { padding: 8px 0 12px 8px; }
+.ow-workspace details { padding: 15px 0; border-top: 1px solid #3d5246; }
+.ow-workspace summary { cursor: pointer; color: #f3f4e8; font-weight: 600; line-height: 1.5; }
+.ow-workspace details p { margin-bottom: 0; }
+.ow-profile-form { display: grid; gap: 20px; }
+.ow-workspace label { line-height: 1.6; }
+.ow-profile-form label,.ow-share { display: grid; gap: 8px; }
+.ow-workspace small { color: #afc3b7; line-height: 1.55; font-size: 13px; }
+.ow-profile-form :is(input,textarea),.ow-share input { width: 100%; box-sizing: border-box; min-height: 44px; color: #f3f5ee; background: #0b1510; border: 1px solid #667d6d; border-radius: 8px; padding: 12px; font: inherit; }
+.ow-share { margin: 24px 0; }
+.ow-profile-form button { justify-self: start; }
+.ow-members { list-style: none; padding: 0; }
+.ow-members li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; border-top: 1px solid #3d5246; }
+.ow-members span { display: block; color: #b4c8bb; font-size: 13px; }
+.ow-empty { padding: 16px; background: #0e1a13; border-radius: 10px; }
+.ow-help { margin-top: 28px; padding: 20px 0; color: #b9cbbf; line-height: 1.6; border-top: 1px solid #3d5246; }
+.ow-workspace .mp-account-panel { min-width: 0; margin-bottom: 18px; }
+.ow-workspace .mp-account-panel :is(input,select,textarea) { max-width: 100%; box-sizing: border-box; }
+.ow-workspace .mp-account-panel code { overflow-wrap: anywhere; }
+@media(max-width:700px) { .ow-workspace { padding: 0 12px; } .ow-grid { grid-template-columns: 1fr; gap: 0; } .ow-card { padding: 18px; } .ow-tabs a { flex-basis: 28%; font-size: 13px; white-space: normal; } .ow-heading { padding-top: 24px; } .ow-workspace .mp-account-grid,.ow-workspace .mf-form-grid { grid-template-columns: 1fr; } }
+@media(prefers-reduced-motion:reduce) { .ow-workspace * { scroll-behavior: auto; } }
+
+@media(max-width:360px) { .platform-workspace .workspace-intro .profile-workspace-tabs button { padding-inline: 2px; font-size: 12px; } }

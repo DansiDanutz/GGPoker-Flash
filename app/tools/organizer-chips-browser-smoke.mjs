@@ -87,7 +87,7 @@ try {
   await input(ownerPage, '#host-rake-cap', '25');
   await click(ownerPage, '.modal-foot', 'Create table');
   await ownerPage.waitForSelector('.mp-rake-form');
-  assert.equal(new URL(ownerPage.url()).hash, '#/organiser');
+  assert.equal(new URL(ownerPage.url()).hash, '#/organiser?tab=my-tables');
   let cash = check(await srv.get('/api/marketplace/billing/me', { token: owner.token })).tables.find((table) => table.name === 'Browser Rake Cash');
   assert.equal(cash.rakePercent, 3); assert.equal(cash.rakeCap, 25);
   await ownerPage.select('.mp-rake-form select', '2');
@@ -139,11 +139,12 @@ try {
   await click(ownerPage, '.modal-foot', 'Create tournament');
   const manager = 'section[aria-label="Tournament Manager"]';
   await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Browser Cash Chip Cup'), {}, manager);
-  assert.equal(new URL(ownerPage.url()).hash, '#/organiser');
+  assert.equal(new URL(ownerPage.url()).hash, '#/organiser?tab=my-tables');
   const event = check(await srv.get('/api/tournaments/host', { token: owner.token })).tournaments.find(t => t.name === 'Browser Cash Chip Cup');
   assert.equal(event.max_players, 6); assert.equal(event.late_reg, 0);
   assert.match(await ownerPage.$eval(manager, node => node.textContent), /0 \/ 6 entrants/);
   assert.match(await ownerPage.$eval(`${manager} input[readonly]`, node => node.value), new RegExp(event.id));
+  await ownerPage.locator('.ow-tabs a[href="#/organiser?tab=my-tables"]').click();
   for (const width of [320, 390, 768, 1024, 1440]) {
     await ownerPage.setViewport({ width, height: 1000 });
     await ownerPage.waitForFunction(phone => !!document.querySelector('.pshell') === phone, {}, width <= 760);
@@ -175,7 +176,7 @@ try {
   await click(ownerPage, '.modal-foot', 'Create Spin & Go');
   const spinManager = 'section[aria-label="Spin & Go Manager"]';
   await ownerPage.waitForFunction(scope => document.querySelector(scope)?.textContent.includes('Browser Spin Cup'), {}, spinManager);
-  assert.equal(new URL(ownerPage.url()).hash, '#/organiser');
+  assert.equal(new URL(ownerPage.url()).hash, '#/organiser?tab=my-tables');
   assert.match(await ownerPage.$eval(spinManager, node => node.textContent), /Pool 15,000 Cash Chips · Rake 750 Cash Chips \(5%\) · Winner prize 14,250 Cash Chips/);
   const spinRake = `${spinManager} form[aria-label="Spin rake for Browser Spin Cup"]`;
   await ownerPage.select(`${spinRake} select`, '2');
@@ -187,9 +188,10 @@ try {
   await ownerPage.goto(`${srv.base}/#/table/${encodeURIComponent(spinTable.id)}?observe=1`); await ownerPage.waitForSelector('.ls-content:not([inert])');
   await ownerPage.waitForFunction(() => document.body.textContent.includes('Pooled prize 14,700 Cash Chips'));
   assert.equal(await ownerPage.$('.spin-ring'), null);
-  await ownerPage.goto(`${srv.base}/#/organiser`); await ownerPage.waitForSelector('.ls-content:not([inert])');
+  await ownerPage.goto(`${srv.base}/#/organiser?tab=my-tables`); await ownerPage.waitForSelector('.ls-content:not([inert])');
   await ownerPage.waitForSelector(spinManager);
   await click(ownerPage, spinManager, 'Buy entry ticket');
+  await ownerPage.locator('.ow-tabs a[href="#/organiser?tab=transfers"]').click();
   await click(ownerPage, panel, 'Refresh');
   const spinTickets = 'section[aria-label="Spin entry tickets"]';
   await ownerPage.waitForSelector(`${spinTickets} input[type=number]`);
@@ -199,6 +201,7 @@ try {
   await playerPage.waitForFunction((scope, id) => document.querySelector(scope)?.textContent.includes(id), {}, spinTickets, spinTable.id);
   await click(playerPage, spinTickets, 'Refund unused ticket');
   assert.equal(check(await srv.get('/api/marketplace/chips/me', { token: recipient.token })).balances.find(row => row.organizer_id === owner.user.id).balance, 15000);
+  await ownerPage.locator('.ow-tabs a[href="#/organiser?tab=my-tables"]').click();
   for (const width of [320, 390, 768, 1024, 1440]) {
     await ownerPage.setViewport({ width, height: 1000 });
     await ownerPage.waitForFunction(phone => !!document.querySelector('.pshell') === phone, {}, width <= 760);
