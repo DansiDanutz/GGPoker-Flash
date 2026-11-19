@@ -91,3 +91,14 @@ test('reconcile reports balance drift against immutable issuance journal', () =>
   assert.throws(() => db.prepare("UPDATE organizer_diamond_requests SET state='made-up'").run(), /invalid diamond request|CHECK constraint/);
   assert.throws(() => db.prepare('UPDATE organizer_diamond_balances SET balance=-1').run(), /invalid diamond balance|CHECK constraint/);
 });
+
+test('all pending requests survive more than 100 newer terminal requests',()=>{
+ const {db,service}=fixture(); service.offer({userId:1,priceCashChips:2500});
+ const pending=[];
+ for(let i=0;i<105;i++) pending.push(service.request({userId:2,organizerId:1,quantity:1,priceCashChips:2500,key:`pending-request-${i}`}).id);
+ for(let i=0;i<105;i++){const r=service.request({userId:2,organizerId:1,quantity:1,priceCashChips:2500,key:`history-request-${i}`});service.cancel({userId:2,id:r.id});}
+ db.prepare("UPDATE organizer_diamond_requests SET created_at='2026-02-01' WHERE state='cancelled'").run();
+ for(const userId of [1,2]){const rows=service.list(userId).requests;assert.equal(rows.filter(r=>r.state==='requested').length,105);assert.equal(rows.filter(r=>r.state==='cancelled').length,100);assert.ok(rows.some(r=>r.id===pending[0]));}
+ service.reject({userId:1,id:pending[0]}); service.cancel({userId:2,id:pending[1]});
+ assert.equal(service.list(2).requests.filter(r=>r.state==='requested').length,103);
+});

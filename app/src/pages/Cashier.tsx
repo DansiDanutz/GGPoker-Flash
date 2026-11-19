@@ -13,7 +13,8 @@ type Tab = 'play' | 'nervixpay' | 'history';
 const playMoney = (value: number) => `${(Math.max(0, value || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Play Money`;
 const ledgerCurrency = (currency?: string) => currency === 'USD' ? 'Play Money' : currency || 'units';
 const ledgerMemo = (entry: any) => entry.kind === 'withdraw' ? 'Legacy simulated withdrawal — no money sent' : entry.kind === 'deposit' ? 'Free Play Money top-up' : entry.memo || String(entry.kind).replace(/_/g, ' ');
-const ledgerAmount = (value: number, currency?: string) => `${(Math.abs(value) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${ledgerCurrency(currency)}`;
+const ledgerValue = (value: number, currency?: string) => currency === 'TICKET' || currency === 'GEM' ? value : value / 100;
+const ledgerAmount = (value: number, currency?: string) => `${Math.abs(ledgerValue(value, currency)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${ledgerCurrency(currency)}`;
 
 export function Cashier() {
   const { user, refreshUser, toast, navigate } = useApp();
@@ -62,7 +63,7 @@ export function Cashier() {
 
   const transactions = [...(data?.transactions || [])].sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, 100);
   const exportCsv = () => {
-    const rows = [['id', 'kind', 'currency', 'amount', 'balance_after', 'memo', 'created_at'], ...transactions.map((t: any) => [t.id, t.kind, ledgerCurrency(t.currency), t.amount / 100, t.balance_after == null ? '' : t.balance_after / 100, ledgerMemo(t), t.created_at])];
+    const rows = [['id', 'kind', 'currency', 'amount', 'balance_after', 'memo', 'created_at'], ...transactions.map((t: any) => [t.id, t.kind, ledgerCurrency(t.currency), ledgerValue(t.amount, t.currency), t.balance_after == null ? '' : ledgerValue(t.balance_after, t.currency), ledgerMemo(t), t.created_at])];
     const csv = rows.map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a'); link.href = url; link.download = 'dangg-play-money-history.csv'; link.click(); URL.revokeObjectURL(url);

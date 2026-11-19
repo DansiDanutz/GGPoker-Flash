@@ -652,7 +652,7 @@ const handleContributorRoute = createContributorRoutes({ submissions: contributo
 const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES, getSetting, broadcastState });
 const handleSqueeze3dRoute = createSqueeze3dRoutes({ db, billing: organizerBilling, liveTables: LIVE_TABLES, json, requireUser, readBody });
 const nervixPayConnections = createNervixPayConnections({ db });
-const handleNervixPayConnectionRoute = createNervixPayConnectionRoutes({ connections: nervixPayConnections, requireUser, readBody, json, isGuestUser: user => !!user.is_guest });
+const handleNervixPayConnectionRoute = createNervixPayConnectionRoutes({ connections: nervixPayConnections, requireUser, readBody, json, isGuestUser: user => /^guest_[0-9a-f]{8}-[0-9a-f]{3}$/.test(user.login) });
 const organizerFunding = createOrganizerFunding({ db, chips: organizerChips });
 const organizerFundingProviders = createOrganizerFundingProviders({ connections: process.env.ORGANIZER_NERVIXPAY_CONNECTIONS || '{}',
   resolveConnection: (id, legacy) => nervixPayConnections.status(Number(id)).hasRecord ? nervixPayConnections.connectionFor(Number(id)) : legacy });

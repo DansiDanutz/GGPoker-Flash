@@ -24,6 +24,9 @@ try {
   srv = await startServer({ env: { GGPOKER_SEED_DEMO: '0', GGPOKER_PUBLIC_ORIGIN: `http://127.0.0.1:${webPort}`, ORGANIZER_NERVIXPAY_CONNECTIONS: '{}', NERVIXPAY_API_KEY: '' } });
   const call = (method, route, token, body, key) => srv[method](route, { token, body, headers: key ? { 'idempotency-key': key } : undefined });
   const guest = (await call('post', '/api/auth/guest', null, {})).data;
+  assert.equal((await call('get','/api/account/nervixpay',guest.token)).status,403);
+  assert.equal((await call('post','/api/account/nervixpay/connect',guest.token,{merchantId:'11111111-1111-4111-8111-111111111111',mode:'live'})).status,403);
+  checks.push('Actual guest sessions cannot access or start NervixPay connections');
   assert.ok(guest.token);
   const before = guest.user.balance;
   const cashChipsBefore = (await call('get', '/api/marketplace/chips/me', guest.token)).data.balances;
@@ -83,10 +86,17 @@ try {
   page = await browser.newPage();
   page.on('pageerror', error => errors.push(error.message));
   await page.evaluateOnNewDocument(token => { localStorage.setItem('ggpoker.token', token); sessionStorage.setItem('ggpoker.entered', '1'); localStorage.setItem('ggpoker.welcomeSeen', '1'); }, registered.token);
+  const registeredCashier = (await call('get', '/api/cashier', registered.token)).data;
   let connectionStage = 'pending';
   await page.setRequestInterception(true);
   page.on('request', request => {
-    if (new URL(request.url()).pathname.startsWith('/api/account/nervixpay')) {
+    if (new URL(request.url()).pathname === '/api/cashier') {
+      request.respond({status:200,contentType:'application/json',body:JSON.stringify({...registeredCashier,transactions:[
+        {id:1,kind:'satellite',currency:'TICKET',amount:1,balance_after:2,memo:'Ticket prize',created_at:'2026-11-19'},
+        {id:2,kind:'award',currency:'GEM',amount:25,balance_after:40,memo:'Gem prize',created_at:'2026-11-19'},
+        {id:3,kind:'deposit',currency:'USD',amount:5000,balance_after:7500,created_at:'2026-11-19'}
+      ]})});
+    } else if (new URL(request.url()).pathname.startsWith('/api/account/nervixpay')) {
       if (request.method() === 'POST') connectionStage = 'verified';
       const status = connectionStage;
       request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: true, hasRecord: true, status,
@@ -105,6 +115,18 @@ try {
   assert.match(await page.$eval('#cashier-nervixpay', node => node.textContent), /Test connection only/);
   assert.equal((await call('get', '/api/cashier', registered.token)).data.balance, registeredBefore);
   checks.push('Mocked NervixPay approval advances pending to verified test mode without adding Play Money');
+  await page.evaluate(() => [...document.querySelectorAll('.cashier-tabs [role="tab"]')].find(button => button.textContent === 'History')?.click());
+  await page.waitForSelector('.cashier-history');
+  const history = await page.$eval('.cashier-history',node=>node.textContent);
+  assert.match(history,/1(?:\.00)? TICKET/); assert.doesNotMatch(history,/0\.01 TICKET/);
+  assert.match(history,/25(?:\.00)? GEM/); assert.match(history,/50\.00 Play Money/);
+  await page.evaluate(()=>{ URL.createObjectURL=blob=>{window.__exportBlob=blob;return 'blob:test-export';}; HTMLAnchorElement.prototype.click=()=>{};});
+  await page.evaluate(()=>document.querySelector('.cashier-export').click());
+  await page.waitForFunction(()=>!!window.__exportBlob);
+  const csv=await page.evaluate(()=>window.__exportBlob.text());
+  assert.match(csv,/"TICKET","1","2"/); assert.match(csv,/"GEM","25","40"/); assert.match(csv,/"Play Money","50","75"/);
+  checks.push('History and CSV preserve whole tickets/gems and cent-based Play Money');
+
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ checks, errors }));
 } finally {
