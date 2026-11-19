@@ -95,7 +95,7 @@
 
 /* Omaha hands need independent indices, not the two-card Hold'em fan. */
 .table-screen[class] .table-stage[class] .seat[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) {
-  display: flex; width: max-content; gap: 2px; --hole-width: 24px;
+  display: flex; width: max-content; gap: 2px; --hole-width: 20px;
 }
 .table-screen[class] .table-stage[class] .seat[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) > .card-slot {
   flex: none; margin: 0; rotate: none; translate: none; transform: none;
@@ -110,3 +110,10 @@
 .table-screen[class] .table-stage[class] .seat[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .suit { left: 3px; top: 24px; font-size: 20px; }
 .table-screen[class] .table-stage[class] .seat[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .big-suit { display: none; }
 .table-screen[class] .table-stage.stage-portrait[class] .seat.me[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) { left: 40px; }
+.table-screen[class] .table-stage.stage-portrait[class] .seat:not(.me)[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) { --hole-width: 16px; }
+.table-screen[class] .table-stage.stage-portrait[class] .seat:not(.me)[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .pcard.mini { height: 40px; }
+.table-screen[class] .table-stage.stage-portrait[class] .seat:not(.me)[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .rank { left: 2px; font-size: 11px; }
+.table-screen[class] .table-stage.stage-portrait[class] .seat:not(.me)[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .suit { left: 2px; top: 18px; font-size: 14px; }
+
+.table-screen[class] .table-stage[class] .seat:not(.me)[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .rank { left: 2px; font-size: 12px; }
+.table-screen[class] .table-stage[class] .seat:not(.me)[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .suit { left: 2px; font-size: 14px; }
