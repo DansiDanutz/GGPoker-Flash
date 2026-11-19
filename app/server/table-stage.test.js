@@ -69,7 +69,7 @@ for (const mode of ['wide']) {
       assert.equal(spots.size, n, 'no two seats share a spot');
       for (const [x, y] of lay) {
         assert.ok(spots.has(key([100 - x, y])), `${n}-max ${mode}: ${x},${y} has a mirror`);
-        assert.ok(x >= 0 && x <= 100 && y >= 0 && y <= 100);
+        assert.ok(x >= 0 && x <= 100 && y >= -3 && y <= 100);
       }
     }
   });
@@ -192,7 +192,15 @@ test('desktop resizing never selects the legacy portrait rail', () => {
   for (const width of [360,600,760,761,900,1200]) {
     assert.equal(stageMode(width,900,true),'wide');
     const box=stageBox({width,height:900,topBar:44,actionBar:150,wideRatio:EMERALD_RAIL_RATIO,desktop:true});
-    assert.ok(Math.abs(box.width/box.height-EMERALD_RAIL_RATIO)<0.03);
+    assert.ok(Math.abs(box.width/box.height-Math.min(EMERALD_RAIL_RATIO, Math.max(.8,width/360-.2)))<0.03);
   }
   assert.equal(stageMode(390,844),'portrait');
+});
+
+test('compact Emerald desktop reserves vertical felt for three boards without changing portrait', () => {
+  const compact = stageBox({ width:600, height:640, topBar:44, actionBar:150, wideRatio:EMERALD_RAIL_RATIO, desktop:true });
+  assert.ok(compact.height >= 275, 'three board rows fit between player widgets');
+  fits(compact, {width:600,height:640},44,150);
+  const phone = {width:390,height:844,topBar:44,actionBar:170};
+  assert.deepEqual(stageBox({...phone,wideRatio:EMERALD_RAIL_RATIO}),stageBox(phone));
 });

@@ -48,8 +48,11 @@ function wideBox({ width, height, topBar, actionBar, wideRatio = RAIL_RATIO }: {
   const padX = wideRatio === EMERALD_RAIL_RATIO ? Math.max(60, Math.min(pads.x(width), width * 0.12)) : pads.x(width);
   const availW = Math.max(MIN_STAGE_SIDE, width - 2 * padX);
   const availH = Math.max(MIN_STAGE_SIDE, height - topBar - actionBar - pads.top - pads.bottom);
-  const w = Math.min(availW, availH * wideRatio, MAX_STAGE_WIDTH);
-  const h = w / wideRatio;
+  // Compact desktop windows need deeper felt for stacked runouts between the seats.
+  const ratio = wideRatio === EMERALD_RAIL_RATIO && height >= SHORT_SCREEN
+    ? Math.min(wideRatio, Math.max(.8, width / 360 - .2)) : wideRatio;
+  const w = Math.min(availW, availH * ratio, MAX_STAGE_WIDTH);
+  const h = w / ratio;
   return { left: Math.round((width - w) / 2), top: Math.round(topBar + pads.top + (availH - h) / 2), width: Math.round(w), height: Math.round(h) };
 }
 
@@ -67,15 +70,16 @@ function portraitBox({ width, height, topBar }: { width: number; height: number;
 }
 
 // Spots per seat count, hero first, then clockwise. x/y are % of the stage (the rail box).
+// Paired top seats sit slightly above the rail to clear diagonal players’ cards.
 const WIDE: Record<number, Spot[]> = {
   2: [[50, 100], [50, 0]],
   3: [[50, 100], [11, 22], [89, 22]],
   4: [[50, 100], [0, 50], [50, 0], [100, 50]],
   5: [[50, 100], [3, 76], [21, 8], [79, 8], [97, 76]],
   6: [[50, 100], [3, 76], [11, 22], [50, 0], [89, 22], [97, 76]],
-  7: [[50, 100], [1, 66], [8, 26], [31, 1], [69, 1], [92, 26], [99, 66]],
+  7: [[50, 100], [1, 66], [8, 26], [31, -3], [69, -3], [92, 26], [99, 66]],
   8: [[50, 100], [19, 97], [1, 64], [8, 26], [50, 0], [92, 26], [99, 64], [81, 97]],
-  9: [[50, 100], [19, 97], [1, 64], [8, 26], [31, 1], [69, 1], [92, 26], [99, 64], [81, 97]],
+  9: [[50, 100], [19, 97], [1, 64], [8, 26], [31, -3], [69, -3], [92, 26], [99, 64], [81, 97]],
 };
 
 // Portrait seats follow the portrait layout: the hero in the bottom-left corner, the others up the side

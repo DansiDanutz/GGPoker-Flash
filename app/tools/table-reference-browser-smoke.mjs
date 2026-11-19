@@ -21,7 +21,8 @@ const pageErrors = [];
 const checks = [];
 let browser;
 let page;
-let viewports = [[390, 844], [320, 700]];
+const desktop = process.env.DESKTOP_TABLE === '1';
+let viewports = desktop ? [[1200, 800], [600, 700]] : [[390, 844], [320, 700]];
 const phone = process.env.PHONE_DEVICE_SERIAL;
 const phonePorts = [new URL(sandbox.url).port,new URL(sandbox.api).port];
 
@@ -172,13 +173,13 @@ async function driveBrowserHeroToFlop(clients, tableId, untilReveal = false) {
 }
 
 async function capture(kind, width, height) {
-  if (!phone) await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
-  await page.waitForSelector('.table-screen .table-stage.stage-portrait', { visible: true });
-  await page.waitForFunction((expectedWidth) => {
+  if (!phone) await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: !desktop, hasTouch: !desktop });
+  await page.waitForSelector(`.table-screen .table-stage.stage-${desktop ? 'wide' : 'portrait'}`, { visible: true });
+  await page.waitForFunction((expectedWidth, desktop) => {
     const screen = document.querySelector('.table-screen')?.getBoundingClientRect();
-    const stage = document.querySelector('.table-stage.stage-portrait')?.getBoundingClientRect();
-    return innerWidth === expectedWidth && Math.abs((screen?.width ?? 0) - expectedWidth) < 1 && Math.abs((stage?.width ?? 0) - expectedWidth) < 1;
-  }, {}, width);
+    const stage = document.querySelector('.table-stage')?.getBoundingClientRect();
+    return innerWidth === expectedWidth && Math.abs((screen?.width ?? 0) - expectedWidth) < 1 && (desktop ? stage?.width > 0 : Math.abs((stage?.width ?? 0) - expectedWidth) < 1);
+  }, {}, width, desktop);
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.waitForFunction(() => document.querySelectorAll('.table-stage .seat:not(.seat-take)').length >= 6 && document.querySelectorAll('.board > .pcard').length >= 3 && document.querySelector('.seat.me'));
   await page.waitForFunction(() => [...document.querySelectorAll('.board > .pcard')].every((card) => {
@@ -217,9 +218,9 @@ async function capture(kind, width, height) {
     const style = getComputedStyle(n);
     return style.backgroundColor !== 'rgba(0, 0, 0, 0)' && Number(style.opacity) === 1;
   })), 'Identity plates have solid readable backing');
-  assert.equal(await page.$eval('.main-actions', n => getComputedStyle(n, '::after').display), 'none', 'Slider has no decorative backing panel');
+  assert.ok(await page.$eval('.main-actions', n => { const s=getComputedStyle(n, '::after'); return s.display === 'none' || s.content === 'none'; }), 'Slider has no decorative backing panel');
   assert.ok(await page.$$eval('.table-topbar, .action-bar', nodes => nodes.every(n => getComputedStyle(n).backdropFilter === 'none')), 'Header and footer have no rectangular blur panels');
-  if (width === viewports[0][0] && !await page.$('.tchat-dock.betting-active')) {
+  if (!desktop && width === viewports[0][0] && !await page.$('.tchat-dock.betting-active')) {
   assert.ok(await page.$eval('.tchat-swipe-handle', n => {
     const r = n.getBoundingClientRect();
     return r.height <= 28 && r.bottom >= innerHeight - 2;
@@ -254,11 +255,17 @@ async function capture(kind, width, height) {
   assert.equal(await page.$('.cardSqueeze'), null, 'Reveal stays disabled during geometry checks');
   assert.equal(await page.$eval('.reveal-toggle', n => n.getAttribute('aria-pressed')), 'false');
   }
-  if (await page.$('.tchat-dock.betting-active')) {
+  if (!desktop && await page.$('.tchat-dock.betting-active')) {
     assert.equal(await page.$eval('.tchat-dock', n=>getComputedStyle(n).visibility), 'hidden', 'Betting replaces the table tools during our turn');
     await page.waitForFunction(()=>Math.abs(parseFloat(getComputedStyle(document.querySelector('.action-bar')).bottom))<1);
   }
   await page.screenshot({ path: path.join(artifacts, `${kind}-${width}x${height}.png`) });
+  if (desktop) {
+    await page.click('[aria-label="Emoticons"]');
+    await page.waitForSelector('.reaction-picker', {visible:true});
+    await page.click('[aria-label="Emoticons"]');
+    await page.waitForSelector('.reaction-picker', {hidden:true});
+  }
   if (kind === 'cash') {
     const overlaps = await page.evaluate(() => {
       const ribbon=document.querySelector('.daily-lb:not(.open) .daily-lb-ribbon');
@@ -309,8 +316,8 @@ async function verifyAutomaticReveal(clients, tableId, kind) {
 }
 
 async function captureTournamentWaiting(width, height) {
-  if (!phone) await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
-  await page.waitForFunction((expectedWidth) => Math.abs((document.querySelector('.table-stage.stage-portrait')?.getBoundingClientRect().width ?? 0) - expectedWidth) < 1, {}, width);
+  if (!phone) await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: !desktop, hasTouch: !desktop });
+  await page.waitForSelector(`.table-stage.stage-${desktop ? 'wide' : 'portrait'}`);
   await page.waitForSelector('.tt-hud', { visible: true });
   const geometry = await page.evaluate(() => {
     const rect = (selector) => document.querySelector(selector)?.getBoundingClientRect();
@@ -373,7 +380,8 @@ try {
   });
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: phone ? 'no-preference' : 'reduce' }]);
-  await page.evaluateOnNewDocument((token, userId) => {
+  await page.evaluateOnNewDocument((token, userId, desktop) => {
+    if (desktop) window.ggDesktop = {};
     if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
     sessionStorage.setItem('ggpoker.entered', '1');
     localStorage.setItem('ggpoker.welcomeSeen', '1');
@@ -381,10 +389,10 @@ try {
     localStorage.setItem('openpoker.revealAnimation', '0');
     localStorage.setItem(`openpoker.squeeze3d:${userId}`, '1');
     localStorage.setItem('ggpoker.token', token);
-  }, players[0].token, players[0].user.id);
+  }, players[0].token, players[0].user.id, desktop);
 
   const layouts = {};
-  if (!phone) await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  if (!phone) await page.setViewport({ width: viewports[0][0], height: viewports[0][1], deviceScaleFactor: 1, isMobile: !desktop, hasTouch: !desktop });
   await page.goto(`${sandbox.url}/#/table/${encodeURIComponent(cash.id)}?buyin=5000&seat=0`, { waitUntil: 'domcontentloaded' });
   if (phone) viewports = [await page.evaluate(() => [innerWidth, innerHeight])];
   await page.waitForSelector('.seat.me', { visible: true });
@@ -394,8 +402,8 @@ try {
     layouts[`cash-${width}`] = await capture('cash', width, height);
   }
   await verifyAutomaticReveal(cashClients, cash.id, 'cash');
-  if (!phone) await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
-  await page.waitForFunction(width => Math.abs(document.querySelector('.table-stage').getBoundingClientRect().width - width) < 1, {}, viewports[0][0]);
+  if (!phone) await page.setViewport({ width: viewports[0][0], height: viewports[0][1], deviceScaleFactor: 1, isMobile: !desktop, hasTouch: !desktop });
+  await page.waitForSelector(`.table-stage.stage-${desktop ? 'wide' : 'portrait'}`);
   await allowInspectionTime(cash.id, 10);
   await page.click('.action-bar .act-check:not(:disabled)');
   await page.waitForSelector('.action-bar .act-check:not(:disabled)', { hidden: true });
@@ -403,7 +411,8 @@ try {
   await page.waitForSelector('.action-bar.sitting-out', { timeout: 15000 });
   assert.equal(await page.$('.cardSqueeze'), null, 'Timed-out player has no reveal overlay');
   assert.equal(await page.$('.reserved-actions'), null, 'A sitting-out player sees no queued betting controls');
-  assert.ok(await page.$eval('.action-bar', n => n.getBoundingClientRect().height <= 100), 'Sit-out recovery remains a compact footer');
+  assert.ok(await page.$eval('.action-bar', (n, limit) => n.getBoundingClientRect().height <= limit, desktop ? 140 : 100), 'Sit-out recovery remains a compact footer including the desktop tool row');
+  if (desktop) assert.equal(await page.$$eval('.seat.me > .action-badge', nodes => nodes.filter(n => getComputedStyle(n).display !== 'none').length), 1, 'Away status replaces the stale action label');
   await page.screenshot({ path: path.join(artifacts, 'cash-timeout.png') });
   checks.push('An actual disposable action timeout clears pre-actions.');
 
@@ -422,10 +431,22 @@ try {
     layouts[`tournament-${width}`] = await capture('tournament', width, height);
   }
   await verifyAutomaticReveal(tournament.clients, tournament.tableId, 'tournament');
-  if (!phone) await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  if (!phone) await page.setViewport({ width: viewports[0][0], height: viewports[0][1], deviceScaleFactor: 1, isMobile: !desktop, hasTouch: !desktop });
   await page.waitForFunction(() => Boolean(document.querySelector('.action-bar .act-check:not(:disabled)')));
   await page.click('.action-bar .act-check:not(:disabled)');
   for (const [width, height] of viewports) layouts[`tournament-waiting-${width}`] = await captureTournamentWaiting(width, height);
+  if (!phone && !desktop) {
+    const route = page.url();
+    await page.setViewport({ width: 844, height: 390, deviceScaleFactor: 1, isMobile: true, hasTouch: true, isLandscape: true });
+    await page.waitForSelector('.phone-rotate', { visible: true });
+    assert.equal(await page.$eval('.app-window', node => node.inert), true, 'Landscape phone cannot operate the desktop layout behind the rotation guard');
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true, isLandscape: false });
+    await page.waitForSelector('.phone-rotate', { hidden: true });
+    assert.equal(page.url(), route, 'Rotation preserves the current table');
+    assert.equal(await page.$eval('.app-window', node => node.inert), false);
+    await page.waitForSelector('.table-stage.stage-portrait');
+    checks.push('Phone landscape is inert behind the rotation guard; portrait restores the same table.');
+  }
   assert.deepEqual(pageErrors, []);
   checks.push('Six real disposable players populated the cash and tournament tables.');
   checks.push(`Seats, dealt cards and visible actions fit at ${viewports.map(v => v.join('x')).join(' and ')} without page errors${phone ? ' on the physical phone without viewport emulation' : ''}.`);

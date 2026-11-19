@@ -106,6 +106,16 @@ jobs:
         timeout-minutes: 4
         run: node tools/table-reference-browser-smoke.mjs
 
+      - name: Verify desktop layouts and multi-board awards
+        timeout-minutes: 5
+        run: |
+          node tools/desktop-table-browser-smoke.mjs
+          DESKTOP_TABLE=1 ARTIFACTS_DIR=artifacts/desktop-boards node tools/run-it-awards-browser-smoke.mjs
+
+      - name: Verify desktop cash and tournament interactions
+        timeout-minutes: 4
+        run: DESKTOP_TABLE=1 ARTIFACTS_DIR=artifacts/desktop-reference node tools/table-reference-browser-smoke.mjs
+
       - name: Verify table menu commands
         timeout-minutes: 3
         run: node tools/table-menu-browser-smoke.mjs
@@ -123,5 +133,8 @@ jobs:
             app/artifacts/squeeze-3d/
             app/artifacts/table-reference/
             app/artifacts/table-menu/
+            app/artifacts/desktop-table/
+            app/artifacts/desktop-boards/
+            app/artifacts/desktop-reference/
           if-no-files-found: ignore
           retention-days: 7
