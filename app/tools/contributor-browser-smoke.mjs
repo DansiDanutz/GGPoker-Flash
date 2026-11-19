@@ -76,9 +76,9 @@ try {
   await button(page, '.profile-role-guide', 'Open Contributor workspace');
   await page.waitForSelector('section[aria-label="Contributor membership and credits"]');
   assert.equal(await page.$('section[aria-label="Contributor membership and credits"] [aria-label="Cash hourly rate"]'), null);
-  await page.goto(sandbox.url + '/#/organiser'); await page.waitForSelector('.ls-content:not([inert])');
-  await page.waitForSelector('section[aria-label="Organizer management"]');
-  await button(page, 'section[aria-label="Organizer management"]', 'Create tournament');
+  await page.goto(sandbox.url + '/#/organiser?tab=my-tables'); await page.waitForSelector('.ls-content:not([inert])');
+  await page.waitForSelector('section[aria-label="Organizer workspace"]');
+  await button(page, 'section[aria-label="Organizer workspace"]', 'Create tournament');
   await page.waitForSelector('#host-economy');
   assert.equal(await page.$eval('#host-economy', node => node.value), 'organizer');
   assert.match(await page.$eval('#host-dialog-title', node => node.textContent), /tournament/);

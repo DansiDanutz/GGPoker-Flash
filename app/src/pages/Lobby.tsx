@@ -326,7 +326,7 @@ export function Lobby() {
       toast({ kind: 'success', title: 'Private table created', body: !hostPlayMoney && hostBilling?.mode === 'enforce' ? 'The table is paused. Start and manage billing in Organiser.' : 'Share the table link or take a seat now.' });
       setHostOpen(false);
       await load();
-      navigate(!hostPlayMoney && hostBilling?.mode === 'enforce' ? '/organiser' : `/table/${r.id}?buyin=${hostForm.min_buyin}`);
+      navigate(!hostPlayMoney && hostBilling?.mode === 'enforce' ? '/organiser?tab=my-tables' : `/table/${r.id}?buyin=${hostForm.min_buyin}`);
     } catch (e: any) {
       toast({ kind: 'error', title: 'Could not host table', body: e.message });
     } finally { setHostBusy(false); }
@@ -345,7 +345,7 @@ export function Lobby() {
       hostKeys.current.delete(replay.identity);
       toast({ kind: 'success', title: 'Private tournament created', body: 'Copy the invite link or open the event.' });
       setHostOpen(false);
-      navigate(!hostPlayMoney && hostBilling?.mode === 'enforce' ? '/organiser' : `/tournaments?id=${r.id}`);
+      navigate(!hostPlayMoney && hostBilling?.mode === 'enforce' ? '/organiser?tab=my-tables' : `/tournaments?id=${r.id}`);
     } catch (e: any) {
       toast({ kind: 'error', title: 'Could not host tournament', body: e.message });
     } finally { setHostBusy(false); }
@@ -364,7 +364,7 @@ export function Lobby() {
       toast({ kind: 'success', title: 'Private Spin & Go created', body: hostUsesChips ? 'Open entries and invite three players.' : 'Invite three players to start the play-money game.' });
       setHostOpen(false);
       await load();
-      navigate(hostUsesChips ? '/organiser' : `/table/${result.id}?buyin=${hostSpinForm.stake}`);
+      navigate(hostUsesChips ? '/organiser?tab=my-tables' : `/table/${result.id}?buyin=${hostSpinForm.stake}`);
     } catch (error: unknown) {
       toast({ kind: 'error', title: 'Could not host Spin & Go', body: error instanceof Error ? error.message : 'Please try again.' });
     } finally { setHostBusy(false); }
