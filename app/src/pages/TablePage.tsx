@@ -1633,6 +1633,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             {winAmount ? <img className="native-win" src={animOff ? '/assets/table/native-win-final.png' : '/assets/table/native-win-effect.png'} alt="" /> : null}
             {isActor && !p.folded ? <div className="timer" style={{ '--turn': timerPct } as React.CSSProperties} /> : null}
             <div
+              data-count={p.cards?.length || 0}
               className={'cards' + (p.isMe && squeezing ? ' squeeze-target-hidden' : '') + (!p.isMe && showdownReveals[p.seat] != null && p.reveal ? ' showdown-reveal' : '')}
               style={{ '--reveal-delay': `${showdownReveals[p.seat] || 0}ms` } as React.CSSProperties}
             >

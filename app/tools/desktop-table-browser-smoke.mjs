@@ -100,5 +100,22 @@ try {
     await page.evaluate(state=>window.injectTable({type:'state',state:{...state,actor:state.players.find(p=>!p.isMe).id}}),state);
     await page.waitForSelector('.reserved-actions');assert.equal(await page.$('.main-actions'),null,'Betting only on own turn');
   }
+  for (const desktop of [true,false]) for (const count of [4,5,6]) for (const width of desktop?[1200,600,360]:[390,320]) {
+    await page.evaluate(desktop=>{window.ggDesktop=desktop?{}:undefined;},desktop);
+    await page.setViewport({width,height:800,isMobile:!desktop,hasTouch:!desktop});
+    const state={...waiting,game:count===4?'omaha':`omaha${count}`,actor:account.user.id};
+    state.players=waiting.players.map(p=>({...p,cards:p.isMe?['As','Kh','Qd','Jc','Ts','9h'].slice(0,count):Array(count).fill('??')}));
+    await page.evaluate(state=>window.injectTable({type:'state',state}),state);
+    await new Promise(r=>setTimeout(r,900));
+    const hand=await page.$$eval('.seat.me .cards .pcard',nodes=>nodes.map(n=>{
+      const r=n.getBoundingClientRect();const rank=n.querySelector('.rank');const k=rank.getBoundingClientRect();
+      const hit=document.elementFromPoint(k.left+k.width/2,k.top+k.height/2);
+      return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,rankVisible:n.contains(hit),label:n.getAttribute('aria-label')};
+    }));
+    await page.screenshot({path:path.join(artifacts,`omaha-${count}-${desktop?'desktop':'phone'}-${width}.png`)});
+    assert.equal(hand.length,count);
+    assert.ok(hand.every(c=>c.left>=0&&c.right<=width&&c.top>=0&&c.bottom<=800&&c.rankVisible),`All ${count} Omaha indices visible at ${width}: ${JSON.stringify(hand)}`);
+    checks.push({omaha:count,desktop,width,hand});
+  }
   assert.deepEqual(errors,[]);await writeFile(path.join(artifacts,'results.json'),JSON.stringify({checks,errors},null,2));console.log(JSON.stringify({ok:true,cases:checks.length,artifacts}));
 }finally{await browser?.close();await sandbox.close();}
