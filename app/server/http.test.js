@@ -72,18 +72,26 @@ test('server binds an ephemeral port and serves the API', async () => {
       body: JSON.stringify({ amount: 800, method: 'card' }),
     });
     assert.equal(conflict.status, 409);
-    const w1 = await fetch(`http://127.0.0.1:${port}/api/cashier/withdraw`, {
+    const beforeWithdraw = await fetch(`http://127.0.0.1:${port}/api/cashier`, { headers: { authorization: `Bearer ${login.token}` } }).then((r) => r.json());
+    assert.ok(beforeWithdraw.transactions.some((transaction) => transaction.kind === 'deposit' && transaction.memo === 'Free Play Money top-up' && transaction.currency === 'USD'));
+    assert.equal(beforeWithdraw.transactions.some((transaction) => transaction.kind === 'deposit' && transaction.memo === 'card'), false);
+    const w1Response = await fetch(`http://127.0.0.1:${port}/api/cashier/withdraw`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}`, 'idempotency-key': 'wd-1' },
       body: JSON.stringify({ amount: 100, method: 'bank' }),
-    }).then((r) => r.json());
-    const w2 = await fetch(`http://127.0.0.1:${port}/api/cashier/withdraw`, {
+    });
+    const w1 = await w1Response.json();
+    const w2Response = await fetch(`http://127.0.0.1:${port}/api/cashier/withdraw`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}`, 'idempotency-key': 'wd-1' },
       body: JSON.stringify({ amount: 100, method: 'bank' }),
-    }).then((r) => r.json());
-    assert.equal(w1.balance, w2.balance);
-    assert.equal(w2.replayed, true);
+    });
+    const w2 = await w2Response.json();
+    assert.equal(w1Response.status, 409); assert.equal(w2Response.status, 409);
+    assert.match(w1.error, /no cash value.*cannot be withdrawn/i); assert.equal(w2.error, w1.error);
+    const afterWithdraw = await fetch(`http://127.0.0.1:${port}/api/cashier`, { headers: { authorization: `Bearer ${login.token}` } }).then((r) => r.json());
+    assert.equal(afterWithdraw.user.balance, beforeWithdraw.user.balance);
+    assert.equal(afterWithdraw.transactions.length, beforeWithdraw.transactions.length);
     const reg = await fetch(`http://127.0.0.1:${port}/api/auth/register`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ login: 'freshuser', nick: 'Fresh', password: 'fresh123' }),

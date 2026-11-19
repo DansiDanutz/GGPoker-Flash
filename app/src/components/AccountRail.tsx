@@ -1,5 +1,4 @@
 import React from 'react';
-import { money } from '../lib/api';
 import { useApp } from '../lib/store';
 import { sound } from '../lib/sound';
 
@@ -13,7 +12,7 @@ export function AccountRail() {
   return (
     <div className="lobby-rail" aria-label="Account">
       <div className="rail-wallet">
-        <div className="currency-row"><span>USD</span><b>{money(user?.balance ?? 0)}</b></div>
+        <div className="currency-row"><span title="Free Play Money — no cash value">Play</span><b>{((user?.balance ?? 0) / 100).toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}</b></div>
         <div className="currency-row"><span>P$</span><b>P${(user?.play_chips ?? 0).toLocaleString()}</b></div>
         <div className="currency-row"><span>T$</span><b>T${(user?.tickets ?? 0).toLocaleString()}</b></div>
         <div className="currency-row coin"><span>XP</span><b>{((user?.xp ?? 0) / 1000).toFixed(1)}K</b></div>

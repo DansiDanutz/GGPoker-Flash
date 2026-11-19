@@ -156,6 +156,17 @@
   .marketplace .mp-button { min-height: 44px; }
 }
 
+.nervixpay-connection { margin-block: 20px; }
+.nervixpay-connection :is(form,label) { display: grid; gap: 12px; min-width: 0; }
+.nervixpay-connection form { margin-block: 20px; }
+.nervixpay-connection .nervixpay-consent { display: flex; align-items: flex-start; line-height: 1.6; }
+.nervixpay-consent input { flex: 0 0 auto; width: 20px; min-height: 20px; margin-top: 4px; }
+.nervixpay-account-id { overflow-wrap: anywhere; }
+.nervixpay-approval { padding: 16px; border: 1px solid #8b7751; border-radius: 10px; background: #111215; }
+.nervixpay-approval > strong { display: block; font-size: 24px; letter-spacing: .1em; color: #f2dba8; margin-bottom: 16px; }
+.nervixpay-connection .mp-button { white-space: normal; min-height: 44px; }
+
+.diamond-workspace form{display:grid;gap:14px}.diamond-workspace label{display:grid;gap:7px}.diamond-workspace input,.diamond-workspace select{width:100%;min-width:0}.diamond-request{padding:16px 0;border-top:1px solid rgba(232,196,108,.22)}.diamond-workspace [role="alert"]{color:#ffb3b3}.diamond-workspace [role="status"]{color:#bde9ce}
 /* Chip requests share the readable account controls inside club dialogs. */
 :is(.funding-panel,.cashout-panel) form { display: grid; gap: 12px; margin-block: 16px; }
 :is(.funding-panel,.cashout-panel) form label { display: grid; gap: 6px; min-width: 0; }
