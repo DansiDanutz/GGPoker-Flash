@@ -11,7 +11,10 @@ const localDateTime = (value: string) => {
 };
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'The request failed.';
 
-export function OrganizerBilling({ userId, role }: { userId?: number; role?: 'organizer' | 'contributor' }) {
+export function OrganizerBilling({ userId, role, view = 'all' }: { userId?: number; role?: 'organizer' | 'contributor'; view?: 'all' | 'membership' | 'funding' | 'resources' }) {
+  const membershipView = view === 'all' || view === 'membership';
+  const fundingView = view === 'all' || view === 'funding';
+  const resourcesView = view === 'all' || view === 'resources';
   const contributorOnly = role === 'contributor';
   const [config, setConfig] = useState<OrganizerBillingConfig | null>(null);
   const [account, setAccount] = useState<OrganizerBillingAccount | null>(null);
@@ -33,7 +36,7 @@ export function OrganizerBilling({ userId, role }: { userId?: number; role?: 'or
     } catch (failure) { setError(errorText(failure)); }
     finally { setLoading(false); }
   }, [userId]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, view]);
 
   const run = async (identity: string, confirmation: string, action: (key: string) => Promise<unknown>, success: string) => {
     if (busy || !window.confirm(confirmation)) return;
@@ -57,22 +60,23 @@ export function OrganizerBilling({ userId, role }: { userId?: number; role?: 'or
 
   if (loading && !config) return <section className="mp-account-panel" aria-busy="true"><p>Loading membership and service credits…</p></section>;
   return <section className="mp-account-panel" aria-label={contributorOnly ? "Contributor membership and credits" : "Organizer credits and services"}>
-    <div className="mp-section-heading"><div><span className="mp-eyebrow">{contributorOnly ? 'CONTRIBUTOR MEMBERSHIP' : 'ORGANIZER SERVICES'}</span><h2>{contributorOnly ? 'Membership and service credits' : 'Credits, memberships, and resources'}</h2></div><button type="button" className="mp-button mp-button-secondary" disabled={loading || Boolean(busy)} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</button></div>
+    <div className="mp-section-heading"><div><span className="mp-eyebrow">{contributorOnly ? 'CONTRIBUTOR MEMBERSHIP' : 'ORGANIZER SERVICES'}</span><h2>{view === 'funding' ? 'Service credits & payment history' : view === 'resources' ? 'Your games & table controls' : view === 'membership' ? 'Your Organizer membership' : contributorOnly ? 'Membership and service credits' : 'Credits, memberships, and resources'}</h2></div><button type="button" className="mp-button mp-button-secondary" disabled={loading || Boolean(busy)} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</button></div>
     {contributorOnly && config && <p>Contributor membership costs {usd(config.tariffs.membership)} for one calendar month, renewed manually. Build and test locally for free; membership and an approved publisher profile are required for marketplace submission. Publisher commission credits are managed separately below.</p>}
-    {!contributorOnly && config && <p>Rates: Cash {usd(config.tariffs.cash_setup)} setup + $5–$1/hour while the table is active; tournament {usd(config.tariffs.tournament_setup)} setup + {usd(config.tariffs.reschedule)} rescheduling; Spin &amp; Go {usd(config.tariffs.spin_setup)} setup + {usd(config.tariffs.reschedule)} rescheduling. Membership costs {usd(config.tariffs.membership)} per calendar month.</p>}
+    {!contributorOnly && view !== 'funding' && config && <p>Rates: Cash {usd(config.tariffs.cash_setup)} setup + $5–$1/hour while the table is active; tournament {usd(config.tariffs.tournament_setup)} setup + {usd(config.tariffs.reschedule)} rescheduling; Spin &amp; Go {usd(config.tariffs.spin_setup)} setup + {usd(config.tariffs.reschedule)} rescheduling. Membership costs {usd(config.tariffs.membership)} per calendar month.</p>}
     {!enforced && <div className="mp-notice" role="status">Credit billing is not active on this installation. Debit controls are disabled and existing hosting continues in legacy mode.</div>}
     {error && <div className="mp-notice mp-notice-error" role="alert">{error}</div>}
     {notice && <div className="mp-notice mp-notice-success" role="status">{notice}</div>}
     {!userId ? <p>Sign in to view your balance and resources.</p> : account && <>
-      <div className="mp-account-grid"><article><strong>{usd(account.balance_cents)}</strong><p>service credit balance</p></article>{(role ? [role] : ['organizer', 'contributor'] as const).map((role) => <article key={role}><strong>{role === 'organizer' ? 'Organizer' : 'Contributor'}</strong><p>{account.memberships[role].active ? `Active until ${when(account.memberships[role].expires_at)}` : 'Inactive'}</p><button type="button" className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy)} onClick={() => void run(`subscribe:${role}`, `Charge ${usd(tariffs?.membership || 900)} for one month of ${role} membership?`, (key) => organizerBillingApi.subscribe(role, key), 'Membership updated.')}>{busy === `subscribe:${role}` ? 'Processing…' : account.memberships[role].active ? 'Renew' : 'Activate'}</button></article>)}</div>
-      {config?.manual_funding.enabled && <section aria-label="Manual service credit funding">
+      <div className="mp-account-grid"><article><strong>{usd(account.balance_cents)}</strong><p>service credit balance</p></article>{membershipView && (role ? [role] : ['organizer', 'contributor'] as const).map((role) => <article key={role}><strong>{role === 'organizer' ? 'Organizer' : 'Contributor'}</strong><p>{account.memberships[role].active ? `Active until ${when(account.memberships[role].expires_at)}` : 'Inactive'}</p><button type="button" className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy)} onClick={() => void run(`subscribe:${role}`, `Charge ${usd(tariffs?.membership || 900)} for one month of ${role} membership?`, (key) => organizerBillingApi.subscribe(role, key), 'Membership updated.')}>{busy === `subscribe:${role}` ? 'Processing…' : account.memberships[role].active ? 'Renew' : 'Activate'}</button></article>)}</div>
+      {fundingView && config?.manual_funding.enabled && <section aria-label="Manual service credit funding">
         <h3>Add service credits through NervixPay</h3>
         <p>The operator verifies payment manually; the account is not credited automatically. Service credits are not player deposits or Cash Chips. After verification, activate the membership separately; there is no automatic renewal.</p>
         <p>Displayed merchant: <strong>{config.manual_funding.merchant_display}</strong> (shared account {config.manual_funding.settlement_account_display}). Accepted assets: {config.manual_funding.assets?.join(' or ')}. Reference sent to NervixPay: <code>{fundingReference}</code>. Your email address is not sent.</p>
         <div className="mp-account-grid">{config.manual_funding.links.map((link) => <article key={link.amount_cents}><strong>{usd(link.amount_cents)}</strong><p>service credits after receipt reconciliation</p><button type="button" className="mp-button mp-button-secondary" onClick={() => openFunding(link.url, link.amount_cents)}>Open {usd(link.amount_cents)} payment</button></article>)}</div>
         <p>Keep the receipt and order reference. If a verified payment is missing from the balance, contact platform <a href="#/support">Support</a> and include the receipt and <code>{fundingReference}</code>.</p>
       </section>}
-      {!contributorOnly && <>
+      {fundingView && !config?.manual_funding.enabled && <p role="status">NervixPay top-ups are not configured on this installation. Contact <a href="#/support">Support</a> before sending a payment.</p>}
+      {!contributorOnly && resourcesView && <>
       <p>The Cash rate decreases with lifetime paid hours across all your tables: {config?.tariffs.cash_hour_tiers.map((tier, index, tiers) => `${index === 0 ? 1 : (tiers[index - 1].through || 0) + 1}${tier.through === null ? '+' : `–${tier.through}`} hours: ${usd(tier.cents)}/hour`).join('; ')}. Each active table uses one hour. Each hour is prepaid with no retroactive discounts.</p>
       {account.cash_usage && <p aria-label="Cash hourly rate">Paid hours: <strong>{account.cash_usage.paid_hours}</strong> · Next hour (#{account.cash_usage.next_hour}): <strong>{usd(hourPrice)}</strong>. Resuming within an already-paid period is free.</p>}
       <h3>Hosted resources</h3>
@@ -153,8 +157,9 @@ export function OrganizerBilling({ userId, role }: { userId?: number; role?: 'or
         })}</ul>}
       </section>
       </>}
-      <h3>Credit history</h3>
+      {fundingView && <><h3>Credit history</h3>
       {!account.ledger?.length ? <p>No recorded transactions.</p> : <ul className="mp-account-list">{account.ledger.map((entry) => <li key={entry.id}><div className="mp-account-row"><strong>{entry.kind}</strong><strong>{entry.amount_cents > 0 ? '+' : ''}{usd(entry.amount_cents)}</strong></div><time>{when(entry.created_at)}{entry.resource_id ? ` · ${entry.resource_id}` : ''}</time></li>)}</ul>}
+      </>}
     </>}
   </section>;
 }

@@ -3,7 +3,7 @@ import { PageShell } from '../components/PageShell';
 import { ContributorWorkspace } from '../components/ContributorWorkspace';
 import { MarketplacePublisher } from '../components/MarketplacePublisher';
 import { OrganizerBilling } from '../components/OrganizerBilling';
-import { OrganizerChips } from '../components/OrganizerChips';
+import { OrganizerWorkspace } from '../components/OrganizerWorkspace';
 import { PlayMoneyPlugins } from '../components/PlayMoneyPlugins';
 import { ProfileWorkspaceTabs } from '../components/ProfileWorkspaceTabs';
 import '../profile-roles.css';
@@ -17,10 +17,7 @@ export function PlatformWorkspace({ kind }: { kind: 'contributor' | 'organiser' 
       {kind === 'contributor' ? <>
         <div className="mp-container"><OrganizerBilling key={user.id} userId={user.id} role="contributor" /><MarketplacePublisher userId={user.id} onLogin={() => navigate('/login')} /></div>
         <ContributorWorkspace key={user.id} /><PlayMoneyPlugins />
-      </> : <>
-        <section className="workspace-intro" aria-label="Organizer management"><h2>Start and manage your games</h2><ol><li>Activate your monthly membership and add service credits.</li><li>Create a cash table, tournament or Spin &amp; Go. Review the setup fee before confirming.</li><li>Manage active hours, rake and schedules below; distribute Cash Chips and tickets in your own economy.</li></ol><nav aria-label="Create an organizer game"><button onClick={() => navigate('/?host=cash&economy=organizer')}>Create cash table</button><button onClick={() => navigate('/?host=tournament&economy=organizer')}>Create tournament</button><button onClick={() => navigate('/?host=spin&economy=organizer')}>Create Spin &amp; Go</button></nav><p>Membership includes 100,000 Cash Chips each month. These chips stay within your organizer economy. Creating games and starting cash hours require separate service credits.</p></section>
-        <div className="mp-container"><OrganizerBilling key={user.id} userId={user.id} role="organizer" /><OrganizerChips key={`chips-${user.id}`} userId={user.id} /></div>
-      </>}
+      </> : <OrganizerWorkspace key={user.id} userId={user.id} />}
     </>}
     </div>
   </PageShell>;

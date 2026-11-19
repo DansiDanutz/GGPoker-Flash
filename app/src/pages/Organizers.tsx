@@ -17,7 +17,7 @@ function Metric({ value, label }: { value: string | number; label: string }) {
 }
 
 export function Organizers() {
-  const { user, navigate } = useApp();
+  const { user, navigate, route } = useApp();
   const [clubs, setClubs] = useState<OrganizerClub[]>([]), [selected, setSelected] = useState<OrganizerClub | null>(null);
   const [search, setSearch] = useState(''), [sort, setSort] = useState<'rank' | 'newest'>('rank');
   const [offset, setOffset] = useState(0), [total, setTotal] = useState(0);
@@ -64,6 +64,22 @@ export function Organizers() {
     } catch (failure) { setError(errorText(failure)); }
     finally { setBusy(''); }
   };
+  const requestedClub = new URLSearchParams(route.split('?')[1]).get('club');
+  useEffect(() => {
+    if (!requestedClub || !/^\d+$/.test(requestedClub)) return;
+    let cancelled = false;
+    setError('');
+    void organizersApi.profile(Number(requestedClub)).then(async profile => {
+      if (cancelled) return;
+      setSelected(profile);
+      if (profile.ownerId === user?.id) {
+        setDraft({ name: profile.name, description: profile.description, entryFeeCents: profile.entryFeeCents });
+        const result = await organizersApi.requests();
+        if (!cancelled) setRequests(result.requests);
+      }
+    }).catch(failure => { if (!cancelled) setError(errorText(failure)); });
+    return () => { cancelled = true; };
+  }, [requestedClub, user?.id]);
   const refreshSelected = async () => { if (selected) setSelected(await organizersApi.profile(selected.ownerId)); await load(); };
   const act = async (key: string, action: () => Promise<unknown>, success: string) => {
     setBusy(key); setError(''); setNotice('');
