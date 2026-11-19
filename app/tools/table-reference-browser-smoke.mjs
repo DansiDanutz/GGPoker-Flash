@@ -426,6 +426,18 @@ try {
   await page.waitForFunction(() => Boolean(document.querySelector('.action-bar .act-check:not(:disabled)')));
   await page.click('.action-bar .act-check:not(:disabled)');
   for (const [width, height] of viewports) layouts[`tournament-waiting-${width}`] = await captureTournamentWaiting(width, height);
+  if (!phone) {
+    const route = page.url();
+    await page.setViewport({ width: 844, height: 390, deviceScaleFactor: 1, isMobile: true, hasTouch: true, isLandscape: true });
+    await page.waitForSelector('.phone-rotate', { visible: true });
+    assert.equal(await page.$eval('.app-window', node => node.inert), true, 'Landscape phone cannot operate the desktop layout behind the rotation guard');
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true, isLandscape: false });
+    await page.waitForSelector('.phone-rotate', { hidden: true });
+    assert.equal(page.url(), route, 'Rotation preserves the current table');
+    assert.equal(await page.$eval('.app-window', node => node.inert), false);
+    await page.waitForSelector('.table-stage.stage-portrait');
+    checks.push('Phone landscape is inert behind the rotation guard; portrait restores the same table.');
+  }
   assert.deepEqual(pageErrors, []);
   checks.push('Six real disposable players populated the cash and tournament tables.');
   checks.push(`Seats, dealt cards and visible actions fit at ${viewports.map(v => v.join('x')).join(' and ')} without page errors${phone ? ' on the physical phone without viewport emulation' : ''}.`);

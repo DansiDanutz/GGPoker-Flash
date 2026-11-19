@@ -515,6 +515,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       }
     };
     ws.onclose = () => {
+      if (wsRef.current !== ws) return;
       setConnected(false);
       if (!everJoined.current) return;
       retry.current = window.setTimeout(() => { if (wsRef.current === ws) connect(); }, 1600);

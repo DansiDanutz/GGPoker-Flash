@@ -10,6 +10,7 @@ import { startSandbox } from './contributor-sandbox.mjs';
 import { PokerTable } from '../server/table.js';
 import { runSchedule } from '../src/game/runItPacing.ts';
 import { seatLayout } from '../src/game/tableStage.ts';
+const desktop=process.env.DESKTOP_TABLE==='1';
 const artifacts=path.resolve(process.env.ARTIFACTS_DIR || 'artifacts/run-it-awards');
 await mkdir(artifacts,{recursive:true});
 const sandbox=await startSandbox();
@@ -46,7 +47,7 @@ try {
   browser=await puppeteer.launch({executablePath,headless:true,args:['--no-sandbox']});
   const page=await browser.newPage(); const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});
+  await page.setViewport(desktop ? {width:1200,height:800,isMobile:false,hasTouch:false} : {width:390,height:844,isMobile:true,hasTouch:true});
   await page.evaluateOnNewDocument(token=>{
     localStorage.setItem('openpoker.revealAnimation','0'); sessionStorage.setItem('ggpoker.entered','1'); localStorage.setItem('ggpoker.token',token); localStorage.setItem('ggpoker.welcomeSeen','1'); localStorage.setItem('ggpoker.sound','0');
     const Native=window.WebSocket;
@@ -62,6 +63,7 @@ try {
   await page.goto(sandbox.url+'/#/table/'+encodeURIComponent(table.id)+'?observe=1');
   await page.waitForFunction(()=>typeof window.injectTable==='function');
   await page.waitForSelector('.ls-content:not([inert])');
+  if (!desktop) {
   const waiting = { ...fixture(account.user,table.id,2,6,1), street:'preflop', boards:null, result:null, allInEquity:null, actor:null, actionEndsAt:Date.now()+300000, actionTimeMs:300000 };
   waiting.players=waiting.players.map(p=>({...p,allIn:false,folded:false,stack:10000,winAmount:0}));
   await page.evaluate(state=>{window.fixtureActive=true;window.injectTable({type:'joined',tableId:state.id,seat:0,observe:false});window.injectTable({type:'state',state});},waiting);
@@ -108,9 +110,10 @@ try {
   await page.click('.reserved-actions button');
   await page.click('.tchat-keep');
   assert.equal(await page.$eval('.tchat-keep',n=>n.getAttribute('aria-pressed')),'false');
+  }
   let handNo=40;
   for (const [runs,seats,shared] of [[2,6,false],[3,9,false],[2,6,true]]) {
-    await page.setViewport({width:390,height:760,isMobile:true,hasTouch:true});
+    await page.setViewport(desktop ? {width:1200,height:800,isMobile:false,hasTouch:false} : {width:390,height:760,isMobile:true,hasTouch:true});
     await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:shared?'reduce':'no-preference'}]);
     const state=fixture(account.user,table.id,runs,seats,++handNo,shared);
     await page.evaluate(state=>{
@@ -162,7 +165,7 @@ try {
     for(const flight of flights) {
       if(shared) assert.equal(flight.display,'none');
       else {
-        const [x,y]=seatLayout(seats,'portrait')[flight.seat];
+        const [x,y]=seatLayout(seats,desktop?'wide':'portrait')[flight.seat];
         assert.ok(Math.abs(flight.x-x)<1 && Math.abs(flight.y-y)<1,`Particle missed its winning seat: ${JSON.stringify(flight)}`);
       }
     }
@@ -191,16 +194,19 @@ try {
     for(const player of state.players.filter(p=>p.winAmount>0)) {
       assert.equal(await page.$eval(`.win-amount[data-seat="${player.seat}"]`,n=>Number(n.dataset.amount)),player.winAmount,'Only the total credited amount remains by each winner');
     }
-    for(const [width,height] of [[320,568],[390,760],[430,900]]) {
-      await page.setViewport({width,height,isMobile:true,hasTouch:true});
+    for(const [width,height] of (desktop ? [[600,640],[900,700],[1200,800]] : [[320,568],[390,760],[430,900]])) {
+      await page.setViewport({width,height,isMobile:!desktop,hasTouch:!desktop});
       await new Promise(resolve=>setTimeout(resolve,180));
       const geometry=await page.evaluate(()=>{
         const box=n=>{const r=n.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};
         const cards=[...document.querySelectorAll('.multi-board .pcard')].map(box);
         const seats=[...document.querySelectorAll('.seat .avatar-wrap,.seat .plate,.seat .cards')].map(box);
-        return {cards,overlaps:cards.filter(c=>seats.some(s=>s.width>0&&s.height>0&&c.left<s.right&&c.right>s.left&&c.top<s.bottom&&c.bottom>s.top)),viewport:{width:innerWidth,height:innerHeight}};
+        const labels=[...document.querySelectorAll('.win-amount,.board-outcomes')].map(box);
+        const labelOverlaps=labels.filter(c=>seats.some(s=>s.width>0&&s.height>0&&c.left<s.right&&c.right>s.left&&c.top<s.bottom&&c.bottom>s.top));
+        return {labels,labelOverlaps,cards,overlaps:cards.filter(c=>seats.some(s=>s.width>0&&s.height>0&&c.left<s.right&&c.right>s.left&&c.top<s.bottom&&c.bottom>s.top)),viewport:{width:innerWidth,height:innerHeight}};
       });
       assert.equal(geometry.cards.length,runs*5);
+      if(desktop) assert.equal(geometry.labelOverlaps.length,0,'Desktop award labels must not cover cards or player identities');
       assert.ok(geometry.cards.every(c=>c.width>=24&&c.height>=32&&c.left>=0&&c.top>=0&&c.right<=width+1&&c.bottom<=height+1),JSON.stringify(geometry));
       assert.equal(geometry.overlaps.length,0,`Cards overlap seats at ${runs} boards/${seats} seats/${width}: ${JSON.stringify(geometry)}`);
       await page.screenshot({path:path.join(artifacts,`boards-${runs}-seats-${seats}-${shared?'shared-':''}${width}.png`)});
