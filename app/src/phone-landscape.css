@@ -1,0 +1,7 @@
+/* Keep the mounted game connected while preventing actions in unsupported phone orientation. */
+.phone-rotate { position: fixed; inset: 0; z-index: 100000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; background: #0b1610; color: #eee; text-align: center; }
+.phone-rotate svg { color: #e8cb81; flex: none; }
+.phone-rotate h1 { margin: 0; font-size: 22px; }
+.phone-rotate p { margin: 0; font-size: 15px; }
+.phone-rotate small { color: #bbb; font-size: 12px; }
+.app-window[inert] { visibility: hidden; }

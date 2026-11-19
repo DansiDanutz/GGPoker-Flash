@@ -14,11 +14,11 @@ test('bbLabel uses one decimal', () => {
 test('amountLabel follows the display mode', () => {
   assert.equal(amountLabel(1000, cash('chips')), '$10.00');
   assert.equal(amountLabel(1000, cash('bb')), '5.0 BB');
-  assert.equal(amountLabel(1000, cash('both')), '$10.00 · 5.0 BB');
+  assert.equal(amountLabel(1000, cash('both')), '$10.00');
 });
 
-test('tournaments and tables without a big blind always show chips', () => {
-  assert.equal(amountLabel(1000, { ...cash('bb'), tournament: true }), '$10.00');
+test('tournaments support BB while missing blinds fall back to chips', () => {
+  assert.equal(amountLabel(1000, { ...cash('bb'), tournament: true }), '5.0 BB');
   assert.equal(amountLabel(1000, { ...cash('bb'), bb: 0 }), '$10.00');
 });
 

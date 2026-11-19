@@ -44,7 +44,7 @@ test('Chat and React are round chip icon buttons (speech bubble, smiley), React 
   const toggles = chat.slice(chat.indexOf('<div className="tchat-buttons">'));
   assert.match(toggles, /aria-label=\{unread \? `Chat, \$\{unread\} unread` : 'Chat'\}/);
   assert.match(toggles, /aria-label="Emoticons"/);
-  assert.equal((toggles.match(/<svg className="tchat-icon"/g) || []).length, 2, 'both buttons draw an icon');
+  assert.equal((toggles.match(/<svg className="tchat-icon"/g) || []).length, 3, 'all table tools draw an icon');
   assert.doesNotMatch(toggles, />\s*Chat\s*\{|>React<\/button>/, 'no text label is drawn');
   // React is second in the markup; the column is reversed so it sits above Chat.
   assert.ok(toggles.indexOf('aria-label="Emoticons"') > toggles.indexOf("'Chat'"));

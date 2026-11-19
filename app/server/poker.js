@@ -163,6 +163,51 @@ export function estimateEquity(hole, board, opponents, shortDeck = false, iterat
   return (wins + ties * 0.5) / iterations;
 }
 
+// Public showdown equity once every remaining player is all in. Exact with at most two
+// cards to come; earlier streets use a deterministic sample that never reads the live deck.
+export function allInEquity(players, board, { shortDeck = false, omaha = false, pots = [] } = {}) {
+  if (!Array.isArray(players) || players.length < 2 || !Array.isArray(board) || board.length > 5) return null;
+  const known = new Set([...board, ...players.flatMap((p) => p.cards)].map(cardStr));
+  const deck = makeDeck(shortDeck).filter((c) => !known.has(cardStr(c)));
+  const missing = 5 - board.length;
+  const exact = missing <= 2;
+  const limit = omaha ? 2000 : 5000;
+  const runouts = [];
+
+  if (exact) {
+    const choose = (start, picked) => {
+      if (picked.length === missing) { runouts.push(picked); return; }
+      for (let i = start; i <= deck.length - (missing - picked.length); i++) choose(i + 1, [...picked, deck[i]]);
+    };
+    choose(0, []);
+  } else {
+    const seed = [...known].sort().join('').split('').reduce((n, ch) => ((n * 33) ^ ch.charCodeAt(0)) >>> 0, 5381);
+    for (let i = 0; i < limit; i++) runouts.push(shuffle([...deck], seededRandom(seed + i * 7919)).slice(0, missing));
+  }
+
+  const payable = pots.length ? pots : [{ amount: 1, eligible: players.map((p) => p.id) }];
+  const total = payable.reduce((sum, pot) => sum + pot.amount, 0);
+  const awards = new Map(players.map((p) => [p.id, 0]));
+  for (const runout of runouts) {
+    const fullBoard = [...board, ...runout];
+    const scored = players.map((p) => ({ ...p, score: (omaha ? bestOmaha(p.cards, fullBoard) : bestHoldem(p.cards, fullBoard, shortDeck)).score }));
+    for (const pot of payable) {
+      const eligible = scored.filter((p) => pot.eligible.includes(p.id));
+      if (!eligible.length) continue;
+      let best = eligible[0];
+      for (const p of eligible.slice(1)) if (compareScores(p.score, best.score) > 0) best = p;
+      const winners = eligible.filter((p) => compareScores(p.score, best.score) === 0);
+      for (const winner of winners) awards.set(winner.id, awards.get(winner.id) + pot.amount / winners.length);
+    }
+  }
+
+  const raw = players.map((p) => ({ seat: p.seat, percent: awards.get(p.id) * 100 / (runouts.length * total) }));
+  const rounded = raw.map((p) => ({ seat: p.seat, percent: Math.round(p.percent * 10) / 10 }));
+  const adjustment = Math.round((100 - rounded.reduce((sum, p) => sum + p.percent, 0)) * 10) / 10;
+  if (adjustment) rounded[raw.reduce((best, p, i) => p.percent > raw[best].percent ? i : best, 0)].percent += adjustment;
+  return { estimated: !exact, samples: runouts.length, players: rounded };
+}
+
 // Deterministic RNG for reproducible simulation inside a single decision.
 function seededRandom(seed) {
   let s = seed >>> 0;

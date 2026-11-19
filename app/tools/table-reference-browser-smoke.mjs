@@ -21,6 +21,7 @@ const pageErrors = [];
 const checks = [];
 let browser;
 let page;
+let viewports = [[390, 844], [320, 700]];
 const phone = process.env.PHONE_DEVICE_SERIAL;
 const phonePorts = [new URL(sandbox.url).port,new URL(sandbox.api).port];
 
@@ -118,7 +119,23 @@ async function prepareTournament(hero, players, tournamentId) {
   return { tableId, clients };
 }
 
-async function driveBrowserHeroToFlop(clients, tableId) {
+async function drag(x1, y1, x2, y2) {
+  if (phone) {
+    const session = await page.createCDPSession();
+    await session.send('Input.dispatchTouchEvent', {type:'touchStart', touchPoints:[{x:x1,y:y1}]});
+    for (let step=1;step<=8;step++) {
+      await session.send('Input.dispatchTouchEvent', {type:'touchMove', touchPoints:[{x:x1+(x2-x1)*step/8,y:y1+(y2-y1)*step/8}]});
+      await new Promise(resolve=>setTimeout(resolve,25));
+    }
+    await session.send('Input.dispatchTouchEvent', {type:'touchEnd', touchPoints:[]});
+    await session.detach();
+  } else {
+    await page.mouse.move(x1,y1); await page.mouse.down();
+    await page.mouse.move(x2,y2,{steps:8}); await page.mouse.up();
+  }
+}
+
+async function driveBrowserHeroToFlop(clients, tableId, untilReveal = false) {
   const acted = new Set();
   const handlers = clients.map((client) => (raw) => {
     const message = JSON.parse(String(raw));
@@ -136,9 +153,10 @@ async function driveBrowserHeroToFlop(clients, tableId) {
   try {
     const end = Date.now() + 25000;
     while (Date.now() < end) {
+      if (untilReveal && await page.$('.cardSqueeze')) return;
       const ready = await page.evaluate(() => document.querySelectorAll('.board > .pcard').length >= 3
         && Boolean(document.querySelector('.action-bar .act-btn:not(:disabled)')));
-      if (ready) return;
+      if (ready && !untilReveal) return;
       const selector = await page.evaluate(() => {
         if (document.querySelector('.action-bar .act-check:not(:disabled)')) return '.action-bar .act-check:not(:disabled)';
         if (document.querySelector('.action-bar .act-call:not(:disabled)')) return '.action-bar .act-call:not(:disabled)';
@@ -154,7 +172,7 @@ async function driveBrowserHeroToFlop(clients, tableId) {
 }
 
 async function capture(kind, width, height) {
-  await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  if (!phone) await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   await page.waitForSelector('.table-screen .table-stage.stage-portrait', { visible: true });
   await page.waitForFunction((expectedWidth) => {
     const screen = document.querySelector('.table-screen')?.getBoundingClientRect();
@@ -168,7 +186,10 @@ async function capture(kind, width, height) {
     const style = getComputedStyle(card);
     return rect.width > 0 && rect.height > 0 && Number(style.opacity) >= 0.95 && style.visibility !== 'hidden';
   }));
-  await page.waitForFunction(() => document.getAnimations().every((animation) => {
+  // Wait for entry motion, not ongoing countdown transitions elsewhere on the table.
+  await page.waitForFunction(() => document.getAnimations().filter(animation =>
+    animation.effect?.target?.matches?.('.board > .pcard, .main-actions, .quick-bets, .reserved-actions')
+  ).every((animation) => {
     const iterations = animation.effect?.getTiming().iterations;
     return iterations === Infinity || animation.playState === 'finished' || animation.playState === 'idle';
   }));
@@ -187,21 +208,32 @@ async function capture(kind, width, height) {
       board: document.querySelectorAll('.board > .pcard').length,
       cards: document.querySelectorAll('.table-stage .seat .cards .pcard').length,
       actions: [...document.querySelectorAll('.action-bar button')].filter(visible).length,
+      heroCardLeft: Math.min(...[...document.querySelectorAll('.seat.me .pcard')].map(n => n.getBoundingClientRect().left)),
       timerMasks: [...document.querySelectorAll('.seat.active .timer')].filter(visible).map((node) => getComputedStyle(node).maskImage),
       clipped: [...outside('.table-stage .seat:not(.seat-take)'), ...outside('.table-stage .seat .cards .pcard'), ...outside('.action-bar button')],
     };
   });
-  if (width === 390) {
+  assert.ok(await page.$$eval('.seat .plate', nodes => nodes.every(n => {
+    const style = getComputedStyle(n);
+    return style.backgroundColor !== 'rgba(0, 0, 0, 0)' && Number(style.opacity) === 1;
+  })), 'Identity plates have solid readable backing');
+  assert.equal(await page.$eval('.main-actions', n => getComputedStyle(n, '::after').display), 'none', 'Slider has no decorative backing panel');
+  assert.ok(await page.$$eval('.table-topbar, .action-bar', nodes => nodes.every(n => getComputedStyle(n).backdropFilter === 'none')), 'Header and footer have no rectangular blur panels');
+  if (width === viewports[0][0] && !await page.$('.tchat-dock.betting-active')) {
+  assert.ok(await page.$eval('.tchat-swipe-handle', n => {
+    const r = n.getBoundingClientRect();
+    return r.height <= 28 && r.bottom >= innerHeight - 2;
+  }), 'Closed chat is a small bottom-edge handle, not a panel over the hero');
   const stageBeforeDrawer = await page.$eval('.table-stage', n => n.getBoundingClientRect().top);
   if (await page.$eval('.tchat-swipe-handle', n => n.getAttribute('aria-expanded')) !== 'true') {
     const box=await (await page.$('.tchat-swipe-handle')).boundingBox();
-    await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
-    await page.mouse.down();await page.mouse.move(box.x+box.width/2,box.y-55,{steps:8});await page.mouse.up();
+    await drag(box.x+box.width/2,box.y+box.height/2,box.x+box.width/2,box.y-55);
   }
   await page.waitForSelector('.tchat-dock.tools-open .tchat-buttons', {visible:true});
+  await page.waitForFunction(() => Math.abs(parseFloat(getComputedStyle(document.querySelector('.action-bar')).bottom) - 132) < .1);
   await page.waitForFunction(() => document.querySelector('.tchat-dock').getBoundingClientRect().bottom >= innerHeight - 10);
   assert.ok(await page.$eval('.table-stage', n => n.getBoundingClientRect().top) < stageBeforeDrawer - 50, 'Opening the footer raises the table');
-  assert.equal(await page.$eval('.tchat-buttons', n => n.querySelectorAll('button').length), 2);
+  assert.equal(await page.$eval('.tchat-buttons', n => n.querySelectorAll('button').length), 3);
   assert.equal(await page.evaluate(() => {
     const dock=document.querySelector('.tchat-dock').getBoundingClientRect();
     return [...document.querySelectorAll('.action-bar button')].every(n=>{const r=n.getBoundingClientRect();return !r.width || dock.bottom<=r.top || dock.top>=r.bottom || dock.right<=r.left || dock.left>=r.right;});
@@ -210,84 +242,27 @@ async function capture(kind, width, height) {
   assert.ok(await page.$eval('.reaction-picker',n=>{const r=n.getBoundingClientRect();return r.top>=0&&r.left>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1;}),'Reaction picker must stay inside viewport');
   await page.screenshot({path:path.join(artifacts, `${kind}-emoticons-${width}.png`)});
   const handle = await (await page.$('.tchat-swipe-handle')).boundingBox();
-  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height + 50, { steps: 8 });
-  await page.mouse.up();
+  await drag(handle.x+handle.width/2,handle.y+handle.height/2,handle.x+handle.width/2,handle.y+handle.height+50);
   assert.equal(await page.$eval('.tchat-swipe-handle', n => n.getAttribute('aria-expanded')), 'false');
   assert.equal(await page.$('.reaction-picker'), null, 'Closing the drawer also closes emoticons');
+  await page.waitForFunction(() => Math.abs(parseFloat(getComputedStyle(document.querySelector('.action-bar')).bottom)) < .1);
   // Horizontal drags must not accidentally toggle the drawer.
-  await page.mouse.move(handle.x + 20, handle.y + 22);
-  await page.mouse.down();
-  await page.mouse.move(handle.x + 120, handle.y + 22, { steps: 8 });
-  await page.mouse.up();
+  const closedHandle = await (await page.$('.tchat-swipe-handle')).boundingBox();
+  await drag(closedHandle.x+20,closedHandle.y+closedHandle.height/2,closedHandle.x+120,closedHandle.y+closedHandle.height/2);
   assert.equal(await page.$eval('.tchat-swipe-handle', n => n.getAttribute('aria-expanded')), 'false');
   await page.evaluate(() => { for (const key of Object.keys(localStorage)) if (key.startsWith('openpoker.squeeze3d:')) localStorage.setItem(key, '0'); });
-  await page.click('.inspect-cards');
-  await page.waitForSelector('.cardSqueeze:not([aria-busy="true"])');
-  assert.equal(await page.$eval('.cardSqueeze', n => n.dataset.renderer), '2d-default', 'Cash and tournament inspection default to free 2D');
-  await page.keyboard.press('Escape');
-  await page.waitForSelector('.cardSqueeze', { hidden: true });
-  await page.evaluate(() => { for (const key of Object.keys(localStorage)) if (key.startsWith('openpoker.squeeze3d:')) localStorage.setItem(key, '1'); });
-  for (const failure of ['denied', 'offline']) {
-    await page.evaluate(failure => {
-      window.savedSqueezeFetch = window.fetch;
-      window.fetch = (url, options) => String(url).includes('/api/marketplace/squeeze-3d/access')
-        ? failure === 'offline' ? Promise.reject(new TypeError('Offline fixture')) : Promise.resolve(new Response(JSON.stringify({ access: { allowed: false } }), { status: 200 }))
-        : window.savedSqueezeFetch(url, options);
-    }, failure);
-    await page.click('.inspect-cards');
-    await page.waitForSelector('.cardSqueeze:not([aria-busy="true"])');
-    assert.equal(await page.$eval('.cardSqueeze', n => n.dataset.renderer), '2d-default', `${kind}: ${failure} access fails closed to free 2D`);
-    await page.keyboard.press('Escape');
-    await page.waitForSelector('.cardSqueeze', { hidden: true });
-    await page.evaluate(() => { window.fetch = window.savedSqueezeFetch; delete window.savedSqueezeFetch; });
+  assert.equal(await page.$('.cardSqueeze'), null, 'Reveal stays disabled during geometry checks');
+  assert.equal(await page.$eval('.reveal-toggle', n => n.getAttribute('aria-pressed')), 'false');
   }
-  await page.click('.inspect-cards');
-  await page.waitForSelector('.cardSqueeze:not([aria-busy="true"])');
-  assert.equal(await page.$eval('.cardSqueeze', n => n.dataset.renderer), 'webgl', 'Cash and tournament inspection use the 3D renderer');
-  const visibility = await page.evaluate(async () => {
-    const { loadSqueeze, drawSqueeze } = await import('/src/game/squeeze.ts');
-    const { data, images } = await loadSqueeze(2);
-    const canvas = document.createElement('canvas'); canvas.width = 652; canvas.height = 484;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    const pixels = (cards, frame) => { drawSqueeze(ctx, data, images, cards, frame); return ctx.getImageData(0,0,652,484).data; };
-    const difference = (a,b) => a.reduce((sum,value,i) => sum + (value !== b[i] ? 1 : 0),0);
-    return {
-      hidden: difference(pixels(['Ah','Kc'],30), pixels(['4h','Kc'],30)),
-      first: difference(pixels(['Ah','Kc'],30), pixels(['Ah','Qc'],30)),
-      second: difference(pixels(['Ah','Kc'],60), pixels(['4h','Kc'],60)),
-    };
-  });
-  assert.equal(visibility.hidden, 0, 'The lower card remains hidden during the first peek');
-  assert.ok(visibility.first > 20 && visibility.second > 20, 'Each actual card becomes readable in its own stage');
-  const canvas = await (await page.$('.cardSqueeze canvas')).boundingBox();
-  const touch = await page.createCDPSession();
-  const finger = { x: canvas.x + canvas.width / 2, y: canvas.y + canvas.height * .75 };
-  await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [finger] });
-  await new Promise(resolve => setTimeout(resolve, 150));
-  await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...finger, y: finger.y - canvas.height * .08 }] });
-  assert.ok(Number(await page.$eval('.cardSqueeze', n => n.dataset.frame)) > 15);
-  await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await page.waitForFunction(() => document.querySelector('.cardSqueeze')?.dataset.frame === '0');
-  await touch.detach();
-  await page.screenshot({path:path.join(artifacts, `${kind}-inspect-closed-${width}.png`)});
-  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height * .75);
-  await page.mouse.down();
-  await new Promise(resolve => setTimeout(resolve, 150));
-  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height * .55, { steps: 8 });
-  assert.ok(Number(await page.$eval('.cardSqueeze', n => n.dataset.frame)) > 15, 'Dragging must visibly peel actual cards');
-  await page.screenshot({path:path.join(artifacts, `${kind}-inspect-${width}.png`)});
-  await page.mouse.up();
-  await page.click('.squeezeOpen');
-  await page.waitForFunction(() => document.querySelector('.cardSqueeze')?.dataset.frame === '60');
-  await page.screenshot({path:path.join(artifacts, `${kind}-inspect-open-${width}.png`)});
-  await page.waitForSelector('.cardSqueeze', {hidden:true});
+  if (await page.$('.tchat-dock.betting-active')) {
+    assert.equal(await page.$eval('.tchat-dock', n=>getComputedStyle(n).visibility), 'hidden', 'Betting replaces the table tools during our turn');
+    await page.waitForFunction(()=>Math.abs(parseFloat(getComputedStyle(document.querySelector('.action-bar')).bottom))<1);
   }
   await page.screenshot({ path: path.join(artifacts, `${kind}-${width}x${height}.png`) });
   assert.equal(layout.documentWidth <= width + 1, true, `${kind} document overflows at ${width}px.`);
   assert.equal(layout.seats, 6, `${kind} does not show six populated seats.`);
   assert.ok(layout.board >= 3, `${kind} has not reached a populated flop.`);
+  assert.ok(layout.heroCardLeft >= 4, `${kind}: hero cards need a visible inset at ${width}px (got ${layout.heroCardLeft})`);
   assert.ok(layout.cards >= 2, `${kind} does not render the authenticated player's dealt hand.`);
   assert.ok(layout.actions >= 3, `${kind} does not show the seated hero action row.`);
   assert.ok(layout.timerMasks.length > 0, `${kind} has no visible countdown.`);
@@ -296,8 +271,36 @@ async function capture(kind, width, height) {
   return layout;
 }
 
+async function verifyAutomaticReveal(clients, tableId, kind) {
+  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
+  const purchases = [];
+  const watch = request => { if (request.method() === 'POST' && request.url().includes('/api/marketplace/')) purchases.push(request.url()); };
+  page.on('request', watch);
+  await page.click('.reveal-toggle');
+  assert.equal(await page.$eval('.reveal-toggle', n => n.getAttribute('aria-pressed')), 'true');
+  await driveBrowserHeroToFlop(clients, tableId, true);
+  await page.waitForSelector('.cardSqueeze[aria-busy="false"]');
+  assert.equal(await page.$eval('.cardSqueeze', n => n.dataset.renderer), 'webgl');
+  assert.equal(await page.$eval('.cardSqueeze > img', n => getComputedStyle(n).display), 'none');
+  await page.screenshot({path:path.join(artifacts, `${kind}-automatic-reveal.png`)});
+  await Promise.all([
+    page.waitForSelector('.squeeze-particles'),
+    phone ? page.$eval('.squeezeOpen', n => { const r=n.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; }).then(({x,y})=>page.touchscreen.tap(x,y)) : page.click('.squeezeOpen'),
+  ]);
+  await page.waitForSelector('.cardSqueeze', {hidden:true});
+  assert.equal(await page.$('.squeeze-particles'), null);
+  assert.equal(await page.$eval('.seat.me .cards', n => getComputedStyle(n).visibility), 'visible');
+  await page.click('.reveal-toggle');
+  assert.equal(await page.$eval('.reveal-toggle', n => n.getAttribute('aria-pressed')), 'false');
+  await driveBrowserHeroToFlop(clients, tableId);
+  assert.equal(await page.$('.cardSqueeze'), null);
+  page.off('request', watch);
+  assert.deepEqual(purchases, []);
+  checks.push(`${kind}: fresh-hand automatic 3D reveal, particles, hand restoration and disable without purchases.`);
+}
+
 async function captureTournamentWaiting(width, height) {
-  await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  if (!phone) await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   await page.waitForFunction((expectedWidth) => Math.abs((document.querySelector('.table-stage.stage-portrait')?.getBoundingClientRect().width ?? 0) - expectedWidth) < 1, {}, width);
   await page.waitForSelector('.tt-hud', { visible: true });
   const geometry = await page.evaluate(() => {
@@ -316,6 +319,14 @@ async function captureTournamentWaiting(width, height) {
 }
 
 try {
+  const admin = await api('/api/auth/login', { method: 'POST', body: { login: 'admin', password: sandbox.password } });
+  const allowInspectionTime = async (id, seconds = 300) => {
+    const { tables } = await api('/api/admin/tables', { token: admin.token });
+    // Tournament rooms are in-memory; the admin clock update also reaches their live table.
+    const table = tables.find(t => t.id === id) || { id, name: 'Reference tournament clock', game: 'holdem', seats: 6 };
+    // Only the disposable fixture gets a long clock; production timeouts stay unchanged.
+    await api('/api/admin/tables', { token: admin.token, method: 'POST', body: { ...table, action_seconds: seconds } });
+  };
   const players = [];
   for (let index = 0; index < 6; index += 1) {
     players.push(await api('/api/auth/register', {
@@ -327,6 +338,7 @@ try {
     body: { economy: 'play_money', name: 'Reference Cash 6', game: 'holdem', seats: 6, sb: 50, bb: 100, min_buyin: 5000, max_buyin: 5000 },
   });
   const heroReservation = openSocket(players[0].token);
+  await allowInspectionTime(cash.id);
   await heroReservation.opened;
   heroReservation.send({ type: 'join_table', tableId: cash.id, observe: true });
   await heroReservation.next((message) => message.type === 'joined' && message.tableId === cash.id);
@@ -334,56 +346,73 @@ try {
   await heroReservation.next((message) => message.type === 'seat_reserved' && message.tableId === cash.id);
   const cashClients = await seatCash(players.slice(1), cash.id, 5000, 1);
 
-  const tournaments = await api('/api/tournaments');
-  const freeroll = tournaments.tournaments.find((entry) => entry.buyin === 0);
-  assert.ok(freeroll, 'The disposable sandbox has no freeroll tournament fixture.');
-  const tournament = await prepareTournament(players[0], players.slice(1), freeroll.id);
 
   if (phone) for (const port of phonePorts) execFileSync('adb',['-s',phone,'reverse',`tcp:${port}`,`tcp:${port}`]);
   browser = phone ? await puppeteer.connect({browserURL:'http://127.0.0.1:9223',defaultViewport:null}) : await puppeteer.launch({
     executablePath: chromePath(), headless: true, pipe: true,
     userDataDir: path.join(sandbox.directory, 'reference-browser'),
-    args: ['--disable-dev-shm-usage', '--no-first-run'],
+    args: ['--disable-dev-shm-usage', '--no-first-run', ...(process.env.CI ? ['--no-sandbox'] : [])],
   });
   page = await browser.newPage();
   page.setDefaultTimeout(20000);
   page.on('pageerror', (error) => pageErrors.push(error.message));
-  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: phone ? 'no-preference' : 'reduce' }]);
   await page.evaluateOnNewDocument((token, userId) => {
     if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
     sessionStorage.setItem('ggpoker.entered', '1');
     localStorage.setItem('ggpoker.welcomeSeen', '1');
     localStorage.setItem('ggpoker.squeeze', '0');
+    localStorage.setItem('openpoker.revealAnimation', '0');
     localStorage.setItem(`openpoker.squeeze3d:${userId}`, '1');
     localStorage.setItem('ggpoker.token', token);
   }, players[0].token, players[0].user.id);
 
   const layouts = {};
-  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  if (!phone) await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   await page.goto(`${sandbox.url}/#/table/${encodeURIComponent(cash.id)}?buyin=5000&seat=0`, { waitUntil: 'domcontentloaded' });
+  if (phone) viewports = [await page.evaluate(() => [innerWidth, innerHeight])];
   await page.waitForSelector('.seat.me', { visible: true });
   await page.waitForSelector('.ls-content:not([inert])');
   await driveBrowserHeroToFlop(cashClients, cash.id);
-  for (const [width, height] of [[390, 844], [320, 700]]) {
+  for (const [width, height] of viewports) {
     layouts[`cash-${width}`] = await capture('cash', width, height);
   }
+  await verifyAutomaticReveal(cashClients, cash.id, 'cash');
+  if (!phone) await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  await page.waitForFunction(width => Math.abs(document.querySelector('.table-stage').getBoundingClientRect().width - width) < 1, {}, viewports[0][0]);
+  await allowInspectionTime(cash.id, 10);
+  await page.click('.action-bar .act-check:not(:disabled)');
+  await page.waitForSelector('.action-bar .act-check:not(:disabled)', { hidden: true });
+  await driveBrowserHeroToFlop(cashClients, cash.id);
+  await page.waitForSelector('.action-bar.sitting-out', { timeout: 15000 });
+  assert.equal(await page.$('.cardSqueeze'), null, 'Timed-out player has no reveal overlay');
+  assert.equal(await page.$('.reserved-actions'), null, 'A sitting-out player sees no queued betting controls');
+  assert.ok(await page.$eval('.action-bar', n => n.getBoundingClientRect().height <= 100), 'Sit-out recovery remains a compact footer');
+  await page.screenshot({ path: path.join(artifacts, 'cash-timeout.png') });
+  checks.push('An actual disposable action timeout clears pre-actions.');
+
+  const tournaments = await api('/api/tournaments');
+  const freeroll = tournaments.tournaments.find((entry) => entry.buyin === 0);
+  assert.ok(freeroll, 'The disposable sandbox has no freeroll tournament fixture.');
+  const tournament = await prepareTournament(players[0], players.slice(1), freeroll.id);
+  await allowInspectionTime(tournament.tableId);
 
   await page.goto(`${sandbox.url}/#/table/${encodeURIComponent(tournament.tableId)}`, { waitUntil: 'domcontentloaded' });
   // Hash navigation can retain the cash DOM until the tournament snapshot arrives.
   await page.waitForSelector('.table-screen.table-tournament');
   await page.waitForSelector('.seat.me', { visible: true });
   await driveBrowserHeroToFlop(tournament.clients, tournament.tableId);
-  for (const [width, height] of [[390, 844], [320, 700]]) {
+  for (const [width, height] of viewports) {
     layouts[`tournament-${width}`] = await capture('tournament', width, height);
   }
-  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  await verifyAutomaticReveal(tournament.clients, tournament.tableId, 'tournament');
+  if (!phone) await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   await page.waitForFunction(() => Boolean(document.querySelector('.action-bar .act-check:not(:disabled)')));
   await page.click('.action-bar .act-check:not(:disabled)');
-  layouts['tournament-waiting-390'] = await captureTournamentWaiting(390, 844);
-  layouts['tournament-waiting-320'] = await captureTournamentWaiting(320, 700);
+  for (const [width, height] of viewports) layouts[`tournament-waiting-${width}`] = await captureTournamentWaiting(width, height);
   assert.deepEqual(pageErrors, []);
   checks.push('Six real disposable players populated the cash and tournament tables.');
-  checks.push('Seats, dealt cards and visible actions fit at 390x844 and 320x700 without page errors.');
+  checks.push(`Seats, dealt cards and visible actions fit at ${viewports.map(v => v.join('x')).join(' and ')} without page errors${phone ? ' on the physical phone without viewport emulation' : ''}.`);
   await writeFile(path.join(artifacts, 'results.json'), JSON.stringify({ checks, page_errors: pageErrors, layouts }, null, 2));
   console.log(JSON.stringify({ ok: true, checks, artifacts }, null, 2));
 } catch (error) {

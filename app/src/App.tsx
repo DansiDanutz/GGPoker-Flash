@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { needsPortrait } from './lib/phoneOrientation';
 import { useApp } from './lib/store';
 import { TitleBar } from './components/TitleBar';
 import { AppHeader } from './components/AppHeader';
@@ -32,13 +33,30 @@ import { RakeLab } from './pages/RakeLab';
 import { Organizers } from './pages/Organizers';
 
 function ScaleStage({ children }: { children: React.ReactNode }) {
+  const phoneIsLandscape = () => needsPortrait(screen, window.matchMedia('(pointer: coarse)').matches);
+  const [rotatePhone, setRotatePhone] = useState(phoneIsLandscape);
+  useEffect(() => {
+    const update = () => setRotatePhone(phoneIsLandscape());
+    window.addEventListener('resize', update);
+    screen.orientation?.addEventListener('change', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      screen.orientation?.removeEventListener('change', update);
+    };
+  }, []);
   const desktop = typeof window !== 'undefined' && !!(window as any).ggDesktop;
   useEffect(() => {
     if (desktop) document.body.classList.add('electron');
   }, [desktop]);
   return (
     <div className="desktop">
-      <div className="app-window">{children}</div>
+      <div className="app-window" inert={rotatePhone && !desktop} aria-hidden={rotatePhone && !desktop ? true : undefined}>{children}</div>
+      {rotatePhone && !desktop && <div className="phone-rotate" role="status" aria-live="polite">
+        <svg viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="22" y="10" width="22" height="42" rx="4"/><path d="M29 46h8M13 38a22 22 0 0 1 2-23m-7 2 7-2 2 7M51 26a22 22 0 0 1-2 23m7-2-7 2-2-7"/></svg>
+        <h1>Rotate your phone to portrait</h1>
+        <p>DanGG works in portrait on mobile.</p>
+        <small>Your game stays connected. Action timers continue.</small>
+      </div>}
     </div>
   );
 }

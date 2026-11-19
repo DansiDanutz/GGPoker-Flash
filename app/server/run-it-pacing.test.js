@@ -47,7 +47,7 @@ test('each board comes out on its own, slowly: the next one only after the last 
       for (let i = 1; i < own.length; i++) assert.ok(own[i] >= own[i - 1], 'in order');
       if (b > 0) {
         const prevLast = Math.max(...delays[b - 1].filter((d) => d !== null));
-        assert.ok(Math.min(...own) - prevLast >= 1000, `board ${b + 1} waits a full second after board ${b}`);
+        assert.ok(Math.min(...own) - prevLast >= 2000, `board ${b + 1} waits at least two seconds after board ${b}`);
       }
     }
   }
@@ -121,4 +121,30 @@ test('each board result is due exactly when the table reaches it', () => {
 
 test('the stacks do not give the result away before the boards are out', () => {
   assert.match(read('src/pages/TablePage.tsx'), /stackLabel\(runHeld \? \(p\.stack \?\? 0\) - \(p\.winAmount \|\| 0\) : p\.stack\)/);
+});
+
+
+test('multi-board results add exactly five seconds of explanation, shared across the boards', () => {
+  for (const runs of [2, 3]) {
+    const boards = boardsOf(runs, flop);
+    const { delays, resultAt, done } = runSchedule(boards);
+    const lastCard = Math.max(...delays.flat().filter(d => d !== null));
+    const originalDone = lastCard + 1200 + (runs - 1) * 1600 + 1200;
+    assert.ok(Math.abs(done - originalDone - 5000) < .001);
+    assert.ok(Math.abs(resultAt[1] - resultAt[0] - (1600 + Math.round(5000 / runs))) < .001);
+    assert.equal(runPresentationMs(runs, flop.length), done);
+  }
+});
+
+
+test('all-in boards pause an extra second for turn and two extra seconds for river', () => {
+  const preflop = runSchedule(boardsOf(2, []));
+  assert.equal(preflop.delays[0][3], 600 + 1000 + 1000);
+  assert.equal(preflop.delays[0][4] - preflop.delays[0][3], 1000 + 2000);
+  const afterFlop = runSchedule(boardsOf(2, flop));
+  assert.equal(afterFlop.delays[0][3], 600 + 1000);
+  assert.equal(afterFlop.delays[0][4] - afterFlop.delays[0][3], 3000);
+  const afterTurn = runSchedule(boardsOf(2, [...flop, '5s']));
+  assert.equal(afterTurn.delays[0][4], 600 + 2000);
+  assert.equal(afterTurn.delays[0][3], null);
 });

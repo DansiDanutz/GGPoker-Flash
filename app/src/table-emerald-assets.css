@@ -1,0 +1,94 @@
+/* Shared artwork for desktop and portrait. Sprite windows retain source alpha. */
+.table-screen[class] .pot-chip-col i {
+  background-image: url('/assets/table/emerald/chips.png');
+  background-size: 459.68% 409.81%;
+  background-position: 3.09% 8.89%;
+  background-repeat: no-repeat;
+}
+.table-screen[class] .pot-chip-col.denom-5 i { background-position-x: 34.86%; }
+.table-screen[class] .pot-chip-col.denom-25 i { background-position-x: 97.62%; }
+.table-screen[class] .pot-chip-col.denom-100 i { background-position: 34.86% 50.79%; }
+.table-screen[class] .pcard.back {
+  background-image: url('/assets/table/emerald/cards.png');
+  background-size: 649.33% 365.66%; background-position: 6.94% 7.35%;
+  background-color: transparent; border: 0; box-shadow: none;
+}
+.table-screen[class] .pcard.back::after { display: none; }
+.table-screen[class] .table-topbar :is(.table-gear,.table-sound-btn) {
+  position: relative; font-size: 0; border: 0; box-shadow: none; background: transparent;
+}
+.table-screen[class] .table-topbar :is(.table-gear,.table-sound-btn)::before {
+  content: ''; position: absolute; inset: 0;
+  background: url('/assets/table/emerald/utilities.png') 3.11% 5.66% / 448.3% 333.13% no-repeat;
+}
+.table-screen[class] .table-topbar .table-sound-btn::before { background-position-x: 34.67%; }
+.table-screen[class] .table-topbar .table-sound-btn[aria-pressed='false']::before { background-position-x: 65.51%; }
+/* Live labels and amounts stay selectable, localized and accessible. */
+.table-screen[class] .action-bar .main-actions .act-btn {
+  border: 1px solid #d5b77b; border-radius: 18px;
+  background: linear-gradient(160deg,#373936,#111512);
+  box-shadow: inset 0 0 0 2px #282822,inset 0 0 0 3px #8d7852,0 2px 3px #0007;
+}
+.table-screen[class] .action-bar .main-actions .act-fold { background: linear-gradient(160deg,#39292c,#190e11); }
+.table-screen[class] .action-bar .main-actions :is(.act-call,.act-raise) { background: linear-gradient(160deg,#164e2a,#03190c); }
+.table-screen[class] .action-bar .main-actions .act-allin { background: linear-gradient(160deg,#5b151b,#24080c); }
+.table-screen[class] .action-bar .main-actions .act-btn:active { filter: brightness(.8); }
+.table-screen[class] .action-bar .main-actions .act-btn:focus-visible { outline: 2px solid #fff0ba; outline-offset: 2px; }
+.table-screen[class] .action-bar .main-actions .act-btn:disabled { opacity: .45; }
+.table-screen[class] .action-bar .main-actions .quick-bets button,
+.table-screen[class] .action-bar .main-actions .bet-step {
+  border: 1px solid #ad9468; background: linear-gradient(#252a26,#101410);
+  box-shadow: inset 0 0 0 1px #4b493d;
+}
+.table-screen[class] .action-bar .main-actions .amount-input { background: #080c09; border-color: #ad9468; }
+.table-screen[class] .table-stage.stage-portrait .seat .plate {
+  background: linear-gradient(#181b19,#080a09); border: 1px solid #a78e60;
+  border-radius: 10px; box-shadow: inset 0 0 0 2px #292b27;
+}
+.table-screen[class] .table-stage.stage-portrait .seat .plate::before { display: none; }
+.table-screen[class] .table-stage.stage-portrait .seat .plate .nm { color: #fff; }
+.table-screen[class] .table-stage.stage-portrait .seat .plate .st { color: #fff; }
+.table-screen[class] .table-stage.stage-portrait .seat .avatar-wrap { border-color: #a78e60; }
+.table-screen[class] .table-stage.stage-portrait .seat.active .avatar-wrap { border-color: #80ee67; }
+.table-screen[class] .table-stage.stage-portrait .seat.winner .avatar-wrap { border-color: #ffd460; }
+
+/* Keep decorative atmosphere behind gameplay from reducing visual clarity. */
+.table-screen :is(.room-light,.room-dust,.room-floor) { display: none; }
+.table-screen[class] .table-stage:is(.stage-portrait,.stage-wide) .seat .plate { background: #151b18; }
+.table-screen[class] .table-stage .seat .plate :is(.nm,.nm-text,.st) { color: #f3f4ee; text-shadow: none; }
+.table-screen[class] .table-stage .seat .action-badge { text-shadow: none; }
+.table-screen[class] .cardSqueeze > img { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .table-screen .cardSqueeze { animation: none; }
+  .table-screen .seat.winner .avatar-wrap { animation: none; }
+}
+/* One winner cue: a steady seat outline and readable award, without stacked banners. */
+.table-screen[class] .seat .native-win,
+.table-screen[class] .seat.winner::after,
+.table-screen[class] .seat.winner .cards::before { display: none; }
+.table-screen[class] .seat.winner .avatar-wrap { animation: none; box-shadow: 0 0 0 2px #e1bd72; }
+.table-screen[class] .table-stage .seat .win-amount {
+  color: #ffe6a6; background: #1c211b; background-clip: border-box;
+  border: 1px solid #d1b26d; border-radius: 8px; padding: 3px 7px;
+  filter: none; text-shadow: none; box-shadow: none;
+}
+
+.table-screen[class] .table-stage.stage-portrait .seat:not(.me) .win-amount { top: auto; bottom: -25px; }
+
+@media (max-width: 760px) and (pointer: coarse) {
+  .table-screen[class] .action-bar.spectator-actions { background: #151b18; padding: 8px 12px; }
+  .table-screen[class] .spectator-actions .action-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .table-screen[class] .spectator-actions [role="status"] { flex: 1 0 100% !important; font-size: 12px !important; line-height: 1.35; }
+  .table-screen[class] .spectator-actions button { flex: 1; min-height: 40px; white-space: normal; }
+}
+
+/* Keep the countdown above the felt but below players, outside the action stacking context. */
+.table-screen .turn-timer-background {
+  position: absolute; left: 0; right: 0;
+  bottom: calc(var(--action-bar-h, 84px) + var(--table-tools-h, 0px));
+  z-index: 4; pointer-events: none;
+}
+.table-screen[class] .table-stage .seat > .avatar-wrap { z-index: 2; }
+
+.table-screen .seat .allin-equity { display: flex; justify-content: center; gap: 4px; padding: 2px 3px; color: #c9e9ce; font-size: 10px; line-height: 12px; white-space: nowrap; }
+.table-screen .seat .allin-equity b { color: #b6f3a8; font-variant-numeric: tabular-nums; }

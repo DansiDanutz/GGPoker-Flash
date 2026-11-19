@@ -13,9 +13,10 @@ function table(n = 4) {
 }
 const deal = (t) => { t.street = 'ended'; t.nextHandAt = 0; t.startHand(); };
 
-test('returning after missed hands posts a live big blind', () => {
+test('returning after the big blind passed posts a live big blind', () => {
   const t = table();
   t.requestSitOut('p3', true);
+  t.bbSeat = 2; // The next blind rotation passes the absent seat 3.
   t.button = 3; deal(t); // p3 sits this hand out
   assert.equal(t.seats[3].player.inHand, false);
   t.requestSitOut('p3', false);
@@ -44,4 +45,17 @@ test('sitting back in before any hand was dealt owes nothing', () => {
   t.requestSitOut('p3', false);
   t.button = 3; deal(t);
   assert.equal(t.seats[3].player.bet, 0);
+});
+
+
+test('return before the blind reaches the absent seat needs no extra post', () => {
+  const t = table();
+  t.bbSeat = 1;
+  t.requestSitOut('p3', true);
+  t.button = 3; deal(t); // BB moves from 1 to 2, not past 3.
+  assert.equal(t.seats[3].player.missedBlinds, false);
+  t.requestSitOut('p3', false);
+  t.button = 3; deal(t);
+  assert.equal(t.seats[3].player.bet, 0);
+  assert.equal(t.seats[3].player.stack, 100);
 });

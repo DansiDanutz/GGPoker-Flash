@@ -90,7 +90,7 @@
   .reaction-chip.reaction-art-grid { padding: 5px 6px; font-size: 10px; }
 }
 
-.seat-reaction { position: absolute; left: calc(100% + 4px); top: 50%; z-index: 30; pointer-events: none; transform: translateY(-50%); animation: seatReactionPop 4s ease-out forwards; }
+.seat-reaction { position: absolute; left: 0; top: 50%; width: 100%; height: 100%; z-index: 30; border-radius: 50%; overflow: hidden; pointer-events: none; transform: translateY(-50%); animation: seatReactionPop 4s ease-out forwards; }
 @keyframes seatReactionPop {
   0% { opacity: 0; transform: translateY(-50%) scale(.4); }
   6% { opacity: 1; transform: translateY(-50%) scale(1.12); }
@@ -124,3 +124,11 @@
 .inspect-cards { position: absolute; bottom: 124px; left: 50%; transform: translateX(-50%);
   z-index: 25; min-height: 44px; padding: 8px 16px; border: 1px solid #ffffff40;
   border-radius: 20px; color: white; background: #17231ee6; cursor: pointer; }
+.inspect-cards > svg { display: none; }
+
+.seat .avatar-wrap .seat-reaction .reaction-fx,
+.seat .avatar-wrap .seat-reaction .reaction-art-seat { width: 100%; height: 100%; }
+.seat .avatar-wrap .seat-reaction .reaction-art-seat { object-fit: cover; padding: 0; }
+/* The reaction replaces the portrait while displayed, including folded players. */
+.table-screen[class] .table-stage .seat .avatar-wrap:has(.seat-reaction) { opacity: 1; filter: none; }
+.seat .avatar-wrap:has(.seat-reaction) .face { visibility: hidden; }

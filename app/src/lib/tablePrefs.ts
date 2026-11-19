@@ -85,10 +85,10 @@ export function shortcutRoundUnit(options: Pick<BettingOptions, 'dontRound'>, sb
 }
 
 
-export type StackMode = 'chips' | 'bb' | 'both';
+export type StackMode = 'chips' | 'bb';
 export function readStackMode(): StackMode {
   const v = localStorage.getItem('ggpoker.stackMode');
-  return v === 'bb' || v === 'both' ? v : 'chips';
+  return v === 'bb' ? v : 'chips';
 }
 
 

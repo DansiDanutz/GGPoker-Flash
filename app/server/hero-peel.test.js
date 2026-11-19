@@ -13,11 +13,11 @@ const rule = (s, selector) => {
   return s.slice(at, s.indexOf('}', at));
 };
 
-test('your cards are drawn as two-sided cards: the face, and a back that turns away', () => {
+test('the free default renders one card per slot without a duplicate mini-card back', () => {
   const page = read('src/pages/TablePage.tsx');
-  assert.match(page, /const heroPeel = p\.isMe && !squeezeEnabled && c !== '\?\?';/);
-  assert.match(page, /<span className="hero-peel" style=\{\{ '--i': i,/);
-  assert.match(page, /<PlayingCard card="\?\?" size="mini" className="peel-back" \/>/);
+  assert.match(page, /<PlayingCard card=\{c\} size="mini" dealt/);
+  assert.doesNotMatch(page, /className="peel-back"/);
+  assert.doesNotMatch(page, /className="hero-peel"/);
 });
 
 test('each card lands face down in turn, then is lifted and turned over after the one before', () => {

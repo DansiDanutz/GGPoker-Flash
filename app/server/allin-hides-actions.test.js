@@ -25,3 +25,15 @@ test('the status row with hand number and stack is not part of the hidden block'
   const end = src.indexOf('</div>\n        )}\n        <div className="action-row status-row"');
   assert.ok(hidden > 0 && end > hidden, 'status row follows the hidden block');
 });
+
+test('already visible hero cards never receive the showdown flip that restarts their deal', () => {
+  assert.match(src, /!p\.isMe && showdownReveals\[p\.seat\] != null && p\.reveal/);
+  const css = fs.readFileSync(path.join(root, 'src/design-v2.css'), 'utf8');
+  assert.match(css, /\.seat:not\(\.me\) \.cards\.showdown-reveal \.pcard/);
+  assert.doesNotMatch(css, /\.seat \.cards\.showdown-reveal \.pcard/);
+});
+
+test('the public all-in badge requires an active committed hand, not merely an empty balance', () => {
+  assert.match(src, /const committedAllIn = !!p\.allIn && !!p\.inHand && !p\.folded && state\?\.street !== 'ended' && state\?\.street !== 'idle'/);
+  assert.match(src, /committedAllIn && <span className="all-in-badge"/);
+});

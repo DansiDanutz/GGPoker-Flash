@@ -86,10 +86,10 @@
   .table-screen.table-tournament.theme-green .table-stage.stage-portrait::before { filter: saturate(.08) brightness(.65); }
 
   /* ---- One slim row of buttons along the bottom (tableStage.ts PORTRAIT_ACTION_BAR) ---- */
-  .table-screen { --phone-bar-h: 64px; }
+  .table-screen { --phone-bar-h: 84px; }
   .table-screen .action-bar {
     min-height: var(--phone-bar-h); gap: 6px; border-top: 0;
-    padding: 0 0 max(6px, env(safe-area-inset-bottom, 0px));
+    padding: 0 0 max(26px, env(safe-area-inset-bottom, 0px));
     background: linear-gradient(transparent, rgba(0, 0, 0, .6) 45%, rgba(0, 0, 0, .85));
   }
   .table-screen .action-bar .action-row.main-actions {
@@ -124,7 +124,7 @@
   /* Raise presets: a column on the right edge right above Raise, the smallest at the bottom. Each
      card has its size (Pot, 3BB, 75%) on a darker tab at the top-left and the amount in yellow. */
   .table-screen .action-bar .main-actions .quick-bets {
-    position: absolute; right: 6px; bottom: calc(100% + 6px); z-index: 4; width: var(--col);
+    position: absolute; right: 66px; bottom: calc(100% + 6px); z-index: 4; width: var(--col);
     display: flex; flex-direction: column-reverse; gap: 6px;
   }
   .table-screen .action-bar .main-actions .quick-bets button {
@@ -137,29 +137,26 @@
   .table-screen .action-bar .main-actions .quick-bets .qb-amt { display: block; font-size: 17px; font-weight: 700; color: #fde056; }
   .table-screen .action-bar .main-actions .quick-bets button[aria-pressed="true"] { background: linear-gradient(#45412f, #2e2b1f); box-shadow: inset 0 0 0 1.5px #fde056; }
 
-  /* The upright slider panel stands just left of the presets, so the right column stays clear. */
-  .table-screen .action-bar .main-actions:has(.bet-slider:not(:disabled))::after {
-    display: block; right: calc(var(--col) + 12px); bottom: calc(100% + 6px); width: 60px; height: 192px;
-    border: 0; background: linear-gradient(rgba(52, 52, 52, .96), rgba(38, 38, 38, .96)); box-shadow: 0 3px 8px rgba(0, 0, 0, .5);
-  }
+  /* Keep only the functional slider track and handle, without a backing panel. */
+  .table-screen .action-bar .main-actions:has(.bet-slider:not(:disabled))::after { display: none; }
   .table-screen .action-bar .main-actions .bet-slider {
-    left: auto; right: calc(var(--col) + 27px); bottom: calc(100% + 84px); width: 30px; height: 70px;
+    left: auto; right: 11px; bottom: calc(100% + 40px); width: 44px; height: 52px;
     writing-mode: vertical-lr; direction: rtl;
     background: url('/assets/table/ui/slider-track.webp') center / 12px 100% no-repeat;
   }
-  .table-screen .action-bar .main-actions .bet-stepper .bet-step:last-child { right: calc(var(--col) + 25px); bottom: calc(100% + 158px); }
-  .table-screen .action-bar .main-actions .bet-stepper .amount-input { right: calc(var(--col) + 15px); width: 54px; bottom: calc(100% + 50px); }
-  .table-screen .action-bar .main-actions .bet-stepper .bet-step:first-child { right: calc(var(--col) + 25px); bottom: calc(100% + 12px); }
+  .table-screen .action-bar .main-actions .bet-stepper .bet-step:last-child { right: 16px; bottom: calc(100% + 96px); }
+  .table-screen .action-bar .main-actions .bet-stepper .amount-input { right: 6px; width: 54px; bottom: calc(100% + 50px); }
+  .table-screen .action-bar .main-actions .bet-stepper .bet-step:first-child { right: 16px; bottom: calc(100% + 2px); }
 
-  /* Time bank: left of the slider panel, clear of your seat in the corner. */
-  .table-screen .action-bar .main-actions .tb-btn { left: auto; right: calc(var(--col) + 80px); bottom: calc(100% + 8px); }
+  /* Time bank stays left of the sizing controls. */
+  .table-screen .action-bar .main-actions .tb-btn { left: 8px; right: auto; bottom: calc(100% + 8px); }
 
   /* ---- Pre-actions: one row of dark buttons where the action buttons will appear ---- */
   .table-screen .action-bar .reserved-actions {
-    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; height: 52px; padding: 0 6px;
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 140px); justify-content: start; gap: 6px; height: 44px; padding: 0 6px;
   }
   .table-screen .action-bar .reserved-actions button {
-    width: 100%; max-width: none; height: 52px; padding: 0 2px 0 24px;
+    width: 100%; max-width: 140px; height: 44px; padding: 0 6px 0 26px;
     font: 600 13px/1.1 system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
   .table-screen .action-bar .reserved-actions button[aria-pressed="true"] { color: #fff; box-shadow: inset 0 0 0 1.5px #fde056; }
@@ -183,7 +180,12 @@
   /* ---- No standing controls on the table: sit out, add chips and straddle live in the Menu. Chat
      and reactions share the swipe drawer. ---- */
   .table-screen .seat-dock { display: none; }
-  .table-screen .tchat-dock { right: 8px; left: 8px; bottom: calc(max(var(--phone-bar-h), var(--action-bar-h, 0px)) + 8px); align-items: flex-end; transform: none; }
+  .table-screen .tchat-dock { right: 0; left: 0; bottom: 0; align-items: flex-end; transform: none; }
+  .table-screen .tchat-dock:not(.tools-open) .tchat-swipe-handle {
+    height: 24px; min-height: 24px; padding: 0; border: 0; border-radius: 0; background: transparent;
+  }
+  .table-screen .tchat-dock:not(.tools-open) .tchat-swipe-handle > span:not(.tchat-grip) { display: none; }
+  .table-screen .tchat-dock:not(.tools-open) .tchat-grip { top: 10px; }
   .table-screen .tchat-buttons { flex-direction: row; gap: 6px; opacity: .8; }
   /* The toggles match the charcoal buttons: dark disc, light grey glyph, yellow ring when open. */
   .table-screen .tchat-buttons .tchat-toggle {
@@ -208,6 +210,60 @@
   .table-screen .tchat-panel { position: absolute; bottom: calc(100% + max(var(--phone-bar-h), var(--action-bar-h, 0px)) + 8px); }
   .table-screen .reaction-picker { bottom: calc(100% + max(var(--phone-bar-h), var(--action-bar-h, 0px)) + 56px); max-height: calc(100dvh - 300px); overflow-y: auto; }
   .table-screen:has(.tchat-dock.tools-open) .inspect-cards { translate: 0 calc(-1 * var(--table-tools-h)); }
+  .table-screen .inspect-cards {
+    left: 34%; bottom: calc(var(--phone-bar-h) + 64px); transform: none;
+    width: 44px; height: 44px; padding: 8px; border-radius: 50%;
+  }
+  .table-screen .inspect-cards > span { display: none; }
+  .table-screen .inspect-cards > svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; }
+  .table-screen .action-bar.sitting-out .sitout-row {
+    display: grid; grid-template-columns: 1fr 112px; grid-template-rows: auto auto;
+    gap: 2px 8px; padding: 4px 8px; font-size: 11px; text-align: left;
+  }
+  .table-screen .action-bar.sitting-out .sitout-row > .grow { display: none; }
+  .table-screen .action-bar.sitting-out .sitout-row > span,
+  .table-screen .action-bar.sitting-out .wait-blinds { grid-column: 1; }
+  .table-screen .action-bar.sitting-out .btn-back { grid-column: 2; grid-row: 1 / 3; height: 48px; font-size: 15px; }
+
+  /* Cards float over the existing table; decision controls stay hidden during inspection. */
+  .table-screen:has(.cardSqueeze) .tchat-dock { visibility: hidden; }
+  .table-screen .cardSqueeze {
+    width: 100%; background: transparent; overflow: hidden;
+  }
+  .table-screen .cardSqueeze > img { display: none; }
+
+  .table-screen[class] .table-topbar,
+  .table-screen[class] .action-bar,
+  .table-screen[class] .tchat-dock { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .table-screen[class] .action-bar::before,
+  .table-screen[class] .action-bar::after { display: none; }
+
+  /* Local review: keep the felt visible behind controls and labels. */
+  .table-screen[class] :is(
+    .table-topbar, .table-topbar button, .table-topbar .pill,
+    .seat-take .take-seat, .table-stage.stage-portrait .seat .plate, .seat .bet-chip, .seat .action-badge,
+    .seat .turn-badge, .vpip-badge, .pot-label, .hand-strength,
+    .action-bar, .action-bar .amount-input,
+    .tchat-dock.tools-open, .tchat-dock .tchat-buttons, .tchat-dock .tchat-swipe-handle,
+    .tchat-dock .tchat-toggle, .inspect-cards, .cardSqueeze .squeezeOpen
+  ) {
+    background: transparent; border: 0; border-image: none; box-shadow: none;
+    text-shadow: 0 1px 3px #000, 0 0 2px #000;
+  }
+  .table-screen[class] .action-bar .bet-step { font-size: 24px; color: #f7da83; }
+  .table-screen[class] .action-bar button[aria-pressed="true"] {
+    color: #ffe081; text-decoration: underline; text-underline-offset: 5px;
+  }
+  .table-screen[class] button:focus-visible { outline: 2px solid #ffe081; outline-offset: 2px; }
+
+  /* Keep transient notices away from the cards and decision controls. */
+  body:has(.table-screen) .toasts {
+    top: 52px; bottom: auto; left: 50%; right: auto; transform: translateX(-50%);
+    width: min(300px, calc(100% - 24px)); max-height: 36px; overflow-y: auto; gap: 4px;
+  }
+  body:has(.table-screen) .toasts .toast { min-width: 0; max-width: none; padding: 5px 8px; box-shadow: none; }
+  body:has(.table-screen) .toasts .toast b { display: inline; font-size: 11px; margin-right: 5px; }
+  body:has(.table-screen) .toasts .toast span { font-size: 11px; line-height: 1.25; }
 
 }
 
@@ -219,3 +275,217 @@
 @media (prefers-reduced-motion: reduce) {
   .table-screen .table-stage, .table-screen .action-bar { transition: none; }
 }
+
+/* Android's rectangular tap flash obscures otherwise transparent table controls. */
+.table-screen .seat,
+.table-screen button,
+.table-screen [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.table-screen[class] .table-stage .seat .plate .st { color: #fff; }
+.table-screen[class] .table-stage .seat .plate .nm,
+.table-screen[class] .table-stage .seat .plate .nm-text {
+  color: #f3f4ee;
+  text-shadow: none;
+}
+
+/* Keep identity readable even after folding; only the avatar/cards fade. */
+.table-screen[class] .table-stage .seat.folded { opacity: 1; filter: none; }
+.table-screen[class] .table-stage .seat.folded > .cards { opacity: .45; }
+.table-screen[class] .table-stage .seat.folded > .avatar-wrap { opacity: 1; }
+.table-screen[class] .table-stage .seat .plate .nm-text {
+  font-size: 13px;
+  font-weight: 800;
+  text-shadow: none;
+}
+.table-screen[class] .table-stage .seat .plate .seat-flag {
+  flex: 0 0 22px;
+  width: 22px;
+  font-size: 19px;
+  line-height: 24px;
+  filter: none;
+  text-shadow: none;
+}
+@media (max-width: 760px) and (orientation: portrait) {
+  .table-screen[class] .table-stage.stage-portrait .seat .plate {
+    width: 100px;
+    margin-left: calc((100% - 100px) / 2);
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .table-screen[class] .table-stage .seat .plate .nm { overflow: visible; gap: 4px; }
+}
+
+/* Reference revision: compact black identity plates, with flags above the name. */
+.table-screen[class] .table-stage .seat .plate { isolation: isolate; }
+.table-screen[class] .table-stage .seat .plate::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(#080808, #202020);
+  clip-path: polygon(0 0, 100% 0, 94% 100%, 6% 100%);
+  border-radius: 5px;
+}
+.table-screen[class] .table-stage .seat .plate .nm-text {
+  color: #fff; font-size: 13px; font-weight: 600; text-shadow: none;
+}
+.table-screen[class] .table-stage .seat .plate .nm {
+  justify-content: center; padding: 2px 6px; border-bottom: 1px solid #ffffff20;
+}
+.table-screen[class] .table-stage .seat .plate .seat-flag {
+  position: absolute; right: 1px; top: -21px; width: 22px; line-height: 22px;
+}
+@media (max-width: 760px) and (orientation: portrait) {
+  .table-screen[class] .table-stage.stage-portrait .seat .plate .bot-badge { left: 3px; right: auto; top: -10px; }
+  .table-screen[class] .action-bar .main-actions .act-btn,
+  .table-screen[class] .action-bar .aof-row .act-btn {
+    height: 48px; font-size: 15px;
+  }
+  .table-screen[class] .action-bar .main-actions .quick-bets { width: calc(var(--col) * .6732); }
+  .table-screen[class] .action-bar .main-actions .quick-bets button { height: 33.66px; padding-top: 9.18px; }
+  .table-screen[class] .action-bar .main-actions .quick-bets .qb-amt { font-size: 12px; }
+  .table-screen[class] .action-bar .main-actions .quick-bets .qb-tag { font-size: 9px; }
+  .table-screen[class] .action-bar .act-btn .act-amt { font-size: 16px; }
+  .table-screen[class] .action-bar .act-btn .act-word { font-size: 11px; }
+}
+
+/* Keep Open below the seat area, rather than at the squeeze panel's upper edge. */
+.table-screen .cardSqueeze[data-cards] .squeezeOpen {
+  top: auto;
+  bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  right: 16px;
+  width: 80px;
+  height: 44px;
+  font-size: 16px;
+}
+
+/* Selected sizing stays distinct for presets, slider, wheel and typed amounts. */
+.table-screen[class] .action-bar .main-actions .act-btn.amount-adjusted,
+.table-screen[class] .action-bar .main-actions .quick-bets button[aria-pressed="true"] {
+  background: linear-gradient(#202020, #111);
+  box-shadow: inset 0 1px 0 #ffffff12;
+  text-decoration: none;
+}
+
+/* All-in sizing is visibly distinct before the player commits it. */
+.table-screen[class] .action-bar .act-btn.act-allin,
+.table-screen[class] .action-bar .act-btn.act-allin :is(.act-word, .act-amt),
+.table-screen[class] .action-bar .confirm-allin > span,
+.table-screen[class] .action-bar .confirm-allin .confirm-ok {
+  color: #c21f2c;
+}
+
+.table-screen .seat .all-in-badge {
+  position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 8;
+  display: flex; align-items: center; gap: 3px; white-space: nowrap;
+  padding: 3px 6px; border: 1px solid #ff6868; border-radius: 5px;
+  background: #750d17; color: #fff; font: 800 11px/16px system-ui, sans-serif;
+  box-shadow: 0 1px 3px #0008; pointer-events: none;
+}
+.table-screen .seat .all-in-badge svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+
+@media (max-width: 760px) and (orientation: portrait) {
+  /* The action button is the single amount readout beside the sizing controls. */
+  .table-screen[class] .action-bar .main-actions .bet-stepper .amount-input { display: none; }
+}
+
+.table-screen[class] .action-bar .main-actions .act-raise,
+.table-screen[class] .action-bar .main-actions .act-raise :is(.act-word, .act-amt) {
+  color: #ff9f43;
+}
+
+.table-screen .blind-marker {
+  min-width: 0; padding: 0; border-radius: 50%;
+  box-shadow: 0 1px 2px #0008;
+}
+.table-screen .blind-marker.sb { width: 9px; height: 9px; background: #ececec; }
+.table-screen .blind-marker.bb { width: 14px; height: 14px; background: #f3cb58; }
+
+.table-settings-controls { position: relative; display: flex; align-items: center; flex: none; }
+.table-screen .reveal-toggle {
+  position: absolute; top: calc(100% + 48px); left: auto; right: -4px; transform: none; width: 44px; height: 44px;
+  padding: 10px; z-index: 20; background: transparent; border: 0; color: #e8cb81;
+}
+.table-screen .reveal-toggle svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.table-screen .reveal-toggle[aria-pressed="false"] { color: #aaa; }
+
+/* Countdown stays behind the identity plate, never across the stack text. */
+.table-screen[class] .table-stage .seat .timer { z-index: 1; pointer-events: none; }
+.table-screen[class] .table-stage .seat .plate { position: relative; z-index: 3; }
+
+@media (max-width: 760px) and (orientation: portrait) {
+  .table-screen .table-settings-controls { order: 10; }
+}
+
+.table-screen .table-settings-controls .table-history-btn {
+  position: absolute; top: calc(100% + 6px); right: 0; width: 36px; height: 36px;
+}
+
+@media (max-width: 760px) and (pointer: coarse) {
+  .table-screen .tchat-dock.betting-active { visibility: hidden; pointer-events: none; }
+  .table-screen:has(.tchat-dock.betting-active) .action-bar { bottom: 0; }
+  .table-screen:has(.tchat-dock.betting-active) .turn-timer-background { bottom: var(--action-bar-h, 84px); }
+}
+
+.tchat-keep { display: none; }
+@media (max-width: 760px) and (pointer: coarse) {
+  .table-screen .tchat-dock.tools-open > .tchat-swipe-handle { min-height: 36px; height: 36px; padding: 8px 14px 4px; flex: none; }
+  .table-screen .tchat-dock.tools-open > .tchat-buttons { padding: 4px 8px; }
+  .table-screen .tchat-keep { display: block; align-self: center; flex: none; min-height: 28px; padding: 2px 10px; border: 1px solid #82734e; border-radius: 14px; background: #171d19; color: #eee; font-size: 11px; }
+  .table-screen .tchat-keep[aria-pressed="true"] { color: #ffe09a; border-color: #e8cb81; }
+  .table-screen .tchat-dock.tools-pinned.betting-active {
+    visibility: visible; pointer-events: none; left: 8px; right: 8px; width: auto;
+    bottom: 4px; height: 36px; background: transparent;
+  }
+  .table-screen:has(.tchat-dock.tools-pinned.betting-active) .action-bar { bottom: 44px; }
+  .table-screen:has(.tchat-dock.tools-pinned.betting-active) .turn-timer-background { bottom: calc(var(--action-bar-h, 84px) + 44px); }
+  .table-screen .tchat-dock.tools-pinned.betting-active > :is(.tchat-swipe-handle,.tchat-keep) { display: none; }
+  .table-screen .tchat-dock.tools-pinned.betting-active .tchat-buttons { justify-content: center; gap: 8px; width: 100%; padding: 0; animation: none; }
+  .table-screen .tchat-dock.tools-pinned.betting-active .tchat-toggle { width: auto; min-width: 80px; height: 34px; flex-direction: row; padding: 4px 8px; gap: 4px; }
+  .table-screen .tchat-dock.tools-pinned.betting-active .tchat-icon { width: 16px; height: 16px; }
+  .table-screen .tchat-dock.tools-pinned.betting-active .tchat-tool-label { font-size: 10px; }
+  .table-screen .tchat-dock.tools-pinned.betting-active .tchat-panel { bottom: calc(100% + 8px); }
+  .table-screen .tchat-dock.tools-pinned.betting-active .reaction-picker { bottom: calc(100% + 8px); }
+}
+
+@media (max-width: 760px) and (pointer: coarse) {
+  /* Expanded waiting action shares the drawer header, clear of the cards and tools. */
+  .table-screen:has(.tchat-dock.tools-open):has(.reserved-actions) .action-bar {
+    bottom: 68px; height: 44px; min-height: 44px; pointer-events: none;
+  }
+  .table-screen:has(.tchat-dock.tools-open) .reserved-actions { position: absolute; left: 0; bottom: 0; top: auto; pointer-events: auto; width: 152px; }
+  .table-screen:has(.reserved-actions) .tchat-dock.tools-open > .tchat-swipe-handle,
+  .table-screen:has(.reserved-actions) .tchat-dock.tools-open > .tchat-keep {
+    align-self: flex-end; width: calc(100% - 160px); margin-right: 8px;
+  }
+}
+
+@media (max-width: 760px) and (pointer: coarse) {
+  /* Expanded tables use the board's named receipt, not duplicate floating text. */
+  .table-screen:has(.tchat-dock.tools-pinned) .payout-share[data-board] span { display: none; }
+  .table-screen:has(.tchat-dock.tools-pinned) .multi-board-result {
+    width: 190px; max-width: 60vw; box-sizing: border-box;
+    padding: 3px 5px; border-radius: 5px; background: #121a15;
+    color: #fff0b8; font-size: 10px; line-height: 13px;
+    white-space: normal; overflow-wrap: anywhere; text-align: center;
+  }
+  .table-screen:has(.tchat-dock.tools-pinned) .multi-board:not(.current) .multi-board-result { visibility: hidden; }
+}
+
+@media (max-width: 760px) and (pointer: coarse) {
+  .table-screen:has(.tchat-dock.tools-open) .table-topbar .name {
+    position: absolute; left: 8px; top: 48px; margin: 0;
+    max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .table-screen:has(.tchat-dock.tools-open) .daily-lb { display: none; }
+}
+
+@media (max-width: 760px) and (pointer: coarse) {
+  .table-screen:not(:has(.tchat-dock.tools-open)) .table-stage.stage-portrait .seat.me { translate: 0 -14px; }
+}
+
+@media (max-width: 760px) and (pointer: coarse) {
+  .table-screen:not(:has(.tchat-dock.tools-open)) .table-stage.stage-portrait { translate: 0 -10%; }
+}
+
+/* Touch feedback comes from the button styling, not Chrome's rectangular tap overlay. */
+.table-screen button { -webkit-tap-highlight-color: transparent; }

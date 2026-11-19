@@ -1,7 +1,7 @@
 // Native best-five showdown focus (ported from the Codex clone's REA-verified bestFiveFocus).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bestFiveFocus, showdownFocus } from '../src/game/eval.ts';
+import { bestFiveFocus, showdownFocus, boardShowdownFocus } from '../src/game/eval.ts';
 
 const royal = ['Ah', 'Kh', 'Qh', 'Jh', 'Th'];
 
@@ -94,4 +94,15 @@ test('focusClass lifts selected cards, dims the rest, and is inert without focus
   assert.equal(focusClass([0, 2], 2), 'focus-on');
   assert.equal(focusClass([0, 2], 1), 'focus-off');
   assert.equal(focusClass([], 0), 'focus-off', 'board-only winner dims both hole cards');
+});
+
+test('each run focuses its own winner and exactly five cards', () => {
+  const boards = [['2c','3d','4h','9s','5s'], ['2c','3d','4h','9s','Kc']];
+  const result = { reason:'showdown', runItTwice:true, hands:[{seat:0,cards:['As','Ad']},{seat:1,cards:['Ks','Kd']}], byBoard:[[{seat:0}],[{seat:1}]] };
+  for (let i=0;i<2;i++) {
+    const focus=boardShowdownFocus(result,boards,i,'holdem');
+    assert.deepEqual(Object.keys(focus.hole),[String(i)]);
+    assert.equal(focus.board.length+focus.hole[i].length,5);
+  }
+  assert.equal(boardShowdownFocus(result,boards,-1,'holdem'),null);
 });

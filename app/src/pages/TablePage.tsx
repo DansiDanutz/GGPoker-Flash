@@ -1,3 +1,4 @@
+import { EMERALD_RAIL_RATIO } from '../game/tableStage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { seatFlag } from '../lib/seatFlag';
 import { useApp } from '../lib/store';
@@ -5,14 +6,14 @@ import { api, chips, getToken, money } from '../lib/api';
 import { sound } from '../lib/sound';
 import { PlayingCard } from '../components/Card';
 import { FxEffect, type FxName } from '../components/FxEffect';
-import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, type BetPrefs, BETTING_OPTIONS_KEY, withConfirmBets, readBettingOptions, readCardBack, readDealSpeed, readSqueeze, readStackMode, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
+import { betLabel, betTarget, betUnitOf, shortcutRoundUnit, enterBetRequest, readBetPrefs, type BetPrefs, BETTING_OPTIONS_KEY, withConfirmBets, readBettingOptions, readCardBack, readDealSpeed, readStackMode, readShowChatBubbles, readShowReactions, type StackMode } from '../lib/tablePrefs';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/TitleBar';
-import { bestHand, showdownFocus, focusClass, describeHole } from '../game/eval';
+import { bestHand, showdownFocus, boardShowdownFocus, focusClass, describeHole } from '../game/eval';
 import { betLimits, potOdds, sizingPresets, sliderTarget, type BetContext } from '../game/betting';
 import { potChipLayout, shuffleFramePosition, shuffleScrubFrame, SHUFFLE_START_FRAME, SHUFFLE_END_FRAME } from '../game/potChips';
 import { createSqueezePanel } from '../game/squeeze';
-import { readSqueeze3D, squeezePluginApi } from '../lib/squeeze-plugin-api';
+import { squeezePluginApi } from '../lib/squeeze-plugin-api';
 import { runSchedule } from '../game/runItPacing';
 import { boardAwards } from '../game/runItAwards';
 import { keepPreAction, resolvePreAction, type PreAction } from '../game/preAction';
@@ -47,7 +48,7 @@ import { useTableChatStore } from '../lib/useTableChat';
 import type { ChatLine, ReactionId } from '../lib/tableChat';
 import { sitOutClock, straddlePrompt, type StraddleAsk } from '../game/straddlePrompt';
 import { runChoice, runsLabel, runsShort, type RunAsk } from '../game/runChoice';
-import { inward, seatLayout, type Spot } from '../game/tableStage';
+import { inward, seatLayout, phoneBlindSpot, type Spot } from '../game/tableStage';
 import { TableOptionsSheet } from '../components/table/TableOptionsSheet';
 import { useHoldTips } from '../lib/holdTips';
 import { SeatDock } from '../components/table/SeatDock';
@@ -84,6 +85,7 @@ type TableState = {
   button: number; sbSeat?: number; bbSeat?: number; handNo: number; turnNo?: number; street: string; board: string[]; pot: number; currentBet: number;
   minRaise: number; actor: string | null; actionEndsAt: number; now: number; result: any;
   timeBankUsed?: number[];
+  allInEquity?: { handNo: number; board: string[]; estimated: boolean; samples: number; players: { seat: number; percent: number }[] } | null;
   pots?: number[];
   players: PlayerState[]; log: any[]; minBuyin?: number; maxBuyin?: number; ownerId?: number | null; private?: boolean; bombPot?: boolean; handId?: string | null;
   walletKind?: 'organizer_chips' | 'play_money'; organizerId?: number | null; organizerBalance?: number; spinTicketValue?: number;
@@ -243,7 +245,19 @@ export function TablePage({ tableId }: { tableId: string }) {
   const confirmBets = bettingOptions.confirm === 'always';
   const [pendingBet, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number } | null>(null);
   const actionBarRef = useRef<HTMLDivElement | null>(null);
-  const [squeezeEnabled] = useState(readSqueeze);
+  const [squeezeWanted, setSqueezeWanted] = useState(() => localStorage.getItem('openpoker.revealAnimation') !== '0');
+  const [squeezeAccess, setSqueezeAccess] = useState<{ table: string; allowed: boolean } | null>(null);
+  const squeezeAllowed = squeezeAccess?.table === tableId && squeezeAccess.allowed;
+  const squeezeEnabled = squeezeWanted && squeezeAllowed;
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => squeezePluginApi.access(tableId).then(({ access }) => {
+      if (!cancelled) setSqueezeAccess({ table: tableId, allowed: access.allowed });
+    }).catch(() => { if (!cancelled) setSqueezeAccess({ table: tableId, allowed: false }); });
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { cancelled = true; window.removeEventListener('focus', refresh); };
+  }, [tableId, user?.id]);
   const [squeezing, setSqueezing] = useState(false);
   const squeezeHostRef = useRef<HTMLDivElement | null>(null);
   const squeezeHandRef = useRef<number | null>(null);
@@ -286,25 +300,42 @@ export function TablePage({ tableId }: { tableId: string }) {
   const runResultsKey = JSON.stringify(state?.result?.byBoard || []);
   const runPlan = useMemo(() => ((state?.boards?.length ?? 0) > 1 ? runSchedule(state!.boards!) : null), [state?.handNo, runBoardsKey]);
   const runAwards = useMemo(() => boardAwards(state?.result?.byBoard), [state?.handNo, runResultsKey]);
+  const [finishedRunBoards, setFinishedRunBoards] = useState<{ hand: number; count: number }>({ hand: -1, count: 0 });
   const [shownRunAwards, setShownRunAwards] = useState<{ hand: number; count: number }>({ hand: -1, count: 0 });
   const playedRunAwards = useRef({ hand: -1, count: 0 });
+  const soundedRunBoards = useRef({ hand: -1, boards: new Set<number>() });
   const [awardVectors, setAwardVectors] = useState<Record<string, [number, number]>>({});
   const [runReleasedHand, setRunReleasedHand] = useState<number | null>(null);
   const runHeld = !!runPlan && state?.street === 'ended' && runReleasedHand !== state?.handNo;
   useEffect(() => {
-    if (!runPlan || state?.street !== 'ended') return;
+    if (state?.street !== 'ended' || (!runPlan && !state.allInEquity)) return;
     const hand = state.handNo;
-    const id = window.setTimeout(() => setRunReleasedHand(hand), runPlan.done);
+    const duration = runPlan?.done ?? showdownComplete(state.players.filter(p => p.reveal && !p.folded).map(p => p.seat));
+    const id = window.setTimeout(() => setRunReleasedHand(hand), duration);
     return () => window.clearTimeout(id);
-  }, [runPlan, state?.street, state?.handNo]);
+  }, [runPlan, state?.street, state?.handNo, state?.allInEquity?.handNo]);
   useEffect(() => {
     const hand = state?.handNo;
     setShownRunAwards({ hand: hand ?? -1, count: 0 });
+    setFinishedRunBoards({ hand: hand ?? -1, count: 0 });
     setAwardVectors({});
     if (!runPlan || hand == null || state?.street !== 'ended') return;
     const timers = runPlan.resultAt.map((at, index) => window.setTimeout(() => {
       setShownRunAwards((current) => current.hand === hand ? { hand, count: Math.max(current.count, index + 1) } : current);
     }, at));
+    if (soundedRunBoards.current.hand !== hand) soundedRunBoards.current = { hand, boards: new Set() };
+    runPlan.delays.forEach((delays, index) => {
+      const dealt = delays.filter((delay): delay is number => delay !== null);
+      timers.push(window.setTimeout(() => {
+        setFinishedRunBoards(current => current.hand === hand ? { hand, count: Math.max(current.count, index + 1) } : current);
+      }, (dealt.length ? Math.max(...dealt) : 0) + 500));
+      if (!dealt.length) return;
+      timers.push(window.setTimeout(() => {
+        if (soundedRunBoards.current.boards.has(index)) return;
+        soundedRunBoards.current.boards.add(index);
+        sound.play('flop', { volume: .55 });
+      }, Math.max(...dealt)));
+    });
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [runPlan, state?.street, state?.handNo]);
   useEffect(() => {
@@ -315,6 +346,7 @@ export function TablePage({ tableId }: { tableId: string }) {
     if (!stage || !row) return;
     if (playedRunAwards.current.hand !== state!.handNo || playedRunAwards.current.count < shownRunAwards.count) {
       playedRunAwards.current = { hand: state!.handNo, count: shownRunAwards.count };
+      sound.play('gather', { volume: .45 });
       for (const share of payoutShares(state?.result?.byBoard?.[boardIndex] || [])) awardPot(share, boardIndex);
     }
     const stageBox = stage.getBoundingClientRect();
@@ -471,6 +503,14 @@ export function TablePage({ tableId }: { tableId: string }) {
       } else if (msg.type === 'chat_history') {
         if (msg.tableId === tableId) chatStore.receiveHistory(msg.lines);
       } else if (msg.type === 'error') {
+        if (msg.error === 'login required') {
+          everJoined.current = false;
+          setConnected(false);
+          setState(null);
+          ws.close();
+          navigate('/login');
+          return;
+        }
         toast({ kind: 'error', title: 'Table', body: msg.error });
       }
     };
@@ -528,7 +568,10 @@ export function TablePage({ tableId }: { tableId: string }) {
     if (!el) return;
     const r = el.getBoundingClientRect();
     const [ox, oy] = potOffset(share.potIndex, r.width);
-    const from: [number, number] = [r.width * 0.5 + ox, r.height * 0.45 + oy];
+    const boardRow = boardIndex === undefined ? null : el.querySelector(`.multi-board[data-board="${boardIndex + 1}"]`)?.getBoundingClientRect();
+    const from: [number, number] = boardRow
+      ? [boardRow.left + boardRow.width / 2 - r.left + ox, boardRow.top + boardRow.height / 2 - r.top + oy]
+      : [r.width * 0.5 + ox, r.height * 0.45 + oy];
     const [sx, sy] = seatPosOf(share.seat);
     const to = stopShort(from, [(r.width * sx) / 100, (r.height * sy) / 100], PAYOUT_STOP_PX * (r.width / NATIVE_TABLE_WIDTH));
     const node = document.createElement('div');
@@ -764,6 +807,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   // A successful reload makes the bust offer stale.
   useEffect(() => { if ((me?.stack || 0) > 0) setRebuyOffer(null); }, [me?.stack]);
   const myTurn = !!(state && me && state.actor === me.id);
+  useEffect(() => { if (myTurn) setOptionsOpen(false); }, [myTurn]);
   const tbUsed = (state?.timeBankUsed || []).includes(Number(me?.id));
   const tbCards = me?.timeBankCards ?? 0;
   const tbOfferedRef = useRef(false);
@@ -832,7 +876,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const sitOutNext = !!me?.sitOutNext;
   const canRabbit = !!me?.inHand && state?.street === 'ended' && (state?.board?.length || 0) < 5;
   const facingShove = !!state?.players.some((p) => !p.empty && !p.isMe && p.allIn && !p.folded);
-  const canPreAct = !!(state && me && !myTurn && me.inHand && !me.folded && !me.allIn
+  const canPreAct = !!(state && me && !myTurn && me.inHand && !me.folded && !me.allIn && !sittingOut
     && ['preflop', 'flop', 'turn', 'river'].includes(state.street) && !state.allInOrFold);
 
   useEffect(() => { setPreAction(null); }, [state?.handNo]);
@@ -1014,7 +1058,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   }, [tableId, vpipHand]);
 
   const narrowScreen = useNarrowScreen();
-  const stage = useTableStage(tableRef, observing);
+  const stage = useTableStage(tableRef, observing, roomBg === 'featured' ? EMERALD_RAIL_RATIO : undefined);
   const layout = seatLayout(state?.seats || 6, stage.mode);
   layoutRef.current = layout;
   stageModeRef.current = stage.mode;
@@ -1042,7 +1086,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   const stackLabel = amt;
   const betUnit = betInputUnit(amountOpts);
   const cycleStackMode = () => {
-    const next: StackMode = stackMode === 'chips' ? 'bb' : stackMode === 'bb' ? 'both' : 'chips';
+    const next: StackMode = stackMode === 'bb' ? 'chips' : 'bb';
     saveSettings({ 'ggpoker.stackMode': next }).catch((error) => console.warn('Chip display not synced to the account', error));
   };
   const toggleHotkeys = () => {
@@ -1051,7 +1095,14 @@ export function TablePage({ tableId }: { tableId: string }) {
     toast({ kind: 'info', title: on ? 'Hotkeys on' : 'Hotkeys off' });
   };
   const myCards = me?.cards?.filter((c) => c !== '??') || [];
-  const winnerFocus = state && state.street === 'ended' && focusReady ? showdownFocus(state.result, state.board, state.game) : null;
+  const focusedRun = shownRunAwards.hand === state?.handNo && shownRunAwards.count > 0
+    ? shownRunAwards.count - 1
+    : finishedRunBoards.hand === state?.handNo ? finishedRunBoards.count - 1 : -1;
+  const winnerFocus = state && state.street === 'ended'
+    ? (state.boards?.length || 0) > 1
+      ? boardShowdownFocus(state.result, state.boards!, focusedRun, state.game)
+      : focusReady ? showdownFocus(state.result, state.board, state.game) : null
+    : null;
   const handInfo = state && heroHoldsHand(me) && myCards.length >= 2 && state.board.length >= 3 ? bestHand(myCards, state.board, ['omaha', 'omaha5', 'omaha6', 'rushplo'].includes(state.game), state.game === 'shortdeck') : null;
   const holeLabel = myCards.length >= 2 ? describeHole(myCards) : '';
   // After the hand (native ShowMuck) anyone dealt in, folded or not, picks cards to show once.
@@ -1092,7 +1143,7 @@ export function TablePage({ tableId }: { tableId: string }) {
   useEffect(() => {
     if (!state) return;
     if (firstStateRef.current) { firstStateRef.current = false; squeezeHandRef.current = state.handNo; return; }
-    if (!squeezeEnabled || observing || !me?.inHand) return;
+    if (!squeezeEnabled || observing || !me?.inHand || me.folded || me.sittingOut) return;
     if (state.street !== 'preflop') return;
     if (!['holdem', 'omaha', 'omaha5', 'omaha6'].includes(state.game)) return;
     if (squeezeHandRef.current === state.handNo) return;
@@ -1100,11 +1151,11 @@ export function TablePage({ tableId }: { tableId: string }) {
     if (![2, 4, 5, 6].includes(cards.length) || cards.length !== (me.cards || []).length) return;
     squeezeHandRef.current = state.handNo;
     setSqueezing(true);
-  }, [state?.handNo, state?.street, state?.game, observing, squeezeEnabled, me?.inHand, me?.cards?.length]);
+  }, [state?.handNo, state?.street, state?.game, observing, squeezeEnabled, me?.inHand, me?.folded, me?.sittingOut, me?.cards?.length]);
 
   useEffect(() => {
-    if (!me?.inHand || state?.street === 'ended') setSqueezing(false);
-  }, [me?.inHand, state?.street, state?.handNo]);
+    if (!me?.inHand || me.folded || me.sittingOut || state?.street === 'ended') setSqueezing(false);
+  }, [me?.inHand, me?.folded, me?.sittingOut, state?.street, state?.handNo]);
 
   useEffect(() => {
     if (!squeezing) return;
@@ -1114,16 +1165,16 @@ export function TablePage({ tableId }: { tableId: string }) {
     let cancelled = false;
     let dispose: (() => void) | undefined;
     const mount = (enabled: boolean) => {
-      if (!cancelled) dispose = createSqueezePanel(host, cards, () => setSqueezing(false), () => sound.play('deal', { volume: .5 }), enabled);
+      if (!cancelled) dispose = createSqueezePanel(host, cards, () => setSqueezing(false), () => sound.play('deal', { volume: .5 }), enabled, () => host.closest('.table-screen')?.querySelector<HTMLElement>('.seat.me .cards') ?? null);
     };
-    if (cards.length === 2 && readSqueeze3D(user?.id)) {
+    if (cards.length === 2) {
       squeezePluginApi.access(tableId).then(({ access }) => {
-        if (!cancelled && !access.allowed) toast({ kind: 'info', title: 'Card inspection', body: '3D access is inactive. Using free card inspection.' });
+        if (!cancelled && !access.allowed) { setSqueezeAccess({ table: tableId, allowed: false }); setSqueezing(false); return; }
         mount(access.allowed);
-      }).catch(() => mount(false));
+      }).catch(() => { if (!cancelled) setSqueezing(false); });
     } else mount(false);
     return () => { cancelled = true; dispose?.(); };
-  }, [squeezing, tableId, user?.id]);
+  }, [squeezing, tableId, user?.id, state?.handNo]);
 
   useEffect(() => {
     if (state?.spin && state.handNo === 1 && !spinIntroSeen.current) {
@@ -1293,9 +1344,21 @@ export function TablePage({ tableId }: { tableId: string }) {
 
         <div className="spacer" />
         <button type="button" className="table-sound-btn" aria-label="Sound" aria-pressed={sound.enabled} data-tip="Sound" onClick={() => sound.setEnabled(!sound.enabled)}>{sound.enabled ? '🔊' : '🔇'}</button>
-        <button type="button" className="table-history-btn" aria-label="Hand history" data-tip="Hand history" onClick={() => navigate('/hand-history')}><img src="/assets/table/ui/ic-history.webp" alt="" /></button>
-        <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
+        <div className="table-settings-controls">
         <button type="button" className="table-gear" aria-label="Table options" data-tip="Table options" onClick={() => { setOptionsOpen(true); setMenuOpen(false); }}>⚙</button>
+        <button type="button" className="table-history-btn" aria-label="Hand history" data-tip="Hand history" onClick={() => navigate('/hand-history')}><img src="/assets/table/ui/ic-history.webp" alt="" /></button>
+        <button type="button" className="reveal-toggle" aria-label="Card reveal animation" aria-pressed={squeezeEnabled} aria-disabled={!squeezeAllowed}
+          title={squeezeAllowed ? `Card reveal animation ${squeezeEnabled ? 'on' : 'off'}` : '3D Squeeze requires Marketplace access'}
+          onClick={() => {
+            if (!squeezeAllowed) { toast({ kind: 'info', title: '3D Squeeze', body: 'Available in Marketplace: $1/month or $10 lifetime. Play Money previews are free.' }); return; }
+            const next = !squeezeWanted; setSqueezeWanted(next); localStorage.setItem('openpoker.revealAnimation', next ? '1' : '0');
+            if (!next) setSqueezing(false);
+          }}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" />{!squeezeEnabled && <path d="m3 3 18 18" />}</svg>
+        </button>
+        </div>
+        <button className="popout-btn" onClick={() => window.open(location.href, '_blank', 'width=1200,height=961')} title="Open in a new window">Pop out</button>
+
         <button type="button" className="table-menu-btn" aria-label="Table menu" data-tip="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}><span className="menu-text">Menu</span></button>
         <button className="table-leave-btn" onClick={() => setConfirmLeave(true)}>Leave table</button>
       </div>
@@ -1396,6 +1459,10 @@ export function TablePage({ tableId }: { tableId: string }) {
         onJoinWaitForBlinds={changeJoinWait}
       />
 
+      {myTurn && !observing && !squeezing && (
+        <div className="turn-timer-bar turn-timer-background" aria-hidden="true"><i style={{ width: `${timerPct * 100}%` }} /></div>
+      )}
+
       <SeatDock
         items={dockItems({ seated: !!me && !observing, cash: !state?.tournament && !state?.spin, straddleAllowed: !!state?.straddle })}
         active={{ straddle: !!me?.autoStraddle, sitoutHand: sittingOut || sitOutNext, sitoutBB: !!me?.sitOutNextBigBlind }}
@@ -1421,11 +1488,6 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       </div>
       <div className="room-floor" />
-      <div className="table-rotate" role="note">
-        <div className="table-rotate-icon" aria-hidden="true">⟳</div>
-        <b>Rotate your device</b>
-        <span>The table plays in landscape on tablets.</span>
-      </div>
       <div ref={stageRef} className={`table-stage stage-${stage.mode}${stage.short ? ' stage-short' : ''}`} style={{ left: stage.left, top: stage.top, width: stage.width, height: stage.height }}>
       <div className="felt" />
       {stage.mode === 'portrait' && state?.tournament && <TournamentHud tournament={state.tournament} sb={state.sb} bb={state.bb} ante={state.ante} />}
@@ -1447,7 +1509,7 @@ export function TablePage({ tableId }: { tableId: string }) {
               ))}
             </div>
           )}
-          {!winFx && <div className="pot-label"><span>{runPot === null ? 'Total Pot ' : 'Remaining Pot '}</span><strong data-amount={runPot ?? state?.pot}>{amt(runPot ?? state?.pot)}</strong></div>}
+          {!winFx && <div className="pot-label" role="button" tabIndex={0} aria-label="Toggle pot and stacks between amounts and big blinds" onClick={cycleStackMode} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleStackMode(); } }}><span>{runPot === null ? 'Total Pot ' : 'Remaining Pot '}</span><strong data-amount={runPot ?? state?.pot}>{amt(runPot ?? state?.pot)}</strong></div>}
         </div>
         {!winFx && runPot === null && livePots.length > 1 && <div className="live-pots">{livePots.map((amount, i) => {
             const [x, y] = potOffset(i, stageRef.current?.offsetWidth || NATIVE_TABLE_WIDTH);
@@ -1481,7 +1543,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 <div className="board">
                   {run.map((c, i) => {
                     const delay = runPlan?.delays[boardIndex]?.[i] ?? null;
-                    return <PlayingCard key={`run${boardIndex + 1}-${state?.handNo}-${i}-${c}`} card={c} size="mini" dealt={delay !== null} style={delay !== null ? { animationDelay: `${delay}ms` } : undefined} />;
+                    return <PlayingCard key={`run${boardIndex + 1}-${state?.handNo}-${i}-${c}`} card={c} size="mini" dealt={delay !== null} className={focusClass(boardIndex === focusedRun ? winnerFocus?.board : undefined, i)} style={delay !== null ? { animationDelay: `${delay}ms` } : undefined} />;
                   })}
                 </div>
                 {awarded && runAwards[boardIndex]?.winners.map((winner) => {
@@ -1490,8 +1552,11 @@ export function TablePage({ tableId }: { tableId: string }) {
                     {Array.from({ length: 9 }, (_, i) => <i key={i} style={{ '--particle': i } as React.CSSProperties} />)}
                   </div>;
                 })}
-                {awarded && runAwards[boardIndex] && <span className="multi-board-result">
-                  {runAwards[boardIndex].winners.map((winner) => winner.nick).join(' + ')} {runAwards[boardIndex].winners.length > 1 ? 'share' : 'wins'}
+                {awarded && runHeld && runAwards[boardIndex] && <span className="multi-board-result" aria-live={current ? 'polite' : 'off'}>
+                  {runAwards[boardIndex].winners.map((winner) => {
+                    const amount = (state?.result?.byBoard?.[boardIndex] || []).filter((share: { seat: number }) => share.seat === winner.seat).reduce((sum: number, share: { amount: number }) => sum + share.amount, 0);
+                    return `${winner.nick} +${chip(amount)}`;
+                  }).join(' · ')}
                 </span>}
               </div>;
             })}
@@ -1520,13 +1585,6 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
       </div>
 
-      {shownRunAwards.hand === state?.handNo && shownRunAwards.count > 0 && runAwards[shownRunAwards.count - 1]?.counts.map((winner) => {
-        const [x, y] = seatPosOf(winner.seat);
-        return <div className={`board-win-count${runHeld && runAwards[shownRunAwards.count - 1]?.seats.includes(winner.seat) ? ' current' : ''}`} data-seat={winner.seat} key={winner.seat} style={{ left: `clamp(80px, ${x}%, calc(100% - 80px))`, top: `${y}%` }} role="status">
-          {runHeld && runAwards[shownRunAwards.count - 1]?.seats.includes(winner.seat) && `Board ${shownRunAwards.count} · `}{winner.nick} · {[winner.won && `${winner.won} ${winner.won === 1 ? 'board' : 'boards'} won`, winner.shared && `${winner.shared} ${winner.shared === 1 ? 'board' : 'boards'} shared`].filter(Boolean).join(' · ')}
-        </div>;
-      })}
-
       {(state?.players || []).map((p) => {
         if (!p || p.empty) {
           const [x, y] = seatPos(p.seat);
@@ -1547,6 +1605,9 @@ export function TablePage({ tableId }: { tableId: string }) {
         const [x, y] = seatPos(p.seat);
         const isActor = state?.actor === p.id;
         const winAmount = runHeld ? 0 : p.winAmount || 0;
+        const equity = state?.allInEquity?.handNo === state?.handNo && !p.folded && (state?.street !== 'idle' && (state?.street !== 'ended' || runReleasedHand !== state.handNo))
+          ? state?.allInEquity?.players.find(entry => entry.seat === p.seat) : undefined;
+        const committedAllIn = !!p.allIn && !!p.inHand && !p.folded && state?.street !== 'ended' && state?.street !== 'idle';
         return (
           <div
             key={p.seat}
@@ -1567,11 +1628,11 @@ export function TablePage({ tableId }: { tableId: string }) {
                 ))}
               </div>
             )}
-            {winAmount ? <div className="win-amount">+{chip(winAmount)}</div> : null}
+            {winAmount ? <div className="win-amount" data-seat={p.seat} data-amount={winAmount}>+{chip(winAmount)}</div> : null}
             {winAmount ? <img className="native-win" src={animOff ? '/assets/table/native-win-final.png' : '/assets/table/native-win-effect.png'} alt="" /> : null}
             {isActor && !p.folded ? <div className="timer" style={{ '--turn': timerPct } as React.CSSProperties} /> : null}
-            {!(p.isMe && squeezing) && <div
-              className={'cards' + (showdownReveals[p.seat] != null && p.reveal ? ' showdown-reveal' : '')}
+            <div
+              className={'cards' + (p.isMe && squeezing ? ' squeeze-target-hidden' : '') + (!p.isMe && showdownReveals[p.seat] != null && p.reveal ? ' showdown-reveal' : '')}
               style={{ '--reveal-delay': `${showdownReveals[p.seat] || 0}ms` } as React.CSSProperties}
             >
               {(p.cards || []).map((c, i) => {
@@ -1584,48 +1645,57 @@ export function TablePage({ tableId }: { tableId: string }) {
                 const onCard = pickable ? () => showCards([i])
                   : markable ? () => send({ type: 'show_at_end', tableId, cards: toggleShowMark(marks, i) })
                   : null;
-                // Your own cards land face down and you turn them over (the squeeze does its own reveal).
-                const heroPeel = p.isMe && !squeezeEnabled && c !== '??';
                 return (
                   <span
                     key={`${state?.handNo}-${p.seat}-${i}`}
                     className={'card-slot' + (pickable ? ' pickable' : '') + (markable ? ' markable' : '') + (willShow ? ' will-show' : '') + (shown ? ' shown' : '') + (fadeUp ? ' fade-up' : '')}
+                    style={{ '--show-x': `${(50 - px) * (p.isMe ? .65 : .9)}px`, '--show-y': `${(45 - py) * (p.isMe ? 1.5 : 1.1)}px` } as React.CSSProperties}
                     onClick={onCard ? (ev) => { ev.stopPropagation(); onCard(); } : undefined}
                     data-tip={pickable ? 'Show this card' : willShow ? 'Shown when the hand ends · tap to cancel' : markable ? 'Show this card when the hand ends' : undefined}
                   >
                     {willShow && <img className="show-mark" src="/assets/table/ui/ic-show-card.webp" alt="" />}
-                    {heroPeel ? (
-                      <span className="hero-peel" style={{ '--i': i, '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px` } as React.CSSProperties}>
-                        <PlayingCard card={c} size="mini" className={'peel-face ' + focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)} />
-                        <PlayingCard card="??" size="mini" className="peel-back" />
-                      </span>
-                    ) : (
                       <PlayingCard card={c} size="mini" dealt className={focusClass(winnerFocus ? winnerFocus.hole[p.seat!] ?? [] : undefined, i)}
                         style={{ '--dx': `${(50 - px) * 8}px`, '--dy': `${(45 - py) * 5.5}px`, animationDelay: `${i * 0.08}s` } as React.CSSProperties} />
-                    )}
+
                   </span>
                 );
               })}
-            </div>}
+            </div>
             <div className="avatar-wrap">
               <img className="seat-ring" src={winAmount > 0 ? '/assets/table/ring_gold.png' : isActor ? '/assets/table/ring_gold.png' : '/assets/table/ring_silver.png'} alt="" />
               <div className="face">
                 <Avatar name={p.nick || '?'} src={p.avatar || (p.isBot ? botFace(p.nick) : undefined)} size={54} />
               </div>
               {p.nick && !p.isMe && <span className="vpip-badge" data-tip="VPIP: how often they put money in">{vpipOf(seatVpip, p.nick)}</span>}
-              {(() => { const art = seatStatusArt(p); return art ? <img className="seat-status" src={art} alt="" aria-hidden="true" /> : null; })()}
+              {committedAllIn && <span className="all-in-badge" aria-label="Player is all in"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" /><circle cx="10" cy="10" r="4" /><path d="M10 2v3m0 10v3M2 10h3m10 0h3" /></svg>ALL IN</span>}
+              {(() => { const art = committedAllIn ? null : seatStatusArt(p); return art ? <img className="seat-status" src={art} alt="" aria-hidden="true" /> : null; })()}
+            {p.id != null && (
+              <SeatReaction store={chatStore} userId={Number(p.id)} showBubbles={showChatBubbles} showReactions={showReactions} />
+            )}
             </div>
             <div className="plate">
               <div className="nm" title={p.nick || undefined}>
                 {p.isBot && <span className="bot-badge" title="Computer player" aria-label="Bot">BOT</span>}
                 <span className="nm-text">{seatNick(p.nick)}</span>{p.nick ? <span className="seat-flag" aria-hidden="true">{seatFlag(p.nick, p.country)}</span> : null}
               </div>
-              <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} title="Click to change stack display">
+              <div className={'st' + (isAllInStatus(p) ? ' st-allin' : '')} onClick={(e) => { e.stopPropagation(); cycleStackMode(); }} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); cycleStackMode(); } }} title="Toggle amounts and big blinds">
                 {isAllInStatus(p) ? 'All-In' : stackLabel(runHeld ? (p.stack ?? 0) - (p.winAmount || 0) : p.stack)}
                 {p.isMe && (p.pendingTopUp || 0) > 0 ? <span className="seat-pending" style={{ color: '#ffd98a', fontSize: '0.85em' }}> +{stackLabel(p.pendingTopUp)} pending</span> : null}
                 {narrowScreen && (p.bet || 0) > 0 ? <span className="seat-bet-inline"> · {amt(p.bet).replace(/\.00$/, '')}</span> : null}
               </div>
+              {equity && <div className="allin-equity" data-seat={p.seat} title="Expected share of the pot when betting closed; split pots and side pots included. Frozen before the runout.">
+                <span>Equity</span> <b>{state?.allInEquity?.estimated ? '≈' : ''}{equity.percent.toFixed(1)}%</b>
+              </div>}
             </div>
+            {p.isMe && (state?.boards?.length || 0) > 1 && !p.folded && p.inHand && finishedRunBoards.hand === state?.handNo && finishedRunBoards.count > 0 && (
+              <div className="board-outcomes" data-seat={p.seat} aria-label="Board results">
+                {runAwards.slice(0, finishedRunBoards.count).map((award, index) => {
+                  const won = award.seats.includes(p.seat!);
+                  return <span className={won ? 'won' : 'lost'} key={index} title={`Board ${index + 1}: ${won ? 'won or shared' : 'lost'}`} aria-label={`Board ${index + 1}: ${won ? 'won or shared' : 'lost'}`}><small>{index + 1}</small>{won ? '👌' : '👎'}</span>;
+                })}
+              </div>
+            )}
+
             {p.nick && notes[p.nick] && <span className="note-dot" title={`${noteColorTitle(notes[p.nick].color, noteLabels)}: ${notes[p.nick].note}`} style={{ '--note-color': noteColorHex(notes[p.nick].color) } as React.CSSProperties}>📝</span>}
             {p.lastAction && !p.folded && !BLIND_POSTS.has(p.lastAction.action) && (
               <div className={'action-badge ' + (p.lastAction.action || '').toLowerCase()}>
@@ -1634,9 +1704,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             )}
             {p.folded && <div className="action-badge fold">Fold</div>}
             {(p.disconnected || p.sittingOut) && !isAllInStatus(p) && <div className="action-badge away">{p.disconnected ? 'Reconnecting' : 'Sitting out'}</div>}
-            {p.id != null && (
-              <SeatReaction store={chatStore} userId={Number(p.id)} showBubbles={showChatBubbles} showReactions={showReactions} />
-            )}
+
           </div>
         );
       })}
@@ -1648,9 +1716,10 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       {state && state.street !== 'idle' && ([['SB', state.sbSeat], ['BB', state.bbSeat]] as const).map(([label, seat]) => {
         if (seat == null || seat < 0) return null;
-        // Toward the felt centre from the seat, on the other side from the dealer disc.
-        const [dx, dy] = inward(seatPos(seat), stage, reach.blind, markerSide(seat, reach.blindSide, reach.heroBlindSide));
-        return <div key={label} className={`blind-marker ${label.toLowerCase()}`} style={{ left: `${dx}%`, top: `${dy}%` }} aria-label={label === 'SB' ? 'Small blind' : 'Big blind'}>{label}</div>;
+        // Phone blinds stay on the painted inner line as the stage resizes.
+        const [dx, dy] = stage.mode === 'portrait' ? phoneBlindSpot(seatPos(seat), stage)
+          : inward(seatPos(seat), stage, reach.blind, markerSide(seat, reach.blindSide, reach.heroBlindSide));
+        return <div key={label} className={`blind-marker ${label.toLowerCase()}`} style={{ left: `${dx}%`, top: `${dy}%` }} aria-label={label === 'SB' ? 'Small blind' : 'Big blind'} title={label === 'SB' ? 'Small blind' : 'Big blind'} />;
       })}
 
       {(state?.players || []).filter((p) => p && !p.empty && (p.bet || 0) > 0).map((p) => {
@@ -1677,13 +1746,9 @@ export function TablePage({ tableId }: { tableId: string }) {
 
       </div>
 
-      {!observing && me?.inHand && state?.street !== 'ended' && !squeezing &&
-        [2, 4, 5, 6].includes(me.cards?.length || 0) && me.cards?.every(c => c !== '??') && (
-        <button type="button" className="inspect-cards" onClick={() => setSqueezing(true)}>Inspect cards</button>
-      )}
       <div className="squeeze-host" ref={squeezeHostRef} />
 
-      {winFx && (
+      {winFx && (state?.boards?.length ?? 0) <= 1 && (
         <div className="win-overlay">
           <div className="confetti">{Array.from({ length: 18 }).map((_, i) => <i key={i} style={{ left: `${(i * 53) % 100}%`, animationDelay: `${(i % 9) * 0.08}s`, background: ['#ffd76a', '#ff6b6b', '#6bd6ff', '#9dff8a'][i % 4] }} />)}</div>
           <div className="win-title">WIN</div>
@@ -1692,11 +1757,11 @@ export function TablePage({ tableId }: { tableId: string }) {
         </div>
       )}
 
-      <TableChat store={chatStore} selfId={user?.id ?? null} readOnly={observing}
-        onSend={sendChat} onReact={sendReaction} onMute={muteChatLine} onReport={reportChatLine} />
+      <TableChat store={chatStore} selfId={user?.id ?? null} readOnly={observing} bettingActive={myTurn}
+        onBetPresets={() => setOptionsOpen(true)} onSend={sendChat} onReact={sendReaction} onMute={muteChatLine} onReport={reportChatLine} />
 
       {observing ? (
-        <div className="action-bar">
+        <div className="action-bar spectator-actions">
           <div className="action-row">
             <div style={{ flex: 1, color: '#cfcfcf', fontSize: 13 }} role="status" aria-live="polite">{waitBannerText}</div>
             {!state?.tournament && <button className={'btn ' + (myTableQueue && !offerLive ? 'btn-gold' : 'btn-red')} onClick={sitIn}>{offerLive ? 'Take seat' : 'Take a seat'} · {chip(state?.minBuyin)}</button>}
@@ -1738,11 +1803,8 @@ export function TablePage({ tableId }: { tableId: string }) {
             )}
           </div>
         )}
-        {myTurn && (
-          <div className="turn-timer-bar"><i style={{ width: `${timerPct * 100}%` }} /></div>
-        )}
         {pendingBet && (
-          <div className="action-row confirm-row" role="alertdialog" aria-label="Confirm bet">
+          <div className={'action-row confirm-row' + (pendingBet.action === 'allin' ? ' confirm-allin' : '')} role="alertdialog" aria-label="Confirm bet">
             <span className="confirm-text">
               Confirm {pendingBet.action === 'allin' ? 'all in for' : (state?.currentBet || 0) > 0 ? 'raise to' : 'bet'}{' '}
               {amt(pendingBet.amount)}?
@@ -1771,7 +1833,7 @@ export function TablePage({ tableId }: { tableId: string }) {
         )}
         {sittingOut && (
           <div className="action-row sitout-row">
-            <span>You are sitting out and will not be dealt in.{sitOutText && <> <b className="sit-out-clock-inline" role="timer" aria-label="Sit-out time left">{sitOutText}</b></>}</span>
+            <span>Sitting out{sitOutText && <> · <b className="sit-out-clock-inline" role="timer" aria-label="Sit-out time left">{sitOutText}</b></>}</span>
             <div className="grow" />
             {!state?.tournament && (
               <label className="wait-blinds" title="Come back on your big blind instead of posting now">
@@ -1840,7 +1902,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             {(state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0) ? betPrefs.opening : betPrefs.normal).map((value, i) => {
               const opening = state?.board.length === 0 && (state?.currentBet || 0) <= (state?.bb || 0);
               const target = state ? betTarget(value, opening, { pot: state.pot, currentBet: state.currentBet, bb: state.bb }, toCall, minTo, maxTo, roundUnit) : minTo;
-              return <button key={`${value}-${i}`} disabled={!myTurn || !canRaise} onClick={() => setRaiseTo(target)}><span className="qb-tag">{betLabel(value, opening)}</span> <b className="qb-amt">{amt(target)}</b></button>;
+              return <button key={`${value}-${i}`} aria-pressed={raiseTo === target} disabled={!myTurn || !canRaise} onClick={() => setRaiseTo(target)}><span className="qb-tag">{betLabel(value, opening)}</span> <b className="qb-amt">{amt(target)}</b></button>;
             })}
           </div>
           <input
@@ -1891,7 +1953,7 @@ export function TablePage({ tableId }: { tableId: string }) {
             >+</button>
           </div>
           <button
-            className={'act-btn ' + (raiseTo >= allInTo ? 'act-allin' : 'act-raise')}
+            className={'act-btn ' + (raiseTo >= allInTo ? 'act-allin' : 'act-raise') + (raiseTo !== minTo ? ' amount-adjusted' : '')}
             disabled={!myTurn || !canRaise}
             onClick={() => requestBet(raiseTo >= allInTo ? 'allin' : 'raise', raiseTo)}
           >
@@ -1974,7 +2036,7 @@ export function TablePage({ tableId }: { tableId: string }) {
       )}
 
       {noteTarget && (
-        <div className="modal-backdrop" onClick={() => setNoteTarget(null)}>
+        <div className="modal-backdrop player-details" onClick={() => setNoteTarget(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head"><h3>Note · {noteTarget.nick}</h3></div>
             <div className="modal-body">
@@ -2001,7 +2063,7 @@ export function TablePage({ tableId }: { tableId: string }) {
                 <div className="player-stats-row"><span><b>{playerProfile.stats.played}</b> hands</span><span><b>{playerProfile.stats.won}</b> wins</span><span><b>{chip(playerProfile.stats.biggest)}</b> biggest</span></div>
               )}
               <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={4} placeholder="Notes are private and only visible to you…"
-                style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10, fontFamily: 'inherit' }} />
+                style={{ width: '100%', background: 'transparent', border: '1px solid #aaa', borderRadius: 5, color: '#eee', padding: 10, fontFamily: 'inherit' }} />
               <div className="row" style={{ marginTop: 10 }}>
                 <NoteColorPicker value={noteColor} labels={noteLabels} onChange={setNoteColor} />
                 <div style={{ flex: 1 }} />

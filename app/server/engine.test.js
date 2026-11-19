@@ -449,11 +449,12 @@ test('sitting out between hands takes effect immediately', () => {
   assert.ok(!t.seats[0].player.sitOutNextHand, 'not deferred when no hand is running');
 });
 
-test('winners show at showdown and losers muck unless auto-muck is off', () => {
+test('called-bet winners show and losers muck unless auto-muck is off', () => {
   const winner = player(1, 'Winner', 1000, 100, [C('As'), C('Ah')]);
   const mucker = player(2, 'Mucker', 1000, 100, [C('Kd'), C('Qc')]);
   mucker.autoMuck = true;
   const t = tableWith([winner, mucker]);
+  t.lastAggressor = winner.id;
   t.board = ['2c', '7d', '9s', 'Jh', '3c'].map(C);
   t.pot = 200;
   t.doShowdown();
@@ -465,6 +466,7 @@ test('winners show at showdown and losers muck unless auto-muck is off', () => {
   const shower = player(2, 'Shower', 1000, 100, [C('Kd'), C('Qc')]);
   shower.autoMuck = false;
   const t2 = tableWith([winner2, shower]);
+  t2.lastAggressor = winner2.id;
   t2.board = ['2c', '7d', '9s', 'Jh', '3c'].map(C);
   t2.pot = 200;
   t2.doShowdown();
@@ -564,13 +566,17 @@ test('a busted cash player gets a reload window before the next deal', () => {
 
   const now = Date.now();
   assert.equal(t.openRebuyWindow(now), true);
-  assert.ok(t.nextHandAt >= now + 9000, 'the next deal is pushed out by the window');
+  assert.equal(t.nextHandAt, now + 30000, 'the player gets the full 30-second reload window');
+  assert.equal(busted.sittingOut, false, 'a bust does not immediately sit the player out');
   const offer = events.find((e) => e.type === 'rebuy_offer');
   assert.equal(offer.playerId, 1);
   assert.equal(offer.min, 1000, 'a reload brings the stack back to the minimum');
 
   // Ticking inside the window must not deal the next hand.
-  t.tick(now + 100);
+  t.tick(now + 29999);
+  assert.equal(busted.sittingOut, false);
+  assert.equal(t.seats[0].player, busted, 'the seat stays reserved during the window');
+  assert.equal(events.filter(e => e.type === 'rebuy_offer').length, 1);
   assert.equal(t.street, 'ended');
   assert.equal(t.handNo, 0);
 

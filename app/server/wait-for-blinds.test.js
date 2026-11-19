@@ -27,6 +27,7 @@ const endHand = (t) => { t.street = 'ended'; for (const s of t.seats) if (s.play
 test('a waiting player is skipped until the big blind reaches them, then posts only the BB', () => {
   const t = table(4);
   P(t, 3).sittingOut = true;
+  t.bbSeat = 2; // The blind passes absent seat 3 on this rotation.
   t.button = 3; t.startHand(); // p3 misses a hand
   endHand(t);
   assert.equal(P(t, 3).missedBlinds, true);
@@ -48,6 +49,7 @@ test('a waiting player is skipped until the big blind reaches them, then posts o
 test('without the flag the returning player posts at once', () => {
   const t = table(4);
   P(t, 3).sittingOut = true;
+  t.bbSeat = 2; // The blind passes absent seat 3 on this rotation.
   t.button = 3; t.startHand();
   endHand(t);
   t.requestSitOut('p3', false);

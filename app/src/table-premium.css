@@ -124,22 +124,6 @@
   background: radial-gradient(600px 300px at 50% 100%, rgba(231, 194, 115, .05), transparent 70%);
 }
 
-/* Tablets in portrait get a clear landscape prompt instead of a squeezed table. */
-.table-rotate { display: none; }
-@media (orientation: portrait) and (min-width: 600px) and (max-width: 1100px) {
-  .table-rotate {
-    display: flex; position: absolute; inset: 0; z-index: 90;
-    flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-    background: radial-gradient(ellipse at 50% 40%, #0d2018, #040706 72%);
-    color: #e8e4da; text-align: center; padding: 24px;
-  }
-  .table-rotate-icon { font-size: 46px; color: #e7c273; animation: rotateHint 2.6s ease-in-out infinite; }
-  .table-rotate b { font-size: 20px; }
-  .table-rotate span { color: #9d9a93; font-size: 13px; max-width: 280px; }
-  @keyframes rotateHint { 0%, 40% { transform: rotate(0); } 60%, 100% { transform: rotate(90deg); } }
-}
-@media (prefers-reduced-motion: reduce) { .table-rotate-icon { animation: none !important; } }
-
 /* ---------- Hand-end celebration ---------- */
 .table-screen .seat.winner .avatar-wrap {
   animation: winnerRing 1.5s var(--spring) 2;

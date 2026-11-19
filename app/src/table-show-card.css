@@ -10,13 +10,19 @@
 .table-screen .card-slot.will-show .pcard { box-shadow: 0 0 0 2px #e8b84a, 0 0 12px rgba(255, 196, 70, .55); }
 @keyframes showMarkIn { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
 
-/* The moment a card is shown: it rises and fades in with a gold glow. translate/scale, not
-   transform, so the fanned cards keep their tilt. */
-.table-screen .card-slot.fade-up { animation: showCardFadeUp .7s cubic-bezier(.2, .9, .3, 1.2) both; }
+/* Move the actual selected card onto the felt; retain its place until the next hand. */
+.table-screen .card-slot.fade-up {
+  z-index: 5;
+  translate: var(--show-x) var(--show-y);
+  animation: showCardFadeUp .65s cubic-bezier(.22,.72,.24,1) both;
+}
 @keyframes showCardFadeUp {
-  0% { opacity: .2; translate: 0 14px; scale: .92; filter: drop-shadow(0 0 0 rgba(255, 211, 106, 0)); }
-  60% { opacity: 1; translate: 0 -6px; scale: 1.04; filter: drop-shadow(0 0 14px rgba(255, 211, 106, .85)); }
-  100% { opacity: 1; translate: 0 0; scale: 1; filter: drop-shadow(0 0 0 rgba(255, 211, 106, 0)); }
+  0% { translate: 0 0; scale: 1; }
+  45% { scale: 1.08; filter: drop-shadow(0 8px 5px #0006); }
+  100% { translate: var(--show-x) var(--show-y); scale: 1; filter: drop-shadow(0 2px 2px #0005); }
 }
 .anim-off .table-screen .card-slot.fade-up,
 .table-screen.anim-off .card-slot.fade-up { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .table-screen .card-slot.fade-up { animation: none; }
+}

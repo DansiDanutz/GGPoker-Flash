@@ -524,7 +524,7 @@ body { background: #050706; }
 .fx-effect img { width: 100%; height: 100%; object-fit: contain; display: block; user-select: none; }
 
 /* Showdown reveal order and native reserved-action artwork */
-.seat .cards.showdown-reveal .pcard { animation: showdownFlip .3s cubic-bezier(.2, .85, .3, 1.05) both; animation-delay: var(--reveal-delay, 0ms); }
+.seat:not(.me) .cards.showdown-reveal .pcard { animation: showdownFlip .3s cubic-bezier(.2, .85, .3, 1.05) both; animation-delay: var(--reveal-delay, 0ms); }
 @keyframes showdownFlip { 0% { transform: rotateY(88deg) scale(.92); opacity: .35; } 100% { transform: none; opacity: 1; } }
 /* Rush Fast Fold: always available before the turn; amber confirm when a check is free. */
 .fast-fold-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 2px 0; }
@@ -604,7 +604,7 @@ body { background: #050706; }
    x0.75, name and stack text alpha .6. Plate, cards and note marker keep full opacity. */
 .seat.folded { opacity: 1; }
 .seat.folded .avatar-wrap { filter: brightness(.75); }
-.seat.folded .plate .nm, .seat.folded .plate .st { opacity: .6; }
+.seat.folded .plate .nm, .seat.folded .plate .st { opacity: 1; }
 
 /* Native nameplate (REA seat-labels / stack-status): regular weight, own name #ff8932;
    a zero balance reads All-In in bold red #fb3737. */
@@ -650,13 +650,14 @@ body { background: #050706; }
 .bbj-row em { font-style: normal; color: #ffe6a6; font-weight: 700; }
 @keyframes bbjIn { from { opacity: 0; transform: translate(-50%, -12px) scale(.9); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
 
-/* Native PlayerTakeSeat3D: 160px cell, arrow, "Take Seat" label; reserved seats show a disabled R. */
-.seat-take .take-seat { position: relative; width: 80px; height: 80px; border: 0; padding: 0; border-radius: 50%; cursor: pointer;
-  background: url('/assets/table/native-take-seat-base.png') center/100% 100% no-repeat; transition: transform .2s; }
-.seat-take .take-seat:hover { background-image: url('/assets/table/native-take-seat-glow.png'), url('/assets/table/native-take-seat-base.png'); background-size: 115% 115%, 100% 100%; }
-.seat-take .take-seat:active { transform: scale(1.05); }
-.take-seat-arrow { position: absolute; left: 50%; top: 22%; width: 16px; height: 21px; transform: translateX(-50%); background: url('/assets/table/native-take-seat-arrow.png') center/100% 100% no-repeat; }
-.take-seat-label { position: absolute; left: 0; right: 0; top: 50%; font-size: 12px; font-weight: 700; color: #fff; text-align: center; }
+/* A freestanding chair keeps the empty-seat control clear of the felt. */
+.seat-take .take-seat { position: relative; width: 80px; height: 80px; border: 0; padding: 0; cursor: pointer;
+  background: transparent; color: #e8cb81; transition: transform .2s, color .2s; }
+.seat-take .take-seat:hover { color: #fff0be; }
+.seat-take .take-seat:active { transform: scale(.96); }
+.seat-take .take-seat:focus-visible { outline: 2px solid #e8cb81; outline-offset: 2px; border-radius: 8px; }
+.take-seat-icon { position: absolute; left: 50%; top: 9px; width: 34px; height: 34px; transform: translateX(-50%); filter: drop-shadow(0 1px 2px #000); }
+.take-seat-label { position: absolute; left: 0; right: 0; top: 48px; font-size: 12px; font-weight: 700; color: #fff; text-align: center; text-shadow: 0 1px 3px #000; }
 .seat-take .take-seat.reserved { cursor: default; display: flex; align-items: center; justify-content: center; }
 .take-seat-r { font-size: 34px; font-weight: 800; color: #fff; text-shadow: 0 2px 4px rgba(0, 0, 0, .6); }
 /* Native live side-pot piles (REA live-side-pots / static-side-pots coordinates). */
