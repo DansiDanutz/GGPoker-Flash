@@ -90,7 +90,7 @@
   .table-screen:has(.stage-wide)[class] .table-stage.stage-wide .seat .avatar-wrap .face { width: 62px; height: 62px; margin: 2px; }
   .table-screen:has(.stage-wide)[class] .table-stage.stage-wide .seat.active .avatar-wrap,
   .table-screen:has(.stage-wide)[class] .table-stage.stage-wide .seat.winner .avatar-wrap { box-shadow: 0 0 0 1px var(--seat-accent),0 0 8px color-mix(in srgb,var(--seat-accent) 35%,transparent),inset 0 0 0 1px var(--seat-accent); }
-  .table-screen:has(.stage-wide)[class] .table-stage.stage-wide .seat .plate { border: 2px solid #353631; border-radius: 13px; padding: 2px 5px; background: linear-gradient(#181b19,#080a09); box-shadow: 0 0 0 1px #57574e,inset 0 0 0 1px var(--seat-accent); }
+  .table-screen:has(.stage-wide)[class] .table-stage.stage-wide .seat .plate { border: 2px solid #353631; border-radius: 13px; padding: 2px 5px; background: #101210 linear-gradient(#181b19,#080a09); box-shadow: 0 0 0 1px #57574e,inset 0 0 0 1px var(--seat-accent); }
   .table-screen:has(.stage-wide)[class] .table-stage.stage-wide .seat .plate::before { display: none; }
   .table-screen:has(.stage-wide)[class] .table-stage.stage-wide .seat .plate .nm { border-bottom: 1px solid color-mix(in srgb,var(--seat-accent) 65%,transparent); padding: 2px 0; line-height: 16px; }
   .table-screen:has(.stage-wide)[class] .table-stage.stage-wide .seat .plate .st { line-height: 20px; font-size: 14px; }
@@ -147,3 +147,18 @@
 /* The old responsive seat transform must not compound desktop scaling. */
 .table-screen[class] .table-stage.stage-wide .seat,
 .table-screen[class] .table-stage.stage-wide .seat:hover { transform: translate(-50%, -50%); }
+
+.table-screen:has(.stage-wide)[class] :is(.table-topbar,.action-bar) { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+.table-screen .stage-wide .seat:has(> .action-badge.away) > .action-badge:not(.away) { display: none; }
+
+/* Tournament status uses the header margin rather than covering the felt. */
+.table-screen:has(.stage-wide)[class] .tt-hud { display: block; left: 12px; top: 44px; width: min(520px,calc(100% - 100px)); border: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+.table-screen:has(.stage-wide)[class] .tt-hud-top { display: none; }
+.table-screen:has(.stage-wide)[class] .tt-hud-grid { grid-template-columns: repeat(5,minmax(0,1fr)); background: transparent; gap: 4px; }
+.table-screen:has(.stage-wide)[class] .tt-hud-grid > div { display: block; padding: 2px; background: transparent; }
+.table-screen:has(.stage-wide)[class] .tt-hud-grid :is(span,b) { display: block; font-size: 11px; line-height: 14px; }
+@media (max-width: 500px) {
+  .table-screen:has(.stage-wide)[class] .tt-hud-grid { display: flex; overflow-x: auto; }
+  .table-screen:has(.stage-wide)[class] .tt-hud-grid > div { flex: 0 0 76px; }
+}

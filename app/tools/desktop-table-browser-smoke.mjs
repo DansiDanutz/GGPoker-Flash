@@ -46,6 +46,8 @@ try {
   page.on('pageerror',e=>errors.push(e.message));
   await page.setViewport({width:1200,height:800,isMobile:false,hasTouch:false});
   await page.evaluateOnNewDocument(token=>{
+    // Headless Linux has no pointer; model the native shell explicitly.
+    window.ggDesktop = {};
     localStorage.setItem('openpoker.revealAnimation','0'); sessionStorage.setItem('ggpoker.entered','1'); localStorage.setItem('ggpoker.token',token); localStorage.setItem('ggpoker.welcomeSeen','1'); localStorage.setItem('ggpoker.sound','0');
     const Native=window.WebSocket;
     window.WebSocket=class extends Native {

@@ -48,7 +48,8 @@ try {
   const page=await browser.newPage(); const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.setViewport(desktop ? {width:1200,height:800,isMobile:false,hasTouch:false} : {width:390,height:844,isMobile:true,hasTouch:true});
-  await page.evaluateOnNewDocument(token=>{
+  await page.evaluateOnNewDocument((token, desktop)=>{
+    if (desktop) window.ggDesktop = {};
     localStorage.setItem('openpoker.revealAnimation','0'); sessionStorage.setItem('ggpoker.entered','1'); localStorage.setItem('ggpoker.token',token); localStorage.setItem('ggpoker.welcomeSeen','1'); localStorage.setItem('ggpoker.sound','0');
     const Native=window.WebSocket;
     window.WebSocket=class extends Native {
@@ -59,7 +60,7 @@ try {
         super.onmessage=event=>{if(!window.fixtureActive)handler.call(this,event);};
       }
     };
-  },account.token);
+  },account.token,desktop);
   await page.goto(sandbox.url+'/#/table/'+encodeURIComponent(table.id)+'?observe=1');
   await page.waitForFunction(()=>typeof window.injectTable==='function');
   await page.waitForSelector('.ls-content:not([inert])');
