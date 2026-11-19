@@ -12,21 +12,25 @@ export const FOLD_WIN_MS = 3100;
 // the usual showdown clear (checked in run-it-pacing.test.js).
 const RUN_START_MS = 600;
 const RUN_STEP_MS = 1000;
-const RUN_GAP_MS = 1000;
+const RUN_GAP_MS = 2000;
 const RUN_RESULT_PAUSE_MS = 1200;
 const RUN_RESULT_STEP_MS = 1600;
 const RUN_RESULT_HOLD_MS = 1200;
+const RUN_RESULT_EXTRA_MS = 5000;
+const RUN_TURN_EXTRA_MS = 1000;
+const RUN_RIVER_EXTRA_MS = 2000;
 
 /** When each board's winner is named, from the win event, for `runs` boards sharing `shared` cards. */
 export function runResultAt(runs, shared) {
   if (runs <= 1) return [];
   const steps = shared === 0 ? 3 : Math.max(0, 5 - shared);
-  const lastCard = RUN_START_MS + (runs - 1) * (steps * RUN_STEP_MS + RUN_GAP_MS) + Math.max(0, steps - 1) * RUN_STEP_MS;
-  return Array.from({ length: runs }, (_, b) => lastCard + RUN_RESULT_PAUSE_MS + b * RUN_RESULT_STEP_MS);
+  const extra = (shared <= 3 ? RUN_TURN_EXTRA_MS : 0) + (shared <= 4 ? RUN_RIVER_EXTRA_MS : 0);
+  const lastCard = RUN_START_MS + (runs - 1) * (steps * RUN_STEP_MS + RUN_GAP_MS + extra) + Math.max(0, steps - 1) * RUN_STEP_MS + extra;
+  return Array.from({ length: runs }, (_, b) => lastCard + RUN_RESULT_PAUSE_MS + b * RUN_RESULT_STEP_MS + Math.round(b * RUN_RESULT_EXTRA_MS / runs));
 }
 
 /** How long the client needs to show `runs` boards that share `shared` cards and their winners. */
 export function runPresentationMs(runs, shared) {
   const at = runResultAt(runs, shared);
-  return at.length ? at[at.length - 1] + RUN_RESULT_HOLD_MS : 0;
+  return at.length ? at[at.length - 1] + RUN_RESULT_HOLD_MS + RUN_RESULT_EXTRA_MS - Math.round((runs - 1) * RUN_RESULT_EXTRA_MS / runs) : 0;
 }

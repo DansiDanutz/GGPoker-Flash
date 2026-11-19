@@ -197,14 +197,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       // Every fresh app open goes to the login screen. The saved credentials
-      // stay on the device, but the old session does not survive the reopen.
+      // stay on the device; this tab must explicitly enter before restoring them.
       if (!enteredThisSession()) {
-        // The public catalog can be opened in a separate tab. It must not erase
-        // the shared token used by an administrator working in the original tab.
-        if (currentRoute().split('?')[0] !== '/marketplace') {
-          setToken(null);
-          localStorage.removeItem('ggpoker.guest');
-        }
+        // A fresh tab shows login without deleting another tab's active session.
         setGuest(false);
         setUser(null);
         setLoading(false);

@@ -10,7 +10,7 @@ const css = () => read('src/table-confirm.css');
 
 test('the confirm bar is a named row with its own text and buttons, not inline styles', () => {
   const page = read('src/pages/TablePage.tsx');
-  assert.match(page, /<div className="action-row confirm-row" role="alertdialog" aria-label="Confirm bet">/);
+  assert.match(page, /className=\{.*action-row confirm-row.*confirm-allin.*\} role="alertdialog" aria-label="Confirm bet"/);
   assert.match(page, /<span className="confirm-text">/);
   assert.match(page, /className="btn confirm-cancel"/);
   assert.match(page, /className="btn confirm-skip"/);

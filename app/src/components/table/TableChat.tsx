@@ -1,4 +1,4 @@
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   CHAT_MAX_CHARS, chatCounter, chatLineClass, linesForView, senderRole,
   type ChatLine, type ChatView, type ReactionId, type SenderRole,
@@ -11,6 +11,8 @@ type Props = {
   selfId: number | null;
   /** Observers read chat but cannot write (DanGG default until capture C0). */
   readOnly: boolean;
+  bettingActive: boolean;
+  onBetPresets: () => void;
   onSend: (text: string) => void;
   onReact: (id: ReactionId) => void;
   onMute: (line: ChatLine) => void;
@@ -51,12 +53,17 @@ function ChatLogLine({ line, role, active, onToggle, onMute, onReport }: LinePro
 }
 
 /** Docked table chat: collapsed button with unread badge, 300 px panel, reaction picker. */
-export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSend, onReact, onMute, onReport }: Props) {
+export const TableChat = memo(function TableChat({ store, selfId, readOnly, bettingActive, onBetPresets, onSend, onReact, onMute, onReport }: Props) {
   const { lines, unread, open } = useTableChat(store);
   const [draft, setDraft] = useState('');
+  const [keepExtended, setKeepExtended] = useState(() => localStorage.getItem('openpoker.keepTableToolsExtended') === '1');
   const [toolsOpen, setToolsOpen] = useState(false);
+  const expanded = toolsOpen || keepExtended;
   const swipeStart = useRef<{x:number;y:number} | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  useEffect(() => {
+    if (bettingActive) { setPickerOpen(false); store.close(); }
+  }, [bettingActive, store]);
   const [activeLine, setActiveLine] = useState<string | null>(null);
   // Panel-local so switching never re-renders the table. All shows bets and winnings with the chat.
   const [view, setView] = useState<ChatView>('all');
@@ -77,6 +84,7 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
 
   const closePicker = useCallback(() => setPickerOpen(false), []);
   const setDrawerOpen = (next: boolean) => {
+    if (!next && keepExtended) return;
     setToolsOpen(next);
     if (!next) { setPickerOpen(false); store.close(); }
   };
@@ -95,9 +103,9 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
   const unreadLabel = unread > 99 ? '99+' : String(unread);
 
   return (
-    <div className={`tchat-dock${open ? ' open' : ''}${toolsOpen ? ' tools-open' : ''}`}>
-      <button type="button" className="tchat-swipe-handle" aria-label="Chat and emoticons menu"
-        aria-expanded={toolsOpen} onClick={e => { if (e.detail === 0) setDrawerOpen(!toolsOpen); }}
+    <div className={`tchat-dock${open ? ' open' : ''}${expanded ? ' tools-open' : ''}${keepExtended ? ' tools-pinned' : ''}${bettingActive ? ' betting-active' : ''}`}>
+      <button type="button" className="tchat-swipe-handle" aria-label="Table tools menu"
+        aria-expanded={expanded} onClick={e => { if (e.detail === 0) setDrawerOpen(!expanded); }}
         onPointerDown={e => { swipeStart.current = {x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId); }}
         onPointerCancel={() => {swipeStart.current=null;}}
         onPointerUp={e => {
@@ -109,10 +117,14 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
           if (Math.abs(dy) > 35 && dx < 60) {
             setDrawerOpen(dy > 0);
             e.preventDefault();
-          } else if (Math.abs(dy) < 15 && dx < 15) setDrawerOpen(!toolsOpen);
+          } else if (Math.abs(dy) < 15 && dx < 15) setDrawerOpen(!expanded);
         }}>
-        <span className="tchat-grip" aria-hidden="true" /><span>Chat &amp; emoticons</span><span aria-hidden="true">{toolsOpen ? '⌄' : '⌃'}</span>
+        <span className="tchat-grip" aria-hidden="true" /><span>Table tools</span><span aria-hidden="true">{expanded ? '⌄' : '⌃'}</span>
       </button>
+      {expanded && <button type="button" className="tchat-keep" aria-pressed={keepExtended}
+        onClick={() => { const next = !keepExtended; setKeepExtended(next); setToolsOpen(true); try { localStorage.setItem('openpoker.keepTableToolsExtended', String(Number(next))); } catch { /* Keep the choice for this session. */ } }}>
+        {keepExtended ? '✓ Keep extended' : 'Keep extended'}
+      </button>}
       {open && (
         <section className="tchat-panel" aria-label="Table chat">
           <header className="tchat-head">
@@ -150,6 +162,13 @@ export const TableChat = memo(function TableChat({ store, selfId, readOnly, onSe
         </section>
       )}
       <div className="tchat-buttons">
+        <button type="button" className="tchat-toggle" aria-label="Bet presets" data-tip="Bet presets"
+          onClick={() => { setDrawerOpen(false); onBetPresets(); }}>
+          <svg className="tchat-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 6h16M4 12h16M4 18h16" /><circle cx="9" cy="6" r="2" /><circle cx="15" cy="12" r="2" /><circle cx="9" cy="18" r="2" />
+          </svg>
+          <span className="tchat-tool-label">Bet presets</span>
+        </button>
         <button type="button" className="tchat-toggle" aria-expanded={open} data-tip="Chat"
           aria-label={unread ? `Chat, ${unread} unread` : 'Chat'}
           onClick={open ? store.close : store.open}>

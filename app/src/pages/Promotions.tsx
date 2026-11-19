@@ -482,7 +482,6 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
                 <select className="admin-select" value={stackMode} onChange={(e) => { const v = e.target.value as StackMode; setStackMode(v); persist('ggpoker.stackMode', v); }}>
                   <option value="chips">Chips</option>
                   <option value="bb">Big blinds</option>
-                  <option value="both">Both</option>
                 </select>
               </div>
             </div>

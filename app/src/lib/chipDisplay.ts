@@ -1,7 +1,7 @@
 // Chips / big-blind display. Only the label changes: every amount sent to the server stays in
 // chips (cents for cash games), so switching the display never changes what is bet.
 
-export type AmountMode = 'chips' | 'bb' | 'both';
+export type AmountMode = 'chips' | 'bb';
 
 /** `12.5 BB`-style label; one decimal, like the stack display has always shown. */
 export function bbLabel(raw: number, bb: number): string {
@@ -9,7 +9,7 @@ export function bbLabel(raw: number, bb: number): string {
 }
 
 /**
- * Label for any table amount (stack, bet, pot, bet button). Tournaments and tables without a
+ * Label for any table amount (stack, bet, pot, bet button). Tables without a
  * big blind always show chips; `formatChips` is the table's normal chip formatter.
  */
 export function amountLabel(
@@ -18,9 +18,8 @@ export function amountLabel(
 ): string {
   const value = Number(raw) || 0;
   const chips = opts.formatChips(value);
-  if (opts.tournament || !(opts.bb > 0)) return chips;
+  if (!(opts.bb > 0)) return chips;
   if (opts.mode === 'bb') return bbLabel(value, opts.bb);
-  if (opts.mode === 'both') return `${chips} · ${bbLabel(value, opts.bb)}`;
   return chips;
 }
 

@@ -7,7 +7,7 @@ import { activeReservations, reserve, withoutPlayer } from './seatReserve.js';
 import { RESERVATION_KINDS, applyBigBlindSitOuts } from './reservations.js';
 import { TB_CARD_SECONDS, TB_START_CARDS, canSpendCard, refillAfterHand } from './timeBankCards.js';
 import {
-  makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity,
+  makeDeck, shuffle, cardStr, bestHoldem, bestOmaha, compareScores, estimateEquity, allInEquity,
 } from './poker.js';
 import { randomInt } from 'node:crypto';
 import { FOLD_WIN_BOT_MS, FOLD_WIN_MS, SHOWDOWN_CLEAR_MS, runPresentationMs } from './handPacing.js';
@@ -28,7 +28,7 @@ const BOT_NAMES = [
 // until they press "I'm back".
 const MAX_MISSED_TURNS = 1;
 // A cash-table player who busts gets this long to reload before the next deal.
-const REBUY_WINDOW_MS = 10_000;
+const REBUY_WINDOW_MS = 30_000;
 const BETTING_STREETS = Object.freeze(['preflop', 'flop', 'turn', 'river']);
 const OMAHA_EQUITY_ITERATIONS = 60;
 
@@ -71,6 +71,7 @@ export class PokerTable {
     this.history = [];
     this.log = [];
     this.result = null;
+    this.allInEquity = null;
     this.handId = null;
     this.actionTimeMs = (parseActionSeconds(cfg.action_seconds) || ACTION_SECONDS.default) * 1000;
     this.handStartStack = {};
@@ -601,7 +602,6 @@ export class PokerTable {
     this.bountyPots = [];
     this.bountyAwards = new Map();
     this.handReturns = new Map();
-    this.markMissedBlinds();
     this.deck = shuffle(makeDeck(this.shortDeck));
     this.board = [];
     this.pot = 0;
@@ -610,6 +610,7 @@ export class PokerTable {
     this.betLevels = [];
     this.lastAggressor = null;
     this.result = null;
+    this.allInEquity = null;
     this.showdown = false;
     this.boards = [];
     this.runRound = null;
@@ -692,6 +693,7 @@ export class PokerTable {
     // the full blinds were in (TDA 2026 rule 56); the pot that is paid out never does.
     this.blindShortfall = this.postBlind(sbSeat, this.sb, 'SB') + this.postBlind(bbSeat, this.bb, 'BB');
     this.sbSeat = sbSeat ? sbSeat.index : -1;
+    this.markMissedBlinds(this.bbSeat, bbSeat ? bbSeat.index : -1);
     this.bbSeat = bbSeat ? bbSeat.index : -1;
     this.postMissedBlinds(inHand, sbSeat, bbSeat);
     this.currentBet = this.bb;
@@ -800,11 +802,14 @@ export class PokerTable {
     return !this.tournament && !this.spin && !this.elimination && !this.aof;
   }
 
-  // A seat sitting out while a hand is dealt owes a big blind when it comes back.
-  markMissedBlinds() {
-    if (!this.owesSitInBlind()) return;
-    for (const s of this.seats) {
-      if (s.player && s.player.sittingOut && s.player.stack > 0) s.player.missedBlinds = true;
+  // Debt starts only when the big blind passes an absent seat, not on every missed hand.
+  markMissedBlinds(previousBB, nextBB) {
+    if (!this.owesSitInBlind() || previousBB < 0 || nextBB < 0) return;
+    for (let step = 1; step <= this.seats.length; step++) {
+      const index = (previousBB + step) % this.seats.length;
+      const p = this.seats[index].player;
+      if (p && p.sittingOut && p.stack > 0) p.missedBlinds = true;
+      if (index === nextBB) break;
     }
   }
 
@@ -1357,6 +1362,19 @@ export class PokerTable {
     this.collectBets();
     this.street = 'showdown';
     this.actor = null;
+    const alive = this.activePlayers().filter((s) => !s.player.folded);
+    // Once betting is locked by all-ins, every contender's hand is public before odds or cards to come.
+    for (const s of alive) s.player.reveal = true;
+    const contributions = [
+      ...this.seats.filter((s) => s.player?.inHand && s.player.totalBet > 0)
+        .map((s) => ({ key: s.player.id, amount: s.player.totalBet, folded: !!s.player.folded })),
+      ...this.ghosts.filter((g) => g.totalBet > 0).map((g) => ({ key: g, amount: g.totalBet, folded: true })),
+    ];
+    const pots = buildPots(contributions).pots;
+    const equity = allInEquity(alive.map((s) => ({ id: s.player.id, seat: s.index, cards: s.player.cards })), this.board, {
+      shortDeck: this.shortDeck, omaha: this.omaha, pots,
+    });
+    this.allInEquity = equity && { handNo: this.handNo, board: this.board.map(cardStr), ...equity };
     if (this.openRunRound()) return;
     this.runBoards(1);
   }
@@ -1685,15 +1703,15 @@ export class PokerTable {
       winners: results.filter(result => result.potIndex === potIndex),
     }));
     this.bountyAwards = new Map();
-    // Winners show at showdown; losing hands muck unless the player turned
-    // auto-muck off.
+    // A checked-through river tables every live hand; betting showdowns retain auto-muck.
+    const checkedRiver = this.street === 'river' && this.lastAggressor == null;
     const winnerIds = new Set(results.map((r) => r.id));
     const showFirst = this.showdownFirstSeat(scored.map((sc) => sc.seat));
     for (const sc of scored) {
       const p = sc.player;
       // The first seat to show (a called last aggressor, or on a check-down the first live seat
       // left of the button) must table the hand: nobody has shown yet, so it cannot muck.
-      if (winnerIds.has(p.id) || !p.autoMuck || p.id === this.lastAggressor || sc.seat === showFirst) p.reveal = true;
+      if (checkedRiver || winnerIds.has(p.id) || !p.autoMuck || p.id === this.lastAggressor || sc.seat === showFirst) p.reveal = true;
     }
     const summary = {
       pot: this.pot,
@@ -2125,6 +2143,7 @@ export class PokerTable {
       now,
       botActAt: this.botActAt,
       result: this.result,
+      allInEquity: this.allInEquity,
       players: this.seats.map((s) => {
         if (!s.player) {
           const r = this.reservations.get(s.index);

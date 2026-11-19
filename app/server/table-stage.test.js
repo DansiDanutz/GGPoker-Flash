@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { RAIL_RATIO, stageMode, stageBox, seatLayout, SKIN_RAIL, inward, PORTRAIT_ACTION_BAR } from '../src/game/tableStage.ts';
+import { EMERALD_RAIL_RATIO, RAIL_RATIO, stageMode, stageBox, seatLayout, SKIN_RAIL, inward, PORTRAIT_ACTION_BAR } from '../src/game/tableStage.ts';
 
 const root = path.resolve(import.meta.dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
@@ -41,7 +41,7 @@ for (const [w, h] of [[1440, 900], [1920, 1080], [1280, 720], [2560, 1440]]) {
 test('portrait phone 390x844: the oval fills the width and runs from the top bar into the bottom button row', () => {
   const box = stageBox({ width: 390, height: 844, topBar: 44, actionBar: 170 });
   assert.deepEqual([box.left, box.width], [0, 390], 'edge to edge: the oval art carries its own rail at its sides');
-  assert.ok(box.top >= 44 && box.top <= 60, 'starts right under the top bar');
+  assert.ok(box.top >= 44 + 40 && box.top <= 100, 'reserves a notice strip below the top bar');
   const bottom = box.top + box.height;
   assert.ok(bottom > 844 - PORTRAIT_ACTION_BAR && bottom <= 844, 'runs into the bottom button row');
 });
@@ -165,4 +165,34 @@ test('folded seats look out of the hand: dimmed and greyed, never highlighted', 
   assert.match(rule[1], /opacity:\s*\.5/);
   assert.match(rule[1], /grayscale/);
   assert.match(css, /\.table-screen \.seat\.folded \.seat-ring[^{]*\{[^}]*display:\s*none/);
+});
+
+test('phone blind markers stay on the painted line for every seat layout', async () => {
+  const { phoneBlindSpot } = await import('../src/game/tableStage.ts');
+  assert.deepEqual(phoneBlindSpot([50, 0], { width: 400, height: 720 }), [50, 78 / 7.2]);
+  assert.deepEqual(phoneBlindSpot([50, 100], { width: 400, height: 720 }), [50, 640 / 7.2]);
+  for (const width of [320, 384, 430]) for (const count of [2, 3, 4, 5, 6, 7, 8, 9]) {
+    const positions = seatLayout(count, 'portrait').map(p => phoneBlindSpot(p, { width, height: width * 1.7 }));
+    assert.equal(new Set(positions.map(p => p.join(','))).size, count);
+    for (const [x, y] of positions) { assert.ok(x >= 16 && x <= 84); assert.ok(y >= 10 && y <= 89); }
+  }
+});
+
+ test('Emerald Royale preserves its cushion ratio without changing portrait or other skins', () => {
+  for (const [width,height] of [[900,640],[1200,961],[1440,900]]) {
+    const box=stageBox({width,height,topBar:44,actionBar:110,wideRatio:EMERALD_RAIL_RATIO});
+    assert.ok(Math.abs(box.width/box.height-1372/614)<0.015);
+    fits(box,{width,height},44,110);
+  }
+  const phone={width:390,height:844,topBar:44,actionBar:110};
+  assert.deepEqual(stageBox(phone),stageBox({...phone,wideRatio:EMERALD_RAIL_RATIO}));
+});
+
+test('desktop resizing never selects the legacy portrait rail', () => {
+  for (const width of [360,600,760,761,900,1200]) {
+    assert.equal(stageMode(width,900,true),'wide');
+    const box=stageBox({width,height:900,topBar:44,actionBar:150,wideRatio:EMERALD_RAIL_RATIO,desktop:true});
+    assert.ok(Math.abs(box.width/box.height-EMERALD_RAIL_RATIO)<0.03);
+  }
+  assert.equal(stageMode(390,844),'portrait');
 });

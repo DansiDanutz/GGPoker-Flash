@@ -20,7 +20,7 @@ test('the GG phone layout loads after every other phone rule', () => {
 });
 
 test('one slim row of buttons along the bottom', () => {
-  assert.match(css(), /--phone-bar-h: 64px/);
+  assert.match(css(), /--phone-bar-h: 84px/);
   assert.match(css(), /grid-template-areas: "fold call raise"/);
 });
 
@@ -29,7 +29,7 @@ test('raise presets stack in a column on the right, above the raise button', () 
 });
 
 test('pre-actions are one row of dark buttons in the same place as the action buttons', () => {
-  assert.match(css(), /\.action-bar \.reserved-actions \{[^}]*height: 52px/);
+  assert.match(css(), /\.action-bar \.reserved-actions \{[^}]*height: 44px/);
 });
 
 test('hero: smaller cards over the portrait, and the hand strength as a pill under the board', () => {
@@ -126,8 +126,9 @@ test('chat and reactions share a slim horizontal row', () => {
   assert.match(css(), /\.table-screen \.tchat-buttons \{ flex-direction: row;/);
 });
 
-test('the chat corner always clears the bottom bar, even the taller sitting-out panel', () => {
-  assert.match(css(), /\.tchat-dock \{[^}]*bottom: calc\(max\(var\(--phone-bar-h\), var\(--action-bar-h, 0px\)\) \+ 8px\)/);
+test('closed chat stays at the bottom edge with space reserved beneath actions', () => {
+  assert.match(css(), /\.tchat-dock \{[^}]*bottom: 0/);
+  assert.match(css(), /padding: 0 0 max\(26px, env\(safe-area-inset-bottom, 0px\)\)/);
 });
 
 test('the chat and reaction toggles match the charcoal buttons instead of gold chips', () => {

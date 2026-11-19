@@ -169,6 +169,7 @@ export function createSqueezePanel(
   onClose: (error?: Error) => void,
   playCues: (names: string[]) => void = () => {},
   enable3D = false,
+  hand?: () => HTMLElement | null,
 ) {
   const panel = document.createElement('section');
   const canvas = document.createElement('canvas');
@@ -191,10 +192,11 @@ export function createSqueezePanel(
   panel.append(felt, canvas, button);
   parent.append(panel);
 
+  let returnCleanup: (() => void) | undefined;
+  let finishing = false;
   let disposed = false;
   let motion: ReturnType<typeof createSqueezeMotion> | null = null;
   let releaseRenderer: (() => void) | undefined;
-  let timer = 0;
   let start: { x: number; y: number } | null = null;
   let current = { x: 0, y: 0 };
   let pressed = false;
@@ -202,16 +204,23 @@ export function createSqueezePanel(
 
   const dispose = () => {
     disposed = true;
-    window.clearTimeout(timer);
     motion?.dispose();
+    returnCleanup?.();
     releaseRenderer?.();
     panel.remove();
   };
   function finish() {
-    if (disposed) return;
-    panel.classList.add('squeezeClosing');
+    if (disposed || finishing) return;
+    finishing = true;
+    button.hidden = true;
     button.disabled = true;
-    timer = window.setTimeout(() => { dispose(); onClose(); }, 300);
+    motion?.dispose();
+    const target = hand?.();
+    if (target && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      panel.dataset.phase = 'returning';
+      panel.style.pointerEvents = 'none';
+      returnCleanup = returnSqueezeCards(canvas, parent, target, () => { if (!disposed) { dispose(); onClose(); } });
+    } else { dispose(); onClose(); }
   }
 
   loadSqueeze(cards.length).then(async ({ data, images }) => {
@@ -301,5 +310,86 @@ export function createSqueezePanel(
     if (!disposed) { dispose(); onClose(error); }
   });
 
+  return dispose;
+}
+
+/** Dissolve the rendered cards into fragments and assemble the seated hand. */
+export function returnSqueezeCards(source: HTMLCanvasElement, host: HTMLElement, hand: HTMLElement, done: () => void) {
+  const overlay = document.createElement('canvas');
+  overlay.className = 'squeeze-particles';
+  overlay.setAttribute('aria-hidden', 'true');
+  const bounds = host.getBoundingClientRect();
+  const from = source.getBoundingClientRect();
+  const pixelRatio = Math.min(devicePixelRatio, 2);
+  overlay.width = Math.ceil(bounds.width * pixelRatio);
+  overlay.height = Math.ceil(bounds.height * pixelRatio);
+  Object.assign(overlay.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none' });
+  const ctx = overlay.getContext('2d');
+  const input = source.getContext('2d');
+  const targets = [...hand.querySelectorAll<HTMLElement>('.card-slot')];
+  if (!ctx || !input || !targets.length) { done(); return () => {}; }
+  const pixels = input.getImageData(0, 0, source.width, source.height).data;
+  const fragments: { x: number; y: number; color: string }[] = [];
+  const step = 10;
+  for (let y = 0; y < source.height; y += step) for (let x = 0; x < source.width; x += step) {
+    const offset = (y * source.width + x) * 4;
+    if (pixels[offset + 3] > 100) fragments.push({ x, y, color: `rgb(${pixels[offset]},${pixels[offset + 1]},${pixels[offset + 2]})` });
+  }
+  if (!fragments.length) { done(); return () => {}; }
+  const left = Math.min(...fragments.map(p => p.x)), right = Math.max(...fragments.map(p => p.x)) + step;
+  const top = Math.min(...fragments.map(p => p.y)), bottom = Math.max(...fragments.map(p => p.y)) + step;
+  // Cache geometry before drawing: no layout reads or trigonometry per fragment per frame.
+  const rects = targets.map(n => n.getBoundingClientRect());
+  const paths = fragments.map((particle, index) => {
+    const unit = (particle.x - left) / (right - left) * targets.length;
+    const target = rects[Math.min(targets.length - 1, Math.floor(unit))];
+    return {
+      sx: from.left - bounds.left + particle.x / source.width * from.width,
+      sy: from.top - bounds.top + particle.y / source.height * from.height,
+      tx: target.left - bounds.left + (unit % 1) * target.width,
+      ty: target.top - bounds.top + (particle.y - top) / (bottom - top) * target.height,
+      scatter: Math.sin(index * 2.4) * 16, lift: 18 + index % 18, color: particle.color,
+    };
+  });
+  const previousVisibility = hand.style.visibility, previousOpacity = hand.style.opacity;
+  const sourceOpacity = source.style.opacity;
+  host.append(overlay);
+  ctx.scale(pixelRatio, pixelRatio);
+  let raf = 0, stopped = false;
+  const start = performance.now();
+  const dispose = () => {
+    stopped = true; cancelAnimationFrame(raf); overlay.remove();
+    source.style.opacity = sourceOpacity;
+    hand.style.visibility = previousVisibility; hand.style.opacity = previousOpacity;
+  };
+  const frame = (now: number) => {
+    if (stopped) return;
+    if (!hand.isConnected || !source.isConnected) { dispose(); done(); return; }
+    const elapsed = now - start;
+    const progress = Math.min(1, elapsed / 850);
+    overlay.dataset.progress = progress.toFixed(3);
+    ctx.clearRect(0, 0, bounds.width, bounds.height);
+    source.style.opacity = String(Math.max(0, 1 - progress / .18));
+    const travel = Math.max(0, Math.min(1, (progress - .08) / .72));
+    const eased = travel ** 3 * (travel * (travel * 6 - 15) + 10);
+    // Travel ends at 680 ms; hold the arrived particles for 150 ms before revealing.
+    const assembled = Math.max(0, Math.min(1, (elapsed - 830) / 160));
+    hand.style.visibility = 'visible'; hand.style.opacity = String(assembled);
+    const arc = Math.sin(Math.PI * travel);
+    const size = step / source.width * from.width * (1 - .7 * eased);
+    ctx.globalAlpha = Math.min(1, progress / .16) * (1 - assembled);
+    for (const particle of paths) {
+      const x = particle.sx + (particle.tx - particle.sx) * eased + particle.scatter * arc;
+      const y = particle.sy + (particle.ty - particle.sy) * eased - particle.lift * arc;
+      ctx.fillStyle = particle.color; ctx.fillRect(x, y, size, size);
+    }
+    if (assembled < 1) raf = requestAnimationFrame(frame);
+    else {
+      // React closes the squeeze on the next commit; do not hide the assembled hand in between.
+      hand.classList.remove('squeeze-target-hidden');
+      dispose(); done();
+    }
+  };
+  raf = requestAnimationFrame(frame);
   return dispose;
 }

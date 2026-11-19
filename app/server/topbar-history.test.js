@@ -8,12 +8,12 @@ import { dockItems } from '../src/game/tableArt.ts';
 const root = path.resolve(import.meta.dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 
-test('Hand history is a top-bar button right after Sound, not a seat-dock icon', () => {
+test('Hand history is a top-bar button after Settings, not a seat-dock icon', () => {
   const page = read('src/pages/TablePage.tsx');
   const sound = page.indexOf('className="table-sound-btn"');
   const hist = page.indexOf('className="table-history-btn"');
   assert.ok(sound > 0 && hist > sound, 'history follows sound');
-  assert.ok(hist < page.indexOf('className="table-gear"'), 'and comes before the gear');
+  assert.ok(hist > page.indexOf('className="table-gear"'), 'history follows Settings');
   assert.match(page, /className="table-history-btn" aria-label="Hand history" data-tip="Hand history" onClick=\{\(\) => navigate\('\/hand-history'\)\}><img src="\/assets\/table\/ui\/ic-history\.webp" alt="" \/><\/button>/);
   assert.ok(!dockItems({ seated: true, cash: true, straddleAllowed: true }).some((i) => i.key === 'history'));
   const css = read('src/table-topbar-history.css');

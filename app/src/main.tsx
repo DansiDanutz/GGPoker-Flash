@@ -49,6 +49,9 @@ import './table-phone-win.css';
 import './table-phone-seat.css';
 import './table-phone-layout.css';
 import './table-multiboard.css';
+import './phone-landscape.css';
+import './table-desktop.css';
+import './table-emerald-assets.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>

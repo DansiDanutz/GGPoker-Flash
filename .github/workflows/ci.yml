@@ -102,6 +102,14 @@ jobs:
           node tools/squeeze-plugin-browser-smoke.mjs
           node tools/squeeze-3d-browser-smoke.mjs
 
+      - name: Verify populated phone table controls
+        timeout-minutes: 4
+        run: node tools/table-reference-browser-smoke.mjs
+
+      - name: Verify table menu commands
+        timeout-minutes: 3
+        run: node tools/table-menu-browser-smoke.mjs
+
       - name: Upload marketplace browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -113,5 +121,7 @@ jobs:
             app/artifacts/run-it-awards/
             app/artifacts/squeeze-plugin/
             app/artifacts/squeeze-3d/
+            app/artifacts/table-reference/
+            app/artifacts/table-menu/
           if-no-files-found: ignore
           retention-days: 7

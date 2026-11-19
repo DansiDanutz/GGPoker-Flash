@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PokerTable } from './table.js';
 
-function playToShowdown() {
+function playToShowdown(betRiver = false) {
   const events = [];
   const t = new PokerTable({
     id: 'priv', name: 'Priv', game: 'holdem', sb: 50, bb: 100, seats: 2, min_buyin: 100, max_buyin: 1e6, botIterations: 8,
@@ -17,14 +17,16 @@ function playToShowdown() {
     const actor = t.actor;
     const p = t.seats.find((s) => s.player && s.player.id === actor)?.player;
     const toCall = t.currentBet - p.bet;
-    assert.equal(t.act(actor, toCall > 0 ? 'call' : 'check').ok, true);
+    assert.equal(betRiver && t.street === 'river' && t.lastAggressor == null
+      ? t.act(actor, 'raise', 100).ok
+      : t.act(actor, toCall > 0 ? 'call' : 'check').ok, true);
   }
   return { t, events };
 }
 
 test('a mucked loser\'s cards are hidden from the win event and snapshots; winners stay visible', () => {
   for (let attempt = 0; attempt < 60; attempt++) {
-    const { t, events } = playToShowdown();
+    const { t, events } = playToShowdown(true);
     const win = events.find((e) => e.type === 'win');
     const winnerSeats = new Set(win.winners.map((w) => w.seat));
     const loser = win.hands.find((h) => !winnerSeats.has(h.seat));
@@ -45,4 +47,15 @@ test('a mucked loser\'s cards are hidden from the win event and snapshots; winne
     return;
   }
   assert.fail('no showdown with a mucking loser in 60 deals');
+});
+
+
+test('river check-check reveals both live hands in the event and spectator snapshot', () => {
+  const { t, events } = playToShowdown();
+  const win = events.find(e => e.type === 'win');
+  assert.equal(win.hands.length, 2);
+  for (const hand of win.hands) assert.equal(hand.cards.length, 2);
+  const snap = t.snapshotFor(null);
+  for (const hand of snap.result.hands) assert.equal(hand.cards.length, 2);
+  for (const seat of t.seats.filter(s => s.player)) assert.equal(seat.player.reveal, true);
 });

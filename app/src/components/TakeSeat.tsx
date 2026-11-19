@@ -14,7 +14,9 @@ export function TakeSeatControl({ reserved, onTake }: { reserved: boolean; onTak
   }
   return (
     <button className="take-seat" onClick={onTake} aria-label="Take seat">
-      <i className="take-seat-arrow" aria-hidden="true" />
+      <svg className="take-seat-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+        <path d="M9 17V7a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v10M6 14v8h20v-8M6 18h20M9 22v6M23 22v6" />
+      </svg>
       <span className="take-seat-label">Take Seat</span>
     </button>
   );

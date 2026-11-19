@@ -186,3 +186,10 @@ export function focusClass(selected: number[] | undefined, index: number): strin
   if (!selected) return '';
   return selected.includes(index) ? 'focus-on' : 'focus-off';
 }
+
+/** Evaluate a run independently; aggregate winners may belong to a different board. */
+export function boardShowdownFocus(result: ShowdownResult & { byBoard?: ShowdownWinner[][] }, boards: string[][], index: number, game: string): ShowdownFocus | null {
+  const winners = result?.byBoard?.[index];
+  if (!winners || !boards[index]) return null;
+  return showdownFocus({ reason: 'showdown', winners, hands: result?.hands }, boards[index], game);
+}

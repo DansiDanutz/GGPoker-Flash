@@ -25,7 +25,6 @@
 .table-screen .board-particles i:nth-child(7) { --start-x: 32px; --start-y: -5px; }
 .table-screen .board-particles i:nth-child(8) { --start-x: 48px; --start-y: 9px; }
 .table-screen .board-particles i:nth-child(9) { --start-x: 64px; --start-y: -7px; }
-.table-screen .board-win-count { position: absolute; z-index: 14; transform: translate(-50%, 48px); padding: 3px 7px; border-radius: 9px; background: rgba(20, 12, 3, .9); border: 1px solid rgba(255, 215, 120, .7); color: #ffe3a0; font-size: 10px; font-weight: 800; white-space: nowrap; pointer-events: none; }
 @keyframes board-to-winner {
   0% { transform: translate(var(--start-x), var(--start-y)) scale(1) rotate(calc(var(--particle) * 18deg)); opacity: 1; }
   100% { transform: translate(var(--award-x), var(--award-y)) scale(.3) rotate(240deg); opacity: 0; }
@@ -35,7 +34,6 @@
   .table-screen .multi-boards { max-width: 70vw; gap: 2px; }
   .table-screen .multi-board { min-height: 51px; }
   .table-screen .multi-board .pcard.mini { width: 27px; height: 38px; }
-  .table-screen .board-win-count { transform: translate(-50%, 40px); }
 }
 @media (max-height: 500px) and (orientation: landscape) {
   .table-screen .multi-board-center { gap: 3px; }
@@ -56,8 +54,26 @@
 .table-screen .multi-boards[data-resolving="true"] .multi-board .board { animation: none; opacity: .35; transition: opacity .18s ease; }
 .table-screen .multi-boards[data-resolving="true"] .multi-board.current .board { opacity: 1; filter: drop-shadow(0 0 5px #ffdf78); }
 .table-screen .multi-board.current .multi-board-label { color: #fff; }
-.table-screen .board-win-count { box-sizing: border-box; width: max-content; max-width: 150px; white-space: normal; overflow-wrap: anywhere; text-align: center; }
-.table-screen .board-win-count.current { border-color: #fff0aa; box-shadow: 0 0 12px #e8b942; color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .table-screen .multi-boards .multi-board .board { transition: none; }
 }
+
+@media (max-width: 360px) {
+  .table-screen .table-stage.stage-portrait .multi-board .board > .pcard.mini { width: 24px; height: 34px; }
+  .table-screen .table-stage.stage-portrait .multi-board .board { gap: 2px; }
+}
+
+.table-screen .multi-board.current .multi-board-result { color: #fff1b8; animation: board-explanation .3s ease-out both; }
+@keyframes board-explanation { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .table-screen .multi-board.current .multi-board-result { animation: none; } }
+.table-screen.anim-off .multi-board.current .multi-board-result { animation: none; }
+
+/* Compact per-board outcomes stay with the player until the hand clears. */
+.table-screen .board-outcomes { position: absolute; left: calc(100% + 8px); bottom: 0; z-index: 12; display: flex; justify-content: center; gap: 3px; padding: 3px 0; pointer-events: none; }
+.table-screen .board-outcomes > span { display: inline-flex; align-items: center; gap: 2px; padding: 2px 3px; border-radius: 6px; background: #121a15; font-size: 19px; line-height: 23px; animation: board-explanation .25s ease-out both; }
+.table-screen .board-outcomes small { color: #ffe3a0; font: 700 9px system-ui; }
+@media (prefers-reduced-motion: reduce) { .table-screen .board-outcomes > span { animation: none; } }
+.table-screen.anim-off .board-outcomes > span { animation: none; }
+
+.table-screen .board-outcomes .won { background: #123e25; border: 1px solid #46d47b; color: #8affb3; }
+.table-screen .board-outcomes .lost { background: #4a171b; border: 1px solid #f36b76; color: #ff9ca5; }
