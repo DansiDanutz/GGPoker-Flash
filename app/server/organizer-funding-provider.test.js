@@ -57,7 +57,7 @@ test('disconnect or replacement during fetch fails closed before returning provi
 test('creates exact request-bound product and validates live amount/network',async()=>{
  const db=new DatabaseSync(':memory:'),calls=[];
  const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{calls.push({url,init});if(url.endsWith('/verify'))return Response.json(verification('merchant'));if(!init.body)return Response.json({items:[]});return Response.json({paymentLink:link});}}).forOrganizer('organizer-1');
- assert.equal(await provider.linkForRequest(db,row),link.id);const body=JSON.parse(calls.find(call=>call.init.body).init.body);assert.equal(body.itemName,link.itemName);assert.deepEqual(body.prices.map(value=>value.amount),['3.75','3.75']);
+ assert.equal(await provider.linkForRequest(db,row),link.id);const body=JSON.parse(calls.find(call=>call.init.body).init.body);assert.match(body.displayTitle,/^DanGG · /);assert.equal(body.itemName,link.itemName);assert.deepEqual(body.prices.map(value=>value.amount),['3.75','3.75']);
 });
 
 test('session settlement is labelled as repayment and grants no additional chips',async()=>{
@@ -75,4 +75,22 @@ test('creation recovery reuses exact live links and rejects wrong amount or netw
   const other=new DatabaseSync(':memory:');const badProvider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>url.endsWith('/verify')?Response.json(verification('merchant')):!init.body?Response.json({items:[]}):Response.json({paymentLink:bad})}).forOrganizer('organizer-1');
   await assert.rejects(()=>badProvider.linkForRequest(other,row),/valid live/);
  }
+});
+
+test('cancellation disables checkout and fails closed on existing or incomplete payment history',async()=>{
+ for(const items of [[],[{paymentLinkId:link.id,status:'pending'}],Array.from({length:100},()=>({paymentLinkId:'other'}))]){
+  const calls=[];
+  const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{calls.push({url,method:init.method});return Response.json(init.method==='PATCH'?{paymentLink:{...link,active:false}}:{items});}}).forOrganizer('organizer-1');
+  const run=()=>provider.cancelLink({...row,paymentLinkId:link.id});
+  if(items.length)await assert.rejects(run,/reconciliation/);else await run();
+  assert.equal(calls[0].method,'PATCH');assert.match(calls[1].url,/payments\?limit=100$/);
+ }
+});
+
+test('cancellation recovers saved unattached checkout and refuses unknown creation outcome',async()=>{
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE organizer_funding_provider_links(request_id TEXT,organizer_id TEXT,link_id TEXT)');
+ const calls=[];const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{calls.push(url);return Response.json(init.method==='PATCH'?{paymentLink:{...link,active:false}}:{items:[]});}}).forOrganizer('organizer-1');
+ await assert.rejects(()=>provider.cancelLink(row,db),/unresolved/);assert.equal(calls.length,0);
+ db.prepare('INSERT INTO organizer_funding_provider_links VALUES(?,?,?)').run(row.id,row.organizerId,link.id);
+ await provider.cancelLink(row,db);assert.match(calls[0],new RegExp(link.id));assert.equal(calls.length,2);
 });

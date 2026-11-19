@@ -116,6 +116,7 @@ export function createOrganizerFunding({ db, chips, now = Date.now }) {
 
   const offer = ({ userId: actorId, id, feeCents }) => transaction(db, () => {
     const row = requireRow(id); requireOrganizer(row, actorId); feeCents = integer(feeCents, 'feeCents', MAX_FEE_CENTS);
+    chips.assertSessionCreditUnlocked(row.organizer_id,row.user_id);
     if (row.state === 'offered') {
       if (row.fee_cents !== feeCents) fail('Funding terms cannot be changed.', 409, 'terms_conflict');
       return result(row);
@@ -171,5 +172,14 @@ export function createOrganizerFunding({ db, chips, now = Date.now }) {
     return result(rowById(row.id));
   }
 
-  return { create, list, get, credit, offer, attachLink, settle, reject };
+  const cancel = ({ userId: actorId, id, providerCleared = false }) => transaction(db, () => {
+    const row = requireRow(id); requireOrganizer(row, actorId);
+    if (row.state === 'rejected') return result(row);
+    if (row.state !== 'offered') fail('Only an unpaid offer can be cancelled.', 409, 'funding_state');
+    if (row.payment_link_id && !providerCleared) fail('Disable the checkout and resolve pending payments before cancellation.', 409, 'provider_confirmation_required');
+    chips.moveInTransaction({ organizerId: row.organizer_id, from: `ticket:funding:${row.id}`, to: `wallet:${row.organizer_id}`, amount: row.amount, kind: 'funding_cancel', reference: `funding:${row.id}:cancel` });
+    db.prepare("UPDATE organizer_funding_requests SET state='rejected',updated_at=? WHERE id=?").run(stamp(),row.id);
+    return result(rowById(row.id));
+  });
+  return { create, list, get, credit, offer, attachLink, settle, reject, cancel };
 }

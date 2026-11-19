@@ -54,3 +54,11 @@ test('terms, participant access, open seats and payment evidence remain strict',
  const payment={id:'44444444-4444-4444-8444-444444444444',status:'paid',test:false,customerReference:'wrong',paymentLinkId:LINK,network:'polygon',currencyToken:'USDC',amountBaseUnits:'12500000',amountReceivedBaseUnits:'12500000',transactionId:'0xwrong',paidAt:'2026-01-02',recipientWallet:'0xmerchant'};
  assert.throws(()=>f.credit.settle({userId:2,id:done.id,payment}),e=>e.code==='club_entry_payment_unverified');
 });
+
+test('active session credit blocks paid offers before reserving funds',()=>{
+ const f=fixture();f.credit.accept({userId:2,id:f.proposal.id});
+ const r=f.funding.create({userId:2,organizerId:1,amount:5000,key:'locked-offer'});
+ assert.throws(()=>f.funding.offer({userId:1,id:r.id,feeCents:100}),e=>e.code==='session_credit_locked');
+ assert.equal(f.chips.balance(1,1),90000);
+ assert.equal(f.funding.get(1,r.id).state,'requested');
+});

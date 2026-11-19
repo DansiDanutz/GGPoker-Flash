@@ -6,6 +6,7 @@ function fields(body, allowed) {
 }
 
 export function createOrganizerFundingRoutes({ db, funding, providers, mode, requireUser, readBody, json, limiter }) {
+  const pending = new Set();
   return async (req, res, url) => {
     const base = '/api/marketplace/chips/funding';
     if (url.pathname !== base && !url.pathname.startsWith(base + '/')) return false;
@@ -23,14 +24,24 @@ export function createOrganizerFundingRoutes({ db, funding, providers, mode, req
       const body = fields(await readBody(req), ['organizerId', 'amount', 'key']);
       json(res, 200, funding.create({ ...body, userId: user.id })); return true;
     }
-    const match = url.pathname.slice(base.length).match(/^\/([^/]+)\/(credit|offer|reject|verify)$/);
+    const match = url.pathname.slice(base.length).match(/^\/([^/]+)\/(credit|offer|reject|verify|cancel)$/);
     if (!match) fail('Request not found.', 404);
     let id;
     try { id = decodeURIComponent(match[1]); } catch { fail('Invalid request identifier.'); }
     const action = match[2];
+    if (pending.has(id)) fail('This funding request is being updated. Retry shortly.',409);
+    pending.add(id);
+    try {
     const row = funding.get(user.id, id);
     if (!row) fail('Request not found.', 404);
     const body = fields(await readBody(req), action === 'offer' ? ['feeCents'] : action === 'verify' ? ['paymentId'] : []);
+    if (action === 'cancel') {
+      if (row.organizerId !== user.id) fail('Only the owning organizer may cancel.',403);
+      if (row.state === 'rejected') { json(res,200,funding.cancel({userId:user.id,id})); return true; }
+      if (row.state !== 'offered') fail('Only unpaid offers can be cancelled.',409);
+      await providers.forOrganizer(row.organizerId).cancelLink(row, db);
+      json(res,200,funding.cancel({userId:user.id,id,providerCleared:true})); return true;
+    }
     if (action === 'credit' || action === 'reject') {
       json(res, 200, funding[action]({ userId: user.id, id })); return true;
     }
@@ -46,5 +57,6 @@ export function createOrganizerFundingRoutes({ db, funding, providers, mode, req
       json(res, 200, funding.settle({ userId: user.id, id, payment }));
     }
     return true;
+    } finally { pending.delete(id); }
   };
 }

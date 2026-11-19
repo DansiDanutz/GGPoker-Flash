@@ -45,6 +45,7 @@ export function createOrganizerSessionCredit({db,chips,funding,now=Date.now}){
  const get=(userId,id)=>view(owned(userId,id));
  const decline=({userId,id})=>transaction(db,()=>{const r=owned(userId,id);if(r.state==='declined')return view(r);if(r.state!=='proposed')fail('Only a proposal can be declined.',409,'session_credit_state');db.prepare("UPDATE organizer_session_credits SET state='declined',updated_at=? WHERE id=?").run(stamp(),r.id);return view(raw(r.id));});
  const accept=({userId,id})=>transaction(db,()=>{const r=owned(userId,id);if(r.user_id!==userId)fail('Session credit not found.',404,'session_credit_not_found');if(r.state==='active')return view(r);if(r.state!=='proposed')fail('Only a proposal can be accepted.',409,'session_credit_state');
+  if(db.prepare("SELECT 1 FROM organizer_funding_requests WHERE organizer_id=? AND user_id=? AND state='offered'").get(r.organizer_id,r.user_id))fail('Resolve outstanding paid offers before accepting session credit.',409,'funding_state');
   const source=funding.get(r.organizer_id,r.funding_request_id);if(source.state!=='requested'||source.userId!==r.user_id||source.amount!==r.amount)fail('Funding source is no longer requested.',409,'funding_state');
   const wallet=db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key=?').get(r.organizer_id,`wallet:${r.user_id}`)?.balance||0;
   const seat=db.prepare("SELECT 1 FROM organizer_chip_sessions WHERE organizer_id=? AND user_id=? AND status='open'").get(r.organizer_id,r.user_id);
