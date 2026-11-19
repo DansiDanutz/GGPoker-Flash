@@ -10,7 +10,7 @@ const deviceCode='device-secret-that-must-never-be-stored-plain', token=`nvp.${c
 const scopes=['integrations:verify','payment_links:read','payment_links:write','payments:read'];
 function fixture(handler, key=randomBytes(32).toString('base64')) {
   const db=new DatabaseSync(':memory:');
-  db.exec('CREATE TABLE users(id INTEGER PRIMARY KEY,banned INTEGER DEFAULT 0,deleted_at TEXT); INSERT INTO users VALUES(1,0,NULL),(2,0,NULL),(3,1,NULL)');
+  db.exec("CREATE TABLE users(id INTEGER PRIMARY KEY,banned INTEGER DEFAULT 0,deleted_at TEXT,login TEXT); INSERT INTO users VALUES(1,0,NULL,'owner'),(2,0,NULL,'player'),(3,1,NULL,'banned'),(4,0,NULL,'guest_deadbeef-abc')");
   let time=Date.parse('2026-11-19T12:00:00Z');
   const calls=[];
   const fetchImpl=async(url,init)=>{ calls.push({url,init}); return handler(url,init,calls); };
@@ -160,4 +160,11 @@ test('denied and expired device codes become terminal without leaking provider t
     await f.service.start({userId:1,merchantId,mode:'live'}); f.advance(5000);
     const status=await f.service.poll(1); assert.equal(status.status,expected); assert.equal(JSON.stringify(status).includes('secret provider detail'),false);
   }
+});
+
+test('raw database guest users cannot authorize NervixPay or persist credentials', async()=>{
+ const f=fixture(async()=>device());
+ await assert.rejects(()=>f.service.start({userId:4,merchantId,mode:'live'}),e=>e.status===403);
+ assert.equal(f.calls.length,0);
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM nervixpay_user_connections').get().n,0);
 });

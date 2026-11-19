@@ -22,7 +22,7 @@ export function createNervixPayConnections({db,encryptionKey=process.env.NERVIXP
   id TEXT PRIMARY KEY,user_id INTEGER NOT NULL,merchant_id TEXT NOT NULL,token_cipher TEXT NOT NULL,token_iv TEXT NOT NULL,token_tag TEXT NOT NULL,created_at TEXT NOT NULL
  )`);
  const table=name=>!!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
- function user(userId){if(!Number.isSafeInteger(userId)||userId<1)fail('Sign in to connect NervixPay.',401);if(table('users')){const row=db.prepare('SELECT * FROM users WHERE id=?').get(userId);if(!row||row.banned||row.deleted_at)fail('This account cannot connect NervixPay.',403);}return userId;}
+ function user(userId){if(!Number.isSafeInteger(userId)||userId<1)fail('Sign in to connect NervixPay.',401);if(table('users')){const row=db.prepare('SELECT * FROM users WHERE id=?').get(userId);if(!row||row.banned||row.deleted_at||/^guest_[0-9a-f]{8}-[0-9a-f]{3}$/.test(row.login))fail('This account cannot connect NervixPay.',403);}return userId;}
  const stamp=()=>new Date(now()).toISOString();
  const row=id=>db.prepare('SELECT * FROM nervixpay_user_connections WHERE user_id=?').get(id);
  const encrypt=(plaintext,aad)=>{const iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key,iv);cipher.setAAD(Buffer.from(aad));const body=Buffer.concat([cipher.update(plaintext,'utf8'),cipher.final()]);return{cipher:body.toString('base64'),iv:iv.toString('base64'),tag:cipher.getAuthTag().toString('base64')};};
