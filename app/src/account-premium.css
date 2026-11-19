@@ -1,5 +1,5 @@
 /* Shared account surfaces. Table and game controls deliberately keep their own theme. */
-:is(.platform-workspace,.marketplace,.mp,.ma,.org-page) {
+:is(.platform-workspace,.marketplace,.mp,.ma,.org-page,.org-modal) {
   --account-gold: #e6c785;
   --account-text: #f5f1e9;
   --account-muted: #bcb8af;
@@ -7,11 +7,11 @@
   --account-panel: #18191c;
   color: var(--account-text);
 }
-:is(.platform-workspace,.ma,.org-page), .mp-pane {
+:is(.platform-workspace,.ma,.org-page,.org-modal), .mp-pane {
   background: radial-gradient(ellipse at 90% 0, #2b261b 0, transparent 460px), #101114;
 }
-:is(.platform-workspace,.mp,.ma,.org-page) :is(button,a) { -webkit-tap-highlight-color: transparent; }
-:is(.platform-workspace,.mp,.ma,.org-page) :is(button,a,input,textarea,select,summary):focus-visible {
+:is(.platform-workspace,.mp,.ma,.org-page,.org-modal) :is(button,a) { -webkit-tap-highlight-color: transparent; }
+:is(.platform-workspace,.mp,.ma,.org-page,.org-modal) :is(button,a,input,textarea,select,summary):focus-visible {
   outline: 2px solid #e6c785; outline-offset: 4px;
 }
 .account-eyebrow, .profile-role-guide .profile-role-eyebrow { color: #e6c785; font-size: 11px; letter-spacing: .14em; font-weight: 700; }
@@ -108,29 +108,31 @@
   .wallet-cards { grid-template-columns: 1fr; }
   .txp-tabs { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
+.org-modal { background: #18191c; border-color: #4c4436; box-shadow: none; }
+.wallet-label i, .wallet-ticket-label i { background: #4c4436; color: #f2dba8; }
 /* Directory cards and member dialogs use the account palette as well. */
-.org-page :is(.org-hero aside,.org-card,.org-modal) { background: var(--account-panel); border-color: var(--account-line); box-shadow: none; }
+:is(.org-page,.org-modal) :is(.org-hero aside,.org-card,.org-modal) { background: var(--account-panel); border-color: var(--account-line); box-shadow: none; }
 .org-cover { color: #d8b778; background: radial-gradient(ellipse at 80% 0,#3a3020,transparent 75%),#18191c; }
-.org-page :is(.org-toolbar label,.org-description,.org-identity p,.org-metric span,.org-profile-head p,.org-tables span,.org-requests p,.org-economics) { color: var(--account-muted); font-size: 14px; line-height: 1.65; }
-.org-page :is(.org-rank,.org-entry,.org-kicker) { font-size: 11px; }
-.org-page :is(.org-metric,.org-toolbar div,.org-economics) { background: #111215; border-color: var(--account-line); }
-.org-page :is(.org-toolbar input,.org-modal input,.org-modal textarea,.org-modal select) { box-sizing: border-box; background: #101114; border-color: #736956; }
-.org-page :is(.org-owner-actions button,.org-join>button,.org-requests button) { border-color: #8b7751; color: #f5e0b4; background: #29251d; }
-.org-page :is(button,.org-primary) { min-height: 44px; }
-.org-page .org-close { width: 44px; height: 44px; background: #29251d; color: #f5e0b4; }
-.org-page .org-profile-head { padding-right: 50px; }
-.org-page :is(.org-owner-actions,.org-toolbar) { flex-wrap: wrap; }
-.org-page .org-owner-actions button { flex: 1; }
-.org-page .org-metric { min-width: 0; overflow-wrap: anywhere; }
+:is(.org-page,.org-modal) :is(.org-toolbar label,.org-description,.org-identity p,.org-metric span,.org-profile-head p,.org-tables span,.org-requests p,.org-economics) { color: var(--account-muted); font-size: 14px; line-height: 1.65; }
+:is(.org-page,.org-modal) :is(.org-rank,.org-entry,.org-kicker) { font-size: 11px; }
+:is(.org-page,.org-modal) :is(.org-metric,.org-toolbar div,.org-economics) { background: #111215; border-color: var(--account-line); }
+:is(.org-page,.org-modal) :is(.org-toolbar input,.org-modal input,.org-modal textarea,.org-modal select) { box-sizing: border-box; background: #101114; border-color: #736956; }
+:is(.org-page,.org-modal) :is(.org-owner-actions button,.org-join>button,.org-requests button) { border-color: #8b7751; color: #f5e0b4; background: #29251d; }
+:is(.org-page,.org-modal) :is(button,.org-primary) { min-height: 44px; }
+:is(.org-page,.org-modal) .org-close { width: 44px; height: 44px; background: #29251d; color: #f5e0b4; }
+:is(.org-page,.org-modal) .org-profile-head { padding-right: 50px; }
+:is(.org-page,.org-modal) :is(.org-owner-actions,.org-toolbar) { flex-wrap: wrap; }
+:is(.org-page,.org-modal) .org-owner-actions button { flex: 1; }
+:is(.org-page,.org-modal) .org-metric { min-width: 0; overflow-wrap: anywhere; }
 .marketplace .mp-modal-close { width: 44px; height: 44px; }
 .marketplace .mp-modal-heading { padding-right: 36px; }
 .marketplace :is(.mp-modal-heading > p,.mp-modal .mp-feature-list li,.mp-modal-signin > p) { font-size: 14px; color: #bcb8af; }
 :is(.platform-workspace,.marketplace) .mp-button { white-space: normal; text-align: center; }
 @media (max-width:620px) {
-  .org-page .org-profile-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .org-page .org-requests article { grid-template-columns: auto minmax(0,1fr); }
-  .org-page .org-modal { padding: 22px 18px; }
-  .org-page .org-profile-head h2 { font-size: 26px; overflow-wrap: anywhere; }
+  :is(.org-page,.org-modal) .org-profile-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  :is(.org-page,.org-modal) .org-requests article { grid-template-columns: auto minmax(0,1fr); }
+  :is(.org-page,.org-modal) .org-modal { padding: 22px 18px; }
+  :is(.org-page,.org-modal) .org-profile-head h2 { font-size: 26px; overflow-wrap: anywhere; }
 }
 @media (hover:hover) {
   .profile-workspace-tabs button:not(.active):hover { background: #302a1e; color: #f4dfb1; border-color: #8b7751; }
