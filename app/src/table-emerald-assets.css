@@ -117,3 +117,5 @@
 
 .table-screen[class] .table-stage[class] .seat:not(.me)[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .rank { left: 2px; font-size: 12px; }
 .table-screen[class] .table-stage[class] .seat:not(.me)[class] .cards:is([data-count="4"],[data-count="5"],[data-count="6"]) .suit { left: 2px; font-size: 14px; }
+/* The turn countdown must sit beside the full Omaha hand, not over its suit indices. */
+.table-screen[class] .table-stage.stage-portrait[class] .seat.me[class]:has(.cards:is([data-count="4"],[data-count="5"],[data-count="6"])) .turn-badge { left: 250px; right: auto; }
