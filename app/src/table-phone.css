@@ -68,9 +68,9 @@
   .table-screen .table-topbar { gap: 6px; min-height: 46px; }
   .table-screen .table-topbar .name { align-self: flex-start; margin-top: 6px; }
   /* Leaderboard reads as the table name's subtitle instead of a loose red pill. */
-  .table-screen .daily-lb:not(.open) { top: 25px; left: 54px; max-width: calc(100% - 160px); }
+  .table-screen .daily-lb:not(.open) { top: 25px; left: 54px; max-width: calc(50% - 92px); }
   .table-screen .daily-lb:not(.open) .daily-lb-ribbon { background: none; border: 0; box-shadow: none; padding: 0; }
-  .table-screen .daily-lb:not(.open) .daily-lb-title { font-size: 10.5px; font-weight: 600; color: #e8c877; }
+  .table-screen .daily-lb:not(.open) .daily-lb-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 600; color: #e8c877; }
   .table-screen .daily-lb:not(.open) .daily-lb-title::before { content: '🏆 '; }
   .table-screen .daily-lb:not(.open) .daily-lb-title::after { content: ' ›'; color: #9a8350; }
   .table-screen .daily-lb.open { top: 50px; }
