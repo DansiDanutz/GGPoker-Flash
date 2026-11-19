@@ -86,3 +86,11 @@ test('cancellation disables checkout and fails closed on existing or incomplete 
   assert.equal(calls[0].method,'PATCH');assert.match(calls[1].url,/payments\?limit=100$/);
  }
 });
+
+test('cancellation recovers saved unattached checkout and refuses unknown creation outcome',async()=>{
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE organizer_funding_provider_links(request_id TEXT,organizer_id TEXT,link_id TEXT)');
+ const calls=[];const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{calls.push(url);return Response.json(init.method==='PATCH'?{paymentLink:{...link,active:false}}:{items:[]});}}).forOrganizer('organizer-1');
+ await assert.rejects(()=>provider.cancelLink(row,db),/unresolved/);assert.equal(calls.length,0);
+ db.prepare('INSERT INTO organizer_funding_provider_links VALUES(?,?,?)').run(row.id,row.organizerId,link.id);
+ await provider.cancelLink(row,db);assert.match(calls[0],new RegExp(link.id));assert.equal(calls.length,2);
+});

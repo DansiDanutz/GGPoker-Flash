@@ -39,7 +39,7 @@ export function createOrganizerFundingRoutes({ db, funding, providers, mode, req
       if (row.organizerId !== user.id) fail('Only the owning organizer may cancel.',403);
       if (row.state === 'rejected') { json(res,200,funding.cancel({userId:user.id,id})); return true; }
       if (row.state !== 'offered') fail('Only unpaid offers can be cancelled.',409);
-      await providers.forOrganizer(row.organizerId).cancelLink(row);
+      await providers.forOrganizer(row.organizerId).cancelLink(row, db);
       json(res,200,funding.cancel({userId:user.id,id,providerCleared:true})); return true;
     }
     if (action === 'credit' || action === 'reject') {

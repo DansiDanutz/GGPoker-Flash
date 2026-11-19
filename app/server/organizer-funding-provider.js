@@ -101,8 +101,12 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
       try { return await task; } finally { pendingLinks.delete(pendingKey); }
     }
 
-    async function cancelLink(row) {
-      if (!row.paymentLinkId) return;
+    async function cancelLink(row, db) {
+      if (!row.paymentLinkId) {
+        const saved = db?.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='organizer_funding_provider_links'").get() && db.prepare('SELECT link_id FROM organizer_funding_provider_links WHERE request_id=? AND organizer_id=?').get(row.id,organizerId);
+        if (!saved) fail('Link creation is unresolved; reconcile the provider checkout before returning chips.');
+        row = { ...row, paymentLinkId:saved.link_id };
+      }
       const connection = current();
       const updated = await request(`/payment-links/${uuid(row.paymentLinkId)}`, { active:false }, connection, 'PATCH');
       if (updated.paymentLink?.id !== row.paymentLinkId || updated.paymentLink.active !== false) fail('Checkout could not be disabled.',503);

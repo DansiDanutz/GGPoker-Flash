@@ -116,6 +116,7 @@ export function createOrganizerFunding({ db, chips, now = Date.now }) {
 
   const offer = ({ userId: actorId, id, feeCents }) => transaction(db, () => {
     const row = requireRow(id); requireOrganizer(row, actorId); feeCents = integer(feeCents, 'feeCents', MAX_FEE_CENTS);
+    chips.assertSessionCreditUnlocked(row.organizer_id,row.user_id);
     if (row.state === 'offered') {
       if (row.fee_cents !== feeCents) fail('Funding terms cannot be changed.', 409, 'terms_conflict');
       return result(row);
