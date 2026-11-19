@@ -92,7 +92,7 @@
 .wallet-card { min-width: 0; padding: 20px; }
 .wallet-card b { color: #f2dba8; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .wallet-note { color: #bcb8af; font-size: 14px; line-height: 1.65; }
-.wallet :is(.wallet-refresh,.wallet-chip-btn,.wallet-action), .txp-pager button { min-height: 44px; height: auto; color: #f5e0b4; border-color: #8b7751; background: #29251d; border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+.wallet :is(.wallet-refresh,.wallet-chip-btn,.wallet-action,.wallet-ticket-link), .txp-pager button { min-height: 44px; height: auto; color: #f5e0b4; border-color: #8b7751; background: #29251d; border-radius: 8px; padding: 10px 14px; font-size: 14px; }
 .wallet-label { font-size: 14px; line-height: 1.4; }
 .txp-tabs { border-color: #4c4436; border-radius: 10px; overflow: hidden; gap: 4px; padding: 4px; background: #141518; }
 .txp-tab { min-height: 44px; height: auto; border-radius: 6px; }
