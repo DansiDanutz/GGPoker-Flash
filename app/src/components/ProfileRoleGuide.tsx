@@ -6,8 +6,8 @@ export function ProfileRoleGuide() {
   const { user, navigate } = useApp();
   const registered = user && !user.is_guest;
   return <section className="profile-role-guide" aria-label="Choose how you use OpenPoker">
-    <p className="profile-role-eyebrow">YOUR OPENPOKER ACCOUNT</p>
-    <h2>Your game. Your community. Your work.</h2>
+    <p className="profile-role-eyebrow">CHOOSE YOUR NEXT CHAPTER</p>
+    <h2>More ways to make it yours.</h2>
     <p>One profile, three ways to take part. Play for free, run a community your way, or build tools players can choose to buy. Opening a workspace never buys a membership.</p>
     <ProfileWorkspaceTabs />
     <div className="profile-role-cards">

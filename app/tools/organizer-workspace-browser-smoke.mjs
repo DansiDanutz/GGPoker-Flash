@@ -39,6 +39,24 @@ try {
    checks.push(`${tab} at ${width}px`);
   }
  }
+ // Account redesign stays on the same disposable user and must never initiate billing.
+ for (const width of [1280,390,320]) {
+  await page.setViewport({width,height:950});
+  for (const [route,selector,name] of [['/my-page?tab=overview','.mpp','profile'],['/contributor','.contributor-workspace','contributor'],['/marketplace','.marketplace','marketplace']]) {
+   await page.goto(sandbox.url+'/#'+route);
+   await page.waitForSelector(selector);
+   await page.waitForSelector('.ls',{hidden:true});
+   await page.waitForFunction(()=>!document.documentElement.matches(':active-view-transition'));
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${name} must fit ${width}px`);
+   if(name==='profile') {
+    assert.equal(await page.$eval('#mpp-nick',n=>n.value),'Workspace owner');
+    assert.ok(await page.evaluate(()=>document.querySelector('.mpp-head').getBoundingClientRect().top<document.querySelector('.mpp .profile-role-guide').getBoundingClientRect().top),'Identity editing precedes membership guide');
+   }
+   await page.screenshot({path:path.join(artifacts,`${name}-${width}.png`),fullPage:true});
+   checks.push(`${name} at ${width}px`);
+  }
+ }
+ await page.goto(sandbox.url+'/#/organiser');await page.waitForSelector('.ow-tabs');
  await select('transfers');await page.type('input[aria-label="Cash Chips for buyback"]','1');
  await select('how-it-works');await select('transfers');assert.equal(await page.$eval('input[aria-label="Cash Chips for buyback"]',n=>n.value),'1','Tab switching preserves transfer drafts');
  await page.reload();await page.waitForSelector('.ls',{hidden:true});await page.waitForSelector('.ow-tabs a[aria-current]');assert.equal(await page.$eval('.ow-tabs a[aria-current]',n=>n.textContent),'Transfers');

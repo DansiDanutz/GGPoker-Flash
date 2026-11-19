@@ -52,6 +52,7 @@ import './table-multiboard.css';
 import './phone-landscape.css';
 import './table-desktop.css';
 import './table-emerald-assets.css';
+import './account-premium.css';
 
 createRoot(document.getElementById('root')!).render(
   <VersionGate>

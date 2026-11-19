@@ -1,0 +1,109 @@
+/* Shared account surfaces. Table and game controls deliberately keep their own theme. */
+:is(.platform-workspace,.marketplace,.mp,.ma,.org-page) {
+  --account-gold: #e6c785;
+  --account-text: #f5f1e9;
+  --account-muted: #bcb8af;
+  --account-line: #4c4436;
+  --account-panel: #18191c;
+  color: var(--account-text);
+}
+:is(.platform-workspace,.ma,.org-page), .mp-pane {
+  background: radial-gradient(ellipse at 90% 0, #2b261b 0, transparent 460px), #101114;
+}
+:is(.platform-workspace,.mp,.ma,.org-page) :is(button,a) { -webkit-tap-highlight-color: transparent; }
+:is(.platform-workspace,.mp,.ma,.org-page) :is(button,a,input,textarea,select,summary):focus-visible {
+  outline: 2px solid #e6c785; outline-offset: 4px;
+}
+.account-eyebrow, .profile-role-guide .profile-role-eyebrow { color: #e6c785; font-size: 11px; letter-spacing: .14em; font-weight: 700; }
+.workspace-intro { max-width: 1120px; padding: 32px 24px 24px; }
+.workspace-intro > a { color: #e6c785; font-size: 14px; }
+.workspace-intro h1 { font-size: clamp(30px,4vw,44px); line-height: 1.12; letter-spacing: -.035em; margin: 10px 0 16px; }
+.workspace-intro > p:last-child { max-width: 720px; color: #bcb8af; font-size: 16px; line-height: 1.7; }
+.profile-workspace-tabs { background: #141518; padding: 6px; border: 1px solid #4c4436; border-radius: 14px; gap: 6px; }
+.profile-workspace-tabs button { background: transparent; border-color: transparent; color: #ddd7cb; border-radius: 9px; min-height: 48px; }
+.profile-workspace-tabs button.active { color: #211a0e; background: linear-gradient(135deg,#f2dba8,#d8b36b); border-color: #e6c785; }
+.profile-role-guide { margin: 36px 0 28px; }
+.profile-role-guide > p { max-width: 760px; color: #bcb8af; font-size: 15px; }
+.profile-role-guide h2 { color: #f5f1e9; line-height: 1.2; letter-spacing: -.025em; }
+.profile-role-cards { gap: 18px; }
+.profile-role-cards article, .profile-role-cards .profile-role-featured { background: linear-gradient(145deg,#23221f,#18191c 65%); border: 1px solid #4c4436; padding: 24px; border-radius: 16px; box-shadow: none; }
+.profile-role-cards .profile-role-featured { border-color: #a18b5e; }
+.profile-role-cards article > span { color: #e6c785; font-size: 11px; font-weight: 700; }
+.profile-role-cards h3 { color: #f5f1e9; line-height: 1.25; margin-top: 22px; }
+.profile-role-cards :is(p,ol), .profile-role-cards .profile-role-terms { color: #bcb8af; }
+.profile-role-cards li { margin-bottom: 10px; }
+.profile-role-cards .profile-role-terms { font-size: 13px; padding-top: 16px; border-top: 1px solid #4c4436; }
+.profile-role-cards button { color: #f5e0b4; border-color: #8b7751; background: #29251d; border-radius: 9px; font-size: 14px; padding: 12px; }
+.ow-tabs { background: #18191c; border-color: #4c4436; gap: 6px; }
+.ow-tabs a { color: #ddd7cb; }
+.ow-workspace .ow-tabs a[aria-current] { color: #211a0e; background: linear-gradient(135deg,#f2dba8,#d8b36b); }
+.ow-heading { padding: 32px 0 24px; }
+.ow-heading p, .ow-card p, .ow-card li, .ow-workspace small, .ow-help, .ow-members span { color: #bcb8af; }
+.ow-card, .ow-welcome { background: linear-gradient(145deg,#23221f,#18191c 70%); border-color: #4c4436; padding: 26px; }
+.ow-welcome { border-color: #8b7751; }
+.ow-workspace button { color: #f5e0b4; background: #29251d; border-color: #8b7751; }
+.ow-workspace :is(details,.ow-help,.ow-members li) { border-color: #4c4436; }
+.ow-empty { background: #111215; }
+.platform-workspace > .mp-container { max-width: 1120px; padding: 0 24px; }
+.platform-workspace .contributor-workspace { max-width: 1120px; padding: 24px; }
+.platform-workspace :is(.mp-account-panel,.contributor-workspace article,.contributor-workspace fieldset) { background: #18191c; border: 1px solid #4c4436; border-radius: 16px; padding: 24px; }
+.platform-workspace .contributor-workspace a { color: #e6c785; }
+.platform-workspace .contributor-workspace button:not(.mp-button-primary) { color: #f5e0b4; background: #29251d; border: 1px solid #8b7751; border-radius: 9px; }
+:is(.platform-workspace,.marketplace) .mp-account-panel { margin-bottom: 24px; }
+:is(.platform-workspace,.marketplace) .mp-account-panel h3 { font-size: 20px; font-weight: 650; line-height: 1.35; flex-wrap: wrap; }
+:is(.platform-workspace,.marketplace) :is(.mp-account-empty,.mp-account-loading,.mp-account-list p,.mp-account-row strong) { font-size: 14px; color: #bcb8af; }
+:is(.platform-workspace,.marketplace) .mp-account-list time { font-size: 12px; color: #bcb8af; }
+:is(.platform-workspace,.marketplace) .mp-account-status { font-size: 12px; white-space: normal; }
+.platform-workspace :is(.mp-account-panel,.contributor-workspace,.ow-profile-form,.ow-share) :is(input,select,textarea) { color: #f5f1e9; background: #101114; border: 1px solid #736956; border-radius: 8px; font: inherit; min-height: 44px; padding: 11px 12px; max-width: 100%; box-sizing: border-box; }
+.platform-workspace .contributor-check input { min-height: 20px; padding: 0; }
+.platform-workspace :is(input,textarea)::placeholder { color: #aaa69e; }
+.mp-menu { background: #141518; border-color: #4c4436; padding: 12px 8px; gap: 4px; }
+.mp-menu-item { min-height: 44px; border: 0; border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+.mp-menu-item.on { color: #f4dfb1; background: #302a1e; box-shadow: inset 3px 0 #e6c785; }
+.mp-wintabs button.on { color: #f4dfb1; box-shadow: inset 0 -2px #e6c785; }
+.mp-pane { padding: clamp(18px,3vw,40px); }
+.mpp > h2 { font-size: clamp(26px,3vw,36px); margin: 12px 0; letter-spacing: -.025em; }
+.mpp > p { color: #bcb8af; line-height: 1.7; max-width: 700px; }
+.mpp-head { margin: 24px 0; padding: 24px; background: #18191c; border: 1px solid #4c4436; border-radius: 16px; }
+.mpp-nick-row { background: #101114; border-color: #736956; border-radius: 8px; }
+.mpp-nick-row input { min-width: 0; width: 100%; }
+.mpp-nick small, .mpp-nick label, .mpp-empty { color: #bcb8af; font-size: 13px; }
+.mpp-chip { min-height: 44px; background: #18191c; border-color: #4c4436; font-size: 14px; }
+.mpp-chip.on { background: #e6c785; border-color: #e6c785; color: #211a0e; }
+.mpp-grid { grid-template-columns: repeat(auto-fill,minmax(90px,1fr)); gap: 20px; }
+.mpp-cell { font-size: 13px; }
+.mpp-apply:not(:disabled) { color: #211a0e; background: linear-gradient(135deg,#f2dba8,#d8b36b); border-color: #e6c785; }
+.mpp-apply { min-height: 48px; border-radius: 9px; }
+.ma-profile { background: #18191c; border: 1px solid #4c4436; border-radius: 16px; padding: 20px; }
+.ma-wallet { border-color: #4c4436; box-shadow: none; }
+/* The same financial summaries appear in both the marketplace and workspaces. */
+:is(.platform-workspace,.marketplace) .mp-account-grid > article { padding: 20px; border: 1px solid #4c4436; border-radius: 12px; background: #111215; }
+:is(.platform-workspace,.marketplace) .mp-account-grid > article > strong { display: block; color: #f2dba8; font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.3; overflow-wrap: anywhere; }
+:is(.platform-workspace,.marketplace) .mp-account-grid > article > p { color: #bcb8af; font-size: 14px; margin: 10px 0 18px; }
+.platform-workspace .mp-account-panel { line-height: 1.65; }
+.platform-workspace .mp-account-panel h2 { font-size: clamp(23px,3vw,30px); line-height: 1.2; letter-spacing: -.02em; }
+.platform-workspace .mp-section-heading { gap: 16px; align-items: flex-start; }
+.platform-workspace .mp-eyebrow { font-size: 11px; }
+:is(.platform-workspace,.marketplace) .mp-notice { margin-block: 20px; font-size: 14px; line-height: 1.6; }
+:is(.platform-workspace,.marketplace) .mp-notice:not(.mp-notice-error):not(.mp-notice-success) { background: #242119; border-color: #766340; color: #e9d8b3; }
+@media (hover:hover) {
+  .profile-workspace-tabs button:not(.active):hover { background: #302a1e; color: #f4dfb1; border-color: #8b7751; }
+  .profile-role-cards button:hover, .ow-workspace button:not(:disabled):hover { background: #393020; border-color: #e6c785; }
+}
+@media (max-width:700px) {
+  .workspace-intro { padding: 24px 16px 16px; }
+  .workspace-intro > p:last-child { font-size: 15px; }
+  .profile-workspace-tabs { position: static; }
+  .profile-role-cards { grid-template-columns: 1fr; }
+  .profile-role-cards article { padding: 22px; }
+  .ow-workspace { padding: 0 16px; }
+  .ow-card { padding: 22px; }
+  .platform-workspace > .mp-container, .platform-workspace .contributor-workspace { padding: 16px; }
+  .platform-workspace .mp-account-grid { grid-template-columns: 1fr; }
+  .platform-workspace :is(.mp-account-panel,.contributor-workspace article,.contributor-workspace fieldset) { padding: 18px; }
+  .mpp-head { padding: 20px; }
+  .mpp-grid { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px 10px; }
+  .mp-menu { padding: 6px; }
+  .ma-profile { padding: 16px; }
+  .marketplace .mp-button { min-height: 44px; }
+}

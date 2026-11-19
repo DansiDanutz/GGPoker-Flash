@@ -80,7 +80,7 @@ export function ProfilePane() {
 
   return (
     <div className="mpp">
-      <ProfileRoleGuide />
+      <p className="account-eyebrow">YOUR PLAYER IDENTITY</p>
       <h2>Your avatar and nickname</h2>
       <p>Choose a portrait or upload a PNG, JPEG or WebP under 8 MB. Uploaded images are centre-cropped to a square. Preview your choice, then select Apply to save.</p>
       <div className="mpp-head">
@@ -130,6 +130,7 @@ export function ProfilePane() {
       <div className="mpp-foot">
         <button type="button" className="mpp-apply" disabled={!dirty || busy} onClick={apply}>{busy ? 'Saving…' : 'Apply'}</button>
       </div>
+      <ProfileRoleGuide />
     </div>
   );
 }
