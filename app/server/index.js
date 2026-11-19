@@ -80,7 +80,11 @@ import { createClubEntryProvider, verifyClubEntryPayment, clubEntryCheckoutUrl }
 import { createClubEntryLedger } from './club-entry-ledger.js';
 import { randomUUID as clubOrderKey } from 'node:crypto';
 import { createOrganizerClubs } from './organizer-clubs.js';
+import { createDiamonds } from './diamonds.js';
+import { createDiamondRoutes } from './diamond-routes.js';
 import { createOrganizerChips } from './organizer-chips.js';
+import { createNervixPayConnections } from './nervixpay-connections.js';
+import { createNervixPayConnectionRoutes } from './nervixpay-connection-routes.js';
 import { createOrganizerFunding } from './organizer-funding.js';
 import { createOrganizerFundingProviders } from './organizer-funding-provider.js';
 import { createOrganizerFundingRoutes } from './organizer-funding-routes.js';
@@ -596,6 +600,9 @@ for (const tableName of ['tables', 'tournaments']) {
 }
 const organizerChips = createOrganizerChips({ db });
 const organizerClubs = createOrganizerClubs({ db });
+const diamonds = createDiamonds({ db, chips: organizerChips, clubs: organizerClubs, enabled: chipEconomyEnabled,
+  assertMovementAllowed: ({ organizerId, userId }) => organizerChips.assertSessionCreditUnlocked(organizerId, userId, organizerId) });
+const handleDiamondRoute = createDiamondRoutes({ diamonds, json, requireUser, readBody });
 const clubMerchant = process.env.NERVIXPAY_CLUB_MERCHANT_ID;
 const clubProvider = createClubEntryProvider({token:process.env.NERVIXPAY_CLUB_TOKEN,merchantId:clubMerchant});
 const clubVerificationLimiter = createRateLimiter({limit:20,windowMs:60000});
@@ -644,8 +651,11 @@ const contributorSubmissions = createContributorSubmissions({ db, commerce: mark
 const handleContributorRoute = createContributorRoutes({ submissions: contributorSubmissions, json, requireUser, requireAdmin, readBody });
 const handleOrganizerBillingRoute = createOrganizerBillingRoutes({ db, billing: organizerBilling, json, requireUser, requireAdmin, readBody, liveTables: LIVE_TABLES, getSetting, broadcastState });
 const handleSqueeze3dRoute = createSqueeze3dRoutes({ db, billing: organizerBilling, liveTables: LIVE_TABLES, json, requireUser, readBody });
+const nervixPayConnections = createNervixPayConnections({ db });
+const handleNervixPayConnectionRoute = createNervixPayConnectionRoutes({ connections: nervixPayConnections, requireUser, readBody, json, isGuestUser: user => !!user.is_guest });
 const organizerFunding = createOrganizerFunding({ db, chips: organizerChips });
-const organizerFundingProviders = createOrganizerFundingProviders({ connections: process.env.ORGANIZER_NERVIXPAY_CONNECTIONS || '{}' });
+const organizerFundingProviders = createOrganizerFundingProviders({ connections: process.env.ORGANIZER_NERVIXPAY_CONNECTIONS || '{}',
+  resolveConnection: (id, legacy) => nervixPayConnections.status(Number(id)).hasRecord ? nervixPayConnections.connectionFor(Number(id)) : legacy });
 const organizerSessionCredit = createOrganizerSessionCredit({ db, chips: organizerChips, funding: organizerFunding });
 const handleOrganizerSessionCreditRoute = createOrganizerSessionCreditRoutes({ db, sessionCredit: organizerSessionCredit, providers: organizerFundingProviders, mode: organizerChipMode,
   requireUser, readBody, json, limiter: createRateLimiter({ limit: 20, windowMs: 60000 }) });
@@ -1641,6 +1651,8 @@ const server = http.createServer(async (req, res) => {
       if (settled.order.status!=='settled') return json(res,409,{error:'Payment received; refund review required.'});
       return json(res,200,{order:{id:order.id,status:'settled',amountCents:order.feeCents,checkoutUrl:null},membership:{status:'approved'}});
     }
+    if (await handleNervixPayConnectionRoute(req, res, url)) return;
+    if (await handleDiamondRoute(req, res, url)) return;
     if (await handleOrganizerSessionCreditRoute(req, res, url)) return;
     if (await handleOrganizerFundingRoute(req, res, url)) return;
     if (await handleOrganizerChipRoute(req, res, url)) return;
@@ -2190,23 +2202,13 @@ const server = http.createServer(async (req, res) => {
       // Play money is free, so minting is capped per request and per UTC day.
       const limit = checkDeposit({ amount, ...depositLimits(getSetting), today: depositedToday(db, u.id) });
       if (!limit.ok) return json(res, limit.status, { error: limit.error });
-      const award = addTransactionEx(u.id, 'deposit', amount, String(body.method || 'Instant bank transfer').slice(0, 60), 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
+      const award = addTransactionEx(u.id, 'deposit', amount, 'Free Play Money top-up', 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
       return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
     }
 
     if (p === '/api/cashier/withdraw' && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
-      const body = await readBody(req);
-      const amount = toInt(body.amount, { min: 1, max: u.balance });
-      if (amount === null) return json(res, 400, { error: 'Invalid amount' });
-      const reference = idempotentReference(req, body, 'cashier:withdraw');
-      const existing = transactionByReference(u.id, reference);
-      if (existing) {
-        if (existing.amount !== -amount) return json(res, 409, { error: 'Idempotency key reused with a different amount' });
-        return json(res, 200, { ok: true, balance: u.balance, replayed: true });
-      }
-      const award = addTransactionEx(u.id, 'withdraw', -amount, String(body.method || 'Bank transfer').slice(0, 60), 'USD', reference ? { reference, onDuplicate: 'skip' } : {});
-      return json(res, 200, { ok: true, balance: award.balance, replayed: !award.applied });
+      return json(res, 409, { error: 'Play Money has no cash value and cannot be withdrawn.' });
     }
 
     // ---------- hand history ----------

@@ -52,6 +52,22 @@ test('deposits are capped per request and per UTC day, keeping idempotent replay
   } finally { await srv.stop(); }
 });
 
+test('Play Money cannot be withdrawn and rejected attempts do not touch its ledger', async () => {
+  const srv = await startServer();
+  try {
+    const token = await register(srv, 'no_fake_withdraw');
+    const deposit = await srv.post('/api/cashier/deposit', { token, body: { amount: 5000, method: 'fake bank label' }, headers: { 'idempotency-key': 'free-play-topup' } });
+    assert.equal(deposit.status, 200);
+    const before = await srv.get('/api/cashier', { token });
+    assert.ok(before.data.transactions.some((row) => row.kind === 'deposit' && row.memo === 'Free Play Money top-up' && row.currency === 'USD'));
+    const rejected = await srv.post('/api/cashier/withdraw', { token, body: { amount: 100, method: 'bank' }, headers: { 'idempotency-key': 'withdraw-disabled' } });
+    assert.equal(rejected.status, 409); assert.match(rejected.data.error, /no cash value.*cannot be withdrawn/i);
+    const after = await srv.get('/api/cashier', { token });
+    assert.equal(after.data.user.balance, before.data.user.balance);
+    assert.deepEqual(after.data.transactions, before.data.transactions);
+  } finally { await srv.stop(); }
+});
+
 test('lobby occupancy uses demo counts until real seats exist, with bots reported separately', async () => {
   const srv = await startServer();
   try {

@@ -35,8 +35,10 @@ commission credits are separate balances with separate purposes.
 - Contributor membership: $9 per calendar month for official marketplace submission and earning
   eligibility. Local testing and ordinary open-source PRs stay free. Platform commission: 20%
   of eligible publisher receipts. Approval is not company equity or guaranteed income.
-- Diamonds and platform-wide tournaments remain a later proposal, including 50/50 organiser /
-  platform sharing. There is no active Diamond conversion or payout promise.
+- Diamond issuance costs 10,000 organiser-owned Cash Chips per Diamond ($1 platform supply
+  value), replacing the earlier 50/50 split. Organisers set player resale prices and manually
+  approve Marketplace purchase requests. Issuance and balance work is in development;
+  cross-organiser tournaments, trading, prizes and redemption remain deferred.
 
 Players do not need an Organiser subscription merely to join; a configured paid event may
 require its Cash Chip ticket. No paid odds manipulation, hidden bots or pay-to-win advantages.

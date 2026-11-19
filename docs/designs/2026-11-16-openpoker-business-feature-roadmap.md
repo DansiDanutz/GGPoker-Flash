@@ -60,7 +60,7 @@ Free Play Money and organiser Cash Chip games are distinct modes. Calling the en
 | Organiser Cash Chips (whole chips) | Separate balance per organiser, transferable to users within that organiser's economy. Can only fund that organiser's games and eligible tickets; never another organiser's tables. |
 | Tournament playing chips | Starting stacks defined by tournament setup and granted on valid ticket registration. They are not a transferable Cash Chip wallet or a currency conversion. Prizes settle back into organiser Cash Chips under the event contract. |
 | Publisher commission credits | Prepaid commission funding under the marketplace model; separate from player chips and organiser service credits. Top-ups are not plugin sales. |
-| Diamonds | Deferred platform-wide tournament currency proposal, with 50/50 organiser/platform sharing on sales through organiser interfaces. No active balance, pricing, conversion, issuer or settlement implementation is approved here. |
+| Diamonds | Approved economic model: issuing one Diamond costs the organiser 10,000 of their own Cash Chips ($1 platform supply value). The organiser sets the player resale price; the player requests purchase through Marketplace and the organiser approves manually. This fixed issuance cost replaces the earlier 50/50 split. Balance, issuance and approval implementation is in development; cross-organiser tournaments, prizes, trading and redemption remain deferred pending settlement tests. |
 
 **Agreed tariff, retained rather than repriced:**
 
@@ -595,7 +595,7 @@ Implement the smallest useful organiser staff permissions and club recurring-eve
 
 ### M5 — Optional expansion
 
-Voice/video, creator suites, bot seasons, academy, arbitrary plugin execution and managed-hosting automation require separate adoption/cost evidence. Diamonds remain a later product decision with the proposed 50/50 economics, not a funded or functioning currency.
+Voice/video, creator suites, bot seasons, academy, arbitrary plugin execution and managed-hosting automation require separate adoption/cost evidence. Diamond economics now use a fixed 10,000 organiser Cash Chip issuance cost per Diamond and organiser-set resale prices, replacing the earlier 50/50 proposal. Cross-organiser tournament and settlement features remain deferred; do not advertise them as functioning.
 
 ## 8. Commercial experiments before large builds
 

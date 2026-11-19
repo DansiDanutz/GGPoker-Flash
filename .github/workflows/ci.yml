@@ -92,6 +92,12 @@ jobs:
         working-directory: app
         run: node tools/organizer-funding-browser-smoke.mjs
 
+      - name: Verify Player Cashier and Diamond approvals in Chrome
+        timeout-minutes: 5
+        run: |
+          node tools/player-cashier-browser-smoke.mjs
+          node tools/diamond-browser-smoke.mjs
+
       - name: Verify contributor Play Money workflow in Chrome
         timeout-minutes: 3
         run: node tools/contributor-browser-smoke.mjs
@@ -145,6 +151,7 @@ jobs:
             app/artifacts/desktop-boards/
             app/artifacts/desktop-reference/
             app/artifacts/organizer-workspace/
+            app/artifacts/diamonds/
             app/artifacts/organizer-funding/
           if-no-files-found: ignore
           retention-days: 7

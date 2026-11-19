@@ -1,5 +1,4 @@
 import React from 'react';
-import { money } from '../../lib/api';
 import { useApp } from '../../lib/store';
 import { Avatar } from '../Avatar';
 import { NavGlyph } from './PhoneIcons';
@@ -29,7 +28,7 @@ export function MobileTopBar({ title, showBrand = false }: { title?: string; sho
       </div>
       <div className="p-topbar-actions">
         <button type="button" className="p-wallet" aria-label="Open cashier" onClick={() => navigate(user ? '/cashier' : '/login')}>
-          {user ? <><b>{money(user.balance)}</b><NavGlyph name="wallet" size={19} /></> : <b>Log in</b>}
+          {user ? <><b>{(user.balance / 100).toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})} Play</b><NavGlyph name="wallet" size={19} /></> : <b>Log in</b>}
         </button>
         <button type="button" className="p-avatar-btn" aria-label={user ? 'My Page' : 'Log in'} onClick={() => navigate(user ? '/my-page' : '/login')}>
           <Avatar name={user?.nick || 'Guest'} src={user?.avatar} size={34} />
