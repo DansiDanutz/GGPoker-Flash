@@ -74,7 +74,7 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
         db.exec(`CREATE TABLE IF NOT EXISTS organizer_funding_provider_links (request_id TEXT PRIMARY KEY,organizer_id TEXT NOT NULL,merchant_id TEXT NOT NULL,fee_cents INTEGER NOT NULL,item_name TEXT NOT NULL,link_id TEXT NOT NULL)`);
         const settlement = row.purpose === 'session_settlement';
         const itemName = settlement ? `Session settlement · ${row.amount} Cash Chips · ${row.reference}` : `Cash Chips ${row.amount} · ${row.reference}`;
-        const valid = link => link?.mode === 'live' && link.active === true && link.linkType === 'embed' && link.itemName === itemName && UUID.test(link.id) && Array.isArray(link.prices) && link.prices.length > 0 && link.prices.every(p => ((p.network === 'polygon' && p.currencyToken === 'USDC') || (p.network === 'bnb' && p.currencyToken === 'USDT')) && p.pricingMode === 'fixed' && Number(p.amount) === row.feeCents / 100);
+        const valid = link => link?.mode === 'live' && link.active === true && link.linkType === 'embed' && link.itemName === itemName && UUID.test(link.id) && Array.isArray(link.prices) && link.prices.length > 0 && link.prices.every(p => ((p.network === 'polygon' && p.currencyToken === 'USDC') || (p.network === 'bnb' && ['USDT', 'USDC'].includes(p.currencyToken))) && p.pricingMode === 'fixed' && Number(p.amount) === row.feeCents / 100);
         const saved = db.prepare('SELECT * FROM organizer_funding_provider_links WHERE request_id=?').get(row.id);
         if (saved) {
           if (saved.organizer_id !== organizerId || saved.merchant_id !== connection.merchantId || saved.fee_cents !== row.feeCents || saved.item_name !== itemName) fail('Funding request payment terms changed after link creation.', 409);
@@ -89,6 +89,7 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
           prices:[
             { network:'polygon', currencyToken:'USDC', amount:price(row.feeCents), pricingMode:'fixed' },
             { network:'bnb', currencyToken:'USDT', amount:price(row.feeCents), pricingMode:'fixed' },
+            { network:'bnb', currencyToken:'USDC', amount:price(row.feeCents), pricingMode:'fixed' },
           ],
           theme:'dark', accentColor:'#e8c46c', backgroundColor:'#160b1e', showBranding:true, showMerchantChip:true, showExactAmountBox:true,
         }, connection)).paymentLink;

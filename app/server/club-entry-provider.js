@@ -16,7 +16,7 @@ export function clubEntryCheckoutUrl(order) {
 export function verifyClubEntryPayment(order, payment) {
   if (!payment || payment.status !== 'paid' || payment.test !== false || payment.customerReference !== order.reference || payment.paymentLinkId !== order.paymentLinkId) fail('This payment does not settle your club entry.');
   uuid(payment.id);
-  const decimals = payment.network === 'polygon' && payment.currencyToken === 'USDC' ? 6 : payment.network === 'bnb' && payment.currencyToken === 'USDT' ? 18 : null;
+  const decimals = payment.network === 'polygon' && payment.currencyToken === 'USDC' ? 6 : payment.network === 'bnb' && ['USDT', 'USDC'].includes(payment.currencyToken) ? 18 : null;
   if (decimals === null || !Number.isSafeInteger(order.feeCents) || order.feeCents <= 0 || order.feeCents > 100000) fail('Unsupported entry payment amount or asset.');
   const units = value => { if (typeof value !== 'string' || !/^[1-9][0-9]{0,35}$/.test(value)) fail('Invalid settled payment amount.'); return BigInt(value); };
   const expected = BigInt(order.feeCents) * 10n ** BigInt(decimals - 2);

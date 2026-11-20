@@ -40,3 +40,9 @@ test('checkout accepts the configured existing merchant without renaming it', as
     assert.equal(await provider.ready(),expected);
   }
 });
+
+test('BNB USDC uses 18 decimals and rejects unsupported assets, wrong precision and underpayment',()=>{
+ const receipt={...paid,network:'bnb',currencyToken:'USDC',amountBaseUnits:'1000500000000000000',amountReceivedBaseUnits:'1000500000000000000'};
+ assert.equal(verifyClubEntryPayment(order,receipt).token,'USDC');
+ for(const patch of [{currencyToken:'BNB'},{network:'ethereum'},{amountBaseUnits:'1000500'},{amountReceivedBaseUnits:'1000500'},{amountReceivedBaseUnits:'999999999999999999'},{amountBaseUnits:'1010000000000000000'},{amountReceivedBaseUnits:'1010000000000000000'}])assert.throws(()=>verifyClubEntryPayment(order,{...receipt,...patch}));
+});
