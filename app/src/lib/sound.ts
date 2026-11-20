@@ -58,6 +58,7 @@ class SoundEngine {
   cache = new Map<string, HTMLAudioElement>();
   music: HTMLAudioElement | null = null;
   unlocked = false;
+  private musicStarting = false;
   channels: Record<Channel, boolean> = { ...DEFAULT_CHANNELS };
   channelVolumes: ChannelVolumes = DEFAULT_CHANNEL_VOLUMES;
   /** The one Settings preview allowed to play; a new preview or Cancel stops it. */
@@ -144,7 +145,6 @@ class SoundEngine {
   }
 
   unlock() {
-    if (this.unlocked) return;
     this.unlocked = true;
     if (this.enabled) this.startMusic();
   }
@@ -178,13 +178,18 @@ class SoundEngine {
   }
 
   startMusic() {
-    if (!this.enabled || !this.channels.music) return;
+    if (!this.enabled || !this.channels.music || this.musicStarting || this.music?.paused === false) return;
     if (!this.music) {
       this.music = new Audio(this.srcFor('bgm'));
       this.music.loop = true;
       this.music.volume = this.musicLevel();
     }
-    void this.music.play().catch(() => {});
+    this.musicStarting = true;
+    void this.music.play().then(() => {
+      if (!this.enabled || !this.channels.music) this.music?.pause();
+    }).catch(() => {
+      // A blocked autoplay attempt is retried by the next user interaction.
+    }).finally(() => { this.musicStarting = false; });
   }
 
   setEnabled(on: boolean) {
