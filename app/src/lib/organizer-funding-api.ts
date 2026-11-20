@@ -26,6 +26,7 @@ export function fundingCheckout(row: Pick<FundingRequest, 'paymentLinkId' | 'ref
   if (!row.paymentLinkId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(row.paymentLinkId)) return null;
   const url = new URL(`https://nervixpay.live/l/${row.paymentLinkId}`);
   url.searchParams.set('mode', 'card');
+  url.searchParams.set('prefer', 'bnb:USDC');
   url.searchParams.set('ref', row.reference);
   return url.toString();
 }

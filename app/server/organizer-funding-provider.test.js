@@ -21,7 +21,7 @@ test('configuration and readiness fail closed',async()=>{
 test('legacy connection remains the default fallback and checkout URL is bounded',async()=>{
  const calls=[];const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'legacy',token:'legacy-token'}},fetchImpl:async(url,init)=>(calls.push({url,init}),Response.json(verification('legacy')))}).forOrganizer('organizer-1');
  assert.equal(await provider.ready(),true);assert.equal(calls[0].init.headers.authorization,'Bearer legacy-token');
- const url=new URL(organizerFundingCheckoutUrl(link.id,row.reference));assert.equal(url.origin,'https://nervixpay.live');assert.equal(url.searchParams.get('ref'),row.reference);assert.throws(()=>organizerFundingCheckoutUrl('../../evil',row.reference));
+ const url=new URL(organizerFundingCheckoutUrl(link.id,row.reference));assert.equal(url.origin,'https://nervixpay.live');assert.equal(url.searchParams.get('ref'),row.reference);assert.equal(url.searchParams.get('prefer'),'bnb:USDC');assert.throws(()=>organizerFundingCheckoutUrl('../../evil',row.reference));
 });
 
 test('a live user connection overrides legacy configuration',async()=>{
@@ -57,7 +57,7 @@ test('disconnect or replacement during fetch fails closed before returning provi
 test('creates exact request-bound product and validates live amount/network',async()=>{
  const db=new DatabaseSync(':memory:'),calls=[];
  const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{calls.push({url,init});if(url.endsWith('/verify'))return Response.json(verification('merchant'));if(!init.body)return Response.json({items:[]});return Response.json({paymentLink:link});}}).forOrganizer('organizer-1');
- assert.equal(await provider.linkForRequest(db,row),link.id);const body=JSON.parse(calls.find(call=>call.init.body).init.body);assert.match(body.displayTitle,/^DanGG · /);assert.equal(body.itemName,link.itemName);assert.equal(new Set(body.prices.map(value=>value.network)).size,body.prices.length,'NervixPay requires one asset per network');assert.equal(body.prices.find(value=>value.network==='bnb').currencyToken,'USDC');assert.deepEqual(body.prices.map(value=>value.amount),['3.75','3.75']);
+ assert.equal(await provider.linkForRequest(db,row),link.id);const body=JSON.parse(calls.find(call=>call.init.body).init.body);assert.match(body.displayTitle,/^DanGG · /);assert.equal(body.itemName,link.itemName);assert.deepEqual(body.prices.map(p=>[p.network,p.currencyToken]),[['bnb','USDC'],['polygon','USDC']]);assert.equal(new Set(body.prices.map(value=>value.network)).size,body.prices.length,'NervixPay requires one asset per network');assert.equal(body.prices.find(value=>value.network==='bnb').currencyToken,'USDC');assert.deepEqual(body.prices.map(value=>value.amount),['3.75','3.75']);
 });
 
 test('session settlement is labelled as repayment and grants no additional chips',async()=>{

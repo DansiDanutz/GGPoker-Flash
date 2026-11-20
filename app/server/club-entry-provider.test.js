@@ -14,7 +14,7 @@ test('Club Entry verifies exact server quote, account binding and final stableco
 test('checkout has only the fixed trusted provider origin and opaque reference',()=>{
   const url=new URL(clubEntryCheckoutUrl(order));
   assert.equal(url.origin,'https://nervixpay.live'); assert.equal(url.pathname,`/l/${order.paymentLinkId}`);
-  assert.equal(url.searchParams.get('ref'),order.reference); assert.equal(url.searchParams.get('mode'),'card');
+  assert.equal(url.searchParams.get('ref'),order.reference); assert.equal(url.searchParams.get('mode'),'card');assert.equal(url.searchParams.get('prefer'),'bnb:USDC');
   assert.throws(()=>clubEntryCheckoutUrl({...order,paymentLinkId:'../../evil'}));
 });
 test('provider stays closed without credentials and refuses a different merchant or test token',async()=>{

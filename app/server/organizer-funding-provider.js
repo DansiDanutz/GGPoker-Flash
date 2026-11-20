@@ -11,6 +11,7 @@ const price = cents => `${Math.floor(cents / 100)}.${String(cents % 100).padStar
 export function organizerFundingCheckoutUrl(id, reference) {
   const url = new URL(`/l/${uuid(id)}`, ORIGIN);
   url.searchParams.set('mode', 'card');
+  url.searchParams.set('prefer', 'bnb:USDC');
   url.searchParams.set('ref', text(reference, 'reference'));
   return url.toString();
 }
@@ -87,8 +88,8 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
           linkType:'embed', itemName, displayTitle:settlement ? `DanGG · ${row.amount.toLocaleString('en-US')} Cash Chips · Session settlement` : `DanGG · ${row.amount.toLocaleString('en-US')} Cash Chips`,
           description:settlement ? 'Settlement for used or lost organizer Cash Chips. This payment does not grant additional chips and is not service credits or club entry. Network fees are separate.' : 'Organizer Cash Chips for this funding request only; not service credits or club entry. Network fees are separate.',
           prices:[
-            { network:'polygon', currencyToken:'USDC', amount:price(row.feeCents), pricingMode:'fixed' },
             { network:'bnb', currencyToken:'USDC', amount:price(row.feeCents), pricingMode:'fixed' },
+            { network:'polygon', currencyToken:'USDC', amount:price(row.feeCents), pricingMode:'fixed' },
           ],
           theme:'dark', accentColor:'#e8c46c', backgroundColor:'#160b1e', showBranding:true, showMerchantChip:true, showExactAmountBox:true,
         }, connection)).paymentLink;
