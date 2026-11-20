@@ -95,6 +95,7 @@ export function Admin() {
   const [missions, setMissions] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
   const [transactions, setTransactions] = useState<any[]>([]);
+  const verificationRequest = useRef(0);
   const [verificationImage, setVerificationImage] = useState<{ url: string; nick: string } | null>(null);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
@@ -113,6 +114,11 @@ export function Admin() {
   const [notice, setNotice] = useState('');
 
   const isAdmin = !!user?.is_admin;
+
+  useEffect(() => {
+    setVerificationImage(null);
+    return () => { verificationRequest.current++; };
+  }, [section]);
 
   useEffect(() => {
     setSection(sectionFromRoute(route));
@@ -750,8 +756,14 @@ export function Admin() {
                         <td>
                           <div className="row" style={{ gap: 3 }}>
                             <button className="btn btn-ghost btn-sm" onClick={async () => {
-                              try { const url = await api.admin.verificationDoc(v.id); setVerificationImage({ url, nick: v.nick }); }
-                              catch (e: any) { toast({ kind: 'error', title: 'Document', body: e.message }); }
+                              const request = ++verificationRequest.current;
+                              setVerificationImage(null);
+                              try {
+                                const url = await api.admin.verificationDoc(v.id);
+                                if (request === verificationRequest.current) setVerificationImage({ url, nick: v.nick });
+                              } catch (e: any) {
+                                if (request === verificationRequest.current) toast({ kind: 'error', title: 'Document', body: e.message });
+                              }
                             }}>View ID</button>
                             <button className="btn btn-ghost btn-sm" onClick={async () => {
                               try { await api.admin.reviewVerification(v.id, 'approve', 'Approved'); setVerifications((prev) => prev.map((x) => x.id === v.id ? { ...x, status: 'approved' } : x)); toast({ kind: 'success', title: 'Verified', body: v.nick }); }
