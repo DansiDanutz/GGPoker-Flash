@@ -33,10 +33,6 @@ export function createOrganizerChips({ db, now = Date.now }) {
       payload TEXT NOT NULL, from_account TEXT, to_account TEXT, amount INTEGER NOT NULL, created_at TEXT NOT NULL,
       UNIQUE(organizer_id,reference)
     );
-    CREATE TABLE IF NOT EXISTS organizer_chip_operations (
-      organizer_id INTEGER NOT NULL, operation_key TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL,
-      result TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(organizer_id,operation_key)
-    );
     CREATE TABLE IF NOT EXISTS organizer_chip_sessions (
       organizer_id INTEGER NOT NULL, session_id TEXT NOT NULL, user_id INTEGER NOT NULL, table_id TEXT NOT NULL,
       held INTEGER NOT NULL CHECK(held >= 0), status TEXT NOT NULL CHECK(status IN ('open','closed')), opened_at TEXT NOT NULL, closed_at TEXT,
@@ -52,6 +48,19 @@ export function createOrganizerChips({ db, now = Date.now }) {
     CREATE TRIGGER IF NOT EXISTS organizer_chip_burn_no_decrease BEFORE UPDATE OF balance ON organizer_chip_accounts WHEN OLD.account_key='burn' AND NEW.balance<OLD.balance BEGIN SELECT RAISE(ABORT,'burn balance cannot decrease'); END;
     CREATE TRIGGER IF NOT EXISTS organizer_chip_burn_no_delete BEFORE DELETE ON organizer_chip_accounts WHEN OLD.account_key='burn' BEGIN SELECT RAISE(ABORT,'burn account cannot be deleted'); END;
   `);
+  transaction(db, () => {
+    const legacy = db.prepare("PRAGMA table_info(organizer_chip_operations)").all().some(c => c.name === 'kind' && c.pk === 0);
+    if (legacy) db.exec('ALTER TABLE organizer_chip_operations RENAME TO organizer_chip_operations_legacy');
+    db.exec(`CREATE TABLE IF NOT EXISTS organizer_chip_operations (
+      organizer_id INTEGER NOT NULL, operation_key TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL,
+      result TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(organizer_id,kind,operation_key)
+    );`);
+    if (legacy) db.exec(`
+      INSERT INTO organizer_chip_operations (organizer_id,operation_key,kind,payload,result,created_at)
+      SELECT organizer_id,operation_key,kind,payload,result,created_at FROM organizer_chip_operations_legacy;
+      DROP TABLE organizer_chip_operations_legacy;
+    `);
+  });
   const stamp = () => new Date(now()).toISOString();
   const orgId = (value) => integer(value, 'organizerId');
   const userId = (value) => integer(value, 'userId');
@@ -84,9 +93,9 @@ export function createOrganizerChips({ db, now = Date.now }) {
   const rawBalance = (organizerId, key) => db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=? AND account_key=?').get(organizerId, key)?.balance || 0;
   function operation(organizerId, operationKey, kind, payload) {
     text(operationKey, 'idempotency key');
-    const old = db.prepare('SELECT * FROM organizer_chip_operations WHERE organizer_id=? AND operation_key=?').get(organizerId, operationKey);
+    const old = db.prepare('SELECT * FROM organizer_chip_operations WHERE organizer_id=? AND kind=? AND operation_key=?').get(organizerId, kind, operationKey);
     if (!old) return null;
-    if (old.kind !== kind || old.payload !== payload) fail('Idempotency key already used with different details.', 409, 'idempotency_conflict');
+    if (old.payload !== payload) fail('Idempotency key already used with different details.', 409, 'idempotency_conflict');
     return JSON.parse(old.result);
   }
   function record(organizerId, operationKey, kind, payload, result) {
