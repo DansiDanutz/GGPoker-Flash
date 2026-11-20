@@ -57,7 +57,7 @@ export function createClubEntryProvider({ token, merchantId, fetchImpl = fetch, 
     const task = (async () => {
       db.exec(`CREATE TABLE IF NOT EXISTS club_entry_provider_links (merchant_id TEXT NOT NULL,fee_cents INTEGER NOT NULL,link_id TEXT NOT NULL,PRIMARY KEY(merchant_id,fee_cents))`);
       const saved = db.prepare('SELECT link_id FROM club_entry_provider_links WHERE merchant_id=? AND fee_cents=?').get(merchantId, feeCents);
-      const valid = link => link?.mode === 'live' && link.active === true && link.linkType === 'embed' && UUID.test(link.id) && Array.isArray(link.prices) && link.prices.length > 0 && link.prices.every(p => (p.network === 'polygon' && p.currencyToken === 'USDC' || p.network === 'bnb' && p.currencyToken === 'USDT') && p.pricingMode === 'fixed' && Number(p.amount) === feeCents / 100);
+      const valid = link => link?.mode === 'live' && link.active === true && link.linkType === 'embed' && UUID.test(link.id) && Array.isArray(link.prices) && link.prices.length > 0 && link.prices.every(p => (p.network === 'polygon' && p.currencyToken === 'USDC' || p.network === 'bnb' && ['USDC', 'USDT'].includes(p.currencyToken)) && p.pricingMode === 'fixed' && Number(p.amount) === feeCents / 100);
       if (saved) {
         const found = (await request(`/payment-links?id=${encodeURIComponent(saved.link_id)}`)).items?.find(link => link.id === saved.link_id);
         if (valid(found)) return found.id;
@@ -68,7 +68,7 @@ export function createClubEntryProvider({ token, merchantId, fetchImpl = fetch, 
       const link = existing || (await request('/payment-links', {
         linkType: 'embed', itemName, displayTitle: 'DanGG · Club Entry',
         description: 'One-time club admission. Access opens after server verification. This payment does not buy player chips. Network fees are separate.',
-        prices: [{ network: 'polygon', currencyToken: 'USDC', amount: price(feeCents), pricingMode: 'fixed' }, { network: 'bnb', currencyToken: 'USDT', amount: price(feeCents), pricingMode: 'fixed' }],
+        prices: [{ network: 'bnb', currencyToken: 'USDC', amount: price(feeCents), pricingMode: 'fixed' }, { network: 'polygon', currencyToken: 'USDC', amount: price(feeCents), pricingMode: 'fixed' }],
         theme: 'dark', accentColor: '#e8c46c', backgroundColor: '#160b1e', showBranding: true, showMerchantChip: true, showExactAmountBox: true,
       })).paymentLink;
       if (!valid(link)) fail('NervixPay did not return a valid live entry link.', 503);
