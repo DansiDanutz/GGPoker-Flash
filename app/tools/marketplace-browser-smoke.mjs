@@ -211,6 +211,11 @@ async function run() {
   await owner.goto(`${base}/marketplace`, { waitUntil: 'domcontentloaded' });
   await owner.waitForSelector('.mp-product', { visible: true });
   assert.equal(await owner.$('#login-id'), null, 'Public marketplace unexpectedly requires login.');
+  await owner.evaluate(() => {
+    localStorage.setItem('ggpoker.rememberPassword', 'legacy-fixture');
+    localStorage.setItem('ggpoker.rememberLogin', 'admin');
+    sessionStorage.setItem('ggpoker.pendingLogin', '1');
+  });
   await owner.reload({ waitUntil: 'domcontentloaded' });
   await owner.waitForSelector('.mp-product', { visible: true });
   const initial = await api('/api/marketplace');
@@ -265,13 +270,18 @@ async function run() {
   completed.push('Search, category filter, product dialog and focus restoration');
 
   await clickText(owner, '.mp-header-actions button', 'Sign in');
-  await fill(owner, '#login-id', 'admin');
+  await owner.waitForSelector('#login-password', { visible: true });
+  assert.deepEqual(await owner.evaluate(() => [
+    localStorage.getItem('ggpoker.rememberPassword'), sessionStorage.getItem('ggpoker.pendingLogin'),
+    document.querySelector('#login-id').value, document.querySelector('#login-password').value,
+  ]), [null, null, 'admin', '']);
   await fill(owner, '#login-password', 'admin123');
   await clickSelector(owner, '.login2-cta');
   await owner.waitForSelector('.mp-header-admin', { visible: true });
   assert.match(owner.url(), /marketplace/);
   const adminToken = await owner.evaluate(() => localStorage.getItem('ggpoker.token'));
   assert.ok(adminToken);
+  assert.equal(await owner.evaluate(() => localStorage.getItem('ggpoker.rememberPassword')), null);
   await clickSelector(owner, '.mp-header-admin');
   await owner.waitForSelector('.market-admin .ma-product', { visible: true });
   await screenshot(owner, 'admin');
@@ -333,6 +343,21 @@ async function run() {
   completed.push('Content persistence, new-tab preview and dirty Back protection');
 
   const memberAuth = await api('/api/auth/register', { method: 'POST', body: { login: 'ci_market_member', nick: 'CI Market Member', password: 'ci-market-fixture-only' } });
+  const dataUrl = await owner.evaluate(() => document.createElement('canvas').toDataURL());
+  await api('/api/verify', { method: 'POST', token: memberAuth.token, body: { fullName: 'CI Fixture', dob: '1990-01-01', dataUrl } });
+  const reviewer = await newPage();
+  await reviewer.evaluateOnNewDocument(() => sessionStorage.setItem('ggpoker.entered', '1'));
+  await reviewer.goto(base + '/#/admin?section=verifications');
+  await reviewer.waitForFunction(() => Array.from(document.querySelectorAll('button')).some(b => b.textContent === 'View ID'));
+  await clickText(reviewer, 'button', 'View ID');
+  const photo = 'img[alt="ID document for CI Market Member"]';
+  await reviewer.waitForFunction(selector => document.querySelector(selector)?.naturalWidth > 0, {}, photo);
+  await reviewer.setRequestInterception(true);
+  reviewer.on('request', req => req.url().endsWith('/doc') ? req.respond({ status: 422, body: 'Unavailable' }) : req.continue());
+  await clickText(reviewer, 'button', 'View ID');
+  await reviewer.waitForFunction(() => document.body.textContent.includes('Document unavailable'));
+  assert.equal(await reviewer.$(photo), null, 'A failed review must clear the previous ID.');
+  await reviewer.close();
   const memberContext = await browser.createBrowserContext();
   const member = await newPage(memberContext);
   await member.evaluateOnNewDocument((token) => {

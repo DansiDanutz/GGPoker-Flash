@@ -196,8 +196,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      // Every fresh app open goes to the login screen. The saved credentials
-      // stay on the device; this tab must explicitly enter before restoring them.
       if (!enteredThisSession()) {
         // A fresh tab shows login without deleting another tab's active session.
         setGuest(false);

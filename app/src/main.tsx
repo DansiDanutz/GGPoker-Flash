@@ -54,6 +54,10 @@ import './table-desktop.css';
 import './table-emerald-assets.css';
 import './account-premium.css';
 
+// Remove credentials retained by older clients, even for already signed-in users.
+try { localStorage.removeItem('ggpoker.rememberPassword'); } catch { /* storage unavailable */ }
+try { sessionStorage.removeItem('ggpoker.pendingLogin'); } catch { /* storage unavailable */ }
+
 createRoot(document.getElementById('root')!).render(
   <VersionGate>
     <I18nProvider>
