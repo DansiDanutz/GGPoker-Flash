@@ -1,3 +1,10 @@
+## 2026-11-20 — Identity document review and saved passwords
+
+- The admin KYC viewer displays ID photos inline and rejects malformed images. Opening another ID clears the previous photo immediately, even if the new photo fails to load.
+- OpenPoker now remembers only your account ID. **When you next load the updated app, it clears any password an older version of OpenPoker saved in that browser**, even if you’re already signed in. Passwords saved by your browser’s password manager are unaffected.
+
+See [PR #277](https://github.com/OpenPoker4all/OpenPoker/pull/277).
+
 ## 2026-11-14 — granular settings pages
 
 - Settings menu now lists the twelve reference pages and jumps each to its section with
