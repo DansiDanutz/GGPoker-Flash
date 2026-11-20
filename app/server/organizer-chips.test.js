@@ -121,3 +121,36 @@ test('seat movement accepts a bounded composed reference with realistic UUID key
   grant(f); f.chips.openSeat({ organizerId: 1, userId: 1, tableId: 'spin:owned:1', sessionId, amount: 5000 });
   assert.equal(f.chips.seatMove({ organizerId: 1, userId: 1, tableId: 'spin:owned:1', sessionId, kind: 'rebuy', amount: -1, reference: rebuyKey }).applied, true);
 });
+
+test('settlement retries respect legacy receipts while other operation kinds remain independent', () => {
+  const f = fixture(); grant(f);
+  const hand = { organizerId: 1, tableId: 't1', handId: 'first', players: [{ sessionId: 'seat', userId: 1, amount: 980 }], rake: 20 };
+  f.chips.openSeat({ organizerId: 1, userId: 1, tableId: 't1', sessionId: 'seat', amount: 1000 });
+  assert.equal(f.chips.settleHand(hand).applied, true);
+  const purchase = { organizerId: 1, packs: 1, idempotencyKey: 'hand:second' };
+  f.chips.purchase(purchase);
+
+  // Reopen with the deployed receipt schema and its original, already-applied records.
+  f.db.exec(`ALTER TABLE organizer_chip_operations RENAME TO saved_operations;
+    CREATE TABLE organizer_chip_operations (organizer_id INTEGER NOT NULL, operation_key TEXT NOT NULL,
+      kind TEXT NOT NULL, payload TEXT NOT NULL, result TEXT NOT NULL, created_at TEXT NOT NULL,
+      PRIMARY KEY(organizer_id,operation_key));
+    INSERT INTO organizer_chip_operations SELECT * FROM saved_operations;
+    DROP TABLE saved_operations;`);
+  let chips = createOrganizerChips({ db: f.db });
+  assert.equal(chips.settleHand(hand).applied, false);
+  assert.equal(chips.purchase(purchase).applied, false);
+  const second = { ...hand, handId: 'second', players: [{ ...hand.players[0], amount: 960 }] };
+  assert.equal(chips.settleHand(second).applied, true);
+  const transfer = { organizerId: 1, fromUserId: 1, toUserId: 3, amount: 50, idempotencyKey: purchase.idempotencyKey };
+  chips.transfer(transfer);
+  chips = createOrganizerChips({ db: f.db });
+  assert.equal(chips.settleHand(second).applied, false);
+  assert.equal(chips.transfer(transfer).applied, false);
+  assert.equal(chips.balance(1, 3), 50);
+  assert.equal(chips.purchase(purchase).applied, false);
+  assert.throws(() => chips.settleHand({ ...second, rake: 0 }), { code: 'idempotency_conflict' });
+  assert.deepEqual(chips.reconcileTable(1, 't1'), { escrow: 960, held: 960, reconciled: true });
+  assert.equal(chips.supply(1).burned, 40);
+  assert.equal(f.db.prepare('SELECT balance_cents FROM organizer_billing_accounts WHERE user_id=1').get().balance_cents, 900);
+});
