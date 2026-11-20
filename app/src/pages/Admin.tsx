@@ -95,6 +95,7 @@ export function Admin() {
   const [missions, setMissions] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [verificationImage, setVerificationImage] = useState<{ url: string; nick: string } | null>(null);
   const [verifications, setVerifications] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [handView, setHandView] = useState<any>(null);
@@ -727,6 +728,12 @@ export function Admin() {
                 <h2 className="admin-title" style={{ margin: 0 }}>Identity verifications</h2>
                 <button className="btn btn-ghost btn-sm" onClick={async () => { try { const d = await api.admin.verifications(); setVerifications(d.verifications || []); } catch { /* ignore */ } }}>Refresh</button>
               </div>
+              {verificationImage && (
+                <div className="admin-card">
+                  <button className="btn btn-ghost btn-sm" onClick={() => setVerificationImage(null)}>Close ID</button>
+                  <img src={verificationImage.url} alt={`ID document for ${verificationImage.nick}`} style={{ display: 'block', maxWidth: '100%', maxHeight: '80vh' }} />
+                </div>
+              )}
               <div className="admin-card" style={{ padding: 0 }}>
                 <table className="admin-table">
                   <thead><tr><th>#</th><th>Player</th><th>Name</th><th>Country</th><th>Document</th><th>Status</th><th>Submitted</th><th>Actions</th></tr></thead>
@@ -743,7 +750,7 @@ export function Admin() {
                         <td>
                           <div className="row" style={{ gap: 3 }}>
                             <button className="btn btn-ghost btn-sm" onClick={async () => {
-                              try { const url = await api.admin.verificationDoc(v.id); const w = window.open('', '_blank'); if (w) { w.document.write(`<title>ID · ${v.nick}</title><body style="background:#111;margin:0;display:grid;place-items:center"><img src="${url}" style="max-width:100%;max-height:100vh"/></body>`); w.document.close(); } }
+                              try { const url = await api.admin.verificationDoc(v.id); setVerificationImage({ url, nick: v.nick }); }
                               catch (e: any) { toast({ kind: 'error', title: 'Document', body: e.message }); }
                             }}>View ID</button>
                             <button className="btn btn-ghost btn-sm" onClick={async () => {

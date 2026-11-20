@@ -63,9 +63,7 @@ export function Login() {
   const [loginId, setLoginId] = useState(() => {
     try { return localStorage.getItem('ggpoker.rememberLogin') || ''; } catch { return ''; }
   });
-  const [password, setPassword] = useState(() => {
-    try { return localStorage.getItem('ggpoker.rememberPassword') || ''; } catch { return ''; }
-  });
+  const [password, setPassword] = useState('');
   const [nick, setNick] = useState('');
   const [email, setEmail] = useState('');
   const [remember, setRemember] = useState(() => {
@@ -89,51 +87,40 @@ export function Login() {
     return () => window.removeEventListener('click', close);
   }, [langOpen]);
 
-  const saveCredentials = (id: string, pw: string) => {
+  const saveLoginId = (id: string) => {
     try {
       if (remember) {
         localStorage.setItem('ggpoker.remember', '1');
         localStorage.setItem('ggpoker.rememberLogin', id);
-        localStorage.setItem('ggpoker.rememberPassword', pw);
       } else {
-        localStorage.removeItem('ggpoker.remember');
+        localStorage.setItem('ggpoker.remember', '0');
         localStorage.removeItem('ggpoker.rememberLogin');
-        localStorage.removeItem('ggpoker.rememberPassword');
       }
     } catch { /* private mode */ }
   };
 
-  const doLogin = async (idArg?: string, pwArg?: string) => {
+  const doLogin = async () => {
     if (busy) return;
-    const id = (idArg ?? loginId).trim();
-    const pw = pwArg ?? password;
+    const id = loginId.trim();
+    const pw = password;
     setErr('');
     if (!id || !pw) { setErr('Enter your account ID and password.'); return; }
-    saveCredentials(id, pw);
-    if (remember && mode === 'login') {
-      try { sessionStorage.setItem('ggpoker.pendingLogin', '1'); } catch { /* private mode */ }
-    }
+    saveLoginId(id);
     setBusy(true);
     try {
-      // Check the deployed build before creating a session. If the client is
-      // stale this updates automatically and the saved credentials resume the
-      // login after the reload.
       const current = await ensureCurrentVersion();
       if (!current) return; // the page is being replaced
-      try { sessionStorage.removeItem('ggpoker.pendingLogin'); } catch { /* private mode */ }
       if (mode === 'login') {
         await login(id, pw);
         sound.play('coin');
         toast({ kind: 'success', title: 'Welcome back', body: 'Good luck at the tables!' });
       } else {
         await register({ login: id, nick: nick.trim() || id, password: pw, email });
-        saveCredentials(id, pw);
         sound.play('coin');
         toast({ kind: 'reward', title: 'Welcome bonus credited', body: 'Your play balance is ready.' });
       }
     } catch (e: any) {
       setErr(e.message || 'Something went wrong');
-      try { sessionStorage.removeItem('ggpoker.pendingLogin'); } catch { /* private mode */ }
       sound.play('fold', { volume: .4 });
     } finally {
       setBusy(false);
@@ -144,27 +131,6 @@ export function Login() {
     e.preventDefault();
     void doLogin();
   };
-
-  // After a forced update the page reloads on the login screen; resume the
-  // login with the credentials saved before the update.
-  useEffect(() => {
-    let pending = false;
-    try { pending = sessionStorage.getItem('ggpoker.pendingLogin') === '1'; } catch { pending = false; }
-    if (!pending) return;
-    try { sessionStorage.removeItem('ggpoker.pendingLogin'); } catch { /* private mode */ }
-    let id = '';
-    let pw = '';
-    try {
-      id = localStorage.getItem('ggpoker.rememberLogin') || '';
-      pw = localStorage.getItem('ggpoker.rememberPassword') || '';
-    } catch { /* private mode */ }
-    if (!id || !pw) return;
-    setLoginId(id);
-    setPassword(pw);
-    void doLogin(id, pw);
-    // Runs once on mount; doLogin reads the saved values explicitly.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const seed = () => {
     setLoginId('DansiDanutz');
@@ -293,10 +259,10 @@ export function Login() {
 
             {!registering && (
               <div className="login2-row">
-                <label className="login2-remember" title="Keeps your account ID and password on this device">
+                <label className="login2-remember" title="Keeps your account ID on this device">
                   <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
                   <span className="login2-check" aria-hidden="true" />
-                  Remember me
+                  Remember account ID
                 </label>
                 <button type="button" className="login2-forgot" onClick={() => setHelpOpen(true)}>Forgot password?</button>
               </div>

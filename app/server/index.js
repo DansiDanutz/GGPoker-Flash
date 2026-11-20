@@ -1,3 +1,4 @@
+import { validVerificationImage } from './verification-image.js';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -2670,9 +2671,7 @@ const server = http.createServer(async (req, res) => {
       const fullName = String(b.fullName || '').trim();
       if (fullName.length < 3) return json(res, 400, { error: 'Enter your full legal name' });
       if (!b.dob) return json(res, 400, { error: 'Date of birth is required' });
-      const m = String(b.dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/);
-      if (!m) return json(res, 400, { error: 'Attach a photo of your ID' });
-      if (Buffer.from(m[2], 'base64').length > 5 * 1024 * 1024) return json(res, 400, { error: 'Image too large (5 MB max)' });
+      if (!validVerificationImage(b.dataUrl)) return json(res, 400, { error: 'Attach a PNG, JPEG or WebP ID photo up to 5 MB.' });
       db.prepare(`INSERT INTO verifications (user_id, full_name, dob, country, doc_type, doc_data, status, note, created_at, reviewed_at)
         VALUES (?,?,?,?,?,?,'pending',NULL,datetime('now'),NULL)
         ON CONFLICT(user_id) DO UPDATE SET full_name=excluded.full_name, dob=excluded.dob, country=excluded.country,
@@ -3078,7 +3077,8 @@ const server = http.createServer(async (req, res) => {
       const id = Number(p.split('/')[4]);
       const row = db.prepare('SELECT doc_data FROM verifications WHERE id = ?').get(id);
       if (!row || !row.doc_data) return json(res, 404, { error: 'not found' });
-      res.writeHead(200, { 'content-type': 'text/plain' });
+      if (!validVerificationImage(row.doc_data)) return json(res, 422, { error: 'Invalid stored ID photo.' });
+      res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
       return res.end(row.doc_data);
     }
     if (p.startsWith('/api/admin/verifications/') && req.method === 'POST') {
