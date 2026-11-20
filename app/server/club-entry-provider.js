@@ -10,6 +10,7 @@ const price = cents => `${Math.floor(cents / 100)}.${String(cents % 100).padStar
 export function clubEntryCheckoutUrl(order) {
   const url = new URL(`/l/${uuid(order.paymentLinkId)}`, ORIGIN);
   url.searchParams.set('mode', 'card');
+  url.searchParams.set('prefer', 'bnb:USDC');
   url.searchParams.set('ref', order.reference);
   return url.toString();
 }

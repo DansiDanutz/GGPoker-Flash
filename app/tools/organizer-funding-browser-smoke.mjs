@@ -60,6 +60,9 @@ try {
     assert.ok(handle.asElement(), text); await handle.asElement().click(); await handle.dispose();
   };
   const playerPage = await makePage(member.token, `/organizers?club=${owner.user.id}`);
+  const checkoutUrl = await playerPage.evaluate(async () => (await import('/src/lib/organizer-funding-api.ts')).fundingCheckout({paymentLinkId:'11111111-1111-4111-8111-111111111111',reference:'funding:browser-test'}));
+  assert.equal(new URL(checkoutUrl).searchParams.get('prefer'), 'bnb:USDC');
+  checks.push('Organizer checkout prefers BSC USDC without creating a payment');
   assert.ok(await playerPage.$('.cashout-panel'), 'Club profile exposes player USDT cash-out');
   assert.equal(chips.balance(owner.user.id, member.user.id), 0);
   await click(playerPage, 'Send chip request');
