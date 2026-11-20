@@ -88,7 +88,6 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
           description:settlement ? 'Settlement for used or lost organizer Cash Chips. This payment does not grant additional chips and is not service credits or club entry. Network fees are separate.' : 'Organizer Cash Chips for this funding request only; not service credits or club entry. Network fees are separate.',
           prices:[
             { network:'polygon', currencyToken:'USDC', amount:price(row.feeCents), pricingMode:'fixed' },
-            { network:'bnb', currencyToken:'USDT', amount:price(row.feeCents), pricingMode:'fixed' },
             { network:'bnb', currencyToken:'USDC', amount:price(row.feeCents), pricingMode:'fixed' },
           ],
           theme:'dark', accentColor:'#e8c46c', backgroundColor:'#160b1e', showBranding:true, showMerchantChip:true, showExactAmountBox:true,
