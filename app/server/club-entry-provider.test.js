@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
 import { verifyClubEntryPayment, clubEntryCheckoutUrl, createClubEntryProvider } from './club-entry-provider.js';
 const order={id:'local-order',reference:'club-entry:opaque-reference',feeCents:100,paymentLinkId:'11111111-1111-4111-8111-111111111111'};
 const paid={id:'22222222-2222-4222-8222-222222222222',status:'paid',test:false,customerReference:order.reference,paymentLinkId:order.paymentLinkId,network:'polygon',currencyToken:'USDC',amountBaseUnits:'1000007',amountReceivedBaseUnits:'1000007',transactionId:'0xreceipt',paidAt:'2026-11-18T00:00:00Z',recipientWallet:'0xmerchant'};
@@ -45,4 +46,28 @@ test('BNB USDC uses 18 decimals and rejects unsupported assets, wrong precision 
  const receipt={...paid,network:'bnb',currencyToken:'USDC',amountBaseUnits:'1000500000000000000',amountReceivedBaseUnits:'1000500000000000000'};
  assert.equal(verifyClubEntryPayment(order,receipt).token,'USDC');
  for(const patch of [{currencyToken:'BNB'},{network:'ethereum'},{amountBaseUnits:'1000500'},{amountReceivedBaseUnits:'1000500'},{amountReceivedBaseUnits:'999999999999999999'},{amountBaseUnits:'1010000000000000000'},{amountReceivedBaseUnits:'1010000000000000000'}])assert.throws(()=>verifyClubEntryPayment(order,{...receipt,...patch}));
+});
+
+
+test('new club-entry links offer BSC USDC first with one asset per network and reuse the saved link',async()=>{
+ const db=new DatabaseSync(':memory:');let link,creates=0;
+ const provider=createClubEntryProvider({token:'fixture',merchantId:'merchant',fetchImpl:async(url,init)=>{
+  if(url.endsWith('/verify'))return Response.json({merchant:{id:'merchant',blocked:false},credential:{mode:'live',scopes:['integrations:verify','payment_links:read','payment_links:write','payments:read']}});
+  if(init.method==='POST'){creates++;link={...JSON.parse(init.body),id:order.paymentLinkId,mode:'live',active:true};return Response.json({paymentLink:link});}
+  return Response.json({items:link?[link]:[]});
+ }});
+ assert.equal(await provider.linkForFee(db,100),order.paymentLinkId);
+ assert.deepEqual(link.prices.map(p=>[p.network,p.currencyToken,p.amount]),[['bnb','USDC','1.00'],['polygon','USDC','1.00']]);
+ assert.equal(await provider.linkForFee(db,100),order.paymentLinkId);assert.equal(creates,1);db.close();
+});
+
+test('legacy BSC USDT club-entry links remain reusable without creating another link',async()=>{
+ const db=new DatabaseSync(':memory:');let creates=0;
+ const link={id:order.paymentLinkId,mode:'live',active:true,linkType:'embed',itemName:'DanGG Club Entry USD 1.00',prices:[{network:'polygon',currencyToken:'USDC',amount:'1.00',pricingMode:'fixed'},{network:'bnb',currencyToken:'USDT',amount:'1.00',pricingMode:'fixed'}]};
+ const provider=createClubEntryProvider({token:'fixture',merchantId:'merchant',fetchImpl:async(url,init)=>{
+  if(url.endsWith('/verify'))return Response.json({merchant:{id:'merchant',blocked:false},credential:{mode:'live',scopes:['integrations:verify','payment_links:read','payment_links:write','payments:read']}});
+  if(init.method==='POST')creates++;
+  return Response.json({items:[link]});
+ }});
+ assert.equal(await provider.linkForFee(db,100),link.id);assert.equal(await provider.linkForFee(db,100),link.id);assert.equal(creates,0);db.close();
 });
