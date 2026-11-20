@@ -6,7 +6,7 @@ import { createOrganizerFundingProviders, organizerFundingCheckoutUrl } from './
 
 const scopes=['integrations:verify','payment_links:read','payment_links:write','payments:read'];
 const row={id:'request-1',reference:'funding:opaque-1',organizerId:'organizer-1',userId:'player-1',amount:2500,feeCents:375};
-const link={id:'11111111-1111-4111-8111-111111111111',mode:'live',active:true,linkType:'embed',itemName:`Cash Chips ${row.amount} · ${row.reference}`,prices:[{network:'polygon',currencyToken:'USDC',amount:'3.75',pricingMode:'fixed'},{network:'bnb',currencyToken:'USDT',amount:'3.75',pricingMode:'fixed'}]};
+const link={id:'11111111-1111-4111-8111-111111111111',mode:'live',active:true,linkType:'embed',itemName:`Cash Chips ${row.amount} · ${row.reference}`,prices:[{network:'polygon',currencyToken:'USDC',amount:'3.75',pricingMode:'fixed'},{network:'bnb',currencyToken:'USDC',amount:'3.75',pricingMode:'fixed'}]};
 const verification=merchantId=>({merchant:{id:merchantId,blocked:false},credential:{mode:'live',scopes}});
 
 test('configuration and readiness fail closed',async()=>{
@@ -57,7 +57,7 @@ test('disconnect or replacement during fetch fails closed before returning provi
 test('creates exact request-bound product and validates live amount/network',async()=>{
  const db=new DatabaseSync(':memory:'),calls=[];
  const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{calls.push({url,init});if(url.endsWith('/verify'))return Response.json(verification('merchant'));if(!init.body)return Response.json({items:[]});return Response.json({paymentLink:link});}}).forOrganizer('organizer-1');
- assert.equal(await provider.linkForRequest(db,row),link.id);const body=JSON.parse(calls.find(call=>call.init.body).init.body);assert.match(body.displayTitle,/^DanGG · /);assert.equal(body.itemName,link.itemName);assert.deepEqual(body.prices.map(value=>value.amount),['3.75','3.75']);
+ assert.equal(await provider.linkForRequest(db,row),link.id);const body=JSON.parse(calls.find(call=>call.init.body).init.body);assert.match(body.displayTitle,/^DanGG · /);assert.equal(body.itemName,link.itemName);assert.equal(new Set(body.prices.map(value=>value.network)).size,body.prices.length,'NervixPay requires one asset per network');assert.equal(body.prices.find(value=>value.network==='bnb').currencyToken,'USDC');assert.deepEqual(body.prices.map(value=>value.amount),['3.75','3.75']);
 });
 
 test('session settlement is labelled as repayment and grants no additional chips',async()=>{
@@ -93,4 +93,14 @@ test('cancellation recovers saved unattached checkout and refuses unknown creati
  await assert.rejects(()=>provider.cancelLink(row,db),/unresolved/);assert.equal(calls.length,0);
  db.prepare('INSERT INTO organizer_funding_provider_links VALUES(?,?,?)').run(row.id,row.organizerId,link.id);
  await provider.cancelLink(row,db);assert.match(calls[0],new RegExp(link.id));assert.equal(calls.length,2);
+});
+
+test('existing two-asset funding links remain usable without creating a new link',async()=>{
+ const db=new DatabaseSync(':memory:'),legacy={...link,prices:[link.prices[0],{network:'bnb',currencyToken:'USDT',amount:'3.75',pricingMode:'fixed'}]};let creates=0;
+ const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{
+  if(url.endsWith('/verify'))return Response.json(verification('merchant'));
+  if(init.method==='POST'){creates++;return Response.json({paymentLink:legacy});}
+  return Response.json({items:[legacy]});
+ }}).forOrganizer('organizer-1');
+ assert.equal(await provider.linkForRequest(db,row),legacy.id);assert.equal(await provider.linkForRequest(db,row),legacy.id);assert.equal(creates,0);
 });

@@ -160,3 +160,22 @@ test('linked cancellation requires trusted provider clearance and cannot settle 
  assert.equal(f.chips.balance(1,1),50000);
  assert.throws(()=>f.funding.settle({userId:2,id:r.id,payment:PAYMENT}),e=>e.code==='funding_state');
 });
+
+test('BNB USDC funding credits 10,000 chips once across participant retries and rejects receipt reuse',()=>{
+ const f=fixture(),r=f.funding.create({userId:2,organizerId:1,amount:10000,key:'bnb-usdc-funding'});
+ const offer=f.funding.offer({userId:1,id:r.id,feeCents:100});f.funding.attachLink({userId:1,id:r.id,paymentLinkId:LINK});
+ const receipt={...PAYMENT,customerReference:offer.reference,paymentLinkId:LINK,network:'bnb',currencyToken:'USDC',amountBaseUnits:'1000500000000000000',amountReceivedBaseUnits:'1000500000000000000',transactionId:'0xbnb-usdc-funding'};
+ assert.equal(f.funding.settle({userId:2,id:r.id,payment:receipt}).state,'paid');
+ for(const actor of [1,2,1,2])assert.equal(f.funding.settle({userId:actor,id:r.id,payment:receipt}).state,'paid');
+ assert.equal(f.chips.balance(1,2),10000);assert.equal(f.chips.balance(1,1),40000);
+ assert.equal(f.db.prepare('SELECT balance FROM organizer_chip_accounts WHERE organizer_id=1 AND account_key=?').get('ticket:funding:'+r.id).balance,0);
+ assert.equal(f.db.prepare('SELECT SUM(balance) total FROM organizer_chip_accounts WHERE organizer_id=1').get().total,50000);
+ assert.equal(f.db.prepare("SELECT count(*) n FROM organizer_chip_journals WHERE kind='funding_paid'").get().n,1);
+ assert.equal(f.db.prepare('SELECT count(*) n FROM organizer_funding_receipts').get().n,1);
+ assert.throws(()=>f.funding.settle({userId:1,id:r.id,payment:{...receipt,currencyToken:'USDT'}}),e=>e.code==='receipt_conflict');
+ const second=f.funding.create({userId:2,organizerId:1,amount:10000,key:'bnb-usdc-reuse'});const offer2=f.funding.offer({userId:1,id:second.id,feeCents:100});f.funding.attachLink({userId:1,id:second.id,paymentLinkId:LINK});
+ const reused={...receipt,customerReference:offer2.reference};
+ assert.throws(()=>f.funding.settle({userId:2,id:second.id,payment:reused}),e=>e.code==='provider_payment_conflict');
+ assert.throws(()=>f.funding.settle({userId:2,id:second.id,payment:{...reused,id:'44444444-4444-4444-8444-444444444444'}}),e=>e.code==='transaction_conflict');
+ assert.equal(f.chips.balance(1,2),10000);
+});
