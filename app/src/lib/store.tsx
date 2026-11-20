@@ -211,9 +211,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [refreshUser]);
 
   useEffect(() => {
-    const onFirst = () => { sound.unlock(); };
-    window.addEventListener('pointerdown', onFirst, { once: true });
-    return () => window.removeEventListener('pointerdown', onFirst);
+    const onInteraction = () => { sound.unlock(); };
+    sound.startMusic();
+    window.addEventListener('pointerdown', onInteraction);
+    window.addEventListener('keydown', onInteraction);
+    return () => {
+      window.removeEventListener('pointerdown', onInteraction);
+      window.removeEventListener('keydown', onInteraction);
+    };
   }, []);
 
   useEffect(() => {
