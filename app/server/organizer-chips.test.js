@@ -2,10 +2,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createOrganizerChips } from './organizer-chips.js';
 
-function fixture() {
-  const db = new DatabaseSync(':memory:');
+function fixture(db = new DatabaseSync(':memory:')) {
   db.exec(`
     CREATE TABLE users(id INTEGER PRIMARY KEY,banned INTEGER DEFAULT 0,deleted_at TEXT);
     INSERT INTO users VALUES (1,0,NULL),(2,0,NULL),(3,0,NULL),(4,0,NULL);
@@ -122,8 +124,12 @@ test('seat movement accepts a bounded composed reference with realistic UUID key
   assert.equal(f.chips.seatMove({ organizerId: 1, userId: 1, tableId: 'spin:owned:1', sessionId, kind: 'rebuy', amount: -1, reference: rebuyKey }).applied, true);
 });
 
-test('settlement retries respect legacy receipts while other operation kinds remain independent', () => {
-  const f = fixture(); grant(f);
+test('settlement retries respect legacy receipts while other operation kinds remain independent', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'chip-migration-'));
+  const file = join(dir, 'ledger.db');
+  let db = new DatabaseSync(file);
+  t.after(() => { if (db.isOpen) db.close(); rmSync(dir, { recursive: true, force: true }); });
+  const f = fixture(db); grant(f);
   const hand = { organizerId: 1, tableId: 't1', handId: 'first', players: [{ sessionId: 'seat', userId: 1, amount: 980 }], rake: 20 };
   f.chips.openSeat({ organizerId: 1, userId: 1, tableId: 't1', sessionId: 'seat', amount: 1000 });
   assert.equal(f.chips.settleHand(hand).applied, true);
@@ -137,14 +143,21 @@ test('settlement retries respect legacy receipts while other operation kinds rem
       PRIMARY KEY(organizer_id,operation_key));
     INSERT INTO organizer_chip_operations SELECT * FROM saved_operations;
     DROP TABLE saved_operations;`);
-  let chips = createOrganizerChips({ db: f.db });
+  const receipts = () => db.prepare('SELECT * FROM organizer_chip_operations ORDER BY organizer_id,kind,operation_key').all();
+  const before = receipts();
+  db.close();
+  db = new DatabaseSync(file);
+  let chips = createOrganizerChips({ db });
+  assert.deepEqual(receipts(), before);
   assert.equal(chips.settleHand(hand).applied, false);
   assert.equal(chips.purchase(purchase).applied, false);
   const second = { ...hand, handId: 'second', players: [{ ...hand.players[0], amount: 960 }] };
   assert.equal(chips.settleHand(second).applied, true);
   const transfer = { organizerId: 1, fromUserId: 1, toUserId: 3, amount: 50, idempotencyKey: purchase.idempotencyKey };
   chips.transfer(transfer);
-  chips = createOrganizerChips({ db: f.db });
+  db.close();
+  db = new DatabaseSync(file);
+  chips = createOrganizerChips({ db });
   assert.equal(chips.settleHand(second).applied, false);
   assert.equal(chips.transfer(transfer).applied, false);
   assert.equal(chips.balance(1, 3), 50);
@@ -152,5 +165,5 @@ test('settlement retries respect legacy receipts while other operation kinds rem
   assert.throws(() => chips.settleHand({ ...second, rake: 0 }), { code: 'idempotency_conflict' });
   assert.deepEqual(chips.reconcileTable(1, 't1'), { escrow: 960, held: 960, reconciled: true });
   assert.equal(chips.supply(1).burned, 40);
-  assert.equal(f.db.prepare('SELECT balance_cents FROM organizer_billing_accounts WHERE user_id=1').get().balance_cents, 900);
+  assert.equal(db.prepare('SELECT balance_cents FROM organizer_billing_accounts WHERE user_id=1').get().balance_cents, 900);
 });
