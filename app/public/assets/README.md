@@ -19,8 +19,7 @@ regenerate them. Other supplied artwork and recorded voice takes are committed i
 The brand policy does not remove copyright permission needed for independent installs.
 
 Regenerate with `bash tools/setup_assets.sh` (or one category, e.g. `bash tools/setup_assets.sh sounds`).
-`tools/original-assets/manifest.json` lists the expected path and size of every file; each
-generator checks its output against it.
+`tools/original-assets/manifest.json` records selected replacement targets and their dimensions or duration. It does not list every shipped file or establish redistribution rights.
 
 Regeneration requires the app development dependencies, Chrome (`CHROME_PATH` override),
 ffmpeg/ffprobe, cwebp/webpmux and macOS tools such as sips; the tab-plate Python tool

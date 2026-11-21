@@ -121,20 +121,23 @@ test('enforced organizer billing covers funding, memberships, setup, sessions, r
 });
 
 test('manual NervixPay funding links require both explicit opt-in and enforced billing', async () => {
-  const enabled = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'on' } });
+  const unconfigured = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'on', GGPOKER_FUNDING_LINK_900: '' } });
+  try { assert.deepEqual((await unconfigured.get(BILLING)).data.manual_funding, { enabled: false, links: [] }); }
+  finally { await unconfigured.stop(); }
+  const enabled = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'on', GGPOKER_FUNDING_LINK_900: '00000000-0000-4000-8000-000000000009', GGPOKER_FUNDING_LINK_1000: '00000000-0000-4000-8000-000000000010', GGPOKER_FUNDING_MERCHANT: 'Fixture merchant', GGPOKER_FUNDING_ACCOUNT: 'Fixture account' } });
   try {
     const config = await enabled.get(BILLING);
     assert.equal(config.status, 200);
     assert.equal(config.data.checkout_enabled, false, 'automated checkout remains disabled');
     assert.equal(config.data.manual_funding.enabled, true);
     assert.deepEqual(config.data.manual_funding.links, [
-      { amount_cents: 900, url: 'https://nervixpay.live/l/b0afce77-773a-48a0-9a73-72274791313d' },
-      { amount_cents: 1000, url: 'https://nervixpay.live/l/9aae5873-9e81-4ac0-be07-3b189ffded2f' },
+      { amount_cents: 900, url: 'https://nervixpay.live/l/00000000-0000-4000-8000-000000000009' },
+      { amount_cents: 1000, url: 'https://nervixpay.live/l/00000000-0000-4000-8000-000000000010' },
     ]);
     assert.deepEqual(config.data.manual_funding.assets, ['USDC on Polygon', 'USDT on BNB Chain']);
   } finally { await enabled.stop(); }
 
-  const billingOff = await startServer({ env: { GGPOKER_USAGE_BILLING: 'off', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'on' } });
+  const billingOff = await startServer({ env: { GGPOKER_USAGE_BILLING: 'off', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'on', GGPOKER_FUNDING_LINK_900: '00000000-0000-4000-8000-000000000009', GGPOKER_FUNDING_LINK_1000: '00000000-0000-4000-8000-000000000010', GGPOKER_FUNDING_MERCHANT: 'Fixture merchant', GGPOKER_FUNDING_ACCOUNT: 'Fixture account' } });
   try {
     const config = await billingOff.get(BILLING);
     assert.deepEqual(config.data.manual_funding, { enabled: false, links: [] });

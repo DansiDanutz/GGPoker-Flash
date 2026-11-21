@@ -202,3 +202,26 @@ test('a muted player\'s chat is dropped', async () => {
   await loud.close();
   await player.close();
 });
+
+test('private live flights admit the owner and registrant, not a spectator with the invite', async () => {
+  const created = await srv.post('/api/tournaments/host', { token: host, body: { name: 'Private Watch Cup', format: 'NLH', buyin: 1000, fee: 100, starting_stack: 5000, blind_speed: 5, late_reg: 60, mode: 'STANDARD' } });
+  assert.equal(created.status, 200);
+  const route = '/api/tournaments/' + created.data.id;
+  const { invite } = (await srv.post(route + '/invite', { token: host, body: {} })).data;
+  assert.equal((await srv.post(route + '/register', { token: admin, body: { invite } })).status, 200);
+  const play = await srv.post(route + '/play', { token: admin, body: {} });
+  assert.equal(play.status, 200);
+  for (const [token, allowed] of [[watcher, false], [host, true], [admin, true]]) {
+    assert.equal((await srv.get(route + '/watch', { token })).status, allowed ? 200 : 404);
+    if (!allowed) for (const suffix of ['hud?nick=test', 'vpip', 'leaderboard']) {
+      assert.equal((await srv.get('/api/tables/' + play.data.tableId + '/' + suffix, { token })).status, 404);
+    }
+    const ws = srv.socket(token);
+    try {
+      await ws.opened;
+      ws.send({ type: 'join_table', tableId: play.data.tableId, observe: true, invite });
+      const reply = await ws.next(m => ['joined', 'error'].includes(m.type));
+      assert.equal(reply.type, allowed ? 'joined' : 'error');
+    } finally { await ws.close(); }
+  }
+});

@@ -8,7 +8,7 @@ export type OrganizerClub = {
   tables?: Array<{ id: string; name: string; game: string; seats: number; minBuyin?: number }>;
 };
 export type ClubRequest = { userId: number; nick: string; avatar: string; country: string; status: string; message: string; createdAt: string; updatedAt: string };
-export type ClubOrder = { id: string; status: string; amountCents: number; checkoutUrl: string | null };
+export type ClubOrder = { id: string; status: string; amountCents: number; expiresAt?: string; checkoutUrl: string | null };
 
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const token = getToken();

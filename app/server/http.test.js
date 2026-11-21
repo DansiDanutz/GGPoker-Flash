@@ -39,7 +39,7 @@ test('server binds an ephemeral port and serves the API', async () => {
     assert.equal(lobby.tables[0].synthetic, undefined);
     assert.equal(lobby.tables[0].avgPot, 0);
     assert.equal(lobby.tables[0].vpip, 0);
-    assert.ok(lobby.online > 100_000, `the room-sized Online count stays populated, got ${lobby.online}`);
+    assert.equal(lobby.online, 0);
     // The login screen only offers the demo shortcut when this account exists.
     assert.equal(lobby.demoAccount, true);
     const badOrigin = await fetch(`http://127.0.0.1:${port}/api/lobby`, { headers: { origin: 'http://evil.example' } });
@@ -48,6 +48,9 @@ test('server binds an ephemeral port and serves the API', async () => {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ login: 'DansiDanutz', password: 'ggpoker' }),
     }).then((r) => r.json());
+    const signedInLobby = await fetch(`http://127.0.0.1:${port}/api/lobby`, { headers: { authorization: `Bearer ${login.token}` } }).then(r => r.json());
+    assert.equal(signedInLobby.online, 1);
+
     assert.ok(login.token);
     const deposit = await fetch(`http://127.0.0.1:${port}/api/cashier/deposit`, {
       method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}` },
@@ -138,7 +141,7 @@ test('live join and leave write matching session markers', async () => {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ login: 'DansiDanutz', password: 'ggpoker' }),
     }).then((r) => r.json());
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${login.token}`);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { authorization: `Bearer ${login.token}` } });
     await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
     ws.send(JSON.stringify({ type: 'join_table', tableId: 'nlh-diamond-01', buyin: 50000 }));
     await new Promise((r) => setTimeout(r, 1800));
@@ -170,7 +173,7 @@ test('deleting a user closes the live socket and blocks a rejoin', async () => {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ login: 'admin', password: 'admin123' }),
     }).then((r) => r.json());
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${user.token}`);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { authorization: `Bearer ${user.token}` } });
     await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
     ws.send(JSON.stringify({ type: 'join_table', tableId: 'nlh-diamond-01', buyin: 50000 }));
     await new Promise((r) => setTimeout(r, 1200));

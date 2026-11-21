@@ -75,7 +75,7 @@ export class TournamentRoom {
         id: flight.id,
         players: flight.players.map((p) => ({
           id: p.id, nick: p.nick, avatar: p.avatar, stack: p.stack,
-          seat: p.seat, away: p.away, sittingOut: p.sittingOut,
+          seat: p.seat, away: p.away, sittingOut: p.sittingOut, isBot: p.isBot,
         })),
       })),
     };
@@ -102,10 +102,13 @@ export class TournamentRoom {
       for (const p of Array.isArray(flight.players) ? flight.players : []) {
         if (table.seatOf(p.id)) continue;
         const stack = Number(p.stack) >= 0 ? Number(p.stack) : 0;
-        let result = table.sit({ id: p.id, nick: p.nick, avatar: p.avatar || '' }, Number.isInteger(p.seat) ? p.seat : null, stack);
+        // Older snapshots omitted the flag. Only generated bot IDs have this form; user IDs are numeric.
+        const isBot = p.isBot === true || (p.isBot == null && typeof p.id === 'string' && /^bot-.+-\d+-\d+$/.test(p.id));
+        const identity = { id: p.id, nick: p.nick, avatar: p.avatar || '', isBot };
+        let result = table.sit(identity, Number.isInteger(p.seat) ? p.seat : null, stack);
         if (!result.ok) {
           console.error('tournament restore seat', this.id, table.cfg.id, p.nick, result.error);
-          result = table.sit({ id: p.id, nick: p.nick, avatar: p.avatar || '' }, null, stack);
+          result = table.sit(identity, null, stack);
         }
         const seated = table.seatOf(p.id)?.player;
         if (seated) {

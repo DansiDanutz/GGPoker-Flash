@@ -5,7 +5,7 @@ export type HubTarget = { readonly tab: string } | { readonly route: string };
 
 export type HubIconName =
   | 'messages' | 'settings' | 'history' | 'propbet' | 'friends' | 'help'
-  | 'profile' | 'wallet' | 'receipt' | 'verify' | 'notes' | 'shield' | 'missions';
+  | 'profile' | 'wallet' | 'receipt' | 'notes' | 'shield' | 'missions';
 
 type Entry = { readonly key: string; readonly label: string; readonly target: HubTarget };
 export type QuickTile = Entry & { readonly icon: HubIconName };
@@ -35,8 +35,8 @@ export const ACCOUNT_ROWS: readonly AccountRow[] = Object.freeze([
   { key: 'transactions', label: 'Transaction History', icon: 'receipt', target: { tab: 'transactions' } },
   { key: 'missions', label: 'Weekly Mission', icon: 'missions', target: { tab: 'missions' } },
   { key: 'notes', label: 'Player Notes', icon: 'notes', target: { tab: 'notes' } },
-  { key: 'verify', label: 'Verify ID', icon: 'verify', target: { tab: 'verify' } },
-  { key: 'security', label: 'Security & Responsible Gaming', icon: 'shield', target: { tab: 'security' } },
+  { key: 'security', label: 'Account security', icon: 'shield', target: { tab: 'security' } },
+  { key: 'responsible', label: 'Responsible gaming', icon: 'help', target: { route: '/responsible-gaming' } },
 ]);
 
 /** VIP progress inside the current level; same curve as the desktop My Page (level² × 1200 XP). */

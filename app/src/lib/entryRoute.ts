@@ -14,6 +14,11 @@ export function marketplaceAuthDestination(route: string): string | null {
   const [path, query = ''] = route.split('?');
   if (path === '/admin') return route;
   if (['/marketplace', '/contributor', '/organiser', '/organizers'].includes(path)) return path;
-  const destination = new URLSearchParams(query).get('returnTo');
+  const params = new URLSearchParams(query);
+  const destination = params.get('returnTo');
+  const id = params.get('id'), invite = params.get('invite');
+  if (id && invite && (path === '/tournaments' || (path === '/login' && destination === 'tournaments'))) {
+    return '/tournaments?' + new URLSearchParams({ id, invite });
+  }
   return ['marketplace', 'contributor', 'organiser', 'organizers'].includes(destination || '') ? `/${destination}` : null;
 }

@@ -4,6 +4,15 @@
 export const RUN_ASK_MS = 8000;
 export const MAX_RUNS = 3;
 
+// Five community cards must fit after every occupied seat receives its hole cards.
+export function deckSeatLimit(game) {
+  const hole = ({omaha5:5, omaha6:6, omaha:4, rushplo:4})[game] || 2;
+  return Math.floor(((game === 'shortdeck' ? 36 : 52) - 5) / hole);
+}
+export function availableRuns(board, deck) {
+  return board.length === 5 ? 1 : Math.min(MAX_RUNS, Math.floor(deck.length / (5 - board.length)));
+}
+
 /** The number of runs every chooser agreed to: the smallest choice wins, and no choice means once. */
 export function agreedRuns(choices) {
   if (!choices.length) return 1;
@@ -12,6 +21,7 @@ export function agreedRuns(choices) {
 
 /** One board per run. Every run keeps the cards already dealt and completes from a copy of the deck. */
 export function boardsFor(board, deck, runs) {
+  if (!Number.isInteger(runs) || runs < 1 || runs > availableRuns(board, deck)) throw new RangeError('Insufficient cards for requested boards');
   const rest = [...deck];
   const boards = Array.from({ length: runs }, () => {
     const run = [...board];

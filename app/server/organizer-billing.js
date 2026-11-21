@@ -36,6 +36,8 @@ function transaction(db, fn) {
 export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrganizerMembership = null }) {
   if (!['off', 'enforce'].includes(mode)) fail('Billing mode must be off or enforce.');
   db.exec(`
+    CREATE TABLE IF NOT EXISTS organizer_fee_credit_movements (reference TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), amount_cents INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS organizer_fee_credit_user ON organizer_fee_credit_movements(user_id);
     CREATE TABLE IF NOT EXISTS organizer_billing_accounts (user_id INTEGER PRIMARY KEY REFERENCES users(id), balance_cents INTEGER NOT NULL DEFAULT 0 CHECK(balance_cents >= 0));
     CREATE TABLE IF NOT EXISTS organizer_billing_memberships (user_id INTEGER NOT NULL REFERENCES users(id), role TEXT NOT NULL CHECK(role IN ('organizer','contributor')), active INTEGER NOT NULL DEFAULT 1, expires_at TEXT NOT NULL, PRIMARY KEY(user_id,role));
     CREATE TABLE IF NOT EXISTS organizer_billing_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id), kind TEXT NOT NULL, amount_cents INTEGER NOT NULL, reference TEXT NOT NULL UNIQUE, resource_id TEXT, metadata TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
@@ -80,13 +82,22 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     if (mode === 'enforce' && !membership.active) fail(`Active ${role} membership required.`, 402, 'membership_required');
     return membership;
   }
+  const feeCredit = id => db.prepare('SELECT COALESCE(SUM(amount_cents),0) AS cents FROM organizer_fee_credit_movements WHERE user_id=?').get(id).cents;
+  function feeMovement(id, reference, cents) {
+    db.prepare('INSERT INTO organizer_fee_credit_movements(reference,user_id,amount_cents) VALUES(?,?,?)').run(reference,id,cents);
+  }
+  function grantEntryFeeCredit({ organizerId, reference, amountCents }) {
+    if (!db.isTransaction || !Number.isSafeInteger(amountCents) || amountCents <= 0) fail('Invalid entry fee credit settlement.');
+    requireMembership(organizerId, 'organizer');
+    feeMovement(organizerId, 'entry:' + reference, amountCents);
+  }
   function account(id) {
     user(id);
-    return { mode, balance_cents: balance(id), cash_usage: cashUsage(id), memberships: { organizer: access(id, 'organizer'), contributor: access(id, 'contributor') } };
+    return { mode, balance_cents: balance(id), fee_credit_cents: feeCredit(id), cash_usage: cashUsage(id), memberships: { organizer: access(id, 'organizer'), contributor: access(id, 'contributor') } };
   }
   function cashUsage(id) {
     // The immutable ledger also includes hours paid before tiered pricing launched.
-    const paid_hours = db.prepare("SELECT COUNT(*) n FROM organizer_billing_ledger WHERE user_id=? AND kind='cash_hour' AND amount_cents<0").get(id).n;
+    const paid_hours = db.prepare("SELECT COUNT(*) n FROM organizer_billing_ledger WHERE user_id=? AND kind='cash_hour'").get(id).n;
     const next_hour = paid_hours + 1;
     return { paid_hours, next_hour, next_hour_cents: ORGANIZER_TARIFFS.cash_hour_tiers.find((tier) => tier.through === null || next_hour <= tier.through).cents };
   }
@@ -100,6 +111,12 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
   }
   function debit(id, amount, kind, reference, resource, metadata) {
     ensure(id);
+    const covered = ['setup', 'cash_hour', 'reschedule'].includes(kind) ? Math.min(amount, feeCredit(id)) : 0;
+    if (covered) {
+      feeMovement(id, reference, -covered);
+      metadata = { ...metadata, fee_credit_cents: covered };
+      amount -= covered;
+    }
     const result = db.prepare('UPDATE organizer_billing_accounts SET balance_cents=balance_cents-? WHERE user_id=? AND balance_cents>=?').run(amount, id, amount);
     if (result.changes !== 1) fail('Insufficient service credits.', 402, 'insufficient_credit');
     journal(id, kind, -amount, reference, resource, metadata);
@@ -274,7 +291,7 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     if (!session?.active) return false;
     const paid = Date.parse(session.paid_until);
     const eligible = activeUser(session.user_id) && access(session.user_id, 'organizer').active;
-    if (!eligible || !Number.isFinite(paid) || time - paid >= HOUR || (paid <= time && balance(session.user_id) < cashUsage(session.user_id).next_hour_cents)) {
+    if (!eligible || !Number.isFinite(paid) || time - paid >= HOUR || (paid <= time && balance(session.user_id) + feeCredit(session.user_id) < cashUsage(session.user_id).next_hour_cents)) {
       db.prepare('UPDATE organizer_cash_sessions SET active=0 WHERE table_id=?').run(session.table_id);
       return false;
     }
@@ -308,5 +325,5 @@ export function createOrganizerBilling({ db, now = Date.now, mode = 'off', onOrg
     user(id);
     return db.prepare('SELECT * FROM organizer_billing_ledger WHERE user_id=? ORDER BY id DESC LIMIT 100').all(id);
   }
-  return { mode, tariffs: ORGANIZER_TARIFFS, account, credit, reserveCreditRefund, markCreditRefundPaid, cancelCreditRefund, getCreditRefund, listCreditRefunds, subscribe, squeeze3dAccount, purchaseSqueeze3d, requireMembership, setup, replay, cashSession, startCash, stopCash, tickCash, canDeal, reschedule, history };
+  return { grantEntryFeeCredit, mode, tariffs: ORGANIZER_TARIFFS, account, credit, reserveCreditRefund, markCreditRefundPaid, cancelCreditRefund, getCreditRefund, listCreditRefunds, subscribe, squeeze3dAccount, purchaseSqueeze3d, requireMembership, setup, replay, cashSession, startCash, stopCash, tickCash, canDeal, reschedule, history };
 }

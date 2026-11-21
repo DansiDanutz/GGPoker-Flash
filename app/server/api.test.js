@@ -1,6 +1,8 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { DatabaseSync } from 'node:sqlite';
+import { join } from 'node:path';
 import { startServer, sleep, nextSseEvent, seatHumans } from './test-helpers.js';
 import { handForViewer } from './hand-history.js';
 import { isLocalHost, isLocalOrigin, resolveInside, createRateLimiter } from './security.js';
@@ -117,7 +119,15 @@ test('admin money actions reject non-numeric and overdraft amounts', async () =>
   const guest = users.find((u) => u.login === 'guest');
   const route = `/api/admin/users/${guest.id}`;
   assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: 'lots' } })).status, 400);
-  assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: -1e11 } })).status, 400);
+  const db = new DatabaseSync(join(srv.dataDir, 'ggpoker.db'), { readOnly: true });
+  try {
+    const snapshot = db.prepare('SELECT balance, (SELECT COUNT(*) FROM transactions WHERE user_id = users.id) AS entries FROM users WHERE id = ?');
+    const before = snapshot.get(guest.id);
+    const denied = await srv.post(route, { token: admin, body: { action: 'credit', amount: -before.balance - 1, reason: 'Test overdraft' } });
+    assert.equal(denied.status, 400);
+    assert.equal(denied.data.error, 'Debit exceeds the balance');
+    assert.deepEqual(snapshot.get(guest.id), before);
+  } finally { db.close(); }
   assert.equal((await srv.post(route, { token: admin, body: { action: 'set', balance: 'NaN' } })).status, 400);
   assert.equal((await srv.post(route, { token: admin, body: { action: 'credit', amount: 500, reason: 'Test credit' } })).status, 200);
   assert.equal((await srv.post('/api/admin/tables', { token: admin, body: { name: 'Bad', seats: 40 } })).status, 400);
@@ -141,9 +151,9 @@ test('hand history only shows a player their own hands and cards that were shown
   const row = {
     id: 1, hand_no: 7, table_id: 't', table_name: 'T', game: 'holdem', board: 'As Kd 2c', pot: 500,
     players: JSON.stringify([
-      { id: 1, nick: 'Hero', cards: ['Ah', 'Ad'], folded: false, showed: true },
+      { id: 1, nick: 'Hero', cards: ['Ah', 'Ad'], folded: false, showed: true, shownIndices: [0, 1] },
       { id: 2, nick: 'Folder', cards: ['7c', '2d'], folded: true, showed: false },
-      { id: 'bot-1', nick: 'Shower', cards: ['Kh', 'Ks'], folded: false, showed: true },
+      { id: 'bot-1', nick: 'Shower', cards: ['Kh', 'Ks'], folded: false, showed: true, shownIndices: [0, 1] },
     ]),
     result: JSON.stringify({ reason: 'showdown', hands: [{ nick: 'Hero' }, { nick: 'Shower' }] }),
     actions: '[]', created_at: 'now',
@@ -157,7 +167,7 @@ test('hand history only shows a player their own hands and cards that were shown
   assert.deepEqual(theirs.players[0].cards, ['Ah', 'Ad'], 'shown at showdown');
   assert.equal(handForViewer(row, 99), null, 'spectators and strangers get nothing');
   // Legacy rows do not record who mucked, so a non-winning showdown participant stays hidden.
-  const legacy = handForViewer({ ...row, players: row.players.replaceAll(/,"showed":(true|false)/g, '') }, 1);
+  const legacy = handForViewer({ ...row, players: JSON.stringify(JSON.parse(row.players).map(({ showed, shownIndices, ...p }) => p)) }, 1);
   assert.deepEqual(legacy.players[1].cards, []);
   assert.deepEqual(legacy.players[2].cards, []);
 });
@@ -272,21 +282,36 @@ test('the seat is cashed out after the disconnect grace period', async () => {
 });
 
 test('a clean shutdown settles seats at their real stack, not a buy-in refund', async () => {
-  const first = await startServer();
-  const token = await first.login('DansiDanutz', 'ggpoker');
-  const s = first.socket(token);
-  await s.opened;
-  s.send({ type: 'join_table', tableId: TABLE, buyin: MIN_BUYIN });
-  await s.nextType('joined');
-  await first.stop('SIGTERM');
-
-  const second = await startServer({ dataDir: first.dataDir });
+  let server = await startServer();
+  const dataDir = server.dataDir;
   try {
-    const token2 = await second.login('DansiDanutz', 'ggpoker');
-    const tx = (await second.get('/api/cashier', { token: token2 })).data.transactions;
-    assert.equal(tx.filter((t) => String(t.reference).startsWith('out:')).length, 1);
-    assert.equal(tx.filter((t) => t.kind === 'buyin_refund').length, 0);
-  } finally { await second.stop(); }
+    const tableId = 'shutdown-stack-test';
+    const admin = await server.login('admin', 'admin123');
+    assert.equal((await server.post('/api/admin/tables', { token: admin, body: {
+      id: tableId, name: 'Shutdown fixture', game: 'holdem', sb: 50, bb: 100,
+      min_buyin: MIN_BUYIN, max_buyin: 4000, seats: 2, sort: 0,
+    } })).status, 200);
+    const token = await server.login('DansiDanutz', 'ggpoker');
+    const initial = await server.balance(token);
+    const socket = server.socket(token);
+    await socket.opened;
+    socket.send({ type: 'join_table', tableId, buyin: MIN_BUYIN });
+    const nextState = match => socket.next(m => m.type === 'state' && m.state.id === tableId && match(m.state), 10000);
+    const { state } = await nextState(s => s.street === 'preflop' && s.players.some(p => p.isMe && p.id === s.actor));
+    socket.send({ type: 'action', tableId, action: 'fold', handNo: state.handNo, turnNo: state.turnNo });
+    const end = await nextState(s => s.handNo === state.handNo && s.street === 'ended');
+    const stack = end.state.players.find(p => p.isMe).stack;
+    assert.ok(stack > 0 && stack < MIN_BUYIN);
+    for (let restart = 0; restart < 2; restart++) {
+      await server.stop('SIGTERM');
+      server = await startServer({ dataDir });
+      const session = await server.login('DansiDanutz', 'ggpoker');
+      const tx = (await server.get('/api/cashier', { token: session })).data.transactions;
+      assert.deepEqual(tx.filter(t => String(t.reference).startsWith('out:')).map(t => t.amount), [stack]);
+      assert.equal(tx.filter(t => t.kind === 'buyin_refund').length, 0);
+      assert.equal(await server.balance(session), initial - MIN_BUYIN + stack);
+    }
+  } finally { await server.stop(); }
 });
 
 test('wait list: a full table queues, holds a freed seat from bots and passes an expired offer to #2', async () => {

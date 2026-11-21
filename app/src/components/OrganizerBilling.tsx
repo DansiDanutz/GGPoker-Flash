@@ -21,6 +21,7 @@ export function OrganizerBilling({ userId, role, view = 'all' }: { userId?: numb
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState('');
   const [starts, setStarts] = useState<Record<string, string>>({});
   const [rakes, setRakes] = useState<Record<string, { rakePercent: number; rakeCap: string }>>({});
@@ -67,7 +68,7 @@ export function OrganizerBilling({ userId, role, view = 'all' }: { userId?: numb
     {error && <div className="mp-notice mp-notice-error" role="alert">{error}</div>}
     {notice && <div className="mp-notice mp-notice-success" role="status">{notice}</div>}
     {!userId ? <p>Sign in to view your balance and resources.</p> : account && <>
-      <div className="mp-account-grid"><article><strong>{usd(account.balance_cents)}</strong><p>service credit balance</p></article>{membershipView && (role ? [role] : ['organizer', 'contributor'] as const).map((role) => <article key={role}><strong>{role === 'organizer' ? 'Organizer' : 'Contributor'}</strong><p>{account.memberships[role].active ? `Active until ${when(account.memberships[role].expires_at)}` : 'Inactive'}</p><button type="button" className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy)} onClick={() => void run(`subscribe:${role}`, `Charge ${usd(tariffs?.membership || 900)} for one month of ${role} membership?`, (key) => organizerBillingApi.subscribe(role, key), 'Membership updated.')}>{busy === `subscribe:${role}` ? 'Processing…' : account.memberships[role].active ? 'Renew' : 'Activate'}</button></article>)}</div>
+      <div className="mp-account-grid"><article><strong>{usd(account.balance_cents)}</strong><p>service credit balance</p></article>{account.fee_credit_cents > 0 && <article><strong>{usd(account.fee_credit_cents)}</strong><p>organizer fee credit · setup, hourly hosting and rescheduling only</p></article>}{membershipView && (role ? [role] : ['organizer', 'contributor'] as const).map((role) => <article key={role}><strong>{role === 'organizer' ? 'Organizer' : 'Contributor'}</strong><p>{account.memberships[role].active ? `Active until ${when(account.memberships[role].expires_at)}` : 'Inactive'}</p><button type="button" className="mp-button mp-button-secondary" disabled={!enforced || Boolean(busy)} onClick={() => void run(`subscribe:${role}`, `Charge ${usd(tariffs?.membership || 900)} for one month of ${role} membership?`, (key) => organizerBillingApi.subscribe(role, key), 'Membership updated.')}>{busy === `subscribe:${role}` ? 'Processing…' : account.memberships[role].active ? 'Renew' : 'Activate'}</button></article>)}</div>
       {fundingView && config?.manual_funding.enabled && <section aria-label="Manual service credit funding">
         <h3>Add service credits through NervixPay</h3>
         <p>The operator verifies payment manually; the account is not credited automatically. Service credits are not player deposits or Cash Chips. After verification, activate the membership separately; there is no automatic renewal.</p>
@@ -145,7 +146,11 @@ export function OrganizerBilling({ userId, role, view = 'all' }: { userId?: numb
             <p>{tournament.entrants} / {tournament.max_players} entrants · Ticket: {(tournament.buyin + tournament.fee).toLocaleString()} {unit} ({tournament.buyin.toLocaleString()} buy-in + {tournament.fee.toLocaleString()} fee) · Starting stack: {tournament.starting_stack.toLocaleString()} tournament chips · Blind levels: {tournament.blind_speed} minutes.</p>
             {tournament.bounty > 0 && <p>Bounty: {tournament.bounty.toLocaleString()} {unit} per entrant, reserved separately at the start.</p>}
             <a className="mp-button mp-button-secondary" href={link}>Open tournament lobby</a>
-            <label>Invite link<input className="admin-input" aria-label={`Invite for ${tournament.name}`} readOnly value={`${location.origin}/${link}`} onFocus={event => event.target.select()} /></label>
+            {inviteLinks[tournament.id] ? <label>Invite link<input className="admin-input" aria-label={`Invite for ${tournament.name}`} readOnly value={inviteLinks[tournament.id]} onFocus={event => event.target.select()} /></label>
+              : <button type="button" onClick={async () => {
+                try { const url = await api.tournamentInviteLink(tournament.id); setInviteLinks(prev => ({ ...prev, [tournament.id]: url })); }
+                catch (failure) { setError(errorText(failure)); }
+              }}>Show tournament invite</button>}
             <form onSubmit={(event: FormEvent) => {
               event.preventDefault(); const time = Date.parse(start);
               if (!Number.isFinite(time) || time <= Date.now()) { setError('Choose a future tournament start time.'); return; }

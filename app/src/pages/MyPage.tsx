@@ -26,7 +26,6 @@ const TABS = [
   { key: 'notes', label: 'Player notes' },
   { key: 'friends', label: 'Friends' },
   { key: 'leaders', label: 'Leaderboard' },
-  { key: 'verify', label: 'Verify ID' },
   { key: 'security', label: 'Security' },
 ];
 
@@ -39,7 +38,7 @@ const PROMOS = [
 
 const PANE_TITLES: Record<string, string> = {
   overview: 'My Game Profile', wallet: 'My Wallet', transactions: 'Transaction History', missions: 'Weekly Mission',
-  messages: 'Messages', notes: 'Player Notes', friends: 'Friends', verify: 'Verify ID', security: 'Security',
+  messages: 'Messages', notes: 'Player Notes', friends: 'Friends', security: 'Security',
   promo: 'My Promo', tickets: 'Tickets', leaders: 'Leaderboard', stakers: 'Current Stakers', sellers: 'Sellers you follow',
 };
 
@@ -65,13 +64,6 @@ export function MyPage() {
   const [friends, setFriends] = useState<any[]>([]);
   const [friendReqs, setFriendReqs] = useState<any>({ incoming: [], outgoing: [] });
   const [friendNick, setFriendNick] = useState('');
-  const [verify, setVerify] = useState<any>(null);
-  const [vName, setVName] = useState('');
-  const [vDob, setVDob] = useState('');
-  const [vCountry, setVCountry] = useState('Romania');
-  const [vDocType, setVDocType] = useState('Passport');
-  const [vDoc, setVDoc] = useState<string | null>(null);
-  const [vBusy, setVBusy] = useState(false);
   const [sessions, setSessions] = useState<any[]>([]);
   const [pwdCur, setPwdCur] = useState('');
   const [pwdNew, setPwdNew] = useState('');
@@ -107,7 +99,7 @@ export function MyPage() {
   useEffect(() => {
     const params = new URLSearchParams(route.split('?')[1] || '');
     const wanted = params.get('tab');
-    if (wanted && ['overview', 'wallet', 'promo', 'missions', 'transactions', 'tickets', 'messages', 'notes', 'friends', 'leaderboard', 'verify', 'security'].includes(wanted)) { setTab(wanted); setHub(false); }
+    if (wanted && ['overview', 'wallet', 'promo', 'missions', 'transactions', 'tickets', 'messages', 'notes', 'friends', 'leaderboard', 'security'].includes(wanted)) { setTab(wanted === 'leaderboard' ? 'leaders' : wanted); setHub(false); }
     const id = Number(params.get('dm') || 0);
     if (!id) return;
     api.userProfile(id).then((r) => openDm({ peer_id: r.user.id, nick: r.user.nick })).catch(() => {});
@@ -124,8 +116,7 @@ export function MyPage() {
     fetch('/api/notes', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => { setNotes(d.notes || []); setNoteLabels(normalizeLabels(d.labels)); }).catch(() => {});
     fetch('/api/friends', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setFriends(d.friends || [])).catch(() => {});
     loadFriendReqs();
-    fetch('/api/sessions', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => setSessions(d.sessions || [])).catch(() => {});
-    fetch('/api/verify', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((r) => r.json()).then((d) => { setVerify(d.verification); if (d.verification) { setVName(d.verification.full_name || ''); setVDob(d.verification.dob || ''); setVCountry(d.verification.country || 'Romania'); setVDocType(d.verification.doc_type || 'Passport'); } }).catch(() => {});
+    api.sessions().then((d) => setSessions(d.sessions || [])).catch(() => {});
   }, []);
 
   const claim = async (m: any) => {
@@ -166,14 +157,14 @@ export function MyPage() {
               { key: 'voice', label: 'My Action Voice', go: () => navigate('/settings'), ext: true },
               { key: 'overview', label: 'My Game Profile', go: () => setTab('overview') },
               { key: 'wallet', label: 'My Wallet', go: () => setTab('wallet') },
-              { key: 'verify', label: 'Verify ID', go: () => setTab('verify') },
               { key: 'transactions', label: 'Transaction History', go: () => setTab('transactions') },
               { key: 'messages', label: 'Message', go: () => setTab('messages') },
               { key: 'coupons', label: 'Redeem Coupons', go: () => navigate('/promotions'), ext: true },
               { key: 'stakers', label: 'Current Stakers', go: () => setTab('stakers') },
               { key: 'sellers', label: 'Sellers you follow', go: () => setTab('sellers') },
               { key: 'pokercraft', label: 'Hand History', go: () => navigate('/hand-history'), ext: true },
-              { key: 'security', label: 'Responsible Gaming', go: () => setTab('security') },
+              { key: 'security', label: 'Account security', go: () => setTab('security') },
+              { key: 'responsible', label: 'Responsible gaming', go: () => navigate('/responsible-gaming') },
             ].map((item) => (
               <button
                 key={item.key}
@@ -427,93 +418,46 @@ export function MyPage() {
           </div>
         )}
 
-        {(tab === 'verify' || tab === 'security') && (
+        {tab === 'security' && (
           <div className="grid g2">
             <div className="card">
-              <div className="panel-title">{tab === 'verify' ? 'Identity verification' : 'Account security'}</div>
-              {tab === 'verify' ? (
-                verify && verify.status !== 'rejected' ? (
-                  <>
-                    <div className={'tag ' + (verify.status === 'approved' ? 'live' : '')}>{verify.status === 'approved' ? 'Verified' : 'Pending review'}</div>
-                    <div className="kv" style={{ marginTop: 10 }}><span>Name</span><b>{verify.full_name}</b></div>
-                    <div className="kv"><span>Document</span><b>{verify.doc_type}</b></div>
-                    <div className="kv"><span>Submitted</span><b>{verify.created_at?.slice(0, 10)}</b></div>
-                    {verify.note && <div className="muted small" style={{ marginTop: 8 }}>Reviewer note: {verify.note}</div>}
-                    {verify.status === 'pending' && <p className="muted small" style={{ marginTop: 10 }}>Your documents are queued for review by the admin.</p>}
-                  </>
-                ) : (
-                  <>
-                    {verify?.status === 'rejected' && <div className="tag red" style={{ marginBottom: 8 }}>Rejected — resubmit</div>}
-                    <div className="field"><label>Full legal name</label><input value={vName} onChange={(e) => setVName(e.target.value)} placeholder="As on your ID" /></div>
-                    <div className="field"><label>Date of birth</label><input type="date" value={vDob} onChange={(e) => setVDob(e.target.value)} /></div>
-                    <div className="field"><label>Country</label>
-                      <select value={vCountry} onChange={(e) => setVCountry(e.target.value)}>
-                        {['Romania', 'Germany', 'France', 'Spain', 'United Kingdom', 'United States', 'Canada', 'Brazil', 'Japan', 'Australia'].map((c) => <option key={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <div className="field"><label>Document type</label>
-                      <select value={vDocType} onChange={(e) => setVDocType(e.target.value)}>
-                        {['Passport', 'National ID', 'Driving licence'].map((c) => <option key={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <div className="field"><label>Photo of document</label>
-                      <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => {
-                        const f = e.target.files?.[0]; if (!f) return;
-                        if (f.size > 5 * 1024 * 1024) { toast({ kind: 'error', title: 'File too large', body: '5 MB maximum' }); return; }
-                        const r = new FileReader(); r.onload = () => setVDoc(String(r.result)); r.readAsDataURL(f);
-                      }} />
-                      {vDoc && <div className="muted small" style={{ marginTop: 4 }}>Document attached ✓</div>}
-                    </div>
-                    <button className="btn btn-red btn-sm" disabled={vBusy || !vName.trim() || !vDob || !vDoc} onClick={async () => {
-                      setVBusy(true);
-                      try {
-                        await fetch('/api/verify', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ fullName: vName, dob: vDob, country: vCountry, docType: vDocType, dataUrl: vDoc }) });
-                        const d = await fetch('/api/verify', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((x) => x.json());
-                        setVerify(d.verification);
-                        toast({ kind: 'success', title: 'Verification submitted', body: 'An administrator will review your document.' });
-                      } catch (err: any) { toast({ kind: 'error', title: 'Submission failed', body: err.message }); }
-                      finally { setVBusy(false); }
-                    }}>{vBusy ? 'Submitting…' : 'Submit for verification'}</button>
-                  </>
-                )
-              ) : (
-                <>
-                  <div className="field"><label>Current password</label><input type="password" value={pwdCur} onChange={(e) => setPwdCur(e.target.value)} /></div>
+              <div className="panel-title">Account security</div>
+              <div className="field"><label>Current password</label><input type="password" value={pwdCur} onChange={(e) => setPwdCur(e.target.value)} /></div>
                   <div className="field"><label>New password</label><input type="password" value={pwdNew} onChange={(e) => setPwdNew(e.target.value)} /></div>
-                  <button className="btn btn-red btn-sm" disabled={pwdBusy || !pwdCur || pwdNew.length < 4} onClick={async () => {
+                  <button className="btn btn-red btn-sm" disabled={pwdBusy || !pwdCur || pwdNew.length < 6} onClick={async () => {
                     setPwdBusy(true);
                     try {
-                      await fetch('/api/password', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` }, body: JSON.stringify({ current: pwdCur, next: pwdNew }) });
+                      await api.changePassword(pwdCur, pwdNew);
                       toast({ kind: 'success', title: 'Password updated', body: 'Other sessions were signed out.' });
                       setPwdCur(''); setPwdNew('');
-                      const d = await fetch('/api/sessions', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((x) => x.json());
-                      setSessions(d.sessions || []);
+                      setSessions((prev) => prev.filter((session) => session.current));
                     } catch (e: any) { toast({ kind: 'error', title: 'Password change failed', body: e.message }); }
                     finally { setPwdBusy(false); }
                   }}>{pwdBusy ? 'Updating…' : 'Change password'}</button>
                   <div className="panel-title" style={{ marginTop: 18 }}>Two-factor authentication</div>
                   <div className="kv"><span>Status</span><b>Off</b></div>
                   <p className="muted small">Two-factor authentication is not required for this local play-money instance.</p>
-                </>
-              )}
             </div>
             <div className="card">
               <div className="between"><div className="panel-title">Active sessions</div>
                 <button className="btn btn-ghost btn-sm" onClick={async () => {
-                  await fetch('/api/sessions', { method: 'DELETE', headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } });
-                  const d = await fetch('/api/sessions', { headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } }).then((x) => x.json());
-                  setSessions(d.sessions || []);
-                  toast({ kind: 'info', title: 'Signed out other devices' });
+                  try {
+                    await api.revokeOtherSessions();
+                    setSessions((prev) => prev.filter((session) => session.current));
+                    toast({ kind: 'info', title: 'Signed out other devices' });
+                  } catch (e: any) { toast({ kind: 'error', title: 'Could not sign out other devices', body: e.message }); }
                 }}>Sign out others</button>
               </div>
               {sessions.map((sess) => (
-                <div key={sess.token} className="kv" style={{ alignItems: 'center' }}>
+                <div key={sess.id} className="kv" style={{ alignItems: 'center' }}>
                   <span>{sess.current ? 'This device' : (sess.device || 'Unknown device').slice(0, 46)}</span>
                   <span className="row">
                     <b>{sess.current ? 'active' : sess.created_at?.slice(0, 10)}</b>
                     {!sess.current && <button className="btn btn-ghost btn-sm" onClick={async () => {
-                      await fetch(`/api/sessions/${sess.token}`, { method: 'DELETE', headers: { authorization: `Bearer ${localStorage.getItem('ggpoker.token')}` } });
-                      setSessions((prev) => prev.filter((x) => x.token !== sess.token));
+                      try {
+                        await api.revokeSession(sess.id);
+                        setSessions((prev) => prev.filter((x) => x.id !== sess.id));
+                      } catch (e: any) { toast({ kind: 'error', title: 'Could not revoke device', body: e.message }); }
                     }}>Revoke</button>}
                   </span>
                 </div>

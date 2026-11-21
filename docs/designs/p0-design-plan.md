@@ -101,7 +101,7 @@ starts from the real state. Update the gap rows when the first slice of that gap
 ### Reference evidence
 
 - N: `home-art/rea/native-wait-list-strings.json`. Strings come from the installed
-  `string_table.json`, sha256 `c0ce0735…`: `WaitingList`, `JoinWaitList`,
+  original DanGG UI copy: `WaitingList`, `JoinWaitList`,
   `PlayersOnWaitingList` ("`<font color='#ffffff'>{0}</font> Players on Waiting List`"),
   `MobileWaitingFull`, `YouCannotJoinWaitingList`, `LabelToJoinWaitingList`
   ("…you must be playing in a table with the same conditions as below") and

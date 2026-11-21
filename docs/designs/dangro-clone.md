@@ -9,7 +9,7 @@
 *   **What exists today:** a signed Electron app at `~/Applications/DanGG.ro.app`,
     a Node/SQLite/WebSocket server, a React renderer, original DanGG assets, the
     public deployment at dangg.live, and the reverse-engineering record in
-    [research/REVERSE_ENGINEERING.md](../../research/REVERSE_ENGINEERING.md).
+    the current OpenPoker/DanGG design docs (legacy reverse-engineering notes removed).
 *   **What this document decides:** the system boundaries, authoritative state,
     ledger and game invariants, trust boundaries, and the rules a future change
     must follow. It is not a file-by-file changelog.
@@ -399,7 +399,7 @@ one 10-second time bank per player per hand.
     `tools/setup_assets.sh`, which runs the original generators in
     `tools/original-assets/` (no installed client needed).
 *   `tools/build_i18n.py` scans the React source, matches 471 shared strings
-    against the original `string_table.json` (30 locale codes) and writes
+    and maintains an original multi-language UI dictionary in
     `src/lib/i18n-dict.json`. `i18n.tsx` exposes `t()` for new code.
 *   `tools/build_i18n.py` is re-run when UI strings change; a string added with
     `t()` but missing from the table falls back to English and is visible in the

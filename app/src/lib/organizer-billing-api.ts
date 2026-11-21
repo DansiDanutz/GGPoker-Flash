@@ -25,7 +25,7 @@ export type BillingTable = {
 };
 export type BillingTournament = { id: string; name: string; start_at: string; status: string; format: string; mode: string; buyin: number; fee: number; starting_stack: number; blind_speed: number; late_reg: number; max_players: number; entrants: number; bounty: number; chip_economy: number };
 export type OrganizerBillingAccount = {
-  mode: BillingMode; balance_cents: number;
+  mode: BillingMode; balance_cents: number; fee_credit_cents: number;
   cash_usage: { paid_hours: number; next_hour: number; next_hour_cents: number };
   memberships: { organizer: BillingMembership; contributor: BillingMembership };
   ledger: BillingLedgerEntry[]; tables: BillingTable[]; tournaments: BillingTournament[];

@@ -229,13 +229,11 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
   const { user, refreshUser, toast, navigate } = useApp();
   const [bet, setBet] = useState(500);
   const [roundId, setRoundId] = useState<string | null>(null);
-  const [startedAt, setStartedAt] = useState(0);
   const [phase, setPhase] = useState<'idle' | 'live' | 'cashed' | 'crashed'>('idle');
   const [multiplier, setMultiplier] = useState(1);
   const [crashAt, setCrashAt] = useState<number | null>(null);
   const [history, setHistory] = useState<{ m: number; won: boolean }[]>([]);
   const [busy, setBusy] = useState(false);
-  const pollRef = useRef<number | null>(null);
 
   const post = async (body: any) => {
     const r = await fetch('/api/games/crash', {
@@ -253,8 +251,8 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
     if (!saved?.roundId || !saved?.startedAt) return;
     if (Date.now() - Number(saved.startedAt) > 120000) { localStorage.removeItem('ggpoker.crashRound'); return; }
     post({ action: 'status', roundId: saved.roundId }).then((r) => {
-      if (r.crashed) { localStorage.removeItem('ggpoker.crashRound'); return; }
-      setRoundId(saved.roundId); setStartedAt(Number(saved.startedAt)); setMultiplier(Number(r.multiplier) || 1); setPhase('live');
+      if (r.status !== 'live') { localStorage.removeItem('ggpoker.crashRound'); return; }
+      setRoundId(saved.roundId); setBet(r.bet); setMultiplier(Number(r.multiplier) || 1); setPhase('live');
     }).catch(() => localStorage.removeItem('ggpoker.crashRound'));
   }, []);
 
@@ -264,7 +262,7 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
     setBusy(true);
     try {
       const r = await post({ action: 'start', bet });
-      setRoundId(r.roundId); setStartedAt(r.startedAt); localStorage.setItem('ggpoker.crashRound', JSON.stringify({ roundId: r.roundId, startedAt: r.startedAt }));
+      setRoundId(r.roundId); setBet(r.bet); localStorage.setItem('ggpoker.crashRound', JSON.stringify({ roundId: r.roundId, startedAt: r.startedAt }));
       setMultiplier(1); setCrashAt(null); setPhase('live');
       sound.play('deal', { volume: .5 }); await refreshUser();
     } catch (e: any) { toast({ kind: 'error', title: 'Crash', body: e.message }); }
@@ -292,15 +290,18 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
 
   useEffect(() => {
     if (phase !== 'live' || !roundId) return;
-    const timer = window.setInterval(() => setMultiplier(Math.exp((Date.now() - startedAt) / 1800)), 80);
-    return () => window.clearInterval(timer);
-  }, [phase, roundId, startedAt]);
-
-  useEffect(() => {
-    if (phase !== 'live' || !roundId) return;
+    let active = true;
+    let pending = false;
     const poll = window.setInterval(async () => {
+      if (pending) return;
+      pending = true;
       try {
         const r = await post({ action: 'status', roundId });
+        if (!active) return;
+        if (r.status === 'cashed') {
+          setPhase('cashed'); setMultiplier(r.multiplier); localStorage.removeItem('ggpoker.crashRound');
+          return;
+        }
         if (r.crashed) {
           setPhase('crashed'); setMultiplier(r.crash); setCrashAt(r.crash); localStorage.removeItem('ggpoker.crashRound');
           setHistory((h) => [{ m: r.crash, won: false }, ...h].slice(0, 8));
@@ -308,11 +309,10 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
         } else {
           setMultiplier(r.multiplier);
         }
-      } catch { /* ignore transient poll */ }
+      } catch { /* ignore transient poll */ } finally { pending = false; }
     }, 300);
-    pollRef.current = poll;
-    return () => { window.clearInterval(poll); pollRef.current = null; };
-  }, [phase, roundId, startedAt]);
+    return () => { active = false; window.clearInterval(poll); };
+  }, [phase, roundId]);
 
   return (
     <PageShell activeTop="casino" subnav={<SubNav items={CASINO_NAV} active="crash" onChange={(k) => onTab?.(k)} />}>
@@ -326,19 +326,19 @@ export function Crash({ onTab }: { onTab?: (key: string) => void }) {
             <div className="crash-multiplier">{multiplier.toFixed(2)}<small>x</small></div>
             <div className="crash-label">
               {phase === 'idle' && 'Place a bet to launch'}
-              {phase === 'live' && `Potential ${money(Math.round(bet * multiplier))}`}
+              {phase === 'live' && `Potential ${money(Math.floor(bet * Math.round(multiplier * 100) / 100))}`}
               {phase === 'cashed' && `Cashed out at ${multiplier.toFixed(2)}x`}
               {phase === 'crashed' && `Crashed at ${crashAt?.toFixed(2)}x`}
             </div>
           </div>
           <div className="crash-controls">
             <div className="between"><span className="muted small">Bet</span><b className="gold">{money(bet)}</b></div>
-            <input type="range" min={100} max={10000} step={100} value={bet} onChange={(e) => setBet(Number(e.target.value))} disabled={phase === 'live'} />
+            <input type="range" min={100} max={10000} step={100} value={bet} onChange={(e) => setBet(Number(e.target.value))} disabled={phase === 'live' || busy} />
             <div className="row" style={{ gap: 6 }}>
-              {[100, 500, 1000, 5000].map((v) => <button key={v} className="btn btn-ghost btn-sm" disabled={phase === 'live'} onClick={() => setBet(v)}>{money(v)}</button>)}
+              {[100, 500, 1000, 5000].map((v) => <button key={v} className="btn btn-ghost btn-sm" disabled={phase === 'live' || busy} onClick={() => setBet(v)}>{money(v)}</button>)}
             </div>
             {phase === 'live' ? (
-              <button className="btn btn-gold" style={{ width: '100%', height: 46, fontSize: 15 }} disabled={busy} onClick={cashout}>Cash out {money(Math.round(bet * multiplier))}</button>
+              <button className="btn btn-gold" style={{ width: '100%', height: 46, fontSize: 15 }} disabled={busy} onClick={cashout}>Cash out {money(Math.floor(bet * Math.round(multiplier * 100) / 100))}</button>
             ) : (
               <button className="btn btn-red" style={{ width: '100%', height: 46, fontSize: 15 }} disabled={busy || !user} onClick={start}>{phase === 'idle' ? 'Start round' : 'Play again'}</button>
             )}

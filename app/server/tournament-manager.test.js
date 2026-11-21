@@ -68,6 +68,8 @@ test('organiser tournament terms, capacity, setup replay, rescheduling and cance
       await post(`${chips}/tickets/${ticket.id}/redeem`, player.token, {});
     }
     db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
+    // This fixture writes while the child server's tournament scheduler is active.
+    db.exec('PRAGMA busy_timeout = 5000');
     db.prepare('UPDATE tournaments SET start_at=? WHERE id=?').run(new Date(Date.now() - 1000).toISOString(), final.id);
     const play = await post(`/api/tournaments/${final.id}/play`, first.token, {});
     for (const player of [first, second]) {

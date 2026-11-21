@@ -18,19 +18,29 @@ test('in production an unset admin allowlist refuses public clients', async () =
   } finally { await srv.stop(); }
 });
 
-test('in production an unset admin allowlist still admits the operator on loopback', async () => {
+test('in production an unset admin allowlist refuses loopback without operator TLS', async () => {
   const srv = await startServer({ env: { ...PROD, GGPOKER_ADMIN_ALLOW: '' } });
   try {
     const res = await srv.get('/api/admin/stats');
-    assert.equal(isRefusedByNetwork(res), false);
-    assert.equal(res.status, 401);
+    assert.ok(isRefusedByNetwork(res));
   } finally { await srv.stop(); }
 });
 
-test('an explicit admin allowlist is still honoured in production', async () => {
-  const srv = await startServer({ env: { ...PROD, GGPOKER_ADMIN_ALLOW: '203.0.113.0/24' } });
+test('an IP allowlist alone cannot open production admin ingress', async () => {
+  const srv = await startServer({ env: { ...PROD, GGPOKER_TRUSTED_PROXY_IPS: '127.0.0.1', GGPOKER_ADMIN_ALLOW: '203.0.113.0/24' } });
   try {
     const res = await srv.get('/api/admin/stats', { headers: PUBLIC_CLIENT });
-    assert.equal(isRefusedByNetwork(res), false);
+    assert.ok(isRefusedByNetwork(res));
+  } finally { await srv.stop(); }
+});
+
+test('a development IP allowlist needs a valid client beyond its trusted hops', async () => {
+  const srv = await startServer({ env: { ...PROD, NODE_ENV:'development', GGPOKER_TRUSTED_PROXY_IPS: '127.0.0.1,192.0.2.8', GGPOKER_ADMIN_ALLOW: '203.0.113.5' } });
+  try {
+    for (const [chain, status] of [[null, 403], ['invalid, 192.0.2.8', 403], ['192.0.2.8', 403],
+      ['203.0.113.5, 198.51.100.1, 192.0.2.8', 403], ['203.0.113.5, 192.0.2.8', 401]]) {
+      const res = await srv.get('/api/admin/stats', { headers: chain ? { 'x-forwarded-for': chain } : {} });
+      assert.equal(res.status, status);
+    }
   } finally { await srv.stop(); }
 });

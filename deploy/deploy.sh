@@ -32,9 +32,9 @@ if ! git merge-base --is-ancestor "$sha" "$PUBLIC_REF"; then
   exit 1
 fi
 
-green="$(gh run list --repo "$PUBLIC_REPO" --branch main --event push --workflow "$CI_WORKFLOW" --commit "$sha" --limit 20 --json conclusion --jq '[.[] | select(.conclusion == "success")] | length')"
-if [[ "$green" -lt 1 ]]; then
-  echo "deploy: refusing, no successful $CI_WORKFLOW run for $short" >&2
+conclusion="$(gh run list --repo "$PUBLIC_REPO" --branch main --event push --workflow "$CI_WORKFLOW" --commit "$sha" --limit 1 --json conclusion --jq '.[0].conclusion // ""')"
+if [[ "$conclusion" != success ]]; then
+  echo "deploy: refusing, latest $CI_WORKFLOW push run for $short is ${conclusion:-missing or unfinished}" >&2
   exit 1
 fi
 echo "deploy: CI green for $short"
@@ -54,30 +54,56 @@ if [[ $DRY_RUN == 1 ]]; then
   exit 0
 fi
 
+# Stage privately before taking the host lock. No live files change during upload.
+# Use the remote login directory for ~/ paths without evaluating shell input.
+root=${REMOTE_ROOT#\~\/}
+remote_cd="cd -- $(printf '%q' "$root")"
+incoming="$(ssh "$HOST" "$remote_cd && mktemp -d .rollout.XXXXXXXX")"
+[[ "$incoming" =~ ^\.rollout\.[[:alnum:]]{8}$ ]] || { echo 'deploy: invalid staging directory' >&2; exit 1; }
+cleanup() {
+  rm -rf "$stage"
+  ssh "$HOST" "$remote_cd && rm -r -- $incoming" </dev/null || echo "deploy: staging cleanup failed: $incoming" >&2
+}
+trap cleanup EXIT
+# The watchdog is host policy, not an artifact from the public release archive.
+git show HEAD:deploy/keepalive.sh > "$stage/expected-keepalive"
+rsync -az --link-dest=.. "$stage/" "$HOST:$REMOTE_ROOT/$incoming/"
+
+ssh "$HOST" "$remote_cd && bash -s -- $incoming $sha $(printf '%q' "$HEALTH_URL") $HEALTH_TIMEOUT_SEC https://github.com/$PUBLIC_REPO" <<'ROLLOUT'
+set -euo pipefail
+incoming=$1 sha=$2 health_url=$3 timeout=$4 source_repository=$5
+command -v python3 >/dev/null || { echo "deploy: python3 required on host for health verification" >&2; exit 1; }
+exec 9>>deploy/.maintenance.lock
+flock -n 9 || { echo 'deploy: cannot acquire maintenance lock; retry later' >&2; exit 1; }
+cmp -s "$incoming/expected-keepalive" deploy/keepalive.sh || {
+  echo 'deploy: install the matching DanGG keepalive.sh before rollout (see ALWAYS-ON.md)' >&2
+  exit 1
+}
+# Only releases that mount the operator certificates need them.
+if grep -Fq '/etc/dangg/operator-tls:/run/operator-tls:ro' "$incoming/deploy/compose.yml"; then
+  bash "$incoming/deploy/operator-tls-preflight.sh" /etc/dangg/operator-tls
+fi
 stamp="$(date +%Y%m%d-%H%M)"
-ssh "$HOST" "docker tag dangro-game:latest dangro-game:rollback-$stamp"
+docker tag dangro-game:latest "dangro-game:rollback-$stamp"
 echo "deploy: rollback image dangro-game:rollback-$stamp"
+rsync -a --delete --filter='P /server/data/**' --filter='P /node_modules/**' --filter='P /dist/**' "$incoming/app/" app/
+rsync -a --delete "$incoming/tools/" tools/
+rsync -a --exclude=/.env --exclude=/keepalive.sh --exclude=/.maintenance.lock "$incoming/deploy/" deploy/
+rsync -a "$incoming/LICENSE" "$incoming/THIRD-PARTY-NOTICES.txt" ./
+rsync -a "$incoming/LICENSES/" LICENSES/
+cd deploy
+GIT_SHA=$sha SOURCE_REPOSITORY=$source_repository docker compose build game
+docker compose up -d game
 
-rsync "${rsync_opts[@]}" "$stage/app/" "$HOST:$REMOTE_ROOT/app/"
-rsync -az --delete "$stage/tools/" "$HOST:$REMOTE_ROOT/tools/"
-# deploy/ holds host-only files (.env, backups, logs), so update tracked files without deleting.
-rsync -az "$stage/deploy/" "$HOST:$REMOTE_ROOT/deploy/"
-
-rsync -az "$stage/LICENSE" "$stage/THIRD-PARTY-NOTICES.txt" "$HOST:$REMOTE_ROOT/"
-rsync -az "$stage/LICENSES/" "$HOST:$REMOTE_ROOT/LICENSES/"
-
-# Build first: if it fails, the old container keeps serving.
-ssh "$HOST" "cd $REMOTE_ROOT/deploy && GIT_SHA=$sha docker compose build game && docker compose up -d game"
-
-deadline=$((SECONDS + HEALTH_TIMEOUT_SEC))
+deadline=$((SECONDS + timeout))
 while (( SECONDS < deadline )); do
-  running="$(curl -fsS --max-time 5 "$HEALTH_URL" 2>/dev/null | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{process.stdout.write(JSON.parse(d).commit||"")}catch{}})' || true)"
+  running="$(curl -fsS --max-time 5 "$health_url" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("commit", ""))' 2>/dev/null || true)"
   if [[ "$running" == "$sha" ]]; then
-    echo "deploy: $HEALTH_URL reports $short. Done."
+    echo "deploy: $health_url reports ${sha:0:12}. Done."
     exit 0
   fi
   sleep 5
 done
-echo "deploy: /healthz did not report $short within ${HEALTH_TIMEOUT_SEC}s (last: ${running:-none})." >&2
-echo "deploy: roll back with: ssh $HOST 'cd $REMOTE_ROOT/deploy && docker tag dangro-game:rollback-$stamp dangro-game:latest && docker compose up -d game'" >&2
+echo "deploy: $health_url did not report ${sha:0:12} within ${timeout}s (last: ${running:-none}); rollback image: dangro-game:rollback-$stamp" >&2
 exit 1
+ROLLOUT

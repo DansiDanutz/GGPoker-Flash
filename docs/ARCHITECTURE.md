@@ -67,7 +67,7 @@ Other players ────────────┘                       │
    launch (retried up to three times on network errors; a 401/403 clears it).
 3. **Lobby** — `GET /api/lobby` returns tables, banners, online count, jackpot, missions
    and the `demoAccount` capability flag. The client polls meta periodically.
-4. **Table** — each open table page opens `/ws?token=<bearer>` and sends `join_table`
+4. **Table** — each open table page opens `/ws` and sends `join_table`
    (the server allows several tables per socket), then receives full state snapshots on
    every change. Actions are validated server-side against the seat, turn, bet limits and
    stack.
@@ -77,7 +77,7 @@ Other players ────────────┘                       │
 
 ## Real-time table protocol
 
-Each table page opens a WebSocket to `/ws?token=…` and joins with `join_table` (a socket
+Each table page opens a WebSocket to `/ws` and joins with `join_table` (a socket
 can hold several tables). Client → server message types:
 
 | Type | Purpose |
@@ -285,7 +285,7 @@ failure/scale unit:
 
 SQLite in WAL mode (`node:sqlite`). Main tables:
 
-- **Accounts** — `users`, `sessions`, `user_settings`, `verifications`, `player_notes`,
+- **Accounts** — `users`, `sessions`, `user_settings`, `player_notes`,
   `friends`, `friend_requests`, `reports`, `table_mutes`, `notification_reads`.
 - **Game** — `tables`, `hands`, `tournaments`, `tourney_regs`, `tourney_state` (restart
   snapshots of running tournament rooms), `waitlist_state` (the cash wait-list queues, one

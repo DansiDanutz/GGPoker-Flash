@@ -23,3 +23,9 @@ test('authentication resumes only supported internal destinations', () => {
   assert.equal(marketplaceAuthDestination('/login?returnTo=//example.com'), null);
   assert.equal(marketplaceAuthDestination('/'), null);
 });
+
+test('login resumes only the private tournament named by the invitation', () => {
+  assert.equal(marketplaceAuthDestination('/login?returnTo=tournaments&id=cup&invite=abc'), '/tournaments?id=cup&invite=abc');
+  assert.equal(marketplaceAuthDestination('/login?returnTo=tournaments&id=cup'), null);
+  assert.equal(marketplaceAuthDestination('/tournaments?id=cup&invite=abc'), '/tournaments?id=cup&invite=abc');
+});

@@ -24,7 +24,10 @@ export function DesktopUpdateButton() {
   const apply = async () => {
     setBusy(true);
     try {
-      await desktopBridge()?.applyUpdate?.();
+      if (!(await desktopBridge()?.applyUpdate?.())) {
+        setStatus({ outdated: false });
+        setBusy(false);
+      }
     } catch {
       setBusy(false);
     }

@@ -1,3 +1,4 @@
+import { deckSeatLimit } from './runItMulti.js';
 // Input validation helpers shared by the HTTP and WebSocket handlers.
 import { BATTLE_ROYALE_UNAVAILABLE, isBattleRoyale } from './battleroyale.js';
 
@@ -79,6 +80,7 @@ export function parseTableConfig(body) {
   if (minBuyin > maxBuyin) return { ok: false, error: 'Minimum buy-in cannot exceed the maximum' };
   if (minBuyin < bb) return { ok: false, error: 'Minimum buy-in must cover at least one big blind' };
   if (seats === null) return { ok: false, error: `Seats must be between ${MIN_SEATS} and ${MAX_SEATS}` };
+  if (seats > deckSeatLimit(game)) return { ok: false, error: `This game supports at most ${deckSeatLimit(game)} seats` };
   const actionSeconds = parseActionSeconds(body.action_seconds);
   if (actionSeconds === undefined) return { ok: false, error: `Action time must be ${ACTION_SECONDS.min}-${ACTION_SECONDS.max} seconds` };
   return {

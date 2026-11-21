@@ -181,3 +181,13 @@ test('client transactionsQuery drops blank filters and adds format=csv', () => {
   assert.equal(transactionsQuery({ q: ' bob ', kind: '', limit: 500 }), 'q=bob&limit=500');
   assert.equal(transactionsQuery({ q: 'a&b', kind: 'deposit', limit: 300 }, 'csv'), 'q=a%26b&kind=deposit&limit=300&format=csv');
 });
+
+test('legacy admin export uses spreadsheet-safe text and keeps ledger numbers numeric', async () => {
+  const route = '/api/admin/export/transactions';
+  const denied = await srv.get(route,{token:playerToken});
+  assert.equal(denied.status,403);
+  const res = await srv.get(route,{token:adminToken});
+  assert.equal(res.status,200);
+  assert.ok(res.data.includes(',"\'=HYPERLINK(""http://x"")",'));
+  assert.ok(!res.data.includes(",'-"), 'negative ledger amounts stay numeric');
+});

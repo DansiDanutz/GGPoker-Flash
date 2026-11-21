@@ -71,7 +71,7 @@ const row = (id, pot, players, actions, board = 'As Kd 7c 2h 9s') => ({
 
 test('playerHud: room-scoped VPIP, PFR, hands and wins for one nick', () => {
   const rows = [
-    row(3, 400, [{ nick: 'v', cards: ['Qh', 'Qd'], win: 400, showed: true }, { nick: 'h', cards: ['2c', '3c'], win: 0 }],
+    row(3, 400, [{ nick: 'v', cards: ['Qh', 'Qd'], win: 400, showed: true, shownIndices: [0, 1] }, { nick: 'h', cards: ['2c', '3c'], win: 0 }],
       [{ nick: 'v', action: 'raise', amount: 60, street: 'preflop' }, { nick: 'h', action: 'call', amount: 60, street: 'preflop' }]),
     row(2, 100, [{ nick: 'v', cards: ['8h', '7d'], win: 0 }, { nick: 'h', cards: ['Ac', 'Ad'], win: 100 }],
       [{ nick: 'h', action: 'raise', amount: 60, street: 'preflop' }, { nick: 'v', action: 'call', amount: 60, street: 'preflop' }]),
@@ -88,7 +88,7 @@ test('playerHud: room-scoped VPIP, PFR, hands and wins for one nick', () => {
 
 test('playerHud: recent hands reveal cards only when the player showed them', () => {
   const rows = [
-    row(5, 400, [{ nick: 'v', cards: ['Qh', 'Qd'], win: 400, showed: true }], []),
+    row(5, 400, [{ nick: 'v', cards: ['Qh', 'Qd'], win: 400, showed: true, shownIndices: [0, 1] }], []),
     row(4, 100, [{ nick: 'v', cards: ['8h', '7d'], win: 0, showed: false }], []),
   ];
   const { recent } = playerHud(rows, 'v');

@@ -34,7 +34,7 @@ Native captures live outside the repo at
 | N3 | `observed-rush.png` | 1200 × 720 | Rush tab, pills, pool rows |
 | N4 | `observed-plo.png` | 1200 × 838 | PLO tab, pills, game chips |
 | N5 | `observed-tournaments.png` | 1200 × 720 | Tournament category pills, side-panel **Filter** |
-| N6 | `rea/native-wait-list-strings.json` | — | Seven wait-list strings from the installed `string_table.json` |
+| N6 | `app/src/lib/i18n-dict.json` | — | Original DanGG wait-list UI copy |
 | N7 | `rea/holdem-list-geometry.json` | — | Table View run boundaries and column widths |
 | N8 | `rea/table-panels-verification.json` | — | Native chat is a **separate 300 × 767 window** beside an 850 × 615 table |
 | N9 | `reaction-1.png … reaction-3.png` | 200 × 200 each | Shipped emoticon artwork: angry, listening, laughing |

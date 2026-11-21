@@ -178,7 +178,7 @@ test('production commerce endpoints reject a forwarded public caller even with a
   try {
     const token = await server.login('admin', password);
     assert.ok(token);
-    assert.equal((await server.get(FINANCE, { token })).status, 200, 'loopback operator has legitimate access');
+    assert.equal((await server.get(FINANCE, { token })).status, 403, 'loopback alone cannot identify the operator');
     const headers = { 'x-forwarded-for': '203.0.113.5' };
     for (const response of [
       await server.get(FINANCE, { token, headers }),
@@ -189,8 +189,11 @@ test('production commerce endpoints reject a forwarded public caller even with a
       assert.match(response.data.error, /restricted/i, 'network boundary runs before commerce validation');
     }
     assert.equal((await server.get('/api/marketplace/management', { headers })).status, 200, 'public catalog remains public');
-    const state = await server.get(FINANCE, { token });
-    assert.equal(state.data.publishers.length, 0);
-    assert.equal(state.data.orders.length, 0);
+    const db = new DatabaseSync(path.join(server.dataDir,'ggpoker.db'), {readOnly:true});
+    try {
+      for (const table of ['marketplace_publishers','marketplace_orders']) {
+        assert.equal(db.prepare('SELECT COUNT(*) AS n FROM '+table).get().n,0);
+      }
+    } finally { db.close(); }
   } finally { await server.stop(); }
 });

@@ -8,7 +8,7 @@ import { createOrganizerChipEvents } from './organizer-chip-events.js';
 function fixture() {
   const db = new DatabaseSync(':memory:');
   db.exec(`
-    CREATE TABLE users(id INTEGER PRIMARY KEY,banned INTEGER DEFAULT 0,deleted_at TEXT,is_admin INTEGER DEFAULT 0); INSERT INTO users VALUES (1,0,NULL,1),(2,0,NULL,0),(3,0,NULL,0),(4,0,NULL,0);
+    CREATE TABLE users(id INTEGER PRIMARY KEY,banned INTEGER DEFAULT 0,deleted_at TEXT,is_admin INTEGER DEFAULT 0); INSERT INTO users VALUES (1,0,NULL,1),(2,0,NULL,0),(3,0,NULL,0),(4,0,NULL,0); ALTER TABLE users ADD COLUMN login TEXT NOT NULL DEFAULT 'member';
     CREATE TABLE audit_log(actor TEXT,action TEXT,detail TEXT);
     CREATE TABLE tournaments(id TEXT PRIMARY KEY,name TEXT,buyin INTEGER,fee INTEGER,start_at TEXT,status TEXT, chip_economy INTEGER DEFAULT 1, enabled INTEGER DEFAULT 1, max_players INTEGER DEFAULT 1000,entrants INTEGER,starting_stack INTEGER,owner_id INTEGER,private INTEGER,mode TEXT,bounty INTEGER,ticket TEXT);
     CREATE TABLE tourney_regs(tournament_id TEXT,user_id INTEGER,PRIMARY KEY(tournament_id,user_id));
@@ -304,4 +304,37 @@ test('split bounty is atomic, immutable, replay-safe and conserves its single dr
     assert.equal(f.events.awardBounty(award).applied, false, 'closed event accepts identical replay only');
     assert.equal(f.db.prepare('SELECT SUM(balance) total FROM organizer_chip_accounts').get().total, before);
   } finally { f.db.close(); }
+});
+
+test('guest recipients receive neither chips nor tournament tickets', () => {
+  const {db,chips,events} = fixture();
+  db.exec("UPDATE users SET login='guest_ab12cd34-abc' WHERE id=3");
+  const {id} = events.issueTicket({userId:2,tournamentId:'t1',idempotencyKey:'issue'});
+  for (const transfer of [
+    () => chips.transfer({organizerId:1,fromUserId:2,toUserId:3,amount:100,idempotencyKey:'send'}),
+    () => events.transferTicket({userId:2,toUserId:3,ticketId:id,idempotencyKey:'give'}),
+  ]) assert.throws(transfer, e => e.code === 'registered_account_required');
+  assert.deepEqual([chips.balance(1,2),chips.balance(1,3)],[8900,0]);
+  assert.equal(db.prepare('SELECT holder_id FROM organizer_chip_tickets WHERE id=?').get(id).holder_id,2);
+});
+
+test('only an operator can refund an accepted unreported buyback, once, with evidence', () => {
+  const f = fixture();
+  const { id } = f.events.requestBuyback({ userId: 2, organizerId: 1, amount: 1000, paymentAmount: '10', paymentCurrency: 'EUR', paymentDetails: 'Cash', idempotencyKey: 'stalled' });
+  const refund = { adminId: 1, buybackId: id, resolution: 'refund', reason: 'Confirmed no payment with both parties' };
+  assert.throws(() => f.events.resolveBuyback(refund));
+  f.events.acceptBuyback({ userId: 1, buybackId: id });
+  assert.throws(() => f.events.resolveBuyback({ ...refund, adminId: 2 }));
+  assert.throws(() => f.events.resolveBuyback({ ...refund, resolution: 'paid' }));
+  assert.throws(() => f.events.resolveBuyback({ ...refund, reason: '' }));
+  assert.throws(() => f.events.cancelBuyback({ userId: 2, buybackId: id }));
+  assert.equal(f.chips.balance(1, 2), 9000);
+  for (let i = 0; i < 2; i++) assert.equal(f.events.resolveBuyback(refund).state, 'rejected');
+  assert.equal(f.chips.balance(1, 2), 10000);
+  assert.equal(f.db.prepare("SELECT count(*) AS n FROM organizer_chip_journals WHERE reference=?").get('buyback:' + id + ':resolution').n, 1);
+  const audit = f.db.prepare("SELECT actor,detail FROM audit_log WHERE action='organizer_buyback_resolved'").all();
+  assert.equal(audit.length, 1);
+  assert.equal(audit[0].actor, '1');
+  assert.equal(JSON.parse(audit[0].detail).reason, refund.reason);
+  assert.throws(() => f.events.acceptBuyback({ userId: 1, buybackId: id }));
 });

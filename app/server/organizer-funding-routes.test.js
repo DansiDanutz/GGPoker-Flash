@@ -5,10 +5,10 @@ import { createOrganizerFundingRoutes } from './organizer-funding-routes.js';
 function fixture({ ready = true, mode = 'enforce' } = {}) {
   const calls = [], row = { id: 'req', organizerId: 7, userId: 8, state: 'requested' };
   const funding = { list: () => [row], get: (userId, id) => id === 'req' ? row : null, create: x => (calls.push(['create', x]), x),
-    cancel: x => (calls.push(['cancel',x]),row), credit: x => (calls.push(['credit', x]), row), reject: x => row,
+    markCheckoutDisabled: () => { row.checkoutDisabled = true; }, cancel: x => (calls.push(['cancel',x]),row), credit: x => (calls.push(['credit', x]), row), reject: x => row,
     offer: x => (calls.push(['offer', x]), row), attachLink: x => (calls.push(['attach', x]), row),
     settle: x => (calls.push(['settle', x]), row) };
-  const provider = { cancelLink: async x => calls.push(['disable',x]), ready: async () => ready, linkForRequest: async () => 'link', payment: async () => ({ status: 'paid' }) };
+  const provider = { disableLink: async x => calls.push(['disable',x]), ready: async () => ready, linkForRequest: async () => 'link', payment: async () => ({ status: 'paid' }) };
   let result;
   const route = createOrganizerFundingRoutes({ db: {}, funding, providers: { forOrganizer: () => provider }, mode,
     requireUser: req => req.actor === null ? null : { id: req.actor ?? 7 }, readBody: async req => req.body,
@@ -33,7 +33,7 @@ test('only owning organizer creates links; verification uses provider evidence',
   const f = fixture();
   await assert.rejects(f.call('/req/offer', { feeCents: 200 }, 8), /organizer/);
   await f.call('/req/offer', { feeCents: 200 });
-  assert.equal(f.calls[0][0], 'offer'); assert.equal(f.calls[1][0], 'attach');
+  assert.equal(f.calls[0][0], 'offer'); assert.equal(f.calls[0][1].startCheckout, true); assert.equal(f.calls[1][0], 'attach');
   await f.call('/req/verify', { paymentId: 'receipt' }, 8);
   assert.deepEqual(f.calls.at(-1)[1].payment, { status: 'paid' });
   await assert.rejects(f.call('/missing/verify', { paymentId: 'receipt' }), /not found/);
@@ -44,9 +44,8 @@ test('cancel checks owner and provider before returning escrow; client cannot as
  const f=fixture();f.row.state='offered';
  await assert.rejects(f.call('/req/cancel',{},8),/owning organizer/);
  await assert.rejects(f.call('/req/cancel',{providerCleared:true}),/Unexpected/);
- await f.call('/req/cancel',{});
- assert.deepEqual(f.calls.map(c=>c[0]),['disable','cancel']);
- assert.equal(f.calls[1][1].providerCleared,true);
+ await assert.rejects(f.call('/req/cancel',{}),/reconciliation/);
+ assert.deepEqual(f.calls.map(c=>c[0]),['disable']);
  f.row.state='rejected';await f.call('/req/cancel',{});
  assert.equal(f.calls.filter(c=>c[0]==='disable').length,1);
 });

@@ -92,7 +92,7 @@ function playRouteTab(route: string): string | null {
 }
 
 export function Lobby() {
-  const { user, route, navigate, toast, refreshUser, setOpeningTable } = useApp();
+  const { user, meta, route, navigate, toast, refreshUser, setOpeningTable } = useApp();
   const isPhone = useIsPhone();
   const [data, setData] = useState<any>(null);
   const [gameTab, setGameTab] = useState(playRouteTab(route) ?? 'holdem');
@@ -219,7 +219,7 @@ export function Lobby() {
   useEffect(() => {
     if (!hostOpen) return;
     const previous = document.activeElement as HTMLElement | null;
-    const frame = window.requestAnimationFrame(() => hostDialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus());
+    const frame = window.requestAnimationFrame(() => { const dialog = hostDialogRef.current; if (dialog && !dialog.contains(document.activeElement)) dialog.querySelector<HTMLButtonElement>('button')?.focus(); });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); setHostOpen(false); return; }
       if (event.key !== 'Tab' || !hostDialogRef.current) return;
@@ -371,7 +371,9 @@ export function Lobby() {
   };
 
   const copyTourneyLink = async (id: string) => {
-    const link = `${location.origin}/#/tournaments?id=${id}`;
+    let link: string;
+    try { link = await api.tournamentInviteLink(id); }
+    catch { toast({ kind: 'error', title: 'Could not get tournament invite' }); return; }
     try { await navigator.clipboard.writeText(link); toast({ kind: 'success', title: 'Tournament invite copied', body: link }); }
     catch { toast({ kind: 'info', title: 'Copy this link', body: link }); }
   };
@@ -415,14 +417,14 @@ export function Lobby() {
     }
     return (
       <>
-        <TitleBar online={192203} />
-        <AppHeader online={192203} jackpot={199026635} user={user} activeTop="poker" />
+        <TitleBar online={meta.online} />
+        <AppHeader online={meta.online} jackpot={199026635} user={user} activeTop="poker" />
         <div className="empty-state">Loading lobby…</div>
       </>
     );
   }
 
-  const online = data?.online || 192203;
+  const online = data?.online ?? meta.online;
   // Phone shell: Home and the Poker game list replace the desktop lobby; a picked game keeps the table list.
   const phoneView = !isPhone ? null : gameTab === 'home' ? 'home' : playRouteTab(route) === null ? 'games' : 'tables';
   const pickGame = (tab: string) => { sound.play('click', { volume: .6 }); navigate(`/?play=1&game=${tab}`); };

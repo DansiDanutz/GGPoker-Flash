@@ -38,6 +38,7 @@ test('host tables, private tournaments, bonuses and direct messages', async () =
 
     let r = await fetch(`${base}/api/tables/host`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ name: 'Feature Table', game: 'holdem', seats: 6, sb: 100, bb: 200, min_buyin: 4000, max_buyin: 20000, bombPot: true }) });
     const host = await r.json();
+    assert.match(host.id, /^home-\d+-[A-Za-z0-9_-]{22}$/);
     assert.equal(r.status, 200);
     r = await fetch(`${base}/api/tables/host`, { headers: H(u.token) });
     const hosted = await r.json();
@@ -53,9 +54,51 @@ test('host tables, private tournaments, bonuses and direct messages', async () =
 
     r = await fetch(`${base}/api/tournaments/host`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ name: 'Feature Freezeout', format: 'NLH', buyin: 1000, fee: 100, starting_stack: 5000, blind_speed: 5, late_reg: 60, mode: 'STANDARD' }) });
     const tourney = await r.json();
+    assert.match(tourney.id, /^home-t-\d+-[A-Za-z0-9_-]{22}$/);
+    const catalogue = await (await fetch(`${base}/api/tournaments`)).json();
+    assert.ok(!JSON.stringify(catalogue).includes(tourney.id));
     assert.equal(r.status, 200);
     r = await fetch(`${base}/api/tournaments/${tourney.id}`);
-    assert.equal((await r.json()).tournament.name, 'Feature Freezeout');
+    assert.equal(r.status, 404);
+    const admission = async (action, token, body = {}) => fetch(base + '/api/tournaments/' + tourney.id + '/' + action, { method: 'POST', headers: H(token), body: JSON.stringify(body) });
+    assert.equal((await admission('invite', admin.token)).status, 403);
+    const issued = await admission('invite', u.token);
+    assert.equal(issued.status, 200);
+    const { invite } = await issued.json();
+    assert.ok(invite);
+    const balance = async () => (await (await fetch(base + '/api/me', { headers: H(admin.token) })).json()).user.balance;
+    const detail = async () => {
+      const response = await fetch(base + '/api/tournaments/' + tourney.id, { headers: H(u.token) });
+      assert.equal(response.status, 200);
+      const body = await response.text();
+      assert.ok(!body.includes(invite));
+      return JSON.parse(body).tournament;
+    };
+    const terms = await admission('invitation', admin.token, { invite });
+    assert.deepEqual(Object.keys(await terms.json()).sort(), ['buyin', 'chip_economy', 'fee', 'id', 'name']);
+    const privateDetail = () => fetch(base + '/api/tournaments/' + tourney.id, { headers: H(admin.token) });
+    assert.equal((await privateDetail()).status, 404);
+    const beforeBalance = await balance();
+    const beforeEvent = await detail();
+    const listing = await fetch(base + '/api/tournaments', { headers: H(u.token) });
+    assert.equal(listing.status, 200);
+    const listed = await listing.json();
+    assert.ok(listed.tournaments.some(t => t.id === tourney.id));
+    assert.ok(!JSON.stringify(listed).includes(invite));
+    assert.equal((await admission('register', admin.token)).status, 403);
+    assert.equal((await admission('register', admin.token, { invite: 'invalid' })).status, 403);
+    assert.equal(await balance(), beforeBalance);
+    assert.equal((await detail()).entrants, beforeEvent.entrants);
+    assert.equal((await admission('register', admin.token, { invite })).status, 200);
+    for (const viewer of [u, admin]) {
+      const response = await fetch(base + '/api/tournaments/' + tourney.id, { headers: H(viewer.token) });
+      assert.equal(response.status, 200);
+      const { players } = await response.json();
+      assert.deepEqual(players.map(({ id, nick }) => [id, nick]), [[admin.user.id, admin.user.nick]]);
+    }
+    assert.equal(await balance(), beforeBalance - beforeEvent.buyin - beforeEvent.fee);
+    assert.equal((await detail()).entrants, beforeEvent.entrants + 1);
+
 
     r = await fetch(`${base}/api/games/crash`, { method: 'POST', headers: H(u.token), body: JSON.stringify({ action: 'start', bet: 100 }) });
     const crash = await r.json();
@@ -115,7 +158,7 @@ test('SSE notification stream delivers a direct message event', async () => {
   try {
     const u = await login(port, 'DansiDanutz', 'ggpoker');
     const admin = await login(port, 'admin', 'admin123');
-    const stream = await fetch(`${base}/api/notifications/stream?token=${encodeURIComponent(u.token)}`, { signal: controller.signal });
+    const stream = await fetch(`${base}/api/notifications/stream`, { headers: {authorization: `Bearer ${u.token}`}, signal: controller.signal });
     assert.equal(stream.status, 200);
     const reader = stream.body.getReader();
     const decoder = new TextDecoder();

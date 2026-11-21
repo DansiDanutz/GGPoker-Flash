@@ -38,3 +38,9 @@ test('a spin reports a 5x3 grid and line wins that add up', () => {
   assert.ok(grid.every((reel) => reel.length === 3));
   assert.equal(win, lines.reduce((a, l) => a + l.amount, 0));
 });
+
+test('leading wilds earn the higher single award available on that line', () => {
+  assert.deepEqual(evaluateLine(['wild','wild','wild','wild','cherry']), {symbol:'wild',count:4,multiplier:1100});
+  assert.deepEqual(evaluateLine(['wild','wild','wild','wild','seven']), {symbol:'seven',count:5,multiplier:3700});
+  assert.deepEqual(evaluateLine(['wild','wild','wild','cherry','bell']), {symbol:'wild',count:3,multiplier:185});
+});

@@ -231,6 +231,6 @@ test('production retains the network restriction for marketplace administration'
     const refused = await production.get('/api/admin/marketplace', { headers: { 'x-forwarded-for': '203.0.113.5' } });
     assert.equal(refused.status, 403);
     assert.match(refused.data.error, /restricted/i);
-    assert.equal((await production.get('/api/admin/marketplace')).status, 401);
+    assert.equal((await production.get('/api/admin/marketplace')).status, 403);
   } finally { await production.stop(); }
 });

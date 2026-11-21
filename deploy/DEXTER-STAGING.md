@@ -30,13 +30,13 @@ docker compose logs --tail=100 game
 ## Mac Studio admin access
 
 ```bash
-ssh -N -L 5198:127.0.0.1:5198 dexter
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:5197:127.0.0.1:5197 dexter
 ```
 
 Leave that terminal running and open:
 
 ```text
-http://127.0.0.1:5198
+https://localhost:5197
 ```
 
 Stop the local Mac Electron app first if it already owns 5198:

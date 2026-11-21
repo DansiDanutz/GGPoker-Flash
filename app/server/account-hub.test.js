@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { ACCOUNT_ROWS, PROMO_ROWS, QUICK_TILES, vipProgress } from '../src/lib/accountHub.ts';
 
 // Panes MyPage.tsx renders, and routes App.tsx serves.
-const PANES = new Set(['overview', 'wallet', 'transactions', 'missions', 'messages', 'notes', 'friends', 'verify', 'security']);
-const ROUTES = new Set(['/settings', '/hand-history', '/propbet', '/support', '/rewards', '/ocean', '/promotions']);
+const PANES = new Set(['overview', 'wallet', 'transactions', 'missions', 'messages', 'notes', 'friends', 'security']);
+const ROUTES = new Set(['/settings', '/hand-history', '/propbet', '/support', '/rewards', '/ocean', '/promotions', '/responsible-gaming']);
 
 test('every hub entry points at a pane or route that exists', () => {
   for (const entry of [...QUICK_TILES, ...PROMO_ROWS, ...ACCOUNT_ROWS]) {

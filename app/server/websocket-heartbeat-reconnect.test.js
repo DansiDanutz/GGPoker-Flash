@@ -13,7 +13,7 @@ test('expiring an old socket never disconnects or charges its replacement seat',
   try {
     const { data: u } = await srv.post('/api/auth/register', { body: { login: 'heartbeat_race', password: 'heartbeat-test-password' } });
     const { data: table } = await srv.post('/api/tables/host', { token: u.token, body: { economy: 'play_money', game: 'spingold', name: 'Heartbeat race', stake: 5000 } });
-    old = new WebSocket(`ws://127.0.0.1:${srv.port}/ws?token=${u.token}`, { autoPong: false });
+    old = new WebSocket(`ws://127.0.0.1:${srv.port}/ws`, { autoPong: false, headers: { authorization: `Bearer ${u.token}` } });
     await once(old, 'open');
     const joined = new Promise(resolve => old.on('message', raw => { const m = JSON.parse(String(raw)); if (m.type === 'joined') resolve(m); }));
     old.send(JSON.stringify({ type: 'join_table', tableId: table.id, buyin: 5000 }));

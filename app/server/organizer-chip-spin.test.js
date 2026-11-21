@@ -12,7 +12,7 @@ function fixture(seed = STAKE * 3, rakePercent = 5) {
   const db = new DatabaseSync(':memory:');
   db.exec(`
     CREATE TABLE users(id INTEGER PRIMARY KEY,banned INTEGER DEFAULT 0,deleted_at TEXT);
-    INSERT INTO users VALUES (1,0,NULL),(2,0,NULL),(3,0,NULL),(4,0,NULL);
+    INSERT INTO users VALUES (1,0,NULL),(2,0,NULL),(3,0,NULL),(4,0,NULL); ALTER TABLE users ADD COLUMN login TEXT NOT NULL DEFAULT 'member';
     CREATE TABLE organizer_billing_memberships(user_id INTEGER,role TEXT,active INTEGER,expires_at TEXT,PRIMARY KEY(user_id,role));
     INSERT INTO organizer_billing_memberships VALUES (1,'organizer',1,'2099-01-01T00:00:00.000Z');
     CREATE TABLE tables(id TEXT PRIMARY KEY,game TEXT,owner_id INTEGER,private INTEGER,chip_economy INTEGER,min_buyin INTEGER,max_buyin INTEGER,rake_percent INTEGER);

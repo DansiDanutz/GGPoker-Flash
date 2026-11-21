@@ -12,7 +12,7 @@ import puppeteer from 'puppeteer-core';
 
 assert.equal(process.argv.length, 2, 'No URL or other command-line arguments are accepted.');
 const appDir = fileURLToPath(new URL('../', import.meta.url));
-const artifacts = path.join(appDir, 'artifacts', 'marketplace-browser');
+const artifacts = path.resolve(process.env.ARTIFACTS_DIR || path.join(appDir, 'artifacts', 'marketplace-browser'));
 const temporary = await mkdtemp(path.join(tmpdir(), 'dangg-marketplace-browser-'));
 await mkdir(artifacts, { recursive: true });
 
@@ -343,21 +343,6 @@ async function run() {
   completed.push('Content persistence, new-tab preview and dirty Back protection');
 
   const memberAuth = await api('/api/auth/register', { method: 'POST', body: { login: 'ci_market_member', nick: 'CI Market Member', password: 'ci-market-fixture-only' } });
-  const dataUrl = await owner.evaluate(() => document.createElement('canvas').toDataURL());
-  await api('/api/verify', { method: 'POST', token: memberAuth.token, body: { fullName: 'CI Fixture', dob: '1990-01-01', dataUrl } });
-  const reviewer = await newPage();
-  await reviewer.evaluateOnNewDocument(() => sessionStorage.setItem('ggpoker.entered', '1'));
-  await reviewer.goto(base + '/#/admin?section=verifications');
-  await reviewer.waitForFunction(() => Array.from(document.querySelectorAll('button')).some(b => b.textContent === 'View ID'));
-  await clickText(reviewer, 'button', 'View ID');
-  const photo = 'img[alt="ID document for CI Market Member"]';
-  await reviewer.waitForFunction(selector => document.querySelector(selector)?.naturalWidth > 0, {}, photo);
-  await reviewer.setRequestInterception(true);
-  reviewer.on('request', req => req.url().endsWith('/doc') ? req.respond({ status: 422, body: 'Unavailable' }) : req.continue());
-  await clickText(reviewer, 'button', 'View ID');
-  await reviewer.waitForFunction(() => document.body.textContent.includes('Document unavailable'));
-  assert.equal(await reviewer.$(photo), null, 'A failed review must clear the previous ID.');
-  await reviewer.close();
   const memberContext = await browser.createBrowserContext();
   const member = await newPage(memberContext);
   await member.evaluateOnNewDocument((token) => {
@@ -510,7 +495,8 @@ async function run() {
 
   currentPage = member;
   await member.goto(`${base}/#/?game=holdem`, { waitUntil: 'domcontentloaded' });
-  await clickSelector(member, '.host-table-btn');
+  await member.locator('.ls-content:not([inert]) .host-table-btn').click();
+  await member.waitForSelector('#host-economy', { visible: true });
   await member.select('#host-economy', 'organizer');
   await clickText(member, '.modal .tabs-line button', 'Spin & Go');
   await waitText(member, '.mg-host-access', 'An active paid plugin is required');
@@ -527,7 +513,8 @@ async function run() {
   await api(`/api/admin/marketplace/commerce/orders/${order.id}/payment-binding`, { token: adminToken, method: 'POST', body: paymentProof });
   await api('/api/admin/marketplace/commerce/payments/confirm', { token: adminToken, method: 'POST', body: { ...paymentProof, paymentId: 'ci-browser-payment-receipt', paidAt: new Date().toISOString() } });
   assert.equal((await api('/api/marketplace/publisher', { token: memberAuth.token })).balance.available_cents, 0, 'Commission should consume the reserved credits.');
-  await clickSelector(member, '.host-table-btn');
+  await member.locator('.ls-content:not([inert]) .host-table-btn').click();
+  await member.waitForSelector('#host-economy', { visible: true });
   await member.select('#host-economy', 'organizer');
   await clickText(member, '.modal .tabs-line button', 'Spin & Go');
   await waitText(member, '.mg-host-access', 'Paid management access active');

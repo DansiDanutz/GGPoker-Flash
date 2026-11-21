@@ -15,7 +15,7 @@ export const MAX_LIMIT = 1000;
 export const MAX_FILTER_CHARS = 200;
 export const CSV_FILENAME = 'audit.csv';
 export const CSV_COLUMNS = Object.freeze(['id', 'actor', 'action', 'detail', 'created_at']);
-const FORMULA_LEAD = /^[=+\-@\t\r]/;
+const FORMULA_LEAD = /^(?:[\t\r\n]|\s*[=+\-@])/;
 
 /** Clamp the `limit` query value; anything missing or invalid falls back to the default. */
 export function parseLimit(raw) {
@@ -61,6 +61,7 @@ export function listAudit(db, { actor, action, q, limit }) {
  * (audit details carry player-supplied text such as report reasons and chat lines).
  */
 export function csvField(value) {
+  if (typeof value === 'number') return String(value);
   const raw = value === null || value === undefined ? '' : String(value);
   const safe = FORMULA_LEAD.test(raw) ? `'${raw}` : raw;
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;

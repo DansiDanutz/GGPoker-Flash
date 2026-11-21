@@ -272,29 +272,19 @@ export function Marketplace() {
 
       <main>
         <div className="mp-container mp-workspace-navigation"><ProfileWorkspaceTabs active="marketplace" /></div>
-        <section className="mp-hero mp-container" aria-labelledby="marketplace-title">
+        <section className="mp-section mp-container mp-role-intro" aria-labelledby="marketplace-title">
           <div className="mp-hero-copy">
-            <span className="mp-eyebrow"><span className="mp-gold-dot" />DANGG OPEN NETWORK</span>
-            <h1 id="marketplace-title">{catalog?.settings.title || 'Your community. New possibilities.'}</h1>
-            <p className="mp-hero-description">{catalog?.settings.subtitle || 'Open source for the community. DanGG services and tools for organizers. Choose how you build your poker experience.'}</p>
-            <div className="mp-hero-actions"><button type="button" className="mp-button mp-button-primary mp-button-large" onClick={() => scrollToSection('marketplace-catalog')}>Explore the catalog<Icon name="arrow" /></button><button type="button" className="mp-button mp-button-secondary mp-button-large" onClick={() => scrollToSection('marketplace-contributors')}>Contributors</button><a className="mp-text-link" href={SOURCE_URL} target="_blank" rel="noopener noreferrer"><Icon name="code" />View the open-source project<Icon name="external" /></a></div>
-            <div className="mp-hero-facts"><span><Icon name="check" />Free for players</span><span><Icon name="check" />Independent communities</span><span><Icon name="check" />Optional services</span></div>
+            <span className="mp-eyebrow"><span className="mp-gold-dot" />DANGG MARKETPLACE</span>
+            <h1 id="marketplace-title">{catalog?.settings.title || 'Build your Friday poker club'}</h1>
+            <p>Meet the host, the people who make the tools, and the place to find them.</p>
           </div>
-          <div className="mp-ecosystem" aria-label="DanGG connects the Community edition, official services, and marketplace extensions">
-            <div className="mp-orbit mp-orbit-one" /><div className="mp-orbit mp-orbit-two" />
-            <div className="mp-ecosystem-glow" />
-            <div className="mp-ecosystem-center"><img src={brand.logo} alt="" /><span>A PLACE FOR YOUR COMMUNITY</span></div>
-            <div className="mp-ecosystem-card mp-ecosystem-community"><span className="mp-ecosystem-icon"><Icon name="code" /></span><div><strong>Community</strong><span>Open source · AGPLv3</span></div><span className="mp-mini-dot" /></div>
-            <div className="mp-ecosystem-card mp-ecosystem-network"><span className="mp-ecosystem-icon"><Icon name="server" /></span><div><strong>DanGG Network</strong><span>Official services</span></div><Icon name="arrow" /></div>
-            <div className="mp-ecosystem-card mp-ecosystem-extensions"><span className="mp-ecosystem-icon"><Icon name="layers" /></span><div><strong>Marketplace</strong><span>Tools &amp; extensions</span></div><Icon name="spark" /></div>
-            <span className="mp-ecosystem-caption">COMMUNITY · INFRASTRUCTURE · POSSIBILITIES</span>
+          <div className="mp-explanation-grid">
+            <article><img className="mp-role-flow" src="/assets/marketplace/roles/organizer.svg" width="360" height="112" alt="Invite players, welcome them to the club, then host the game." /><h3>Organizer</h3><p>You host the game. You set up the club, invite players and run the tables. You decide whether players join for free or pay a club entry fee.</p><button type="button" className="mp-text-link" onClick={() => navigate(user && !user.is_guest ? '/organiser' : '/login')}>{user && !user.is_guest ? 'Open Organizer workspace' : 'Sign in to host games'}<Icon name="arrow" /></button></article>
+            <article><img className="mp-role-flow" src="/assets/marketplace/roles/creator.svg" width="360" height="112" alt="Make a table design and submit it for review." /><h3>Creator</h3><p>You make something a club can use, like a new table design. You can submit it for review so organizers can find it.</p><button type="button" className="mp-text-link" onClick={() => scrollToSection('marketplace-publisher')}>See how to publish<Icon name="arrow" /></button></article>
+            <article><img className="mp-role-flow" src="/assets/marketplace/roles/marketplace.svg" width="360" height="112" alt="Browse listings, read the terms, then request access." /><h3>Marketplace</h3><p>This is where organizers find tools and services. Need hosting for Friday? Open a listing, read the terms and request access. Game chips aren’t sold here.</p><button type="button" className="mp-text-link" onClick={() => scrollToSection('marketplace-catalog')}>Browse the catalog<Icon name="arrow" /></button></article>
           </div>
-        </section>
-
-        <section className="mp-principles mp-container" aria-label="DanGG Marketplace principles">
-          <div><Icon name="code" /><p><strong>You choose where to run it</strong><span>On your infrastructure or through official DanGG services.</span></p></div>
-          <div><Icon name="shield" /><p><strong>Transparent terms</strong><span>Every product states its delivery model and availability.</span></p></div>
-          <div><Icon name="layers" /><p><strong>Separate from game chips</strong><span>The marketplace is for software and services.</span></p></div>
+          {catalog?.settings.subtitle && <p>{catalog.settings.subtitle}</p>}
+          <p className="mp-role-example"><strong>What happens to a $1 club entry?</strong> Once payment is verified, the player gets club access. The club’s designated creator earns 16¢, DanGG keeps 20¢ before payment fees, and the organizer gets 64¢ toward setup, hourly hosting, or rescheduling fees. This credit cannot buy membership or chips, be transferred to a player, or be withdrawn. Marketplace listings have their own terms.</p>
         </section>
 
         {success && <div className="mp-container"><div className="mp-notice mp-notice-success" role="status"><Icon name="check" /><span>{success}</span><button type="button" onClick={() => setSuccess('')} aria-label="Close confirmation"><Icon name="close" /></button></div></div>}

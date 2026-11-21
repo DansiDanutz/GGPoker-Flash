@@ -597,6 +597,8 @@ Implement the smallest useful organiser staff permissions and club recurring-eve
 
 Voice/video, creator suites, bot seasons, academy, arbitrary plugin execution and managed-hosting automation require separate adoption/cost evidence. Diamond economics now use a fixed 10,000 organiser Cash Chip issuance cost per Diamond and organiser-set resale prices, replacing the earlier 50/50 proposal. Cross-organiser tournament and settlement features remain deferred; do not advertise them as functioning.
 
+**Creator opportunity — mobile landscape (19 November 2026): deferred.** The default mobile experience is portrait-only, including poker tables. A contributor may propose an optional landscape layout through free Play Money testing and the existing approval workflow. Acceptance must cover readable cards/stacks, unobstructed actions, keyboard access, cash/tournament layouts, rotation during an active hand without lost session state or duplicate actions, and switching back to the free portrait default. No landscape entitlement, paid listing, price or automatic layout-plugin installation is implemented by this decision. Desktop remains a separate wide-screen experience.
+
 ## 8. Commercial experiments before large builds
 
 1. **Guest invitation pilot:** add the smallest safe guest flow and observe whether invited visitors actually complete games. Do not build a large social network before this signal exists.

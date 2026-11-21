@@ -269,3 +269,34 @@ test('an absent player who leaves no longer caps the runs with a saved choice (E
   assert.equal(t.result.boards.length, 3, 'the departed player has no say');
   assert.equal(chipsOnTable(t), 300);
 });
+
+test('PLO tables reserve a board and limit the run prompt to available cards', () => {
+  for (const [game, max] of [['omaha5',9], ['omaha6',7]]) {
+    const table = new PokerTable({id:'capacity',game,seats:10,sb:1,bb:2});
+    assert.equal(table.seats.length,max);
+  }
+  const t = allInOnTurn([['Ah','Kd'],['2c','3d']]);
+  t.deck = t.deck.slice(0,2);
+  t.runout();
+  assert.equal(t.runAskFor('p0').maxRuns,2);
+  assert.equal(t.decideRuns('p0',3).ok,false);
+  t.decideRuns('p0',2); t.decideRuns('p1',2);
+  assert.equal(t.result.boards.length,2);
+  assert.equal(chipsOnTable(t),200);
+});
+
+test('full PLO5 and PLO6 tables complete affordable preflop runouts with unique cards', () => {
+  for (const [game, count, holeCount, runs] of [['omaha5',9,5,1], ['omaha6',7,6,2]]) {
+    const deck = makeDeck();
+    const holes = Array.from({length:count}, () => deck.splice(0,holeCount).map(str));
+    const t = allInOnTurn(holes,{game});
+    t.board = []; t.deck = deck; t.street = 'showdown';
+    t.runBoards(3);
+    const boards = t.result.boards || [t.result.board];
+    assert.equal(boards.length,runs);
+    assert.ok(boards.every(board => board.length === 5));
+    const dealt = [...holes.flat(), ...boards.flat()];
+    assert.equal(new Set(dealt).size,dealt.length);
+    assert.equal(chipsOnTable(t),count*100);
+  }
+});

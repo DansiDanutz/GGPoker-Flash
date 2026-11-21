@@ -1,6 +1,6 @@
 import { buildPots, collectedPots, oddChipOrder } from './pots.js';
 import { STRADDLE_ASK_MS, straddleCandidates } from './straddle.js';
-import { MAX_RUNS, RUN_ASK_MS, agreedRuns, boardsFor, splitAmount } from './runItMulti.js';
+import { MAX_RUNS, RUN_ASK_MS, agreedRuns, availableRuns, deckSeatLimit, boardsFor, splitAmount } from './runItMulti.js';
 import { SIT_OUT_KICK_MS, dealMeInMin } from './sitOut.js';
 import { badBeatPayout } from './badBeat.js';
 import { activeReservations, reserve, withoutPlayer } from './seatReserve.js';
@@ -40,6 +40,7 @@ export function botName(seed) {
 
 export class PokerTable {
   constructor(cfg, hooks = {}) {
+    if (cfg.seats > deckSeatLimit(cfg.game)) cfg = { ...cfg, seats: deckSeatLimit(cfg.game) };
     this.cfg = cfg;
     this.hooks = hooks;
     this.seats = Array.from({ length: cfg.seats }, (_, i) => ({
@@ -101,6 +102,7 @@ export class PokerTable {
     this.spinPayouts = null;
     this.spinWinner = null;
     // Ticket source for the verified outcome table (server/spin.js); tests inject a fixed one.
+    this.mysteryTier = randomInt;
     this.spinTicket = () => randomInt(SPIN_TICKET_TOTAL);
     // Spin blind clock (P0 slice S1c): started at the draw, read before each deal; tests inject it.
     this.spinClock = () => Date.now();
@@ -1388,6 +1390,8 @@ export class PokerTable {
   openRunRound() {
     // Cash tables only: not tournaments, Spin, All-in or Fold, fast-fold Rush or the first-hand flip.
     if (!this.offersRunIt() || this.flip || this.board.length >= 5) return false;
+    const maxRuns = availableRuns(this.board, this.deck);
+    if (maxRuns < 2) return false;
     const alive = this.activePlayers().filter((s) => !s.player.folded);
     if (alive.length < 2) return false;
     const humans = alive.filter((s) => !s.player.isBot);
@@ -1396,16 +1400,16 @@ export class PokerTable {
     // "All must agree": an absent player with no saved choice counts as once, so the board runs once.
     const absent = humans.filter((s) => !asked.includes(s));
     if (!asked.length || absent.some((s) => !s.player.runPref)) return false;
-    const absentChoices = new Map(absent.map((s) => [s.player.id, s.player.runPref]));
+    const absentChoices = new Map(absent.map((s) => [s.player.id, Math.min(maxRuns, s.player.runPref)]));
     // All-in hands are tabled before the players decide.
     for (const s of alive) s.player.reveal = true;
-    const remembered = new Map(asked.filter((s) => s.player.runPref).map((s) => [s.player.id, s.player.runPref]));
+    const remembered = new Map(asked.filter((s) => s.player.runPref).map((s) => [s.player.id, Math.min(maxRuns, s.player.runPref)]));
     if (remembered.size === asked.length) {
       this.runBoards(agreedRuns([...remembered.values(), ...absentChoices.values()]));
       return true;
     }
-    this.runRound = { asked: new Set(asked.map((s) => s.player.id)), choices: remembered, absentChoices, endsAt: Date.now() + RUN_ASK_MS };
-    this.emit({ type: 'run_ask', endsAt: this.runRound.endsAt, maxRuns: MAX_RUNS });
+    this.runRound = { maxRuns, asked: new Set(asked.map((s) => s.player.id)), choices: remembered, absentChoices, endsAt: Date.now() + RUN_ASK_MS };
+    this.emit({ type: 'run_ask', endsAt: this.runRound.endsAt, maxRuns });
     return true;
   }
 
@@ -1423,14 +1427,14 @@ export class PokerTable {
   runAskFor(viewerId) {
     const round = this.runRound;
     if (!round || !viewerId || !round.asked.has(viewerId)) return null;
-    return { endsAt: round.endsAt, maxRuns: MAX_RUNS, chosen: round.choices.get(viewerId) ?? null };
+    return { endsAt: round.endsAt, maxRuns: round.maxRuns, chosen: round.choices.get(viewerId) ?? null };
   }
 
   decideRuns(playerId, runs) {
     const round = this.runRound;
     if (!round || this.street !== 'showdown' || !round.asked.has(playerId)) return { ok: false, error: 'Nothing to decide' };
     if (round.choices.has(playerId)) return { ok: false, error: 'Already chosen' };
-    if (!Number.isInteger(runs) || runs < 1 || runs > MAX_RUNS) return { ok: false, error: 'Choose 1 to 3 runs' };
+    if (!Number.isInteger(runs) || runs < 1 || runs > round.maxRuns) return { ok: false, error: `Choose 1 to ${round.maxRuns} runs` };
     round.choices.set(playerId, runs);
     // Once anyone picks a single run, nothing anyone else says can change it.
     if (runs === 1 || round.choices.size === round.asked.size) this.closeRunRound();
@@ -1464,6 +1468,8 @@ export class PokerTable {
 
   /** Deal the rest of the board once, or several boards that all keep the cards already dealt. */
   runBoards(runs) {
+    runs = Math.min(runs, availableRuns(this.board, this.deck));
+    if (runs < 1) throw new RangeError('Insufficient cards for one board');
     if (runs <= 1) {
       while (this.board.length < 5) {
         if (this.board.length === 0) this.board.push(this.deck.pop(), this.deck.pop(), this.deck.pop());
@@ -1821,6 +1827,7 @@ export class PokerTable {
       id: s.player.id, nick: s.player.nick, stack: s.player.stack,
       cards: s.player.cards.map(cardStr), folded: s.player.folded, inHand: s.player.inHand,
       win: s.player.winAmount, totalBet: s.player.totalBet,
+      shownIndices: s.player.reveal ? s.player.cards.map((_, i) => i) : [...(s.player.shown || [])],
       seat: s.index, isBot: s.player.isBot, showed: !!s.player.reveal || (s.player.shown || []).length > 0,
     }));
     // Rush fast folders left mid-hand for a new table; the hand they folded is still theirs.
@@ -1915,7 +1922,7 @@ export class PokerTable {
     if (this.runRound && now >= this.runRound.endsAt) this.closeRunRound();
     if (this.tournament) {
       // Flights share one level clock; the first table to tick advances it and
-      // every other flight picks the new level up on its own next tick.
+      // each flight applies it between hands.
       const interval = Number(this.tournament.blindEvery) * 60000;
       const startedAt = Number(this.tournament.levelStartedAt) || this.levelStartedAt;
       if (interval > 0 && now - startedAt >= interval) {
@@ -1923,7 +1930,7 @@ export class PokerTable {
         this.tournament.level = clampTournamentLevel((Number(this.tournament.level) || 1) + levels);
         this.tournament.levelStartedAt = startedAt + levels * interval;
       }
-      this.applyTournamentLevel();
+      if (this.street === 'ended' || this.street === 'idle') this.applyTournamentLevel();
     }
     if (this.street === 'ended' || this.street === 'idle') {
       if (this.nextHandAt && now >= this.nextHandAt) {
@@ -1949,24 +1956,33 @@ export class PokerTable {
           // Busted seats are cleared inside the loop, so size the field first.
           const field = this.tournamentField();
           let batch = 0;
-          for (const s of [...this.seats]) {
+          const bustedSeats = this.occupiedSeats().filter(s => s.player.stack <= 0);
+          if (!this.tournament?.managed && bustedSeats.length > 1) {
+            // Best finish is assigned first. Match the room's equal-stack button rule.
+            const order = seat => (seat.index - this.button - 1 + this.seats.length) % this.seats.length;
+            bustedSeats.sort((a, b) => (this.handStartStack[b.player.id] || 0) - (this.handStartStack[a.player.id] || 0)
+              || order(a) - order(b));
+          }
+          for (const s of bustedSeats) {
             if (s.player && s.player.stack <= 0) {
               const busted = s.player;
+              let finishPlace;
               if (this.tournament && !this.tournament.managed) {
                 // Single-table events rank and pay out inside this table; a
                 // multi-table event ranks the whole field in its room instead.
                 const alive = aliveCount;
                 const place = alive + 1 + batch;
+                finishPlace = place;
                 batch++;
                 const payout = payoutFor(this.tournamentPayouts(field), place);
                 this.finished.push({ nick: busted.nick, id: busted.id, place, payout });
-                if (payout > 0 && this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
+                if (this.hooks.onTournamentPayout) this.hooks.onTournamentPayout(this, { id: busted.id, nick: busted.nick, place, payout });
               } else if (this.spin) {
                 this.recordSpinFinish(busted, aliveCount + 1 + batch);
                 batch++;
               }
               try { if (this.hooks.onSeatBusted) this.hooks.onSeatBusted(this, busted); } catch (e) { console.error('seat busted hook', e); }
-              if (this.tournament && this.hooks.onTournamentBust) this.hooks.onTournamentBust(this, { id: busted.id, nick: busted.nick });
+              if (this.tournament && this.hooks.onTournamentBust) this.hooks.onTournamentBust(this, { id: busted.id, nick: busted.nick, place: finishPlace });
               s.player = null;
               this.emit({ type: 'stand', seat: s.index });
             }
@@ -2021,7 +2037,7 @@ export class PokerTable {
       const winners = pot.winners.filter(w => w.id !== busted.id && w.invested >= busted.totalBet);
       if (!winners.length) throw new Error('Bounty has no covering pot winner');
       const amounts = this.mystery ? mysteryBountyAmounts(this.bounty) : [this.bounty];
-      const amount = this.mystery ? amounts[Math.floor(Math.random() * amounts.length)] : this.bounty;
+      const amount = this.mystery ? amounts[this.mysteryTier(amounts.length)] : this.bounty;
       award = { bustedId: busted.id, bustedNick: busted.nick, amount, mystery: this.mystery,
         shares: winners.map((w, index) => ({ winnerId: w.id, winnerNick: w.nick,
           amount: Math.floor(amount / winners.length) + (index < amount % winners.length ? 1 : 0) })) };

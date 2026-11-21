@@ -7,7 +7,7 @@ services:
       dockerfile: deploy/Dockerfile
       args:
         GIT_SHA: ${GIT_SHA:-}
-        SOURCE_REPOSITORY: ${SOURCE_REPOSITORY:-https://github.com/OpenPoker4all/OpenPoker}
+        SOURCE_REPOSITORY: ${SOURCE_REPOSITORY:-}
     restart: unless-stopped
     mem_limit: 2g
     cpus: "2.0"
@@ -20,22 +20,27 @@ services:
     env_file:
       - .env
     environment:
+      GGPOKER_BIND: 0.0.0.0
       GGPOKER_DATA: /data
+      GGPOKER_ADMIN_TLS_DIR: /run/operator-tls
+      GGPOKER_ADMIN_TLS_PORT: "5197"
+      GGPOKER_ADMIN_ORIGIN: https://localhost:5197
     volumes:
       - game-data:/data
+      - /etc/dangg/operator-tls:/run/operator-tls:ro
     networks:
       - default
       - traefik
     labels:
       - traefik.enable=true
       - traefik.docker.network=crawdbot-worker_default
-      - traefik.http.routers.dangro.rule=Host(`dangg.live`) || Host(`www.dangg.live`)
+      - traefik.http.routers.dangro.rule=(Host(`dangg.live`) || Host(`www.dangg.live`)) && !PathPrefix(`/api/admin`)
       - traefik.http.routers.dangro.entrypoints=websecure
       - traefik.http.routers.dangro.tls.certresolver=letsencrypt
       # One year; includeSubDomains deliberately left off until every subdomain is HTTPS-only.
       - traefik.http.routers.dangro.middlewares=dangro-hsts
       - traefik.http.middlewares.dangro-hsts.headers.stsSeconds=31536000
-      - traefik.http.routers.dangro-http.rule=Host(`dangg.live`) || Host(`www.dangg.live`)
+      - traefik.http.routers.dangro-http.rule=(Host(`dangg.live`) || Host(`www.dangg.live`)) && !PathPrefix(`/api/admin`)
       - traefik.http.routers.dangro-http.entrypoints=web
       - traefik.http.routers.dangro-http.middlewares=dangro-redirect
       - traefik.http.middlewares.dangro-redirect.redirectscheme.scheme=https
@@ -44,6 +49,7 @@ services:
       - "5198"
     ports:
       - "127.0.0.1:5198:5198"
+      - "127.0.0.1:5197:5197"
     security_opt:
       - no-new-privileges:true
     cap_drop:

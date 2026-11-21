@@ -10,7 +10,7 @@ import { createOrganizerChips } from './organizer-chips.js';
 function fixture(db = new DatabaseSync(':memory:')) {
   db.exec(`
     CREATE TABLE users(id INTEGER PRIMARY KEY,banned INTEGER DEFAULT 0,deleted_at TEXT);
-    INSERT INTO users VALUES (1,0,NULL),(2,0,NULL),(3,0,NULL),(4,0,NULL);
+    INSERT INTO users VALUES (1,0,NULL),(2,0,NULL),(3,0,NULL),(4,0,NULL); ALTER TABLE users ADD COLUMN login TEXT NOT NULL DEFAULT 'member';
     CREATE TABLE organizer_billing_accounts(user_id INTEGER PRIMARY KEY,balance_cents INTEGER NOT NULL CHECK(balance_cents>=0));
     CREATE TABLE organizer_billing_memberships(user_id INTEGER,role TEXT,active INTEGER,expires_at TEXT,PRIMARY KEY(user_id,role));
     CREATE TABLE organizer_billing_ledger(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER,kind TEXT,amount_cents INTEGER,reference TEXT UNIQUE,resource_id TEXT,metadata TEXT,created_at TEXT);

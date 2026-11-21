@@ -6,7 +6,7 @@
 set -euo pipefail
 
 : "${DO_SSH_KEY:?Set DO_SSH_KEY to the fingerprint from: doctl compute ssh-key list}"
-: "${ADMIN_SSH_CIDR:?Set ADMIN_SSH_CIDR to your Mac public IP(s), comma-separated, e.g. 81.196.119.151/32}"
+: "${ADMIN_SSH_CIDR:?Set ADMIN_SSH_CIDR to your Mac public IP(s), comma-separated, e.g. 192.0.2.10/32}"
 SIZE="${1:-s-8vcpu-16gb}"
 NAME="${DROPLET_NAME:-dangro-prod}"
 REGION="${DROPLET_REGION:-fra1}"
@@ -37,7 +37,7 @@ doctl compute firewall create \
   --tag-names dangro-prod \
   --inbound-rules "protocol:tcp,ports:80,address:0.0.0.0/0,address:::/0 protocol:tcp,ports:443,address:0.0.0.0/0,address:::/0 ${SSH_RULES}" \
   --outbound-rules "protocol:tcp,ports:all,address:0.0.0.0/0,address:::/0 protocol:udp,ports:all,address:0.0.0.0/0,address:::/0 protocol:icmp,address:0.0.0.0/0,address:::/0" \
-  >/dev/null || true
+  >/dev/null || { echo "Firewall creation failed. Stop here and secure the new droplet before deployment." >&2; exit 1; }
 
 cat <<NEXT
 

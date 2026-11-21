@@ -249,7 +249,7 @@ export function Support() {
             <div className="field"><label>Message</label><textarea rows={5} placeholder="Describe the issue…" style={{ width: '100%', background: '#121212', border: '1px solid #343434', borderRadius: 5, color: '#eee', padding: 10 }} /></div>
             <button className="btn btn-red" onClick={() => toast({ kind: 'success', title: 'Message sent', body: 'Support usually replies within 24h.' })}>Send message</button>
             <div className="panel-title" style={{ marginTop: 18 }}>Responsible gaming</div>
-            <p className="muted small">Play money only. Set session reminders and limits in Settings → Responsible gaming.</p>
+            <p className="muted small">Account breaks and session reminders are not available. See Settings → Responsible gaming for details.</p>
           </div>
         </div>
       </div>

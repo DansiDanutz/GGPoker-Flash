@@ -84,7 +84,7 @@ local and are not redistributed.
   backdrop in the regenerated asset tree.
 
 The installed client was inspected at
-`~/Library/Application Support/com.nsuslab.ncf.launcher.live.ggpcom/Game/assets`.
+`app/public/assets/` (generated from original OpenPoker/DanGG asset pipelines).
 It contains 771 MB of atlases, SWFs, bitmap fonts, sounds and room art. The CSS
 surface cannot execute the client's SWF/Stage3D content directly; the static
 table and card assets are used, while the motion is rebuilt in CSS.

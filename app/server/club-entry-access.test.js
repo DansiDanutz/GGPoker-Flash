@@ -27,7 +27,8 @@ test('a verified $1 receipt unlocks the private table socket and posts the split
     const verify=()=>s.post('/api/club-entry/orders/'+entry.data.order.id+'/verify',{token,body:{paymentId}});
     for(let i=0;i<2;i++){const r=await verify();assert.equal(r.status,200,JSON.stringify(r.data));}
     join();assert.equal((await sock.nextType('joined')).tableId,tableId);
-    assert.deepEqual({...db.prepare('select creator_net_cents,platform_retained_cents,organizer_bonus_chips from club_entry_payments').get()},{creator_net_cents:16,platform_retained_cents:20,organizer_bonus_chips:6400});
-    assert.equal(db.prepare("select sum(amount) n from organizer_chip_journals where kind='club_entry_bonus'").get().n,6400);
+    assert.deepEqual({...db.prepare('select creator_net_cents,platform_retained_cents,organizer_bonus_chips from club_entry_payments').get()},{creator_net_cents:16,platform_retained_cents:20,organizer_bonus_chips:0});
+    assert.equal(db.prepare("select sum(amount) n from organizer_chip_journals where kind='club_entry_bonus'").get().n,null);
+    assert.equal(db.prepare('select sum(amount_cents) n from organizer_fee_credit_movements').get().n,64);
   }finally{if(sock)await sock.close();db.close();await s.stop();}
 });

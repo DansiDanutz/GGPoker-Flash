@@ -144,6 +144,21 @@ test('places 2 and 3 are paid 30% and 20%, then the winner takes 50%', () => {
 });
 
 
+test('single-table tournament placement uses starting stacks, then button order', () => {
+  for (const [secondStack, expected] of [[500, [1, 2]], [1000, [2, 1]]]) {
+    const players = [1, 2, 3, 4].map(id => player(id, String(id), id <= 2 ? 0 : 2000, 0, []));
+    const table = tableWith(players, { seats: 4, tournament: { prizePool: 4000 } });
+    table.button = 0;
+    table.handStartStack = { 1: 1000, 2: secondStack, 3: 1000, 4: 1000 };
+    table.street = 'ended';
+    table.nextHandAt = 1;
+    const places = [];
+    table.hooks = { onTournamentBust: (_table, result) => places.push([result.id, result.place]) };
+    table.tick(2);
+    assert.deepEqual(places, [[expected[0], 3], [expected[1], 4]]);
+  }
+});
+
 test('elimination bust fires onSeatBusted before the seat is cleared', () => {
   const p1 = player(1, 'Spin winner', 1000, 0, []);
   const p2 = player(2, 'Busted A', 0, 0, []);
@@ -384,6 +399,21 @@ test('tournament blinds advance on the clock, not hand count', () => {
   t.tick(Date.now() + 100);
   assert.equal(t.tournament.level, 2);
   assert.ok(t.sb > sb);
+});
+
+test('a clock change preserves the active street raise and applies new blinds between hands', () => {
+  const t = new PokerTable({ id:'in-hand', game:'holdem', seats:2, sb:50, bb:100,
+    tournament:{ blindEvery:1, level:1, prizePool:10000 } });
+  t.street = 'flop';
+  t.minRaise = 400;
+  const at = t.tournament.levelStartedAt + 60000;
+  t.tick(at);
+  assert.equal(t.tournament.level, 2);
+  assert.deepEqual([t.sb,t.bb,t.minRaise], [50,100,400]);
+  t.street = 'ended';
+  t.nextHandAt = 0;
+  t.tick(at);
+  assert.deepEqual([t.sb,t.bb,t.minRaise], [75,150,150]);
 });
 
 test('flights of one tournament share the blind level and clock', () => {
@@ -665,7 +695,7 @@ test('a timeout still spends one card first, then folds and sits out (EGM round 
 });
 
 
-test('Mystery draws whole-chip tiers including a one-chip minimum', (context) => {
+test('Mystery draws whole-chip tiers including a one-chip minimum', () => {
   for (const [base, amounts] of [[50, [5, 13, 25, 50, 100, 250, 500]], [1, [1, 1, 1, 1, 2, 5, 10]]]) {
     amounts.forEach((amount, index) => {
       const table = tableWith([player(1, 'Winner', 5000, 100, ['Ah', 'Ad'].map(C)), player(2, 'Busted', 0, 100, ['Qh', 'Jd'].map(C))],
@@ -674,9 +704,20 @@ test('Mystery draws whole-chip tiers including a one-chip minimum', (context) =>
       table.doShowdown(); table.nextHandAt = 1;
       const paid = [];
       table.hooks = { onBounty: (_table, info) => paid.push(info.amount), onTournamentPayout: () => {}, onTournamentEnd: () => {} };
-      context.mock.method(Math, 'random', () => (index + 0.5) / amounts.length);
-      try { table.tick(2); } finally { context.mock.restoreAll(); }
+      table.mysteryTier = count => { assert.equal(count, amounts.length); return index; };
+      table.tick(2);
       assert.deepEqual(paid, [amount]);
     });
   }
+});
+
+test('an unpaid single-table finish reaches the placement ledger hook', () => {
+  const players = [1, 2, 3, 4].map(id => player(id, String(id), id === 4 ? 0 : 1000, 0, []));
+  const table = tableWith(players, { seats: 4, tournament: { prizePool: 3000 } });
+  table.street = 'ended';
+  table.nextHandAt = 1;
+  const results = [];
+  table.hooks = { onTournamentPayout: (_table, result) => results.push(result) };
+  table.tick(2);
+  assert.deepEqual(results.map(p => [p.id, p.place, p.payout]), [[4, 4, 0]]);
 });

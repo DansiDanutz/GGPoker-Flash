@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 const DAY = 86_400_000;
-const MAX_FEE = 100_000;
+import { validClubEntryFee } from './club-entry-price.js';
 const NON_GUEST = `(length(login)<>18 OR substr(login,1,6)<>'guest_' OR substr(login,15,1)<>'-' OR lower(substr(login,7,8) || substr(login,16,3)) NOT GLOB '${'[0-9a-f]'.repeat(11)}')`;
 
 function fail(message, status = 400, code = 'organizer_club_invalid') {
@@ -88,7 +88,7 @@ export function createOrganizerClubs({ db, now = Date.now }) {
     ownerId = id(ownerId, 'ownerId'); actorId = id(actorId, 'actorId');
     if (actorId !== ownerId) fail('Only the club owner can update this profile.', 403, 'owner_required');
     activeOrganizer(ownerId); name = text(name, 'name', 120); description = text(description, 'description', 1000, { optional: true });
-    if (!Number.isSafeInteger(entryFeeCents) || entryFeeCents < 0 || entryFeeCents > MAX_FEE) fail('Entry fee must be 0–100000 USD cents.');
+    if (!validClubEntryFee(entryFeeCents)) fail('Set a free entry or use $0.25 increments up to $1000.');
     const ts = stamp();
     db.prepare(`INSERT INTO organizer_club_profiles(owner_id,name,description,entry_fee_cents,created_at,updated_at) VALUES(?,?,?,?,?,?)
       ON CONFLICT(owner_id) DO UPDATE SET name=excluded.name,description=excluded.description,entry_fee_cents=excluded.entry_fee_cents,updated_at=excluded.updated_at`).run(ownerId, name, description, entryFeeCents, ts, ts);

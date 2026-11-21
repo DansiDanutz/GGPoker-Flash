@@ -9,7 +9,7 @@ test('disposable cash hand settles after credit expiry and blocks the next deal'
   const db = new DatabaseSync(':memory:');
   try {
     db.exec(`CREATE TABLE users(id INTEGER PRIMARY KEY,banned INTEGER DEFAULT 0,deleted_at TEXT,is_admin INTEGER DEFAULT 0);
-      INSERT INTO users VALUES(1,0,NULL,1),(2,0,NULL,0),(3,0,NULL,0);
+      INSERT INTO users VALUES(1,0,NULL,1),(2,0,NULL,0),(3,0,NULL,0); ALTER TABLE users ADD COLUMN login TEXT NOT NULL DEFAULT 'member';
       CREATE TABLE audit_log(actor TEXT,action TEXT,detail TEXT);
       CREATE TABLE tables(id TEXT PRIMARY KEY,owner_id INTEGER,private INTEGER,chip_economy INTEGER);
       INSERT INTO tables VALUES('expiry',2,1,1)`);
@@ -51,7 +51,7 @@ for (const stacks of [[5000,5000], [1000,2000,3000,3000]]) test(`disposable all-
   const db = new DatabaseSync(':memory:');
   try {
     db.exec(`CREATE TABLE users(id INTEGER PRIMARY KEY,banned INTEGER DEFAULT 0,deleted_at TEXT,is_admin INTEGER DEFAULT 0);
-      INSERT INTO users VALUES(1,0,NULL,1),(2,0,NULL,0),(3,0,NULL,0),(4,0,NULL,0),(5,0,NULL,0);
+      INSERT INTO users VALUES(1,0,NULL,1),(2,0,NULL,0),(3,0,NULL,0),(4,0,NULL,0),(5,0,NULL,0); ALTER TABLE users ADD COLUMN login TEXT NOT NULL DEFAULT 'member';
       CREATE TABLE audit_log(actor TEXT,action TEXT,detail TEXT);
       CREATE TABLE tables(id TEXT PRIMARY KEY,owner_id INTEGER,private INTEGER,chip_economy INTEGER);
       INSERT INTO tables VALUES('expiry',2,1,1)`);

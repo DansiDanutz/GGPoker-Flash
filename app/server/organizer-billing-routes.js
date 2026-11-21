@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { isPaymentUuid } from './club-entry-provider.js';
 import { organizerSpinOutcome } from './organizer-spin-prizes.js';
 import { ORGANIZER_TARIFFS } from './organizer-billing.js';
 import { cashRakeConfig, validateCashRake } from './cash-rake.js';
 
-const MANUAL_FUNDING_LINKS = Object.freeze([
-  { amount_cents: 900, url: 'https://nervixpay.live/l/b0afce77-773a-48a0-9a73-72274791313d' },
-  { amount_cents: 1000, url: 'https://nervixpay.live/l/9aae5873-9e81-4ac0-be07-3b189ffded2f' },
-]);
+function manualFundingConfig(mode, env) {
+  const disabled = { enabled: false, links: [] };
+  if (mode !== 'enforce' || env.GGPOKER_NERVIXPAY_MANUAL_FUNDING !== 'on') return disabled;
+  const ids = [env.GGPOKER_FUNDING_LINK_900, env.GGPOKER_FUNDING_LINK_1000];
+  const merchant = env.GGPOKER_FUNDING_MERCHANT?.trim();
+  const account = env.GGPOKER_FUNDING_ACCOUNT?.trim();
+  if (!merchant || !account || ids.some(id => !isPaymentUuid(id)) || ids[0].toLowerCase() === ids[1].toLowerCase()) return disabled;
+  return { enabled: true, merchant_display: merchant, settlement_account_display: account,
+    assets: ['USDC on Polygon', 'USDT on BNB Chain'],
+    links: ids.map((id, i) => ({ amount_cents: [900, 1000][i], url: 'https://nervixpay.live/l/' + id })) };
+}
 
 function fail(message, status = 400) { throw Object.assign(new Error(message), { status }); }
 function fields(body, allowed) {
@@ -33,13 +41,10 @@ export function createOrganizerBillingRoutes({ db, billing, json, requireUser, r
     const p = url.pathname;
     if (!p.startsWith('/api/marketplace/billing') && !p.startsWith('/api/admin/marketplace/billing/')) return false;
     if (p === '/api/marketplace/billing' && req.method === 'GET') {
-      const manualFunding = billing.mode === 'enforce' && process.env.GGPOKER_NERVIXPAY_MANUAL_FUNDING === 'on';
+      const manualFunding = manualFundingConfig(billing.mode, process.env);
       json(res, 200, {
         mode: billing.mode, chip_mode: process.env.GGPOKER_ORGANIZER_CHIPS === 'enforce' ? 'enforce' : 'off', tariffs: ORGANIZER_TARIFFS, checkout_enabled: false,
-        manual_funding: manualFunding ? {
-          enabled: true, merchant_display: 'Fake or Real', settlement_account_display: 'Seme',
-          assets: ['USDC on Polygon', 'USDT on BNB Chain'], links: MANUAL_FUNDING_LINKS,
-        } : { enabled: false, links: [] },
+        manual_funding: manualFunding,
       }); return true;
     }
     if (p === '/api/admin/marketplace/billing/credits') {

@@ -37,19 +37,37 @@ export function createOrganizerFundingRoutes({ db, funding, providers, mode, req
     const body = fields(await readBody(req), action === 'offer' ? ['feeCents'] : action === 'verify' ? ['paymentId'] : []);
     if (action === 'cancel') {
       if (row.organizerId !== user.id) fail('Only the owning organizer may cancel.',403);
+      if (row.state === 'paid') { json(res,200,row); return true; }
       if (row.state === 'rejected') { json(res,200,funding.cancel({userId:user.id,id})); return true; }
       if (row.state !== 'offered') fail('Only unpaid offers can be cancelled.',409);
-      await providers.forOrganizer(row.organizerId).cancelLink(row, db);
-      json(res,200,funding.cancel({userId:user.id,id,providerCleared:true})); return true;
+      const provider = providers.forOrganizer(row.organizerId);
+      if (typeof provider.clearance !== 'function') {
+        if (!row.checkoutDisabled) {
+          const paymentLinkId = await provider.disableLink(row, db);
+          funding.markCheckoutDisabled({ userId: user.id, id, paymentLinkId });
+        }
+        fail('Checkout disabled; chips remain reserved pending payment reconciliation.', 409);
+      }
+      const clearance = await provider.clearance(row, db);
+      if (!clearance || !['terminal_unpaid', 'pending', 'paid'].includes(clearance.status)) fail('Provider returned an unrecognized payment state.', 503);
+      funding.markCheckoutDisabled({ userId: user.id, id, paymentLinkId: clearance.paymentLinkId });
+      if (clearance.status === 'paid') {
+        const payment = await provider.payment(clearance.paymentId);
+        if (payment?.id !== clearance.paymentId) fail('Payment does not match clearance.', 503);
+        json(res,200,funding.settle({ userId:user.id,id,payment })); return true;
+      }
+      if (clearance.status === 'pending') fail('Checkout disabled; chips remain reserved pending payment reconciliation.', 409);
+      json(res, 200, funding.cancel({ userId: user.id, id, providerClearance: clearance })); return true;
     }
     if (action === 'credit' || action === 'reject') {
       json(res, 200, funding[action]({ userId: user.id, id })); return true;
     }
     if (action === 'offer' && row.organizerId !== user.id) fail('Only the owning organizer may offer a price.', 403);
+    if (action === 'offer' && row.checkoutDisabled) fail('Checkout disabled; chips remain reserved.',409);
     const provider = providers.forOrganizer(row.organizerId);
     if (!await provider.ready()) fail('This organizer has not connected a verified NervixPay merchant. Ask the operator to configure the connection.', 503);
     if (action === 'offer') {
-      const reserved = funding.offer({ userId: user.id, id, feeCents: body.feeCents });
+      const reserved = funding.offer({ userId: user.id, id, feeCents: body.feeCents, startCheckout: true });
       const paymentLinkId = await provider.linkForRequest(db, reserved);
       json(res, 200, funding.attachLink({ userId: user.id, id, paymentLinkId }));
     } else {

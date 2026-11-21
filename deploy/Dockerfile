@@ -13,9 +13,10 @@ RUN pnpm install --frozen-lockfile
 COPY app/ ./
 # The commit being deployed; written to dist/version.json and reported by /healthz.
 ARG GIT_SHA=""
-ARG SOURCE_REPOSITORY="https://github.com/OpenPoker4all/OpenPoker"
+ARG SOURCE_REPOSITORY
 ENV SOURCE_REPOSITORY=$SOURCE_REPOSITORY
-RUN GIT_SHA="$GIT_SHA" pnpm build
+RUN : "${SOURCE_REPOSITORY:?Set SOURCE_REPOSITORY to the repository containing GIT_SHA}" \
+    && export GIT_SHA && pnpm build && node tools/verify-source-build.mjs
 
 FROM node:26-bookworm-slim AS runtime
 

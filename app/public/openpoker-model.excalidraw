@@ -230,7 +230,7 @@
       "y": 780,
       "width": 540,
       "height": 175,
-      "text": "4 \u00b7 Economics (illustrative)\nOrganizer: 6,400 club Cash Chips\nnonwithdrawable \u00b7 Free Play Money separate\nCreator keeps $0.16 of $0.20\nPlatform keeps $0.20: $0.16 + $0.04\nGross: $0.80 organizer / $0.20 creator",
+      "text": "4 \u00b7 Economics (illustrative)\nOrganizer: 64¢ hosting credit\nHosting fees only \u00b7 not transferable\nCreator keeps $0.16 of $0.20\nPlatform keeps $0.20: $0.16 + $0.04\nGross: $0.80 organizer / $0.20 creator",
       "fontSize": 21,
       "fontFamily": 1,
       "strokeColor": "#172033",
@@ -247,7 +247,7 @@
       "boundElements": [],
       "updated": 1,
       "locked": false,
-      "originalText": "4 \u00b7 Economics (illustrative)\nOrganizer: 6,400 club Cash Chips\nnonwithdrawable \u00b7 Free Play Money separate\nCreator keeps $0.16 of $0.20\nPlatform keeps $0.20: $0.16 + $0.04\nGross: $0.80 organizer / $0.20 creator"
+      "originalText": "4 \u00b7 Economics (illustrative)\nOrganizer: 64¢ hosting credit\nHosting fees only \u00b7 not transferable\nCreator keeps $0.16 of $0.20\nPlatform keeps $0.20: $0.16 + $0.04\nGross: $0.80 organizer / $0.20 creator"
     },
     {
       "type": "rectangle",

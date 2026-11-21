@@ -5,24 +5,26 @@ const fs = require('node:fs');
 const { URL: NodeURL } = require('node:url');
 const { LIVE_URL, readLocalVersion, isOutdated, readMode, writeMode, fetchLiveVersion } = require('./update.cjs');
 const { profilePath } = require('./profile.cjs');
+const { isAllowedAppUrl, buildAppCsp, guardRedirects } = require('./origin.cjs');
 
 
 const ROOT = path.join(__dirname, '..');
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
-if (!gotSingleInstanceLock) {
-  app.quit();
-} else {
-  app.on('second-instance', () => {
-    if (!win) return;
-    if (win.isMinimized()) win.restore();
-    win.show();
-    win.focus();
-  });
-}
 app.setName('DanGG');
 // GGPOKER_USER_DATA points a test or second instance at its own profile and database.
-app.setPath('userData', profilePath(app.getPath('appData'), process.env.GGPOKER_USER_DATA));
-try { require('node:fs').mkdirSync(app.getPath('userData'), { recursive: true }); } catch {}
+const userData = profilePath(app.getPath('appData'), process.env.GGPOKER_USER_DATA);
+fs.mkdirSync(userData, { recursive: true });
+app.setPath('userData', userData);
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  return;
+}
+app.on('second-instance', () => {
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+});
 
 const DEV = process.env.GGPOKER_DEV === '1';
 // Once the player presses Update, the app plays on dangg.live instead of its built-in copy.
@@ -44,13 +46,7 @@ let win = null;
 let serverProc = null;
 
 function buildCsp() {
-  const target = new NodeURL(URL);
-  const wsOrigin = `${target.protocol === 'https:' ? 'wss:' : 'ws:'}//${target.host}`;
-  const connect = ["'self'", target.origin, wsOrigin];
-  if (!REMOTE) {
-    connect.push('http://127.0.0.1:*', 'ws://127.0.0.1:*', 'http://localhost:*', 'ws://localhost:*');
-  }
-  return `default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; connect-src ${connect.join(' ')}; font-src 'self' data:;`;
+  return buildAppCsp(URL, REMOTE);
 }
 
 function installCsp() {
@@ -142,22 +138,7 @@ function createWindow() {
   setTimeout(() => { win?.setAlwaysOnTop(false); }, 1500);
   win.webContents.on('did-fail-load', (e, code, desc) => console.error('load failed', code, desc));
   win.webContents.on('render-process-gone', (e, d) => console.error('renderer gone', d));
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(URL)) {
-      return {
-        action: 'allow',
-        overrideBrowserWindowOptions: {
-          width: 1200, height: 961, minWidth: 360, minHeight: 640,
-          frame: false, transparent: false, backgroundColor: '#0a0a0b',
-          hasShadow: true, title: 'DanGG',
-          webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
-        },
-      };
-    }
-    openExternalSafely(url);
-    return { action: 'deny' };
-  });
-  if (process.env.GGPOKER_DEVTOOLS === '1') win.webContents.openDevTools({ mode: 'detach' });
+ if (process.env.GGPOKER_DEVTOOLS === '1') win.webContents.openDevTools({ mode: 'detach' });
   win.on('closed', () => { win = null; });
 }
 
@@ -181,14 +162,15 @@ ipcMain.handle('win:maximize', (event) => {
   else target.maximize();
 });
 // Update: the built-in copy offers an update when dangg.live runs a different build.
-ipcMain.handle('update:status', async () => {
+async function desktopUpdateStatus() {
   if (DEV || REMOTE) return { outdated: false };
   const local = readLocalVersion(path.join(ROOT, 'dist', 'version.json'));
   const live = await fetchLiveVersion();
   return { outdated: isOutdated(local, live), local, live };
-});
-ipcMain.handle('update:apply', () => {
-  if (DEV || REMOTE) return false;
+}
+ipcMain.handle('update:status', desktopUpdateStatus);
+ipcMain.handle('update:apply', async () => {
+  if (!(await desktopUpdateStatus()).outdated) return false;
   writeMode(MODE_FILE, 'live');
   app.relaunch();
   app.quit();
@@ -199,8 +181,25 @@ ipcMain.handle('win:isMaximized', (event) => senderWindow(event)?.isMaximized() 
 // The app only ever shows its own local server: block navigation anywhere else and deny
 // every permission request (camera, microphone, notifications…).
 app.on('web-contents-created', (_event, contents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (isAllowedAppUrl(url, URL)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 1200, height: 961, minWidth: 360, minHeight: 640,
+          frame: false, transparent: false, backgroundColor: '#0a0a0b',
+          hasShadow: true, title: 'DanGG',
+          webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+        },
+      };
+    }
+    openExternalSafely(url);
+    return { action: 'deny' };
+  });
+
+  guardRedirects(contents, URL);
   contents.on('will-navigate', (event, target) => {
-    if (target.startsWith(URL)) return;
+    if (isAllowedAppUrl(target, URL)) return;
     event.preventDefault();
     openExternalSafely(target);
   });
@@ -240,8 +239,28 @@ app.on('window-all-closed', () => {
 });
 
 // SIGTERM lets the server cash every seated player out at their real stack before it exits.
-app.on('before-quit', () => {
-  if (serverProc) {
-    try { serverProc.kill('SIGTERM'); } catch { /* ignore */ }
+let quittingWithServer = false;
+app.on('before-quit', (event) => {
+  if (quittingWithServer) {
+    event.preventDefault();
+    return;
   }
+  if (!serverProc || serverProc.exitCode !== null || serverProc.killed) return;
+  quittingWithServer = true;
+  event.preventDefault();
+  const proc = serverProc;
+  serverProc = null;
+  let finished = false;
+  const finish = (code) => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timer);
+    app.exit(code === 0 ? 0 : 1);
+  };
+  const timer = setTimeout(() => {
+    try { proc.kill('SIGKILL'); } catch { /* ignore */ }
+    finish(1);
+  }, 3000);
+  proc.once('exit', finish);
+  try { proc.kill('SIGTERM'); } catch { finish(1); }
 });

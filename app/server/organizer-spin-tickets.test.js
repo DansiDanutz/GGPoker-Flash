@@ -7,7 +7,7 @@ import { createOrganizerSpinTickets } from './organizer-spin-tickets.js';
 function fixture() {
   const db = new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE users(id INTEGER PRIMARY KEY,banned INTEGER DEFAULT 0,deleted_at TEXT);
-    INSERT INTO users VALUES(1,0,NULL),(2,0,NULL),(3,0,NULL);
+    INSERT INTO users VALUES(1,0,NULL),(2,0,NULL),(3,0,NULL); ALTER TABLE users ADD COLUMN login TEXT NOT NULL DEFAULT 'member';
     CREATE TABLE organizer_billing_memberships(user_id INTEGER,role TEXT,active INTEGER,expires_at TEXT);
     INSERT INTO organizer_billing_memberships VALUES(1,'organizer',1,'2099-01-01T00:00:00Z');
     CREATE TABLE tables(id TEXT PRIMARY KEY,owner_id INTEGER,private INTEGER,chip_economy INTEGER,enabled INTEGER,game TEXT,min_buyin INTEGER,max_buyin INTEGER);
@@ -76,4 +76,11 @@ test('active session credit blocks Spin ticket transfers without changing owners
     assert.throws(() => f.tickets.openSeat(f.seat), (error) => error.code === 'session_credit_locked');
     assert.equal(f.tickets.list(2)[0].state, 'issued'); assert.equal(f.db.prepare('SELECT COUNT(*) n FROM organizer_chip_sessions').get().n, 0);
   } finally { f.db.close(); }
+});
+
+test('guest recipient cannot acquire a Spin ticket', () => {
+  const f = fixture();
+  f.db.exec("UPDATE users SET login='guest_ab12cd34-abc' WHERE id=3");
+  assert.throws(()=>f.tickets.transfer({userId:2,toUserId:3,ticketId:f.ticket.id,key:'guest'}),e=>e.code==='registered_account_required');
+  assert.equal(f.tickets.list(2)[0].id,f.ticket.id);
 });

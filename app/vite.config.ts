@@ -23,11 +23,12 @@ if (!/^https:\/\/[^\s?#]+$/.test(SOURCE_REPOSITORY)) throw new Error('SOURCE_REP
 const SOURCE_URL = `${SOURCE_REPOSITORY}/tree/${COMMIT}`;
 
 function appVersionPlugin(): Plugin {
+  let dist: string;
   return {
     name: 'dangg-app-version',
     apply: 'build',
+    configResolved(config) { dist = path.resolve(config.root, config.build.outDir); },
     closeBundle() {
-      const dist = path.resolve('dist');
       fs.writeFileSync(
         path.join(dist, 'version.json'),
         JSON.stringify({ version: VERSION, build: BUILD, time: BUILT_AT, commit: COMMIT, source: SOURCE_URL }, null, 2) + '\n',

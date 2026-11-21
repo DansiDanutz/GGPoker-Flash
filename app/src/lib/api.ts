@@ -298,7 +298,12 @@ export const api = {
   lobby: () => request<any>('/api/lobby'),
   brand: () => request<{ logo?: string; promo?: string }>('/api/brand'),
   tournaments: () => request<{ tournaments: any[]; registered: string[] }>('/api/tournaments'),
-  registerTourney: (id: string) => request(`/api/tournaments/${id}/register`, { method: 'POST' }),
+  invitationTerms: (id: string, invite: string) => request<{ id: string; name: string; buyin: number; fee: number; chip_economy: number }>(`/api/tournaments/${id}/invitation`, { method: 'POST', body: JSON.stringify({ invite }) }),
+  tournamentInviteLink: async (id: string) => {
+    const { invite } = await request<{ invite: string }>(`/api/tournaments/${id}/invite`, { method: 'POST' });
+    return `${location.origin}/#/tournaments?${new URLSearchParams({ id, invite })}`;
+  },
+  registerTourney: (id: string, invite?: string) => request(`/api/tournaments/${id}/register`, { method: 'POST', body: JSON.stringify({ invite }) }),
   unregisterTourney: (id: string) => request(`/api/tournaments/${id}/unregister`, { method: 'POST' }),
   cashier: () => request<any>('/api/cashier'),
   notifications: (all = false) => request<{ items: any[]; unread: number }>(`/api/notifications${all ? '?all=1' : ''}`),
@@ -324,7 +329,7 @@ export const api = {
   ocean: () => request<any>('/api/ocean'),
   buyOcean: (item: string) => request<any>('/api/ocean/buy', { method: 'POST', body: JSON.stringify({ item }) }),
   sessions: () => request<{ sessions: any[] }>('/api/sessions'),
-  revokeSession: (token: string) => request<any>(`/api/sessions/${token}`, { method: 'DELETE' }),
+  revokeSession: (id: string) => request<any>(`/api/sessions/${id}`, { method: 'DELETE' }),
   revokeOtherSessions: () => request<any>('/api/sessions', { method: 'DELETE' }),
   changePassword: (current: string, next: string) => request<any>('/api/password', { method: 'POST', body: JSON.stringify({ current, next }) }),
   friends: () => request<{ friends: any[] }>('/api/friends'),
@@ -396,13 +401,6 @@ export const api = {
       request<{ ok: true; id: number; channel: string }>(`/api/admin/chat/${id}/delete`, { method: 'POST' }),
     saveBrand: (slot: string, dataUrl: string) => request('/api/admin/brand', { method: 'POST', body: JSON.stringify({ slot, dataUrl }) }),
     resetBrand: (slot: string) => request(`/api/admin/brand/${slot}`, { method: 'DELETE' }),
-    verifications: () => request<{ verifications: any[] }>('/api/admin/verifications'),
-    reviewVerification: (id: number, action: string, note: string) => request(`/api/admin/verifications/${id}`, { method: 'POST', body: JSON.stringify({ action, note }) }),
-    verificationDoc: async (id: number) => {
-      const r = await fetch(`/api/admin/verifications/${id}/doc`, { headers: { authorization: `Bearer ${getToken()}` } });
-      if (!r.ok) throw new Error('Document unavailable');
-      return r.text();
-    },
     /** Download a consistent SQLite snapshot; resolves with the server-chosen filename. */
     backup: async (): Promise<string> => {
       const r = await fetch('/api/admin/backup', { headers: { authorization: `Bearer ${getToken()}` } });

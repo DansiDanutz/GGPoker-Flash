@@ -1,3 +1,4 @@
+import { disclosedCards } from './hand-history.js';
 /**
  * Measured lobby statistics for a cash table, derived from recorded hands.
  *
@@ -105,7 +106,7 @@ export function playerHud(rows, who) {
       pot: Number(row.pot) || 0,
       won: Number(me.win) || 0,
       board: String(row.board || '').split(' ').filter(Boolean),
-      cards: me.showed ? [...me.cards] : null,
+      cards: Array.isArray(me.shownIndices) && me.shownIndices.length ? disclosedCards(me) : null,
     })),
   };
 }

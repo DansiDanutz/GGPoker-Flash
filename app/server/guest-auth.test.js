@@ -4,7 +4,7 @@ import { startServer } from './test-helpers.js';
 
 let srv;
 before(async () => {
-  srv = await startServer({ env: { GGPOKER_TRUST_PROXY: '1', GGPOKER_REGISTER_LIMIT_PER_HOUR: '2' } });
+  srv = await startServer({ env: { GGPOKER_TRUST_PROXY: '1', GGPOKER_TRUSTED_PROXY_IPS: '127.0.0.1', GGPOKER_REGISTER_LIMIT_PER_HOUR: '2' } });
 });
 after(async () => { await srv.stop(); });
 

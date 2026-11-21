@@ -1,5 +1,4 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import dict from './i18n-dict.json';
 import { subscribePrefs } from './prefsSync';
 
 export const LANGS: { code: string; label: string }[] = [
@@ -16,7 +15,6 @@ export const LANGS: { code: string; label: string }[] = [
 ];
 
 type Dict = Record<string, Record<string, string>>;
-const DICT = dict as Dict;
 
 type Ctx = {
   lang: string;
@@ -32,9 +30,17 @@ const ATTRS = ['placeholder', 'title', 'aria-label'];
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<string>(() => localStorage.getItem('ggpoker.language') || 'en');
-  const originals = useRef(new Map<Text, string>()).current;
+  const [dictionary, setDictionary] = useState<Dict | null>(null);
+  useEffect(() => {
+    if (lang === 'en' || dictionary) return;
+    let active = true;
+    import('./i18n-dict.json').then(({ default: data }) => {
+      if (active) setDictionary(data);
+    }).catch(() => { /* Keep the English UI available offline. */ });
+    return () => { active = false; };
+  }, [lang, dictionary]);
+  const originals = useRef(new WeakMap<Text, string>()).current;
   const applying = useRef(false);
-  const scheduled = useRef<number | null>(null);
   const langRef = useRef(lang);
   langRef.current = lang;
 
@@ -43,7 +49,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     if (!current) return;
     const trimmed = current.trim();
     if (!trimmed) return;
-    const entry = DICT[trimmed];
+    const previous = originals.get(node);
+    if (previous && dictionary?.[previous.trim()]?.[langRef.current] === trimmed) return;
+    originals.delete(node);
+    const entry = dictionary?.[trimmed];
     if (!entry) return;
     if (langRef.current === 'en') {
       const orig = originals.get(node);
@@ -52,34 +61,37 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     }
     const translated = entry[langRef.current];
     if (!translated || translated === trimmed) return;
-    if (!originals.has(node)) originals.set(node, current);
+    originals.set(node, current);
     if (current !== translated) {
       const lead = current.match(/^\s*/)?.[0] || '';
       const trail = current.match(/\s*$/)?.[0] || '';
       node.nodeValue = lead + translated + trail;
     }
-  }, [originals]);
+  }, [dictionary, originals]);
 
   const translateAttrs = useCallback((el: Element) => {
     if (SKIP_TAGS.has(el.tagName)) return;
     for (const attr of ATTRS) {
       const val = el.getAttribute(attr);
-      if (!val) continue;
-      const entry = DICT[val];
-      if (!entry) continue;
       const key = `data-i18n-${attr}`;
+      const previous = el.getAttribute(key);
+      if (previous && dictionary?.[previous]?.[langRef.current] === val) continue;
+      el.removeAttribute(key);
+      if (!val) continue;
+      const entry = dictionary?.[val];
+      if (!entry) continue;
       if (langRef.current === 'en') {
         const orig = el.getAttribute(key);
         if (orig != null) { el.setAttribute(attr, orig); el.removeAttribute(key); }
       } else {
         const translated = entry[langRef.current];
         if (translated && translated !== val) {
-          if (!el.getAttribute(key)) el.setAttribute(key, val);
+          el.setAttribute(key, val);
           el.setAttribute(attr, translated);
         }
       }
     }
-  }, []);
+  }, [dictionary]);
 
   const scan = useCallback((root: Node) => {
     if (applying.current) return;
@@ -109,57 +121,61 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     }
   }, [translateAttrs, translateText]);
 
-  const schedule = useCallback(() => {
-    if (scheduled.current) return;
-    scheduled.current = window.setTimeout(() => {
-      scheduled.current = null;
-      scan(document.body);
-    }, 90);
-  }, [scan]);
-
   // Initial translation + observe React updates.
   useEffect(() => {
     document.documentElement.lang = langRef.current;
     document.documentElement.dir = langRef.current === 'ar' ? 'rtl' : 'ltr';
+    if (lang === 'en' || !dictionary) return;
     scan(document.body);
-    const timers = [120, 600, 1600, 3200, 6000].map((ms) => window.setTimeout(() => scan(document.body), ms));
-    const obs = new MutationObserver(() => {
-      schedule();
+    const obs = new MutationObserver(records => {
+      const roots = new Set<Node>();
+      for (const record of records) {
+        if (record.type === 'childList') record.addedNodes.forEach(node => roots.add(node));
+        else if (record.type === 'characterData') roots.add(record.target);
+        else {
+          const el = record.target as Element;
+          if (el.isConnected && !el.closest('script,style,textarea,code,pre')) translateAttrs(el);
+        }
+      }
+      for (const node of roots) {
+        if (!node.parentElement?.closest('script,style,textarea,code,pre')) scan(node);
+      }
     });
     obs.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
-    return () => {
-      obs.disconnect();
-      timers.forEach((t) => clearTimeout(t));
-      if (scheduled.current) clearTimeout(scheduled.current);
-    };
-  }, [scan, schedule]);
+    return () => obs.disconnect();
+  }, [lang, dictionary, scan, translateAttrs]);
 
   const setLang = useCallback((code: string) => {
     localStorage.setItem('ggpoker.language', code);
+    const previousLang = langRef.current;
     setLangState(code);
     langRef.current = code;
     document.documentElement.lang = code;
     document.documentElement.dir = code === 'ar' ? 'rtl' : 'ltr';
-    // restore all translated nodes, then retranslate from scratch
-    for (const [node, orig] of originals) {
-      if (node.isConnected) node.nodeValue = orig;
+    // restore all live translated nodes, then retranslate from scratch
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let next = walker.nextNode(); next; next = walker.nextNode()) {
+      const node = next as Text;
+      const orig = originals.get(node);
+      if (orig != null && node.nodeValue?.trim() === dictionary?.[orig.trim()]?.[previousLang]) node.nodeValue = orig;
+      originals.delete(node);
     }
-    originals.clear();
     document.querySelectorAll('[data-i18n-placeholder],[data-i18n-title],[data-i18n-aria-label]').forEach((el) => {
       for (const attr of ATTRS) {
         const key = `data-i18n-${attr}`;
         const orig = el.getAttribute(key);
-        if (orig != null) { el.setAttribute(attr, orig); el.removeAttribute(key); }
+        if (orig != null) {
+          if (el.getAttribute(attr) === dictionary?.[orig]?.[previousLang]) el.setAttribute(attr, orig);
+          el.removeAttribute(key);
+        }
       }
     });
-    // force a fresh render pass so new text nodes get picked up
-    window.setTimeout(() => scan(document.body), 0);
-  }, [originals, scan]);
+  }, [dictionary, originals]);
 
   const t = useCallback((text: string) => {
     if (lang === 'en') return text;
-    return DICT[text]?.[lang] || text;
-  }, [lang]);
+    return dictionary?.[text]?.[lang] || text;
+  }, [lang, dictionary]);
 
   // A language restored from the account or chosen in another window applies here too.
   useEffect(() => subscribePrefs(['ggpoker.language'], () => {

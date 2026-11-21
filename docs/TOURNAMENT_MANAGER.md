@@ -81,3 +81,16 @@ leaves the busted seats in place and retries the same draw before ranking them.
 The server bounty hook receives a total `amount` and ordered `shares` containing
 `winnerId`, `winnerNick` and `amount`; client notifications remain one per positive
 share and identify Cash Chip payouts explicitly.
+
+### Upgrading tournament entry receipts
+
+Before rollout, use a consistent offline backup to count existing registrations. On the old schema, every existing registration predates entry receipts:
+
+```sql
+SELECT tournament_id, COUNT(*) AS registrations
+FROM tourney_regs GROUP BY tournament_id;
+```
+
+If any remain, schedule the upgrade after those entries have settled or been withdrawn under the old release. Recheck at the write freeze. The upgrade preserves registrations but leaves their entry IDs empty: the old ledger recorded paid entries by name, and free entries could have no ledger row. The new withdrawal path refuses an unverified refund. Do not reconstruct the paid amount from today's tournament price or match receipts by name alone.
+
+After upgrading an offline copy, repeat the count with `WHERE entry_id IS NULL` before `GROUP BY`. An unexpected nonzero result needs operator reconciliation before enabling withdrawals for those entries.

@@ -58,3 +58,24 @@ test('bad input is a clear 400, not a crash', async () => {
 test('an unknown prop bet is a 404', async () => {
   assert.equal((await srv.get('/api/propbets/999999')).status, 404);
 });
+
+test('pausing creation preserves an existing challenge and does not escrow a rejected stake', async () => {
+  let fixture = await startServer();
+  try {
+    const owner = (await fixture.post('/api/auth/guest', { body: {} })).data.token;
+    const body = { type: 'bankroll', amount: 100, maxBettors: 1, goal: 1000, startAt: Date.now() + DAY, endAt: Date.now() + 3 * DAY };
+    const existing = await fixture.post('/api/propbets', { token: owner, body });
+    assert.equal(existing.status, 200);
+    const { dataDir } = fixture;
+    await fixture.stop();
+    fixture = await startServer({ dataDir, env: { GGPOKER_PAUSE_NEW_BANKROLL: '1' } });
+    const before = await fixture.balance(owner);
+    const rejected = await fixture.post('/api/propbets', { token: owner, body });
+    assert.equal(rejected.status, 400);
+    assert.match(rejected.data.error, /temporarily paused/);
+    assert.equal(await fixture.balance(owner), before);
+    assert.equal((await fixture.get('/api/propbets/' + existing.data.bet.id)).data.bet.status, 'open');
+    const elo = await fixture.post('/api/propbets', { token: owner, body: { ...body, type: 'elo' } });
+    assert.equal(elo.status, 200);
+  } finally { await fixture.stop(); }
+});
