@@ -369,3 +369,22 @@ test('tournament progress pairs each registration with its own in-window withdra
   put('late','tourney_payout',200,'prize');
   assert.equal(w.props.detail(bet.id).progress,125);
 });
+
+test('Bankroll Challenge counts a forfeited tournament entry against a later re-entry win', () => {
+  const w = world();
+  const bet = w.props.create(1, { type: 'bankroll', amount: 500, maxBettors: 1, goal: 100, startAt: T0 + 10 * MIN, endAt: T0 + 10 * MIN + DAY });
+  w.props.join(2, bet.id);
+  w.clock.now = T0 + 11 * MIN;
+  w.props.sweep();
+  const put = (id, kind, amount, prefix) => w.db.prepare("INSERT INTO transactions(user_id,kind,amount,session_id,reference,created_at) VALUES(1,?,?,?,?,?)")
+    .run(kind, amount, id, prefix + ':' + id, new Date(w.clock.now).toISOString());
+  // Forfeit first 200-chip entry (terminal zero payout), re-enter for 200, win 350 -> net -50, NOT +150.
+  put('forfeit1', 'tourney_buyin', -200, 'entry');
+  put('forfeit1', 'tourney_payout', 0, 'prize');
+  put('reentry2', 'tourney_buyin', -200, 'entry');
+  put('reentry2', 'tourney_win', 350, 'prize');
+  assert.equal(w.props.detail(bet.id).progress, -50);
+  w.clock.now = T0 + 10 * MIN + DAY + 1;
+  w.props.sweep();
+  assert.equal(w.props.detail(bet.id).winnerId, 2);
+});

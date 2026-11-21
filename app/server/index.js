@@ -13,7 +13,7 @@ import net from 'node:net';
 import { WebSocketServer } from 'ws';
 import { startHeartbeat } from './websocket-heartbeat.js';
 import {
-  db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, settleWager, buyOceanItem, registerTournamentEntry, refundTournamentEntry, recordTournamentPrize, awardSatelliteTicket, createAccountWithSession, newSession, userByToken, sessionHash,
+  db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, settleWager, buyOceanItem, registerTournamentEntry, refundTournamentEntry, forfeitTournamentEntry, recordTournamentPrize, awardSatelliteTicket, createAccountWithSession, newSession, userByToken, sessionHash,
   publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone, missionPeriodKey,
 } from './db.js';
 import { createProductEvents, isBotOnlyHand } from './product-events.js';
@@ -856,9 +856,13 @@ function postDealerLine(tableId, text, key) {
 }
 
 function canViewTournament(id, userId) {
+  const uid = userId ?? null;
   return !!db.prepare(`SELECT 1 FROM tournaments t WHERE t.id=? AND
-    (COALESCE(t.private,0)=0 OR t.owner_id=? OR EXISTS
-    (SELECT 1 FROM tourney_regs r WHERE r.tournament_id=t.id AND r.user_id=?))`).get(id, userId ?? null, userId ?? null);
+    (COALESCE(t.private,0)=0 OR t.owner_id=?
+      OR EXISTS (SELECT 1 FROM tourney_regs r WHERE r.tournament_id=t.id AND r.user_id=?)
+      OR EXISTS (SELECT 1 FROM tourney_award_entries a WHERE a.tournament_id=t.id AND a.user_id=? AND a.entry_id IS NOT NULL)
+      OR EXISTS (SELECT 1 FROM organizer_chip_tickets k WHERE k.tournament_id=t.id AND k.holder_id=? AND k.state IN ('redeemed','consumed')))`)
+    .get(id, uid, uid, uid, uid);
 }
 
 function tableRow(id) {
@@ -1280,6 +1284,10 @@ function cashOutSeat(table, userId, reason, opts = {}) {
   if (table.tournament) {
     // Leaving a tournament forfeits the entry; it cannot be re-used for a fresh stack.
     consumeTournamentEntry(table, userId);
+    if (!usesOrganizerChips(table) && table.cfg.tournamentId) {
+      try { forfeitTournamentEntry(userId, table.cfg.tournamentId, `${table.cfg.name} — forfeited`); }
+      catch (e) { console.error('tourney forfeit', e); }
+    }
     return;
   }
   const sid = sessionId || `${table.cfg.id}:${randomUUID()}`;
@@ -2007,7 +2015,11 @@ const server = http.createServer(async (req, res) => {
     // ---------- tournaments ----------
     if (p === '/api/tournaments') {
       const u = userByToken(tokenFrom(req));
-      const rows = db.prepare("SELECT * FROM tournaments WHERE enabled=1 AND (COALESCE(private,0)=0 OR owner_id=? OR EXISTS (SELECT 1 FROM tourney_regs r WHERE r.tournament_id=tournaments.id AND r.user_id=?)) ORDER BY start_at").all(u?.id || null, u?.id || null);
+      const uid = u?.id || null;
+      const rows = db.prepare(`SELECT * FROM tournaments WHERE enabled=1 AND (COALESCE(private,0)=0 OR owner_id=?
+        OR EXISTS (SELECT 1 FROM tourney_regs r WHERE r.tournament_id=tournaments.id AND r.user_id=?)
+        OR EXISTS (SELECT 1 FROM tourney_award_entries a WHERE a.tournament_id=tournaments.id AND a.user_id=? AND a.entry_id IS NOT NULL)
+        OR EXISTS (SELECT 1 FROM organizer_chip_tickets k WHERE k.tournament_id=tournaments.id AND k.holder_id=? AND k.state IN ('redeemed','consumed'))) ORDER BY start_at`).all(uid, uid, uid, uid);
       const regs = u ? db.prepare('SELECT tournament_id FROM tourney_regs WHERE user_id = ?').all(u.id).map((r) => r.tournament_id) : [];
       return json(res, 200, { tournaments: rows, registered: regs });
     }

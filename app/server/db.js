@@ -775,6 +775,22 @@ export function awardSatelliteTicket(userId, tournamentId, memo) {
   });
 }
 
+export function forfeitTournamentEntry(userId, tournamentId, memo) {
+  if (!tournamentId) return false;
+  return walletWrite(() => {
+    const sessionId = tournamentAwardSession(userId, tournamentId);
+    if (!sessionId) return false;
+    const reference = 'prize:' + sessionId;
+    const existing = db.prepare('SELECT 1 FROM transactions WHERE user_id=? AND reference IN (?,?)')
+      .get(userId, reference, 'withdraw:' + sessionId);
+    if (existing) return false;
+    recordWalletEntry(userId, 'tourney_payout', 0, memo, 'USD', {
+      tournamentId, sessionId, reference, onDuplicate: 'skip',
+    });
+    return true;
+  });
+}
+
 export function recordTournamentPrize(userId, tournamentId, kind, amount, memo, awardReference = null) {
   return walletWrite(() => {
     const sessionId = tournamentAwardSession(userId, tournamentId);
