@@ -76,7 +76,10 @@ test('public catalog has honest seeded products, safe settings and no checkout',
   const result = await srv.get('/api/marketplace');
   assert.equal(result.status, 200);
   assert.equal(result.data.checkout_enabled, false);
-  assert.equal(result.data.products.length, 11);
+  assert.equal(result.data.products.length, 12);
+  const gamingo = result.data.products.find((product) => product.id === 'gamingo-casino-manager');
+  assert.equal(gamingo.status, 'coming_soon');
+  assert.equal(gamingo.price_cents, null);
   const clubEntry = result.data.products.find((product) => product.id === 'club-entry');
   assert.deepEqual({ status: clubEntry.status, pricing: clubEntry.pricing, price_cents: clubEntry.price_cents, currency: clubEntry.currency }, { status: 'available', pricing: 'one_time', price_cents: 100, currency: 'USD' });
   const squeeze = result.data.products.find((product) => product.id === 'squeeze-3d');

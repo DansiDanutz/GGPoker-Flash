@@ -478,6 +478,7 @@ DanGG assets with `bash tools/setup_assets.sh`; this does not extract the old cl
 | [`docs/MARKETPLACE.md`](docs/MARKETPLACE.md) | Public marketplace, catalog, access requests and private owner administration |
 | [`docs/CONTRIBUTOR_SANDBOX.md`](docs/CONTRIBUTOR_SANDBOX.md) | Free local browser/server development, Play Money trials and reviewed GitHub contribution releases |
 | [`docs/MARKETPLACE_IMPLEMENTATION.md`](docs/MARKETPLACE_IMPLEMENTATION.md) | Organizer plugins, publisher economics, payment ledger, implementation and rollout |
+| [`docs/GAMINGO.md`](docs/GAMINGO.md) | Gamingo organizer product, balance boundaries, readiness API and pending supplier integration |
 | [`docs/CI.md`](docs/CI.md) | CI workflow, required checks, branch protection, PR flow |
 | [`docs/RELEASE.md`](docs/RELEASE.md) | Release checklist, verified surfaces, known gaps |
 | [`CHANGELOG.md`](CHANGELOG.md) | Dated history of shipped work |

@@ -24,6 +24,10 @@ export const MANAGEMENT_PLUGINS = Object.freeze([
     summary: 'Organizer controls for the existing play-money casino games, planned.',
     capabilities: ['Existing simulated play-money games', 'Organizer configuration adapter planned'],
     description: 'The app contains simulated play-money casino games. Organizer-scoped management and supplier integration are separate work. This is not a live-dealer integration or a real-money casino offering and cannot accept paid orders yet.' }),
+  Object.freeze({ id: 'gamingo-casino-manager', name: 'Gamingo Casino Manager', implemented: false, scope: 'owned_gamingo_games',
+    summary: 'Gamingo games for an organizer’s community, pending supplier integration.',
+    capabilities: ['Organizer-scoped provider connection', 'Separate gameplay and marketplace balances', 'Provider approval and wallet certification required'],
+    description: 'Planned paid organizer integration with Gamingo. Players do not purchase the plugin. Organizer membership, plugin access and supplier approval are separate requirements. Publisher receipts use the existing NervixPay commerce model and 20% prepaid commission. Free previews use isolated non-redeemable Play Money. Organizer Cash Chips require separate supplier approval. No live games, checkout or gambling licence are supplied by this listing.' }),
 ]);
 
 const BY_ID = new Map(MANAGEMENT_PLUGINS.map((plugin) => [plugin.id, plugin]));

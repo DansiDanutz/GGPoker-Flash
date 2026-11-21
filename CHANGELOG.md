@@ -1,3 +1,7 @@
+## Gamingo sandbox catalog
+
+An assigned, active organizer can view the sandbox game catalog. Game launches, wallet callbacks and checkout remain disabled.
+
 ## 2026-11-21 — Production security hardening, audit remediation, and repository hygiene
 
 - **Security & authentication:** Stored session verifiers instead of raw bearer tokens, added realtime WebSocket/SSE revocation on logout/expiry/ban, restricted hosted CSP and Electron popup/navigation origins, pinned forwarded client IPs to trusted proxy peers, removed stored KYC document collection/viewer, defused CSV formula injection across admin exports, and separated admin onto a mutual-TLS loopback listener (`:5197`) with deploy preflight checks.

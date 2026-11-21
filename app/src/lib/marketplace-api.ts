@@ -126,6 +126,7 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
 const ADMIN = '/api/admin/marketplace';
 
 export const marketplaceApi = {
+  gamingoCatalog: () => request<{ games: { id: string; title: string; available: boolean }[] }>('/api/marketplace/gamingo/catalog'),
   contributors: () => request<{ contributors: PublicContributor[] }>('/api/marketplace/contributors'),
   catalog: () => request<MarketplaceCatalog>('/api/marketplace'),
   mine: () => request<MarketplaceAccount>('/api/marketplace/me'),
