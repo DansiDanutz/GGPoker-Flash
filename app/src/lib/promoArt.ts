@@ -20,7 +20,7 @@ export const PROMO_ART = Object.freeze({
 
 const CASINO_GAMES = '/assets/ui/casino-games';
 
-/** Wordless 3D art (9a–9g) for the Casino table-game tiles; names stay live text. */
+/** Original geometric art for the casino table-game tiles; names stay live text. */
 export const CASINO_ART = Object.freeze({
   roulette: `${CASINO_GAMES}/casino-roulette.webp`,
   blackjack: `${CASINO_GAMES}/casino-blackjack.webp`,
