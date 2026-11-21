@@ -30,3 +30,19 @@ test('the current table socket reports disconnect and retries only while still c
   timers[0]();
   assert.equal(connections, 1);
 });
+
+test('a delayed open from a retired socket cannot mark the table connected or join it', () => {
+  const body = source.match(/ws\.onopen = \(\) => \{([\s\S]*?)\n    \};/)[1];
+  const open = compileFunction(body, ['ws', 'wsRef', 'setConnected', 'tableId', 'buyin', 'observe', 'everJoined', 'wasSeatedHere', 'seatParam', 'joinWaitRef']);
+  const messages = [], states = [];
+  const ws = {send: raw => messages.push(JSON.parse(raw))};
+  const ref = {current: {}};
+  const notify = () => open(ws, ref, value => states.push(value), 'fixture', 100, false, {current:false}, () => false, null, {current:false});
+  notify();
+  assert.deepEqual(states, []);
+  assert.deepEqual(messages, []);
+  ref.current = ws;
+  notify();
+  assert.deepEqual(states, [true]);
+  assert.deepEqual(messages.map(m => [m.type,m.tableId]), [['join_table','fixture']]);
+});

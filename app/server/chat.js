@@ -74,12 +74,12 @@ export function appendLine(buffer, line, limit = CHAT_HISTORY_LIMIT) {
  * clock never moves another sender's.
  */
 export function createSenderLimiter({ intervalMs = CHAT_SENDER_INTERVAL_MS } = {}) {
-  let lastSent = new Map();
+  const lastSent = new Map();
   return {
     tryAcquire(key, now = Date.now()) {
       const last = lastSent.get(key);
       if (last !== undefined && now - last < intervalMs) return false;
-      lastSent = new Map(lastSent).set(key, now);
+      lastSent.set(key, now);
       return true;
     },
   };
@@ -89,14 +89,14 @@ export const tableChannel = (tableId) => `table:${tableId}`;
 
 /** Per-table history: in-memory ring buffer, persisted to `chat_messages`, loaded lazily. */
 export function createChatStore(db, { limit = CHAT_HISTORY_LIMIT } = {}) {
-  let buffers = new Map();
+  const buffers = new Map();
   const load = (tableId) => db.prepare(
     "SELECT id, user_id, nick, message, COALESCE(kind, 'chat') AS kind, created_at FROM chat_messages WHERE channel = ? ORDER BY id DESC LIMIT ?",
   ).all(tableChannel(tableId), limit).reverse().map((r) => Object.freeze({
     id: r.id, userId: r.user_id, nick: r.nick, message: r.message, kind: r.kind, at: Date.parse(`${r.created_at}Z`) || 0,
   }));
   const history = (tableId) => {
-    if (!buffers.has(tableId)) buffers = new Map(buffers).set(tableId, load(tableId));
+    if (!buffers.has(tableId)) buffers.set(tableId, load(tableId));
     return buffers.get(tableId);
   };
   return {
@@ -106,15 +106,12 @@ export function createChatStore(db, { limit = CHAT_HISTORY_LIMIT } = {}) {
       const info = db.prepare('INSERT INTO chat_messages (user_id,nick,table_id,channel,message,kind) VALUES (?,?,?,?,?,?)')
         .run(userId, nick, tableId, tableChannel(tableId), message, kind);
       const line = Object.freeze({ id: Number(info.lastInsertRowid), userId, nick, message, kind, at });
-      buffers = new Map(buffers).set(tableId, appendLine(prior, line, limit));
+      buffers.set(tableId, appendLine(prior, line, limit));
       return line;
     },
     /** Drop a table's cached history so the next read reloads it (after an admin delete). */
     forget(tableId) {
-      if (!buffers.has(tableId)) return;
-      const next = new Map(buffers);
-      next.delete(tableId);
-      buffers = next;
+      buffers.delete(tableId);
     },
   };
 }

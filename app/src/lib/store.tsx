@@ -1,3 +1,4 @@
+import { subscribeNotifications } from './notificationStream';
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { api, getToken, setToken, User } from './api';
@@ -121,7 +122,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [soundOn, setSoundOn] = useState(sound.enabled);
   const [animations, setAnimations] = useState(() => localStorage.getItem('ggpoker.animations') !== '0');
   const [openingTable, setOpeningTable] = useState<string | null>(null);
-  const [meta, setMeta] = useState({ online: 192203, jackpot: 199026635 });
+  const [meta, setMeta] = useState({ online: 0, jackpot: 199026635 });
   const [brand, setBrand] = useState({ logo: BRAND_LOGO, promo: '/assets/chrome/promo.png' });
   const [dmUnread, setDmUnread] = useState(0);
   const toastId = useRef(1);
@@ -256,15 +257,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     poll();
     const timer = window.setInterval(poll, 15000);
-    let source: EventSource | null = null;
-    let retry: number | undefined;
-    const connect = () => {
-      const token = getToken();
-      if (!token) return;
-      source = new EventSource(`/api/notifications/stream?token=${encodeURIComponent(token)}`);
-      source.onmessage = (event) => {
+    const unsubscribe = subscribeNotifications(getToken, data => {
         try {
-          const detail = JSON.parse(event.data);
+          const detail = JSON.parse(data);
           if (isTournamentStarted(detail)) {
             const onTable = currentRoute() === `/table/${encodeURIComponent(detail.tableId)}`;
             if (!onTable && !announcedTournaments.current.has(detail.id)) {
@@ -275,15 +270,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           api.notifications().then((r) => { if (!stop) setDmUnread(Number(r.unread) || 0); }).catch(() => {});
           window.dispatchEvent(new CustomEvent('gg:notify', { detail }));
         } catch { /* ignore */ }
-      };
-      source.onerror = () => {
-        source?.close();
-        source = null;
-        if (!stop) retry = window.setTimeout(connect, 5000);
-      };
-    };
-    connect();
-    return () => { stop = true; window.clearInterval(timer); if (retry) window.clearTimeout(retry); source?.close(); };
+    });
+    return () => { stop = true; window.clearInterval(timer); unsubscribe(); };
   }, [user?.id, toast]);
 
   useEffect(() => {

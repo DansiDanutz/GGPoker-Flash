@@ -251,14 +251,14 @@ export function createRushPool(deps) {
     setQueue(key, queueFor(key).map((w) => (passedIds.has(w.userId) ? Object.freeze({ ...w, passes: w.passes + 1 }) : w)));
   }
 
-  function pickTarget(pool, excludeId) {
+  function pickTarget(pool, excludeId, stack) {
     let target = null;
     let targetCount = Infinity;
     for (const id of deps.listPoolTableIds(pool)) {
       if (id === excludeId) continue;
       const candidate = deps.getLiveTable(id);
       const occupied = candidate ? candidate.occupiedSeats().length : 0;
-      if (candidate && occupied < candidate.cfg.seats && occupied < targetCount) { target = candidate; targetCount = occupied; }
+      if (candidate && stack >= (Number(candidate.cfg.min_buyin) || 0) && occupied < candidate.cfg.seats && occupied < targetCount) { target = candidate; targetCount = occupied; }
     }
     return target;
   }
@@ -274,12 +274,16 @@ export function createRushPool(deps) {
     if (seat?.player?.leaveAfterHand) { seat.player.rushQueued = false; dequeue(userId); return null; }
     const stack = seat?.player?.stack || 0;
     const user = deps.findUser(userId);
-    if (!user || stack <= 0) { if (seat?.player) seat.player.rushQueued = false; return null; }
+    if (!user || stack <= 0 || stack < (Number(table.cfg.min_buyin) || 0)) {
+      if (seat?.player) seat.player.rushQueued = false;
+      dequeue(userId);
+      return null;
+    }
     const waiting = findWaiting(userId);
     // Already queued from this table: keep their place; flush() serves the queue in order.
     if (waiting && waiting.pool.key === pool.key && waiting.fromTable === table.cfg.id) return 'waiting';
     // Nobody may take a seat ahead of players already waiting in this pool.
-    const target = queueFor(pool.key).length ? null : pickTarget(pool, table.cfg.id);
+    const target = queueFor(pool.key).length ? null : pickTarget(pool, table.cfg.id, stack);
     if (!target) {
       enqueue({ user, stack, pool, fromTable: table.cfg.id });
       seat.player.rushQueued = true;
@@ -360,7 +364,7 @@ export function createRushPool(deps) {
     for (const wait of queueFor(key)) {
       const { state, fromEntry } = readiness(wait);
       if (state === 'stale') { dequeue(wait.userId); continue; }
-      const target = pickTarget(wait.pool, wait.fromTable);
+      const target = pickTarget(wait.pool, wait.fromTable, fromEntry.table.seatOf(wait.userId).player.stack);
       if (!target) continue; // no seat is open for this player (at most their own table has room)
       if (state === 'busy') {
         if (wait.passes >= RUSH_MAX_PASSES) break; // starvation bound: hold the pool's seats for them

@@ -70,9 +70,7 @@ export function listKinds(db) {
 
 /** CSV with a header row and CRLF line endings. */
 export function toTransactionsCsv(rows) {
-  // Numbers go out as-is: a negative amount is data, not a formula, so it skips the `'` guard.
-  const cell = (value) => (typeof value === 'number' ? String(value) : csvField(value));
-  const lines = [CSV_COLUMNS.join(','), ...rows.map((r) => CSV_COLUMNS.map((c) => cell(r[c])).join(','))];
+  const lines = [CSV_COLUMNS.join(','), ...rows.map((r) => CSV_COLUMNS.map((c) => csvField(r[c])).join(','))];
   return `${lines.join('\r\n')}\r\n`;
 }
 

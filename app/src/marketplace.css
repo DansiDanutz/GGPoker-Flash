@@ -166,6 +166,13 @@
 .mp-contributor-skeleton span { display: block; width: 55%; height: 12px; margin-bottom: 17px; border-radius: 4px; background: #24231f; animation: mp-pulse 1.4s ease-in-out infinite alternate; }
 .mp-contributor-skeleton span:last-child { width: 82%; }
 .mp-explanation-band { border-block: 1px solid var(--mp-line); background: radial-gradient(ellipse at 5% 0, rgba(166, 135, 73, .035), transparent 70%), #0e0f12; }
+.mp-role-intro { padding-top: clamp(20px, 3vw, 42px); }
+.mp-role-intro .mp-explanation-grid { gap: 16px; margin-top: 22px; }
+.mp-role-intro article { padding: 16px; border: 1px solid var(--mp-line); border-radius: 18px; background: linear-gradient(145deg,#1b2424,#121717); }
+.mp-role-intro .mp-hero-copy > p { margin: 12px 0 0; color: #cfcec6; }
+.mp-role-flow { display: block; width: 100%; height: auto; margin-bottom: 18px; }
+.mp-role-example { margin-top: 24px; max-width: 72ch; color: #c5c3bc; line-height: 1.6; }
+.mp-role-example strong { display: block; color: #ede8dd; }
 .mp-explanation-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 38px; margin-top: 37px; }
 .mp-explanation-grid article { position: relative; }
 .mp-explanation-number { position: absolute; top: 0; right: 4px; color: #37342c; font-size: 37px; line-height: 1; font-weight: 500; letter-spacing: -1.5px; }

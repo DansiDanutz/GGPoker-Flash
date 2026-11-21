@@ -77,3 +77,27 @@ test('pending-chip refunds and removed chips lower the crash refund', () => {
   assert.equal(balance(), start);
 });
 
+
+test('settlement requires the full stake even on a winning wager', async () => {
+  const { settleWager } = await import('./db.js');
+  const stake = balance();
+  assert.ok(stake > 0);
+  assert.equal(settleWager(user.id, 'roulette', stake, 0, 'first'), 0);
+  const before = db.prepare('SELECT COUNT(*) n FROM transactions').get().n;
+  assert.throws(() => settleWager(user.id, 'roulette', stake, 2 * stake, 'second'), /Insufficient balance/);
+  assert.equal(balance(), 0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM transactions').get().n, before);
+});
+
+test('Ocean rolls back gem spend if delivery fails', async () => {
+  const { buyOceanItem } = await import('./db.js');
+  const item = { name: 'fixture', cost: 500, amount: 5, kind: 'TICKET' };
+  db.prepare('UPDATE users SET gems=500 WHERE id=?').run(user.id);
+  db.exec("CREATE TEMP TRIGGER reject_ocean BEFORE INSERT ON transactions WHEN NEW.kind='ocean' BEGIN SELECT RAISE(ABORT,'fixture failure'); END");
+  try { assert.throws(() => buyOceanItem(user.id,item), /fixture failure/); }
+  finally { db.exec('DROP TRIGGER reject_ocean'); }
+  assert.equal(db.prepare('SELECT gems FROM users WHERE id=?').get(user.id).gems,500);
+  assert.equal(db.prepare("SELECT count(*) n FROM transactions WHERE kind='ocean_spend'").get().n,0);
+  buyOceanItem(user.id,item);
+  assert.throws(() => buyOceanItem(user.id,item), /Not enough gems/);
+});

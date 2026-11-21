@@ -46,7 +46,7 @@ async function pageFor(token) {
 }
 try {
   await fs.mkdir(artifacts, { recursive: true });
-  srv = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_ORGANIZER_CHIPS: 'enforce', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'on' } });
+  srv = await startServer({ env: { GGPOKER_USAGE_BILLING: 'enforce', GGPOKER_ORGANIZER_CHIPS: 'enforce', GGPOKER_NERVIXPAY_MANUAL_FUNDING: 'on', GGPOKER_FUNDING_LINK_900: '00000000-0000-4000-8000-000000000009', GGPOKER_FUNDING_LINK_1000: '00000000-0000-4000-8000-000000000010', GGPOKER_FUNDING_MERCHANT: 'Fixture merchant', GGPOKER_FUNDING_ACCOUNT: 'Fixture account' } });
   const admin = await srv.login('admin', 'admin123');
   const owner = await post('/api/auth/register', null, { login: 'chips_browser_owner', nick: 'ChipBrowserOwner', password: 'browser-chip-password' });
   const recipient = await post('/api/auth/register', null, { login: 'chips_browser_player', nick: 'ChipBrowserPlayer', password: 'browser-chip-password' });
@@ -63,7 +63,7 @@ try {
   await fundingButtons[0].click();
   const checkoutAttempt = await ownerPage.evaluate(() => window.__externalCheckoutAttempts[0]);
   const checkoutUrl = new URL(checkoutAttempt.url);
-  assert.equal(checkoutUrl.origin + checkoutUrl.pathname, 'https://nervixpay.live/l/b0afce77-773a-48a0-9a73-72274791313d');
+  assert.equal(checkoutUrl.origin + checkoutUrl.pathname, 'https://nervixpay.live/l/00000000-0000-4000-8000-000000000009');
   assert.equal(checkoutUrl.searchParams.get('ref'), `openpoker:user:${owner.user.id}`);
   assert.equal(checkoutUrl.searchParams.has('reference'), false);
   assert.equal(checkoutAttempt.target, '_blank');
@@ -113,10 +113,21 @@ try {
   await click(ownerPage, billing, 'Stop');
   await ownerPage.waitForFunction(() => document.querySelector('.mp-rake-form select')?.disabled === false);
   await ownerPage.setViewport({ width: 390, height: 844 });
-  await ownerPage.waitForSelector(".mp-rake-form", { visible: true });
-  await ownerPage.$eval('.mp-rake-form', (form) => form.scrollIntoView({ block: 'center' }));
-  assert.ok(await ownerPage.$$eval('.mp-rake-form input, .mp-rake-form select, .mp-rake-form button', (controls) => controls.every((control) => { const bounds = control.getBoundingClientRect(); return bounds.left >= 0 && bounds.right <= innerWidth; })), 'Rake inputs overflow mobile width');
-  assert.ok(await ownerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Rake controls overflow mobile width');
+  // Resizing can remount the organizer panel. Measure a complete mobile form in one DOM read.
+  const mobileRake = await ownerPage.waitForFunction(() => {
+    const form = document.querySelector('form[aria-label="Rake for Browser Rake Cash"]');
+    if (innerWidth !== 390 || !form?.getClientRects().length) return false;
+    const controls = ['input', 'select', 'button'].map(selector => form.querySelector(selector));
+    if (!controls.every(control => control?.getClientRects().length)) return false;
+    form.scrollIntoView({ block: 'center' });
+    return {
+      fits: controls.every(control => { const bounds = control.getBoundingClientRect(); return bounds.left >= 0 && bounds.right <= innerWidth; }),
+      pageFits: document.documentElement.scrollWidth <= innerWidth + 1,
+    };
+  });
+  const layout = await mobileRake.jsonValue();
+  assert.ok(layout.fits, 'Rake inputs overflow mobile width');
+  assert.ok(layout.pageFits, 'Rake controls overflow mobile width');
   await ownerPage.screenshot({ path: path.join(artifacts, 'organizer-rake-mobile.png'), fullPage: true });
   await ownerPage.setViewport({ width: 1280, height: 1000 });
   await ownerPage.goto(`${srv.base}/#/table/${cash.id}?observe=1`); await ownerPage.waitForSelector('.ls-content:not([inert])');
@@ -143,7 +154,14 @@ try {
   const event = check(await srv.get('/api/tournaments/host', { token: owner.token })).tournaments.find(t => t.name === 'Browser Cash Chip Cup');
   assert.equal(event.max_players, 6); assert.equal(event.late_reg, 0);
   assert.match(await ownerPage.$eval(manager, node => node.textContent), /0 \/ 6 entrants/);
-  assert.match(await ownerPage.$eval(`${manager} input[readonly]`, node => node.value), new RegExp(event.id));
+  const inviteField = `${manager} input[aria-label="Invite for Browser Cash Chip Cup"]`;
+  assert.equal(await ownerPage.$(inviteField), null);
+  await click(ownerPage, manager, 'Show tournament invite');
+  await ownerPage.waitForSelector(inviteField);
+  const inviteUrl = new URL(await ownerPage.$eval(inviteField, node => node.value));
+  const params = new URLSearchParams(inviteUrl.hash.split('?')[1]);
+  assert.equal(params.get('id'), event.id);
+  assert.ok(params.get('invite'));
   await ownerPage.locator('.ow-tabs a[href="#/organiser?tab=my-tables"]').click();
   for (const width of [320, 390, 768, 1024, 1440]) {
     await ownerPage.setViewport({ width, height: 1000 });

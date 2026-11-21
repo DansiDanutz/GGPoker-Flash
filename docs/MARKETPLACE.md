@@ -143,7 +143,7 @@ cd app
 node --test server/marketplace*.test.js server/management-*.test.js server/admin-guard.test.js
 pnpm exec tsc --noEmit -p tsconfig.json
 pnpm build
-node tools/verify-source-build.mjs
+node tools/verify-source-build.mjs  # defaults to dist; pass the output directory for a custom build
 node tools/marketplace-browser-smoke.mjs
 ```
 

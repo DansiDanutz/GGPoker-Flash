@@ -28,7 +28,7 @@ try {
     localStorage.setItem('openpoker.revealAnimation','0'); sessionStorage.setItem('ggpoker.entered','1'); localStorage.setItem('ggpoker.token',token); localStorage.setItem('ggpoker.welcomeSeen','1'); localStorage.setItem('ggpoker.sound','0');
     const Native=window.WebSocket;
     window.WebSocket=class extends Native {
-      constructor(url,protocols) {super(url,protocols);this.isFixtureTable=String(url).includes('/ws?');if(this.isFixtureTable)window.menuSocket=this;}
+      constructor(url,protocols) {super(url,protocols);this.isFixtureTable=new URL(url,location.href).pathname==='/ws';if(this.isFixtureTable)window.menuSocket=this;}
       set onmessage(handler) {
         if(!this.isFixtureTable){super.onmessage=handler;return;}
         window.injectTable=message=>handler.call(this,new MessageEvent('message',{data:JSON.stringify(message)}));

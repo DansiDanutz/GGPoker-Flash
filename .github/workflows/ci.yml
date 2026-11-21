@@ -29,6 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify private admin tunnel settings offline
+        run: bash ../deploy/admin-tunnel.test.sh
+
       - uses: pnpm/action-setup@v4
         with:
           version: 10.32.1

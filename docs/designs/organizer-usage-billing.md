@@ -82,7 +82,7 @@ No automated NervixPay customer payout is implemented or claimed. A receipt repo
 
 Recovery APIs require an authenticated administrator through the existing private-network boundary:
 
-- `POST /api/admin/marketplace/chips/buybacks/:id/resolve`: `{resolution:"paid"|"refund",reason}`.
+- `POST /api/admin/marketplace/chips/buybacks/:id/resolve`: `{resolution:"paid"|"refund",reason}`. If an organizer accepted a buyback but never reported payment, an operator can use `refund` after verifying that payment was not sent and no transfer is pending. Record how this was verified in `reason`. Organizer inactivity alone is not evidence of nonpayment. If payment is uncertain, leave escrow locked pending reconciliation. Repeating a completed refund does not move chips again.
 - `GET /api/admin/marketplace/chips/spin/:roundId` returns the stored outcome and participants. `POST .../:roundId/resolve`: `{userId,place,reason}`. Only disputed/completed rounds qualify; the amount comes from the immutable outcome. Evidence must establish finishing places.
 - Tournament snapshots carry a financial-journal revision. Restart pauses an event whose snapshot is absent or predates a committed payout. `GET /api/admin/marketplace/chips/tournaments/:id` exposes escrow, tickets and journals. `POST .../:id/resolve`: `{awards:[{userId,amount}],reason}` allocates **exactly** remaining prize escrow to event participants and closes the event, returning unused bounty reserve. Existing payouts remain. The operator must review hand history/player agreements before choosing the allocation.
 

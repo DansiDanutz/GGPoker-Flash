@@ -5,7 +5,10 @@
 # This script is the watchdog that actually acts, and it is safe to run by hand.
 # Intended for cron: */2 * * * * /home/<user>/dangro/deploy/keepalive.sh
 set -uo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit 1
+# Hold from before the first probe through any restart and its follow-up check.
+exec 9>>.maintenance.lock || exit 1
+flock -n -E 75 9 || { status=$?; [[ $status == 75 ]] && exit 0; exit "$status"; }
 
 LOG="${KEEPALIVE_LOG:-keepalive.log}"
 URL="${KEEPALIVE_URL:-http://127.0.0.1:5198/healthz}"

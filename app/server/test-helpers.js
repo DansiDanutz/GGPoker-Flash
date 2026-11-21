@@ -59,7 +59,7 @@ function makeClient(child, port, dataDir, exited) {
 
 // A WebSocket wrapper that lets a test await the next message matching a predicate.
 function openSocket(port, token) {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(token || '')}`);
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { authorization: `Bearer ${token}` } });
   const inbox = [];
   const waiters = [];
   ws.on('message', (raw) => {
@@ -115,7 +115,7 @@ export async function seatHumans(players, tableId, buyin) {
 export async function nextSseEvent(base, token, match, timeoutMs = 8000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  const res = await fetch(`${base}/api/notifications/stream?token=${encodeURIComponent(token)}`, { signal: ctrl.signal });
+  const res = await fetch(`${base}/api/notifications/stream`, { headers: {authorization: `Bearer ${token}`}, signal: ctrl.signal });
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';

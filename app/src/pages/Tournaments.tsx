@@ -26,6 +26,7 @@ export function Tournaments() {
   const isPhone = useIsPhone();
   const [data, setData] = useState<any>(null);
   const [filters, setFilters] = useState<TournamentFilters>(() => readTournamentFilters());
+  const [offer, setOffer] = useState<Awaited<ReturnType<typeof api.invitationTerms>> | null>(null);
   const [detail, setDetail] = useState<any>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [chipAccount, setChipAccount] = useState<ChipAccount | null>(null);
@@ -41,6 +42,11 @@ export function Tournaments() {
   useEffect(() => {
     const id = new URLSearchParams(location.hash.split('?')[1] || '').get('id');
     if (!id) return;
+    const invite = new URLSearchParams(location.hash.split('?')[1]).get('invite');
+    if (invite) {
+      api.tournament(id).then(r => setDetail(r.tournament)).catch(() => api.invitationTerms(id, invite).then(setOffer).catch(e => toast({ kind: 'error', title: 'Invitation', body: e.message })));
+      return;
+    }
     api.tournament(id).then((r) => setDetail(r.tournament)).catch((e) => toast({ kind: 'error', title: 'Tournament', body: e.message }));
   }, []);
 
@@ -64,7 +70,11 @@ export function Tournaments() {
   };
 
   const register = async (t: any) => {
-    if (!user) { navigate('/login'); return; }
+    if (!user) {
+      const invite = new URLSearchParams(location.hash.split('?')[1]).get('invite');
+      navigate(offer?.id === t.id && invite ? '/login?' + new URLSearchParams({ returnTo: 'tournaments', id: t.id, invite }) : '/login');
+      return;
+    }
     setBusy(t.id);
     try {
       const chipEvent = chipAccount?.tournaments.find((row) => row.id === t.id);
@@ -79,7 +89,11 @@ export function Tournaments() {
           ticket = { id: issued.id, organizer_id: chipEvent.owner_id, tournament_id: t.id, holder_id: user.id, price: chipEvent.buyin + chipEvent.fee, buyin: chipEvent.buyin, fee: chipEvent.fee, starting_stack: chipEvent.starting_stack, state: 'issued' };
         }
         await organizerChipsApi.redeemTicket(ticket.id);
-      } else await api.registerTourney(t.id);
+      } else {
+        const params = new URLSearchParams(location.hash.split('?')[1]);
+        await api.registerTourney(t.id, params.get('id') === t.id ? params.get('invite') || undefined : undefined);
+      }
+      if (offer?.id === t.id) { setOffer(null); setDetail((await api.tournament(t.id)).tournament); }
       sound.play('coin');
       toast({ kind: 'success', title: 'Registered', body: `${t.name} · ${chipEvent ? cashChips(chipEvent.buyin + chipEvent.fee) : money(t.buyin + t.fee)}` });
       await load();
@@ -142,6 +156,7 @@ export function Tournaments() {
 
   return (
     <>
+    {offer && <section aria-label="Tournament invitation"><strong>{offer.name}</strong><p>Entry: {offer.chip_economy ? cashChips(offer.buyin + offer.fee) : money(offer.buyin + offer.fee)}</p><button disabled={!!busy} onClick={() => void register(offer)}>Register</button></section>}
     {isPhone ? (
       <MobileShell showBrand><MobileEvents
         list={list}

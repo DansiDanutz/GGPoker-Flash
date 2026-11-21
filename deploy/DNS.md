@@ -4,14 +4,14 @@ Status: **live on Dexter** (2026-11-11).
 
 Registrar: **Namecheap**  
 Nameservers: `dns1.registrar-servers.com`, `dns2.registrar-servers.com`  
-Public IPv4: **46.101.219.116**
+Public IPv4: use the allocated droplet IPv4 from the private operator inventory
 
 ## Current records
 
 | Type | Host | Value | TTL |
 |---|---|---|---|
-| A | `@` | `46.101.219.116` | Automatic / 30 min |
-| A | `www` | `46.101.219.116` | Automatic / 30 min |
+| A | `@` | the allocated droplet IPv4 | Automatic / 30 min |
+| A | `www` | the allocated droplet IPv4 | Automatic / 30 min |
 | TXT | `@` | existing SPF record | Automatic |
 
 The old Namecheap parking CNAME and URL Redirect record were removed.
@@ -55,10 +55,10 @@ and both hostnames covered.
 ## Admin
 
 There is intentionally **no public admin hostname**. Admin remains the SSH
-tunnel to the loopback game port:
+tunnel to the operator TLS listener (client identity required; see README.md):
 
 ```bash
-ssh -N -L 5198:127.0.0.1:5198 dexter
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:5197:127.0.0.1:5197 dexter
 ```
 
 ## Rollback

@@ -29,6 +29,7 @@ export function shuffle(deck, rng = cryptoRng) {
 function combinations(arr, k) {
   const out = [];
   const n = arr.length;
+  if (n < k) throw new RangeError('Not enough cards to evaluate this hand');
   const idx = Array.from({ length: k }, (_, i) => i);
   while (true) {
     out.push(idx.map((i) => arr[i]));
@@ -118,8 +119,9 @@ export function bestHoldem(hole, board, shortDeck = false) {
 export function bestOmaha(hole, board) {
   let best = null;
   let bestCards = null;
+  const boardTriples = combinations(board, 3);
   for (const h2 of combinations(hole, 2)) {
-    for (const b3 of combinations(board, 3)) {
+    for (const b3 of boardTriples) {
       const sc = score5([...h2, ...b3]);
       if (!best || compareScores(sc, best) > 0) {
         best = sc;

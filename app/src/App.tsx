@@ -1,3 +1,4 @@
+import { PageShell } from './components/PageShell';
 import React, { useEffect, useMemo, useState } from 'react';
 import { needsPortrait } from './lib/phoneOrientation';
 import { useApp } from './lib/store';
@@ -11,7 +12,7 @@ import { Tournaments } from './pages/Tournaments';
 import { Cashier } from './pages/Cashier';
 import { Rewards, Leaderboard } from './pages/Rewards';
 import { Elo } from './pages/Elo';
-import { Promotions, Settings } from './pages/Promotions';
+import { PlayLimits, Promotions, Settings } from './pages/Promotions';
 import { Slots } from './pages/Slots';
 import { Casino } from './pages/Casino';
 import { Profile, Support } from './pages/Extras';
@@ -62,11 +63,11 @@ function ScaleStage({ children }: { children: React.ReactNode }) {
 }
 
 function ComingSoon({ title }: { title: string }) {
-  const { navigate } = useApp();
+  const { navigate, meta } = useApp();
   return (
     <>
-      <TitleBar online={192203} />
-      <AppHeader online={192203} jackpot={199026635} user={null} />
+      <TitleBar online={meta.online} />
+      <AppHeader online={meta.online} jackpot={199026635} user={null} />
       <div className="page">
         <h1 className="page-title">{title}</h1>
         <p className="page-sub">This section is being wired up.</p>
@@ -89,7 +90,7 @@ function AppContent() {
     const parts = path.split('/').filter(Boolean);
     if (parts.length === 0) return <Lobby />;
     if (parts[0] === 'login') return <Login />;
-    if (parts[0] === 'table') return <TablePage tableId={parts[1]} />;
+    if (parts[0] === 'table') return <TablePage key={parts[1]} tableId={parts[1]} />;
     switch (parts[0]) {
       case 'rake-lab': return <RakeLab />;
       case 'contributor': return <PlatformWorkspace kind="contributor" />;
@@ -102,6 +103,7 @@ function AppContent() {
       case 'leaderboard': return <Leaderboard />;
       case 'elo': return <Elo />;
       case 'promotions': return <Promotions />;
+      case 'responsible-gaming': return <PageShell activeTop="poker"><div className="page"><h1 className="page-title">Responsible gaming</h1><PlayLimits /></div></PageShell>;
       case 'settings': return <Settings />;
       case 'slots': return <Slots />;
       case 'casino': return <Casino />;

@@ -55,8 +55,16 @@ test('real server integrates enforced billing, scoped chips, events, buybacks, a
     const ticketOne = await postOk(srv, `${CHIPS}/tickets`, first.token, { tournamentId: tournament.id, key: 'ticket-one' });
     const ticketTwo = await postOk(srv, `${CHIPS}/tickets`, first.token, { tournamentId: tournament.id, key: 'ticket-two' });
     await postOk(srv, `${CHIPS}/tickets/${ticketTwo.id}/transfer`, first.token, { toUserId: second.user.id, key: 'ticket-transfer' });
+    const unused = await postOk(srv, `${CHIPS}/tickets`, first.token, { tournamentId: tournament.id, key: 'ticket-unused' });
+    await postOk(srv, `${CHIPS}/tickets/${unused.id}/transfer`, first.token, { toUserId: unfunded.user.id, key: 'transfer-unused' });
+    const detailStatus = async (token) => (await srv.get(`/api/tournaments/${tournament.id}`, { token })).status;
+    assert.equal(await detailStatus(owner.token), 200);
+    assert.equal(await detailStatus(first.token), 404, 'purchasing a ticket does not grant viewing access');
+    assert.equal(await detailStatus(second.token), 404, 'receiving a ticket does not grant viewing access');
     await postOk(srv, `/api/tournaments/${tournament.id}/register`, first.token, {});
+    assert.equal(await detailStatus(first.token), 200);
     await postOk(srv, `/api/tournaments/${tournament.id}/unregister`, first.token, {});
+    assert.equal(await detailStatus(first.token), 404, 'unregistering revokes viewing access');
     await postOk(srv, `/api/tournaments/${tournament.id}/register`, first.token, {});
     await postOk(srv, `/api/tournaments/${tournament.id}/register`, second.token, {});
     assert.equal((await srv.post(`/api/tournaments/${tournament.id}/play`, { token: first.token, body: {} })).status, 409, 'players cannot start a scheduled paid event early');
@@ -64,6 +72,17 @@ test('real server integrates enforced billing, scoped chips, events, buybacks, a
     db.prepare('UPDATE tournaments SET start_at=? WHERE id=?').run(new Date(Date.now() - 1000).toISOString(), tournament.id);
     const play = await postOk(srv, `/api/tournaments/${tournament.id}/play`, first.token, {});
     assert.ok(play.tableId);
+    const watch = `/api/tournaments/${tournament.id}/watch`;
+    assert.equal((await srv.get(watch, { token: first.token })).status, 200);
+    assert.equal((await srv.get(watch, { token: unfunded.token })).status, 404);
+    const observer = srv.socket(unfunded.token);
+    try {
+      await observer.opened;
+      observer.send({ type: 'join_table', tableId: play.tableId, observe: true });
+      const response = await observer.next(m => ['joined', 'state', 'error'].includes(m.type));
+      assert.equal(response.type, 'error');
+      assert.match(response.error, /table not found/i);
+    } finally { await observer.close(); }
     const lobby = await srv.get(`/api/tournaments/${tournament.id}`, { token: first.token });
     assert.equal(lobby.status, 200, JSON.stringify(lobby.data));
     assert.equal(lobby.data.prizePool, 2000, 'fees are excluded from the playable prize pool');
@@ -84,6 +103,18 @@ test('real server integrates enforced billing, scoped chips, events, buybacks, a
     const finished = await srv.post(`/api/tournaments/${tournament.id}/play`, { token: first.token, body: {} });
     assert.equal(finished.status, 400); assert.match(finished.data.error, /finished/);
     await tournamentSocket.close();
+
+    const requesterBalance = async () => wallet((await srv.get(`${CHIPS}/me`, { token: first.token })).data, owner.user.id);
+    const beforeRefund = await requesterBalance();
+    const stalled = await postOk(srv, `${CHIPS}/buybacks`, first.token, { organizerId: owner.user.id, amount: 1000, paymentAmount: '10.00', paymentCurrency: 'USDT', paymentDetails: 'Offline refund fixture', key: 'buyback-refund' });
+    await postOk(srv, `${CHIPS}/buybacks/${stalled.id}/accept`, owner.token, {});
+    assert.equal(await requesterBalance(), beforeRefund - 1000);
+    const resolve = `/api/admin/marketplace/chips/buybacks/${stalled.id}/resolve`;
+    const decision = { resolution: 'refund', reason: 'Both fixture participants confirmed nonpayment' };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      assert.equal((await postOk(srv, resolve, admin, decision)).state, 'rejected');
+      assert.equal(await requesterBalance(), beforeRefund);
+    }
 
     const buyback = await postOk(srv, `${CHIPS}/buybacks`, first.token, { organizerId: owner.user.id, amount: 1000, paymentAmount: '10.00', paymentCurrency: 'USDT', paymentDetails: 'Manual integration agreement', key: 'buyback-one' });
     const ownerBeforeBuyback = wallet((await srv.get(`${CHIPS}/me`, { token: owner.token })).data, owner.user.id);

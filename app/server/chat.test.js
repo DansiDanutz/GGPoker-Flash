@@ -99,6 +99,21 @@ test('chat store persists to table:<id> and rebuilds the latest 50 lines', () =>
   assert.deepEqual(createChatStore(db).history('t2').map((l) => l.message), ['other table']);
 });
 
+test('room history snapshots survive appends and moderation reloads', () => {
+  const db = memoryDb();
+  const store = createChatStore(db);
+  const add = message => store.append('t1', { userId: 1, nick: 'A', message });
+  const first = add('first');
+  const snapshot = store.history('t1');
+  add('second');
+  const beforeDelete = store.history('t1');
+  db.prepare('DELETE FROM chat_messages WHERE id = ?').run(first.id);
+  store.forget('t1');
+  assert.deepEqual(store.history('t1').map(line => line.message), ['second']);
+  assert.deepEqual(beforeDelete.map(line => line.message), ['first', 'second']);
+  assert.deepEqual(snapshot.map(line => line.message), ['first']);
+});
+
 function fakeSocket(userId) {
   const sent = [];
   return { userId, nick: `U${userId}`, readyState: 1, sent, send: (raw) => sent.push(JSON.parse(raw)) };

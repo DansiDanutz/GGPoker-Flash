@@ -8,5 +8,6 @@ app/public/ruffle
 app/public/assets/swf
 research
 docs
+marketing
 *.log
 .DS_Store

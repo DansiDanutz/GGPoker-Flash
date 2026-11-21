@@ -3,6 +3,7 @@ import { getToken } from './api';
 export type FundingRequest = {
   id: string; organizerId: number; userId: number; amount: number; feeCents: number | null;
   state: 'requested' | 'offered' | 'credited' | 'paid' | 'rejected';
+  checkoutDisabled?: boolean;
   userName?: string; organizerName?: string;
   reference: string; paymentLinkId: string | null;
 };

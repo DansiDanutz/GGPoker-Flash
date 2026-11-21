@@ -83,7 +83,13 @@ try {
   await page.waitForSelector('.org-modal');
   await page.waitForSelector('.ls',{hidden:true});
   assert.ok(await page.$eval('.org-modal',n=>n.scrollWidth<=n.clientWidth+1),'Club dialog content fits without clipping');
-  assert.ok(await page.$eval('.org-close',n=>n.getBoundingClientRect().width>=44),'Club close control is easy to tap');
+  await page.waitForFunction(() => {
+    const rect = document.querySelector('.org-close')?.getBoundingClientRect();
+    return rect && rect.width >= 44 && rect.height >= 44;
+  }, { timeout: 1500 }).catch(async error => {
+    const size = await page.$eval('.org-close', n => n.getBoundingClientRect().toJSON());
+    throw new Error(`Club close target at ${width}px: ${size.width} × ${size.height}; expected at least 44 × 44`, { cause: error });
+  });
   await page.screenshot({path:path.join(artifacts,`club-dialog-${width}.png`),fullPage:true});
   checks.push(`Club dialog at ${width}px`);
  }

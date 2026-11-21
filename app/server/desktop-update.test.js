@@ -26,6 +26,17 @@ test('a copy is outdated only when live answers with a different version or buil
   assert.equal(isOutdated({ version: 'dev', build: 'dev' }, { version: '1.1.0', build: '1' }), false, 'dev builds never nag');
 });
 
+test('incomplete and development identities on either side do not offer a switch', () => {
+  const release = { version: '1.1.0', build: '20261114060504' };
+  for (const field of ['version', 'build']) {
+    for (const value of ['', ' ', 'dev', undefined]) {
+      const unknown = { ...release, [field]: value };
+      assert.equal(isOutdated(release, unknown), false);
+      assert.equal(isOutdated(unknown, release), false);
+    }
+  }
+});
+
 test('reads the local build identity, or null when it is missing or broken', () => {
   const dir = tmp();
   const file = path.join(dir, 'version.json');

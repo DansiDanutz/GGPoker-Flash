@@ -125,6 +125,8 @@ test('limit is honoured and clamped to 1000', async () => {
 });
 
 test('csvField and toAuditCsv quote, escape and defuse formulas', () => {
+  assert.equal(csvField(-5), '-5');
+  assert.equal(csvField('  =1'), "'  =1");
   assert.equal(csvField(null), '');
   assert.equal(csvField('plain'), 'plain');
   assert.equal(csvField('a,b'), '"a,b"');

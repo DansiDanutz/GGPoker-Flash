@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Organizer credentials remain server-side; callers receive only provider operations.
+import { createHash } from 'node:crypto';
 const ORIGIN = 'https://nervixpay.live';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SCOPES = ['integrations:verify', 'payment_links:read', 'payment_links:write', 'payments:read'];
@@ -30,13 +31,14 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
     organizerId = text(String(organizerId ?? ''), 'organizer');
     if (providers.has(organizerId)) return providers.get(organizerId);
     const legacyConnection = connections[organizerId];
-    const pendingLinks = new Map(), readiness = new Map();
-    const connectionKey = connection => `${connection.merchantId}\u0000${connection.token}`;
+    const pendingLinks = new Map();
+    let readiness = null;
+    const connectionKey = connection => createHash('sha256').update(JSON.stringify([connection.merchantId, connection.token])).digest('hex');
     function current() {
       const connection = resolveConnection(organizerId, legacyConnection);
       return connection && typeof connection.merchantId === 'string' && connection.merchantId && typeof connection.token === 'string' && connection.token ? connection : null;
     }
-    function same(connection) { const latest = current(); return latest && connectionKey(latest) === connectionKey(connection); }
+    function same(connection) { const latest = current(); return latest && latest.merchantId === connection.merchantId && latest.token === connection.token; }
 
     async function request(path, body, expected = current(), method = body ? 'POST' : 'GET') {
       if (!expected) fail(`Organizer ${organizerId} has no verified live NervixPay connection.`, 503);
@@ -53,17 +55,18 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
     }
 
     async function readyFor(connection) {
-      const key = connectionKey(connection), cached = readiness.get(key), now = Date.now();
+      const key = connectionKey(connection), cached = readiness?.key === key ? readiness : null, now = Date.now();
       if (cached?.checkedAt && now - cached.checkedAt < (cached.available ? 60000 : 5000)) return same(connection) && cached.available;
       let available = false;
       try {
         const result = await request('/verify', undefined, connection);
         available = result.merchant?.id === connection.merchantId && result.merchant?.blocked === false && result.credential?.mode === 'live' && SCOPES.every(scope => result.credential?.scopes?.includes(scope));
       } catch { available = false; }
-      readiness.set(key, { checkedAt:now, available });
-      return same(connection) && available;
+      if (!same(connection)) return false;
+      readiness = { key, checkedAt:now, available };
+      return available;
     }
-    async function ready() { const connection = current(); return connection ? readyFor(connection) : false; }
+    async function ready() { const connection = current(); if (!connection) { readiness = null; return false; } return readyFor(connection); }
 
     async function linkForRequest(db, row) {
       if (!row || text(row.id, 'request') !== row.id || text(row.reference, 'reference') !== row.reference || String(row.organizerId) !== organizerId || !Number.isSafeInteger(row.amount) || row.amount < 1 || !Number.isSafeInteger(row.feeCents) || row.feeCents < 1 || row.feeCents > 100000 || (row.purpose != null && row.purpose !== 'session_settlement')) fail('Invalid organizer funding request.', 400);
@@ -102,7 +105,7 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
       try { return await task; } finally { pendingLinks.delete(pendingKey); }
     }
 
-    async function cancelLink(row, db) {
+    async function disableLink(row, db) {
       if (!row.paymentLinkId) {
         const saved = db?.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='organizer_funding_provider_links'").get() && db.prepare('SELECT link_id FROM organizer_funding_provider_links WHERE request_id=? AND organizer_id=?').get(row.id,organizerId);
         if (!saved) fail('Link creation is unresolved; reconcile the provider checkout before returning chips.');
@@ -111,12 +114,23 @@ export function createOrganizerFundingProviders({ connections = process.env.ORGA
       const connection = current();
       const updated = await request(`/payment-links/${uuid(row.paymentLinkId)}`, { active:false }, connection, 'PATCH');
       if (updated.paymentLink?.id !== row.paymentLinkId || updated.paymentLink.active !== false) fail('Checkout could not be disabled.',503);
-      // Any existing order may still receive a late transfer; require operator reconciliation.
-      const payments = await request('/payments?limit=100', undefined, connection);
-      if (!Array.isArray(payments.items) || payments.items.length >= 100 || payments.items.some(p => p.paymentLinkId === row.paymentLinkId)) fail('Checkout disabled; existing payment orders require reconciliation before returning chips.');
+      return row.paymentLinkId;
     }
 
-    const provider = { ready, linkForRequest, cancelLink, payment:async id => (await request(`/payments/${uuid(id)}`)).payment };
+    async function clearance(row, db) {
+      const connection = current();
+      const saved = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='organizer_funding_provider_links'").get()
+        && db.prepare('SELECT * FROM organizer_funding_provider_links WHERE request_id=?').get(row.id);
+      if (!saved || !connection || saved.merchant_id !== connection.merchantId || String(saved.organizer_id) !== organizerId ||
+          (row.paymentLinkId && saved.link_id !== row.paymentLinkId)) fail('Original merchant and payment link must be reconciled before returning chips.');
+      const result = await request(`/payment-links/${uuid(saved.link_id)}/clearance`, undefined, connection, 'POST');
+      const value = result?.clearance;
+      if (!value || value.paymentLinkId !== saved.link_id || value.merchantId !== saved.merchant_id || value.mode !== 'live' ||
+          !['terminal_unpaid','pending','paid'].includes(value.status) || (value.status === 'paid' && !UUID.test(value.paymentId))) fail('NervixPay returned an invalid payment clearance.', 503);
+      return value;
+    }
+
+    const provider = { ready, linkForRequest, disableLink, clearance, payment:async id => (await request(`/payments/${uuid(id)}`)).payment };
     providers.set(organizerId, provider);
     return provider;
   }

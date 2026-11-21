@@ -8,7 +8,7 @@ let srv;
 before(async () => {
   srv = await startServer({
     env: {
-      GGPOKER_TRUST_PROXY: '1',
+      GGPOKER_TRUST_PROXY: '1', GGPOKER_TRUSTED_PROXY_IPS: '127.0.0.1',
       GGPOKER_REGISTER_LIMIT_PER_HOUR: '3',
       GGPOKER_LOGIN_IP_LIMIT: '4',
     },

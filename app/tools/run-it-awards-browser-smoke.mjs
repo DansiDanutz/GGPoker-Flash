@@ -53,7 +53,7 @@ try {
     localStorage.setItem('openpoker.revealAnimation','0'); sessionStorage.setItem('ggpoker.entered','1'); localStorage.setItem('ggpoker.token',token); localStorage.setItem('ggpoker.welcomeSeen','1'); localStorage.setItem('ggpoker.sound','0');
     const Native=window.WebSocket;
     window.WebSocket=class extends Native {
-      constructor(url,protocols) {super(url,protocols);this.isFixtureTable=String(url).includes('/ws?');}
+      constructor(url,protocols) {super(url,protocols);this.isFixtureTable=new URL(url,location.href).pathname==='/ws';}
       set onmessage(handler) {
         if(!this.isFixtureTable){super.onmessage=handler;return;}
         window.injectTable=message=>handler.call(this,new MessageEvent('message',{data:JSON.stringify(message)}));
@@ -223,4 +223,12 @@ try {
   assert.deepEqual(errors,[]);
   await writeFile(path.join(artifacts,'results.json'),JSON.stringify({ok:true,checks,errors},null,2));
   console.log(JSON.stringify({ok:true,checks,artifacts},null,2));
-} finally {await browser?.close();await sandbox.close();}
+} finally {
+  const child = browser?.process();
+  try { await browser?.close(); }
+  finally {
+    // Chrome helpers can inherit stderr and keep the Node runner alive after Chrome exits.
+    child?.stderr?.destroy();
+    await sandbox.close();
+  }
+}

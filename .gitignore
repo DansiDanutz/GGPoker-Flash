@@ -32,3 +32,8 @@ deploy/backups/
 .mobile-audit/
 app/.audit/
 app/server/data-dev/
+
+# Generated caches, test artifacts and compiled local helpers
+.ghcache/
+app/artifacts/
+tools/person_mask

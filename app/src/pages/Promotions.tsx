@@ -25,17 +25,12 @@ export function Promotions() {
 
   const promos = [
     { title: 'Daily Chip Flipout', sub: '#ThanksDanGG · every day', img: PROMO_ART.flipout, tag: 'All-in' },
-    { title: 'Prize Wheel', sub: 'Spin the wheel, win up to 100,000x', img: PROMO_ART.wheel, tag: 'Rewards', link: '/rewards' },
-    { title: 'Player Care', sub: 'Bad beat protection & daily prizes', img: PROMO_ART.care, tag: 'Cashback', link: '/ggcare' },
+    { title: 'Prize Wheel', sub: 'View the play-chip prize wheel', img: PROMO_ART.wheel, tag: 'Rewards', link: '/rewards' },
+    { title: 'Player Care', sub: 'Daily play-chip bonus and bad beat jackpot rules', img: PROMO_ART.care, tag: 'Play chips', link: '/ggcare' },
     { title: 'DanGG Rewards', sub: 'Collect gems, climb the reef', img: PROMO_ART.ocean, tag: 'Rewards', link: '/ocean' },
-    { title: 'Hold’em Leaderboards', sub: '$50,000 weekly race', img: PROMO_ART.leaderboard, tag: 'Leaderboard' },
     { title: 'Battle Royale', sub: 'Bounty tournaments with hidden prizes', img: PROMO_ART.battle, tag: 'Tournament' },
     { title: 'Welcome Bonus', sub: 'New player welcome package', img: PROMO_ART.welcome, tag: 'Bonus' },
-    { title: 'Weekly Freeroll', sub: 'Free entry, real prizes', img: PROMO_ART.freeroll, tag: 'Freeroll' },
-    { title: 'After The Fold', sub: 'Win your share of $40,000 daily', img: PROMO_ART.allin, tag: 'All-in or Fold' },
     { title: 'Daily Freebie', sub: 'A free gift every day', img: PROMO_ART.freebie, tag: 'Gift' },
-    { title: 'Casino Bonus', sub: 'Weekly casino free spins', img: PROMO_ART.casino, tag: 'Casino' },
-    { title: 'Prize Wheel Platinum', sub: 'Higher ranks, bigger wheels', img: PROMO_ART.wheelPlatinum, tag: 'Rewards' },
     { title: 'Jackpot SNG Leaderboard', sub: 'Weekly SNG race', img: PROMO_ART.leaderboard, tag: 'Leaderboard' },
     { title: 'Fast Fold Leaderboard', sub: 'Fast-fold race', img: PROMO_ART.fastfold, tag: 'Leaderboard' },
     { title: 'Short Deck Leaderboard', sub: 'Six-plus race', img: PROMO_ART.leaderboard, tag: 'Leaderboard' },
@@ -81,6 +76,16 @@ export function Promotions() {
 const LANGS = ['English', 'Romanian', 'German', 'French', 'Spanish', 'Portuguese', 'Russian', 'Ukrainian', 'Polish', 'Turkish', 'Japanese', 'Korean', 'Chinese (Simplified)', 'Chinese (Traditional)', 'Thai', 'Vietnamese', 'Indonesian', 'Hindi', 'Arabic', 'Hebrew'];
 const THEMES = TABLE_THEMES;
 
+export function PlayLimits() {
+  return (
+    <section className="card">
+      <div className="panel-title">Play limits and breaks</div>
+      <p>Account breaks, self-exclusion, personal loss limits and session reminders are not available here.</p>
+      <p>The Cashier shows how much free Play Money you can add today. That top-up cap does not limit play or losses.</p>
+    </section>
+  );
+}
+
 const SETTINGS_TABS = [{ key: 'general', label: 'General' }, { key: 'sound', label: 'Sound' }, { key: 'table', label: 'Table & cards' }, { key: 'betting', label: 'Betting' }, { key: 'account', label: 'Account' }, { key: 'responsible', label: 'Responsible gaming' }];
 /** Reference settings pages: each jumps to its section inside the parent group. */
 const SETTINGS_PAGES = [
@@ -96,6 +101,7 @@ const SETTINGS_PAGES = [
   { key: 'chipdisplay', label: 'Switch Chip Display', tab: 'table', anchor: 'chipdisplay' },
   { key: 'theme', label: 'Table Theme', tab: 'table', anchor: 'theme' },
   { key: 'timebank', label: 'Time Bank Card', tab: 'table', anchor: 'timebank' },
+  { key: 'responsible', label: 'Responsible gaming', tab: 'responsible', anchor: null },
 ];
 const SOUND_CHANNELS: ReadonlyArray<readonly [Channel, string]> = [['sfx', 'Card & chip sounds'], ['voice', 'Action voices'], ['alerts', 'Notification alerts'], ['music', 'Lobby music'], ['ambience', 'Table ambience']];
 
@@ -600,23 +606,7 @@ function SettingsForm({ tab, draft, stage }: SettingsFormProps) {
         )}
 
         {tab === 'responsible' && (
-          <div className="grid g2">
-            <div className="card">
-              <div className="panel-title">Play limits</div>
-              <div className="kv"><span>Daily deposit limit</span><b>$500.00</b></div>
-              <div className="kv"><span>Weekly loss limit</span><b>Not set</b></div>
-              <div className="kv"><span>Session reminder</span><b>Every 60 minutes</b></div>
-              <div className="kv"><span>Reality check</span><b>Enabled</b></div>
-              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={() => toast({ kind: 'info', title: 'Limits', body: 'This is a play-money clone — no deposits are possible.' })}>Edit limits</button>
-            </div>
-            <div className="card">
-              <div className="panel-title">Take a break</div>
-              <p className="muted" style={{ fontSize: 13 }}>Pause your account for a period of time. You will be logged out and unable to play until the break ends.</p>
-              <div className="row" style={{ flexWrap: 'wrap' }}>
-                {['24 hours', '7 days', '30 days', 'Self-exclude'].map((x) => <button key={x} className="btn btn-ghost btn-sm" onClick={() => toast({ kind: 'info', title: 'Play-money limit', body: `${x} breaks are not enforced in this local clone.` })}>{x}</button>)}
-              </div>
-            </div>
-          </div>
+          <PlayLimits />
         )}
     </>
   );

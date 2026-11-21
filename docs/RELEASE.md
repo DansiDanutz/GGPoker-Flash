@@ -22,6 +22,8 @@ pnpm smoke                # read-only API smoke against a running server
 ./package_app.sh          # build, sign, relaunch the desktop app (from repo root)
 ```
 
+Desktop distribution requires the DanGG Developer ID signature. The default packaging command verifies the expected team and certificate type before relaunch. The explicit `--local-adhoc` mode is for local development only. Signature verification alone does not establish notarization.
+
 ## Accounts
 
 Local/development (seeded unless `GGPOKER_SEED_DEMO=0`):
@@ -34,6 +36,16 @@ Production (`NODE_ENV=production`, `GGPOKER_SEED_DEMO=0`): no demo/guest rows. P
 create an account from the login screen; the welcome bonus is credited automatically.
 The admin password comes from `GGPOKER_ADMIN_PASSWORD` and admin is reachable only through
 the allowlisted loopback/SSH tunnel.
+
+## Pausing new Bankroll Challenges
+
+Before changing Bankroll Challenge scoring, first release the creation pause
+**with the existing scoring rules**. Set `GGPOKER_PAUSE_NEW_BANKROLL=1` on each
+game server and restart through the normal rollout. Only new Bankroll Challenges
+are refused; existing stakes and settlement continue under their original rules.
+Keep the pause enabled until all open and running challenges have finished and a
+consistent offline backup confirms zero outstanding challenges. Keep it in place
+through the scoring upgrade. Remove the flag only after the new rules are verified.
 
 ## Verified before a release
 
@@ -72,3 +84,14 @@ screens, offline retry.
   target (see `deploy/SCALE-PLAN.md`).
 - Some clone-specific labels outside the original string table remain English in
   non-Romanian locales.
+
+### Upgrading Bankroll Challenge scoring
+
+New scoring excludes unpaired historical Blackjack, Crash, and tournament registration/placement entries. Install the paired receipt writers from #45 (tournaments) and #59 (Crash) before enabling revised scoring. Before upgrading, run
+`node tools/check-bankroll-upgrade.mjs /path/to/consistent-offline-backup.db`.
+The command reads the backup without changing it. An unrecognized or pre-challenge schema requires manual review; it does not count as an empty room. Exit 0 with both counts zero
+means there were no outstanding Bankroll Challenges at snapshot time. A nonzero
+exit is not clearance: investigate errors, or defer the upgrade if any challenge
+is open or running. Do not silently rescore, cancel, or settle existing stakes.
+For a rollout decision, prevent new challenge creation between taking the final
+snapshot and switching releases; a stale backup cannot establish that condition.

@@ -7,11 +7,12 @@
 # Install on Nano:
 #   scp deploy/nano-backup-pull.sh nano:~/dangro-backup-pull.sh
 #   ssh nano 'chmod +x ~/dangro-backup-pull.sh'
+#   Set DANGGRO_HOST=user@tailnet-host in the backup account's crontab.
 #   crontab: 0 5 * * * ~/dangro-backup-pull.sh >> ~/dangro-backup-pull.log 2>&1
 set -uo pipefail
 
 # Pull over the tailnet: encrypted, and it does not depend on a public SSH exception.
-HOST="${DANGGRO_HOST:-Dexter1981@100.94.135.19}"
+HOST="${DANGGRO_HOST:?Configure the private SSH destination in the backup account crontab}"
 SRC="${DANGGRO_SRC:-/home/Dexter1981/dangro/deploy/backups/}"
 DEST="${DANGGRO_DEST:-$HOME/dangro-backups}"
 KEY="${DANGGRO_KEY:-$HOME/.ssh/id_ed25519_github}"

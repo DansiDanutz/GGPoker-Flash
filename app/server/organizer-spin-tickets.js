@@ -47,7 +47,7 @@ export function createOrganizerSpinTickets({ db, chips }) {
     return { id };
   });
   const transfer = ({ userId, ticketId, toUserId, key }) => operation(userId, key, ['transfer', ticketId, toUserId], () => {
-    active(toUserId); const t = held(userId, ticketId);
+    chips.assertTransferRecipient(toUserId); const t = held(userId, ticketId);
     if (t.state !== 'issued' || userId === toUserId) fail('Choose another holder for an unused ticket.', 409);
     chips.assertSessionCreditUnlocked(t.organizer_id, userId, toUserId);
     db.prepare('UPDATE organizer_chip_spin_tickets SET holder_id=? WHERE id=?').run(toUserId, t.id); return { id: t.id, holder_id: toUserId };

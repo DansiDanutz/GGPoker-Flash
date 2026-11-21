@@ -29,3 +29,24 @@ test('GET /api/tables/:id/hud returns room stats and hides unshown cards', async
     assert.equal(JSON.stringify(data).includes('Ah'), false);
   } finally { await srv.stop(); }
 });
+
+test('private club statistics honor current membership, including removal', async () => {
+  const srv = await startServer();
+  try {
+    const create = async login => (await srv.post('/api/auth/register', {body:{login,nick:login,password:'secret123'}})).data;
+    const owner = await create('clubowner'), member = await create('clubreader');
+    const db = new DatabaseSync(path.join(srv.dataDir,'ggpoker.db'));
+    try {
+      const {id} = db.prepare('SELECT id FROM tables WHERE enabled=1 ORDER BY sort LIMIT 1').get();
+      db.prepare('UPDATE tables SET private=1, play_money=0, owner_id=? WHERE id=?').run(owner.user.id,id);
+      db.prepare("INSERT INTO organizer_club_profiles(owner_id,name,created_at,updated_at) VALUES (?,'Private',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").run(owner.user.id);
+      db.prepare("INSERT INTO organizer_billing_memberships(user_id,role,active,expires_at) VALUES (?,'organizer',1,datetime('now','+1 day'))").run(owner.user.id);
+      const stats = route => srv.get('/api/tables/'+id+'/'+route,{token:member.token});
+      for (const route of ['hud?nick=test','vpip','leaderboard']) assert.equal((await stats(route)).status,403);
+      db.prepare("INSERT INTO organizer_club_members(organizer_id,user_id,status,created_at,updated_at) VALUES (?,?,'approved',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").run(owner.user.id,member.user.id);
+      assert.equal((await stats('hud?nick=test')).status,200);
+      db.prepare("UPDATE organizer_club_members SET status='removed' WHERE organizer_id=? AND user_id=?").run(owner.user.id,member.user.id);
+      assert.equal((await stats('hud?nick=test')).status,403);
+    } finally { db.close(); }
+  } finally { await srv.stop(); }
+});

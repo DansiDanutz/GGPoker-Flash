@@ -1,3 +1,4 @@
+import { guestLogin } from './guest-login.js';
 // SPDX-License-Identifier: AGPL-3.0-only
 const MEMBERSHIP_CHIPS = 100_000;
 const PACK_CHIPS = 10_000;
@@ -72,6 +73,11 @@ export function createOrganizerChips({ db, now = Date.now }) {
   const ensureUser = (id) => {
     if (!db.prepare('SELECT id FROM users WHERE id=? AND banned=0 AND deleted_at IS NULL').get(userId(id))) fail('Active user required.', 403, 'user_inactive');
   };
+  function assertTransferRecipient(id) {
+    const recipient = db.prepare('SELECT login FROM users WHERE id=? AND banned=0 AND deleted_at IS NULL').get(userId(id));
+    if (!recipient) fail('Active user required.', 403, 'user_inactive');
+    if (guestLogin.test(recipient.login)) fail('A registered recipient is required.', 403, 'registered_account_required');
+  }
   const existingUser = (id) => {
     id = userId(id);
     if (!db.prepare('SELECT id FROM users WHERE id=?').get(id)) fail('User not found.', 404, 'user_not_found');
@@ -115,10 +121,13 @@ export function createOrganizerChips({ db, now = Date.now }) {
       return { applied: false, balance: to ? rawBalance(organizerId, to) : null };
     }
     if (db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='organizer_session_credits'").get()) {
-      const credits = db.prepare("SELECT * FROM organizer_session_credits WHERE organizer_id=? AND state='active'").all(organizerId);
+      // Match the open-pair partial index; proposals do not lock funds.
+      const credits = db.prepare("SELECT * FROM organizer_session_credits WHERE organizer_id=? AND user_id IN (?,?) AND state IN('proposed','active','awaiting_payment') AND state!='proposed'")
+        .all(organizerId, from?.startsWith('wallet:') ? from.slice(7) : null, to.startsWith('wallet:') ? to.slice(7) : null);
       for (const credit of credits) {
         const wallet = `wallet:${credit.user_id}`;
         if (from !== wallet && to !== wallet) continue;
+        if (credit.state === 'awaiting_payment') fail('Wallet movements are locked until session credit is paid.', 409, 'session_credit_locked');
         const tableAccount = from?.startsWith('table:') ? from : to?.startsWith('table:') ? to : null;
         const tableId = tableAccount?.slice(6), tableRow = tableId && db.prepare('SELECT * FROM tables WHERE id=? AND owner_id=? AND private=1 AND chip_economy=1').get(tableId, organizerId);
         const tournament = tableId && db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='tournaments'").get() && db.prepare('SELECT 1 FROM tournaments WHERE id=?').get(tableId);
@@ -149,7 +158,7 @@ export function createOrganizerChips({ db, now = Date.now }) {
   function assertSessionCreditUnlocked(organizerId, ...userIds) {
     organizerId = orgId(organizerId); userIds = [...new Set(userIds.map(userId))];
     if (!userIds.length || !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='organizer_session_credits'").get()) return;
-    for (const id of userIds) if (db.prepare("SELECT 1 FROM organizer_session_credits WHERE organizer_id=? AND user_id=? AND state='active'").get(organizerId, id)) fail('Ticket and event movements are locked during session credit.', 409, 'session_credit_locked');
+    for (const id of userIds) if (db.prepare("SELECT 1 FROM organizer_session_credits WHERE organizer_id=? AND user_id=? AND state IN ('active','awaiting_payment')").get(organizerId, id)) fail('Ticket and event movements are locked during session credit.', 409, 'session_credit_locked');
   }
   function requireMembership(organizerId) {
     const membership = db.prepare("SELECT expires_at FROM organizer_billing_memberships WHERE user_id=? AND role='organizer' AND active=1").get(organizerId);
@@ -171,12 +180,6 @@ export function createOrganizerChips({ db, now = Date.now }) {
     db.prepare('INSERT INTO organizer_chip_grants VALUES (?,?,?,?,?)').run(organizerId, reference, available, due ? 'released' : 'pending', stamp());
     if (due) movement({ organizerId, from: null, to: `wallet:${organizerId}`, amount: MEMBERSHIP_CHIPS, kind: 'membership_grant', reference: `membership:${reference}` }, true);
     return { applied: due, pending: !due, available_at: available };
-  }
-  function grantClubEntryBonus({ organizerId, reference, amount, nonredeemable }) {
-    if (!db.isTransaction || nonredeemable !== true) fail('Club entry bonus requires a settlement transaction.', 500, 'transaction_required');
-    organizerId = ensureOrganizer(organizerId);
-    requireMembership(organizerId);
-    return movement({ organizerId, from: null, to: `wallet:${organizerId}`, amount, kind: 'club_entry_bonus', reference: text(reference, 'reference') }, true);
   }
   function releaseDueGrants() {
     return transaction(db, () => {
@@ -203,7 +206,7 @@ export function createOrganizerChips({ db, now = Date.now }) {
     return record(organizerId, idempotencyKey, 'purchase', payload, { packs, chips, service_cents: cents, balance: rawBalance(organizerId, `wallet:${organizerId}`) });
   });
   const transfer = ({ organizerId, fromUserId, toUserId, amount, idempotencyKey }) => transaction(db, () => {
-    organizerId = ensureOrganizer(organizerId); ensureUser(fromUserId); ensureUser(toUserId); amount = integer(amount, 'amount');
+    organizerId = ensureOrganizer(organizerId); ensureUser(fromUserId); assertTransferRecipient(toUserId); amount = integer(amount, 'amount');
     if (fromUserId === toUserId) fail('Cannot transfer chips to the same user.');
     const payload = JSON.stringify({ fromUserId, toUserId, amount }), old = operation(organizerId, idempotencyKey, 'transfer', payload);
     if (old) return { ...old, applied: false };
@@ -280,7 +283,7 @@ export function createOrganizerChips({ db, now = Date.now }) {
     return { minted, burned, circulating: minted - burned };
   }
   const history = (organizerId) => db.prepare('SELECT * FROM organizer_chip_journals WHERE organizer_id=? ORDER BY id DESC').all(organizerExists(organizerId));
-  return { grantMembership, grantClubEntryBonus, releaseDueGrants, purchase, balance, account, history, supply, transfer, openSeat, seatMove, settleHand, closeSeat, recoverSessions, reconcileTable, move, moveInTransaction, assertSessionCreditUnlocked };
+  return { assertTransferRecipient, grantMembership, releaseDueGrants, purchase, balance, account, history, supply, transfer, openSeat, seatMove, settleHand, closeSeat, recoverSessions, reconcileTable, move, moveInTransaction, assertSessionCreditUnlocked };
 }
 
 export { MEMBERSHIP_CHIPS, PACK_CHIPS, PACK_CENTS };

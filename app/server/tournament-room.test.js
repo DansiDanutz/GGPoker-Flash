@@ -685,3 +685,22 @@ test('failed prize persistence cannot put an unpaid finish into a restart snapsh
   assert.equal(restored.room.checkWinner().id, 'p1');
   assert.equal(restored.calls.winners.length, 1);
 });
+
+test('JSON snapshots retain bots across restart without treating human nicknames as bots', () => {
+  const { room, tables } = harness();
+  room.seat(player(1), {stack:900});
+  const table = tables.get('tourney-t1');
+  table.sit({id:'bot-tourney-t1-1-123',nick:'Opponent',isBot:true},null,700);
+  table.seatOf('p1').player.nick = 'bot-tourney-t1-1-124';
+  const wire = JSON.stringify(room.snapshot());
+  for (const legacy of [false,true]) {
+    const snapshot = JSON.parse(wire);
+    if (legacy) for (const p of snapshot.flights[0].players) delete p.isBot;
+    const restored = harness();
+    assert.ok(restored.room.restore(snapshot));
+    const flight = restored.tables.get('tourney-t1');
+    assert.equal(flight.seatOf('bot-tourney-t1-1-123').player.isBot,true);
+    assert.deepEqual(flight.humans().map(p=>p.id), ['p1']);
+    assert.equal(flight.seatOf('bot-tourney-t1-1-123').player.stack,700);
+  }
+});

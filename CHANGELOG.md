@@ -1,3 +1,10 @@
+## 2026-11-21 — Production security hardening, audit remediation, and repository hygiene
+
+- **Security & authentication:** Stored session verifiers instead of raw bearer tokens, added realtime WebSocket/SSE revocation on logout/expiry/ban, restricted hosted CSP and Electron popup/navigation origins, pinned forwarded client IPs to trusted proxy peers, removed stored KYC document collection/viewer, defused CSV formula injection across admin exports, and separated admin onto a mutual-TLS loopback listener (`:5197`) with deploy preflight checks.
+- **Financial & gameplay integrity:** Enforced atomic signup/wallet/Ocean/wager locking, held organizer funding escrow until terminal provider clearance, fixed Crash/Blackjack interrupted-round recovery, corrected Blackjack/Baccarat/slots/Omaha/tournament ranking rules, enforced measured lobby presence, removed simulated responsible-play controls, and added Bankroll Challenge net-session scoring with an operator pause toggle and upgrade preflight (`tools/check-bankroll-upgrade.mjs`).
+- **Operations, desktop & AGPL compliance:** Removed operator IPs from repository docs/scripts, moved manual checkout destinations to operator config, enforced CI-green public release verification in `deploy/deploy.sh`, verified desktop signing and unknown-build update suppression, excluded `marketing/` from Docker builds, and added automated release-image AGPL notice verification.
+- **Asset & repository hygiene:** Removed legacy reverse-engineering artifacts, stray binaries, cached logs, reference screenshots, and duplicate files; replaced preset avatars with 20 original procedural portraits (`tools/generate-avatars.py`) and replaced `i18n-dict.json` with a freshly authored, lazy-loaded 30-locale dictionary (357 keys × 30 locales).
+
 ## 2026-11-20 — Identity document review and saved passwords
 
 - The admin KYC viewer displays ID photos inline and rejects malformed images. Opening another ID clears the previous photo immediately, even if the new photo fails to load.

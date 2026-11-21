@@ -20,7 +20,9 @@ function readLocalVersion(file) {
 /** True only when both sides are known, neither is a dev build, and they differ. */
 function isOutdated(local, live) {
   if (!local || !live) return false;
-  if (local.build === 'dev' || local.version === 'dev') return false;
+  for (const value of [local.version, local.build, live.version, live.build]) {
+    if (typeof value !== 'string' || !value.trim() || value.trim() === 'dev') return false;
+  }
   return local.version !== live.version || local.build !== live.build;
 }
 

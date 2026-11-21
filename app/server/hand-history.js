@@ -59,15 +59,15 @@ function storedTableMeta(text) {
   return { button, blinds };
 }
 
-/**
- * Hands saved after the `showed` flag existed carry it per player. Older hands only tell us
- * the showdown winners, whose cards were always turned over, so only they are revealed.
- */
-function isRevealed(player, result) {
-  if (player.folded) return false;
-  if (typeof player.showed === 'boolean') return player.showed;
-  const winners = Array.isArray(result.winners) ? result.winners : [];
-  return result.reason === 'showdown' && winners.some((w) => w.seat === player.seat || (w.id != null && w.id === player.id));
+// Legacy "showed" also meant one card was flashed. Only a showdown winner
+// independently establishes full disclosure on those rows.
+export function disclosedCards(player, result = {}) {
+  const cards = Array.isArray(player.cards) ? player.cards : [];
+  if (Array.isArray(player.shownIndices)) return cards.filter((_, i) => player.shownIndices.includes(i));
+  if (player.folded || player.showed === false || result.reason !== 'showdown') return [];
+  const won = Array.isArray(result.winners) && result.winners.some(w =>
+    (isSeatIndex(player.seat) && w.seat === player.seat) || (player.id != null && w.id === player.id));
+  return won ? cards : [];
 }
 
 /** Drops the cards of any showdown entry (winner or hand) whose seat is not revealed to this viewer. */
@@ -92,8 +92,8 @@ export function handForViewer(row, viewerId) {
   const me = players.find((p) => p.id === viewerId);
   if (!me) return null;
   const result = parseJson(row.result, {}) || {};
-  const visible = players.map((p) => p.id === viewerId || isRevealed(p, result));
-  const visibleSeats = new Set(players.filter((_, i) => visible[i]).map((p) => p.seat));
+  const visible = players.map(p => p.id === viewerId ? (p.cards || []) : disclosedCards(p, result));
+  const visibleSeats = new Set(players.filter((p, i) => isSeatIndex(p.seat) && visible[i].length && visible[i].length === p.cards.length).map(p => p.seat));
   const { button, blinds } = storedTableMeta(row.meta);
   const positions = seatPositions(players, button);
   return {
@@ -102,7 +102,7 @@ export function handForViewer(row, viewerId) {
     button, blinds,
     players: players.map((p, i) => ({
       ...p,
-      cards: visible[i] ? p.cards : [],
+      cards: visible[i],
       position: positions.get(p.seat) ?? null,
     })),
     heroCards: (me.cards || []).join(' '),

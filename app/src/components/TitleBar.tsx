@@ -78,7 +78,7 @@ export function TitleBar({ online, onOpenChat, onOpenSettings, onOpenNotificatio
         <button className="title-icon" title="Help & info" aria-label="Help and info" onClick={() => navigate('/support')}>
           <Icon name="info" />
         </button>
-        <button className="title-icon" title="Responsible gaming" aria-label="Responsible gaming" onClick={() => navigate('/settings')}>
+        <button className="title-icon" title="Responsible gaming" aria-label="Responsible gaming" onClick={() => navigate('/responsible-gaming')}>
           <Icon name="shield" />
         </button>
         <button className="title-icon" title="Connection" aria-label="Connection status" onClick={() => navigate('/settings')}>

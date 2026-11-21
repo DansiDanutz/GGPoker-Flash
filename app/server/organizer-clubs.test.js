@@ -69,8 +69,8 @@ test('verified receipt unlocks the paying member only and applies the split once
   const { db, clubs } = fixture();
   const bonuses = [];
   const ledger = createClubEntryLedger({db,clubs,merchantId:'dedicated',publisherUserId:2,grantBonus: b => bonuses.push(b)});
-  const order = ledger.create({organizerId:1,userId:3,paymentLinkId:'fixture-link',idempotencyKey:'knock'});
-  const paid = {id:'22222222-2222-4222-8222-222222222222',status:'paid',test:false,customerReference:order.reference,paymentLinkId:order.paymentLinkId,network:'polygon',currencyToken:'USDC',amountBaseUnits:'1000000',amountReceivedBaseUnits:'1000000',transactionId:'fixture-tx',paidAt:'2026-02-01T00:00:00Z',recipientWallet:'fixture-wallet'};
+  const order = ledger.create({organizerId:1,userId:3,quotedFeeCents:100,paymentLinkId:'fixture-link',idempotencyKey:'knock'});
+  const paid = {id:'22222222-2222-4222-8222-222222222222',status:'paid',test:false,customerReference:order.reference,paymentLinkId:order.paymentLinkId,network:'polygon',currencyToken:'USDC',amountBaseUnits:'1000000',amountReceivedBaseUnits:'1000000',transactionId:'fixture-tx',paidAt:order.createdAt,recipientWallet:'fixture-wallet'};
   assert.equal(clubs.canEnter(1,3),false);
   assert.throws(()=>verifyClubEntryPayment(order,{...paid,status:'pending'}));
   const receipt = verifyClubEntryPayment(order,paid);
@@ -78,7 +78,7 @@ test('verified receipt unlocks the paying member only and applies the split once
   assert.equal(clubs.canEnter(1,3),true);
   assert.equal(clubs.canEnter(1,6),false);
   assert.equal(ledger.settle(receipt).applied,false);
-  assert.deepEqual(bonuses.map(b=>[b.amount,b.nonredeemable]),[[6400,true]]);
+  assert.deepEqual(bonuses.map(b=>[b.amountCents,b.nonredeemable]),[[64,true]]);
   assert.equal(ledger.earnings(2).netCents,16);
   assert.equal(payment.platformRoyaltyCents,20);
 });

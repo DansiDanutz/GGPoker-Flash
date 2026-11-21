@@ -56,7 +56,7 @@ branding, desktop app name and operational identifiers belong to that implementa
 |---|---|
 | **Site** | https://dangg.live (and https://www.dangg.live) |
 | **Health** | `GET https://dangg.live/healthz` → `{"ok":true,…}` |
-| **Host** | DigitalOcean droplet **Dexter** (`46.101.219.116`), 2 vCPU / 8 GB, Frankfurt |
+| **Host** | DigitalOcean droplet **Dexter**, 2 vCPU / 8 GB, Frankfurt |
 | **Runtime** | Docker Compose project `dangro` → `dangro-game-1`, bound to `127.0.0.1:5198` |
 | **TLS / edge** | Shared Traefik v3 on the host, Let's Encrypt certificates, HTTP→HTTPS redirect |
 | **Data** | SQLite on the `dangro_game-data` volume |
@@ -110,12 +110,12 @@ pnpm smoke          # read-only smoke test against a running server
 ### Desktop app (Electron)
 
 ```bash
-./package_app.sh    # build, package, sign and relaunch ~/Applications/DanGG.app
+./package_app.sh    # quit the desktop app first; build, package, sign and relaunch ~/Applications/DanGG.app
 ```
 
 The app starts its own local server on `127.0.0.1:5198` and opens a frameless,
 resizable window (default 1200×961, minimum 360×640) with the same client. It is
-signed with a Developer ID identity (ad-hoc fallback if unavailable).
+signed with the DanGG Developer ID. Packaging stops if signing or verification fails. For local development without the signing identity, run `./package_app.sh --local-adhoc`; do not distribute that build.
 
 `GGPOKER_SERVER_URL=https://dangg.live` makes the desktop shell load the live server
 instead of starting a local one; admin access stays on the private tunnel.
@@ -296,7 +296,7 @@ Other players ────────────┘                           
   game supervisor; `table.js` is the table state machine; `poker.js` handles decks,
   shuffles and hand evaluation; `db.js` owns the SQLite schema, seeding, sessions and
   ledger; `security.js`/`validate.js` handle origin checks and input validation.
-- **Realtime** — each open table page opens a WebSocket to `/ws?token=…` and sends
+- **Realtime** — each open table page opens a WebSocket to `/ws` and sends
   `join_table`; the server can carry several tables on one socket. Clients send
   `action`, `chat`, `emote`, `option`, `rebuy`, `sit_out`, `rabbit`, `timebank` and
   `ping`; the server pushes every state change, and the client turns events into sounds
@@ -365,11 +365,12 @@ Useful environment variables:
 | `GGPOKER_DEV` | Development mode (allows Vite origin) |
 | `GGPOKER_SEED_DEMO` | Seed demo/guest accounts (on unless `0`; always off in production) |
 | `GGPOKER_ADMIN_PASSWORD` | Admin password (≥16 chars in production) |
-| `GGPOKER_ADMIN_ALLOW` | CIDR allowlist for admin endpoints. If unset in production, only loopback and Docker networks (`172.16.0.0/12`, the SSH tunnel path) are admitted |
+| `GGPOKER_ADMIN_ALLOW` | CIDR allowlist for admin endpoints. If unset in production, only direct loopback is admitted by default (verified forwarded loopback also matches) |
 | `GGPOKER_PUBLIC_ORIGIN` / `GGPOKER_ALLOWED_HOSTS` | Origin/host allowlists |
 | `GGPOKER_BIND` | Bind address (default `127.0.0.1`) |
 | `GGPOKER_DISCONNECT_GRACE_MS` | Seat hold after a dropped connection |
-| `GGPOKER_TRUST_PROXY` | Trust proxy headers behind Traefik |
+| `GGPOKER_TRUST_PROXY` | Set to 1 to enable forwarding from the exact peers listed below. |
+| `GGPOKER_TRUSTED_PROXY_IPS` | Comma-separated literal proxy peer IPs; default empty. Pin the immediate Traefik peer and any trusted intermediate proxies before rollout. Each must append its observed peer or replace the header with a verified client address. Missing trust groups public rate limits under the socket peer and blocks forwarded admin requests. |
 | `GGPOKER_REGISTER_LIMIT_PER_HOUR` | Accounts one client IP may create per hour (default 5) |
 | `GGPOKER_LOGIN_IP_LIMIT` | Failed sign-ins one client IP may make per 15 minutes, across all accounts (default 30) |
 | `GGPOKER_SERVER_URL` | Desktop shell: use a remote server instead of starting one |

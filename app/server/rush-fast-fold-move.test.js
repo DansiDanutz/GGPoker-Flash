@@ -221,3 +221,19 @@ test('foldOut is a no-op for a player still in the hand, a bot, a settled hand o
   assert.equal(pool.foldOut(holdem, 'H'), null);
   assert.ok(from.seatOf('H'));
 });
+
+test('a below-minimum stack retains its seat and chips after hand-end matchmaking', () => {
+  const from = rushTable('r1'), to = rushTable('r2');
+  handWithHero(from);
+  const { pool, wallet } = world([from, to]);
+  from.quickFold('H');
+  player(from,'H').stack = 99;
+  assert.equal(pool.foldOut(from,'H'), null);
+  from.street = 'ended';
+  pool.moveQueued(from);
+  assert.equal(player(from,'H').stack, 99);
+  assert.equal(player(from,'H').rushQueued, false);
+  assert.equal(to.seatOf('H'), undefined);
+  assert.equal(wallet.has('H'), false);
+  assert.equal(pool.waitingList().length, 0);
+});

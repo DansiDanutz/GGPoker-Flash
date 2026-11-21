@@ -52,20 +52,20 @@ test('a one-chip bounty is never rounded up for every tied winner', () => {
   assert.equal(events.filter(e => e.type === 'bounty').reduce((sum, e) => sum + e.amount, 0), 1);
 });
 
-test('a failed payout retries the same Mystery draw before ranking or clearing the busted seat', context => {
+test('a failed payout retries the same Mystery draw before ranking or clearing the busted seat', () => {
+  let firstDraw;
   const { awards } = settle([[100, ['Ah', 'Qd']], [100, ['As', 'Qc']], [100, ['Jh', 'Td']]], 50, table => {
     table.mystery = true;
     const original = table.hooks.onBounty;
-    table.hooks.onBounty = () => { throw new Error('temporary payout failure'); };
-    context.mock.method(Math, 'random', () => 0.2);
+    table.hooks.onBounty = (_table, award) => { firstDraw = structuredClone(award); throw new Error('temporary payout failure'); };
     assert.throws(() => table.tick(2), /temporary payout failure/);
     assert.equal(table.finished.length, 0);
     assert.equal(table.seats[2].player.id, 3);
-    context.mock.method(Math, 'random', () => 0.99);
     table.hooks.onBounty = original;
   });
-  assert.equal(awards[0].amount, 13, 'retry must not redraw the 500-chip tier');
-  assert.deepEqual(shares(awards[0]), [[2, 7], [1, 6]]);
+  assert.equal(awards.length, 1);
+  assert.equal(awards[0].amount, firstDraw.amount);
+  assert.deepEqual(awards[0].shares, firstDraw.shares);
 });
 
 test('Cash Chip bounty notifications preserve the whole-chip amount and unit', () => {

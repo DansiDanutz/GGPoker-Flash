@@ -4,7 +4,8 @@ const ORIGIN = 'https://nervixpay.live';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SCOPES = ['integrations:verify', 'payment_links:read', 'payment_links:write', 'payments:read'];
 function fail(message, status = 409) { throw Object.assign(new Error(message), { status, code: 'club_entry_payment_unverified' }); }
-function uuid(value) { if (typeof value !== 'string' || !UUID.test(value)) fail('Invalid payment identifier.', 400); return value; }
+export const isPaymentUuid = value => typeof value === 'string' && value.length === 36 && UUID.test(value);
+function uuid(value) { if (!isPaymentUuid(value)) fail('Invalid payment identifier.', 400); return value; }
 const price = cents => `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, '0')}`;
 
 export function clubEntryCheckoutUrl(order) {
@@ -26,7 +27,7 @@ export function verifyClubEntryPayment(order, payment) {
   // Accept the provider's sub-cent matching suffix and verified round-amount rescue, never an underpayment.
   if (quoted < expected || quoted >= expected + cent || received < expected || received >= expected + cent) fail('The settled amount does not match the entry price.');
   if (typeof payment.transactionId !== 'string' || !payment.transactionId || payment.transactionId.length > 200 || !payment.paidAt || !Number.isFinite(Date.parse(payment.paidAt)) || typeof payment.recipientWallet !== 'string' || !payment.recipientWallet) fail('The payment has no final settlement evidence.');
-  return { orderId: order.id, providerOrderId: payment.id, transactionId: payment.transactionId, network: payment.network, token: payment.currencyToken, amountBaseUnits: payment.amountReceivedBaseUnits };
+  return { orderId: order.id, providerOrderId: payment.id, paidAt: payment.paidAt, transactionId: payment.transactionId, network: payment.network, token: payment.currencyToken, amountBaseUnits: payment.amountReceivedBaseUnits };
 }
 
 export function createClubEntryProvider({ token, merchantId, fetchImpl = fetch, now = Date.now } = {}) {

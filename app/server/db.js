@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomUUID, createHash, scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { migrateIdentity } from './identity-migrations.js';
@@ -57,6 +57,7 @@ function init() {
   );
   CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
+    device_id TEXT NOT NULL,
     user_id INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     expires_at TEXT NOT NULL,
@@ -173,6 +174,11 @@ function init() {
     private INTEGER NOT NULL DEFAULT 0,
     bomb_pot INTEGER NOT NULL DEFAULT 0
   );
+  CREATE TABLE IF NOT EXISTS tournament_invites (tournament_id TEXT PRIMARY KEY REFERENCES tournaments(id) ON DELETE CASCADE, token TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS tourney_award_entries (
+    tournament_id INTEGER NOT NULL, user_id INTEGER NOT NULL, entry_id TEXT,
+    PRIMARY KEY(tournament_id,user_id)
+  );
   CREATE TABLE IF NOT EXISTS tourney_regs (
     tournament_id TEXT NOT NULL,
     user_id INTEGER NOT NULL,
@@ -242,19 +248,6 @@ function init() {
     data TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-  CREATE TABLE IF NOT EXISTS verifications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL UNIQUE,
-    full_name TEXT NOT NULL,
-    dob TEXT,
-    country TEXT,
-    doc_type TEXT,
-    doc_data TEXT,
-    status TEXT NOT NULL DEFAULT 'pending',
-    note TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    reviewed_at TEXT
-  );
   CREATE TABLE IF NOT EXISTS friend_requests (
     from_id INTEGER NOT NULL,
     to_id INTEGER NOT NULL,
@@ -288,6 +281,9 @@ function init() {
   );
   `);
 
+  if (!db.prepare('PRAGMA table_info(tourney_regs)').all().some(c => c.name === 'entry_id'))
+    db.exec('ALTER TABLE tourney_regs ADD COLUMN entry_id TEXT');
+  db.exec('INSERT OR IGNORE INTO tourney_award_entries(tournament_id,user_id,entry_id) SELECT tournament_id,user_id,entry_id FROM tourney_regs WHERE entry_id IS NOT NULL');
   try { db.exec('ALTER TABLE hands ADD COLUMN actions TEXT'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tables ADD COLUMN owner_id INTEGER'); } catch { /* already exists */ }
   try { db.exec('ALTER TABLE tables ADD COLUMN private INTEGER DEFAULT 0'); } catch { /* already exists */ }
@@ -341,12 +337,33 @@ function init() {
            WHEN day LIKE 'care-%' THEN substr(day, 6) ELSE day END,
       0, 1, amount
     FROM daily_claims`).run();
-  db.exec("DELETE FROM sessions WHERE expires_at <= datetime('now')");
+  if (!db.prepare('PRAGMA table_info(sessions)').all().some(col => col.name === 'device_id')) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.exec('ALTER TABLE sessions ADD COLUMN device_id TEXT');
+      const update = db.prepare('UPDATE sessions SET token = ?, device_id = ? WHERE token = ?');
+      for (const {token} of db.prepare('SELECT token FROM sessions').all()) {
+        update.run(sessionHash(token), randomUUID(), token);
+      }
+      db.exec('COMMIT');
+    } catch (error) { db.exec('ROLLBACK'); throw error; }
+  }
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_device ON sessions(device_id)');
+  db.exec("DELETE FROM sessions WHERE julianday(expires_at) <= julianday('now')");
   db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id, id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)');
   // Lobby AvgPot/VPIP/H-hr read the newest hands per table (table-stats.js).
   db.exec('CREATE INDEX IF NOT EXISTS idx_hands_table ON hands(table_id, id)');
   migrateIdentity(db);
+  // Existing negative wallets may recover incrementally, but cannot go further into debt.
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS user_wallet_floor_insert BEFORE INSERT ON users
+    WHEN NEW.balance < 0 OR NEW.gems < 0
+    BEGIN SELECT RAISE(ABORT, 'wallet floor'); END;
+    CREATE TRIGGER IF NOT EXISTS user_wallet_floor_update BEFORE UPDATE OF balance,gems ON users
+    WHEN NEW.balance < min(0, OLD.balance) OR NEW.gems < min(0, OLD.gems)
+    BEGIN SELECT RAISE(ABORT, 'wallet floor'); END;
+  `);
   const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
   if (!count) seed();
   ensurePloVariants();
@@ -618,7 +635,6 @@ function seed() {
 
   const settings = {
     site_name: 'DanGG',
-    online_base: 192000,
     jackpot: 199026635,
     rake_percent: 5,
     rake_cap: 300,
@@ -652,37 +668,136 @@ export function setSetting(key, value) {
     .run(key, JSON.stringify(value));
 }
 
-export function addTransactionEx(userId, kind, amount, memo, currency = 'USD', opts = {}) {
-  const { sessionId = null, reference = null, onDuplicate = 'throw', tournamentId = null } = opts;
-  const col = currency === 'PLAY' ? 'play_chips' : currency === 'TICKET' ? 'tickets' : currency === 'GEM' ? 'gems' : 'balance';
+function walletWrite(fn) {
   db.exec('BEGIN IMMEDIATE');
   try {
-    const row = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId);
-    if (!row) throw new Error('user not found');
-    if (reference) {
-      const predicted = row.v + amount;
-      const sql = onDuplicate === 'skip'
-        ? `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,reference) DO NOTHING`
-         : `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id) VALUES (?,?,?,?,?,?,?,?,?)`;
-      const info = db.prepare(sql).run(userId, kind, currency, amount, predicted, memo || '', sessionId, reference, tournamentId);
-      if (info.changes === 0) {
-        db.exec('COMMIT');
-        return { applied: false, balance: row.v };
-      }
-      db.prepare(`UPDATE users SET ${col} = ? WHERE id = ?`).run(predicted, userId);
-      db.exec('COMMIT');
-      return { applied: true, balance: predicted };
-    }
-    db.prepare(`UPDATE users SET ${col} = ${col} + ? WHERE id = ?`).run(amount, userId);
-    const after = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId).v;
-    db.prepare('INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,tournament_id) VALUES (?,?,?,?,?,?,?,?)')
-      .run(userId, kind, currency, amount, after, memo || '', sessionId, tournamentId);
+    const result = fn();
     db.exec('COMMIT');
-    return { applied: true, balance: after };
+    return result;
   } catch (err) {
     try { db.exec('ROLLBACK'); } catch { /* ignore */ }
     throw err;
   }
+}
+
+function recordWalletEntry(userId, kind, amount, memo, currency = 'USD', opts = {}) {
+  const { sessionId = null, reference = null, onDuplicate = 'throw', tournamentId = null } = opts;
+  const col = currency === 'PLAY' ? 'play_chips' : currency === 'TICKET' ? 'tickets' : currency === 'GEM' ? 'gems' : 'balance';
+  const row = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId);
+  if (!row) throw new Error('user not found');
+  if (opts.requiredFunds != null && row.v < opts.requiredFunds) {
+    throw Object.assign(new Error(currency === 'GEM' ? 'Not enough gems' : 'Insufficient balance'), { status: 400 });
+  }
+  if (reference) {
+    const predicted = row.v + amount;
+    const sql = onDuplicate === 'skip'
+      ? `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,strftime('%Y-%m-%d %H:%M:%f','now')) ON CONFLICT(user_id,reference) DO NOTHING`
+       : `INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,reference,tournament_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,strftime('%Y-%m-%d %H:%M:%f','now'))`;
+    const info = db.prepare(sql).run(userId, kind, currency, amount, predicted, memo || '', sessionId, reference, tournamentId);
+    if (info.changes === 0) {
+      return { applied: false, balance: row.v };
+    }
+    db.prepare(`UPDATE users SET ${col} = ? WHERE id = ?`).run(predicted, userId);
+    return { applied: true, balance: predicted };
+  }
+  db.prepare(`UPDATE users SET ${col} = ${col} + ? WHERE id = ?`).run(amount, userId);
+  const after = db.prepare(`SELECT ${col} v FROM users WHERE id = ?`).get(userId).v;
+  db.prepare("INSERT INTO transactions (user_id,kind,currency,amount,balance_after,memo,session_id,tournament_id,created_at) VALUES (?,?,?,?,?,?,?,?,strftime('%Y-%m-%d %H:%M:%f','now'))")
+    .run(userId, kind, currency, amount, after, memo || '', sessionId, tournamentId);
+  return { applied: true, balance: after };
+}
+
+export function addTransactionEx(...args) {
+  return walletWrite(() => recordWalletEntry(...args));
+}
+
+export function settleWager(userId, kind, stake, payout, memo, opts = {}) {
+  if (!Number.isSafeInteger(stake) || stake <= 0 || !Number.isSafeInteger(payout) || payout < 0) throw new Error('Invalid wager');
+  return addTransactionEx(userId, kind, payout - stake, memo, 'USD', { ...opts, requiredFunds: stake }).balance;
+}
+
+export function registerTournamentEntry(userId, t, entryId) {
+  const total = t.buyin + t.fee;
+  if (!Number.isSafeInteger(total) || total < 0) throw new Error('Invalid tournament entry price');
+  walletWrite(() => {
+    db.prepare('INSERT INTO tourney_regs(tournament_id,user_id,entry_id) VALUES(?,?,?)').run(t.id,userId,entryId);
+    // Awards may arrive after seat cleanup has removed the registration.
+    db.prepare('INSERT INTO tourney_award_entries VALUES(?,?,?) ON CONFLICT(tournament_id,user_id) DO UPDATE SET entry_id=excluded.entry_id').run(t.id,userId,entryId);
+    recordWalletEntry(userId, 'tourney_buyin', -total, `Registration ${t.name}`, 'USD', {
+      sessionId: entryId, tournamentId: t.id, reference: 'entry:' + entryId, requiredFunds: total,
+    });
+    db.prepare('UPDATE tournaments SET entrants=entrants+1 WHERE id=?').run(t.id);
+  });
+}
+
+export function refundTournamentEntry(userId, t) {
+  walletWrite(() => {
+    const receipt = db.prepare(`SELECT x.amount,r.entry_id FROM tourney_regs r JOIN transactions x
+      ON x.user_id=r.user_id AND x.tournament_id=r.tournament_id AND x.reference='entry:' || r.entry_id
+      WHERE r.tournament_id=? AND r.user_id=? AND x.kind='tourney_buyin' AND x.currency='USD' AND x.amount<=0`).get(t.id,userId);
+    if (!receipt) throw Object.assign(new Error('Entry receipt unavailable; contact support for reconciliation.'), { status: 409 });
+    recordWalletEntry(userId, 'tourney_refund', -receipt.amount, `Unregistration ${t.name}`, 'USD', {
+      sessionId: receipt.entry_id, tournamentId: t.id, reference: 'withdraw:' + receipt.entry_id,
+    });
+    db.prepare('UPDATE tourney_award_entries SET entry_id=NULL WHERE tournament_id=? AND user_id=? AND entry_id=?').run(t.id,userId,receipt.entry_id);
+    db.prepare('DELETE FROM tourney_regs WHERE tournament_id=? AND user_id=?').run(t.id,userId);
+    db.prepare('UPDATE tournaments SET entrants=MAX(0,entrants-1) WHERE id=?').run(t.id);
+  });
+}
+
+function tournamentAwardSession(userId, tournamentId) {
+  if (tournamentId) {
+    const current = db.prepare('SELECT entry_id FROM tourney_award_entries WHERE tournament_id=? AND user_id=?').get(tournamentId,userId);
+    if (current && !current.entry_id) throw new Error('Tournament entry was refunded; reconcile prize.');
+    if (current) return current.entry_id;
+  }
+  const entries = tournamentId ? db.prepare(`SELECT e.session_id FROM transactions e
+    WHERE e.user_id=? AND e.tournament_id=? AND e.kind='tourney_buyin' AND e.currency='USD'
+    AND e.reference='entry:' || e.session_id AND NOT EXISTS (SELECT 1 FROM transactions r
+      WHERE r.user_id=e.user_id AND r.reference='withdraw:' || e.session_id)
+    ORDER BY e.id DESC LIMIT 2`).all(userId,tournamentId) : [];
+  if (entries.length > 1) throw new Error('Ambiguous tournament entry; reconcile prize.');
+  return entries[0]?.session_id;
+}
+
+export function awardSatelliteTicket(userId, tournamentId, memo) {
+  return walletWrite(() => {
+    const sessionId = tournamentAwardSession(userId, tournamentId);
+    if (sessionId) {
+      const reference = 'prize:' + sessionId;
+      const prior = db.prepare('SELECT kind,amount FROM transactions WHERE user_id=? AND reference=?').get(userId, reference);
+      if (prior && (prior.kind !== 'tourney_win' || prior.amount !== 0)) throw new Error('Conflicting tournament award; reconcile prize.');
+      recordWalletEntry(userId, 'tourney_win', 0, memo, 'USD', { sessionId, tournamentId, reference, onDuplicate: 'skip' });
+    }
+    return recordWalletEntry(userId, 'satellite_win', 1, memo, 'TICKET', {
+      sessionId, tournamentId, reference: tournamentId ? 'satellite:ticket:' + tournamentId : null, onDuplicate: 'skip',
+    });
+  });
+}
+
+export function recordTournamentPrize(userId, tournamentId, kind, amount, memo, awardReference = null) {
+  return walletWrite(() => {
+    const sessionId = tournamentAwardSession(userId, tournamentId);
+    if (!sessionId && amount === 0) return;
+    const reference = awardReference ?? (sessionId ? 'prize:' + sessionId : null);
+    if (reference) {
+      const prior = db.prepare('SELECT kind,amount FROM transactions WHERE user_id=? AND reference=?').get(userId,reference);
+      if (prior) {
+        if (prior.amount !== amount || prior.kind !== kind) throw new Error('Conflicting tournament award; reconcile prize.');
+        return false;
+      }
+    }
+    recordWalletEntry(userId, kind, amount, memo, 'USD', { tournamentId, sessionId, reference });
+    return true;
+  });
+}
+
+export function buyOceanItem(userId, item) {
+  const memo = `Ocean store: ${item.name}`;
+  walletWrite(() => {
+    recordWalletEntry(userId, 'ocean_spend', -item.cost, memo, 'GEM', { requiredFunds: item.cost });
+    recordWalletEntry(userId, 'ocean', item.amount, memo, item.kind);
+  });
 }
 
 export function addTransaction(userId, kind, amount, memo, currency = 'USD', opts = {}) {
@@ -772,17 +887,33 @@ export function setMissionDone(userId, missionId) {
     ON CONFLICT(user_id, kind, period_key) DO UPDATE SET progress = excluded.progress, updated_at = datetime('now')`).run(userId, period, m.goal);
 }
 
+export function createAccountWithSession(login, nick, password, email, device) {
+  const hashed = hashPassword(password);
+  return walletWrite(() => {
+    const welcome = getSetting('welcome_bonus', 100000);
+    const start = getSetting('default_balance', 5000) + welcome;
+    const { lastInsertRowid: id } = db.prepare('INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,0,5)').run(login,nick,hashed,email);
+    recordWalletEntry(id, 'welcome', start, 'Welcome bonus');
+    db.prepare("INSERT INTO bonus_claims (user_id,claim_key,amount) VALUES (?,'welcome',?)").run(id,welcome);
+    return { user: db.prepare('SELECT * FROM users WHERE id=?').get(id), token: newSession(id, device) };
+  });
+}
+
+export function sessionHash(token) {
+  return createHash('sha256').update(token).digest('hex');
+}
+
 export function newSession(userId, device = '') {
   const token = randomUUID();
   const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
-  db.prepare('INSERT INTO sessions (token,user_id,expires_at,device) VALUES (?,?,?,?)').run(token, userId, expires, String(device).slice(0, 160));
+  db.prepare('INSERT INTO sessions (token,device_id,user_id,expires_at,device) VALUES (?,?,?,?,?)').run(sessionHash(token), randomUUID(), userId, expires, String(device).slice(0, 160));
   return token;
 }
 
 export function userByToken(token) {
   if (!token) return null;
   const row = db.prepare(`SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
-    WHERE s.token = ? AND s.expires_at > datetime('now') AND u.deleted_at IS NULL`).get(token);
+    WHERE s.token = ? AND julianday(s.expires_at) > julianday('now') AND u.deleted_at IS NULL`).get(sessionHash(token));
   return row || null;
 }
 

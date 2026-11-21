@@ -50,7 +50,7 @@ async function api(endpoint, { token, method = 'GET', body } = {}) {
 }
 
 function openSocket(token) {
-  const socket = new WebSocket(`${sandbox.api.replace('http:', 'ws:')}/ws?token=${encodeURIComponent(token)}`);
+  const socket = new WebSocket(`${sandbox.api.replace('http:', 'ws:')}/ws`, { headers: { authorization: `Bearer ${token}` } });
   const inbox = [];
   const waiters = [];
   socket.on('message', (raw) => {
@@ -136,7 +136,7 @@ async function drag(x1, y1, x2, y2) {
   }
 }
 
-async function driveBrowserHeroToFlop(clients, tableId, untilReveal = false) {
+async function driveBrowserHeroToFlop(clients, tableId, untilReveal = false, checkFlop = false) {
   const acted = new Set();
   const handlers = clients.map((client) => (raw) => {
     const message = JSON.parse(String(raw));
@@ -154,21 +154,19 @@ async function driveBrowserHeroToFlop(clients, tableId, untilReveal = false) {
   try {
     const end = Date.now() + 25000;
     while (Date.now() < end) {
-      if (untilReveal && await page.$('.cardSqueeze')) return;
-      const ready = await page.evaluate(() => document.querySelectorAll('.board > .pcard').length >= 3
-        && Boolean(document.querySelector('.action-bar .act-btn:not(:disabled)')));
-      if (ready && !untilReveal) return;
-      const selector = await page.evaluate(() => {
-        if (document.querySelector('.action-bar .act-check:not(:disabled)')) return '.action-bar .act-check:not(:disabled)';
-        if (document.querySelector('.action-bar .act-call:not(:disabled)')) return '.action-bar .act-call:not(:disabled)';
-        return '';
-      });
-      if (selector) {
-        // Re-read the turn if the server disables the button after discovery.
-        await page.locator(selector).setTimeout(500).click().catch((error) => {
-          if (error?.name !== 'TimeoutError') throw error;
-        });
-      }
+      // Read and act in one browser task: a locator retry could click the next street's button.
+      const ready = await page.evaluate((untilReveal, checkFlop) => {
+        if (untilReveal && document.querySelector('.cardSqueeze')) return true;
+        const action = document.querySelector('.main-actions .act-check:not(:disabled), .main-actions .act-call:not(:disabled)');
+        if (!action) return false;
+        if (!untilReveal && document.querySelectorAll('.board > .pcard').length >= 3) {
+          if (!checkFlop) return true;
+          if (action.matches('.act-check')) { action.click(); return true; }
+        }
+        action.click();
+        return false;
+      }, untilReveal, checkFlop);
+      if (ready) return;
       await new Promise((resolve) => setTimeout(resolve, 80));
     }
     throw new Error(`Timed out driving ${tableId} to the browser hero's flop action.`);
@@ -177,7 +175,7 @@ async function driveBrowserHeroToFlop(clients, tableId, untilReveal = false) {
   }
 }
 
-async function capture(kind, width, height) {
+async function capture(kind, width, height, clients, tableId) {
   if (!phone) await page.setViewport({ width, height, deviceScaleFactor: 1, isMobile: !desktop, hasTouch: !desktop });
   await page.waitForSelector(`.table-screen .table-stage.stage-${desktop ? 'wide' : 'portrait'}`, { visible: true });
   await page.waitForFunction((expectedWidth, desktop) => {
@@ -223,6 +221,8 @@ async function capture(kind, width, height) {
     const style = getComputedStyle(n);
     return style.backgroundColor !== 'rgba(0, 0, 0, 0)' && Number(style.opacity) === 1;
   })), 'Identity plates have solid readable backing');
+  // A viewport change can reconnect the seat. Restore its turn before inspecting betting controls.
+  await driveBrowserHeroToFlop(clients, tableId);
   assert.ok(await page.$eval('.main-actions', n => { const s=getComputedStyle(n, '::after'); return s.display === 'none' || s.content === 'none'; }), 'Slider has no decorative backing panel');
   assert.ok(await page.$$eval('.table-topbar, .action-bar', nodes => nodes.every(n => getComputedStyle(n).backdropFilter === 'none')), 'Header and footer have no rectangular blur panels');
   if (!desktop && width === viewports[0][0] && !await page.$('.tchat-dock.betting-active')) {
@@ -306,7 +306,7 @@ async function verifyAutomaticReveal(clients, tableId, kind) {
   await page.screenshot({path:path.join(artifacts, `${kind}-automatic-reveal.png`)});
   await Promise.all([
     page.waitForSelector('.squeeze-particles'),
-    phone ? page.$eval('.squeezeOpen', n => { const r=n.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; }).then(({x,y})=>page.touchscreen.tap(x,y)) : page.click('.squeezeOpen'),
+    phone ? page.$eval('.squeezeOpen', n => { const r=n.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; }).then(({x,y})=>page.touchscreen.tap(x,y)) : page.locator('.cardSqueeze .squeezeOpen:not(:disabled)').click(),
   ]);
   await page.waitForSelector('.cardSqueeze', {hidden:true});
   assert.equal(await page.$('.squeeze-particles'), null);
@@ -404,7 +404,7 @@ try {
   await page.waitForSelector('.ls-content:not([inert])');
   await driveBrowserHeroToFlop(cashClients, cash.id);
   for (const [width, height] of viewports) {
-    layouts[`cash-${width}`] = await capture('cash', width, height);
+    layouts[`cash-${width}`] = await capture('cash', width, height, cashClients, cash.id);
   }
   await verifyAutomaticReveal(cashClients, cash.id, 'cash');
   if (!phone) await page.setViewport({ width: viewports[0][0], height: viewports[0][1], deviceScaleFactor: 1, isMobile: !desktop, hasTouch: !desktop });
@@ -433,12 +433,12 @@ try {
   await page.waitForSelector('.seat.me', { visible: true });
   await driveBrowserHeroToFlop(tournament.clients, tournament.tableId);
   for (const [width, height] of viewports) {
-    layouts[`tournament-${width}`] = await capture('tournament', width, height);
+    layouts[`tournament-${width}`] = await capture('tournament', width, height, tournament.clients, tournament.tableId);
   }
   await verifyAutomaticReveal(tournament.clients, tournament.tableId, 'tournament');
   if (!phone) await page.setViewport({ width: viewports[0][0], height: viewports[0][1], deviceScaleFactor: 1, isMobile: !desktop, hasTouch: !desktop });
-  await page.waitForFunction(() => Boolean(document.querySelector('.action-bar .act-check:not(:disabled)')));
-  await page.click('.action-bar .act-check:not(:disabled)');
+  await driveBrowserHeroToFlop(tournament.clients, tournament.tableId, false, true);
+  await page.waitForFunction(() => !document.querySelector('.action-bar .act-check:not(:disabled)'));
   for (const [width, height] of viewports) layouts[`tournament-waiting-${width}`] = await captureTournamentWaiting(width, height);
   if (!phone && !desktop) {
     const route = page.url();

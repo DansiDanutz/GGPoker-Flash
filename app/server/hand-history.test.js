@@ -124,3 +124,21 @@ test('seatPositions ignores players who sat out of the hand', () => {
 test('seatPositions yields no labels without a valid button', () => {
   for (const button of [null, undefined, -1, 'x']) assert.equal(seatPositions([seated(1, 0), seated(2, 1)], button).size, 0);
 });
+
+test('one shown Omaha card never publishes the other three through history or HUD', async () => {
+  const { playerHud } = await import('./table-stats.js');
+  const cards = ['Kh', 'Js', '9s', '3h'];
+  const target = seated(2, 1, { cards, showed: true, shownIndices: [1] });
+  const view = (player) => rowWith({players: [seated(1, 0), player], result: { reason: 'fold', hands: [{seat:1,cards}] }});
+  for (const folded of [true,false]) {
+    const row = view({...target, folded});
+    const projected = handForViewer(row, 1);
+    assert.deepEqual(projected.players[1].cards, ['Js']);
+    assert.deepEqual(playerHud([row], {id:2}).recent[0].cards, ['Js']);
+    for (const hidden of ['Kh','9s','3h']) assert.ok(!JSON.stringify(projected).includes(hidden));
+    assert.deepEqual(handForViewer(row, 2).players[1].cards, cards);
+  }
+  const {shownIndices, ...ambiguous} = target;
+  assert.deepEqual(handForViewer(view(ambiguous),1).players[1].cards, []);
+  assert.equal(playerHud([view(ambiguous)],{id:2}).recent[0].cards,null);
+});

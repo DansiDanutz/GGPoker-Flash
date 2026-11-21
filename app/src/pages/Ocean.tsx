@@ -141,7 +141,7 @@ export function GGCare() {
             <div className="th-kicker">#THANKSDANGG</div>
             <h1>Player Care</h1>
             <p>Bad beat protection, daily prizes and a thank-you for playing.</p>
-            <div className="care-jackpot">Bad Beat Jackpot <b>{money(data?.jackpot || 199026635)}</b></div>
+            <div className="care-jackpot">Bad Beat Jackpot <b>{data?.jackpot == null ? '—' : money(data.jackpot)}</b></div>
           </div>
         </div>
 
@@ -155,10 +155,10 @@ export function GGCare() {
           </div>
           <div className="card">
             <div className="panel-title">Bad beat jackpot</div>
-            <div className="kv"><span>Current pool</span><b className="gold">{money(data?.jackpot || 199026635)}</b></div>
-            <div className="kv"><span>Qualifying hand</span><b>Aces full of tens</b></div>
-            <div className="kv"><span>Loser share</span><b>40%</b></div>
-            <div className="kv"><span>Table share</span><b>20%</b></div>
+            <div className="kv"><span>Current pool</span><b className="gold">{data?.jackpot == null ? '—' : money(data.jackpot)}</b></div>
+            <div className="kv"><span>Qualifying hand</span><b>Hold’em: quad eights or better with both hole cards. Omaha: straight flush or better.</b></div>
+            <div className="kv"><span>Pool paid per hit</span><b>10%</b></div>
+            <div className="kv"><span>Beating hand’s share of payout</span><b>25%, rounded down</b></div>
           </div>
           <div className="card">
             <div className="panel-title">Your care status</div>
@@ -172,9 +172,9 @@ export function GGCare() {
         <div className="panel-title" style={{ marginTop: 18 }}>How it works</div>
         <div className="grid g3">
           {[
-            ['1', 'Play any cash game', 'Every raked hand contributes to the jackpot.'],
-            ['2', 'Lose with a monster', 'Aces full of tens or better, using both hole cards.'],
-            ['3', 'Get paid', 'The loser, the winner and the table share the pool.'],
+            ['1', 'Play an eligible cash game', 'The jackpot is paid on qualifying single-board showdowns.'],
+            ['2', 'Lose an eligible pot', 'Your qualifying hand must lose to a stronger hand.'],
+            ['3', 'Split the payout', 'Other dealt-in players split 25%. The beaten hand receives the balance, including rounding and any unallocated table share.'],
           ].map(([n, t, b]) => (
             <div key={n} className="card"><div style={{ fontSize: 22, color: '#e7b64b', fontWeight: 900 }}>{n}</div><b style={{ color: '#eee' }}>{t}</b><div className="muted small">{b}</div></div>
           ))}

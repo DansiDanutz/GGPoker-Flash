@@ -64,7 +64,7 @@ export const HTML_CSP = [
   "img-src 'self' data: blob:",
   "media-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' ws://127.0.0.1:* ws://localhost:*",
+  process.env.NODE_ENV === 'production' ? "connect-src 'self'" : "connect-src 'self' ws://127.0.0.1:* ws://localhost:*",
   "object-src 'none'",
   "base-uri 'self'",
   "frame-ancestors 'none'",

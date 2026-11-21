@@ -25,10 +25,13 @@ function headsUp() {
 
 test('a card marked during the hand is shown to the table when the hand ends', () => {
   const { t, events, actor, other } = headsUp();
+  let stored;
+  t.hooks.onHandSave = hand => { stored = hand; };
   assert.deepEqual(t.markShowAtEnd(other.id, [1]), { ok: true, showAtEnd: [1] });
   t.act(actor.id, 'fold', 0);
   assert.equal(t.street, 'ended');
   assert.deepEqual(other.shown, [1]);
+  assert.deepEqual(stored.players.find(p => p.id === other.id).shownIndices, [1]);
   const shown = events.find((e) => e.type === 'cards_shown');
   assert.equal(shown.playerId, other.id);
   assert.deepEqual(shown.indices, [1]);

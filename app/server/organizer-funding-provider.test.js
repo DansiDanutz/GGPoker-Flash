@@ -41,7 +41,8 @@ test('token replacement gets a distinct readiness cache and authorization header
  let current={merchantId:'merchant',token:'token-one'};const headers=[];
  const provider=createOrganizerFundingProviders({connections:{},resolveConnection:()=>current,fetchImpl:async(_url,init)=>(headers.push(init.headers.authorization),Response.json(verification('merchant')))}).forOrganizer('organizer-1');
  assert.equal(await provider.ready(),true);current={merchantId:'merchant',token:'token-two'};assert.equal(await provider.ready(),true);
- assert.deepEqual(headers,['Bearer token-one','Bearer token-two']);
+ current={merchantId:'merchant',token:'token-one'};assert.equal(await provider.ready(),true);
+ assert.deepEqual(headers,['Bearer token-one','Bearer token-two','Bearer token-one']);
 });
 
 test('disconnect or replacement during fetch fails closed before returning provider data',async()=>{
@@ -77,22 +78,12 @@ test('creation recovery reuses exact live links and rejects wrong amount or netw
  }
 });
 
-test('cancellation disables checkout and fails closed on existing or incomplete payment history',async()=>{
- for(const items of [[],[{paymentLinkId:link.id,status:'pending'}],Array.from({length:100},()=>({paymentLinkId:'other'}))]){
-  const calls=[];
-  const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{calls.push({url,method:init.method});return Response.json(init.method==='PATCH'?{paymentLink:{...link,active:false}}:{items});}}).forOrganizer('organizer-1');
-  const run=()=>provider.cancelLink({...row,paymentLinkId:link.id});
-  if(items.length)await assert.rejects(run,/reconciliation/);else await run();
-  assert.equal(calls[0].method,'PATCH');assert.match(calls[1].url,/payments\?limit=100$/);
- }
-});
-
 test('cancellation recovers saved unattached checkout and refuses unknown creation outcome',async()=>{
  const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE organizer_funding_provider_links(request_id TEXT,organizer_id TEXT,link_id TEXT)');
  const calls=[];const provider=createOrganizerFundingProviders({connections:{'organizer-1':{merchantId:'merchant',token:'token'}},fetchImpl:async(url,init)=>{calls.push(url);return Response.json(init.method==='PATCH'?{paymentLink:{...link,active:false}}:{items:[]});}}).forOrganizer('organizer-1');
- await assert.rejects(()=>provider.cancelLink(row,db),/unresolved/);assert.equal(calls.length,0);
+ await assert.rejects(()=>provider.disableLink(row,db),/unresolved/);assert.equal(calls.length,0);
  db.prepare('INSERT INTO organizer_funding_provider_links VALUES(?,?,?)').run(row.id,row.organizerId,link.id);
- await provider.cancelLink(row,db);assert.match(calls[0],new RegExp(link.id));assert.equal(calls.length,2);
+ await provider.disableLink(row,db);assert.match(calls[0],new RegExp(link.id));assert.equal(calls.length,1);
 });
 
 test('existing two-asset funding links remain usable without creating a new link',async()=>{
@@ -103,4 +94,25 @@ test('existing two-asset funding links remain usable without creating a new link
   return Response.json({items:[legacy]});
  }}).forOrganizer('organizer-1');
  assert.equal(await provider.linkForRequest(db,row),legacy.id);assert.equal(await provider.linkForRequest(db,row),legacy.id);assert.equal(creates,0);
+});
+
+test('clearance requires the original merchant and link, including recovery before attachment',async()=>{
+ const db=new DatabaseSync(':memory:');
+ db.exec('CREATE TABLE organizer_funding_provider_links(request_id TEXT,organizer_id TEXT,link_id TEXT,merchant_id TEXT)');
+ db.prepare('INSERT INTO organizer_funding_provider_links VALUES(?,?,?,?)').run(row.id,row.organizerId,link.id,'original');
+ let merchantId='replacement', calls=0;
+ const expected={mode:'live',merchantId:'original',paymentLinkId:link.id,status:'terminal_unpaid'};
+ let clearance=expected;
+ const provider=createOrganizerFundingProviders({connections:{},resolveConnection:()=>({merchantId,token:'fixture'}),fetchImpl:async()=>{
+   calls++; return Response.json({clearance});
+ }}).forOrganizer(row.organizerId);
+ await assert.rejects(provider.clearance(row,db),/Original merchant/);
+ merchantId='original';
+ await assert.rejects(provider.clearance({...row,paymentLinkId:'different'},db),/Original merchant/);
+ assert.equal(calls,0);
+ for(const mismatch of [{mode:'test'},{merchantId:'replacement'},{paymentLinkId:'other'},{status:'expired'},{status:'paid',paymentId:null}]){
+   clearance={...expected,...mismatch};await assert.rejects(provider.clearance(row,db),/invalid payment clearance/);
+ }
+ clearance=expected;assert.deepEqual(await provider.clearance(row,db),expected);
+ db.close();
 });

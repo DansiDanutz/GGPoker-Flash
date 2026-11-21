@@ -12,7 +12,7 @@ Fails on **Context Sufficiency (§0)** and **Root Problem Focus (§1)**. Conditi
 ### F1 — Blocker · Context Sufficiency · Whole document
 
 **Finding:** Nothing states whether this is a forward plan, a design being approved, or a retrospective record of code that already exists. The status says "In Review" while every entry in the "Detailed Implementation Plan" is `(Modify)` except the document itself. The context already describes the system as shipped, with run instructions and a packaged app.
-**Recommendation:** Add a header block: what exists today, what this document decides, what review is requested, and links to `README.md` and `research/REVERSE_ENGINEERING.md`.
+**Recommendation:** Add a header block: what exists today, what this document decides, what review is requested, and links to `README.md` and `docs/ARCHITECTURE.md`.
 
 ### F2 — Blocker · Root Problem Focus · L23–L49
 

@@ -1,0 +1,43 @@
+name: Release image check
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - deploy/Dockerfile
+      - .dockerignore
+      - LICENSE
+      - 'LICENSES/**'
+      - THIRD-PARTY-NOTICES.txt
+      - app/package.json
+      - app/pnpm-lock.yaml
+      - app/vite.config.ts
+      - app/tools/verify-source-build.mjs
+      - .github/workflows/release-image.yml
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the release image
+        env:
+          SOURCE_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          docker build --file deploy/Dockerfile --tag dangg-image-check \
+            --build-arg GIT_SHA="$(git rev-parse HEAD)" --build-arg SOURCE_REPOSITORY="$SOURCE_REPOSITORY" .
+      - name: Verify files from the final runtime image
+        working-directory: app
+        env:
+          SOURCE_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -eu
+          output=$(mktemp -d)
+          container=$(docker create dangg-image-check)
+          trap 'docker rm -v "$container" >/dev/null' EXIT
+          docker cp "$container:/app/dist/." "$output"
+          node tools/verify-source-build.mjs "$output"

@@ -160,7 +160,7 @@ try {
   await page.locator('.rake-lab button[type=submit]').click();
   await page.waitForFunction(() => document.querySelector('.rake-lab [role=status]')?.textContent.includes('No flop, no rake'));
   assert.deepEqual(await page.$$eval('.rake-lab dd', nodes => nodes.map(node => node.textContent)), ['6,000 chips', '0 chips', '6,000 chips']);
-  for (const toast of await page.$$('.toasts .toast')) await toast.click();
+  await page.evaluate(() => document.querySelectorAll('.toasts .toast').forEach(toast => toast.click()));
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewport({ width, height: 1000 });
     await page.waitForFunction(phone => !!document.querySelector('.pshell') === phone, {}, width <= 760);

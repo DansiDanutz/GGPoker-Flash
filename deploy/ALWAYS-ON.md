@@ -14,7 +14,7 @@ the DigitalOcean droplet `Dexter`; the Mac is not part of the serving path.
 | Loss of the droplet | `nano-backup-pull.sh` on Nano, 05:00 UTC, 30 days | host loss, disk failure |
 | Droplet / route / certificate outage | `nano-uptime-check.sh` on Nano every 5 min → Discord | anything Dexter cannot report itself |
 | TLS expiry | Let's Encrypt through Traefik, auto-renewed | certificate expiry |
-| DNS | `dangg.live` → `46.101.219.116` at Namecheap | — |
+| DNS | `dangg.live` → the allocated droplet IPv4 at Namecheap | — |
 
 The watchdog only helps while Dexter is alive. The last two rows run on the
 **other** droplet, so they still notice when Dexter is unreachable.
@@ -29,13 +29,94 @@ unhealthy — it does **not** restart it. That gap is why the watchdog exists.
 cooldown so a genuinely broken build does not get restarted in a tight loop, and
 it keeps `keepalive.log` bounded at ~1 MiB.
 
-Install or reinstall on the host:
+Deploy and keepalive both take an exclusive, nonblocking `flock` on
+`deploy/.maintenance.lock` on the game host. Keepalive skips a busy lock **before**
+probing or updating its cooldown. It holds the lock through any restart and follow-up
+probe. Deploy refuses a busy lock; retry after the watchdog or other rollout exits.
+Never remove or replace the lock file: the kernel releases the lock on exit.
+
+### First upgrade from the old watchdog
+
+Run the block below in **Bash on the operator Mac**, from the reviewed DanGG checkout
+you will use for rollout. Use the same Dexter deploy account that owns the watchdog
+cron entry. Schedule a quiet window: no deploys, manual watchdog runs, or crontab
+edits until the upgrade finishes. This procedure installs the watchdog only; it
+does not invoke the watchdog, restart the game, or deploy the app.
+
+It stages the committed script without changing the running one. It then pauses
+only the documented cron entry, waits a full two-minute schedule interval plus a
+margin for cron to reload, and checks for any surviving old process. Pausing cron
+alone does **not** stop a run already in progress.
 
 ```bash
-scp deploy/keepalive.sh dexter:~/dangro/deploy/keepalive.sh
-ssh dexter 'chmod +x ~/dangro/deploy/keepalive.sh'
-ssh dexter 'crontab -e'
+set -euo pipefail
+candidate=$(git rev-parse HEAD:deploy/keepalive.sh)
+digest=$(git cat-file blob "$candidate" | shasum -a 256 | awk '{print $1}')
+stage=$(ssh dexter 'umask 077; mktemp -d "$HOME/dangro/deploy/.watchdog-upgrade.XXXXXXXX"')
+printf 'Upgrade files and crontab backup: %s\n' "$stage"
+git cat-file blob "$candidate" | ssh dexter "cat > '$stage/keepalive.new'"
+
+ssh dexter "bash -s -- '$stage' '$digest'" <<'UPGRADE'
+set -euo pipefail
+umask 077
+cd "$1"
+watchdog="$HOME/dangro/deploy/keepalive.sh"
+entry="*/2 * * * * $watchdog >/dev/null 2>&1"
+printf '%s  keepalive.new\n' "$2" | sha256sum -c -
+bash -n keepalive.new
+grep -Fq 'exec 9>>.maintenance.lock' keepalive.new
+grep -Fq 'flock -n -E 75 9' keepalive.new
+cp -p "$watchdog" keepalive.old
+
+# 1. Pause exactly one existing entry. Leave backups and unrelated jobs intact.
+crontab -l > cron.before
+awk -v entry="$entry" '$0 == entry { print "# paused for watchdog upgrade: " $0; n++; next }
+  !/^[[:space:]]*#/ && /keepalive[.]sh/ { unexpected=1 }
+  { print } END { if (n != 1 || unexpected) exit 1 }' cron.before > cron.paused
+crontab -l | cmp -s - cron.before
+crontab cron.paused
+crontab -l | cmp -s - cron.paused
+
+# 2. Drain; do not kill a watchdog in the middle of a restart or recovery probe.
+sleep 125
+deadline=$((SECONDS + 120))
+while :; do
+  status=0
+  pgrep -a -u "$(id -u)" -f '(^|[ /])[k]eepalive[.]sh([[:space:]]|$)' || status=$?
+  case "$status" in
+    1) break ;;                  # no matching watchdog
+    0) ;;                        # still running; wait and check again
+    *) exit "$status" ;;         # process check failed; leave cron paused
+  esac
+  (( SECONDS < deadline )) || { echo 'Old watchdog still running; cron remains paused.' >&2; exit 1; }
+  sleep 2
+done
+
+# 3. Install on the same filesystem, by atomic rename, and verify installed bytes.
+chmod 0755 keepalive.new
+mv -f keepalive.new "$watchdog"
+printf '%s  %s\n' "$2" "$watchdog" | sha256sum -c -
+
+# 4. Restore the exact original schedule only if nobody edited it while paused.
+crontab -l | cmp -s - cron.paused
+crontab cron.before
+crontab -l | cmp -s - cron.before
+echo 'Lock-aware watchdog installed; original cron schedule verified.'
+UPGRADE
 ```
+
+If the schedule differs from the example, inspect it before proceeding; do not add
+a second watchdog entry. If interrupted after pausing, inspect the current crontab
+and the saved files in the printed directory. Complete the drain and verify the
+installed script before re-enabling. If unrelated cron entries changed, use
+`crontab -e` to restore **only** the paused line instead of loading the old backup.
+Keep these private recovery files until the upgrade has been verified.
+
+On the next rollout, a scheduled watchdog skips before its first probe whenever
+deploy holds the lock, including during startup health checks. Do not remove the
+lock file or trigger a live restart to test installation.
+
+The reference deploy-user schedule is:
 
 ```cron
 */2 * * * * /home/Dexter1981/dangro/deploy/keepalive.sh >/dev/null 2>&1
@@ -70,7 +151,7 @@ snapshots without `--delete`, so files Dexter prunes stay on Nano until its own
 `backup.sh` also removes the snapshot it leaves in the live data volume, so the only
 copies are in `deploy/backups/` and on Nano. It authenticates with
 Nano's existing key, which is trusted by Dexter's `authorized_keys`, and connects over the
-tailnet (`Dexter1981@100.94.135.19:22`), so no public SSH exception is needed for backups.
+tailnet (set `DANGGRO_HOST` to the private SSH destination in the backup account’s crontab before upgrading the pull script), so no public SSH exception is needed for backups.
 The hourly ring in `backups/hourly/` is deliberately excluded from the pull: it only covers
 mistakes while Dexter is alive, and mirroring 24 snapshots a day off-host would need its own
 retention.

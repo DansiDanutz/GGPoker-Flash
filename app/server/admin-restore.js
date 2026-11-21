@@ -95,23 +95,25 @@ async function readJsonBody(req) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new RestoreError(400, 'Invalid JSON body'); }
 }
 
-/** Validate `buf` in a temp dir outside `dataDir`, then atomically stage it as the pending restore. */
-export async function stagePendingRestore(buf, { dataDir, tempRoot = os.tmpdir() }) {
+/** Validate a private copy of the upload or snapshot, then atomically stage it for restart. */
+export async function stagePendingRestore(buf, { dataDir, tempRoot = os.tmpdir(), snapshotPath }) {
   const dir = await fsp.mkdtemp(path.join(tempRoot, 'dangg-restore-'));
   const temp = path.join(dir, 'upload.db');
   try {
-    await fsp.writeFile(temp, buf);
+    if (snapshotPath) await fsp.copyFile(snapshotPath, temp, fs.constants.COPYFILE_EXCL);
+    else await fsp.writeFile(temp, buf);
     const check = checkDatabaseFile(temp);
     if (!check.ok) throw new RestoreError(400, `Invalid backup: ${check.reason}`);
+    const { size } = await fsp.stat(temp);
     const staging = path.join(dataDir, `.${PENDING_NAME}.${randomBytes(6).toString('hex')}.tmp`);
     try {
-      await fsp.writeFile(staging, buf, { flag: 'wx' });
+      await fsp.copyFile(temp, staging, fs.constants.COPYFILE_EXCL);
       await fsp.rename(staging, path.join(dataDir, PENDING_NAME));
     } catch (err) {
       await fsp.rm(staging, { force: true });
       throw err;
     }
-    return { size: buf.length };
+    return { size };
   } finally {
     await fsp.rm(dir, { recursive: true, force: true });
   }
@@ -122,8 +124,8 @@ export async function stagePendingRestore(buf, { dataDir, tempRoot = os.tmpdir()
  * the snapshot restore so both take the same path. `source` prefixes the audit detail when set.
  * @returns {Promise<{ size: number }>} throws RestoreError when the bytes are not a usable DB
  */
-export async function queueRestore({ db, dataDir, tempRoot, buf, actor, source = '' }) {
-  const { size } = await stagePendingRestore(buf, { dataDir, tempRoot });
+export async function queueRestore({ db, dataDir, tempRoot, buf, snapshotPath, actor, source = '' }) {
+  const { size } = await stagePendingRestore(buf, { dataDir, tempRoot, snapshotPath });
   db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)')
     .run(actor, 'restore_queued', `${source ? `${source}; ` : ''}${size} bytes; applies on next restart`);
   return { size };

@@ -29,6 +29,7 @@ try {
   const owner = await post('/api/auth/register', null, { login: 'funding_owner', nick: 'Emerald host', password: 'disposable-funding-pass' });
   const member = await post('/api/auth/register', null, { login: 'funding_member', nick: 'Chip requester', password: 'disposable-funding-pass' });
   const db = new DatabaseSync(path.join(srv.dataDir, 'ggpoker.db'));
+  db.exec('PRAGMA busy_timeout = 5000'); // The fixture and its server write from separate processes.
   db.prepare("INSERT INTO organizer_billing_memberships VALUES(?,'organizer',1,'2099-01-01T00:00:00.000Z')").run(owner.user.id);
   const chips = createOrganizerChips({ db });
   db.exec('BEGIN IMMEDIATE');

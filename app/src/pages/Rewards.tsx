@@ -111,12 +111,7 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
             {section === 'about' && (
               <div className="ocean-about">
                 <h2>About DanGG Rewards</h2>
-                <p>DanGG Rewards turns every hand into progress. Earn TP by playing, climb from Fish to Shark and unlock a higher GEM multiplier and cashback along the way.</p>
-                <div className="ocean-about-grid">
-                  <div><b>TP</b><span>Tournament points earned from raked hands and tournaments. The yearly reset keeps the reef competitive.</span></div>
-                  <div><b>GEM multiplier</b><span>Multiplies the gems you collect in the GEM Store and from daily play.</span></div>
-                  <div><b>Cashback</b><span>A share of your rake returned automatically — ~16% at Fish, up to ~80% at Shark.</span></div>
-                </div>
+                <p>Your Ocean rank follows your account XP. The tier table shows the XP needed for each rank, from Fish to Shark.</p>
                 <button type="button" className="ocean-back" onClick={() => setSection('level')}>← Back to my ocean level</button>
               </div>
             )}
@@ -148,22 +143,18 @@ export function Rewards({ initialTab = 'ggpass' }: { initialTab?: string } = {})
                   <b style={{ color: '#ffe6a6' }}>Daily freebie</b>
                   <span style={{ fontSize: 26 }}>🎁</span>
                 </div>
-                <p className="muted small" style={{ margin: '4px 0 10px' }}>One free gift every day. Open it to receive up to {money(5000)}.</p>
+                <p className="muted small" style={{ margin: '4px 0 10px' }}>Claim {money(500)} to {money(5250)} in play chips once per UTC day.</p>
                 <button className="btn btn-gold btn-block btn-sm" disabled={daily.claimed || claiming} onClick={claimDaily}>
                   {daily.claimed ? `Claimed ${money(daily.amount)}` : claiming ? 'Opening…' : 'Open today\'s gift'}
                 </button>
               </div>
               <div className="card">
                 <div className="between"><b style={{ color: '#eee' }}>Bad beat jackpot</b><span style={{ fontSize: 22 }}>💥</span></div>
-                <p className="muted small" style={{ margin: '4px 0 10px' }}>Lose with aces full of tens or better and win a share of the jackpot.</p>
-                <div className="progress"><i style={{ width: '64%' }} /></div>
-                <div className="between small muted" style={{ marginTop: 4 }}><span>Current pool</span><b className="gold">{money(199026635)}</b></div>
+                <p className="muted small" style={{ margin: '4px 0 10px' }}>A qualifying loss at showdown can win a share of the play-chip jackpot.</p>
+                <button className="btn btn-ghost btn-sm btn-block" onClick={() => navigate('/ggcare')}>View pool and payout rules</button>
               </div>
               <div className="card">
-                <div className="between"><b style={{ color: '#eee' }}>VIP benefits</b><span style={{ fontSize: 22 }}>👑</span></div>
-                <div className="kv small"><span>Rakeback</span><b>{(level * 2.5).toFixed(1)}%</b></div>
-                <div className="kv small"><span>Weekly bonus</span><b>{money(level * 2500)}</b></div>
-                <div className="kv small"><span>Priority support</span><b>{level >= 5 ? '24/7' : 'Standard'}</b></div>
+                <div className="between"><b style={{ color: '#eee' }}>Player leaderboard</b></div>
                 <button className="btn btn-ghost btn-sm btn-block" style={{ marginTop: 8 }} onClick={() => navigate('/leaderboard')}>View leaderboard</button>
               </div>
             </div>

@@ -243,7 +243,8 @@ export function TablePage({ tableId }: { tableId: string }) {
     try { localStorage.setItem(BETTING_OPTIONS_KEY, JSON.stringify(next)); } catch { /* private mode: keep for this session */ }
   };
   const confirmBets = bettingOptions.confirm === 'always';
-  const [pendingBet, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number } | null>(null);
+  const [proposal, setPendingBet] = useState<{ action: 'raise' | 'allin'; amount: number; handNo: number; turnNo: number } | null>(null);
+  const pendingBet = proposal && state && proposal.handNo === state.handNo && proposal.turnNo === state.turnNo ? proposal : null;
   const actionBarRef = useRef<HTMLDivElement | null>(null);
   const [squeezeWanted, setSqueezeWanted] = useState(() => localStorage.getItem('openpoker.revealAnimation') !== '0');
   const [squeezeAccess, setSqueezeAccess] = useState<{ table: string; allowed: boolean } | null>(null);
@@ -408,13 +409,17 @@ export function TablePage({ tableId }: { tableId: string }) {
   const connect = useCallback(() => {
     if (!userKey) return;
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(getToken() || '')}`);
+    const token = getToken();
+    if (!token) return;
+    const ws = new WebSocket(`${proto}://${location.host}/ws`, ['dangg.v1', `auth.${token}`]);
     wsRef.current = ws;
     ws.onopen = () => {
+      if (wsRef.current !== ws) return;
       setConnected(true);
       ws.send(JSON.stringify({ type: 'join_table', tableId, buyin, observe, rejoin: everJoined.current || wasSeatedHere(tableId), seat: seatParam != null ? Number(seatParam) : null, waitForBlinds: joinWaitRef.current }));
     };
     ws.onmessage = (ev) => {
+      if (wsRef.current !== ws) return;
       let msg: any;
       try { msg = JSON.parse(ev.data); } catch { return; }
       if (msg.type === 'state') {
@@ -765,11 +770,15 @@ export function TablePage({ tableId }: { tableId: string }) {
     return () => {
       if (retry.current) window.clearTimeout(retry.current);
       const ws = wsRef.current;
-      if (ws && ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'leave_table', tableId }));
-        window.setTimeout(() => ws.close(), 100);
-      } else if (ws) ws.close();
       wsRef.current = null;
+      if (ws) {
+        ws.onmessage = null;
+        ws.onclose = null;
+        if (ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'leave_table', tableId }));
+          window.setTimeout(() => ws.close(), 100);
+        } else ws.close();
+      }
       // Leaving the page in the app (not a reload, which runs no cleanup) ends this tab's seat.
       clearSeatedHere(tableId);
     };
@@ -932,19 +941,20 @@ export function TablePage({ tableId }: { tableId: string }) {
   const closeReport = () => { setReportOpen(false); setChatReport(null); };
 
   const act = (action: string, amount = 0) => {
-    if (!myTurn) return;
+    if (!myTurn || !state) return;
     const voices: Record<string, string> = { fold: 'voiceFold', check: 'voiceCheck', call: 'voiceCall', raise: 'voiceRaise', bet: 'voiceBet', allin: 'voiceAllIn' };
     const voice = voices[action];
     if (voice) setTimeout(() => sound.play(voice as any, { volume: .6 }), 120);
-    // The hand number lets the server refuse a click that arrives after this hand ended.
-    send({ type: 'action', action, amount, handNo: stateRef.current?.handNo, turnNo: stateRef.current?.turnNo });
+    // Stamp the turn these controls rendered, even if a newer socket frame is waiting for React.
+    send({ type: 'action', action, amount, handNo: state.handNo, turnNo: state.turnNo });
   };
 
   // "Always confirm" turns every bet into a two-step action; off, it fires at once.
   const requestBet = (action: 'raise' | 'allin', rawAmount: number) => {
     // A typed amount may still be below the minimum raise; never send it that way.
     const amount = action === 'raise' ? Math.max(minTo, Math.min(maxTo, rawAmount)) : rawAmount;
-    if (confirmBets) setPendingBet({ action, amount });
+    if (!state || state.turnNo == null) return;
+    if (confirmBets) setPendingBet({ action, amount, handNo: state.handNo, turnNo: state.turnNo });
     else act(action, amount);
   };
 
@@ -988,7 +998,8 @@ export function TablePage({ tableId }: { tableId: string }) {
           : enterBetRequest({ myTurn, canRaise, raiseTo, allInTo, confirm: confirmBets, allInOrFold: !!state?.allInOrFold });
         if (!request) return;
         e.preventDefault();
-        if (request.confirm) setPendingBet({ action: request.action, amount: request.amount });
+        if (!state || state.turnNo == null) return;
+        if (request.confirm) setPendingBet({ action: request.action, amount: request.amount, handNo: state.handNo, turnNo: state.turnNo });
         else act(request.action, request.amount);
         return;
       }
@@ -1861,7 +1872,7 @@ export function TablePage({ tableId }: { tableId: string }) {
           onFastFold={() => {
             setPreAction(null);
             setTimeout(() => sound.play('voiceFold', { volume: .6 }), 120);
-            send({ type: 'action', action: 'quickfold', handNo: stateRef.current?.handNo });
+            send({ type: 'action', action: 'quickfold', handNo: state?.handNo });
           }}
         />
         {canPreAct && !squeezing && (

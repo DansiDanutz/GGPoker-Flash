@@ -180,8 +180,7 @@ export function createAdminSnapshotRoutes(deps) {
     const body = await readBody(req);
     if (body?.confirm !== CONFIRM_WORD) throw new SnapshotError(400, `Type ${CONFIRM_WORD} to confirm`);
     const { file } = await snapshotFile(id);
-    const buf = await fsp.readFile(file);
-    await queueRestore({ db, dataDir, tempRoot, buf, actor: admin.login, source: `snapshot ${id}` });
+    await queueRestore({ db, dataDir, tempRoot, snapshotPath: file, actor: admin.login, source: `snapshot ${id}` });
     return json(res, 200, { ok: true, requiresRestart: true, snapshot: id });
   }
 

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const sha = 'a'.repeat(40);
-function run(t, { publicCommit = true, green = '1' } = {}) {
+function run(t, { publicCommit = true, conclusion = 'success' } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'openpoker-deploy-test-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const log = path.join(dir, 'calls');
@@ -20,13 +20,13 @@ fs.appendFileSync(process.env.CALL_LOG, JSON.stringify([name, ...args]) + String
 if (name === 'git') {
   if (args[0] === 'rev-parse') console.log(args.includes('--show-toplevel') ? process.env.REPO_ROOT : '${sha}');
   else if (args[0] === 'merge-base') process.exit(process.env.PUBLIC_COMMIT === '1' ? 0 : 1);
-} else if (name === 'gh') console.log(process.env.GREEN);
+} else if (name === 'gh') console.log(process.env.CONCLUSION);
 else if (name === 'rsync' || name === 'ssh') process.exit(88);
 `;
   for (const command of ['git', 'gh', 'rsync', 'ssh', 'tar']) writeFileSync(path.join(dir, command), shim, { mode: 0o755 });
   const result = spawnSync('bash', [path.join(root, 'deploy/deploy.sh'), '--dry-run', sha], {
     cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${dir}:${process.env.PATH}`,
-      CALL_LOG: log, REPO_ROOT: root, PUBLIC_COMMIT: publicCommit ? '1' : '0', GREEN: green },
+      CALL_LOG: log, REPO_ROOT: root, PUBLIC_COMMIT: publicCommit ? '1' : '0', CONCLUSION: conclusion },
   });
   return { ...result, calls: readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line)) };
 }
@@ -40,7 +40,7 @@ test('deployment refuses a private-only commit before CI or transfer', t => {
 });
 
 test('deployment checks public main push CI and stops before transfer when red', t => {
-  const result = run(t, { green: '0' });
+  const result = run(t, { conclusion: 'failure' });
   assert.equal(result.status, 1);
   const ci = result.calls.find(([name]) => name === 'gh');
   assert.ok(ci.includes('OpenPoker4all/OpenPoker'));
@@ -49,8 +49,8 @@ test('deployment checks public main push CI and stops before transfer when red',
   assert.equal(result.calls.some(([name]) => ['rsync', 'ssh'].includes(name)), false);
 });
 
-test('multiple successful public CI runs permit the dry-run transfer gate', t => {
-  const result = run(t, { green: '2' });
+test('the latest successful public CI run permits the dry-run transfer gate', t => {
+  const result = run(t);
   assert.equal(result.status, 88, result.stderr);
   const transfer = result.calls.find(([name]) => name === 'rsync');
   assert.ok(transfer.includes('--dry-run'));

@@ -24,10 +24,10 @@ const CHALLENGE_MAX_MS = 100 * DAY;
 const LAST_LONGER_EXPIRY_MS = 2 * DAY;
 
 /** Ledger kinds that are real game results (cashier, bonuses and prop bets excluded). */
+const SESSION_KINDS = ['buyin', 'rebuy', 'cashout', 'session_close', 'chips_refund', 'remove_chips', 'spin_payout', 'blackjack', 'crash_bet', 'crash_win', 'crash_loss',
+  'tourney_buyin', 'tourney_refund', 'tourney_payout', 'tourney_win', 'bounty', 'mystery_bounty'];
 export const GAME_RESULT_KINDS = Object.freeze([
-  'buyin', 'rebuy', 'cashout', 'session_close', 'chips_refund', 'remove_chips',
-  'tourney_buyin', 'tourney_payout', 'tourney_win', 'tourney_refund', 'bounty', 'mystery_bounty',
-  'spin_payout', 'slots', 'roulette', 'crash_bet', 'crash_win', 'blackjack', 'bad_beat_jackpot',
+  'slots', 'roulette', 'baccarat', 'dragontiger', 'sicbo', 'bad_beat_jackpot',
 ]);
 
 export class PropBetError extends Error {}
@@ -147,6 +147,7 @@ export function createPropBets({ db, ledger, now = Date.now }) {
 
   const create = (userId, input = {}) => {
     const type = String(input.type || '');
+    if (type === 'bankroll' && process.env.GGPOKER_PAUSE_NEW_BANKROLL === '1') fail('New Bankroll Challenges are temporarily paused.');
     const rules = PROP_BET_RULES[type];
     if (!rules) fail('Unknown prop bet type');
     const spec = type === 'last_longer' ? createLastLonger(userId, input, rules) : createChallenge(userId, input, rules);
@@ -176,14 +177,13 @@ export function createPropBets({ db, ledger, now = Date.now }) {
 
   // ---------- settlement ----------
 
-  const recordBust = (tournamentId, userId) => {
-    const rows = db.prepare(`SELECT e.bet_id FROM prop_bet_entries e JOIN prop_bets b ON b.id = e.bet_id
-      WHERE b.type = 'last_longer' AND b.tournament_id = ? AND b.status IN ('open','running') AND e.user_id = ? AND e.out_seq IS NULL`)
-      .all(String(tournamentId), Number(userId));
-    for (const { bet_id: betId } of rows) {
-      const seq = Number(db.prepare('SELECT COALESCE(MAX(out_seq), 0) m FROM prop_bet_entries WHERE bet_id = ?').get(betId).m) + 1;
-      db.prepare('UPDATE prop_bet_entries SET out_seq = ? WHERE bet_id = ? AND user_id = ?').run(seq, betId, userId);
-    }
+  const recordBust = (tournamentId, userId, place) => {
+    if (!Number.isSafeInteger(place) || place < 1) throw new Error('Missing tournament finish place');
+    // Keep survivors first and new finishes above earlier, legacy callback sequence numbers.
+    const rank = Number.MAX_SAFE_INTEGER - place;
+    db.prepare(`UPDATE prop_bet_entries SET out_seq=? WHERE user_id=? AND out_seq IS NULL AND bet_id IN
+      (SELECT id FROM prop_bets WHERE type='last_longer' AND tournament_id=? AND status IN ('open','running'))`)
+      .run(rank, Number(userId), String(tournamentId));
   };
 
   /** Survivors first, then the latest to bust. */
@@ -222,10 +222,25 @@ export function createPropBets({ db, ledger, now = Date.now }) {
   const challengeProgress = (bet) => {
     if (bet.type === 'elo') return Number(db.prepare('SELECT elo FROM users WHERE id = ?').get(bet.creator_id)?.elo ?? 0);
     const kinds = GAME_RESULT_KINDS;
-    return Number(db.prepare(`SELECT COALESCE(SUM(amount), 0) s FROM transactions
-      WHERE user_id = ? AND kind IN (${kinds.map(() => '?').join(',')})
-        AND CAST(strftime('%s', created_at) AS INTEGER) * 1000 BETWEEN ? AND ?`)
-      .get(bet.creator_id, ...kinds, bet.start_at, Math.min(bet.end_at, now())).s);
+    const until = Math.min(bet.end_at, now());
+    const stamp = "ROUND(unixepoch(created_at, 'subsec') * 1000)";
+    const other = db.prepare(`SELECT COALESCE(SUM(amount),0) s FROM transactions
+      WHERE user_id=? AND currency='USD' AND kind IN (${kinds.map(() => '?')}) AND ${stamp} BETWEEN ? AND ?`)
+      .get(bet.creator_id, ...kinds, bet.start_at, until).s;
+    // A cash-out returns principal. Count a session only when both its buy-in
+    // and closing entry are in the window, using the whole session's net.
+    const sessions = db.prepare(`SELECT COALESCE(SUM(net),0) s FROM (
+      SELECT SUM(amount) net FROM transactions WHERE user_id=? AND currency='USD'
+        AND session_id IS NOT NULL AND kind IN (${SESSION_KINDS.map(() => '?')}) AND ${stamp} <= ?
+      GROUP BY session_id HAVING MIN(CASE WHEN kind='buyin' OR (kind='blackjack' AND reference='bj:stake:' || session_id)
+        OR (kind='crash_bet' AND reference='crash:stake:' || session_id)
+        OR (kind='tourney_buyin' AND reference='entry:' || session_id) THEN ${stamp} END) >= ?
+        AND COUNT(CASE WHEN kind IN ('cashout','spin_payout','session_close') OR (kind='blackjack' AND reference='bj:end:' || session_id)
+        OR (kind IN ('crash_win','crash_loss') AND reference='crash:end:' || session_id)
+        OR (kind='tourney_refund' AND reference='withdraw:' || session_id)
+        OR (kind IN ('tourney_win','tourney_payout') AND reference='prize:' || session_id) THEN 1 END)>0
+    )`).get(bet.creator_id,...SESSION_KINDS,until,bet.start_at).s;
+    return Number(other) + Number(sessions);
   };
 
   const settleChallenge = (bet) => {

@@ -209,3 +209,20 @@ test('financial recovery refunds existing banned payers but never creates accoun
   assert.throws(() => billing.reserveCreditRefund({ userId: 999, originalReference: 'closed-payer-source', amountCents: 1, requestId: 'unknown-payer', actor: 1, reason: 'Must not create an account' }), (error) => error.code === 'user_not_found');
   assert.equal(f.db.prepare('SELECT 1 FROM organizer_billing_accounts WHERE user_id=999').get(), undefined);
 });
+
+test('club entry credit pays hosting only, including renewals, and counts fully credited hours', () => {
+  const f = fixture(), billing = createOrganizerBilling({ db: f.db, now: f.now, mode: 'enforce' });
+  grantOrganizer(f);
+  f.db.exec('BEGIN');
+  billing.grantEntryFeeCredit({ organizerId: 2, amountCents: 950, reference: 'paid-entry' });
+  f.db.exec('COMMIT');
+  assert.equal(billing.account(2).balance_cents, 0);
+  assert.throws(() => billing.subscribe({userId: 2, role: 'organizer', idempotencyKey: 'club-membership'}), /Insufficient/);
+  fund(billing, 50);
+  billing.startCash({userId: 2, tableId: 't', idempotencyKey: 'start-t'});
+  assert.equal(billing.account(2).fee_credit_cents, 450);
+  f.advance(HOUR);
+  assert.equal(billing.canDeal('t'), true);
+  const account = billing.account(2);
+  assert.deepEqual([account.fee_credit_cents, account.balance_cents, account.cash_usage.paid_hours], [0, 0, 2]);
+});

@@ -59,7 +59,7 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
     return record(userId, idempotencyKey, 'ticket_issue', payload, { id });
   });
   const transferTicket = ({ userId, ticketId, toUserId, idempotencyKey }) => transaction(db, () => {
-    active(userId); active(toUserId); const payload = JSON.stringify({ ticketId, toUserId }), old = op(userId, idempotencyKey, 'ticket_transfer', payload); if (old) return old;
+    active(userId); chips.assertTransferRecipient(toUserId); const payload = JSON.stringify({ ticketId, toUserId }), old = op(userId, idempotencyKey, 'ticket_transfer', payload); if (old) return old;
     const row = ticket(ticketId); if (!row || row.holder_id !== userId) fail('Ticket not found.', 404, 'ticket_not_found');
     if (row.state !== 'issued') fail('Only an issued ticket can be transferred.', 409, 'ticket_not_transferable'); if (userId === toUserId) fail('Choose another holder.');
     chips.assertSessionCreditUnlocked(row.organizer_id, userId, toUserId);
@@ -205,8 +205,8 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
   });
   const acceptBuyback = ({ userId, buybackId }) => transaction(db, () => {
     active(userId); const row = db.prepare('SELECT * FROM organizer_chip_buybacks WHERE id=?').get(short(buybackId, 'buybackId')); if (!row || row.organizer_id !== userId) fail('Buyback not found.', 404, 'buyback_not_found');
-    if (row.processing_at) return row;
     if (row.state !== 'requested') fail('Only a requested buyback can be accepted.', 409, 'buyback_state');
+    if (row.processing_at) return row;
     db.prepare('UPDATE organizer_chip_buybacks SET processing_at=?,updated_at=? WHERE id=?').run(stamp(), stamp(), row.id);
     return db.prepare('SELECT * FROM organizer_chip_buybacks WHERE id=?').get(row.id);
   });
@@ -247,7 +247,8 @@ export function createOrganizerChipEvents({ db, chips, now = Date.now }) {
     if (!row) fail('Buyback not found.', 404);
     const finalState = resolution === 'paid' ? 'paid' : 'rejected';
     if (row.state === finalState) return row;
-    if (!['reported', 'disputed'].includes(row.state)) fail('Only a reported or disputed payment can be resolved.', 409);
+    const unreportedRefund = row.state === 'requested' && row.processing_at && resolution === 'refund';
+    if (!unreportedRefund && !['reported', 'disputed'].includes(row.state)) fail('Only an accepted buyback can be refunded or a reported dispute resolved.', 409);
     chips.moveInTransaction({ organizerId: row.organizer_id, from: `payout:${row.id}`, to: `wallet:${resolution === 'paid' ? row.organizer_id : row.requester_id}`,
       amount: row.chips, kind: 'buyback_resolution', reference: `buyback:${row.id}:resolution` });
     db.prepare('UPDATE organizer_chip_buybacks SET state=?,updated_at=? WHERE id=?').run(finalState, stamp(), row.id);

@@ -14,6 +14,7 @@ function fixture() {
   db.exec(`
     CREATE TABLE users(id INTEGER PRIMARY KEY,nick TEXT,banned INTEGER DEFAULT 0,deleted_at TEXT);
     INSERT INTO users VALUES (1,'Owner',0,NULL),(2,'Member',0,NULL),(3,'Stranger',0,NULL);
+    ALTER TABLE users ADD COLUMN login TEXT NOT NULL DEFAULT 'member';
     CREATE TABLE organizer_billing_memberships(user_id INTEGER,role TEXT,active INTEGER,expires_at TEXT,PRIMARY KEY(user_id,role));
     INSERT INTO organizer_billing_memberships VALUES (1,'organizer',1,'2099-01-01T00:00:00.000Z');
     CREATE TABLE organizer_billing_accounts(user_id INTEGER PRIMARY KEY,balance_cents INTEGER NOT NULL);

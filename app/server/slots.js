@@ -109,7 +109,7 @@ function pickSymbol(random, weights, total) {
 
 /**
  * Evaluate one payline. Wilds substitute for the first regular symbol on the line;
- * a line of nothing but wilds pays as wilds.
+ * a paying prefix of wilds can instead earn its own award if higher.
  * @param {string[]} line the five symbols along the payline, left to right
  * @param {Record<string, number[]>} [paytable] defaults to the classic table
  * @returns {{ symbol: string, count: number, multiplier: number } | null}
@@ -122,7 +122,13 @@ export function evaluateLine(line, paytable = PAYTABLE) {
     count++;
   }
   if (count < MIN_MATCH) return null;
-  return { symbol, count, multiplier: paytable[symbol][count - MIN_MATCH] };
+  const multiplier = paytable[symbol][count - MIN_MATCH];
+  if (line[0] === WILD && symbol !== WILD) {
+    const wilds = line.findIndex(s => s !== WILD);
+    const wildPay = paytable[WILD][wilds - MIN_MATCH];
+    if (wilds >= MIN_MATCH && wildPay > multiplier) return { symbol: WILD, count: wilds, multiplier: wildPay };
+  }
+  return { symbol, count, multiplier };
 }
 
 /**

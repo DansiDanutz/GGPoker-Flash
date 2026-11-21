@@ -338,3 +338,16 @@ test('paid Spin bypasses the prize wheel and preserves its committed terms in sn
   clock.now = 120000; t.applySpinBlinds();
   assert.equal(t.spinLevel, 2, 'pooled game uses two-minute blind progression');
 });
+
+test('simultaneous busts pay by starting stack, then clockwise after the button', () => {
+  for (const equal of [false, true]) {
+    const { t, users, start } = spinTable();
+    const [short, runnerUp, winner] = users;
+    t.button = 0;
+    t.handStartStack = { [short]: equal ? 5000 : 2000, [runnerUp]: 5000, [winner]: equal ? 20000 : 23000 };
+    settleHand(t, [[short,0], [runnerUp,0], [winner,30000]]);
+    assert.equal(balance(runnerUp), start[1] - STAKE + 300000);
+    assert.equal(balance(short), start[0] - STAKE + 100000);
+    assert.equal(paidTotal(users, start), t.spinPrize);
+  }
+});

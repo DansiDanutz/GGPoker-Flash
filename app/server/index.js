@@ -1,14 +1,19 @@
-import { validVerificationImage } from './verification-image.js';
+import { deckSeatLimit } from './runItMulti.js';
+import { blackjackTotal, baccaratTotal, finishBaccarat } from './casino-scores.js';
 import http from 'node:http';
+import https from 'node:https';
+import { X509Certificate } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID, randomInt } from 'node:crypto';
+import { demoAvailability } from './demo-availability.js';
+import { crashPoint, crashAt } from './crash-round.js';
+import { randomUUID, randomInt, randomBytes } from 'node:crypto';
 import net from 'node:net';
 import { WebSocketServer } from 'ws';
 import { startHeartbeat } from './websocket-heartbeat.js';
 import {
-  db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, newSession, userByToken,
+  db, DATA_DIR, hashPassword, checkPassword, addTransaction, addTransactionEx, settleWager, buyOceanItem, registerTournamentEntry, refundTournamentEntry, recordTournamentPrize, awardSatelliteTicket, createAccountWithSession, newSession, userByToken, sessionHash,
   publicUser, getSetting, setSetting, refundOpenSessions, getClaim, claimReward, bumpMission, setMissionDone, missionPeriodKey,
 } from './db.js';
 import { createProductEvents, isBotOnlyHand } from './product-events.js';
@@ -53,7 +58,7 @@ import { createWaitlistRoutes, queueTarget } from './waitlist-http.js';
 import { createChatService, createChatStore, dealerActionText, dealerBoardTexts, dealerResultText, dealerStartText } from './chat.js';
 import { runResultAt } from './handPacing.js';
 import { createAdminChatRoutes } from './admin-chat.js';
-import { createAdminAuditRoute } from './admin-audit.js';
+import { createAdminAuditRoute, csvField } from './admin-audit.js';
 import { createAdminBackupRoute } from './admin-backup.js';
 import { createAdminRestoreRoute } from './admin-restore.js';
 import { createAdminSnapshotRoutes, isValidRetention, RETENTION_SETTING } from './admin-snapshots.js';
@@ -147,12 +152,29 @@ function originAllowed(req) {
   return origins.includes(String(origin).toLowerCase());
 }
 
+function canonicalIp(raw) {
+  const ip = String(raw || '').trim();
+  if (net.isIP(ip) === 4) return ip;
+  if (net.isIP(ip) !== 6 || ip.includes('%')) return null;
+  const normalized = new URL('http://[' + ip + ']').hostname.slice(1, -1);
+  const mapped = /^::ffff:([0-9a-f]+):([0-9a-f]+)$/.exec(normalized);
+  if (!mapped) return normalized;
+  return mapped.slice(1).flatMap(word => [parseInt(word, 16) >>> 8, parseInt(word, 16) & 255]).join('.');
+}
+
+const trustedPeers = new Set(process.env.GGPOKER_TRUST_PROXY === '1'
+  ? String(process.env.GGPOKER_TRUSTED_PROXY_IPS || '').split(',').map(canonicalIp).filter(Boolean) : []);
+
 function requestIp(req) {
-  if (process.env.GGPOKER_TRUST_PROXY === '1') {
-    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-    if (forwarded) return forwarded.replace(/^::ffff:/, '');
+  const peer = canonicalIp(req.socket.remoteAddress);
+  const forwarded = req.headers['x-forwarded-for'];
+  if (!trustedPeers.has(peer)) return forwarded === undefined ? peer : null;
+  const hops = String(forwarded || '').split(',');
+  for (let i = hops.length - 1; i >= 0; i--) {
+    const hop = canonicalIp(hops[i]);
+    if (!trustedPeers.has(hop)) return hop;
   }
-  return String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  return null;
 }
 
 const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1']);
@@ -163,9 +185,9 @@ const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1']);
  * Anything that came through the public proxy is keyed by the client IP the proxy reports.
  */
 function abuseClientKey(req) {
-  const socketIp = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
-  if (LOOPBACK_ADDRESSES.has(socketIp) && !req.headers['x-forwarded-for']) return null;
-  return requestIp(req);
+  const ip = requestIp(req);
+  if (LOOPBACK_ADDRESSES.has(ip) && req.headers['x-forwarded-for'] === undefined) return null;
+  return ip || canonicalIp(req.socket.remoteAddress) || 'unknown';
 }
 
 function positiveIntEnv(name, fallback) {
@@ -188,22 +210,15 @@ function ipMatches(ip, rule) {
   return (toInt(ip) & mask) === (toInt(base) & mask);
 }
 
-// Used in production when GGPOKER_ADMIN_ALLOW is unset, so a rebuilt host never exposes the
-// admin API to the internet. The SSH tunnel reaches the container through Docker's published
-// port, which arrives from a Docker network gateway inside 172.16.0.0/12, so it keeps working.
-const PRODUCTION_ADMIN_ALLOW_FALLBACK = Object.freeze(['127.0.0.1', '::1', '172.16.0.0/12']);
-
-function adminAllowRules() {
-  const rules = String(process.env.GGPOKER_ADMIN_ALLOW || '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (rules.length || process.env.NODE_ENV !== 'production') return rules;
-  return PRODUCTION_ADMIN_ALLOW_FALLBACK;
-}
-
+const operatorTlsDir = process.env.GGPOKER_ADMIN_TLS_DIR;
+let operatorServer;
 function adminNetworkAllowed(req) {
-  const rules = adminAllowRules();
+  if (operatorTlsDir) return req.socket.server === operatorServer && req.socket.authorized === true;
+  if (process.env.NODE_ENV === 'production') return false;
+  const rules = String(process.env.GGPOKER_ADMIN_ALLOW || '').split(',').map(s => s.trim()).filter(Boolean);
   if (!rules.length) return true;
   const ip = requestIp(req);
-  return rules.some((rule) => ipMatches(ip, rule));
+  return Boolean(ip) && rules.some((rule) => ipMatches(ip, rule));
 }
 const DIST = path.join(APP_DIR, 'dist');
 const PUBLIC = path.join(APP_DIR, 'public');
@@ -303,6 +318,7 @@ function requireUser(req, res) {
 }
 
 function requireAdmin(req, res) {
+  if (!adminNetworkAllowed(req)) { json(res, 403, { error: 'Admin access is restricted' }); return null; }
   const u = requireUser(req, res);
   if (!u) return null;
   if (!u.is_admin) { json(res, 403, { error: 'admin only' }); return null; }
@@ -391,11 +407,6 @@ function lobbyTables(userId = null) {
   });
 }
 
-function sitesStats() {
-  const base = getSetting('online_base', 192000);
-  return { online: base + Math.floor(Math.sin(Date.now() / 60000) * 900) + 203 };
-}
-
 /* ------------------------------------------------------------------ */
 /* live tables                                                         */
 /* ------------------------------------------------------------------ */
@@ -410,8 +421,54 @@ ensureWaitlistTable(db);
 let waitState = loadWaitlist(db);
 let waitSince = Object.freeze({}); // `queueKey|userId` -> join time, for the admin monitor
 const BJ_HANDS = new Map(); // userId -> { deck, player, dealer, bet }
+const sessionConnections = new Map();
+function trackSessionConnection(token, connection, close) {
+  const key = sessionHash(token);
+  const set = sessionConnections.get(key) || new Set();
+  sessionConnections.set(key, set);
+  set.add(close);
+  const expiry = db.prepare("SELECT unixepoch(expires_at,'subsec') * 1000 AS ms FROM sessions WHERE token=?").get(key)?.ms;
+  let timer;
+  function scheduleExpiry() {
+    const remaining = Math.ceil(expiry - Date.now());
+    if (!(remaining > 0)) return close();
+    // A 30-day session exceeds Node's maximum timer delay.
+    timer = setTimeout(scheduleExpiry, Math.min(remaining, 2 ** 31 - 1)).unref();
+  }
+  connection.once('close', () => {
+    clearTimeout(timer);
+    set.delete(close);
+    if (!set.size) sessionConnections.delete(key);
+  });
+  scheduleExpiry();
+}
+function revokeSessions(where, ...args) {
+  const removed = db.prepare(`DELETE FROM sessions WHERE ${where} RETURNING token`).all(...args);
+  for (const {token} of removed) {
+    for (const close of sessionConnections.get(token) || []) close();
+  }
+  return removed.length;
+}
+
 const SSE_CLIENTS = new Map(); // userId -> Set<ServerResponse>
 const CRASH_ROUNDS = new Map(); // roundId -> crash round
+function closeCrashLoss(round) {
+  if (round.status !== 'live') return;
+  addTransactionEx(round.userId, 'crash_loss', 0, 'Crash round ended', 'USD', {
+    sessionId: round.id, reference: 'crash:end:' + round.id, onDuplicate: 'skip',
+  });
+  round.status = 'crashed';
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const round of CRASH_ROUNDS.values()) {
+    try {
+      if (round.status === 'live' && crashAt(round.point, now - round.startedAt).crashed) closeCrashLoss(round);
+      if (round.status !== 'live' && now - round.startedAt > 120000) CRASH_ROUNDS.delete(round.id);
+    } catch (err) { console.error('Crash round settlement failed', round.id, err.message); }
+  }
+}, 1000).unref();
+
 
 function eloGame(game) {
   if (game === 'omaha5' || game === 'omaha6') return 'omaha';
@@ -611,7 +668,7 @@ let entryLedger;
 function clubLedger() {
   const creator = db.prepare("SELECT owner_user_id FROM marketplace_publishers WHERE id=? AND status='approved'").get(process.env.DANGG_CLUB_ENTRY_PUBLISHER_ID || '');
   if (!creator || !clubMerchant) throw Object.assign(new Error('Paid club entry is not configured.'),{status:503});
-  return entryLedger ||= createClubEntryLedger({db,clubs:organizerClubs,grantBonus:organizerChips.grantClubEntryBonus,publisherUserId:creator.owner_user_id,merchantId:clubMerchant});
+  return entryLedger ||= createClubEntryLedger({db,clubs:organizerClubs,grantBonus:organizerBilling.grantEntryFeeCredit,publisherUserId:creator.owner_user_id,merchantId:clubMerchant});
 }
 function clubBlocksTable(row,userId) {
   return row?.private && !row.play_money && db.prepare('SELECT 1 FROM organizer_club_profiles WHERE owner_id=?').get(row.owner_id) && !organizerClubs.canEnter(row.owner_id,userId);
@@ -798,6 +855,12 @@ function postDealerLine(tableId, text, key) {
   try { chatService.addSystemLine(tableId, text, { key }); } catch (e) { console.error('dealer line', e); }
 }
 
+function canViewTournament(id, userId) {
+  return !!db.prepare(`SELECT 1 FROM tournaments t WHERE t.id=? AND
+    (COALESCE(t.private,0)=0 OR t.owner_id=? OR EXISTS
+    (SELECT 1 FROM tourney_regs r WHERE r.tournament_id=t.id AND r.user_id=?))`).get(id, userId ?? null, userId ?? null);
+}
+
 function tableRow(id) {
   return db.prepare('SELECT * FROM tables WHERE id = ?').get(id);
 }
@@ -888,11 +951,14 @@ function getLiveTable(id) {
       }
     },
     onTournamentPayout: (table, p) => {
-      if (usesOrganizerChips(table)) return organizerChipEvents.award({ organizerId: table.cfg.owner_id, tournamentId: table.cfg.tournamentId, userId: p.id, amount: p.payout, payoutId: `place:${p.place}` });
+      if (usesOrganizerChips(table)) {
+        if (p.payout > 0) return organizerChipEvents.award({ organizerId: table.cfg.owner_id, tournamentId: table.cfg.tournamentId, userId: p.id, amount: p.payout, payoutId: `place:${p.place}` });
+        return;
+      }
       try {
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(p.id);
-        if (u) addTransaction(u.id, 'tourney_payout', p.payout, `${table.cfg.name} — finished ${ordinal(p.place)}`);
-        table.emit({ type: 'tourney_payout', ...p });
+        if (u) recordTournamentPrize(u.id, table.cfg.tournamentId, 'tourney_payout', p.payout, `${table.cfg.name} — finished ${ordinal(p.place)}`);
+        if (p.payout > 0) table.emit({ type: 'tourney_payout', ...p });
       } catch (e) { console.error('tourney payout', e); }
     },
     spinOutcome: (table) => usesOrganizerChips(table) ? organizerChipSpin.outcomeForTable(table.cfg.id) : undefined,
@@ -913,7 +979,7 @@ function getLiveTable(id) {
     onTournamentBust: (table, p) => {
       try {
         consumeTournamentEntry(table, p.id);
-        if (table.cfg.tournamentId) PROP_BETS.recordBust(table.cfg.tournamentId, p.id);
+        if (table.cfg.tournamentId && !table.tournament?.managed) PROP_BETS.recordBust(table.cfg.tournamentId, p.id, p.place);
         // Multi-table events rank the whole field, not the seat's own table.
         if (table.tournament?.managed) {
           TOURNAMENT_ROOMS.get(table.cfg.tournamentId)?.onBust(table.cfg.id, p);
@@ -935,9 +1001,9 @@ function getLiveTable(id) {
         }
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(winner.id);
         if (u && table.tournament?.mode === 'SATELLITE') {
-          addTransaction(u.id, 'satellite_win', 1, `Satellite ticket: ${table.tournament.ticket || table.cfg.name}`, 'TICKET');
+          awardSatelliteTicket(u.id, tid, `Satellite ticket: ${table.tournament.ticket || table.cfg.name}`);
         } else if (u && winner.prize > 0) {
-          addTransaction(u.id, 'tourney_win', winner.prize, `Tournament win: ${table.cfg.name}`);
+          recordTournamentPrize(u.id, tid, 'tourney_win', winner.prize, `Tournament win: ${table.cfg.name}`);
         }
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'tournament_end', `${table.cfg.name} winner ${winner.nick} ${winner.prize || 0}`);
       } catch (e) { console.error('tournament end', e); }
@@ -955,10 +1021,11 @@ function getLiveTable(id) {
         if (!share.amount) continue;
         const winner = db.prepare('SELECT * FROM users WHERE id = ?').get(share.winnerId);
         if (winner) {
-          addTransaction(winner.id, info.mystery ? 'mystery_bounty' : 'bounty', share.amount,
-            `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`, 'USD',
-            { tournamentId: table.cfg.tournamentId || null,
-              reference: `bounty:${table.cfg.tournamentId || table.cfg.id}:${table.cfg.id}:${table.handNo}:${info.bustedId}`, onDuplicate: 'skip' });
+          const applied = recordTournamentPrize(winner.id, table.cfg.tournamentId || null,
+            info.mystery ? 'mystery_bounty' : 'bounty', share.amount,
+            `${info.mystery ? 'Mystery bounty' : 'Bounty'}: ${info.bustedNick}`,
+            `bounty:${table.cfg.tournamentId || table.cfg.id}:${table.cfg.id}:${table.handNo}:${info.bustedId}`);
+          if (!applied) continue;
         }
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run('system', 'bounty',
           `${table.cfg.name} ${share.winnerNick} ${share.amount} (${info.bustedNick})`);
@@ -1430,14 +1497,14 @@ function makeTournamentRoom(t) {
         }
       },
       persistBust: ({ tableId, playerId, nick, place, payout }) => {
+        PROP_BETS.recordBust(t.id, playerId, place);
         if (t.chip_economy && payout > 0) organizerChipEvents.award({ organizerId: t.owner_id, tournamentId: t.id, userId: playerId, amount: payout, payoutId: `place:${place}` });
         const table = LIVE_TABLES.get(tableId)?.table;
         if (table) table.finished.push({ id: playerId, nick, place, payout });
         scheduleTournamentRoomSave(TOURNAMENT_ROOMS.get(t.id));
-        if (payout <= 0) return;
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(playerId);
-        if (u && !t.chip_economy) addTransaction(u.id, 'tourney_payout', payout, `${t.name} — finished ${ordinal(place)}`);
-        if (table) table.emit({ type: 'tourney_payout', id: playerId, nick, place, payout });
+        if (u && !t.chip_economy) recordTournamentPrize(u.id, t.id, 'tourney_payout', payout, `${t.name} — finished ${ordinal(place)}`);
+        if (payout > 0 && table) table.emit({ type: 'tourney_payout', id: playerId, nick, place, payout });
       },
       persistWinner: ({ playerId, nick, prize, tableId }) => {
         if (t.chip_economy) {
@@ -1459,10 +1526,10 @@ function makeTournamentRoom(t) {
           table.emit({ type: 'tourney_win', nick, id: playerId, prize, tableName: table.cfg.name });
         }
         const u = db.prepare('SELECT * FROM users WHERE id = ?').get(playerId);
-        if (u && !t.chip_economy && table?.tournament?.mode === 'SATELLITE') {
-          addTransaction(u.id, 'satellite_win', 1, `Satellite ticket: ${table.tournament.ticket || t.name}`, 'TICKET');
+        if (u && !t.chip_economy && t.mode === 'SATELLITE') {
+          awardSatelliteTicket(u.id, t.id, `Satellite ticket: ${t.ticket || t.name}`);
         } else if (u && !t.chip_economy && prize > 0) {
-          addTransaction(u.id, 'tourney_win', prize, `Tournament win: ${t.name}`);
+          recordTournamentPrize(u.id, t.id, 'tourney_win', prize, `Tournament win: ${t.name}`);
         }
         db.prepare("UPDATE tournaments SET status = 'completed' WHERE id = ?").run(t.id);
         db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ?').run(t.id);
@@ -1573,9 +1640,11 @@ function rewardHandPlayed(table, summary) {
 /* ------------------------------------------------------------------ */
 
 const productEvents = createProductEvents(db);
+const demoAvailable = demoAvailability(checkPassword);
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://localhost');
+  const url = URL.parse(req.url, 'http://localhost');
+  if (!url) return json(res, 400, { error: 'Invalid request URL' });
   const p = url.pathname;
 
   try {
@@ -1600,7 +1669,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (!originAllowed(req)) return json(res, 403, { error: 'bad origin' });
     if (await handleGitHubStarRoute(req, res, url)) return;
-    if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted to the Mac Studio network' });
+    if (p.startsWith('/api/admin') && !adminNetworkAllowed(req)) return json(res, 403, { error: 'Admin access is restricted' });
     if (p === '/api/plugins/rake-lab') {
       if (req.method !== 'GET') return json(res, 405, { error: 'Use GET for the read-only Rake Lab preview.' });
       return json(res, 200, previewRake(url.searchParams));
@@ -1634,8 +1703,8 @@ const server = http.createServer(async (req, res) => {
         const links = JSON.parse(process.env.DANGG_VERIFIED_CLUB_LINKS || '{}');
         const link = links[club.entryFeeCents];
         if (!link || !await clubProvider.ready()) return json(res,503,{error:'Paid club entry is not configured for this price.'});
-        const order = clubLedger().create({organizerId,userId:actor.id,paymentLinkId:link,idempotencyKey:clubOrderKey()});
-        return json(res,200,{paymentReady:true,order:{id:order.id,status:order.status,amountCents:order.feeCents,checkoutUrl:clubEntryCheckoutUrl(order)}});
+        const order = clubLedger().create({organizerId,userId:actor.id,quotedFeeCents:club.entryFeeCents,paymentLinkId:link,idempotencyKey:clubOrderKey()});
+        return json(res,200,{paymentReady:true,order:{id:order.id,status:order.status,amountCents:order.feeCents,expiresAt:order.expiresAt,checkoutUrl:clubEntryCheckoutUrl(order)}});
       }
       return json(res,404,{error:'Club route not found.'});
     }
@@ -1713,11 +1782,10 @@ const server = http.createServer(async (req, res) => {
       if (String(body.password || '').length < 6) return json(res, 400, { error: 'Password must be at least 6 characters' });
       if (/^guest_[0-9a-f]{8}-[0-9a-f]{3}$/.test(login)) return json(res, 400, { error: 'That account ID is reserved for guest sessions.' });
       if (identityTaken(login) || identityTaken(nick)) return json(res, 400, { error: 'That account ID or nickname is already taken' });
-      const user = createAccount(login, nick, String(body.password), String(body.email || '').slice(0, 120));
+      const { user, token } = createAccountWithSession(login, nick, String(body.password), String(body.email || '').slice(0, 120), req.headers['user-agent']);
       productEvents.record('account_created', { userId: user.id, properties: { source: 'api' } });
       // Count only accounts actually created, so typos in the form do not use up the allowance.
       if (clientKey) registerLimiter.record(clientKey);
-      const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
     }
 
@@ -1731,15 +1799,14 @@ const server = http.createServer(async (req, res) => {
       const nick = freeGuestNick();
       if (!nick) return json(res, 503, { error: 'Guest seats are busy right now. Try again in a moment.' });
       if (clientKey) registerLimiter.record(clientKey);
-      const user = createAccount(`guest_${randomUUID().slice(0, 12)}`, nick, randomUUID(), '');
+      const { user, token } = createAccountWithSession(`guest_${randomUUID().slice(0, 12)}`, nick, randomUUID(), '', req.headers['user-agent']);
       productEvents.record('guest_joined', { userId: user.id, properties: { source: 'api' } });
-      const token = newSession(user.id, req.headers['user-agent'] || '');
       return json(res, 200, { token, user: publicUser(user) });
     }
 
     if (p === '/api/auth/logout' && req.method === 'POST') {
       const t = tokenFrom(req);
-      if (t) db.prepare('DELETE FROM sessions WHERE token = ?').run(t);
+      if (t) revokeSessions('token = ?', sessionHash(t));
       return json(res, 200, { ok: true });
     }
 
@@ -1807,7 +1874,7 @@ const server = http.createServer(async (req, res) => {
         rushPools: lobbyRushPools(tables),
         rushLeaderboard: RUSH_LOBBY.leaderboard(),
         banners,
-        online: sitesStats().online,
+        online: countOnline(wss.clients, PRESENCE.recent()),
         jackpot: getSetting('jackpot', JACKPOT_SEED),
         rushCashDrop: readCashDropConfig(getSetting),
         recentWinners: Array.from({ length: 5 }, (_, i) => ({
@@ -1821,7 +1888,7 @@ const server = http.createServer(async (req, res) => {
         // registered that name), and a dead button is worse than no button.
         demoAccount: (() => {
           const demo = db.prepare('SELECT password FROM users WHERE login = ?').get('DansiDanutz');
-          return !!(demo && checkPassword('ggpoker', demo.password));
+          return demoAvailable(demo?.password);
         })(),
         settings: { site_name: getSetting('site_name', 'DanGG'), maintenance: getSetting('maintenance', false) },
       });
@@ -1899,7 +1966,7 @@ const server = http.createServer(async (req, res) => {
         let spin;
         try { spin = privateSpinConfig(b); } catch (error) { return json(res, 400, { error: error.message }); }
         const spinTerms = !playMoney && chipEconomyEnabled ? organizerSpinOutcome(spin.min_buyin, b.rakePercent === undefined ? 5 : b.rakePercent) : null;
-        const id = `home-spin-${u.id}-${randomUUID().slice(0, 8)}`;
+        const id = `home-spin-${u.id}-${randomBytes(16).toString('base64url')}`;
         const name = String(b.name || `${u.nick}'s Jackpot SNG`).trim().slice(0, 40) || 'Private Jackpot SNG';
         const launch = b.start_at ? Date.parse(b.start_at) : Date.now();
         if (!Number.isFinite(launch) || (b.start_at && launch <= Date.now())) return json(res, 400, { error: 'Choose a future Spin launch time.' });
@@ -1921,9 +1988,10 @@ const server = http.createServer(async (req, res) => {
       const maxBuyin = Math.max(minBuyin, Math.round(Number(b.max_buyin) || minBuyin));
       if ((playMoney || chipEconomyEnabled) && ![sb, bb, minBuyin, maxBuyin].every((n) => Number.isSafeInteger(n) && n > 0 && n <= 9_000_000_000)) return json(res, 400, { error: 'Use bounded whole Cash Chips for stakes and buy-ins.' });
       const seats = Math.max(2, Math.min(9, Math.round(Number(b.seats) || 6)));
+      if (seats > deckSeatLimit(game)) return json(res, 400, { error: `This game supports at most ${deckSeatLimit(game)} seats` });
       const rake = (playMoney || chipEconomyEnabled) ? validateCashRake({ rakePercent: b.rakePercent === undefined ? 5 : b.rakePercent, rakeCap: b.rakeCap === undefined ? 300 : b.rakeCap }) : null;
       const name = String(b.name || `${u.nick}'s table`).trim().slice(0, 40) || `${u.nick}'s table`;
-      const id = `home-${u.id}-${randomUUID().slice(0, 8)}`;
+      const id = `home-${u.id}-${randomBytes(16).toString('base64url')}`;
       const created = setup({ userId: u.id, kind: 'cash', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
         if (db.prepare('SELECT COUNT(*) AS n FROM tables WHERE owner_id=? AND private=1').get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 private tables'), { status: 400 });
       db.prepare(`INSERT INTO tables (id,name,game,category,sb,bb,ante,min_buyin,max_buyin,seats,speed,featured,enabled,sort,owner_id,private,bomb_pot)
@@ -1939,7 +2007,7 @@ const server = http.createServer(async (req, res) => {
     // ---------- tournaments ----------
     if (p === '/api/tournaments') {
       const u = userByToken(tokenFrom(req));
-      const rows = db.prepare("SELECT * FROM tournaments WHERE enabled=1 AND (COALESCE(private,0)=0 OR owner_id=? OR (chip_economy=1 AND EXISTS (SELECT 1 FROM organizer_chip_tickets k WHERE k.tournament_id=tournaments.id AND k.holder_id=? AND k.state IN ('issued','redeemed','consumed')))) ORDER BY start_at").all(u?.id || null, u?.id || null);
+      const rows = db.prepare("SELECT * FROM tournaments WHERE enabled=1 AND (COALESCE(private,0)=0 OR owner_id=? OR EXISTS (SELECT 1 FROM tourney_regs r WHERE r.tournament_id=tournaments.id AND r.user_id=?)) ORDER BY start_at").all(u?.id || null, u?.id || null);
       const regs = u ? db.prepare('SELECT tournament_id FROM tourney_regs WHERE user_id = ?').all(u.id).map((r) => r.tournament_id) : [];
       return json(res, 200, { tournaments: rows, registered: regs });
     }
@@ -1992,7 +2060,7 @@ const server = http.createServer(async (req, res) => {
       const startMs = b.start_at ? Date.parse(b.start_at) : Date.now() + 3600000;
       if (!Number.isFinite(startMs) || startMs <= Date.now()) return json(res, 400, { error: 'Choose a future tournament start time.' });
       const start = new Date(startMs).toISOString();
-      const id = `home-t-${u.id}-${randomUUID().slice(0, 8)}`;
+      const id = `home-t-${u.id}-${randomBytes(16).toString('base64url')}`;
       const created = setup({ userId: u.id, kind: 'tournament', idempotencyKey: b.idempotencyKey, payload: setupPayload, resourceId: id, create: () => {
         if (activeTournaments.get(u.id).n >= 8) throw Object.assign(new Error('You already have 8 active private tournaments'), { status: 400 });
       db.prepare(`INSERT INTO tournaments (id,name,game,buyin,fee,gtd,start_at,status,max_players,entrants,starting_stack,blind_speed,late_reg,format,mode,bounty,ticket,enabled,owner_id,private)
@@ -2009,6 +2077,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/tournaments/') && p.endsWith('/watch') && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
       const id = decodeURIComponent(p.slice('/api/tournaments/'.length, -'/watch'.length));
+      if (!canViewTournament(id, u.id)) return json(res, 404, { error: 'not found' });
       const room = TOURNAMENT_ROOMS.get(id);
       const flights = room ? room.flightState().filter((flight) => flight.players.length) : [];
       if (!flights.length) return json(res, 404, { error: 'This tournament has no live table' });
@@ -2027,6 +2096,7 @@ const server = http.createServer(async (req, res) => {
       const id = decodeURIComponent(p.slice('/api/tournaments/'.length));
       const t = db.prepare('SELECT * FROM tournaments WHERE id = ? AND enabled = 1').get(id);
       if (!t) return json(res, 404, { error: 'not found' });
+      if (t.private && !canViewTournament(id, userByToken(tokenFrom(req))?.id)) return json(res, 404, { error: 'not found' });
       const room = t.status === 'running' ? TOURNAMENT_ROOMS.get(id) : null;
       const payouts = room ? room.payouts() : payoutTable(t.entrants, tournamentPrizePool(t), { mode: t.mode, ticket: t.ticket });
       const registrants = t.status === 'registering'
@@ -2047,6 +2117,22 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    if (/^\/api\/tournaments\/[^/]+\/invitation$/.test(p) && req.method === 'POST') {
+      const id = p.split('/')[3];
+      const invite = (await readBody(req))?.invite;
+      const offer = typeof invite === 'string' && db.prepare(`SELECT t.id,t.name,t.buyin,t.fee,t.chip_economy FROM tournaments t
+        JOIN tournament_invites i ON i.tournament_id=t.id WHERE t.enabled=1 AND t.private=1 AND t.id=? AND i.token=?`).get(id, invite);
+      return offer ? json(res, 200, offer) : json(res, 404, { error: 'Invitation not found' });
+    }
+
+    if (/^\/api\/tournaments\/[^/]+\/invite$/.test(p) && req.method === 'POST') {
+      const u = requireUser(req, res); if (!u) return;
+      const id = p.split('/')[3];
+      if (!db.prepare('SELECT 1 FROM tournaments WHERE id=? AND private=1 AND owner_id=?').get(id, u.id)) return json(res, 403, { error: 'Tournament owner required' });
+      db.prepare('INSERT INTO tournament_invites VALUES(?,?) ON CONFLICT(tournament_id) DO NOTHING').run(id, randomUUID());
+      return json(res, 200, { invite: db.prepare('SELECT token FROM tournament_invites WHERE tournament_id=?').get(id).token });
+    }
+
     if (p.startsWith('/api/tournaments/') && p.endsWith('/register') && req.method === 'POST') {
       const u = requireUser(req, res); if (!u) return;
       const id = p.split('/')[3];
@@ -2058,6 +2144,10 @@ const server = http.createServer(async (req, res) => {
         if (!ticket) return json(res, 409, { error: 'Buy or receive a ticket for this tournament first.' });
         return json(res, 200, { ok: true, ...organizerChipEvents.redeemTicket({ userId: u.id, ticketId: ticket.id }) });
       }
+      if (t.private && t.owner_id !== u.id) {
+        const invite = (await readBody(req))?.invite;
+        if (typeof invite !== 'string' || !db.prepare('SELECT 1 FROM tournament_invites WHERE tournament_id=? AND token=?').get(id, invite)) return json(res, 403, { error: 'A tournament invitation is required' });
+      }
       const already = db.prepare('SELECT 1 FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').get(id, u.id);
       if (already) return json(res, 400, { error: 'Already registered' });
       if (!t.enabled || !['registering', 'running'].includes(t.status)) return json(res, 400, { error: 'Registration is closed' });
@@ -2068,9 +2158,7 @@ const server = http.createServer(async (req, res) => {
       }
       const total = t.buyin + t.fee;
       if (u.balance < total) return json(res, 400, { error: 'Insufficient balance' });
-      if (total > 0) addTransaction(u.id, 'tourney_buyin', -total, `Registration ${t.name}`);
-      db.prepare('INSERT INTO tourney_regs (tournament_id,user_id) VALUES (?,?)').run(id, u.id);
-      db.prepare('UPDATE tournaments SET entrants = entrants + 1 WHERE id = ?').run(id);
+      registerTournamentEntry(u.id, t, randomUUID());
       setMissionDone(u.id, 'daily-tourney');
       return json(res, 200, { ok: true });
     }
@@ -2130,9 +2218,7 @@ const server = http.createServer(async (req, res) => {
       if (seatedOnFlight || tournamentTableIds(id, MAX_FLIGHTS).some((tid) => LIVE_TABLES.get(tid)?.table.seatOf(u.id))) {
         return json(res, 400, { error: 'You are already playing this tournament' });
       }
-      if (t.buyin + t.fee > 0) addTransaction(u.id, 'tourney_refund', t.buyin + t.fee, `Unregistration ${t.name}`);
-      db.prepare('DELETE FROM tourney_regs WHERE tournament_id = ? AND user_id = ?').run(id, u.id);
-      db.prepare('UPDATE tournaments SET entrants = MAX(0, entrants - 1) WHERE id = ?').run(id);
+      refundTournamentEntry(u.id, t);
       return json(res, 200, { ok: true });
     }
 
@@ -2300,7 +2386,7 @@ const server = http.createServer(async (req, res) => {
       const day = new Date().toISOString().slice(0, 10);
       const already = getClaim(u.id, 'daily', day);
       if (already?.claimed) return json(res, 400, { error: 'Daily freebie already claimed today', amount: already.amount });
-      const amount = 500 + Math.floor(Math.random() * 20) * 250;
+      const amount = 500 + randomInt(20) * 250;
       const award = claimReward(u.id, 'daily', day, amount, 'USD', 'Daily freebie');
       if (!award.claimed) return json(res, 400, { error: 'Daily freebie already claimed today', amount: award.amount });
       return json(res, 200, { ok: true, amount: award.amount, balance: award.balance });
@@ -2338,38 +2424,40 @@ const server = http.createServer(async (req, res) => {
         const fresh = db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id);
         if (!fresh || fresh.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
         for (const [id, r] of CRASH_ROUNDS) {
-          if (r.userId === u.id && r.status === 'live' && now - r.startedAt < r.duration) return json(res, 409, { error: 'Finish the current round first' });
-          if (r.userId === u.id && (r.status !== 'live' || now - r.startedAt > 120000)) CRASH_ROUNDS.delete(id);
+          if (r.userId === u.id && r.status === 'live' && !crashAt(r.point, now - r.startedAt).crashed) return json(res, 409, { error: 'Finish the current round first' });
+          if (r.userId === u.id) { closeCrashLoss(r); CRASH_ROUNDS.delete(id); }
         }
-        const crash = Math.min(50, Math.max(1.01, 1 / (1 - Math.random())));
-        const duration = Math.max(900, Math.log(crash) * 1800);
-        const round = { id: randomUUID(), userId: u.id, bet, crash, duration, startedAt: now, status: 'live' };
+        const point = crashPoint(randomInt(1, 2 ** 40 + 1), 2 ** 40);
+        const round = { id: randomUUID(), userId: u.id, bet, point, startedAt: now, status: 'live' };
+        addTransaction(u.id, 'crash_bet', -bet, `Crash bet ${bet / 100}`, 'USD', { requiredFunds: bet, sessionId: round.id, reference: 'crash:stake:' + round.id });
         CRASH_ROUNDS.set(round.id, round);
-        addTransaction(u.id, 'crash_bet', -bet, `Crash bet ${bet / 100}`, 'USD');
         return json(res, 200, { roundId: round.id, startedAt: now, bet, serverNow: now });
       }
       if (b.action === 'status') {
         const r = CRASH_ROUNDS.get(String(b.roundId || ''));
         if (!r || r.userId !== u.id) return json(res, 404, { error: 'Round not found' });
         const elapsed = now - r.startedAt;
-        const crashed = r.status === 'crashed' || elapsed >= r.duration;
-        if (crashed) r.status = 'crashed';
-        return json(res, 200, { roundId: r.id, elapsed, multiplier: Number(Math.exp(elapsed / 1800).toFixed(2)), crashed, crash: crashed ? Number(r.crash.toFixed(2)) : null, status: r.status });
+        const quote = crashAt(r.point, elapsed);
+        if (quote.crashed) closeCrashLoss(r);
+        const crashed = r.status === 'crashed';
+        return json(res, 200, { roundId: r.id, bet: r.bet, elapsed, multiplier: (r.cashedAt ?? quote.hundredths) / 100, crashed, crash: crashed ? r.point / 100 : null, status: r.status });
       }
       if (b.action === 'cashout') {
         const r = CRASH_ROUNDS.get(String(b.roundId || ''));
         if (!r || r.userId !== u.id) return json(res, 404, { error: 'Round not found' });
-        if (r.status !== 'live') return json(res, 409, { error: 'Round already finished' });
+        if (r.status === 'cashed') return json(res, 409, { error: 'Round already finished' });
         const elapsed = now - r.startedAt;
-        const current = Math.exp(elapsed / 1800);
-        if (current >= r.crash) {
-          r.status = 'crashed';
-          return json(res, 200, { ok: true, won: false, crash: Number(r.crash.toFixed(2)), multiplier: Number(r.crash.toFixed(2)) });
+        const quote = crashAt(r.point, elapsed);
+        if (r.status === 'crashed' || quote.crashed) {
+          closeCrashLoss(r);
+          return json(res, 200, { ok: true, won: false, crash: r.point / 100, multiplier: r.point / 100 });
         }
+        const current = quote.hundredths / 100;
+        const payout = Math.floor(r.bet * quote.hundredths / 100);
+        addTransaction(u.id, 'crash_win', payout, `Crash cashout ${current.toFixed(2)}x`, 'USD', { sessionId: r.id, reference: 'crash:end:' + r.id });
         r.status = 'cashed';
-        const payout = Math.max(0, Math.round(r.bet * current));
-        addTransaction(u.id, 'crash_win', payout, `Crash cashout ${current.toFixed(2)}x`, 'USD');
-        return json(res, 200, { ok: true, won: true, multiplier: Number(current.toFixed(2)), payout, crash: Number(r.crash.toFixed(2)) });
+        r.cashedAt = quote.hundredths;
+        return json(res, 200, { ok: true, won: true, multiplier: current, payout, crash: r.point / 100 });
       }
       return json(res, 400, { error: 'Unknown action' });
     }
@@ -2420,7 +2508,7 @@ const server = http.createServer(async (req, res) => {
       if (!game.bets.includes(bet)) return json(res, 400, { error: `Choose a stake: ${game.bets.join(', ')}` });
       if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
       const { grid, lines, win } = spinSlots(bet, undefined, game.id);
-      const after = addTransaction(u.id, 'slots', win - bet, `Slots ${game.name} ${win ? 'win ' + win : 'spin'}`, 'USD');
+      const after = settleWager(u.id, 'slots', bet, win, `Slots ${game.name} ${win ? 'win ' + win : 'spin'}`);
       return json(res, 200, { grid, lines, win, bet, game: game.id, balance: after });
     }
 
@@ -2453,7 +2541,7 @@ const server = http.createServer(async (req, res) => {
         case 'number': if (number === pickedNumber) payout = bet * 36; break;
         default: break;
       }
-      const after = addTransaction(u.id, 'roulette', payout - bet, `Roulette ${number}`, 'USD');
+      const after = settleWager(u.id, 'roulette', bet, payout, `Roulette ${number}`);
       return json(res, 200, { number, red: reds.has(number), payout, bet, balance: after });
     }
 
@@ -2461,24 +2549,19 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       const body = await readBody(req);
       const action = String(body.action || 'deal');
-      const bjValue = (cards) => {
-        let sum = cards.reduce((a, c) => a + (c.v >= 10 ? 10 : c.v === 14 ? 11 : c.v), 0);
-        let aces = cards.filter((c) => c.v === 14).length;
-        while (sum > 21 && aces > 0) { sum -= 10; aces--; }
-        return sum;
-      };
       if (action === 'deal') {
         if (BJ_HANDS.has(u.id)) return json(res, 400, { error: 'Finish the current hand first' });
         const bet = parseBet(body.bet);
         if (u.balance < bet) return json(res, 400, { error: 'Insufficient balance' });
-        const after = addTransaction(u.id, 'blackjack', -bet, 'Blackjack bet');
+        const sessionId = randomUUID();
+        const after = settleWager(u.id, 'blackjack', bet, 0, 'Blackjack bet', { sessionId, reference: 'bj:stake:' + sessionId });
         const deck = shuffle(makeDeck(false));
         const player = [deck.pop(), deck.pop()];
         const dealer = [deck.pop(), deck.pop()];
-        BJ_HANDS.set(u.id, { deck, player, dealer, bet });
+        BJ_HANDS.set(u.id, { deck, player, dealer, bet, sessionId });
         return json(res, 200, {
           player: player.map(cardStr), dealer: [cardStr(dealer[0]), '??'],
-          playerTotal: bjValue(player), balance: after, bet, blackjack: bjValue(player) === 21,
+          playerTotal: blackjackTotal(player), balance: after, bet, blackjack: blackjackTotal(player) === 21,
         });
       }
       const hand = BJ_HANDS.get(u.id);
@@ -2487,30 +2570,30 @@ const server = http.createServer(async (req, res) => {
         if (!hand) return json(res, 200, { active: false });
         return json(res, 200, {
           active: true, player: hand.player.map(cardStr), dealer: [cardStr(hand.dealer[0]), '??'],
-          playerTotal: bjValue(hand.player), bet: hand.bet,
+          playerTotal: blackjackTotal(hand.player), bet: hand.bet,
         });
       }
       if (!hand) return json(res, 400, { error: 'No active hand' });
       if (action === 'hit') {
         hand.player.push(hand.deck.pop());
-        const pv = bjValue(hand.player), dv = bjValue(hand.dealer);
+        const pv = blackjackTotal(hand.player), dv = blackjackTotal(hand.dealer);
         if (pv > 21) {
+          const fresh = addTransaction(u.id, 'blackjack', 0, 'Blackjack bust', 'USD', { sessionId: hand.sessionId, reference: 'bj:end:' + hand.sessionId });
           BJ_HANDS.delete(u.id);
-          const fresh = db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id).balance;
           return json(res, 200, { player: hand.player.map(cardStr), dealer: hand.dealer.map(cardStr), playerTotal: pv, bust: true, payout: 0, balance: fresh, done: true });
         }
         return json(res, 200, { player: hand.player.map(cardStr), playerTotal: pv, dealer: [cardStr(hand.dealer[0]), '??'], done: false });
       }
       if (action === 'stand') {
-        while (bjValue(hand.dealer) < 17) hand.dealer.push(hand.deck.pop());
-        const pv = bjValue(hand.player), dv = bjValue(hand.dealer);
+        while (blackjackTotal(hand.dealer) < 17) hand.dealer.push(hand.deck.pop());
+        const pv = blackjackTotal(hand.player), dv = blackjackTotal(hand.dealer);
         const natural = hand.player.length === 2 && pv === 21;
         let payout = 0;
         let result = 'lose';
         if (pv > 21) { payout = 0; result = 'bust'; }
         else if (dv > 21 || pv > dv) { payout = natural ? Math.floor(hand.bet * 2.5) : hand.bet * 2; result = 'win'; }
         else if (pv === dv) { payout = hand.bet; result = 'push'; }
-        const after = payout > 0 ? addTransaction(u.id, 'blackjack', payout, `Blackjack ${result}`) : db.prepare('SELECT balance FROM users WHERE id = ?').get(u.id).balance;
+        const after = addTransaction(u.id, 'blackjack', payout, `Blackjack ${result}`, 'USD', { sessionId: hand.sessionId, reference: 'bj:end:' + hand.sessionId });
         BJ_HANDS.delete(u.id);
         return json(res, 200, { player: hand.player.map(cardStr), dealer: hand.dealer.map(cardStr), playerTotal: pv, dealerTotal: dv, payout, result, done: true, balance: after });
       }
@@ -2537,10 +2620,8 @@ const server = http.createServer(async (req, res) => {
       if (game === 'baccarat') {
         const p1 = [deck.pop(), deck.pop()];
         const b1 = [deck.pop(), deck.pop()];
-        const tot = (cs) => cs.reduce((a, c) => a + (c.v >= 10 ? 0 : c.v === 14 ? 1 : c.v), 0) % 10;
-        let pt = tot(p1), bt = tot(b1);
-        if (pt <= 5) { p1.push(deck.pop()); pt = tot(p1); }
-        if (bt <= 5) { b1.push(deck.pop()); bt = tot(b1); }
+        finishBaccarat(p1, b1, deck);
+        const pt = baccaratTotal(p1), bt = baccaratTotal(b1);
         const winner = pt > bt ? 'player' : bt > pt ? 'banker' : 'tie';
         if (pick === winner) payout = bet * (winner === 'tie' ? 9 : winner === 'banker' ? 1.95 : 2);
         else if (winner === 'tie') payout = bet; // player/banker bets push on a tie
@@ -2566,7 +2647,7 @@ const server = http.createServer(async (req, res) => {
         return json(res, 400, { error: 'unknown game' });
       }
       payout = Math.round(payout);
-      const after = addTransaction(u.id, game, payout - bet, `${game} ${pick} ${payout ? 'won' : 'lost'}`, 'USD');
+      const after = settleWager(u.id, game, bet, payout, `${game} ${pick} ${payout ? 'won' : 'lost'}`);
       return json(res, 200, { result, payout, bet, balance: after });
     }
 
@@ -2613,39 +2694,40 @@ const server = http.createServer(async (req, res) => {
       const stake = parseBet(body.stake);
       if (u.balance < stake) return json(res, 400, { error: 'Insufficient balance' });
       const markets = {
-        coinflip: { win: Math.random() < 0.5, mult: 1.96 },
-        river_ace: { win: Math.random() < 0.22, mult: 4.2 },
-        next_hand_red: { win: Math.random() < 0.5, mult: 1.9 },
-        any_flush: { win: Math.random() < 0.18, mult: 5.1 },
-        player_wins: { win: Math.random() < 0.48, mult: 2.0 },
+        coinflip: { percent: 50, mult: 1.96 },
+        river_ace: { percent: 22, mult: 4.2 },
+        next_hand_red: { percent: 50, mult: 1.9 },
+        any_flush: { percent: 18, mult: 5.1 },
+        player_wins: { percent: 48, mult: 2.0 },
       };
       if (!Object.hasOwn(markets, String(body.market))) return json(res, 400, { error: 'Unknown market' });
       const m = markets[body.market];
-      const won = m.win;
+      const won = randomInt(100) < m.percent;
       const payout = won ? Math.round(stake * m.mult) : 0;
-      const after = addTransaction(u.id, 'propbet', payout - stake, `Prop bet ${body.market} ${won ? 'won' : 'lost'}`, 'USD');
+      const after = settleWager(u.id, 'propbet', stake, payout, `Prop bet ${body.market} ${won ? 'won' : 'lost'}`);
       return json(res, 200, { won, payout, stake, balance: after, market: body.market });
     }
 
     // ---------- sessions & password ----------
     if (p === '/api/sessions' && req.method === 'GET') {
       const u = requireUser(req, res); if (!u) return;
-      const current = tokenFrom(req);
-      const rows = db.prepare('SELECT token, created_at, expires_at, device FROM sessions WHERE user_id = ? AND expires_at > datetime(\'now\') ORDER BY created_at DESC').all(u.id);
-      return json(res, 200, { sessions: rows.map((r) => ({ ...r, current: r.token === current })) });
+      const rows = db.prepare(`SELECT device_id AS id, created_at, expires_at, device, token = ? AS current
+        FROM sessions WHERE user_id = ? AND julianday(expires_at) > julianday('now') ORDER BY created_at DESC`)
+        .all(sessionHash(tokenFrom(req)), u.id);
+      return json(res, 200, { sessions: rows.map(r => ({ ...r, current: !!r.current })) });
     }
     if (p === '/api/sessions' && req.method === 'DELETE') {
       const u = requireUser(req, res); if (!u) return;
       const current = tokenFrom(req);
-      db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(u.id, current);
+      revokeSessions('user_id = ? AND token != ?', u.id, sessionHash(current));
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'sessions_revoked', 'all other devices');
       return json(res, 200, { ok: true });
     }
     if (p.startsWith('/api/sessions/') && req.method === 'DELETE') {
       const u = requireUser(req, res); if (!u) return;
-      const token = p.split('/')[3];
-      if (token === tokenFrom(req)) return json(res, 400, { error: 'Use logout for this device' });
-      db.prepare('DELETE FROM sessions WHERE user_id = ? AND token = ?').run(u.id, token);
+      const id = p.slice('/api/sessions/'.length);
+      const result = revokeSessions('user_id = ? AND device_id = ? AND token != ?', u.id, id, sessionHash(tokenFrom(req)));
+      if (!result) return json(res, 404, { error: 'No other device with that ID' });
       return json(res, 200, { ok: true });
     }
     if (p === '/api/password' && req.method === 'POST') {
@@ -2654,30 +2736,8 @@ const server = http.createServer(async (req, res) => {
       if (!checkPassword(b.current || '', u.password)) return json(res, 400, { error: 'Current password is incorrect' });
       if (String(b.next || '').length < 6) return json(res, 400, { error: 'New password must be at least 6 characters' });
       db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(b.next), u.id);
-      db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(u.id, tokenFrom(req));
+      revokeSessions('user_id = ? AND token != ?', u.id, sessionHash(tokenFrom(req)));
       db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'password_changed', '');
-      return json(res, 200, { ok: true });
-    }
-
-    // ---------- identity verification ----------
-    if (p === '/api/verify' && req.method === 'GET') {
-      const u = requireUser(req, res); if (!u) return;
-      const row = db.prepare('SELECT id, full_name, dob, country, doc_type, status, note, created_at, reviewed_at FROM verifications WHERE user_id = ?').get(u.id);
-      return json(res, 200, { verification: row || null });
-    }
-    if (p === '/api/verify' && req.method === 'POST') {
-      const u = requireUser(req, res); if (!u) return;
-      const b = await readBody(req);
-      const fullName = String(b.fullName || '').trim();
-      if (fullName.length < 3) return json(res, 400, { error: 'Enter your full legal name' });
-      if (!b.dob) return json(res, 400, { error: 'Date of birth is required' });
-      if (!validVerificationImage(b.dataUrl)) return json(res, 400, { error: 'Attach a PNG, JPEG or WebP ID photo up to 5 MB.' });
-      db.prepare(`INSERT INTO verifications (user_id, full_name, dob, country, doc_type, doc_data, status, note, created_at, reviewed_at)
-        VALUES (?,?,?,?,?,?,'pending',NULL,datetime('now'),NULL)
-        ON CONFLICT(user_id) DO UPDATE SET full_name=excluded.full_name, dob=excluded.dob, country=excluded.country,
-          doc_type=excluded.doc_type, doc_data=excluded.doc_data, status='pending', note=NULL, created_at=datetime('now'), reviewed_at=NULL`)
-        .run(u.id, fullName, String(b.dob), String(b.country || ''), String(b.docType || 'Passport'), String(b.dataUrl));
-      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(u.login, 'verification_submit', u.nick);
       return json(res, 200, { ok: true });
     }
 
@@ -2687,16 +2747,19 @@ const server = http.createServer(async (req, res) => {
       const id = Number(p.split('/')[3]);
       const target = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(id);
       if (!target) return json(res, 404, { error: 'not found' });
-      const hands = db.prepare('SELECT players, result, pot FROM hands WHERE table_id IS NOT NULL ORDER BY id DESC LIMIT 2000').all();
+      const hands = db.prepare('SELECT players, result FROM hands WHERE table_id IS NOT NULL ORDER BY id DESC LIMIT 2000').all();
       let played = 0, won = 0, biggest = 0;
       for (const h of hands) {
         let players = [];
         try { players = JSON.parse(h.players || '[]'); } catch { continue; }
-        if (!Array.isArray(players) || !players.some((x) => Number(x.id) === id)) continue;
+        if (!Array.isArray(players) || !players.some((x) => x && x.inHand !== false && Number(x.id) === id)) continue;
         played++;
-        const wins = h.result?.winners || [];
-        if (wins.some((w) => Number(w.id) === id)) won++;
-        for (const w of wins) if (Number(w.id) === id) biggest = Math.max(biggest, Number(w.amount) || 0);
+        let result;
+        try { result = JSON.parse(h.result); } catch { continue; }
+        if (!Array.isArray(result?.winners)) continue;
+        const awards = result.winners.filter(w => w && Number(w.id) === id);
+        if (awards.length) won++;
+        for (const w of awards) biggest = Math.max(biggest, Number(w.amount) || 0);
       }
       const friend = db.prepare('SELECT 1 FROM friends WHERE user_id = ? AND friend_id = ?').get(viewer.id, id);
       const pending = db.prepare("SELECT 1 FROM friend_requests WHERE from_id = ? AND to_id = ? AND status = 'pending'").get(viewer.id, id);
@@ -2801,8 +2864,7 @@ const server = http.createServer(async (req, res) => {
       const item = OCEAN_ITEMS.find((i) => i.id === b.item);
       if (!item) return json(res, 400, { error: 'unknown item' });
       if (u.gems < item.cost) return json(res, 400, { error: 'Not enough gems' });
-      addTransaction(u.id, 'ocean_spend', -item.cost, `Ocean store: ${item.name}`, 'GEM');
-      addTransaction(u.id, 'ocean', item.amount, `Ocean store: ${item.name}`, item.kind);
+      buyOceanItem(u.id, item);
       const fresh = db.prepare('SELECT * FROM users WHERE id = ?').get(u.id);
       return json(res, 200, { ok: true, gems: fresh.gems, balance: fresh.balance, play_chips: fresh.play_chips, tickets: fresh.tickets });
     }
@@ -2887,15 +2949,22 @@ const server = http.createServer(async (req, res) => {
       const buyIn = Number(url.searchParams.get('buyin'));
       try { return json(res, 200, { info: spinInfo(buyIn) }); } catch { return json(res, 400, { error: 'unknown Jackpot SNG stake' }); }
     }
+    const flightStats = /^\/api\/tables\/([\w-]+)\/(?:hud|vpip|leaderboard)$/.exec(p);
+    if (flightStats) {
+      const tournamentId = LIVE_TABLES.get(flightStats[1])?.table.cfg.tournamentId;
+      if (tournamentId && !canViewTournament(tournamentId, userByToken(tokenFrom(req))?.id)) return json(res, 404, { error: 'table not found' });
+    }
     // ---------- opponent HUD (room-scoped, public information only) ----------
     {
       const m = /^\/api\/tables\/([\w-]{1,64})\/hud$/.exec(p);
       if (m && req.method === 'GET') {
         const u = requireUser(req, res); if (!u) return;
+        const row = tableRow(m[1]);
+        if (clubBlocksTable(row, u.id)) return json(res, 403, { error: 'Club membership required.' });
         const nick = String(url.searchParams.get('nick') || '').slice(0, 40);
         const id = String(url.searchParams.get('id') || '').slice(0, 64);
         if (!nick && !id) return json(res, 400, { error: 'missing nick' });
-        if (!db.prepare('SELECT 1 FROM tables WHERE id = ?').get(m[1])) return json(res, 404, { error: 'table not found' });
+        if (!row) return json(res, 404, { error: 'table not found' });
         return json(res, 200, { hud: TABLE_STATS.hud(m[1], hudIdentity(m[1], { id, nick })) });
       }
     }
@@ -2904,6 +2973,8 @@ const server = http.createServer(async (req, res) => {
       const m = /^\/api\/tables\/([\w-]{1,64})\/vpip$/.exec(p);
       if (m && req.method === 'GET') {
         const u = requireUser(req, res); if (!u) return;
+        const row = tableRow(m[1]);
+        if (clubBlocksTable(row, u.id)) return json(res, 403, { error: 'Club membership required.' });
         const live = LIVE_TABLES.get(m[1]);
         if (!live) return json(res, 404, { error: 'table not found' });
         const seated = live.table.occupiedSeats().filter((s) => s.player.nick).map((s) => ({ id: s.player.id, nick: s.player.nick }));
@@ -2915,6 +2986,8 @@ const server = http.createServer(async (req, res) => {
       const m = /^\/api\/tables\/([\w-]{1,64})\/leaderboard$/.exec(p);
       if (m && req.method === 'GET') {
         const u = requireUser(req, res); if (!u) return;
+        const row = tableRow(m[1]);
+        if (clubBlocksTable(row, u.id)) return json(res, 403, { error: 'Club membership required.' });
         const live = LIVE_TABLES.get(m[1]);
         if (!live) return json(res, 404, { error: 'table not found' });
         const stake = leaderboardStake(live.table);
@@ -2958,7 +3031,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/notifications/stream' && req.method === 'GET') {
-      const u = userByToken(url.searchParams.get('token'));
+      const u = userByToken(tokenFrom(req));
       if (!u) return json(res, 401, { error: 'unauthorized' });
       res.writeHead(200, {
         'content-type': 'text/event-stream; charset=utf-8',
@@ -2968,6 +3041,7 @@ const server = http.createServer(async (req, res) => {
       });
       res.write('retry: 5000\n\n');
       const set = SSE_CLIENTS.get(u.id) || new Set();
+      trackSessionConnection(tokenFrom(req), res, () => res.end());
       set.add(res);
       SSE_CLIENTS.set(u.id, set);
       // A registrant who opens the app after the start still learns where they sit.
@@ -3002,9 +3076,19 @@ const server = http.createServer(async (req, res) => {
       const u = requireUser(req, res); if (!u) return;
       const b = await readBody(req);
       const keys = Array.isArray(b.keys) ? b.keys.slice(0, 50) : [];
-      for (const key of keys) {
-        if (typeof key !== 'string' || key.length > 160) continue;
-        db.prepare('INSERT OR IGNORE INTO notification_reads (user_id,item_key) VALUES (?,?)').run(u.id, key);
+      const mark = db.prepare('INSERT OR IGNORE INTO notification_reads (user_id,item_key) VALUES (?,?)');
+      for (let attempt = 0; ; attempt++) {
+        try {
+          for (const key of keys) if (typeof key === 'string' && key.length <= 160) mark.run(u.id, key);
+          break;
+        } catch (err) {
+          if (err.errcode !== 5) throw err;
+          if (attempt === 5) {
+            res.setHeader('Retry-After', '1');
+            return json(res, 503, { error: 'Database busy; retry marking notifications as read.' });
+          }
+          await new Promise(resolve => setTimeout(resolve, 5));
+        }
       }
       return json(res, 200, { ok: true });
     }
@@ -3066,40 +3150,10 @@ const server = http.createServer(async (req, res) => {
       const days = Math.min(365, Math.max(1, Number(url.searchParams.get('days')) || 30));
       return json(res, 200, productEvents.summary({ days }));
     }
-    if (p === '/api/admin/verifications' && req.method === 'GET') {
-      const a = requireAdmin(req, res); if (!a) return;
-      const rows = db.prepare(`SELECT v.id, v.user_id, u.nick, u.login, v.full_name, v.dob, v.country, v.doc_type, v.status, v.note, v.created_at, v.reviewed_at
-        FROM verifications v JOIN users u ON u.id = v.user_id ORDER BY CASE v.status WHEN 'pending' THEN 0 ELSE 1 END, v.created_at DESC`).all();
-      return json(res, 200, { verifications: rows });
-    }
-    if (p.startsWith('/api/admin/verifications/') && p.endsWith('/doc') && req.method === 'GET') {
-      const a = requireAdmin(req, res); if (!a) return;
-      const id = Number(p.split('/')[4]);
-      const row = db.prepare('SELECT doc_data FROM verifications WHERE id = ?').get(id);
-      if (!row || !row.doc_data) return json(res, 404, { error: 'not found' });
-      if (!validVerificationImage(row.doc_data)) return json(res, 422, { error: 'Invalid stored ID photo.' });
-      res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
-      return res.end(row.doc_data);
-    }
-    if (p.startsWith('/api/admin/verifications/') && req.method === 'POST') {
-      const a = requireAdmin(req, res); if (!a) return;
-      const id = Number(p.split('/')[4]);
-      const b = await readBody(req);
-      const status = b.action === 'approve' ? 'approved' : b.action === 'reject' ? 'rejected' : null;
-      if (!status) return json(res, 400, { error: 'invalid action' });
-      db.prepare('UPDATE verifications SET status = ?, note = ?, reviewed_at = datetime(\'now\') WHERE id = ?').run(status, String(b.note || ''), id);
-      db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'verification_' + status, String(id));
-      return json(res, 200, { ok: true });
-    }
-
     if (p.startsWith('/api/admin/export/') && req.method === 'GET') {
       const a = requireAdmin(req, res); if (!a) return;
       const kind = p.split('/')[4];
-      const esc = (v) => {
-        const str = v == null ? '' : String(v);
-        return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
-      };
-      const toCsv = (rows, cols) => [cols.join(','), ...rows.map((r) => cols.map((c) => esc(r[c])).join(','))].join('\n');
+      const toCsv = (rows, cols) => [cols.join(','), ...rows.map((r) => cols.map((c) => csvField(r[c])).join(','))].join('\n');
       let csv = '';
       if (kind === 'users') {
         const rows = db.prepare('SELECT id, login, nick, email, balance, play_chips, tickets, gems, vip_level, is_admin, created_at FROM users ORDER BY id').all();
@@ -3176,7 +3230,7 @@ const server = http.createServer(async (req, res) => {
       const tourneys = db.prepare('SELECT COUNT(*) c FROM tournaments').get().c;
       const turnover = db.prepare(`SELECT COALESCE(SUM(ABS(amount)),0) s FROM transactions`).get().s;
       const live = [...LIVE_TABLES.values()].map((e) => ({ id: e.table.cfg.id, name: e.table.cfg.name, players: e.table.occupiedSeats().length, hand: e.table.handNo, street: e.table.street }));
-      return json(res, 200, { users, hands, tables, tourneys, turnover, live, online: sitesStats().online, jackpot: getSetting('jackpot'), mint_bot: getSetting('mint_bot_total', 0), mint_spin: getSetting('mint_spin_total', 0) });
+      return json(res, 200, { users, hands, tables, tourneys, turnover, live, online: countOnline(wss.clients, PRESENCE.recent()), jackpot: getSetting('jackpot'), mint_bot: getSetting('mint_bot_total', 0), mint_spin: getSetting('mint_spin_total', 0) });
     }
 
     if (p.startsWith('/api/admin/hands/') && req.method === 'GET') {
@@ -3267,7 +3321,7 @@ const server = http.createServer(async (req, res) => {
         if (body.action === 'ban' && target.id === a.id) return json(res, 400, { error: 'You cannot ban yourself' });
         db.prepare('UPDATE users SET banned = ? WHERE id = ?').run(body.action === 'ban' ? 1 : 0, id);
         if (body.action === 'ban') {
-          db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+          revokeSessions('user_id = ?', id);
           removeFromLiveTables(id, 'Account locked');
         }
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, body.action, `user ${id}`);
@@ -3276,7 +3330,7 @@ const server = http.createServer(async (req, res) => {
       if (body.action === 'resetpw') {
         if (String(body.password || '').length < 6) return json(res, 400, { error: 'Password must be at least 6 characters' });
         db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(String(body.password)), id);
-        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+        revokeSessions('user_id = ?', id);
         db.prepare('INSERT INTO audit_log (actor,action,detail) VALUES (?,?,?)').run(a.login, 'resetpw', `user ${id}`);
         return json(res, 200, { ok: true });
       }
@@ -3284,7 +3338,7 @@ const server = http.createServer(async (req, res) => {
         for (const entry of LIVE_TABLES.values()) {
           if (entry.table.seatOf(id)) cashOutSeat(entry.table, id, 'Account deleted by admin');
         }
-        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+        revokeSessions('user_id = ?', id);
         db.prepare('DELETE FROM tourney_regs WHERE user_id=? AND tournament_id IN (SELECT id FROM tournaments WHERE chip_economy=0)').run(id);
         db.prepare('DELETE FROM friends WHERE user_id = ? OR friend_id = ?').run(id, id);
         db.prepare(`UPDATE users SET banned = 1, deleted_at = datetime('now'),
@@ -3499,8 +3553,10 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocketServer({
   server,
   path: '/ws',
+  handleProtocols: protocols => protocols.has('dangg.v1') ? 'dangg.v1' : false,
   maxPayload: 16 * 1024,
   verifyClient: (info, cb) => {
+    if (!URL.parse(info.req.url, 'http://localhost')) return cb(false, 400, 'Invalid request URL');
     if (originAllowed(info.req)) cb(true);
     else cb(false, 403, 'Forbidden');
   },
@@ -3509,11 +3565,15 @@ const wss = new WebSocketServer({
 const stopHeartbeat = startHeartbeat(wss);
 
 wss.on('connection', (ws, req) => {
-  const url = new URL(req.url, 'http://localhost');
-  const token = url.searchParams.get('token');
+  const url = URL.parse(req.url, 'http://localhost');
+  if (!url) { ws.close(1008, 'Invalid request URL'); return; }
+  // Browser WebSocket cannot set Authorization. Only the fixed protocol is echoed.
+  const protocols = String(req.headers['sec-websocket-protocol'] || '').split(',').map(p => p.trim());
+  const token = tokenFrom(req) || (ws.protocol === 'dangg.v1' && protocols.find(p => p.startsWith('auth.'))?.slice(5)) || null;
   const user = userByToken(token);
   if (user && user.banned) { ws.close(4003, 'account locked'); return; }
   ws.userId = user ? user.id : null;
+  if (user) trackSessionConnection(token, ws, () => ws.close(4001, 'session ended'));
   ws.nick = user ? user.nick : 'Guest';
   ws.tables = new Set();
 
@@ -3521,7 +3581,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('message', (raw) => {
     try {
-      handleWsMessage(ws, raw);
+      if (ws.readyState === ws.OPEN) handleWsMessage(ws, raw);
     } catch (e) { console.error('ws handler', e); }
   });
 
@@ -3561,6 +3621,7 @@ wss.on('connection', (ws, req) => {
       }
       const table = getLiveTable(msg.tableId);
       if (!table) return ws.send(JSON.stringify({ type: 'error', error: 'table not found' }));
+      if (table.cfg.tournamentId && !canViewTournament(table.cfg.tournamentId, ws.userId)) return ws.send(JSON.stringify({ type: 'error', error: 'table not found' }));
       const entry = LIVE_TABLES.get(msg.tableId);
       // ensure there is a seat for the human
       const u = db.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND banned = 0').get(ws.userId);
@@ -3951,17 +4012,6 @@ function freeGuestNick() {
  * ledger entry carries the whole opening balance, so balance and ledger agree; the
  * welcome claim is recorded so the Cashier cannot pay it again.
  */
-function createAccount(login, nick, password, email) {
-  const welcome = getSetting('welcome_bonus', 100000);
-  const start = getSetting('default_balance', 5000) + welcome;
-  db.prepare('INSERT INTO users (login,nick,password,email,balance,tickets) VALUES (?,?,?,?,?,?)')
-    .run(login, nick, hashPassword(password), email, 0, 5);
-  const created = db.prepare('SELECT id FROM users WHERE login = ?').get(login);
-  addTransaction(created.id, 'welcome', start, 'Welcome bonus');
-  db.prepare("INSERT OR IGNORE INTO bonus_claims (user_id,claim_key,amount) VALUES (?,'welcome',?)").run(created.id, welcome);
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(created.id);
-}
-
 function identityTaken(name, exceptUserId = 0) {
   return !!db.prepare('SELECT 1 FROM users WHERE (lower(login) = lower(?) OR lower(nick) = lower(?)) AND id != ?').get(name, name, exceptUserId);
 }
@@ -3993,6 +4043,7 @@ function shutdown(signal) {
   }
   console.log(`SHUTDOWN ${signal}`);
   for (const client of wss.clients) client.terminate();
+  operatorServer?.close();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 1500).unref();
 }
@@ -4013,14 +4064,49 @@ function restoreRunningTournamentRooms() {
   } catch (err) { console.error('tournament boot restore', err); }
 }
 
+// The deck lives in memory; only identified unfinished hands can be refunded.
+for (const stake of db.prepare(`SELECT s.user_id,s.session_id,s.amount FROM transactions s
+  WHERE s.kind='blackjack' AND s.currency='USD' AND s.amount<0 AND s.reference='bj:stake:' || s.session_id
+    AND NOT EXISTS (SELECT 1 FROM transactions e WHERE e.user_id=s.user_id AND e.reference='bj:end:' || s.session_id)`).all()) {
+  addTransactionEx(stake.user_id, 'blackjack', -stake.amount, 'Interrupted Blackjack hand refunded', 'USD', {
+    sessionId: stake.session_id, reference: 'bj:end:' + stake.session_id, onDuplicate: 'skip',
+  });
+}
+// The in-memory Crash game cannot resume. Void only a provably outstanding stake.
+for (const stake of db.prepare(`SELECT s.user_id,s.session_id,s.amount FROM transactions s
+  WHERE s.kind='crash_bet' AND s.currency='USD' AND s.amount<0 AND s.reference='crash:stake:' || s.session_id
+    AND NOT EXISTS (SELECT 1 FROM transactions e WHERE e.user_id=s.user_id AND e.reference='crash:end:' || s.session_id)`).all()) {
+  addTransactionEx(stake.user_id, 'crash_refund', -stake.amount, 'Interrupted Crash round refunded', 'USD', {
+    sessionId: stake.session_id, reference: 'crash:end:' + stake.session_id, onDuplicate: 'skip',
+  });
+}
 const refunded = refundOpenSessions();
 if (refunded) console.log(`refunded ${refunded} open table session(s)`);
 restoreRunningTournamentRooms();
+if (operatorTlsDir) {
+  const read = name => fs.readFileSync(path.join(operatorTlsDir, name));
+  const origin = new URL(process.env.GGPOKER_ADMIN_ORIGIN);
+  if (origin.protocol !== 'https:') throw new Error('Operator origin must use HTTPS');
+  const operator = read('operator.pem');
+  const pin = new X509Certificate(operator).fingerprint256;
+  const admitted = req => req.socket.authorized && req.socket.getPeerCertificate().fingerprint256 === pin
+    && req.headers.host === origin.host && (!req.headers.origin || req.headers.origin === origin.origin);
+  operatorServer = https.createServer({ key: read('server.key'), cert: read('server.pem'), ca: operator,
+    requestCert: true, rejectUnauthorized: true, minVersion: 'TLSv1.3' }, (req, res) => {
+    if (!admitted(req)) return json(res, 403, { error: 'Operator identity or origin refused' });
+    server.emit('request', req, res);
+  });
+  operatorServer.on('upgrade', (req, socket, head) => {
+    if (!admitted(req)) return socket.destroy();
+    server.emit('upgrade', req, socket, head);
+  });
+  operatorServer.listen(Number(process.env.GGPOKER_ADMIN_TLS_PORT || 5197), process.env.GGPOKER_BIND || '127.0.0.1');
+}
 server.listen(PORT, process.env.GGPOKER_BIND || '127.0.0.1', () => {
   const port = server.address().port;
   console.log(`LISTENING ${port}`);
   console.log(`OpenPoker server: http://127.0.0.1:${port}`);
-  if (process.env.NODE_ENV === 'production' && !String(process.env.GGPOKER_ADMIN_ALLOW || '').trim()) {
-    console.warn(`GGPOKER_ADMIN_ALLOW is unset; admin API limited to ${PRODUCTION_ADMIN_ALLOW_FALLBACK.join(', ')}`);
+  if (process.env.NODE_ENV === 'production' && !operatorTlsDir) {
+    console.warn('Operator TLS is not configured; admin API disabled.');
   }
 });

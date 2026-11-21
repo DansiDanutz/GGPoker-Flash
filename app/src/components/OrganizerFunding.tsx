@@ -60,22 +60,22 @@ export function OrganizerFunding({ userId, organizerId, active = true, canReques
       const owner = row.organizerId === userId, checkout = fundingCheckout(row);
       const proposed = sessions.some(session => session.fundingRequestId === row.id && session.state !== 'declined');
       return <li key={row.id}>
-        <div className="mp-account-row"><strong>{cashChips(row.amount)}</strong><span>{row.state === 'offered' && !checkout ? 'Payment link pending' : status[row.state]}</span></div>
+        <div className="mp-account-row"><strong>{cashChips(row.amount)}</strong><span>{row.state === 'offered' && row.checkoutDisabled ? 'Checkout disabled · chips reserved' : row.state === 'offered' && !checkout ? 'Payment link pending' : status[row.state]}</span></div>
         <p>{owner ? `Player: ${row.userName || `#${row.userId}`}` : `Organizer: ${row.organizerName || `#${row.organizerId}`}`} · {row.feeCents != null ? usd(row.feeCents) : 'No payment price set'}</p>
         {owner && row.state === 'requested' && !proposed && <div className="ow-actions">
           <button className="mp-button mp-button-primary" disabled={!enabled || busy} onClick={() => { if (window.confirm(`Transfer ${cashChips(row.amount)} from your stack to player #${row.userId}? No payment will be collected.`)) void run(() => organizerFundingApi.act(row.id, 'credit'), 'Chips transferred once.'); }}>Credit from my stack</button>
           <button className="mp-button mp-button-secondary" disabled={!enabled || busy} onClick={() => void run(() => organizerFundingApi.act(row.id, 'reject'), 'Request declined.')}>Decline</button>
         </div>}
-        {owner && !proposed && (row.state === 'requested' || (row.state === 'offered' && !checkout)) && <form onSubmit={e => { e.preventDefault(); void offer(row); }}>
+        {owner && !proposed && (row.state === 'requested' || (row.state === 'offered' && !checkout && !row.checkoutDisabled)) && <form onSubmit={e => { e.preventDefault(); void offer(row); }}>
           <label>Price in USD (full requested amount)<input className="admin-input" type="text" inputMode="decimal" required readOnly={row.feeCents != null} value={prices[row.id] ?? (row.feeCents == null ? '' : (row.feeCents / 100).toFixed(2))} onChange={e => setPrices({ ...prices, [row.id]: e.target.value })} /></label>
-          <p>Uses your connected merchant. The checkout displays the payment QR code. Your chips are reserved until verified payment; cancel an unpaid offer to return the reservation. Existing payment orders require reconciliation first.</p>
+          <p>Uses your connected merchant. The checkout displays the payment QR code. Your chips stay reserved for the buyer until payment is verified.</p>
           <button className="mp-button mp-button-secondary" disabled={!enabled || busy}>{row.state === 'offered' ? 'Retry payment link' : 'Create payment link'}</button>
         {row.state === 'requested' && !sessions.some(session => session.fundingRequestId === row.id) && <button type="button" className="mp-button mp-button-secondary" disabled={!enabled || busy} onClick={() => void offer(row, true)}>Offer session credit</button>}
         </form>}
-        {owner && row.state === 'offered' && !proposed && <button className="mp-button mp-button-secondary" disabled={!enabled || busy} onClick={() => void run(() => organizerFundingApi.act(row.id, 'cancel'), 'Unpaid offer cancelled; reserved chips returned.')}>Cancel unpaid offer</button>}
+        {owner && row.state === 'offered' && !proposed && <div><p>{row.checkoutDisabled ? 'An earlier payment may still arrive. Check again to see whether it settled.' : 'Closing checkout permanently stops new orders. If nobody started an order, your chips return to your stack. Otherwise they stay reserved until payment is verified.'}</p><button className="mp-button mp-button-secondary" disabled={!enabled || busy} onClick={() => void run(() => organizerFundingApi.act(row.id, 'cancel'), 'Request updated.')}>{row.checkoutDisabled ? 'Check payment status' : 'Close checkout'}</button></div>}
         {row.state === 'offered' && checkout && <>
-          <a className="mp-button mp-button-primary" href={checkout} target="_blank" rel="noopener noreferrer">Open NervixPay QR checkout</a>
-          <p>Pay the exact asset and amount shown at checkout. Returning here does not confirm payment. Chips are released only once after verification.</p>
+          {!row.checkoutDisabled && <><a className="mp-button mp-button-primary" href={checkout} target="_blank" rel="noopener noreferrer">Open NervixPay QR checkout</a>
+          <p>Pay the exact asset and amount shown at checkout. Returning here does not confirm payment. Chips are released only once after verification.</p></>}
           <form onSubmit={e => { e.preventDefault(); void run(() => organizerFundingApi.act(row.id, 'verify', { paymentId: receipts[row.id]?.trim() }), 'Payment verified; chips delivered once.'); }}>
             <label>NervixPay payment ID<input className="admin-input" required value={receipts[row.id] || ''} onChange={e => setReceipts({ ...receipts, [row.id]: e.target.value })} placeholder="Payment UUID from your receipt" /></label>
             <button className="mp-button mp-button-secondary" disabled={!enabled || busy}>Verify payment &amp; release chips</button>
