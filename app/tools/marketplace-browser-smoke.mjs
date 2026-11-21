@@ -210,6 +210,9 @@ async function run() {
   const owner = await newPage();
   await owner.goto(`${base}/marketplace`, { waitUntil: 'domcontentloaded' });
   await owner.waitForSelector('.mp-product', { visible: true });
+  await clickSelector(owner, '#product-gamingo-casino-manager button');
+  await waitText(owner, '[aria-label="Gamingo connection status"]', 'Wallet connection: unavailable.');
+  await clickSelector(owner, '[data-dialog-close]');
   assert.equal(await owner.$('#login-id'), null, 'Public marketplace unexpectedly requires login.');
   await owner.evaluate(() => {
     localStorage.setItem('ggpoker.rememberPassword', 'legacy-fixture');
